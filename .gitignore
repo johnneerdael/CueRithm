@@ -1,0 +1,10 @@
+/target/
+/.analysis/
+/Archive/
+/Archive.zip
+*.csv
+
+.DS_Store
+*.swp
+*.swo
+*~
