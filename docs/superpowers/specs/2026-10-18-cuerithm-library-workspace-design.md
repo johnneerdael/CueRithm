@@ -1,6 +1,7 @@
 # Cuerithm library workspace — proposed design
 
-Status: workspace direction approved; written specification awaiting review.
+Status: written specification approved on 2026-10-18; common-format coverage
+clarified afterward as a first-delivery requirement. Implementation plan in progress.
 Date: 2026-10-18.
 
 ## Purpose and confirmed requirements
@@ -25,6 +26,8 @@ The user approved:
 - Ordinary playlists and full Lexicon smart-playlist behavior as a tracked
   parity target.
 - Direct rekordbox 6/7 synchronization only. No XML mode or fallback.
+- Common audio formats from the first usable delivery: MP3, AAC (including raw
+  ADTS and AAC in M4A), ALAC in M4A, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA.
 
 This specification is a proposed implementation contract, not a claim these
 new application features are already built. Evidence is recorded separately in
@@ -110,11 +113,13 @@ the user has explicitly configured that stage as optional. Offline audio
 analysis can continue while metadata lookup waits for connectivity. Do not
 substitute a low-confidence match just to empty the queue.
 
-Track a format/stage capability matrix. The selected prototype source-timing
-and energy entry points currently have FLAC-specific input requirements.
-Extending preparation to the usual MP3/FLAC/AIFF/M4A library cannot hide those
-limitations or silently skip a required stage. Implement and validate the
-necessary Rust PCM/profile adapters before declaring each format supported.
+Track a format/stage capability matrix. Common-format support is required in
+the first usable delivery; a FLAC-only release does not meet the requirement.
+The selected prototype source-timing and energy entry points currently have
+FLAC-specific input requirements. Implement and validate a shared decoding and
+PCM/profile boundary so every required analysis stage operates on all listed
+formats. This boundary may use a pinned, bundled native decoder under Rust
+orchestration; users must not install FFmpeg or another runtime themselves.
 Preserve decoder-delay and audio-clock relationships through analysis, playback
 and external cues/grids, particularly for MP3. A container conversion alone is
 not evidence of equivalent timing or energy features.
@@ -246,7 +251,8 @@ cannot require a Python service or Electron/OneTagger process.
 Implement connected slices in this order, with dedicated plans where needed:
 
 1. Library schema, durable jobs and desktop shell: watched/drop import, actual
-   full analysis, replacement cues, Incoming status and automatic Tracks promotion.
+   full analysis for all common formats above, replacement cues, Incoming status
+   and automatic Tracks promotion.
 2. Beatport/Traxsource adaptation plus persistent Settings and file-tag writes;
    integrate configured cleanup/mappings into that same job pipeline.
 3. Cleanup workspace and ordinary/smart playlists, using the complete parity
