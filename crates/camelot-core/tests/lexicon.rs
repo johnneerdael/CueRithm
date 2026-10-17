@@ -4,6 +4,28 @@ use camelot_core::{
 };
 
 #[test]
+fn negative_grid_anchor_clips_boundary_cues_without_changing_structural_analysis() {
+    let pcm = vec![0.1; 44100 * 4];
+    let config = LexiconConfig {
+        add_emergency_loop: false,
+        drop_at_start: camelot_core::lexicon_cues::DropAtStart::Never,
+        ..Default::default()
+    };
+    let mut expected =
+        camelot_core::lexicon_cues::generate_structural_cues(&pcm, 44100, 120., -0.004, &config);
+    let result = generate_structural_cues(&pcm, 44100, 120., -0.004, &config).unwrap();
+    assert!(expected.cues.iter().any(|cue| cue.time_seconds == -0.004));
+    assert!(expected.cues.iter().any(|cue| cue.time_seconds > 0.));
+    for cue in &mut expected.cues {
+        if cue.time_seconds == -0.004 {
+            cue.time_seconds = 0.;
+        }
+    }
+    assert_eq!(result, expected);
+    assert!(result.cues.iter().all(|cue| cue.time_seconds >= 0.));
+}
+
+#[test]
 fn cue_configuration_accepts_source_bpm_and_rejects_invalid_domain() {
     let settings = EngineSettings {
         source_profile_timing: true,
