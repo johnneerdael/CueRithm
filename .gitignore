@@ -8,3 +8,15 @@
 *.swp
 *.swo
 *~
+
+# Local research checkouts, model weights and licensed installers
+/.superpowers/
+/.pytest_cache/
+/all-in-one/
+/automatic-cuepoints/
+/openkeyscan-analyzer/
+/mixedinkey*.exe
+/Setup*/
+*.onnx
+*.pth
+*.joblib

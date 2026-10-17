@@ -1,8 +1,8 @@
-# CamelotWheel engine guidelines
+# Cuerithm engine guidelines
 
 ## Project Structure & Module Organization
 
-This workspace contains an independent Rust audio-analysis engine. The user's current priority is the engine; defer the Tauri 2 UI until it is settled. Target macOS, Windows and Linux. The reference app is `/Applications/Mixed In Key 11.app`, outside this workspace.
+This workspace contains an independent Rust audio-analysis engine. The user's current priority is the engine; defer the Tauri 2 UI until it is settled. Target macOS, Windows and Linux. Cue generation uses the validated Lexicon-compatible DSP in `lexicon_cues.rs`; preserve its calculations. Keep key analysis, BPM and a single whole-track energy rating. Do not restart Mixed In Key cue inference, attach energy labels to structural cues, or expose per-segment energy in normal analysis.
 
 - `crates/camelot-core/`: PCM decoding, notation, DSP and evaluation.
 - `crates/camelot-cli/`: analysis and benchmark CLI.
@@ -32,7 +32,7 @@ Compute predictions from PCM and explicit configuration only. Never use source k
 
 ## Commit & Pull Request Guidelines
 
-No existing Git history establishes commit conventions. Do not publish music, private library paths, per-track labels, decompiled code or packaged proprietary artifacts. Record actual validation and remaining agreement gaps. Do not manually cut releases.
+The canonical remote is `https://github.com/johnneerdael/Cuerithm`. Preserve upstream changes and use descriptive commits. Do not publish music, private library paths, per-track labels, decompiled code or packaged proprietary artifacts. Record actual validation and remaining agreement gaps. Do not manually cut releases.
 
 ## Bundle Integrity
 

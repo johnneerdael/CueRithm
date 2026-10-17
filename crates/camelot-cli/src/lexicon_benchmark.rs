@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, ensure};
 use camelot_core::lexicon_cues::{
-    DropAtStart, LexiconConfig, StructuralCueResult, generate_structural_cues,
+    DropAtStart, LexiconConfig, StructuralCueResult,
+    try_generate_structural_cues as generate_structural_cues,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -12,7 +13,6 @@ const LEXICON_DECODE_RATE: u32 = 44100;
 pub struct ReferenceCue {
     pub name: String,
     pub time_seconds: f64,
-    pub color: String,
 }
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,6 @@ pub struct ReferenceTrack {
     pub title: String,
     pub artist: String,
     pub bpm: f64,
-    pub key: String,
     pub genre: String,
     pub location: PathBuf,
     pub first_beat: f64,
@@ -90,14 +89,18 @@ pub fn compare_single_track(
     genre: Option<String>,
     reference_cues: &[ReferenceCue],
     tolerance: f64,
-) -> (Vec<CueMatch>, StructuralCueResult) {
+) -> Result<(Vec<CueMatch>, StructuralCueResult)> {
+    ensure!(
+        tolerance.is_finite() && tolerance >= 0.0,
+        "Invalid cue tolerance"
+    );
     let config = LexiconConfig {
         genre,
         drop_at_start: DropAtStart::Never,
         min_cue_length_beats: 64,
         add_emergency_loop: false,
     };
-    let result = generate_structural_cues(pcm, sample_rate, bpm, first_beat, &config);
+    let result = generate_structural_cues(pcm, sample_rate, bpm, first_beat, &config)?;
 
     let mut matches = Vec::new();
     for ref_cue in reference_cues {
@@ -118,13 +121,10 @@ pub fn compare_single_track(
             matched,
         });
     }
-    (matches, result)
+    Ok((matches, result))
 }
 
-pub fn load_references(
-    cues_csv: &Path,
-    tempomarkers_csv: &Path,
-) -> Result<Vec<ReferenceTrack>> {
+pub fn load_references(cues_csv: &Path, tempomarkers_csv: &Path) -> Result<Vec<ReferenceTrack>> {
     let cue_text = std::fs::read_to_string(cues_csv)
         .with_context(|| format!("Read {}", cues_csv.display()))?;
     let tempo_text = std::fs::read_to_string(tempomarkers_csv)
@@ -152,24 +152,18 @@ pub fn load_references(
         let title = fields[1].to_string();
         let artist = fields[2].to_string();
         let bpm: f64 = fields[3].parse().context("Parse cue bpm")?;
-        let key = fields[4].to_string();
         let genre = fields[5].to_string();
         let location = PathBuf::from(&fields[6]);
         let cue_name = fields[8].to_string();
         let cue_time: f64 = fields[9].parse().context("Parse cue time")?;
-        let color = fields[10].to_string();
 
-        let (first_beat, _tempo_bpm) = first_beats
-            .get(&track_id)
-            .copied()
-            .unwrap_or((0.0, bpm));
+        let (first_beat, _tempo_bpm) = first_beats.get(&track_id).copied().unwrap_or((0.0, bpm));
 
         let track = tracks.entry(track_id).or_insert_with(|| ReferenceTrack {
             track_id,
             title: title.clone(),
             artist: artist.clone(),
             bpm,
-            key: key.clone(),
             genre: genre.clone(),
             location: location.clone(),
             first_beat,
@@ -179,7 +173,6 @@ pub fn load_references(
         track.cues.push(ReferenceCue {
             name: cue_name,
             time_seconds: cue_time,
-            color,
         });
     }
 
@@ -222,10 +215,13 @@ pub fn run_benchmark(
     tolerance: f64,
     limit: Option<usize>,
 ) -> Result<BenchmarkReport> {
+    ensure!(
+        tolerance.is_finite() && tolerance >= 0.0,
+        "Invalid cue tolerance"
+    );
     let references = load_references(cues_csv, tempomarkers_csv)?;
     let tracks: Vec<_> = references
         .into_iter()
-        .filter(|t| t.location.exists())
         .take(limit.unwrap_or(usize::MAX))
         .collect();
 
@@ -242,41 +238,33 @@ pub fn run_benchmark(
     let mut tracks_failed = 0_usize;
 
     for (i, track) in tracks.iter().enumerate() {
-        eprint!(
-            "\r[{}/{}] {}",
-            i + 1,
-            tracks.len(),
-            track.title,
-        );
+        eprint!("\r[{}/{}] {}", i + 1, tracks.len(), track.title,);
 
         let start = std::time::Instant::now();
-        let decode_result = camelot_core::audio::decode(
-            &track.location,
-            LEXICON_DECODE_RATE,
-            None,
-        );
+        let decode_result = camelot_core::audio::decode(&track.location, LEXICON_DECODE_RATE, None);
 
-        let track_result = match decode_result {
-            Ok(audio) => {
-                let genre = if track.genre.is_empty() {
-                    None
-                } else {
-                    Some(track.genre.clone())
-                };
-                let (matches, _predicted) = compare_single_track(
-                    &audio.samples,
-                    audio.sample_rate,
-                    track.bpm,
-                    track.first_beat,
-                    genre,
-                    &track.cues,
-                    tolerance,
-                );
-
+        let counted = track
+            .cues
+            .iter()
+            .filter(|c| map_lexicon_name_to_ours(&c.name).is_some())
+            .count();
+        overall_total += counted;
+        let comparison = decode_result.and_then(|audio| {
+            compare_single_track(
+                &audio.samples,
+                audio.sample_rate,
+                track.bpm,
+                track.first_beat,
+                (!track.genre.is_empty()).then(|| track.genre.clone()),
+                &track.cues,
+                tolerance,
+            )
+        });
+        let track_result = match comparison {
+            Ok((matches, _predicted)) => {
                 let matched_count = matches.iter().filter(|m| m.matched).count();
                 let total_count = matches.len();
                 overall_matched += matched_count;
-                overall_total += total_count;
 
                 for m in &matches {
                     let stats = per_cue_type.entry(m.cue_name.clone()).or_default();
@@ -303,13 +291,20 @@ pub fn run_benchmark(
             }
             Err(e) => {
                 tracks_failed += 1;
+                for cue in &track.cues {
+                    if map_lexicon_name_to_ours(&cue.name).is_some() {
+                        let stats = per_cue_type.entry(cue.name.clone()).or_default();
+                        stats.total += 1;
+                        stats.missing += 1;
+                    }
+                }
                 TrackResult {
                     track_id: track.track_id,
                     title: track.title.clone(),
                     artist: track.artist.clone(),
                     matches: Vec::new(),
                     matched_count: 0,
-                    total_count: track.cues.len(),
+                    total_count: counted,
                     elapsed_seconds: start.elapsed().as_secs_f64(),
                     error: Some(format!("{:#}", e)),
                 }
@@ -390,8 +385,7 @@ pub fn run(args: LexiconBenchmarkArgs) -> Result<()> {
     } else if let (Some(cues_csv), Some(tempomarkers_csv)) =
         (&args.cues_csv, &args.tempomarkers_csv)
     {
-        let report =
-            run_benchmark(cues_csv, tempomarkers_csv, args.tolerance, args.limit)?;
+        let report = run_benchmark(cues_csv, tempomarkers_csv, args.tolerance, args.limit)?;
 
         if let Some(output_dir) = &args.output_dir {
             std::fs::create_dir_all(output_dir)?;
@@ -430,9 +424,7 @@ pub fn run(args: LexiconBenchmarkArgs) -> Result<()> {
                 .unwrap()
         });
         if !mismatched.is_empty() {
-            println!(
-                "\nWorst mismatches (showing up to 10):"
-            );
+            println!("\nWorst mismatches (showing up to 10):");
             for r in mismatched.iter().take(10) {
                 println!(
                     "  {} - {} ({}/{})",
@@ -465,14 +457,16 @@ pub fn run(args: LexiconBenchmarkArgs) -> Result<()> {
 }
 
 fn run_single(file: &Path, args: &LexiconBenchmarkArgs) -> Result<()> {
-    let bpm = args
-        .bpm
-        .context("--bpm is required for single-file mode")?;
+    let bpm = args.bpm.context("--bpm is required for single-file mode")?;
     let first_beat = args.first_beat.unwrap_or(0.0);
 
     ensure!(file.exists(), "File not found: {}", file.display());
 
-    eprintln!("Decoding {} at {} Hz...", file.display(), LEXICON_DECODE_RATE);
+    eprintln!(
+        "Decoding {} at {} Hz...",
+        file.display(),
+        LEXICON_DECODE_RATE
+    );
     let audio = camelot_core::audio::decode(file, LEXICON_DECODE_RATE, None)?;
     eprintln!(
         "Decoded {:.1}s @ {} Hz ({} samples)",
@@ -490,7 +484,7 @@ fn run_single(file: &Path, args: &LexiconBenchmarkArgs) -> Result<()> {
 
     let start = std::time::Instant::now();
     let result =
-        generate_structural_cues(&audio.samples, audio.sample_rate, bpm, first_beat, &config);
+        generate_structural_cues(&audio.samples, audio.sample_rate, bpm, first_beat, &config)?;
     let elapsed = start.elapsed();
 
     println!("\n=== Predicted Cues ({:.3}s) ===", elapsed.as_secs_f64());
@@ -516,7 +510,6 @@ fn run_single(file: &Path, args: &LexiconBenchmarkArgs) -> Result<()> {
             reference_cues.push(ReferenceCue {
                 name: name.to_string(),
                 time_seconds: time_str.parse()?,
-                color: String::new(),
             });
         }
 
@@ -528,7 +521,7 @@ fn run_single(file: &Path, args: &LexiconBenchmarkArgs) -> Result<()> {
             args.genre.clone(),
             &reference_cues,
             args.tolerance,
-        );
+        )?;
 
         println!("\n=== Comparison ===");
         for m in &matches {
@@ -556,4 +549,38 @@ fn run_single(file: &Path, args: &LexiconBenchmarkArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn missing_audio_is_a_failed_row_in_the_denominator() {
+        let dir = tempfile::tempdir().unwrap();
+        let cues = dir.path().join("cues.csv");
+        let timing = dir.path().join("timing.csv");
+        let missing = dir.path().join("missing.flac");
+        std::fs::write(&cues,format!("id,title,artist,bpm,key,genre,location,cue_id,cue_name,time,color\n1,Fixture,Artist,120,8A,,{},0,Start,0,Yellow\n",missing.display())).unwrap();
+        std::fs::write(&timing, "id,first_beat,bpm\n1,0,120\n").unwrap();
+        let result = run_benchmark(&cues, &timing, 0.05, None).unwrap();
+        assert_eq!(result.tracks_analyzed, 1);
+        assert_eq!(result.tracks_failed, 1);
+        assert_eq!(result.overall_total, 1);
+        assert_eq!(result.overall_matched, 0);
+        assert_eq!(result.per_cue_type["Start"].missing, 1);
+    }
+    #[test]
+    fn invalid_tolerance_is_rejected_before_io() {
+        assert!(
+            run_benchmark(
+                Path::new("absent"),
+                Path::new("absent"),
+                f64::INFINITY,
+                None
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("tolerance")
+        );
+    }
 }

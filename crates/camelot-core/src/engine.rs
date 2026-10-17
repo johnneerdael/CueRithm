@@ -30,10 +30,14 @@ pub struct EngineSettings {
     /// Use the complete, verified source-profile FLAC timing pipeline.
     #[serde(default)]
     pub source_profile_timing: bool,
-    /// Opt-in experimental suggestions; requires learned beat models for phase.
-    pub cue_config: Option<crate::cues::CueConfig>,
+    /// Read-only migration marker: enabled legacy cue configurations are rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cue_config: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lexicon_config: Option<crate::lexicon_cues::LexiconConfig>,
+    /// Local, explicitly supplied RBF SVC; produces one duration-modal track rating.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy_model: Option<PathBuf>,
 }
 
 #[cfg(test)]
@@ -58,6 +62,8 @@ mod tests {
         settings.key_neural_model = Some("skey.onnx".into());
         settings.sample_rate = 22050;
         assert_eq!(settings.input_rates(), [22050]);
+        settings.lexicon_config = Some(Default::default());
+        assert_eq!(settings.input_rates(), [22050, 44100]);
     }
 
     #[test]
@@ -118,6 +124,7 @@ impl Default for EngineSettings {
             source_profile_timing: false,
             cue_config: None,
             lexicon_config: None,
+            energy_model: None,
         }
     }
 }
@@ -129,6 +136,7 @@ impl EngineSettings {
             self.beat_model.as_ref().map(|_| 22050),
             self.key_neural_model.as_ref().map(|_| 22050),
             self.key_openkeyscan_model.as_ref().map(|_| 44100),
+            self.lexicon_config.as_ref().map(|_| 44100),
         ]
         .into_iter()
         .flatten()
@@ -180,13 +188,17 @@ impl EngineSettings {
                 <= 1,
             "Select only one key backend: learned DSP profiles, S-KEY or OpenKeyScan"
         );
-        if let Some(config) = &self.cue_config {
+        ensure!(
+            self.cue_config.is_none(),
+            "Legacy cue suggestions are retired; use lexicon_config"
+        );
+        if let Some(config) = &self.lexicon_config {
             config.validate()?;
-            ensure!(
-                self.beat_model.is_some(),
-                "Cue suggestions require learned beat models"
-            );
         }
+        ensure!(
+            self.energy_model.is_none() || self.max_seconds.is_none(),
+            "Track energy requires complete input"
+        );
         Ok(())
     }
 }
@@ -220,6 +232,7 @@ pub struct FileAnalysis {
 pub struct Engine {
     settings: EngineSettings,
     key: Option<KeyProfileModel>,
+    energy: Option<crate::energy::EnergyModel>,
     #[cfg(feature = "neural-key")]
     neural_key: Option<crate::neural_key::NeuralKeyModel>,
     #[cfg(feature = "openkeyscan-key")]
@@ -271,7 +284,13 @@ impl Engine {
             settings.beat_model.is_none(),
             "Build with --features neural-beats to use beat models"
         );
+        let energy = settings
+            .energy_model
+            .as_deref()
+            .map(crate::energy::EnergyModel::load)
+            .transpose()?;
         Ok(Self {
+            energy,
             settings: settings.clone(),
             key,
             #[cfg(feature = "neural-key")]
@@ -285,6 +304,9 @@ impl Engine {
 
     pub fn model_identity(&self) -> BTreeMap<String, String> {
         let mut models = BTreeMap::new();
+        if let Some(energy) = &self.energy {
+            models.insert("track-energy-svc".into(), energy.source_sha256().into());
+        }
         if let Some(key) = &self.key {
             models.insert("key-profile".into(), key.source_sha256().to_string());
         }
@@ -313,9 +335,7 @@ impl Engine {
 
     pub fn analyze_file(&mut self, path: &Path) -> Result<FileAnalysis> {
         let start = Instant::now();
-        let source_snapshot = self
-            .settings
-            .source_profile_timing
+        let source_snapshot = (self.settings.source_profile_timing || self.energy.is_some())
             .then(|| SourceSnapshot::capture(path))
             .transpose()?;
         let decode_path = source_snapshot
@@ -416,13 +436,19 @@ impl Engine {
         let mut config_identity = serde_json::json!({
             "dsp": self.settings.config, "sample_rate": self.settings.sample_rate,
             "max_seconds": self.settings.max_seconds, "cue_config": self.settings.cue_config,
-            "lexicon_config": self.settings.lexicon_config,
             "structure_features": self.settings.structure_features,
             "source_profile_timing": self.settings.source_profile_timing,
             "beat_sample_rate": beat_sample_rate,
             "neural_key_sample_rate": neural_key_sample_rate,
             "models": analysis.models,
         });
+        if let Some(config) = &self.settings.lexicon_config {
+            config_identity["lexicon_config"] = serde_json::to_value(config)?;
+            config_identity["lexicon_sample_rate"] = 44100.into();
+        }
+        if self.energy.is_some() {
+            config_identity["energy_method"] = "svc-duration-mode-v1".into();
+        }
         if let Some(rate) = openkeyscan_sample_rate {
             config_identity["openkeyscan_sample_rate"] = rate.into();
         }
@@ -430,34 +456,59 @@ impl Engine {
             "{:x}",
             Sha256::digest(serde_json::to_vec(&config_identity)?)
         );
-        if self.settings.structure_features || self.settings.cue_config.is_some() {
-            let structure = crate::structure::extract(&audio.samples, audio.sample_rate)?;
-            if let Some(config) = &self.settings.cue_config {
-                analysis.cues = Some(match &analysis.tempo {
-                    Some(tempo) => crate::cues::suggest(&structure, tempo, config)?,
-                    None => Vec::new(),
-                });
-                analysis.engine.push_str("+cue-novelty-v1");
-            }
-            if self.settings.structure_features {
-                analysis.structure = Some(structure);
-            }
+        if self.settings.structure_features {
+            analysis.structure = Some(crate::structure::extract(
+                &audio.samples,
+                audio.sample_rate,
+            )?);
         }
-        if self.settings.lexicon_config.is_some() {
-            if let Some(tempo) = &analysis.tempo {
-                let first_beat = tempo
-                    .downbeat_time
-                    .unwrap_or_else(|| tempo.beats_seconds.first().copied().unwrap_or(0.0));
-                let lexicon_config = self.settings.lexicon_config.as_ref().unwrap();
-                analysis.lexicon_cues = Some(crate::lexicon_cues::generate_structural_cues(
-                    &audio.samples,
-                    audio.sample_rate,
-                    tempo.bpm,
-                    first_beat,
-                    lexicon_config,
-                ));
-                analysis.engine.push_str("+lexicon-cues-v1");
-            }
+        if let Some(config) = &self.settings.lexicon_config {
+            let result = match &analysis.tempo {
+                Some(tempo) => {
+                    let input = decoded
+                        .iter()
+                        .find(|a| a.sample_rate == 44100)
+                        .context("Missing cue input rate")?;
+                    let first = tempo
+                        .downbeat_time
+                        .or_else(|| tempo.beats_seconds.first().copied())
+                        .unwrap_or(0.0);
+                    crate::lexicon_cues::try_generate_structural_cues(
+                        &input.samples,
+                        input.sample_rate,
+                        tempo.bpm,
+                        first,
+                        config,
+                    )?
+                }
+                None => crate::lexicon_cues::StructuralCueResult {
+                    cues: Vec::new(),
+                    emergency_loop: None,
+                },
+            };
+            analysis.cues = Some(
+                result
+                    .cues
+                    .iter()
+                    .map(|c| crate::Cue {
+                        time_seconds: c.time_seconds,
+                        name: c.name.clone(),
+                    })
+                    .collect(),
+            );
+            analysis.lexicon_cues = Some(result);
+            analysis.engine.push_str("+lexicon-cues-v1");
+        }
+        if let Some(model) = &self.energy {
+            let segments = camelot_source_analysis::analyze_energy_file(decode_path)?;
+            analysis.energy = model.estimate(&segments)?;
+            analysis.engine.push_str("+track-energy-svc-v1");
+        }
+        if let Some(snapshot) = &source_snapshot {
+            ensure!(
+                snapshot.identity == SourceIdentity::read(path)?,
+                "Source changed during analysis"
+            );
         }
         Ok(FileAnalysis {
             analysis,

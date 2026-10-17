@@ -117,9 +117,11 @@ fn low_pass_iir_preserves_dc() {
     let filtered = low_pass_iir(&dc, sr, 300.0, 6);
 
     // After settling, output should be ~0.5
-    let tail_avg: f64 =
-        filtered[sr as usize / 2..].iter().map(|x| *x as f64).sum::<f64>()
-            / (sr as usize / 2) as f64;
+    let tail_avg: f64 = filtered[sr as usize / 2..]
+        .iter()
+        .map(|x| *x as f64)
+        .sum::<f64>()
+        / (sr as usize / 2) as f64;
     assert!(
         (tail_avg - 0.5).abs() < 0.01,
         "DC pass-through should be ~0.5, got {tail_avg}"
@@ -186,8 +188,15 @@ fn build_sections_constant_signal_produces_flat_ramps() {
 
     assert!(!sections.is_empty());
     for s in &sections {
-        assert_eq!(s.ramp_type, RampType::Flat, "Constant signal should be Flat");
-        assert!(s.energy > 0.0, "Constant signal should have positive energy");
+        assert_eq!(
+            s.ramp_type,
+            RampType::Flat,
+            "Constant signal should be Flat"
+        );
+        assert!(
+            s.energy > 0.0,
+            "Constant signal should have positive energy"
+        );
     }
 }
 
@@ -221,7 +230,10 @@ fn build_sections_ramp_up_detected() {
         .collect();
 
     let sections = build_sections(&pcm, sr, 128.0, 0.0, 4, 0.05);
-    let up_count = sections.iter().filter(|s| s.ramp_type == RampType::Up).count();
+    let up_count = sections
+        .iter()
+        .filter(|s| s.ramp_type == RampType::Up)
+        .count();
     assert!(
         up_count > 0,
         "Ramping signal should produce at least one Up-classified group"
@@ -260,14 +272,20 @@ fn build_sections_energy_delta_computed() {
     let pcm = concat(&[&quiet, &loud]);
 
     let sections = build_sections(&pcm, sr, 128.0, 0.0, 4, 0.05);
-    assert_eq!(sections[0].energy_delta, 0.0, "First section delta should be 0");
+    assert_eq!(
+        sections[0].energy_delta, 0.0,
+        "First section delta should be 0"
+    );
 
     // Find the transition: there should be a large positive delta
     let max_delta = sections
         .iter()
         .map(|s| s.energy_delta)
         .fold(f64::NEG_INFINITY, f64::max);
-    assert!(max_delta > 0.1, "Should see a positive energy delta at quiet→loud transition");
+    assert!(
+        max_delta > 0.1,
+        "Should see a positive energy delta at quiet→loud transition"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -358,27 +376,51 @@ fn percentile_single_value() {
 
 #[test]
 fn classify_genre_recognizes_techno() {
-    assert_eq!(classify_genre(&Some("Techno".into())), Some("techno".into()));
-    assert_eq!(classify_genre(&Some("Peak Time Techno".into())), Some("techno".into()));
-    assert_eq!(classify_genre(&Some("Melodic House & Techno".into())), Some("techno".into()));
+    assert_eq!(
+        classify_genre(&Some("Techno".into())),
+        Some("techno".into())
+    );
+    assert_eq!(
+        classify_genre(&Some("Peak Time Techno".into())),
+        Some("techno".into())
+    );
+    assert_eq!(
+        classify_genre(&Some("Melodic House & Techno".into())),
+        Some("techno".into())
+    );
 }
 
 #[test]
 fn classify_genre_passes_through_house() {
     // Non-techno/non-hardcore genres are lowercased and passed through
-    assert_eq!(classify_genre(&Some("Deep House".into())), Some("deep house".into()));
-    assert_eq!(classify_genre(&Some("Tech House".into())), Some("tech house".into()));
+    assert_eq!(
+        classify_genre(&Some("Deep House".into())),
+        Some("deep house".into())
+    );
+    assert_eq!(
+        classify_genre(&Some("Tech House".into())),
+        Some("tech house".into())
+    );
 }
 
 #[test]
 fn classify_genre_recognizes_hardcore() {
-    assert_eq!(classify_genre(&Some("Hardcore".into())), Some("hardcore".into()));
-    assert_eq!(classify_genre(&Some("Happy Hardcore".into())), Some("hardcore".into()));
+    assert_eq!(
+        classify_genre(&Some("Hardcore".into())),
+        Some("hardcore".into())
+    );
+    assert_eq!(
+        classify_genre(&Some("Happy Hardcore".into())),
+        Some("hardcore".into())
+    );
 }
 
 #[test]
 fn classify_genre_lowercases_unknown() {
-    assert_eq!(classify_genre(&Some("Classical".into())), Some("classical".into()));
+    assert_eq!(
+        classify_genre(&Some("Classical".into())),
+        Some("classical".into())
+    );
     assert_eq!(classify_genre(&None), None);
 }
 
@@ -416,7 +458,10 @@ fn energy_sustain_after_constant_is_high() {
 
     let sustain = energy_sustain_after(&sections, Some(0));
     // Constant signal: sustain after any point should be high
-    assert!(sustain > 0.5, "Constant signal sustain should be high, got {sustain}");
+    assert!(
+        sustain > 0.5,
+        "Constant signal sustain should be high, got {sustain}"
+    );
 }
 
 #[test]
@@ -504,7 +549,10 @@ fn detect_drop_finds_drop_in_synthetic_track() {
 
     let result = detect_drop(&pcm, sr, bpm, first_beat, None, &None);
 
-    assert!(result.drop.is_some(), "Should detect a drop in synthetic track");
+    assert!(
+        result.drop.is_some(),
+        "Should detect a drop in synthetic track"
+    );
     let drop_time = result.drop.unwrap().time_seconds;
     // Drop should be around 60s (the loud section start)
     assert!(
@@ -548,11 +596,23 @@ fn detect_breakdown_finds_quiet_section_after_drop() {
     let pcm = synthetic_track(sr, bpm, first_beat);
 
     let drop_result = detect_drop(&pcm, sr, bpm, first_beat, None, &None);
-    let drop_time = drop_result.drop.as_ref().map(|c| c.time_seconds).unwrap_or(60.0);
+    let drop_time = drop_result
+        .drop
+        .as_ref()
+        .map(|c| c.time_seconds)
+        .unwrap_or(60.0);
 
     let total_duration = pcm.len() as f64 / sr as f64;
     let bd = detect_breakdown(
-        &pcm, sr, bpm, first_beat, drop_time, total_duration, 64, &None, false,
+        &pcm,
+        sr,
+        bpm,
+        first_beat,
+        drop_time,
+        total_duration,
+        64,
+        &None,
+        false,
     );
 
     assert!(
@@ -609,7 +669,10 @@ fn generate_cues_produces_start_cue() {
     let config = LexiconConfig::default();
 
     let result = generate_structural_cues(&pcm, sr, 128.0, 0.0, &config);
-    assert!(!result.cues.is_empty(), "Should produce at least a Start cue");
+    assert!(
+        !result.cues.is_empty(),
+        "Should produce at least a Start cue"
+    );
     assert_eq!(result.cues[0].name, "Start");
 }
 

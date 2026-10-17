@@ -1,0 +1,23 @@
+name: Engine checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Format
+        run: cargo +stable fmt --all -- --check
+      - name: Lint
+        run: cargo +stable clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Tests
+        run: cargo +stable test --workspace --all-features --release --locked -- --test-threads=2
+      - name: Release build
+        run: cargo +stable build --workspace --all-features --release --locked

@@ -80,6 +80,9 @@ pub struct Analysis {
     pub cues: Option<Vec<Cue>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lexicon_cues: Option<crate::lexicon_cues::StructuralCueResult>,
+    /// One estimated rating for the whole track; no per-segment energy is exposed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy: Option<crate::energy::TrackEnergy>,
 }
 
 pub fn analyze_pcm(samples: &[f32], sample_rate: u32, config: &AnalysisConfig) -> Result<Analysis> {
@@ -126,6 +129,7 @@ pub(crate) fn analyze_components(
         },
         cues: None,
         lexicon_cues: None,
+        energy: None,
         structure: None,
     })
 }
@@ -143,7 +147,9 @@ pub fn engine_source_sha256() -> String {
         include_str!("profile.rs"),
         include_str!("engine.rs"),
         include_str!("structure.rs"),
-        include_str!("cues.rs"),
+        include_str!("lexicon_cues.rs"),
+        include_str!("structural_cues.rs"),
+        include_str!("energy.rs"),
         include_str!("neural_key.rs"),
         include_str!("openkeyscan.rs"),
         include_str!("openkeyscan/kernels.rs"),

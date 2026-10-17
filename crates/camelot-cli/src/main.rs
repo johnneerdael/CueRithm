@@ -28,8 +28,6 @@ enum Command {
         #[command(flatten)]
         engine: EngineArgs,
     },
-    /// Compute classifier inputs from 44100 Hz stereo 16-bit FLAC, without final decisions.
-    AnalyzeFeatures { path: PathBuf },
     /// Compare Lexicon-compatible cue output against Lexicon's stored reference cues.
     LexiconBenchmark(lexicon_benchmark::LexiconBenchmarkArgs),
     /// Compare one prediction per audio group with external reference labels.
@@ -80,17 +78,23 @@ struct EngineArgs {
     #[arg(long)]
     structure_features: bool,
     /// Exact source-profile timing; requires complete 44100 Hz stereo 16-bit FLAC.
-    #[arg(long, conflicts_with_all = ["max_seconds", "beat_model", "mel_model", "cue_suggestions"])]
+    #[arg(long, conflicts_with_all = ["max_seconds", "beat_model", "mel_model"])]
     source_profile_timing: bool,
-    /// Experimental novelty-based cue candidates; names are not energy estimates.
-    #[arg(long, requires = "beat_model")]
-    cue_suggestions: bool,
     /// Generate structural cues using the Lexicon-compatible energy envelope algorithm.
-    #[arg(long)]
+    #[arg(long, alias = "cue-suggestions")]
     lexicon_cues: bool,
     /// Genre hint for Lexicon cue detection (e.g. "techno", "house").
-    #[arg(long)]
+    #[arg(long, requires = "lexicon_cues")]
     lexicon_genre: Option<String>,
+    /// Local RBF SVC JSON for a single whole-track energy rating (complete profile FLAC).
+    #[arg(long, conflicts_with = "max_seconds")]
+    energy_model: Option<PathBuf>,
+    /// Minimum breakdown length, in beats.
+    #[arg(long, default_value_t = 64)]
+    breakdown_min_beats: u32,
+    /// Add an optional 16-beat emergency loop.
+    #[arg(long, requires = "lexicon_cues")]
+    emergency_loop: bool,
 }
 
 impl EngineArgs {
@@ -120,14 +124,16 @@ impl EngineArgs {
             key_openkeyscan_model: self.key_openkeyscan_model,
             structure_features: self.structure_features,
             source_profile_timing: self.source_profile_timing,
-            cue_config: self.cue_suggestions.then(Default::default),
-            lexicon_config: self.lexicon_cues.then(|| {
-                camelot_core::lexicon_cues::LexiconConfig {
+            cue_config: None,
+            energy_model: self.energy_model,
+            lexicon_config: self
+                .lexicon_cues
+                .then(|| camelot_core::lexicon_cues::LexiconConfig {
                     genre: self.lexicon_genre.clone(),
                     drop_at_start: camelot_core::lexicon_cues::DropAtStart::Never,
-                    ..Default::default()
-                }
-            }),
+                    add_emergency_loop: self.emergency_loop,
+                    min_cue_length_beats: self.breakdown_min_beats,
+                }),
         })
     }
 }
@@ -137,10 +143,6 @@ fn main() -> Result<()> {
         Command::ExportRekordbox(args) => export::run(args)?,
         Command::Analyze { path, engine } => {
             let result = Engine::new(&engine.settings()?)?.analyze_file(&path)?;
-            println!("{}", serde_json::to_string_pretty(&result)?);
-        }
-        Command::AnalyzeFeatures { path } => {
-            let result = camelot_core::analyze_file_features(&path)?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
         Command::LexiconBenchmark(args) => lexicon_benchmark::run(args)?,
