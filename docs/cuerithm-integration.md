@@ -12,6 +12,9 @@ before the application invokes them. Normal Engine analysis decodes a direct
 44100 Hz branch for cues, independently of the configurable key/DSP rate.
 Source-profile timing supplies its computed BPM and first anchor directly;
 reference cue positions are never supplied to ordinary analysis.
+If that grid begins before a cropped file, the wrapper clips only cues exactly
+at that negative anchor to zero after analysis. It preserves the anchor throughout
+the DSP, so the beat and section phases remain unchanged.
 
 The rich cue result preserves colors and emergency loops. The general cue
 channel is populated from the same result, so existing export and evaluation

@@ -43,7 +43,14 @@ pub fn try_generate_structural_cues(
             emergency_loop: None,
         });
     }
-    let result = generate_structural_cues(pcm, sample_rate, bpm, first_beat, config);
+    let mut result = generate_structural_cues(pcm, sample_rate, bpm, first_beat, config);
+    // A beat grid may begin just before a cropped file. Keep that anchor for
+    // every DSP calculation; only clip cues at that anchor to the boundary.
+    for cue in &mut result.cues {
+        if cue.time_seconds == first_beat && first_beat < 0.0 {
+            cue.time_seconds = 0.0;
+        }
+    }
     ensure!(
         result.cues.iter().all(|c| c.time_seconds.is_finite()
             && c.time_seconds >= 0.0
