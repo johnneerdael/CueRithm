@@ -1,0 +1,988 @@
+{
+  "reference": "Mixed In Key11.2.6.7446 default mathematical reconstruction",
+  "components": 40,
+  "scope": "independently written Rust only; no original artifacts/decompiled listings/music/labels; runtime source has no private-directory dependency",
+  "files": [
+    {
+      "component": "key-real-stream-rust-v1",
+      "source": ".analysis/experiments/key-real-stream-rust-v1/src/lib.rs",
+      "original_sha256": "01b45e934bb43cb7d699f8c08073fab5727c4585ce84f20612be98f2c7e88427",
+      "workspace_path": "src/dsp/key_real_stream_rust_v1/src/lib.rs",
+      "transformed_sha256": "c518691d54b3ccab2055d7954ace786c1dfd880a725457dc458b67a11515ec87",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "synthetic fixture path"
+      ]
+    },
+    {
+      "component": "decoder-boundary-rust-v1",
+      "source": ".analysis/experiments/decoder-boundary-rust-v1/src/lib.rs",
+      "original_sha256": "42aa8600035b905c53024ed9bab0859451d2dbc09eca075993ed21912faacac3",
+      "workspace_path": "src/dsp/decoder_boundary_rust_v1/src/lib.rs",
+      "transformed_sha256": "42aa8600035b905c53024ed9bab0859451d2dbc09eca075993ed21912faacac3",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-pcm-stream-rust-v1",
+      "source": ".analysis/experiments/key-pcm-stream-rust-v1/frozen-fft/fft.rs",
+      "original_sha256": "da628fdbfbb053e30fc873cd5688a8c2baba7db150f0bf2594e81b0e924c9b38",
+      "workspace_path": "src/dsp/key_pcm_stream_rust_v1/frozen-fft/fft.rs",
+      "transformed_sha256": "73d05a253c4520aeb653fe7b444f50282de511df45f67b88107d66b5a9e8cd17",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-pcm-stream-rust-v1",
+      "source": ".analysis/experiments/key-pcm-stream-rust-v1/src/lib.rs",
+      "original_sha256": "b79e415e5fad047292d2541534133b732b2ce88fac1761b7d3863e4844606c14",
+      "workspace_path": "src/dsp/key_pcm_stream_rust_v1/src/lib.rs",
+      "transformed_sha256": "88b4d49947e8558d5d66bb9dc3668305238b3cda6bdf77e8233501ee75b1415f",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-peak-tracker-portable-v2",
+      "source": ".analysis/experiments/key-peak-tracker-portable-v2/src/finite_exp2/mod.rs",
+      "original_sha256": "1de8ea950f4da522f7dd90b6ef8626b75dc8c510a491f6295d1bb74bf9a8d62c",
+      "workspace_path": "src/dsp/key_peak_tracker_portable_v2/src/finite_exp2/mod.rs",
+      "transformed_sha256": "1de8ea950f4da522f7dd90b6ef8626b75dc8c510a491f6295d1bb74bf9a8d62c",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-peak-tracker-portable-v2",
+      "source": ".analysis/experiments/key-peak-tracker-portable-v2/src/finite_exp2/table.rs",
+      "original_sha256": "2c03a6b4a4fa72cb913d90a44f755527254b27c50384a95b6edecddcb60c6a94",
+      "workspace_path": "src/dsp/key_peak_tracker_portable_v2/src/finite_exp2/table.rs",
+      "transformed_sha256": "2c03a6b4a4fa72cb913d90a44f755527254b27c50384a95b6edecddcb60c6a94",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-peak-tracker-portable-v2",
+      "source": ".analysis/experiments/key-peak-tracker-portable-v2/src/lib.rs",
+      "original_sha256": "bc7717efaff379aa8fea21ba9d3d47c0a25da3d7afc00c95a275ee7509bf8a80",
+      "workspace_path": "src/dsp/key_peak_tracker_portable_v2/src/lib.rs",
+      "transformed_sha256": "bc7717efaff379aa8fea21ba9d3d47c0a25da3d7afc00c95a275ee7509bf8a80",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-peak-tracker-portable-v2",
+      "source": ".analysis/experiments/key-peak-tracker-portable-v2/src/positive_logarithm.rs",
+      "original_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "workspace_path": "src/dsp/key_peak_tracker_portable_v2/src/positive_logarithm.rs",
+      "transformed_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-peak-tracker-portable-v2",
+      "source": ".analysis/experiments/key-peak-tracker-portable-v2/src/table.rs",
+      "original_sha256": "d482653e1ba3fe5ee054c50b69d519084b58b8b52fcd17ab1694fc19cfcd90a9",
+      "workspace_path": "src/dsp/key_peak_tracker_portable_v2/src/table.rs",
+      "transformed_sha256": "426506ed5268294d7e3ca6e220eb58d7bd8e9aa38f4a8b157e64a4bb7b4d604a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-tuning-portable-v2",
+      "source": ".analysis/experiments/key-tuning-portable-v2/src/lib.rs",
+      "original_sha256": "d824438b961b855585ae5d3e9b5ed1aaac000951f727a3ce85ac66dd3be84cf1",
+      "workspace_path": "src/dsp/key_tuning_portable_v2/src/lib.rs",
+      "transformed_sha256": "d824438b961b855585ae5d3e9b5ed1aaac000951f727a3ce85ac66dd3be84cf1",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-tuning-portable-v2",
+      "source": ".analysis/experiments/key-tuning-portable-v2/src/positive_logarithm.rs",
+      "original_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "workspace_path": "src/dsp/key_tuning_portable_v2/src/positive_logarithm.rs",
+      "transformed_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-tuning-portable-v2",
+      "source": ".analysis/experiments/key-tuning-portable-v2/src/table.rs",
+      "original_sha256": "d482653e1ba3fe5ee054c50b69d519084b58b8b52fcd17ab1694fc19cfcd90a9",
+      "workspace_path": "src/dsp/key_tuning_portable_v2/src/table.rs",
+      "transformed_sha256": "426506ed5268294d7e3ca6e220eb58d7bd8e9aa38f4a8b157e64a4bb7b4d604a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-cache-finalizer-portable-v4",
+      "source": ".analysis/experiments/key-cache-finalizer-portable-v4/src/lib.rs",
+      "original_sha256": "8eabe3681f4a5f3322fd49bafda28f8eb88240ea5a9a85ba5a19993c8392371a",
+      "workspace_path": "src/dsp/key_cache_finalizer_portable_v4/src/lib.rs",
+      "transformed_sha256": "8eabe3681f4a5f3322fd49bafda28f8eb88240ea5a9a85ba5a19993c8392371a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-cache-finalizer-portable-v4",
+      "source": ".analysis/experiments/key-cache-finalizer-portable-v4/src/positive_logarithm.rs",
+      "original_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "workspace_path": "src/dsp/key_cache_finalizer_portable_v4/src/positive_logarithm.rs",
+      "transformed_sha256": "5cacd1ae2359d5b9ecd2698995988d98c0cb11002368cfb173f89905d0efa79a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-cache-finalizer-portable-v4",
+      "source": ".analysis/experiments/key-cache-finalizer-portable-v4/src/positive_power.rs",
+      "original_sha256": "6dfc74b768fa923f30adb24d3c3f8cd3d2efd43efff4a74bd705f9c1718bba9c",
+      "workspace_path": "src/dsp/key_cache_finalizer_portable_v4/src/positive_power.rs",
+      "transformed_sha256": "6dfc74b768fa923f30adb24d3c3f8cd3d2efd43efff4a74bd705f9c1718bba9c",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-cache-finalizer-portable-v4",
+      "source": ".analysis/experiments/key-cache-finalizer-portable-v4/src/table.rs",
+      "original_sha256": "d482653e1ba3fe5ee054c50b69d519084b58b8b52fcd17ab1694fc19cfcd90a9",
+      "workspace_path": "src/dsp/key_cache_finalizer_portable_v4/src/table.rs",
+      "transformed_sha256": "426506ed5268294d7e3ca6e220eb58d7bd8e9aa38f4a8b157e64a4bb7b4d604a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-cache-finalizer-portable-v4",
+      "source": ".analysis/experiments/key-cache-finalizer-portable-v4/src/tables.rs",
+      "original_sha256": "9a4aee1e0649ece422630b87e487eca73276f0c5940fbbce982beedbf006f71b",
+      "workspace_path": "src/dsp/key_cache_finalizer_portable_v4/src/tables.rs",
+      "transformed_sha256": "5049a97d06aee7892649f89749c6535c568233d4397d2ed7068f621ab50eb8e8",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-classic-rust-v1",
+      "source": ".analysis/experiments/legacy-classic-rust-v1/src/lib.rs",
+      "original_sha256": "912c825e2a1668d105838030b444ad93f0cfc297c21443b16bf462d1140122bd",
+      "workspace_path": "src/dsp/legacy_classic_rust_v1/src/lib.rs",
+      "transformed_sha256": "64c78404a2f57d1d580490fce57860394a39b5b1bc8020396ff599c62057d904",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-onset-rust-v1",
+      "source": ".analysis/experiments/legacy-onset-rust-v1/src/exp_table.rs",
+      "original_sha256": "390898566a672c5b731d4a49f6639184510182a7ad832c8140890565142bca62",
+      "workspace_path": "src/dsp/legacy_onset_rust_v1/src/exp_table.rs",
+      "transformed_sha256": "390898566a672c5b731d4a49f6639184510182a7ad832c8140890565142bca62",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-onset-rust-v1",
+      "source": ".analysis/experiments/legacy-onset-rust-v1/src/lib.rs",
+      "original_sha256": "03079f371e62d977276f4cf6f91a919763f67954eaf4db54bdc4c07d528daf5f",
+      "workspace_path": "src/dsp/legacy_onset_rust_v1/src/lib.rs",
+      "transformed_sha256": "589b0e915c2f0f220131cfa9e549cccd99d7c90f3ad223526bed6508963efcd4",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-onset-rust-v1",
+      "source": ".analysis/experiments/legacy-onset-rust-v1/src/math.rs",
+      "original_sha256": "d00cef3fde46cc139c6b69b22d03b9aaa6f90ecf9fecfa114bc4d6bab4e8b5d1",
+      "workspace_path": "src/dsp/legacy_onset_rust_v1/src/math.rs",
+      "transformed_sha256": "d00cef3fde46cc139c6b69b22d03b9aaa6f90ecf9fecfa114bc4d6bab4e8b5d1",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/complex4096/fft.rs",
+      "original_sha256": "fb3a51ab40d6d69d1f467f8f7b26dd7c6ef498c5175759a57d143203cf9ce9c2",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/complex4096/fft.rs",
+      "transformed_sha256": "ad2b014ab6a23aaf0a7a826b9efa0de4eae125616c33d995df09702e94ce1999",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/complex4096/first.rs",
+      "original_sha256": "195c88f82ca48acab020301dfc70824d3661476660f3a3571ef14d0ab3bac04d",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/complex4096/first.rs",
+      "transformed_sha256": "d24ba7df9cd3480e4253c6991ebaedf5a9c5cd1f25454c0d691e91001c1777cd",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/complex4096/middle.rs",
+      "original_sha256": "95e3a6d22b06445897b7954c8f07885352ce4e457d0a86d9bfa6ba889a5d475e",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/complex4096/middle.rs",
+      "transformed_sha256": "89372c8d009e53180ec2fd4130b9b7abc714c76a2fe6822f37b612d54fa09db7",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/complex4096/tables.rs",
+      "original_sha256": "07898c27444ec5483db9f8d5e6541f584fc3f8fb1f2fc2d669cf0b4f536240c5",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/complex4096/tables.rs",
+      "transformed_sha256": "07898c27444ec5483db9f8d5e6541f584fc3f8fb1f2fc2d669cf0b4f536240c5",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/lib.rs",
+      "original_sha256": "6f08719328d239a5a3bbbb2ab4f3e12612b87675453eb4efe62d69e0cfa19851",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/lib.rs",
+      "transformed_sha256": "fa85d1497e92559833b3b9257c8cfc5e292fa18583fd8d6131dd52c14c87530d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/pack.rs",
+      "original_sha256": "a6a093040a73a7f8599adf232d0234a745ea2874911a59b7dfaedd5758e59d67",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/pack.rs",
+      "transformed_sha256": "a6a093040a73a7f8599adf232d0234a745ea2874911a59b7dfaedd5758e59d67",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/small/generated.rs",
+      "original_sha256": "92dff4ece5fd42fc9e751298767209cfb256cb83e836c063f313899e5168943a",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/small/generated.rs",
+      "transformed_sha256": "92dff4ece5fd42fc9e751298767209cfb256cb83e836c063f313899e5168943a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/small/mod.rs",
+      "original_sha256": "6be2fe4f8aa64c2877ca01b6cf8607721770a14906f77f736d86cfa01e00e71b",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/small/mod.rs",
+      "transformed_sha256": "6be2fe4f8aa64c2877ca01b6cf8607721770a14906f77f736d86cfa01e00e71b",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-rust-v2",
+      "source": ".analysis/experiments/legacy-real-fft-rust-v2/src/special256.rs",
+      "original_sha256": "ec02b27af355767c1f80567ef585ed7d944f1d2789212a9ee3d28c45c3719a4b",
+      "workspace_path": "src/dsp/legacy_real_fft_rust_v2/src/special256.rs",
+      "transformed_sha256": "d67e6ff09aa4189f4d367fb2b83e38c0ee6aa99cff416113a3b057af03660f83",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-aligned-complex-rust-v1",
+      "source": ".analysis/experiments/legacy-aligned-complex-rust-v1/src/lib.rs",
+      "original_sha256": "4bb0e8353112d3e0bc45156c9a6dd8422b24aa7cbbaff002d0f5017f626a61e9",
+      "workspace_path": "src/dsp/legacy_aligned_complex_rust_v1/src/lib.rs",
+      "transformed_sha256": "f84d2200f4ca1663a1beff375a58fde317ec7025a5d8ecfec08986a7acae0861",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-initial2-8-rust-v1",
+      "source": ".analysis/experiments/legacy-initial2-8-rust-v1/src/lib.rs",
+      "original_sha256": "479af8203bd601a0fd125f6a050259274bc061a3a13756e58b2249410023be1c",
+      "workspace_path": "src/dsp/legacy_initial2_8_rust_v1/src/lib.rs",
+      "transformed_sha256": "479af8203bd601a0fd125f6a050259274bc061a3a13756e58b2249410023be1c",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-complex1024-rust-v1",
+      "source": ".analysis/experiments/legacy-complex1024-rust-v1/src/lib.rs",
+      "original_sha256": "eb38d9671cd515b4be74e8d00942567e914c5a452d5d584db9e80d629796c3f4",
+      "workspace_path": "src/dsp/legacy_complex1024_rust_v1/src/lib.rs",
+      "transformed_sha256": "eb38d9671cd515b4be74e8d00942567e914c5a452d5d584db9e80d629796c3f4",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-complex1024-rust-v1",
+      "source": ".analysis/experiments/legacy-complex1024-rust-v1/src/tables.rs",
+      "original_sha256": "7262b5400667c1ba18344af98a9fb2d071a62798ccf550f3b2af70c582d66209",
+      "workspace_path": "src/dsp/legacy_complex1024_rust_v1/src/tables.rs",
+      "transformed_sha256": "7262b5400667c1ba18344af98a9fb2d071a62798ccf550f3b2af70c582d66209",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-real-fft-tables-rust-v1",
+      "source": ".analysis/experiments/legacy-real-fft-tables-rust-v1/src/lib.rs",
+      "original_sha256": "1da709e3d3fa95029585921f98ebd6c7333cca211538d99f5de9e7e549449357",
+      "workspace_path": "src/dsp/legacy_real_fft_tables_rust_v1/src/lib.rs",
+      "transformed_sha256": "dee15e2e653ea2603878a1fd48ee8d8c638e92ea47df1f57520324a3e19bba6a",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-window-rust-v1",
+      "source": ".analysis/experiments/legacy-window-rust-v1/src/lib.rs",
+      "original_sha256": "43fb8a0e695517928da5d1e7cebbb58d843d3a0c8a46dd1338a651ffd5113136",
+      "workspace_path": "src/dsp/legacy_window_rust_v1/src/lib.rs",
+      "transformed_sha256": "43fb8a0e695517928da5d1e7cebbb58d843d3a0c8a46dd1338a651ffd5113136",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-fft-tables-rust-v1",
+      "source": ".analysis/experiments/waveform-fft-tables-rust-v1/src/lib.rs",
+      "original_sha256": "8b68b2d4ddfafc3042aad0fc84e7e1a1a776d61ccfeeac9fc86f6bd1525044f6",
+      "workspace_path": "src/dsp/waveform_fft_tables_rust_v1/src/lib.rs",
+      "transformed_sha256": "8b68b2d4ddfafc3042aad0fc84e7e1a1a776d61ccfeeac9fc86f6bd1525044f6",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-vector-rust-v1",
+      "source": ".analysis/experiments/legacy-vector-rust-v1/src/lib.rs",
+      "original_sha256": "999597c60836db6300e6f2db9cda7400883e37fdb4e6ca9fed15229e9e6f44c5",
+      "workspace_path": "src/dsp/legacy_vector_rust_v1/src/lib.rs",
+      "transformed_sha256": "999597c60836db6300e6f2db9cda7400883e37fdb4e6ca9fed15229e9e6f44c5",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-marks-rust-v1",
+      "source": ".analysis/experiments/legacy-marks-rust-v1/src/lib.rs",
+      "original_sha256": "0c7ed171e34bf493274192d03e6eebf0cec8c5fbf6102e91aa716607e4db1233",
+      "workspace_path": "src/dsp/legacy_marks_rust_v1/src/lib.rs",
+      "transformed_sha256": "0c7ed171e34bf493274192d03e6eebf0cec8c5fbf6102e91aa716607e4db1233",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-marks-rust-v1",
+      "source": ".analysis/experiments/legacy-marks-rust-v1/src/protocol.rs",
+      "original_sha256": "42759cb6b46aec41009da69684114dbd475e60becd2c881f42b3b3f4e1cdd190",
+      "workspace_path": "src/dsp/legacy_marks_rust_v1/src/protocol.rs",
+      "transformed_sha256": "42759cb6b46aec41009da69684114dbd475e60becd2c881f42b3b3f4e1cdd190",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-initial-tempo-rust-v1",
+      "source": ".analysis/experiments/legacy-initial-tempo-rust-v1/src/lib.rs",
+      "original_sha256": "ca77f6e0a10db885259384f56ae887999890428a4f9f97c431f3354500e503e0",
+      "workspace_path": "src/dsp/legacy_initial_tempo_rust_v1/src/lib.rs",
+      "transformed_sha256": "1dd4db4414f6676e2c7068e3d12dc44ee51634dce14ff4075683709462d8ebbf",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-tracker-rust-v2",
+      "source": ".analysis/experiments/legacy-tracker-rust-v2/src/lib.rs",
+      "original_sha256": "9f4f8b5b4b8834c545317afbe78cc9be44d6e156d760d8c6b68b2ed872f0284b",
+      "workspace_path": "src/dsp/legacy_tracker_rust_v2/src/lib.rs",
+      "transformed_sha256": "045e0ededfc72d2a35c77ee35f349fb0e50bfc5a89352aadd7e06aff556d1521",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-tracker-math-rust-v1",
+      "source": ".analysis/experiments/legacy-tracker-math-rust-v1/src/exp_table.rs",
+      "original_sha256": "390898566a672c5b731d4a49f6639184510182a7ad832c8140890565142bca62",
+      "workspace_path": "src/dsp/legacy_tracker_math_rust_v1/src/exp_table.rs",
+      "transformed_sha256": "390898566a672c5b731d4a49f6639184510182a7ad832c8140890565142bca62",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-tracker-math-rust-v1",
+      "source": ".analysis/experiments/legacy-tracker-math-rust-v1/src/lib.rs",
+      "original_sha256": "16cdd304f372aec0832ec228f244012f894a10238f06c386af21d9bba79f5263",
+      "workspace_path": "src/dsp/legacy_tracker_math_rust_v1/src/lib.rs",
+      "transformed_sha256": "16cdd304f372aec0832ec228f244012f894a10238f06c386af21d9bba79f5263",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "legacy-tracker-math-rust-v1",
+      "source": ".analysis/experiments/legacy-tracker-math-rust-v1/src/tables.rs",
+      "original_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "workspace_path": "src/dsp/legacy_tracker_math_rust_v1/src/tables.rs",
+      "transformed_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-front-end-rust-v1",
+      "source": ".analysis/experiments/waveform-front-end-rust-v1/src/lib.rs",
+      "original_sha256": "64b393e377c412acc9ac7b515653bbe48dec54e041ffc7d723c14c9b147c499d",
+      "workspace_path": "src/dsp/waveform_front_end_rust_v1/src/lib.rs",
+      "transformed_sha256": "0ea3271dcb10f2d3cf09420d2ac85a3da1cc704eb77585bfc9679651b6995416",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-fft-portable-v1",
+      "source": ".analysis/experiments/waveform-fft-portable-v1/src/lib.rs",
+      "original_sha256": "28e916f0b366cede357826148e6343a7d5eeeeb0eed61e49d9d3d3bf533e50c4",
+      "workspace_path": "src/dsp/waveform_fft_portable_v1/src/lib.rs",
+      "transformed_sha256": "5a0ae6d4445204030a8f8cb09669eb56466de941db20e10f5f5d964ab6bc9f69",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-fft-first-rust-v1",
+      "source": ".analysis/experiments/waveform-fft-first-rust-v1/src/lib.rs",
+      "original_sha256": "2afe51acdbe2b5280e6a90332b8eb3cf9c3617bf91e9255ff29de85dbb0cfccd",
+      "workspace_path": "src/dsp/waveform_fft_first_rust_v1/src/lib.rs",
+      "transformed_sha256": "797740c3ae6dd719bd0e2182a24485c1748aa5719b8f8a32ea540deda96c1677",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-fft-middle-rust-v1",
+      "source": ".analysis/experiments/waveform-fft-middle-rust-v1/src/lib.rs",
+      "original_sha256": "0347c4f05f6e1c8302060b82e8b01b19feca5e95183aacfd5d64568040d9a6c9",
+      "workspace_path": "src/dsp/waveform_fft_middle_rust_v1/src/lib.rs",
+      "transformed_sha256": "c669325733121ff565f241033a3e9abd02386ed5707cd68e57e8a34f473b6d3d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-magnitudes-rust-v1",
+      "source": ".analysis/experiments/waveform-magnitudes-rust-v1/src/lib.rs",
+      "original_sha256": "a45f4e62afeecd7211288bf77ba1b60bb059295de8127ccb227d028d371c6199",
+      "workspace_path": "src/dsp/waveform_magnitudes_rust_v1/src/lib.rs",
+      "transformed_sha256": "a45f4e62afeecd7211288bf77ba1b60bb059295de8127ccb227d028d371c6199",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-context-rust-v1",
+      "source": ".analysis/experiments/waveform-context-rust-v1/src/lib.rs",
+      "original_sha256": "4c5a7c91f88aa78ec8aa4e454f5e2c2ee33417396941aedd384dba22318aa79a",
+      "workspace_path": "src/dsp/waveform_context_rust_v1/src/lib.rs",
+      "transformed_sha256": "622a21984a4b3e15f849580c870ca96aaaa3ea82da2d39c5fc80adc3eda3ff9e",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-pow-rust-v1",
+      "source": ".analysis/experiments/waveform-pow-rust-v1/src/lib.rs",
+      "original_sha256": "1b78d9eda79ea8f3d98a532178f398ff9ff31d854de8a76590bbb4f90a00c9ae",
+      "workspace_path": "src/dsp/waveform_pow_rust_v1/src/lib.rs",
+      "transformed_sha256": "1b78d9eda79ea8f3d98a532178f398ff9ff31d854de8a76590bbb4f90a00c9ae",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "waveform-pow-rust-v1",
+      "source": ".analysis/experiments/waveform-pow-rust-v1/src/tables.rs",
+      "original_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "workspace_path": "src/dsp/waveform_pow_rust_v1/src/tables.rs",
+      "transformed_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "darwin-powf-port-v1",
+      "source": ".analysis/experiments/darwin-powf-port-v1/src/lib.rs",
+      "original_sha256": "6dfc74b768fa923f30adb24d3c3f8cd3d2efd43efff4a74bd705f9c1718bba9c",
+      "workspace_path": "src/dsp/darwin_powf_port_v1/src/lib.rs",
+      "transformed_sha256": "6dfc74b768fa923f30adb24d3c3f8cd3d2efd43efff4a74bd705f9c1718bba9c",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "darwin-powf-port-v1",
+      "source": ".analysis/experiments/darwin-powf-port-v1/src/tables.rs",
+      "original_sha256": "9a4aee1e0649ece422630b87e487eca73276f0c5940fbbce982beedbf006f71b",
+      "workspace_path": "src/dsp/darwin_powf_port_v1/src/tables.rs",
+      "transformed_sha256": "5049a97d06aee7892649f89749c6535c568233d4397d2ed7068f621ab50eb8e8",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "main-timing-composition-rust-v1",
+      "source": ".analysis/experiments/main-timing-composition-rust-v1/src/lib.rs",
+      "original_sha256": "5701c88fdb2f805c43220728836aa578b15d312674f56cd7bd63b6ca5c0a88e8",
+      "workspace_path": "src/dsp/main_timing_composition_rust_v1/src/lib.rs",
+      "transformed_sha256": "4efedb4138dac0c0dd1277cf96056dcc18a841899ab58e1c8ab87f5cce0c11da",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "beat-refinement-full-rust-v3",
+      "source": ".analysis/experiments/beat-refinement-full-rust-v3/src/bounds.rs",
+      "original_sha256": "6a28d41ac59c54d082005640c545a272842f4e8686c70e573f0cc9ad6bb4458e",
+      "workspace_path": "src/dsp/beat_refinement_full_rust_v3/src/bounds.rs",
+      "transformed_sha256": "6a28d41ac59c54d082005640c545a272842f4e8686c70e573f0cc9ad6bb4458e",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "beat-refinement-full-rust-v3",
+      "source": ".analysis/experiments/beat-refinement-full-rust-v3/src/full.rs",
+      "original_sha256": "ef6b6fd5b3cde0382c3330e8085fb8140978d3f9c4d8844ba9b2b71d7143902c",
+      "workspace_path": "src/dsp/beat_refinement_full_rust_v3/src/full.rs",
+      "transformed_sha256": "4c30da916122771df002585726696dd28883d07135c37eb2ef7d4571d6ad7376",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "beat-refinement-full-rust-v3",
+      "source": ".analysis/experiments/beat-refinement-full-rust-v3/src/lib.rs",
+      "original_sha256": "d1e0c3e8da90cffffa01f0755bafd2e3c29f1f2bacfc08bdb1bc076d74db3aa2",
+      "workspace_path": "src/dsp/beat_refinement_full_rust_v3/src/lib.rs",
+      "transformed_sha256": "d1e0c3e8da90cffffa01f0755bafd2e3c29f1f2bacfc08bdb1bc076d74db3aa2",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "beat-refinement-full-rust-v3",
+      "source": ".analysis/experiments/beat-refinement-full-rust-v3/src/tempo.rs",
+      "original_sha256": "7123ba53401aaaf041f1eb41b182c2c80723b92027176e87a1d7e59e5fc9cf3d",
+      "workspace_path": "src/dsp/beat_refinement_full_rust_v3/src/tempo.rs",
+      "transformed_sha256": "ad7af8a5188fe03212f9f9e10a72cba5b96387d0d63eff02f8490aa138982bcd",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "main-timing-steps-rust-v1",
+      "source": ".analysis/experiments/main-timing-steps-rust-v1/src/bounds.rs",
+      "original_sha256": "6a28d41ac59c54d082005640c545a272842f4e8686c70e573f0cc9ad6bb4458e",
+      "workspace_path": "src/dsp/main_timing_steps_rust_v1/src/bounds.rs",
+      "transformed_sha256": "6a28d41ac59c54d082005640c545a272842f4e8686c70e573f0cc9ad6bb4458e",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "main-timing-steps-rust-v1",
+      "source": ".analysis/experiments/main-timing-steps-rust-v1/src/lib.rs",
+      "original_sha256": "c41aa073a3173f9c678dcaab9a8705bd10dd1eb457e01fdb96e4ffdadbe659f9",
+      "workspace_path": "src/dsp/main_timing_steps_rust_v1/src/lib.rs",
+      "transformed_sha256": "8390da585a63b9ea6c2ad37824e62903b80a0c0310f3e991062a15fb60c520d1",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "main-custom-cue-rust-v1",
+      "source": ".analysis/experiments/main-custom-cue-rust-v1/src/lib.rs",
+      "original_sha256": "57c58dfb89bd5ffb4848364d4498da61c07cc2757615a06dbed9f4a21a134638",
+      "workspace_path": "src/dsp/main_custom_cue_rust_v1/src/lib.rs",
+      "transformed_sha256": "57c58dfb89bd5ffb4848364d4498da61c07cc2757615a06dbed9f4a21a134638",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "sdk-cue-anchor-rust-v1",
+      "source": ".analysis/experiments/sdk-cue-anchor-rust-v1/src/baseline.rs",
+      "original_sha256": "b3dc61025526f7e8236b1d2ef808ac96d82ba354bbeed933de416712a530ee5b",
+      "workspace_path": "src/dsp/sdk_cue_anchor_rust_v1/src/baseline.rs",
+      "transformed_sha256": "b3dc61025526f7e8236b1d2ef808ac96d82ba354bbeed933de416712a530ee5b",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "sdk-cue-anchor-rust-v1",
+      "source": ".analysis/experiments/sdk-cue-anchor-rust-v1/src/lib.rs",
+      "original_sha256": "86788cc2e918936709c38d12c0ccf5427829d1d87b71dd7e418cbca5d84f1cb1",
+      "workspace_path": "src/dsp/sdk_cue_anchor_rust_v1/src/lib.rs",
+      "transformed_sha256": "05771ae8d2f1c07b9d5287dc4c7c6d79612ce52db2f2f88e5ff496a85e47dee2",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-request-aggregation-rust-v1",
+      "source": ".analysis/experiments/key-request-aggregation-rust-v1/src/lib.rs",
+      "original_sha256": "285a32d4814f20c61b5f38849b4b91077a2cfb427a0fa3618e9c5154cdf95fa9",
+      "workspace_path": "src/dsp/key_request_aggregation_rust_v1/src/lib.rs",
+      "transformed_sha256": "285a32d4814f20c61b5f38849b4b91077a2cfb427a0fa3618e9c5154cdf95fa9",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-band-rust-v1",
+      "source": ".analysis/experiments/energy-band-rust-v1/src/lib.rs",
+      "original_sha256": "62cd3b0e4440c183b10968bb67d37e61fe29cae41f7639467c21dac673930e85",
+      "workspace_path": "src/dsp/energy_band_rust_v1/src/lib.rs",
+      "transformed_sha256": "f1a11fbac0b744cfcb73c81557ff613441f72f3fbfaf31cb2886f045a19846d4",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-band-rust-v1",
+      "source": ".analysis/experiments/energy-band-rust-v1/src/power.rs",
+      "original_sha256": "0db3c2633dd3b4ee3fbdf42b766d2300525c1bda4b67ebf864374939407f4dc7",
+      "workspace_path": "src/dsp/energy_band_rust_v1/src/power.rs",
+      "transformed_sha256": "0db3c2633dd3b4ee3fbdf42b766d2300525c1bda4b67ebf864374939407f4dc7",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-band-rust-v1",
+      "source": ".analysis/experiments/energy-band-rust-v1/src/stream.rs",
+      "original_sha256": "7a9d0ca1e90bf912aaeeda7cdce0531affc8b0725e3410e730388c20015a4a8c",
+      "workspace_path": "src/dsp/energy_band_rust_v1/src/stream.rs",
+      "transformed_sha256": "29f9a22699722373146c20c5eb9ea92be70457724de99b0bec758ade2ee1d1a8",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-band-rust-v1",
+      "source": ".analysis/experiments/energy-band-rust-v1/src/tables.rs",
+      "original_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "workspace_path": "src/dsp/energy_band_rust_v1/src/tables.rs",
+      "transformed_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-frame-rust-v1",
+      "source": ".analysis/experiments/energy-frame-rust-v1/frozen-fft/fft.rs",
+      "original_sha256": "da628fdbfbb053e30fc873cd5688a8c2baba7db150f0bf2594e81b0e924c9b38",
+      "workspace_path": "src/dsp/energy_frame_rust_v1/frozen-fft/fft.rs",
+      "transformed_sha256": "73d05a253c4520aeb653fe7b444f50282de511df45f67b88107d66b5a9e8cd17",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-frame-rust-v1",
+      "source": ".analysis/experiments/energy-frame-rust-v1/src/lib.rs",
+      "original_sha256": "3be4cd8f6c46553aefd413a8d971b8dec513eb32a2f33908eae5a6adc3a6ec6e",
+      "workspace_path": "src/dsp/energy_frame_rust_v1/src/lib.rs",
+      "transformed_sha256": "169b0e003f680317fc276302cc45ccf864596cd5ac3992e960609409f18b0ba8",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-setup-rust-v1",
+      "source": ".analysis/experiments/energy-setup-rust-v1/src/lib.rs",
+      "original_sha256": "383665538ec81b1cc1a2bd44d2fb65705f0228798e4cb4b88293ef90d8c213f5",
+      "workspace_path": "src/dsp/energy_setup_rust_v1/src/lib.rs",
+      "transformed_sha256": "383665538ec81b1cc1a2bd44d2fb65705f0228798e4cb4b88293ef90d8c213f5",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-temporal-rust-v1",
+      "source": ".analysis/experiments/energy-temporal-rust-v1/src/lib.rs",
+      "original_sha256": "81e82dd57e7c04039b1cb64c88523158167cdf7e892b5ef6dd5182fa267e182c",
+      "workspace_path": "src/dsp/energy_temporal_rust_v1/src/lib.rs",
+      "transformed_sha256": "c812d8a0b28ecd781869b80e6a0dc4acd100d693b0ec12f4a9f6f082104b96e0",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-feature-rust-v1",
+      "source": ".analysis/experiments/energy-feature-rust-v1/src/lib.rs",
+      "original_sha256": "b6aa69115341a81f024538daa0fe97438e4aea6f98a947998afecabba54c9d59",
+      "workspace_path": "src/dsp/energy_feature_rust_v1/src/lib.rs",
+      "transformed_sha256": "86130233a406bb2861b3241c90be4caa2dcc06942eb311945bebed5c4b8bf0e9",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-feature-rust-v1",
+      "source": ".analysis/experiments/energy-feature-rust-v1/src/power.rs",
+      "original_sha256": "0db3c2633dd3b4ee3fbdf42b766d2300525c1bda4b67ebf864374939407f4dc7",
+      "workspace_path": "src/dsp/energy_feature_rust_v1/src/power.rs",
+      "transformed_sha256": "0db3c2633dd3b4ee3fbdf42b766d2300525c1bda4b67ebf864374939407f4dc7",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-feature-rust-v1",
+      "source": ".analysis/experiments/energy-feature-rust-v1/src/scales.rs",
+      "original_sha256": "d61c618272c4160d7cdf7284fc1dc1c46d7aa7d3bde92107b5d36afddb689cae",
+      "workspace_path": "src/dsp/energy_feature_rust_v1/src/scales.rs",
+      "transformed_sha256": "d61c618272c4160d7cdf7284fc1dc1c46d7aa7d3bde92107b5d36afddb689cae",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-feature-rust-v1",
+      "source": ".analysis/experiments/energy-feature-rust-v1/src/tables.rs",
+      "original_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "workspace_path": "src/dsp/energy_feature_rust_v1/src/tables.rs",
+      "transformed_sha256": "9603e103e50da707f088ee7821288d0f35612e5ac38e600b7dfafaa94205215d",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-log10-rust-v1",
+      "source": ".analysis/experiments/energy-log10-rust-v1/src/lib.rs",
+      "original_sha256": "462a261998ace7f86abd8e55df50e912e62c05ad37a544b3f49e429d31cb15ed",
+      "workspace_path": "src/dsp/energy_log10_rust_v1/src/lib.rs",
+      "transformed_sha256": "462a261998ace7f86abd8e55df50e912e62c05ad37a544b3f49e429d31cb15ed",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "energy-log10-rust-v1",
+      "source": ".analysis/experiments/energy-log10-rust-v1/src/table.rs",
+      "original_sha256": "9d64f847feb855f7b8f07d5d55ead12d589856bc180c357e53489ea22045e87b",
+      "workspace_path": "src/dsp/energy_log10_rust_v1/src/table.rs",
+      "transformed_sha256": "9d64f847feb855f7b8f07d5d55ead12d589856bc180c357e53489ea22045e87b",
+      "transforms": [
+        "component-local crate/dependency namespaces",
+        "rustfmt2024; energy stream only: appended typed-view module declaration",
+        "no fixture change"
+      ]
+    },
+    {
+      "component": "key-real-stream-rust-v1",
+      "source": ".analysis/experiments/key-real-stream-rust-v1/fixtures/stereo16-44100.flac",
+      "original_sha256": "ab5a8bb8d834aa666a3615eb1cdd83492a7caea2aca85d7d3e1826a7c36df0de",
+      "workspace_path": "tests/fixtures/stereo16-44100.flac",
+      "transformed_sha256": "ab5a8bb8d834aa666a3615eb1cdd83492a7caea2aca85d7d3e1826a7c36df0de",
+      "transforms": [
+        "syntheticfixture bytecopy"
+      ]
+    },
+    {
+      "component": "key-real-stream-rust-v1",
+      "source": ".analysis/experiments/key-real-stream-rust-v1/fixtures/stereo16-48000.flac",
+      "original_sha256": "ae4bfdf6854e2be2b2338f3b80124a4305decdc1624771e7cf25b4f41b4c3338",
+      "workspace_path": "tests/fixtures/stereo16-48000.flac",
+      "transformed_sha256": "ae4bfdf6854e2be2b2338f3b80124a4305decdc1624771e7cf25b4f41b4c3338",
+      "transforms": [
+        "syntheticfixture bytecopy"
+      ]
+    }
+  ],
+  "module_index_sha256": "74cbf2b40bac26437f8d0a7731021d07fcfa08d7e558211a90e180f45f43e056"
+}

@@ -1,0 +1,28 @@
+[workspace]
+members = ["crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+sha2 = "0.10"
+rustfft = "6"
+rubato = "0.16"
+symphonia = { version = "0.5.5", features = ["all"] }
+hound = "3.5"
+tempfile = "3"
+base64 = "0.22"
+
+[profile.release]
+debug = 1
+
+[profile.dev.package."*"]
+opt-level = 2

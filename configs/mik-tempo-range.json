@@ -1,0 +1,8 @@
+{
+  "key_frame_size": 4096,
+  "key_hop_size": 1024,
+  "rhythm_frame_size": 1024,
+  "rhythm_hop_size": 128,
+  "min_bpm": 79.0,
+  "max_bpm": 192.0
+}
