@@ -3460,7 +3460,7 @@ fn detect_emergency_loop(
 
 // --- Main orchestrator ---
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StructuralCueResult {
     pub cues: Vec<StructuralCue>,
     pub emergency_loop: Option<EmergencyLoop>,
