@@ -154,3 +154,23 @@ rekordbox integration is targeted and validated on those two platforms.
 
 These are implementation and acceptance work, not findings that can be inferred
 from static inspection or the existing engine's green CI.
+
+## Common-format clarification and decoder discovery
+
+The user subsequently required common-format support in the first usable
+delivery, explicitly rejecting a FLAC-only stage. The format set is MP3,
+AAC/ADTS, AAC/M4A, ALAC/M4A, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA.
+
+A local FFmpeg 9.0.2 probe encoded and decoded original generated audio in each
+of those formats. The initial Vorbis encoder was unavailable in that local
+build; a follow-up using its native Vorbis encoder succeeded. All requested
+formats decoded successfully. The lossless variants produced identical decoded
+PCM hashes. Raw AAC, Vorbis and WMA produced different frame counts from the
+generated source, demonstrating why padding and playable timelines need explicit
+fixtures. This is decoder discovery, not packaged-app or analysis acceptance.
+
+The proposed implementation therefore bundles a pinned offline native decoder
+under Rust orchestration and generalizes timing/energy PCM inputs. It preserves
+the existing validated FLAC path as a regression baseline and does not assume
+that converting a container proves equivalent cues, key or energy results.
+Users should not need a system FFmpeg installation.

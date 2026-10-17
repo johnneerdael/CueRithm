@@ -9,6 +9,12 @@ This workspace contains an independent Rust audio-analysis engine and is expandi
 - `docs/research/`: public aggregate findings and provenance.
 - `.analysis/`: private binary copies, corpus labels and experiments; exclude from publication.
 
+The first usable desktop delivery must support MP3, AAC/ADTS and AAC/M4A,
+ALAC/M4A, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA throughout analysis and
+playback. Do not ship a FLAC-only stage or mark other formats complete after
+skipping required timing/energy work. Bundle required native decoder resources;
+users must not install a decoder runtime themselves.
+
 ## Build, Test, and Development Commands
 
 Run these commands from the workspace root:
