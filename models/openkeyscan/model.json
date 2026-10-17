@@ -1,0 +1,13 @@
+{
+  "name": "OpenKeyScan3",
+  "upstream": "https://github.com/rekordcloud/openkeyscan-analyzer",
+  "source_commit": "d5cac64bc7195826b6eb10c55b9b0c97fb3287c0",
+  "checkpoint_sha256": "5610691be2b3aa21764c5978ca0c2524fcdbf600f09dcbda6c2da937745db600",
+  "onnx_opset": 17,
+  "graph_sha256": "262ac22bce23d371fe045d478e90d200f71b5be16046792a8b55432ae5c9f952",
+  "graph_input": "spectrogram [1,1,105,T] float32",
+  "graph_output": "logits [1,24] float32",
+  "class_order": "1A..12A, then 1B..12B",
+  "pcm_sample_rate": 44100,
+  "weights_bundled": false
+}

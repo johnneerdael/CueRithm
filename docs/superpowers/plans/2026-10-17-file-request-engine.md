@@ -1,3 +1,6 @@
+> Superseded for cue generation by `docs/cuerithm-integration.md`. Do not
+> continue MiK cue work from this historical plan.
+
 # File-to-request engine implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan inline.

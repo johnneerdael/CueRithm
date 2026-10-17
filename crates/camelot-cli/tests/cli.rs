@@ -111,7 +111,6 @@ fn source_timing_flag_rejects_unsupported_audio_and_conflicting_flags() {
     for extra in [
         vec!["--max-seconds", "64"],
         vec!["--beat-model", "beat.onnx", "--mel-model", "mel.onnx"],
-        vec!["--cue-suggestions"],
     ] {
         let result = Command::new(env!("CARGO_BIN_EXE_camelot"))
             .args(["analyze", "missing.flac", "--source-profile-timing"])

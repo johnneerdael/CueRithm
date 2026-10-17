@@ -1,5 +1,7 @@
 # Engine progress
 
+Current product scope: Cuerithm uses Lexicon-compatible structural cues, the existing key/BPM backends and one duration-modal track-energy rating. MiK cue inference and per-segment energy output are retired. See `docs/cuerithm-integration.md`; the chronology below is historical research.
+
 Active goal: engine first; defer the Tauri 2 UI until analysis is settled.
 The goal is incomplete. Plan: `docs/superpowers/plans/2026-10-16-offline-engine.md`.
 Public measurements: `docs/research/engine-benchmarks.md`.

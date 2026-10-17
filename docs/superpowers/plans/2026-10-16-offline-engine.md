@@ -1,3 +1,6 @@
+> Superseded for cue generation by `docs/cuerithm-integration.md`. Do not
+> continue MiK cue work from this historical plan.
+
 # Offline Engine Implementation Plan
 
 > **For agentic workers:** Use superpowers:executing-plans to implement inline,

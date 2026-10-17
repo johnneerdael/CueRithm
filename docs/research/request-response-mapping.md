@@ -1,3 +1,7 @@
+> Historical research. Cuerithm now uses the Lexicon-compatible cue engine.
+> Mixed In Key cue inference and cue/segment energy labels are retired from the
+> active product. Retained energy research may inform the single track rating.
+
 # Request → response mapping (energy and cues)
 
 Aggregate findings from 2,500+ request/response pairs (Mixed In Key

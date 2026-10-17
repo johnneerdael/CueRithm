@@ -1,3 +1,7 @@
+> Historical research. Cuerithm now uses the Lexicon-compatible cue engine.
+> Mixed In Key cue inference and cue/segment energy labels are retired from the
+> active product. Retained energy research may inform the single track rating.
+
 # Quality-first cue comparison, 2026-10-17
 
 The user prioritizes useful musical/DJ cues over exact MiK reproduction. This

@@ -3651,3 +3651,6 @@ pub fn generate_structural_cues(
         emergency_loop,
     }
 }
+
+// Checked application boundary; original cue calculations above are unchanged.
+pub use crate::structural_cues::try_generate_structural_cues;

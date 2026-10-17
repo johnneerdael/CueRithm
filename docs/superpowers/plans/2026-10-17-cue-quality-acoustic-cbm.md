@@ -1,3 +1,6 @@
+> Superseded for cue generation by `docs/cuerithm-integration.md`. Do not
+> continue MiK cue work from this historical plan.
+
 # Cue-quality acoustic CBM experiment plan
 
 > Execute inline using executing-plans, within the approved engine research scope. No implementation subagents.
