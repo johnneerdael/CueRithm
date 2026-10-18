@@ -464,3 +464,5 @@ fn phase_guards_do_not_turn_empty_or_invalid_coordinates_into_new_anchors() {
 mod anchors;
 
 mod walkback;
+
+mod finish;

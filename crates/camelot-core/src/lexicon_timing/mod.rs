@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[allow(dead_code)]
 mod anchors;
 #[allow(dead_code)]
+mod finish;
+#[allow(dead_code)]
 mod intro;
 mod tempo;
 #[allow(dead_code)]
