@@ -549,3 +549,66 @@ fn explicit_analyze_again_recomputes_an_unchanged_offline_track() {
     assert_eq!(file_sha256(&source).unwrap(), before);
     assert_eq!(catalog.calls.load(Ordering::SeqCst), 0);
 }
+
+#[test]
+fn lexicon_timing_cache_survives_restart_but_a_backend_change_recomputes() {
+    let (_d, lib, source, rt, mut settings) = setup();
+    settings.engine.source_profile_timing = false;
+    settings.engine.lexicon_timing = true;
+    settings.engine.energy_model = None;
+    settings.engine.lexicon_energy = true;
+    lib.save_settings(settings.clone()).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(true),
+        empty: false,
+    });
+    let tagger = Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap());
+    let service =
+        PreparationService::start_with_tagger(lib.clone(), rt.clone(), 1, tagger.clone()).unwrap();
+    let id = service.enqueue_paths(&[source]).unwrap().remove(0);
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
+    service.shutdown();
+    drop(service);
+    let db = lib.data_dir().join("db");
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let service = PreparationService::start_with_tagger(lib.clone(), rt, 1, tagger).unwrap();
+    let events = service.subscribe();
+    service.retry(id.clone(), None).unwrap();
+    until(&lib, || {
+        catalog.calls.load(Ordering::SeqCst) >= 2
+            && lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        0,
+        "restart should reuse full analysis"
+    );
+    let mut changed = settings;
+    changed.engine.lexicon_timing = false;
+    changed.engine.source_profile_timing = true;
+    let revision = lib.save_settings(changed).unwrap();
+    catalog.fail.store(false, Ordering::SeqCst);
+    service.retry(id, Some(revision)).unwrap();
+    until(&lib, || ready(&lib));
+    service.shutdown();
+    let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
+    assert_ne!(
+        lib.analysis(&row.id)
+            .unwrap()
+            .unwrap()
+            .analysis
+            .tempo
+            .unwrap()
+            .method,
+        "lexicon-timing-v1"
+    );
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        1,
+        "switching timing backends must invalidate the cached analysis"
+    );
+}

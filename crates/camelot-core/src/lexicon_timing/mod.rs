@@ -3,6 +3,42 @@
 
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+pub const METHOD: &str = "lexicon-timing-v1";
+
+// Keep this list in step with the production modules below. Length prefixes
+// distinguish component boundaries; test/fixture changes are not identities.
+pub(crate) fn implementation_sha256() -> String {
+    let mut hash = Sha256::new();
+    for source in [
+        include_bytes!("mod.rs").as_slice(),
+        include_bytes!("tempo.rs").as_slice(),
+        include_bytes!("onset.rs").as_slice(),
+        include_bytes!("dp.rs").as_slice(),
+        include_bytes!("phase.rs").as_slice(),
+        include_bytes!("phase/calibration.rs").as_slice(),
+        include_bytes!("phase/grid.rs").as_slice(),
+        include_bytes!("phase/rescue.rs").as_slice(),
+        include_bytes!("phase/riser.rs").as_slice(),
+        include_bytes!("phase/subsequent.rs").as_slice(),
+        include_bytes!("intro.rs").as_slice(),
+        include_bytes!("anchors.rs").as_slice(),
+        include_bytes!("walkback.rs").as_slice(),
+        include_bytes!("walkback/negative.rs").as_slice(),
+        include_bytes!("walkback/positive.rs").as_slice(),
+        include_bytes!("finish.rs").as_slice(),
+        include_bytes!("selection.rs").as_slice(),
+        include_bytes!("selection/drop.rs").as_slice(),
+        include_bytes!("selection/early.rs").as_slice(),
+        include_bytes!("selection/immediate.rs").as_slice(),
+        include_bytes!("selection/long_intro.rs").as_slice(),
+    ] {
+        hash.update((source.len() as u64).to_le_bytes());
+        hash.update(source);
+    }
+    format!("{:x}", hash.finalize())
+}
 
 mod anchors;
 mod dp;

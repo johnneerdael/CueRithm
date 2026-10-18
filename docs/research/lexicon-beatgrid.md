@@ -150,12 +150,34 @@ These experiments do not prove WebAudio decode equivalence. The original
 worker and the current Rust CLI also have different execution boundaries, so
 their elapsed times are not a controlled performance comparison.
 
-## Integration requirements still outstanding
+## Engine integration and remaining delivery
 
 The complete Rust timing API and measured synthetic component/full-worker
-boundaries pass on this host. Preserve the current key, energy and cue
-implementations during integration; do not change cue calculations to compensate
-for timing discrepancies. The public full-analysis API rejects inputs shorter
+boundaries pass on this host. The opt-in engine backend is available as
+`EngineSettings.lexicon_timing` or the research CLI `--lexicon-timing`, with
+fixed 98..195 BPM bounds. It is mutually exclusive with source-profile and
+learned timing and requires complete input. Direct decoding retains native-rate
+first-channel samples from the same packet stream as the unchanged downmix;
+prepared analysis uses canonical 44100 Hz first-channel PCM on the playable
+clock. Native timing rejects rates above 192000 Hz; canonical preparation can
+still resample supported high-rate sources before timing.
+
+Engine tests preserve more-than-two-decimal BPM through the constant grid and
+cue generation, report the exact native clock despite key-rate frame rounding,
+and leave key/scalar-energy outputs unchanged. All 14 canonical media layouts
+pass first-channel timing/cue/source+PCM identity checks and reach Ready through
+the real background worker. Completed analyses survive a default-setting
+change, while a timing-backend change invalidates the preparation cache;
+unchanged cached analysis survives restart. Timing source and input/frontend
+code hashes, channel policy, rate and fixed bounds enter identity. The disabled
+flag is omitted from serialized settings to preserve legacy settings identities.
+The current broad local core/library/CLI gate passes 247 tests with eight
+optional tests ignored; eight desktop library tests also pass with one optional
+benchmark ignored. Desktop selection, full music-corpus/native packaging and
+hosted cross-platform checks are still outstanding.
+
+Preserve the current key, energy and cue implementations during delivery;
+do not change cue calculations to compensate for timing discrepancies. The public full-analysis API rejects inputs shorter
 than ten seconds as unknown after validating PCM/rate/options. This minimum was
 traced through renderer module 57132 to module 45706 `$W` (`$ = 10`);
 the tempo-helper API remains a separate, shorter-input component boundary.
@@ -163,11 +185,10 @@ The renderer also has a 1800-second application scheduling cap; that UI policy
 is not imposed on this Rust DSP API. No source silent-input hang or fabricated
 120/zero fallback is reproduced.
 
-Before selecting it for desktop preparation, validate canonical decoding,
-first-channel policy, sample-rate handling, complete-file clocks, both fractional
-and persisted BPM representations, grid/cue alignment and cache identity.
-Exercise all supported common-format layouts on macOS, Windows and Linux.
-Compare a larger full-track corpus and record disagreement/failure counts.
+Before selecting it for desktop preparation, compare a larger owned full-track
+corpus and record disagreement/failure counts. Validate native packaged
+preparation, playback, fractional/persisted BPM and grid/cue presentation;
+exercise the decoder/clock/common-format gates on macOS, Windows and Linux.
 Silence and unsupported input must return an explicit unknown/error promptly.
 Existing completed analyses stay intact until explicit reanalysis; unfinished
 jobs must capture/migrate the selected engine identity consistently.

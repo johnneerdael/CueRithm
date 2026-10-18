@@ -30,6 +30,9 @@ pub struct EngineSettings {
     /// Use the complete, verified source-profile FLAC timing pipeline.
     #[serde(default)]
     pub source_profile_timing: bool,
+    /// Complete local first-channel timing; independent of the key/energy mix.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub lexicon_timing: bool,
     /// Read-only migration marker: enabled legacy cue configurations are rejected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cue_config: Option<serde_json::Value>,
@@ -41,6 +44,10 @@ pub struct EngineSettings {
     /// Built-in whole-track acoustic energy, evaluated on 22050 Hz mono PCM.
     #[serde(default)]
     pub lexicon_energy: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 #[cfg(test)]
@@ -110,6 +117,24 @@ mod tests {
         drop(snapshot);
         assert!(!private_path.exists());
     }
+
+    #[test]
+    fn timing_snapshot_preserves_encoded_identity_and_probe_extension_for_common_files() {
+        let temp = tempfile::tempdir().unwrap();
+        for extension in ["wav", "aiff", "mp3", "m4a", "ogg", "opus", "flac", "FLAC"] {
+            let path = temp.path().join(format!("source.{extension}"));
+            std::fs::write(&path, b"encoded A").unwrap();
+            let snapshot = SourceSnapshot::capture(&path).unwrap();
+            assert_eq!(std::fs::read(snapshot.file.path()).unwrap(), b"encoded A");
+            assert_eq!(
+                snapshot.file.path().extension().unwrap(),
+                extension.to_ascii_lowercase().as_str()
+            );
+            std::fs::write(&path, b"encoded B").unwrap();
+            assert_ne!(snapshot.identity, SourceIdentity::read(&path).unwrap());
+            assert_eq!(std::fs::read(snapshot.file.path()).unwrap(), b"encoded A");
+        }
+    }
 }
 
 impl Default for EngineSettings {
@@ -125,6 +150,7 @@ impl Default for EngineSettings {
             key_openkeyscan_model: None,
             structure_features: false,
             source_profile_timing: false,
+            lexicon_timing: false,
             cue_config: None,
             lexicon_config: None,
             energy_model: None,
@@ -155,6 +181,20 @@ impl EngineSettings {
 
     pub fn validate(&self) -> Result<()> {
         self.config.validate()?;
+        ensure!(
+            !(self.lexicon_timing && self.source_profile_timing),
+            "Select one timing method"
+        );
+        if self.lexicon_timing {
+            ensure!(
+                self.max_seconds.is_none(),
+                "Lexicon timing requires complete input"
+            );
+            ensure!(
+                self.beat_model.is_none() && self.mel_model.is_none(),
+                "Lexicon timing cannot be combined with learned beat models"
+            );
+        }
         ensure!(
             !self.lexicon_energy || self.energy_model.is_none(),
             "Select one track energy method"
@@ -319,6 +359,25 @@ impl Engine {
 
     pub fn model_identity(&self) -> BTreeMap<String, String> {
         let mut models = BTreeMap::new();
+        if self.settings.lexicon_timing {
+            models.insert(
+                "lexicon-timing-dsp".into(),
+                crate::lexicon_timing::implementation_sha256(),
+            );
+            let mut frontend = Sha256::new();
+            for source in [
+                include_bytes!("audio.rs").as_slice(),
+                include_bytes!("prepared.rs").as_slice(),
+                include_bytes!("engine.rs").as_slice(),
+            ] {
+                frontend.update((source.len() as u64).to_le_bytes());
+                frontend.update(source);
+            }
+            models.insert(
+                "lexicon-timing-input".into(),
+                format!("{:x}", frontend.finalize()),
+            );
+        }
         if self.settings.lexicon_energy {
             models.insert(
                 "track-energy-dsp".into(),
@@ -413,7 +472,9 @@ impl Engine {
     ) -> Result<FileAnalysis> {
         let start = Instant::now();
         let source_snapshot = (prepared.is_none()
-            && (self.settings.source_profile_timing || self.energy.is_some()))
+            && (self.settings.source_profile_timing
+                || self.settings.lexicon_timing
+                || self.energy.is_some()))
         .then(|| SourceSnapshot::capture(path))
         .transpose()?;
         let decode_path = source_snapshot
@@ -441,7 +502,17 @@ impl Engine {
         let neural_key_sample_rate = self.settings.key_neural_model.as_ref().map(|_| 22050);
         let openkeyscan_sample_rate = self.settings.key_openkeyscan_model.as_ref().map(|_| 44100);
         let rates = self.settings.input_rates();
-        let decoded = audio::decode_at_rates(decode_path, &rates, self.settings.max_seconds)?;
+        let (decoded, timing_input) = if self.settings.lexicon_timing {
+            let (mixed, first) =
+                audio::decode_at_rates_with_first_channel(decode_path, &rates, None)?;
+            ensure!(first.complete, "Lexicon timing requires complete input");
+            (mixed, Some(first))
+        } else {
+            (
+                audio::decode_at_rates(decode_path, &rates, self.settings.max_seconds)?,
+                None,
+            )
+        };
         if let Some(snapshot) = &source_snapshot {
             ensure!(
                 snapshot.identity == SourceIdentity::read(path)?,
@@ -456,7 +527,8 @@ impl Engine {
         let compute_tempo = self.beats.is_none();
         #[cfg(not(feature = "neural-beats"))]
         let compute_tempo = true;
-        let compute_tempo = compute_tempo && !self.settings.source_profile_timing;
+        let compute_tempo =
+            compute_tempo && !self.settings.source_profile_timing && !self.settings.lexicon_timing;
         let mut analysis = analyze_components(
             &audio.samples,
             audio.sample_rate,
@@ -485,6 +557,32 @@ impl Engine {
                 analyzed_frames: timing.analyzed_frames,
             }
         });
+        if let Some(input) = &timing_input {
+            analysis.duration_seconds = input.duration_seconds();
+            analysis.tempo = crate::lexicon_timing::analyze(
+                &input.samples,
+                input.sample_rate,
+                &crate::lexicon_timing::LexiconTempoOptions::default(),
+            )?
+            .map(|timing| {
+                let period = 60. / timing.bpm;
+                let duration = input.duration_seconds();
+                let beats = (0..)
+                    .map(|index| timing.first_beat_seconds + index as f64 * period)
+                    .take_while(|beat| *beat < duration)
+                    .collect();
+                crate::TempoEstimate {
+                    bpm: timing.bpm,
+                    strength: Some(timing.confidence),
+                    candidates: Vec::new(),
+                    beats_seconds: beats,
+                    downbeats_seconds: None,
+                    downbeat_time: Some(timing.first_beat_seconds),
+                    method: crate::lexicon_timing::METHOD.into(),
+                }
+            });
+            analysis.engine.push_str("+lexicon-timing-v1");
+        }
         if let Some(model) = &self.key {
             if let Some(key) = &mut analysis.key {
                 model.apply(key)?;
@@ -541,6 +639,13 @@ impl Engine {
         if let Some(config) = &self.settings.lexicon_config {
             config_identity["lexicon_config"] = serde_json::to_value(config)?;
             config_identity["lexicon_sample_rate"] = 44100.into();
+        }
+        if let Some(input) = &timing_input {
+            config_identity["lexicon_timing"] = serde_json::json!({
+                "method": crate::lexicon_timing::METHOD,
+                "options": crate::lexicon_timing::LexiconTempoOptions::default(),
+                "channel": "first", "sample_rate": input.sample_rate,
+            });
         }
         if self.energy.is_some() {
             config_identity["energy_method"] = "svc-duration-mode-v1".into();
@@ -656,18 +761,18 @@ struct SourceSnapshot {
 
 impl SourceSnapshot {
     fn capture(path: &Path) -> Result<Self> {
-        ensure!(
-            path.to_string_lossy()
-                .to_ascii_lowercase()
-                .ends_with("flac"),
-            "FLAC reader path required"
-        );
         let mut source = std::fs::File::open(path).context("Open source snapshot input")?;
         let before = source.metadata()?;
         ensure!(before.is_file(), "Source must be a regular file");
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .filter(|value| value.len() <= 16 && value.bytes().all(|c| c.is_ascii_alphanumeric()))
+            .unwrap_or("audio")
+            .to_ascii_lowercase();
         let mut file = tempfile::Builder::new()
             .prefix("camelot-source-")
-            .suffix(".flac")
+            .suffix(&format!(".{extension}"))
             .tempfile()
             .context("Create private source snapshot")?;
         let mut hash = Sha256::new();

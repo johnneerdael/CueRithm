@@ -80,6 +80,9 @@ struct EngineArgs {
     /// Exact source-profile timing; requires complete 44100 Hz stereo 16-bit FLAC.
     #[arg(long, conflicts_with_all = ["max_seconds", "beat_model", "mel_model"])]
     source_profile_timing: bool,
+    /// Complete local first-channel timing, using the fixed 98–195 BPM range.
+    #[arg(long, conflicts_with_all = ["source_profile_timing", "max_seconds", "beat_model", "mel_model"])]
+    lexicon_timing: bool,
     /// Generate structural cues using the Lexicon-compatible energy envelope algorithm.
     #[arg(long, alias = "cue-suggestions")]
     lexicon_cues: bool,
@@ -124,6 +127,7 @@ impl EngineArgs {
             key_openkeyscan_model: self.key_openkeyscan_model,
             structure_features: self.structure_features,
             source_profile_timing: self.source_profile_timing,
+            lexicon_timing: self.lexicon_timing,
             cue_config: None,
             energy_model: self.energy_model,
             lexicon_energy: false,
@@ -172,4 +176,41 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod timing_args_tests {
+    use super::*;
+
+    #[test]
+    fn lexicon_timing_is_explicit_and_rejects_other_timing_modes_before_analysis() {
+        let cli = Cli::try_parse_from([
+            "camelot",
+            "analyze",
+            "track.wav",
+            "--lexicon-timing",
+            "--lexicon-cues",
+        ])
+        .unwrap();
+        let Command::Analyze { engine, .. } = cli.command else {
+            panic!("Analyze command");
+        };
+        let settings = engine.settings().unwrap();
+        assert!(settings.lexicon_timing && !settings.source_profile_timing);
+        assert!(settings.validate().is_ok());
+        for conflict in [
+            vec!["--source-profile-timing"],
+            vec!["--max-seconds", "64"],
+            vec!["--beat-model", "beat.onnx", "--mel-model", "mel.onnx"],
+        ] {
+            let mut args = vec!["camelot", "analyze", "track.wav", "--lexicon-timing"];
+            args.extend(conflict);
+            assert!(Cli::try_parse_from(args).is_err());
+        }
+        let cli = Cli::try_parse_from(["camelot", "analyze", "track.flac"]).unwrap();
+        let Command::Analyze { engine, .. } = cli.command else {
+            panic!("Analyze command");
+        };
+        assert!(!engine.settings().unwrap().lexicon_timing);
+    }
 }
