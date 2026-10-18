@@ -373,6 +373,7 @@ impl Engine {
             decoder: audio.decoder_identity.clone(),
             codec: audio.info.codec.clone(),
             source_sha256: audio.source_sha256.clone(),
+            pcm_sha256: audio.pcm_sha256()?,
             clock: audio.clock.clone(),
         });
         result.analysis.config_sha256 = format!(

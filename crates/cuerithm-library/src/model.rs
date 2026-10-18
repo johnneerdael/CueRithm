@@ -5,6 +5,12 @@ use std::path::{Path, PathBuf};
 pub type TrackId = String;
 pub type JobId = String;
 pub type SettingsRevision = String;
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LibraryCounts {
+    pub tracks: u64,
+    pub incoming: u64,
+    pub archive: u64,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

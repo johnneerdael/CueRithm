@@ -1,0 +1,64 @@
+import {useMemo,useState} from "react";
+import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lucide-react";
+import type {Playback,Detail,Waveform} from "../types";
+import {time,cueColor} from "../display";
+
+function Wave({data,position,start,end,beats,cues,onSeek,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;small?:boolean}){
+  const span=Math.max(0.001,end-start);
+  const path=useMemo(()=>{
+    if(!data||!data.bins.length)return "";
+    const pieces:string[]=[];
+    const first=Math.max(0,Math.floor(start/data.duration_seconds*data.bins.length));
+    const last=Math.min(data.bins.length,Math.ceil(end/data.duration_seconds*data.bins.length));
+    for(let i=first;i<last;i++){
+      const bin=data.bins[i],x=(i/data.bins.length*data.duration_seconds-start)/span*1000;
+      pieces.push("M"+x.toFixed(2)+","+(40-Math.min(1,bin.max)*35).toFixed(2)+"V"+(40-Math.max(-1,bin.min)*35).toFixed(2));
+    }
+    return pieces.join("");
+  },[data,start,end,span]);
+  const ticks=beats.filter(t=>t>=start&&t<=end);
+  return <div className={small?"wave overview":"wave detail-wave"} role="slider" aria-label={small?"Track overview":"Waveform seek"} aria-valuemin={0} aria-valuemax={data?.duration_seconds??0} aria-valuenow={position} tabIndex={data?0:-1}
+    onPointerDown={event=>{if(!data)return;const rect=event.currentTarget.getBoundingClientRect();onSeek(Math.max(0,Math.min(data.duration_seconds,start+(event.clientX-rect.left)/rect.width*span)));}}
+    onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();onSeek(Math.max(0,Math.min(data?.duration_seconds??0,position+(event.key==="ArrowLeft"?-1:1))));}}}>
+    <svg viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
+      {!small?ticks.map((beat,i)=><line key={i} x1={(beat-start)/span*1000} x2={(beat-start)/span*1000} y1="0" y2="80" className="beat-line"/>):null}
+      <path d={path} className="wave-path" vectorEffect="non-scaling-stroke"/>
+      {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
+      {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
+    </svg>
+  </div>;
+}
+export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume}:{status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
+  const [zoom,setZoom]=useState(16);
+  const duration=status.duration_seconds||data?.duration_seconds||0;
+  const center=status.position_seconds;
+  const start=Math.max(0,Math.min(Math.max(0,duration-zoom),center-zoom*.35));
+  const cues=detail?.analysis?.analysis.lexicon_cues??null;
+  const beats=detail?.analysis?.analysis.tempo?.beats_seconds??[];
+  return <section className="player" aria-label="Music player">
+    <div className="player-header">
+      <div className="now-playing-art"><AudioLines size={27}/></div>
+      <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
+      {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="accent-text">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      <div className="transport">
+        <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
+        <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>
+        <button className="cue-button" disabled={!detail} onClick={()=>{onPause();onSeek(cues?.cues[0]?.time_seconds??0);}}>CUE</button>
+      </div>
+      <div className="time-readout"><b>{time(status.position_seconds,true)}</b><span>−{time(Math.max(0,duration-status.position_seconds),true)}</span></div>
+      <div className="player-volume"><Volume2 size={16}/><input aria-label="Volume" type="range" min={0} max={1} step={.01} value={status.volume} onChange={event=>onVolume(Number(event.target.value))}/></div>
+    </div>
+    <div className="waveform-area">
+      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><select aria-label="Waveform zoom" value={zoom} onChange={e=>setZoom(Number(e.target.value))}><option value={8}>8 seconds</option><option value={16}>16 seconds</option><option value={32}>32 seconds</option></select></div>
+        <Wave data={data} position={center} start={start} end={Math.min(duration,start+zoom)} beats={beats} cues={cues} onSeek={onSeek}/>
+        <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(Math.min(duration,start+zoom),true)}</span></div>
+        <Wave small data={data} position={center} start={0} end={duration} beats={[]} cues={cues} onSeek={onSeek}/>
+      </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}
+    </div>
+    <div className="cue-strip">
+      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{String.fromCharCode(65+i)}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
+      {detail&&!cues?<span className="cue-empty">Cues appear here after preparation finishes.</span>:null}
+      {status.error?<span className="player-error" role="alert">{status.error}</span>:null}
+    </div>
+  </section>;
+}

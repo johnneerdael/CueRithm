@@ -38,7 +38,7 @@ pub struct PreparationService {
     library: Library,
     tx: SyncSender<Control>,
     stop: Arc<AtomicBool>,
-    join: Option<JoinHandle<()>>,
+    join: Mutex<Option<JoinHandle<()>>>,
     subscribers: Subscribers,
     status: Arc<Mutex<ServiceStatus>>,
 }
@@ -65,7 +65,7 @@ impl PreparationService {
             library,
             tx,
             stop,
-            join: Some(join),
+            join: Mutex::new(Some(join)),
             subscribers,
             status,
         })
@@ -109,6 +109,14 @@ impl PreparationService {
     pub fn wake(&self) {
         let _ = self.tx.try_send(Control::Wake);
     }
+    pub fn shutdown(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+        self.wake();
+        if let Some(join) = self.join.lock().unwrap().take() {
+            let _ = join.join();
+        }
+        self.subscribers.lock().unwrap().clear();
+    }
     pub fn subscribe(&self) -> Receiver<PreparationEvent> {
         let (tx, rx) = mpsc::sync_channel(256);
         self.subscribers.lock().unwrap().push(tx);
@@ -138,11 +146,7 @@ impl PreparationService {
 }
 impl Drop for PreparationService {
     fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
-        self.wake();
-        if let Some(join) = self.join.take() {
-            let _ = join.join();
-        }
+        self.shutdown();
     }
 }
 struct Worker {

@@ -1,0 +1,25 @@
+[package]
+name = "cuerithm-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license.workspace = true
+
+[lib]
+name = "cuerithm_desktop_lib"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies]
+tauri = { version = "=2.12.2", features = [] }
+tauri-plugin-dialog = "2"
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+camelot-core = { path = "../../../crates/camelot-core", features = ["openkeyscan-key"] }
+cuerithm-library = { path = "../../../crates/cuerithm-library" }
+cuerithm-media = { path = "../../../crates/cuerithm-media" }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

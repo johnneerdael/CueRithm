@@ -72,7 +72,6 @@ impl Library {
         )?;
         let snapshot: SettingsSnapshot = serde_json::from_str(&text)?;
         tx.execute("UPDATE jobs SET state='running',stage='waiting',attempts=attempts+1,updated=?1 WHERE id=?2",params![now(),id])?;
-        Self::bump(&tx)?;
         tx.commit()?;
         Ok(Some(JobRun {
             id,
@@ -113,12 +112,12 @@ impl Library {
             )? == 1,
             "Preparation was superseded"
         );
-        Self::bump(&conn)
+        Ok(())
     }
     pub fn fail(&self, id: &str, stage: &str, error: &str) -> Result<()> {
         let conn = self.conn()?;
         ensure!(conn.execute("UPDATE jobs SET state='attention',stage=?1,error=?2,updated=?3 WHERE id=?4 AND state='running'",params![stage,error,now(),id])?==1,"Preparation is no longer running");
-        Self::bump(&conn)
+        Ok(())
     }
     pub fn retry(&self, id: &str, revision: Option<SettingsRevision>) -> Result<JobId> {
         let (track, old_revision): (String, String) = self.conn()?.query_row(
@@ -195,6 +194,8 @@ impl Library {
             "Required metadata stages have not completed"
         );
         let json = serde_json::to_string(result)?;
+        let _: FileAnalysis =
+            serde_json::from_str(&json).context("Analysis contains invalid numeric values")?;
         tx.execute(
             "INSERT INTO cue_revisions VALUES (?1,?2,?3,?4,?5)",
             params![

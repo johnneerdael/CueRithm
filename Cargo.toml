@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library"]
+members = ["crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -25,4 +25,10 @@ base64 = "0.22"
 debug = 1
 
 [profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev.package.camelot-core]
+opt-level = 2
+
+[profile.dev.package.camelot-source-analysis]
 opt-level = 2

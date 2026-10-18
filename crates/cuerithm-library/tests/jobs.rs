@@ -156,3 +156,23 @@ fn unavailable_required_stages_and_superseded_jobs_cannot_promote() {
             .is_err()
     );
 }
+
+#[test]
+fn invalid_numeric_analysis_cannot_commit_a_ready_but_unreadable_track() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("x.flac");
+    std::fs::write(&path, b"x").unwrap();
+    let id = lib
+        .enqueue(&[path], lib.settings().unwrap().revision)
+        .unwrap()[0]
+        .clone();
+    let job = lib.claim_next().unwrap().unwrap();
+    let mut invalid = result();
+    invalid.analysis.key.as_mut().unwrap().margin = f64::NAN;
+    assert!(
+        lib.apply_analysis(&id, &invalid, &info(), &job.source_sha256)
+            .is_err()
+    );
+    assert_eq!(lib.tracks(TrackQuery::default()).unwrap().total, 0);
+}
