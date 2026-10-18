@@ -6,7 +6,7 @@ Pull requests are gated cheaply; the expensive builds run once, after the merge.
 2. Fill in `## Release notes` (public bullets, or `Internal: ...`). Merged PRs' notes become the release notes.
 3. Comment `@codex review` (or rely on automatic Codex review). Resolve every review thread (resolving fires no event: run `gh workflow run pr-gate.yml -f pr_number=N` to refresh the gate).
 4. The `PR gate` status passes once the PR body is valid, no threads or change requests are open and Codex has completed a review of the latest commit. Squash-merge when it is green.
-5. A push to `main` runs `Engine checks` and `Desktop checks` (all platforms). When both pass for a commit, `Release` publishes a signed, notarized macOS release `vX.Y.Z` (DMGs for arm64 and x64, plus decoder source) with the collected release notes. Windows and Linux are not published yet. `X.Y` follows the workspace version in `Cargo.toml`; the patch number increments per release.
+5. A push to `main` runs `Engine checks` and `Desktop checks` (all platforms). When both pass for a commit, `Release` publishes a signed, notarized macOS release `vX.Y.Z` (an Apple Silicon DMG plus decoder source; there is no Intel build) with the collected release notes. Windows and Linux are not published yet. `X.Y` follows the workspace version in `Cargo.toml`; the patch number increments per release.
 
 Escape hatches:
 - Add the `full-ci` label to a PR to run the full builds before merging.
