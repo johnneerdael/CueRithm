@@ -27,6 +27,9 @@ pub fn signal(recipe: &Recipe, rate: u32) -> Vec<f32> {
         return pcm;
     }
 
+    if recipe.variant == "quiet-bed" {
+        pcm.fill(1. / 256.);
+    }
     if recipe.variant == "late-bed" {
         pcm[..recipe.offset_frames.min(recipe.frames)].fill(1. / 256.);
     }
@@ -42,7 +45,9 @@ pub fn signal(recipe: &Recipe, rate: u32) -> Vec<f32> {
         if recipe.variant == "soft-riser" && (2..=8).contains(&beat) {
             continue;
         }
-        let gain = if start < recipe.quiet_until_frames {
+        let gain = if recipe.variant == "quiet-bed" {
+            1. / 128.
+        } else if start < recipe.quiet_until_frames {
             1. / 16.
         } else {
             1.

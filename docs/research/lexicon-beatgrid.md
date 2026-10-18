@@ -87,10 +87,11 @@ peak and final-anchor references. The independently regenerated PCM hashes
 are checked by `tests/fixtures/lexicon-timing/generate.py`. Cases include
 120/128/174 BPM, fractional tempo, offbeat hats, a quiet intro, an input below
 the default range and a zero anchor. The independent Rust tempo-helper
-component now matches all eight best BPMs and peak arrays exactly, with confidence within 1e-12. Its input generator
-also matches all eight original PCM hashes. The complete anchor detector and
-desktop timing switch remain outstanding; the worker-anchor references are
-not yet passing Rust parity tests.
+component now matches all eight best BPMs and peak arrays exactly, with confidence
+within 1e-12. Its input generator also matches all eight original PCM hashes.
+The complete Rust audio-to-anchor API now passes all 15 full-worker synthetic
+references described below. Decoder/engine/desktop integration remains outstanding;
+these generated signals do not establish musical correctness.
 
 The next component checks also pass on this host: all 306 original module 974
 onset/attack/snapping rows, every one of 88,168 Float32 envelope values from
@@ -102,13 +103,18 @@ correlation, grid-advancement and riser A/B cases. This remains component
 validation. The module 473 drop/DnB/immediate-start and module 578 intro helpers
 also match 216 original rows, covering all four intro classifications and a
 48000 Hz input. Module 382 walkback matches 1,224 result rows, including optional
-drop strength, intro-kind differences and half-beat counts. The complete module
-358 initial-anchor selection decision tree is not yet implemented. Its final
-correction sequence is independently implemented and matches 15 original
-selected-candidate/state snapshots plus eight explicit component-only cases.
-Those snapshots cover 8/48 kHz, wider tempo bounds and a longer quiet intro;
-they do not prove Rust audio-to-anchor parity because selection is still
-missing. The desktop still selects the previous timing backend.
+drop strength, intro-kind differences and half-beat counts. Module 358 initial
+selection and its final correction sequence are now independently implemented. The public Rust `analyze` API matches all 15 original whole-worker
+BPM/anchor results within 1e-12; initial candidate/correction-state snapshots also
+match. These include 8/48 kHz, wider tempo bounds and a longer quiet intro.
+A separate bank of 291 selector component results covers all 20 observed return
+sites, including explicit DnB structural selection, sparse starts, quiet beds,
+early-drop fallback and missing-drop behavior. Those component inputs supply
+tempo/peak evidence explicitly, so they do not count as 291 full audio-to-timing
+predictions or every internal predicate combination. The final-correction tests
+also retain eight explicit component-only cases. The desktop still selects the
+previous timing backend; no larger music-corpus or cross-platform parity claim
+follows from these tests.
 
 Additional private diagnostics showed:
 
@@ -142,11 +148,16 @@ their elapsed times are not a controlled performance comparison.
 
 ## Integration requirements still outstanding
 
-Independently implement the complete selected timing path in Rust, with
-explicit input bounds and finite/rate checks. Match original numeric references
-at the tempo-helper and complete-anchor boundaries. Preserve the current key,
-energy and cue implementations; do not change cue calculations to compensate
-for timing discrepancies.
+The complete Rust timing API and measured synthetic component/full-worker
+boundaries pass on this host. Preserve the current key, energy and cue
+implementations during integration; do not change cue calculations to compensate
+for timing discrepancies. The public full-analysis API rejects inputs shorter
+than ten seconds as unknown after validating PCM/rate/options. This minimum was
+traced through renderer module 57132 to module 45706 `$W` (`$ = 10`);
+the tempo-helper API remains a separate, shorter-input component boundary.
+The renderer also has a 1800-second application scheduling cap; that UI policy
+is not imposed on this Rust DSP API. No source silent-input hang or fabricated
+120/zero fallback is reproduced.
 
 Before selecting it for desktop preparation, validate canonical decoding,
 first-channel policy, sample-rate handling, complete-file clocks, both fractional

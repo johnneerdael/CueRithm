@@ -8,7 +8,9 @@ mod riser;
 mod subsequent;
 pub(super) use calibration::{calibrate_drop, calibrate_onset, verify_drop};
 pub(super) use grid::align;
-pub(super) use rescue::{half_beat, rescue_silent, rescue_weak, validate_grid};
+#[cfg(test)]
+pub(super) use rescue::rescue_weak;
+pub(super) use rescue::{half_beat, rescue_silent, validate_grid};
 pub(super) use riser::validate_riser;
 pub(super) use subsequent::subsequent;
 pub(super) type Rescue = super::dp::PhaseCorrection;

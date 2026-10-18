@@ -22,6 +22,8 @@ def samples(recipe, rate):
             )
             struct.pack_into("<f", pcm, index * 4, value)
         return pcm
+    if variant == "quiet-bed":
+        pcm[:] = struct.pack("<f", 1 / 256) * recipe["frames"]
     if variant == "soft-riser":
         count = min(4 * rate, recipe["frames"])
         pcm[:count * 4] = struct.pack("<f", 1 / 32) * count
@@ -36,7 +38,7 @@ def samples(recipe, rate):
         if variant == "soft-riser" and 2 <= beat <= 8:
             beat += 1
             continue
-        gain = 1 / 16 if start < recipe["quiet_until_frames"] else 1
+        gain = 1 / 128 if variant == "quiet-bed" else 1 / 16 if start < recipe["quiet_until_frames"] else 1
         for index in range(min(4096, recipe["frames"] - start)):
             sign = 1 if index % 512 < 256 else -1
             struct.pack_into("<f", pcm, 4 * (start + index), (4096 - index) / 4096 * sign * gain)

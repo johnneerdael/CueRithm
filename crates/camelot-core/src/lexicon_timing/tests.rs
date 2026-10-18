@@ -19,6 +19,12 @@ fn equal(actual: &Value, expected: &Value, context: &str) {
                 equal(&a[key], value, &format!("{context}.{key}"));
             }
         }
+        (Value::Array(a), Value::Array(b)) => {
+            assert_eq!(a.len(), b.len(), "{context}");
+            for (index, (actual, expected)) in a.iter().zip(b).enumerate() {
+                equal(actual, expected, &format!("{context}[{index}]"));
+            }
+        }
         _ => assert_eq!(actual, expected, "{context}"),
     }
 }
@@ -466,3 +472,4 @@ mod anchors;
 mod walkback;
 
 mod finish;
+mod selection;

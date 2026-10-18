@@ -29,8 +29,10 @@ Use `--output /path/to/new/private/directory` only when actual PCM files are
 needed for a research runner. Python is a fixture utility, not a product runtime.
 
 The Rust tempo-helper tests now pass all eight BPM/peak references and
-confidence within 1e-12. The final worker-anchor references remain porting
-references, not passing Rust tests or proof of musical quality.
+confidence within 1e-12. The complete Rust timing API also passes the 15
+whole-worker cases in
+`complete-stage-reference.json`, which include these original eight inputs.
+That agreement does not establish musical quality.
 In particular, a 94 BPM input becomes 188 BPM under the configured range. The
 detected anchor is not necessarily the exact start of the authored burst.
 Further coverage is needed for other ranges, sample rates, stereo channel
@@ -50,8 +52,8 @@ outputs. No real music is included.
 Float32 values), beat chains, eight applied phase corrections and sixteen
 unchanged/early-anchor decisions from module 809. The independent Rust tests
 compare every envelope value bit-for-bit and check the chain/correction outputs.
-This is component evidence on the current host; cross-platform and complete
-anchor-tree validation remain outstanding. The other module 522 calibration,
+This is component evidence on the current host; cross-platform and decoder/engine
+integration validation remain outstanding. The other module 522 calibration,
 riser and grid corrections are not covered by these DP results.
 
 `phase-reference.json` records 585 module 522 functional result rows and
@@ -72,7 +74,7 @@ The Rust tests match all 790 phase result/state rows within 1e-12 on the current
 host and require positive cases for each changing helper, including riser A/B.
 The near-zero helper is intentionally unchanged in the source. Separate tests
 check per-analysis state isolation and retention across no-op calls. Complete
-anchor-tree and desktop parity are still outstanding.
+audio-to-anchor checks are described below; desktop parity remains outstanding.
 
 Verify the edge inputs independently with:
 
@@ -106,7 +108,27 @@ and test nudge veto/allowance, half-beat and riser-B sequencing. They are marked
 `component_only` and are not complete audio-to-timing predictions.
 
 Rust final-correction tests match all 23 given-candidate/state outputs on this
-host. The initial module 358 selector is still **unimplemented**, so this is
-not full Rust audio-to-anchor parity or desktop integration. Source correction
-bookkeeping is an explicit input; output taps and private source copies are not
-distributed. Only original recipes, numeric outputs and hashes are published.
+host. The independent initial selector also matches the 15 real candidate/state
+snapshots, and the public `analyze` API matches all 15 complete audio-to-worker
+BPM/anchor results within 1e-12. The eight injected component cases are excluded
+from that count. This remains generated-signal evidence on this host, with
+decoder/engine/desktop and music-corpus validation still outstanding. Source
+correction bookkeeping is explicit; private source copies are not distributed.
+Only original recipes, numeric outputs and hashes are published.
+
+`selection-component-reference.json` adds 291 original initial-selector results
+with explicitly supplied tempo/sample-index peak evidence. They cover all 20
+observed selector return sites, including long-intro/DnB selection, sparse starts,
+quiet initial beds, near-zero starts, early-drop fallback and missing-drop
+behavior. This is return-site coverage, not every predicate combination or 291
+whole-worker predictions. Short component inputs are not accepted by the public
+full-analysis API. Numeric branch IDs identify private observational taps; no
+source code/debug strings are included. Per-analysis correction state is checked
+alongside each candidate. The `quiet-bed` recipe uses a 1/256 background and
+1/128 transient gain to exercise low-attack branches reproducibly.
+
+The complete timing API uses the inspected renderer's ten-second minimum and
+returns unknown for unavailable rhythm, rather than a fabricated grid. The
+standalone tempo helper remains a distinct component boundary. No decoder,
+first-channel selection, preparation-cache or desktop default change is proven
+by these DSP-only fixtures.

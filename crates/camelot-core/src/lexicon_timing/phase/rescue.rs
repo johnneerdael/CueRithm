@@ -170,6 +170,7 @@ pub(in crate::lexicon_timing) fn rescue_silent(
         applied: true,
     }
 }
+#[cfg(test)]
 pub(in crate::lexicon_timing) fn rescue_weak(
     pcm: &[f32],
     rate: u32,
