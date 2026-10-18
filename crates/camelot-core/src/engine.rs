@@ -359,6 +359,12 @@ impl Engine {
 
     pub fn model_identity(&self) -> BTreeMap<String, String> {
         let mut models = BTreeMap::new();
+        if self.settings.lexicon_config.is_some() {
+            models.insert(
+                "lexicon-cues-dsp".into(),
+                crate::lexicon_cue_frontend::implementation_sha256(),
+            );
+        }
         if self.settings.lexicon_timing {
             models.insert(
                 "lexicon-timing-dsp".into(),
@@ -644,6 +650,7 @@ impl Engine {
                 .into();
             if timing_input.is_some() {
                 config_identity["lexicon_channel"] = "first".into();
+                config_identity["lexicon_frontend"] = "webaudio-q1db-v1".into();
             }
         }
         if let Some(input) = &timing_input {
@@ -685,13 +692,12 @@ impl Engine {
                         .downbeat_time
                         .or_else(|| tempo.beats_seconds.first().copied())
                         .unwrap_or(0.0);
-                    crate::lexicon_cues::try_generate_structural_cues(
-                        &input.samples,
-                        input.sample_rate,
-                        tempo.bpm,
-                        first,
-                        config,
-                    )?
+                    let generate = if timing_input.is_some() {
+                        crate::lexicon_cues::try_generate_renderer_cues
+                    } else {
+                        crate::lexicon_cues::try_generate_structural_cues
+                    };
+                    generate(&input.samples, input.sample_rate, tempo.bpm, first, config)?
                 }
                 None => crate::lexicon_cues::StructuralCueResult {
                     cues: Vec::new(),
@@ -710,6 +716,9 @@ impl Engine {
             );
             analysis.lexicon_cues = Some(result);
             analysis.engine.push_str("+lexicon-cues-v1");
+            if timing_input.is_some() {
+                analysis.engine.push_str("+lexicon-cue-webaudio-v1");
+            }
         }
         if let Some(model) = &self.energy {
             let segments = match &profile {

@@ -45,7 +45,22 @@ pub fn signal(recipe: &Recipe, rate: u32) -> Vec<f32> {
         if recipe.variant == "soft-riser" && (2..=8).contains(&beat) {
             continue;
         }
-        let gain = if recipe.variant == "quiet-bed" {
+        let gain = if recipe.variant == "structured-cue" {
+            let seconds = start as f64 / rate as f64;
+            if seconds < 16. {
+                1. / 8.
+            } else if seconds < 64. {
+                1.
+            } else if seconds < 96. {
+                1. / 16.
+            } else if seconds < 144. {
+                1.
+            } else if seconds < 176. {
+                1. / 16.
+            } else {
+                1.
+            }
+        } else if recipe.variant == "quiet-bed" {
             1. / 128.
         } else if start < recipe.quiet_until_frames {
             1. / 16.

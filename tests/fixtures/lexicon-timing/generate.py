@@ -38,7 +38,13 @@ def samples(recipe, rate):
         if variant == "soft-riser" and 2 <= beat <= 8:
             beat += 1
             continue
-        gain = 1 / 128 if variant == "quiet-bed" else 1 / 16 if start < recipe["quiet_until_frames"] else 1
+        if variant == "structured-cue":
+            seconds = start / rate
+            gain = (1 / 8 if seconds < 16 else 1 if seconds < 64
+                    else 1 / 16 if seconds < 96 else 1 if seconds < 144
+                    else 1 / 16 if seconds < 176 else 1)
+        else:
+            gain = 1 / 128 if variant == "quiet-bed" else 1 / 16 if start < recipe["quiet_until_frames"] else 1
         for index in range(min(4096, recipe["frames"] - start)):
             sign = 1 if index % 512 < 256 else -1
             struct.pack_into("<f", pcm, 4 * (start + index), (4096 - index) / 4096 * sign * gain)

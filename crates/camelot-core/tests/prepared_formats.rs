@@ -242,7 +242,7 @@ fn lexicon_timing_uses_canonical_first_channel_grid_and_cues_for_every_media_lay
                 .iter()
                 .all(|beat| *beat >= 0. && *beat < audio.clock.duration_seconds())
         );
-        let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+        let expected_cues = camelot_core::lexicon_cues::try_generate_renderer_cues(
             &first,
             44100,
             expected.bpm,

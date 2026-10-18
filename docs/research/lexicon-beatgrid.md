@@ -177,9 +177,9 @@ change, while a timing-backend change invalidates the preparation cache;
 unchanged cached analysis survives restart. Timing source and input/frontend
 code hashes, channel policy, rate and fixed bounds enter identity. The disabled
 flag is omitted from serialized settings to preserve legacy settings identities.
-The current broad local core/library/CLI gate passes 248 tests with eight
-optional tests ignored; eight desktop library tests also pass with one optional
-benchmark ignored. Desktop selection, full music-corpus/native packaging and
+The current broad local core/library/CLI gate passes 253 tests with eight
+optional tests ignored. Desktop tests must be repeated after selection/migration
+changes. Desktop selection, full music-corpus/native packaging and
 hosted cross-platform checks are still outstanding.
 
 Preserve the current key, energy and cue implementations during delivery;
@@ -204,19 +204,41 @@ timing backend available to research and regression tests. The desktop default
 has **not** changed in this investigation.
 
 
-## Cue preprocessing still needs a separate parity check
+## Cue preprocessing and corrected source arithmetic
 
-The renderer builds seven `BiquadFilterNode` lowpass stages at
-800/400/400/200/200/200/200 Hz and supplies their first-channel output to cue
-detection. It does not supply `Q` explicitly. The existing independent cue port
-has a fallback cascade with Butterworth Q = 1/sqrt(2). The
-[Web Audio 1.0 filter options](https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilteroptions-q)
-default to Q = 1, interpreted as dB for lowpass filters. **Inference:** the
-renderer-supplied filter and the port's fallback are not interchangeable.
-The shipped renderer's numerical output has not yet been measured; static
-reading and the specification do not establish exact runtime filter parity.
-Do not modify the accepted cue arithmetic or claim real-track cue equivalence
-until this preprocessing boundary has explicit input/output checks. A private
-copied-runtime launcher produced no filter output and was terminated; it is not
-reference evidence. The installed application and its fuse settings were
-preserved.
+The renderer supplies first-channel raw PCM plus seven Web Audio lowpass stages
+at 800/400/400/200/200/200/200 Hz. Its omitted Q option defaults to 1 dB for
+lowpass filters; the original Rust fallback used Butterworth Q = 1/sqrt(2).
+The new timing mode now supplies a separate renderer-compatible frontend to the
+existing cue decisions. Legacy standalone cue entry points remain callable.
+[Web Audio filter options](https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilteroptions-q)
+and the pinned Chromium 128.0.6613.186 coefficient/kernel source were checked.
+
+An isolated headless Chrome 155.0.8059.80 probe measured three authored pulse
+inputs at 8/44.1/48 kHz. The independent scalar implementation agrees within one
+Float32 epsilon on all 100,100 output samples; the old Q differs by more than
+0.01. This is measured conformance plus a pinned-source trace, not an original
+Chromium 128 renderer or browser file-decode capture. The earlier copied-runtime
+GUI launcher produced no reference output and is not used as evidence.
+
+Forty original worker cue results now cover ten authored signals, including a
+192-second structured track, with supplied timing and measured filtered input.
+All match within 1e-12 after two demonstrated corrections to the existing port:
+Float64 single-pole IIR feedback/coefficients with Float32 stores, and the
+previously reversed quieter-before-window condition for earlier-drop selection.
+Twelve IIR cases pin 400,400 Float32 values bit-for-bit; seven authored energy
+arrays pin the earlier-drop condition and empty/zero behavior. The original
+47 cue tests still pass. These checks preserve cue semantics rather than fitting
+positions to songs; source agreement alone is not musical ground truth.
+
+Cue source/wrapper/frontend fingerprints now enter identity for configured cues,
+and the renderer route records its input method and rate. Existing completed
+analyses stay intact; unfinished/explicitly reanalyzed work uses the corrected
+implementation. See the [fixture provenance](../../tests/fixtures/lexicon-cue-frontend/README.md).
+
+Owned-library timing validation is running on all 282 distinct frozen tuning
+groups (328 files). Per-track data remains private. Decoded S16 PCM MD5 must
+match the frozen identity before prediction, with encoded SHA before/after;
+current mtime drift does not bypass audio-identity checks. A reference-only
+240-second timeout is tracked separately and retried with a longer bounded
+budget. No final corpus accuracy result is claimed while that run is pending.

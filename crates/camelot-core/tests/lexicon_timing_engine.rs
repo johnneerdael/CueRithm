@@ -56,6 +56,8 @@ fn native_timing_keeps_full_fractional_bpm_grid_and_cues_on_the_left_channel_clo
     let result = engine.analyze_file(&path).unwrap();
     let timing = result.analysis.tempo.as_ref().unwrap();
     assert_eq!(timing.method, "lexicon-timing-v1");
+    assert!(result.analysis.engine.contains("+lexicon-cue-webaudio-v1"));
+    assert_eq!(result.analysis.models["lexicon-cues-dsp"].len(), 64);
     assert_eq!(timing.bpm.to_bits(), expected.bpm.to_bits());
     assert_eq!(
         timing.downbeat_time.unwrap().to_bits(),
@@ -70,7 +72,7 @@ fn native_timing_keeps_full_fractional_bpm_grid_and_cues_on_the_left_channel_clo
     }
     assert!(timing.beats_seconds.len() > 100);
     assert!(result.complete && result.source_timing.is_none());
-    let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+    let expected_cues = camelot_core::lexicon_cues::try_generate_renderer_cues(
         &left,
         rate,
         expected.bpm,
@@ -185,7 +187,7 @@ fn lexicon_cues_share_the_native_first_channel_with_timing_instead_of_the_key_mi
         .unwrap()
         .unwrap();
     let config = Default::default();
-    let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+    let expected_cues = camelot_core::lexicon_cues::try_generate_renderer_cues(
         &left,
         44100,
         expected_timing.bpm,
@@ -194,7 +196,7 @@ fn lexicon_cues_share_the_native_first_channel_with_timing_instead_of_the_key_mi
     )
     .unwrap();
     let mixed = camelot_core::audio::decode(&path, 44100, None).unwrap();
-    let mixed_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+    let mixed_cues = camelot_core::lexicon_cues::try_generate_renderer_cues(
         &mixed.samples,
         44100,
         expected_timing.bpm,

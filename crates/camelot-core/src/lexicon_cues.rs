@@ -66,10 +66,10 @@ pub fn low_pass_iir(samples: &[f32], sample_rate: u32, cutoff_hz: f64, passes: u
     let alpha = 1.0 / (1.0 + sr / (2.0 * PI * cutoff_hz));
     let mut out = samples.to_vec();
     for _ in 0..passes {
-        let mut prev = 0.0_f32;
+        let mut prev = 0.0_f64;
         for s in out.iter_mut() {
-            prev = (alpha as f32) * *s + (1.0 - alpha as f32) * prev;
-            *s = prev;
+            prev = alpha * *s as f64 + (1.0 - alpha) * prev;
+            *s = prev as f32;
         }
     }
     out
@@ -570,6 +570,9 @@ fn energy_threshold_drop(sections: &[Section]) -> Option<usize> {
 /// Search backward from `before_idx` for a stable plateau that could be the real drop.
 /// Matches JS `z()`.
 fn find_earlier_drop(sections: &[Section], before_idx: usize) -> Option<usize> {
+    if sections.is_empty() {
+        return None;
+    }
     let mut energies: Vec<f64> = sections.iter().map(|s| s.energy).collect();
     energies.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let median = energies[energies.len() / 2];
@@ -601,7 +604,7 @@ fn find_earlier_drop(sections: &[Section], before_idx: usize) -> Option<usize> {
         if !stable {
             continue;
         }
-        // Check preceding sections have sufficient energy
+        // An earlier drop requires a quieter preceding window.
         let before_start = i.saturating_sub(8);
         if i - before_start < 4 && i > 4 {
             continue;
@@ -617,7 +620,7 @@ fn find_earlier_drop(sections: &[Section], before_idx: usize) -> Option<usize> {
         } else {
             before_sum / before_count as f64
         };
-        if before_avg >= sections[i].energy * EARLIER_BEFORE_RATIO {
+        if !(before_avg >= sections[i].energy * EARLIER_BEFORE_RATIO) {
             return Some(i);
         }
     }
@@ -3477,11 +3480,23 @@ pub fn generate_structural_cues(
     first_beat: f64,
     config: &LexiconConfig,
 ) -> StructuralCueResult {
+    generate_structural_cues_with_filtered(pcm, sample_rate, bpm, first_beat, config, None)
+}
+
+// Renderer input is supplied separately; keep all cue decisions below intact.
+pub(crate) fn generate_structural_cues_with_filtered(
+    pcm: &[f32],
+    sample_rate: u32,
+    bpm: f64,
+    first_beat: f64,
+    config: &LexiconConfig,
+    precomputed_lowpass: Option<&[f32]>,
+) -> StructuralCueResult {
     let total_duration = pcm.len() as f64 / sample_rate as f64;
     let min_cue_beats = config.min_cue_length_beats;
 
     // Step 1: Detect drop
-    let drop_result = detect_drop(pcm, sample_rate, bpm, first_beat, None, &config.genre);
+    let drop_result = detect_drop(pcm, sample_rate, bpm, first_beat, precomputed_lowpass, &config.genre);
     let mut start_cue = drop_result.start.clone();
     let mut drop_cue = drop_result.drop.clone();
     let mut drop_time = drop_cue.as_ref().map(|c| c.time_seconds);
@@ -3652,5 +3667,9 @@ pub fn generate_structural_cues(
     }
 }
 
-// Checked application boundary; original cue calculations above are unchanged.
-pub use crate::structural_cues::try_generate_structural_cues;
+// Checked application entry points; source arithmetic regressions follow.
+pub use crate::structural_cues::{try_generate_renderer_cues, try_generate_structural_cues};
+
+#[cfg(test)]
+#[path = "lexicon_cue_regressions.rs"]
+mod source_regressions;
