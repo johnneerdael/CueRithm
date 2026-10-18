@@ -186,6 +186,8 @@ dependencies = [
  "beat-this",
  "camelot-source-analysis",
  "cmake",
+ "cuerithm-media",
+ "flate2",
  "hound",
  "roxmltree",
  "rten",
@@ -196,6 +198,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "symphonia",
+ "tar",
  "tempfile",
  "url",
 ]
