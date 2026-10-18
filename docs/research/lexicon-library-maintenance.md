@@ -61,3 +61,37 @@ Playlist-reference replacement depends on the planned playlist store. File
 removal is a separately reviewed user action; scans and duplicate archiving do
 not imply permission to remove source audio. Current findings establish that the
 features are present, not that their Rust port or native UI is already complete.
+
+## Matching checkpoint (2026-10-19)
+
+The independent `cuerithm-maintenance` crate now implements the five metadata
+tolerances and keeper/tag-source preselection. Its reference fixture contains
+1,342 authored cases captured from the installed Electron Node 20.18.1 runtime,
+including all 641 upstream transliteration characters. The installed ASAR and
+private source-copy hashes agree with the identity above. The fixture records
+selected-factory and capture hashes; proprietary helper code stays private.
+
+Coverage includes exact versus broad artist aliases, remix/version normalization,
+short-title Dice thresholds, greedy matching/group ordering, five-second adjacent
+duration chains, Unicode case/whitespace behavior, copy-suffixed filenames,
+availability and cue-count/bitrate keeper preferences. References use controlled
+file-presence, path and extension helpers; they do not establish actual filesystem,
+decode, directory traversal or application-wide scan parity.
+
+The normalizer uses the separately downloaded MIT slugify 1.6.6 character map,
+with provenance/notices retained. The Rust port pins ICU root collation for stable
+cross-platform artist ordering; the captured English-locale cases agree, while
+parity across every possible reference application locale is not established.
+Legacy JavaScript case folding and whitespace differ from Rust regex defaults;
+explicit fixtures cover those differences.
+
+Invalid/duplicate candidate IDs and nonfinite measurements are rejected. Fuzzy
+matching has a work limit and returns an error without partial groups when that
+limit is exhausted. Metadata candidates do not suggest automatic cue transfer;
+only an explicitly exact-audio group may suggest a separate donor. Suggestions
+perform no file or database writes.
+
+This is the pure matching checkpoint. Exact-audio fingerprinting, persisted
+ignores/review, playlist replacement, durable merge/undo, unused-file and
+missing/corrupt scanners, and native delivery remain incomplete. The full port
+plan is `docs/superpowers/plans/2026-10-19-library-maintenance.md`.

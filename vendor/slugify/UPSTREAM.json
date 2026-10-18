@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/simov/slugify",
+  "version": "1.6.6",
+  "license": "MIT",
+  "files": {
+    "slugify.js": "3b47b6f184ae98e958de5bd95a2cf6c8f82c84c6484188a54e204c63d2540696",
+    "LICENSE": "8df3c23e3dfffa0d3d41c59fae5741ea3e2c50eb19c52a5d8912a68fdba554c2",
+    "char-map.json": "46fc503cff57bab56ca31b720b1bb46d5f4ee459ed868ee9c7af5f2da292f84d"
+  }
+}
