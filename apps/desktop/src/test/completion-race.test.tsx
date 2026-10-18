@@ -1,0 +1,22 @@
+import {render,screen,fireEvent,waitFor,act,within} from "@testing-library/react";
+import {it,expect,vi} from "vitest";
+import App from "../App";
+import {fakeBridge,track} from "./bridge";
+import type {Detail} from "../types";
+it("keeps playing B detail when late A completion contains identical audio",async()=>{
+ const bridge=fakeBridge([track("a"),track("b")]);
+ let resolve!:(v:Detail)=>void;
+ bridge.getTrack=vi.fn(()=>new Promise<Detail>(r=>{resolve=r;}));
+ render(<App bridge={bridge}/>);
+ await screen.findByText("Track a");
+ fireEvent.click(screen.getByRole("button",{name:"Play Track a"}));
+ const player=screen.getByRole("region",{name:"Music player"});
+ await waitFor(()=>expect(within(player).getByText("Track a")).toBeInTheDocument());
+ act(()=>bridge.changed({state:"completed",stage:"completed",track_id:"a",job_id:"ja",sequence:1}));
+ await waitFor(()=>expect(bridge.getTrack).toHaveBeenCalledWith("a"));
+ fireEvent.click(screen.getByRole("button",{name:"Play Track b"}));
+ await waitFor(()=>expect(within(player).getByText("Track b")).toBeInTheDocument());
+ await act(async()=>resolve({track:track("a"),analysis:null,source_sha256:"hash",pcm_sha256:"pcm"}));
+ expect((await bridge.playerStatus()).track_id).toBe("b");
+ expect(within(player).getByText("Track b")).toBeInTheDocument();
+});

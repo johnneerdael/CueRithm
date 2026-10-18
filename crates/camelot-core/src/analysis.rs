@@ -150,6 +150,7 @@ pub fn engine_source_sha256() -> String {
         include_str!("lexicon_cues.rs"),
         include_str!("structural_cues.rs"),
         include_str!("energy.rs"),
+        include_str!("prepared.rs"),
         include_str!("neural_key.rs"),
         include_str!("openkeyscan.rs"),
         include_str!("openkeyscan/kernels.rs"),
@@ -162,5 +163,6 @@ pub fn engine_source_sha256() -> String {
     }
     hash.update(env!("CAMELOT_OPENKEYSCAN_NATIVE_SHA256").as_bytes());
     hash.update(camelot_source_analysis::source_sha256().as_bytes());
+    hash.update(cuerithm_media::source_sha256().as_bytes());
     format!("{:x}", hash.finalize())
 }

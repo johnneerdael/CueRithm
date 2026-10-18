@@ -1,0 +1,32 @@
+{
+  "revision": 1,
+  "distribution": "embedded in desktop executable; no runtime download",
+  "key": {
+    "file": "openkeyscan3-logits.onnx",
+    "sha256": "262ac22bce23d371fe045d478e90d200f71b5be16046792a8b55432ae5c9f952",
+    "upstream": "https://github.com/rekordcloud/openkeyscan-analyzer",
+    "source_commit": "d5cac64bc7195826b6eb10c55b9b0c97fb3287c0",
+    "license": "MIT; ../openkeyscan/LICENSE.upstream"
+  },
+  "energy": {
+    "file": "energy-svc-v1.json",
+    "sha256": "bf7079a52240d04d8d3d5c6a7db537a47673c19655dcde45bcc10cb210272d96",
+    "origin": "Cuerithm local development SVC training export; not vendor model weights",
+    "license": "repository MIT",
+    "features": 183,
+    "C": 10,
+    "gamma": 0.1,
+    "classes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "support_vectors": 2760
+  }
+}
