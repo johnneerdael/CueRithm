@@ -72,7 +72,7 @@ export function CanonicalEditor({kind,config,onChange,catalog}:{kind:"genres"|"a
 }
 export default function CleanupSettings({config,enabled,onChange}:{config?:CleanupConfig|null;enabled:boolean;onChange:(c:CleanupConfig,enabled:boolean)=>void}){
  const value=config??emptyCleanup();
- return <section className="setting-section"><div className="setting-heading"><span className="section-number">05</span><div><h2>Cleanup</h2><p>Shared rules for automatic Incoming and manual cleanup.</p></div></div>
+ return <section className="setting-section"><div className="setting-heading"><div><h2>Cleanup</h2><p>Shared rules for automatic Incoming and manual cleanup.</p></div></div>
   <label className="setting-row"><div><strong>Clean incoming tracks automatically</strong><p>Apply after catalog tags, before completed tracks enter your library.</p></div><input type="checkbox" aria-label="Clean incoming tracks automatically" checked={enabled} onChange={e=>onChange(value,e.target.checked)}/></label>
   <h3>Smart Fixes</h3><SmartFixEditor config={value} onChange={c=>onChange(c,enabled)}/>
   <h3>Genres</h3><CanonicalEditor kind="genres" config={value} onChange={c=>onChange(c,enabled)}/>

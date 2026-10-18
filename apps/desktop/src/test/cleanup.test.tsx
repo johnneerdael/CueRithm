@@ -11,6 +11,7 @@ it("exposes every Smart Fix and persistent ordered options in Settings",async()=
  const bridge=fakeBridge([]);render(<App bridge={bridge}/>);
  fireEvent.click(screen.getByRole("button",{name:"Settings"}));
  await screen.findByRole("heading",{name:"Settings"});
+ fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Cleanup"}));
  const cleanup=within(screen.getByRole("heading",{name:"Cleanup"}).closest("section")!);
  const names=["Casing","Characters to spaces","Encoded characters","Extract artist","Extract remixer","Garbage","Number prefix","URLs and email","Mix parentheses","Common title text","Promotional text"];
  for(const name of names){fireEvent.change(cleanup.getByLabelText("New Smart Fix"),{target:{value:name}});fireEvent.click(cleanup.getByRole("button",{name:"Add Smart Fix"}));}

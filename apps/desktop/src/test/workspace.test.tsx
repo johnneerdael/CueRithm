@@ -103,9 +103,10 @@ describe("library workspace",()=>{
     render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Cue generation"}));
     await screen.findByLabelText("Minimum breakdown length");
     expect(screen.queryByLabelText(/Energy model|OpenKeyScan model/)).not.toBeInTheDocument();
-    expect(screen.getByText(/All analysis engines are included/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading",{name:"Analysis"})).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Minimum breakdown length"),{target:{value:"128"}});
     fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
     await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());

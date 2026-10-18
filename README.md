@@ -88,7 +88,8 @@ Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
 OpenKeyScan key detection, track energy and structural cue analysis are built
 into the desktop application. No model selection, downloads or extra setup is
 required. The key graph is embedded, checked and cached automatically; energy
-uses compiled acoustic DSP without an external model file.
+uses compiled acoustic DSP without an external model file. Settings has separate
+Incoming, Cue generation, Automatic tagging and Cleanup pages.
 Existing unfinished jobs migrate to the built-in revision on upgrade. The
 standalone CLI retains its explicit-model API. The app never invents results
 to mark an incomplete track ready.
