@@ -36,6 +36,7 @@ const COVER_TYPES: [(PictureType, CoverType); 21] = [
 #[derive(Debug, Clone, PartialEq)]
 pub enum ID3AudioFormat {
     MP3,
+    AAC,
     AIFF,
     WAV,
 }
@@ -57,12 +58,16 @@ impl ID3Tag {
             .unwrap_or_default()
             .to_ascii_lowercase();
         // MP3
-        if ext == "mp3" {
+        if ext == "mp3" || ext == "aac" {
             let tag = Tag::read_from_path(path)?;
             let version = tag.version();
             return Ok(ID3Tag {
                 tag,
-                format: ID3AudioFormat::MP3,
+                format: if ext == "aac" {
+                    ID3AudioFormat::AAC
+                } else {
+                    ID3AudioFormat::MP3
+                },
                 id3_separator: String::from(", "),
                 id3v24: match version {
                     Version::Id3v24 => true,
@@ -118,6 +123,8 @@ impl ID3Tag {
             .to_ascii_lowercase();
         let format = if ext == "mp3" {
             ID3AudioFormat::MP3
+        } else if ext == "aac" {
+            ID3AudioFormat::AAC
         } else if ext == "wav" {
             ID3AudioFormat::WAV
         } else {
@@ -138,6 +145,22 @@ impl ID3Tag {
                     id3_separator: String::from(", "),
                     id3v24: true,
                     comm_lang: "eng".to_string(),
+                }
+            }
+        }
+    }
+
+    pub fn load_or_new_checked(path: impl AsRef<Path>) -> Result<ID3Tag, Error> {
+        match Self::load_file(&path) {
+            Ok(tag) => Ok(tag),
+            Err(error) => {
+                if error
+                    .downcast_ref::<id3::Error>()
+                    .is_some_and(|e| matches!(e.kind, id3::ErrorKind::NoTag))
+                {
+                    Ok(Self::load_or_new(path))
+                } else {
+                    Err(error)
                 }
             }
         }
@@ -238,7 +261,7 @@ impl TagImpl for ID3Tag {
 
         // Write
         match self.format {
-            ID3AudioFormat::MP3 => {
+            ID3AudioFormat::MP3 | ID3AudioFormat::AAC => {
                 Encoder::new()
                     .version(version)
                     .padding(2048)
@@ -578,10 +601,23 @@ impl TagImpl for ID3Tag {
         }
         // ID3v2.3
         if let Some(tag) = self.get_raw("TYER") {
+            let year = tag.first()?.parse().ok()?;
+            let md = self
+                .get_raw("TDAT")
+                .and_then(|v| v.first().cloned())
+                .and_then(|value| {
+                    if value.len() != 4 || !value.bytes().all(|c| c.is_ascii_digit()) {
+                        return None;
+                    }
+                    let day: u8 = value[..2].parse().ok()?;
+                    let month: u8 = value[2..].parse().ok()?;
+                    chrono::NaiveDate::from_ymd_opt(year, month.into(), day.into())?;
+                    Some((month, day))
+                });
             return Some(TagDate {
-                year: tag[0].parse().ok()?,
-                month: None,
-                day: None,
+                year,
+                month: md.map(|p| p.0),
+                day: md.map(|p| p.1),
             });
         }
         None

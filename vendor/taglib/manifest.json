@@ -1,0 +1,9 @@
+{
+  "version": "2.3.2",
+  "source": "https://github.com/taglib/taglib/releases/download/v2.3.2/taglib-2.3.2.tar.gz",
+  "selection": "static ASF metadata support; other optional format families and zlib disabled; bundled utf8cpp headers",
+  "upstream_sha256": "3ca2d8afaa7f1cf7f6ed10e511ebc368bfacd6dcaa3dbfa690b89e502e8963dc",
+  "archive": "taglib-2.3.2-sources.tar.gz",
+  "sha256": "e2efa1fe005283cccf0d4f4b9fddd1050cf2d486d2d13ca41c8406518849be01",
+  "source_selection": "prepare.py removes upstream tests, examples, benchmarks, CI and audio fixtures; build sources and notices are retained"
+}

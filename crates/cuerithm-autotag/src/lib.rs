@@ -1,5 +1,11 @@
 //! Automatic tagging adapters. GPL-3.0-only; the independent analysis engine is MIT.
+mod asf;
 mod config;
+mod write;
+pub use write::{AnalysisTags, StagedTagWrite, TagWritePlan};
+mod image;
+mod sidecar;
+pub use sidecar::StagedSidecar;
 mod input;
 mod providers;
 use anyhow::{Result, ensure};

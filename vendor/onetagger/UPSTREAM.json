@@ -13,7 +13,8 @@
     "crates/onetagger-tagger/src/lib.rs": "fbddb3a98df9081264c2a9853d4468a3f3d13739e7a2fd7d402b03a36d5fbbc4",
     "crates/onetagger-tagger/src/custom.rs": "1861278b8ca259ab648c2f291f9815a8b3f7de74b814002f7866c077659f026a",
     "crates/onetagger-platforms/src/beatport.rs": "bfc17d913d3b8738b5eaa11ee4b4054767f5e7b10365c6d80ace324f7655306c",
-    "crates/onetagger-platforms/src/traxsource.rs": "7ac566306f9acc9462e6f610afd6dc1bf6b3528fb252d647f1fae2013da26754"
+    "crates/onetagger-platforms/src/traxsource.rs": "7ac566306f9acc9462e6f610afd6dc1bf6b3528fb252d647f1fae2013da26754",
+    "crates/onetagger-renamer/src/parser.rs": "f693026c58615534e6d1f02e287175a3d390a05183a0dd982d6c15e649b5b37c"
   },
   "additional_sources": [
     {

@@ -22,6 +22,7 @@ pub struct AutotagConfig {
     pub options: TaggerConfig,
     pub no_match: NoMatchPolicy,
     pub analysis_tag_source: AnalysisTagSource,
+    pub write_energy: bool,
 }
 impl Default for AutotagConfig {
     fn default() -> Self {
@@ -39,6 +40,7 @@ impl Default for AutotagConfig {
             options,
             no_match: NoMatchPolicy::default(),
             analysis_tag_source: AnalysisTagSource::default(),
+            write_energy: true,
         }
     }
 }

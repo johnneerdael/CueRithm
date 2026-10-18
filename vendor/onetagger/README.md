@@ -35,3 +35,12 @@ Local adaptations:
 ASF names follow Microsoft's [music attribute reference](https://learn.microsoft.com/en-us/windows/win32/wmformat/attributes-for-music-files).
 The independent analysis engine retains its MIT notices; the combined desktop
 and this selected integration are distributed under GPL-3.0-only.
+
+
+Staged-writing adaptations also include ADTS AAC ID3 support, checked creation
+of missing ID3 tags, a valid containing RIFF size for WAV metadata, ID3v2.3
+month/day reading, plain ISO MP4 dates, freeform MP4 publish dates, independent
+track-total writes and full-precision MP4 BPM text alongside its integer atom.
+The pure filename-template parser is selected for cover filenames only; no
+file-renaming workflow is imported. Padding and generated cover paths are
+bounded. Cuerithm's marker uses its own name and respects the MetaTags selection.

@@ -10,8 +10,29 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 cuerithm-media = { path = "../cuerithm-media" }
-onetagger-tag = { path = "../../vendor/onetagger/onetagger-tag", default-features = false }
+onetagger-tag = { path = "../../vendor/onetagger/onetagger-tag", features = ["tag"] }
 onetagger-tagger = { path = "../../vendor/onetagger/onetagger-tagger" }
 reqwest = { version = "0.12", default-features = false, features = ["blocking","json","rustls-tls"] }
 regex = "1"
 onetagger-selected-providers = { path = "../../vendor/onetagger/providers" }
+
+tempfile.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
+
+image = { version = "0.25", default-features = false, features = ["png","jpeg","gif","webp"] }
+
+onetagger-template = { path = "../../vendor/onetagger/template" }
+
+[build-dependencies]
+cc = "1"
+cmake = "0.1"
+sha2.workspace = true
+serde_json.workspace = true
+flate2 = "1"
+tar = "0.4"
+
+[dev-dependencies]
+tempfile.workspace = true
+flate2 = "1"
+tar = "0.4"
+id3 = "1.17"
