@@ -128,8 +128,10 @@ pub(crate) fn bytes_path(bytes: &[u8]) -> Result<PathBuf> {
             "Library paths need platform mapping"
         );
         let units: Vec<u16> = bytes[8..]
-            .chunks_exact(2)
-            .map(|b| u16::from_le_bytes(b.try_into().unwrap()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|b| u16::from_le_bytes(*b))
             .collect();
         Ok(std::ffi::OsString::from_wide(&units).into())
     }

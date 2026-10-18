@@ -20,7 +20,7 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
     let mut pos = 0;
     while pos < audio.frames {
         let samples = audio.read_frames(pos, 65536)?;
-        for (i, pair) in samples.chunks_exact(2).enumerate() {
+        for (i, pair) in samples.as_chunks::<2>().0.iter().enumerate() {
             let bin = ((pos + i as u64) * bins as u64 / audio.frames) as usize;
             output[bin].min = output[bin].min.min(pair[0]).min(pair[1]);
             output[bin].max = output[bin].max.max(pair[0]).max(pair[1]);

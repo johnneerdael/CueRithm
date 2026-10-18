@@ -39,8 +39,10 @@ impl PreparedAudio {
         let mut bytes = vec![0; count * 4];
         input.read_exact(&mut bytes)?;
         Ok(bytes
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
             .collect())
     }
     pub fn mono_samples(&self) -> Result<Vec<f32>> {
@@ -48,7 +50,13 @@ impl PreparedAudio {
         let mut pos = 0;
         while pos < self.frames {
             let samples = self.read_frames(pos, 65536)?;
-            output.extend(samples.chunks_exact(2).map(|s| (s[0] + s[1]) * 0.5));
+            output.extend(
+                samples
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|s| (s[0] + s[1]) * 0.5),
+            );
             pos += samples.len() as u64 / 2;
         }
         Ok(output)
@@ -147,8 +155,10 @@ impl MediaRuntime {
             ensure!(n.is_multiple_of(4), "Unaligned PCM");
             ensure!(
                 chunk[..n]
-                    .chunks_exact(4)
-                    .all(|b| f32::from_le_bytes(b.try_into().unwrap()).is_finite()),
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .all(|b| f32::from_le_bytes(*b).is_finite()),
                 "Non-finite PCM"
             );
         }
