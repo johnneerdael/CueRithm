@@ -1,0 +1,2159 @@
+{
+  "provenance": {
+    "application": "Lexicon",
+    "version": "1.11.15",
+    "asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "pretty_sha256": "032bb911711c2ed0da24ce67fad2187fa456faf58ec65f0379c03fb9ef1397e3",
+    "helpers": 28,
+    "helper_execution": "Selected pure helpers; no application startup or library access",
+    "renderer_enum_side_effect": "Unused enum initialization bypassed",
+    "case_isolation": "Text-cleaner state reset for each independent scalar case"
+  },
+  "node": "v26.0.0",
+  "cases": [
+    {
+      "id": "title_case-1",
+      "family": "title_case",
+      "input": {
+        "title": "signal and sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal And Sound"
+      },
+      "expected": {
+        "title": "Signal And Sound"
+      }
+    },
+    {
+      "id": "title_case-2",
+      "family": "title_case",
+      "input": {
+        "title": "SIGNAL AND SOUND"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal And Sound"
+      },
+      "expected": {
+        "title": "Signal And Sound"
+      }
+    },
+    {
+      "id": "title_case-3",
+      "family": "title_case",
+      "input": {
+        "title": "Mixed Title"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Mixed Title"
+      },
+      "expected": {
+        "title": "Mixed Title"
+      }
+    },
+    {
+      "id": "title_case-4",
+      "family": "title_case",
+      "input": {
+        "title": "a"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "A"
+      },
+      "expected": {
+        "title": "A"
+      }
+    },
+    {
+      "id": "title_case-5",
+      "family": "title_case",
+      "input": {
+        "title": "A"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "A"
+      },
+      "expected": {
+        "title": "A"
+      }
+    },
+    {
+      "id": "title_case-6",
+      "family": "title_case",
+      "input": {
+        "title": "DJ"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "DJ"
+      },
+      "expected": {
+        "title": "DJ"
+      }
+    },
+    {
+      "id": "title_case-7",
+      "family": "title_case",
+      "input": {
+        "title": "dj"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "DJ"
+      },
+      "expected": {
+        "title": "DJ"
+      }
+    },
+    {
+      "id": "title_case-8",
+      "family": "title_case",
+      "input": {
+        "title": "mc and va"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "MC And VA"
+      },
+      "expected": {
+        "title": "MC And VA"
+      }
+    },
+    {
+      "id": "title_case-9",
+      "family": "title_case",
+      "input": {
+        "title": "ÉTÉ"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Été"
+      },
+      "expected": {
+        "title": "Été"
+      }
+    },
+    {
+      "id": "title_case-10",
+      "family": "title_case",
+      "input": {
+        "title": "été"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Été"
+      },
+      "expected": {
+        "title": "Été"
+      }
+    },
+    {
+      "id": "title_case-11",
+      "family": "title_case",
+      "input": {
+        "title": "ß"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "ß"
+      },
+      "expected": {
+        "title": "ß"
+      }
+    },
+    {
+      "id": "title_case-12",
+      "family": "title_case",
+      "input": {
+        "title": "signal: the sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal: The Sound"
+      },
+      "expected": {
+        "title": "Signal: The Sound"
+      }
+    },
+    {
+      "id": "title_case-13",
+      "family": "title_case",
+      "input": {
+        "title": "signal - the sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal - The Sound"
+      },
+      "expected": {
+        "title": "Signal - The Sound"
+      }
+    },
+    {
+      "id": "title_case-14",
+      "family": "title_case",
+      "input": {
+        "title": "the dj vs mc"
+      },
+      "options": {},
+      "policy_deviation": "Preserve the vs token rather than dropping it.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "The DJ  MC"
+      },
+      "expected": {
+        "title": "The DJ vs MC"
+      }
+    },
+    {
+      "id": "title_case-15",
+      "family": "title_case",
+      "input": {
+        "title": "DJ VS MC"
+      },
+      "options": {},
+      "policy_deviation": "Preserve the vs token rather than dropping it.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "DJ  MC"
+      },
+      "expected": {
+        "title": "DJ vs MC"
+      }
+    },
+    {
+      "id": "title_case-16",
+      "family": "title_case",
+      "input": {
+        "title": "N.Y.C."
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "N.Y.C."
+      },
+      "expected": {
+        "title": "N.Y.C."
+      }
+    },
+    {
+      "id": "title_case-17",
+      "family": "title_case",
+      "input": {
+        "title": "iPhone signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "iPhone signal"
+      },
+      "expected": {
+        "title": "iPhone signal"
+      }
+    },
+    {
+      "id": "title_case-18",
+      "family": "title_case",
+      "input": {
+        "title": "Signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "replace_characters-1",
+      "family": "replace_characters",
+      "input": {
+        "title": "Signal_Track"
+      },
+      "options": {
+        "characters": "_"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal Track"
+      },
+      "expected": {
+        "title": "Signal Track"
+      }
+    },
+    {
+      "id": "replace_characters-2",
+      "family": "replace_characters",
+      "input": {
+        "title": "  Signal__Track  "
+      },
+      "options": {
+        "characters": "_"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal  Track"
+      },
+      "expected": {
+        "title": "Signal  Track"
+      }
+    },
+    {
+      "id": "replace_characters-3",
+      "family": "replace_characters",
+      "input": {
+        "title": "Signal.*[Track]"
+      },
+      "options": {
+        "characters": ".*[]"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal   Track"
+      },
+      "expected": {
+        "title": "Signal   Track"
+      }
+    },
+    {
+      "id": "replace_characters-4",
+      "family": "replace_characters",
+      "input": {
+        "title": "No_change"
+      },
+      "options": {
+        "characters": "x"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "No_change"
+      },
+      "expected": {
+        "title": "No_change"
+      }
+    },
+    {
+      "id": "replace_characters-5",
+      "family": "replace_characters",
+      "input": {
+        "title": "Signal😀Track"
+      },
+      "options": {
+        "characters": "😀"
+      },
+      "policy_deviation": "Replace Unicode scalar characters without splitting surrogate pairs.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal  Track"
+      },
+      "expected": {
+        "title": "Signal Track"
+      }
+    },
+    {
+      "id": "decode_entities-1",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &amp; Sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal & Sound"
+      },
+      "expected": {
+        "title": "Signal & Sound"
+      }
+    },
+    {
+      "id": "decode_entities-2",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &lt;3"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal <3"
+      },
+      "expected": {
+        "title": "Signal <3"
+      }
+    },
+    {
+      "id": "decode_entities-3",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &quot;Sound&quot;"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal \"Sound\""
+      },
+      "expected": {
+        "title": "Signal \"Sound\""
+      }
+    },
+    {
+      "id": "decode_entities-4",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &#233;"
+      },
+      "options": {},
+      "policy_deviation": "Decode numeric and nested entities in a bounded pass sequence.",
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal &#233;"
+      },
+      "expected": {
+        "title": "Signal é"
+      }
+    },
+    {
+      "id": "decode_entities-5",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &#x1f600;"
+      },
+      "options": {},
+      "policy_deviation": "Decode numeric and nested entities in a bounded pass sequence.",
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal &#x1f600;"
+      },
+      "expected": {
+        "title": "Signal 😀"
+      }
+    },
+    {
+      "id": "decode_entities-6",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &amp;amp; Sound"
+      },
+      "options": {},
+      "policy_deviation": "Decode numeric and nested entities in a bounded pass sequence.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal &amp; Sound"
+      },
+      "expected": {
+        "title": "Signal & Sound"
+      }
+    },
+    {
+      "id": "decode_entities-7",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &nbsp; Sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal   Sound"
+      },
+      "expected": {
+        "title": "Signal   Sound"
+      },
+      "policy_deviation": "Decode the actual Unicode entity instead of a literal backslash escape."
+    },
+    {
+      "id": "decode_entities-8",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &COPY;"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal ©"
+      },
+      "expected": {
+        "title": "Signal ©"
+      }
+    },
+    {
+      "id": "decode_entities-9",
+      "family": "decode_entities",
+      "input": {
+        "title": "Signal &unknown;"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal &unknown;"
+      },
+      "expected": {
+        "title": "Signal &unknown;"
+      }
+    },
+    {
+      "id": "decode_entities-10",
+      "family": "decode_entities",
+      "input": {
+        "title": "Plain signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Plain signal"
+      },
+      "expected": {
+        "title": "Plain signal"
+      }
+    },
+    {
+      "id": "extract_artist-1",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist - Signal",
+        "artist": null
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist"
+      }
+    },
+    {
+      "id": "extract_artist-2",
+      "family": "extract_artist",
+      "input": {
+        "title": "Signal - Artist",
+        "artist": null
+      },
+      "options": {
+        "part": 2
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist"
+      }
+    },
+    {
+      "id": "extract_artist-3",
+      "family": "extract_artist",
+      "input": {
+        "title": "Prefix - Artist - Signal",
+        "artist": null
+      },
+      "options": {
+        "part": 2
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist"
+      }
+    },
+    {
+      "id": "extract_artist-4",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist – Signal",
+        "artist": null
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist"
+      }
+    },
+    {
+      "id": "extract_artist-5",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist — Signal",
+        "artist": null
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Artist — Signal",
+        "artist": null
+      },
+      "expected": {
+        "title": "Artist — Signal",
+        "artist": null
+      }
+    },
+    {
+      "id": "extract_artist-6",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist - Signal",
+        "artist": "Existing"
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Artist - Signal",
+        "artist": "Existing"
+      },
+      "expected": {
+        "title": "Artist - Signal",
+        "artist": "Existing"
+      }
+    },
+    {
+      "id": "extract_artist-7",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist - Signal",
+        "artist": " "
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Artist - Signal",
+        "artist": " "
+      },
+      "expected": {
+        "title": "Artist - Signal",
+        "artist": " "
+      }
+    },
+    {
+      "id": "extract_artist-8",
+      "family": "extract_artist",
+      "input": {
+        "title": "Only signal",
+        "artist": null
+      },
+      "options": {
+        "part": 1
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Only signal",
+        "artist": null
+      },
+      "expected": {
+        "title": "Only signal",
+        "artist": null
+      }
+    },
+    {
+      "id": "extract_artist-9",
+      "family": "extract_artist",
+      "input": {
+        "title": "Artist - Signal",
+        "artist": null
+      },
+      "options": {
+        "part": 3
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Artist - Signal",
+        "artist": null
+      },
+      "expected": {
+        "title": "Artist - Signal",
+        "artist": null
+      }
+    },
+    {
+      "id": "extract_remixer-1",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara"
+      }
+    },
+    {
+      "id": "extract_remixer-2",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Original Mix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Original Mix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "expected": {
+        "title": "Signal (Original Mix)",
+        "artist": "Artist",
+        "remixer": null
+      }
+    },
+    {
+      "id": "extract_remixer-3",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Extended Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Extended Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "expected": {
+        "title": "Signal (Extended Remix)",
+        "artist": "Artist",
+        "remixer": null
+      }
+    },
+    {
+      "id": "extract_remixer-4",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara Club Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara"
+      }
+    },
+    {
+      "id": "extract_remixer-5",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara Edit)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Clara Edit)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "expected": {
+        "title": "Signal (Clara Edit)",
+        "artist": "Artist",
+        "remixer": null
+      }
+    },
+    {
+      "id": "extract_remixer-6",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara remix) Outro",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal Outro",
+        "artist": "Artist",
+        "remixer": "Clara"
+      },
+      "expected": {
+        "title": "Signal Outro",
+        "artist": "Artist",
+        "remixer": "Clara"
+      }
+    },
+    {
+      "id": "extract_remixer-7",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal Remix",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal Remix",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "expected": {
+        "title": "Signal Remix",
+        "artist": "Artist",
+        "remixer": null
+      }
+    },
+    {
+      "id": "extract_remixer-8",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "expected": {
+        "title": "Signal (Remix)",
+        "artist": "Artist",
+        "remixer": null
+      }
+    },
+    {
+      "id": "extract_remixer-9",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara & Alex Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara & Alex"
+      },
+      "expected": {
+        "title": "Signal",
+        "artist": "Artist",
+        "remixer": "Clara & Alex"
+      }
+    },
+    {
+      "id": "extract_remixer-10",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": null
+      },
+      "options": {
+        "remove_title": false
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": "Clara"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": "Clara"
+      }
+    },
+    {
+      "id": "extract_remixer-11",
+      "family": "extract_remixer",
+      "input": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": "Existing"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": "Existing"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)",
+        "artist": "Artist",
+        "remixer": "Existing"
+      }
+    },
+    {
+      "id": "remove_garbage-1",
+      "family": "remove_garbage",
+      "input": {
+        "title": "  Signal  "
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-2",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal  Sound"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal Sound"
+      },
+      "expected": {
+        "title": "Signal Sound"
+      }
+    },
+    {
+      "id": "remove_garbage-3",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal["
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-4",
+      "family": "remove_garbage",
+      "input": {
+        "title": "[Signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "[Signal"
+      },
+      "expected": {
+        "title": "[Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-5",
+      "family": "remove_garbage",
+      "input": {
+        "title": "(Signal)"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "(Signal)"
+      },
+      "expected": {
+        "title": "(Signal)"
+      }
+    },
+    {
+      "id": "remove_garbage-6",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal () Sound"
+      },
+      "options": {},
+      "policy_deviation": "Normalize whitespace created by removing empty brackets.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal  Sound"
+      },
+      "expected": {
+        "title": "Signal Sound"
+      }
+    },
+    {
+      "id": "remove_garbage-7",
+      "family": "remove_garbage",
+      "input": {
+        "title": "(( ))"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "()"
+      },
+      "expected": {
+        "title": ""
+      },
+      "policy_deviation": "Remove nested empty brackets completely so cleanup is idempotent."
+    },
+    {
+      "id": "remove_garbage-8",
+      "family": "remove_garbage",
+      "input": {
+        "title": "C++"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "C++"
+      },
+      "expected": {
+        "title": "C++"
+      }
+    },
+    {
+      "id": "remove_garbage-9",
+      "family": "remove_garbage",
+      "input": {
+        "title": "+ Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-10",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal +"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-11",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal+"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal+"
+      },
+      "expected": {
+        "title": "Signal+"
+      }
+    },
+    {
+      "id": "remove_garbage-12",
+      "family": "remove_garbage",
+      "input": {
+        "title": "+Signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "+Signal"
+      },
+      "expected": {
+        "title": "+Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-13",
+      "family": "remove_garbage",
+      "input": {
+        "title": "A & B"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "A & B"
+      },
+      "expected": {
+        "title": "A & B"
+      }
+    },
+    {
+      "id": "remove_garbage-14",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal |"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-15",
+      "family": "remove_garbage",
+      "input": {
+        "title": "Signal\\"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_garbage-16",
+      "family": "remove_garbage",
+      "input": {
+        "title": "No change"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "No change"
+      },
+      "expected": {
+        "title": "No change"
+      }
+    },
+    {
+      "id": "remove_number_prefix-1",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "01. Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-2",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "02 - Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-3",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "(03) Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-4",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "007 Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-5",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "12345"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "12345"
+      },
+      "expected": {
+        "title": "12345"
+      }
+    },
+    {
+      "id": "remove_number_prefix-6",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "2020Vision"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "2020Vision"
+      },
+      "expected": {
+        "title": "2020Vision"
+      }
+    },
+    {
+      "id": "remove_number_prefix-7",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "Signal 01"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal 01"
+      },
+      "expected": {
+        "title": "Signal 01"
+      }
+    },
+    {
+      "id": "remove_number_prefix-8",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "東京 - Signal"
+      },
+      "options": {},
+      "policy_deviation": "Retain a Unicode word; it is not a number prefix.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "東京 - Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-9",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "--- Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-10",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "0. Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_number_prefix-11",
+      "family": "remove_number_prefix",
+      "input": {
+        "title": "12.. Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_urls-1",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal https://example.com"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_urls-2",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal (www.example.com)"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_urls-3",
+      "family": "remove_urls",
+      "input": {
+        "title": "name@example.com"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": ""
+      },
+      "expected": {
+        "title": ""
+      }
+    },
+    {
+      "id": "remove_urls-4",
+      "family": "remove_urls",
+      "input": {
+        "title": "name@example.info"
+      },
+      "options": {},
+      "policy_deviation": "Preserve bare audio filenames and remove complete email addresses.",
+      "source_candidate": false,
+      "source_output": {
+        "title": "name@example.info"
+      },
+      "expected": {
+        "title": ""
+      }
+    },
+    {
+      "id": "remove_urls-5",
+      "family": "remove_urls",
+      "input": {
+        "title": "name+tag@example.com"
+      },
+      "options": {},
+      "policy_deviation": "Preserve bare audio filenames and remove complete email addresses.",
+      "source_candidate": true,
+      "source_output": {
+        "title": "name+"
+      },
+      "expected": {
+        "title": ""
+      }
+    },
+    {
+      "id": "remove_urls-6",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal example.nl"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_urls-7",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal.wav"
+      },
+      "options": {},
+      "policy_deviation": "Preserve bare audio filenames and remove complete email addresses.",
+      "source_candidate": true,
+      "source_output": {
+        "title": ""
+      },
+      "expected": {
+        "title": "Signal.wav"
+      }
+    },
+    {
+      "id": "remove_urls-8",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal.flac"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal.flac"
+      },
+      "expected": {
+        "title": "Signal.flac"
+      }
+    },
+    {
+      "id": "remove_urls-9",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal https://müsic.example"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal https://müsic.example"
+      },
+      "expected": {
+        "title": "Signal"
+      },
+      "policy_deviation": "Recognize the complete explicit Unicode URL instead of leaving it behind."
+    },
+    {
+      "id": "remove_urls-10",
+      "family": "remove_urls",
+      "input": {
+        "title": "Plain signal"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Plain signal"
+      },
+      "expected": {
+        "title": "Plain signal"
+      }
+    },
+    {
+      "id": "remove_urls-11",
+      "family": "remove_urls",
+      "input": {
+        "title": "Signal",
+        "comment": "https://example.com"
+      },
+      "options": {
+        "field": "comment",
+        "clear_field": true
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal",
+        "comment": null
+      },
+      "expected": {
+        "title": "Signal",
+        "comment": null
+      }
+    },
+    {
+      "id": "mix_parentheses-1",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal - Clara Remix"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Clara Remix)"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-2",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal Original Mix"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Original Mix)"
+      },
+      "expected": {
+        "title": "Signal (Original Mix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-3",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal - Extended Mix"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Extended Mix)"
+      },
+      "expected": {
+        "title": "Signal (Extended Mix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-4",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal (Clara Remix)"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Clara Remix)"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-5",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal (Original Mix)"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Original Mix)"
+      },
+      "expected": {
+        "title": "Signal (Original Mix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-6",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal (Mix - Clara Remix)"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Mix - Clara Remix)"
+      },
+      "expected": {
+        "title": "Signal (Mix - Clara Remix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-7",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal - (Clara Remix)"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Clara Remix)"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-8",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal - Clara (Remix)"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Clara (Remix)"
+      },
+      "expected": {
+        "title": "Signal (Clara (Remix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-9",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Original Mix"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "(Original Mix)"
+      },
+      "expected": {
+        "title": "(Original Mix)"
+      }
+    },
+    {
+      "id": "mix_parentheses-10",
+      "family": "mix_parentheses",
+      "input": {
+        "title": "Signal - Radio Edit"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal (Radio Edit)"
+      },
+      "expected": {
+        "title": "Signal (Radio Edit)"
+      }
+    },
+    {
+      "id": "remove_common_text-1",
+      "family": "remove_common_text",
+      "input": {
+        "title": "8A - Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-2",
+      "family": "remove_common_text",
+      "input": {
+        "title": "12B Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-3",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal - 9A 7"
+      },
+      "options": {
+        "kind": "CamelotKeyFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-4",
+      "family": "remove_common_text",
+      "input": {
+        "title": "13A - Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "13A - Signal"
+      },
+      "expected": {
+        "title": "13A - Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-5",
+      "family": "remove_common_text",
+      "input": {
+        "title": "signal 8A"
+      },
+      "options": {
+        "kind": "CamelotKeyFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "signal 8A"
+      },
+      "expected": {
+        "title": "signal 8A"
+      }
+    },
+    {
+      "id": "remove_common_text-6",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal (Original Mix)"
+      },
+      "options": {
+        "kind": "OriginalMixFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-7",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal - Original Mix"
+      },
+      "options": {
+        "kind": "OriginalMixFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-8",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal original"
+      },
+      "options": {
+        "kind": "OriginalMixFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-9",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Original Mix"
+      },
+      "options": {
+        "kind": "OriginalMixFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Original Mix"
+      },
+      "expected": {
+        "title": "Original Mix"
+      }
+    },
+    {
+      "id": "remove_common_text-10",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal (Original Remix)"
+      },
+      "options": {
+        "kind": "OriginalMixFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Original Remix)"
+      },
+      "expected": {
+        "title": "Signal (Original Remix)"
+      }
+    },
+    {
+      "id": "remove_common_text-11",
+      "family": "remove_common_text",
+      "input": {
+        "title": "8A - 7 - Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyEnergyFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-12",
+      "family": "remove_common_text",
+      "input": {
+        "title": "12B - 128 - Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyEnergyFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-13",
+      "family": "remove_common_text",
+      "input": {
+        "title": "8A - Signal"
+      },
+      "options": {
+        "kind": "CamelotKeyEnergyFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "8A - Signal"
+      },
+      "expected": {
+        "title": "8A - Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-14",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal 128"
+      },
+      "options": {
+        "kind": "BpmFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-15",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal 9"
+      },
+      "options": {
+        "kind": "BpmFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal 9"
+      },
+      "expected": {
+        "title": "Signal 9"
+      }
+    },
+    {
+      "id": "remove_common_text-16",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal 1999"
+      },
+      "options": {
+        "kind": "BpmFromTitle"
+      },
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_common_text-17",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal 0"
+      },
+      "options": {
+        "kind": "BpmFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal 0"
+      },
+      "expected": {
+        "title": "Signal 0"
+      }
+    },
+    {
+      "id": "remove_common_text-18",
+      "family": "remove_common_text",
+      "input": {
+        "title": "Signal 01"
+      },
+      "options": {
+        "kind": "BpmFromTitle"
+      },
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal 01"
+      },
+      "expected": {
+        "title": "Signal 01"
+      }
+    },
+    {
+      "id": "remove_promotional_text-1",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal [FREE DOWNLOAD]"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-2",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal (OUT NOW)"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-3",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "PREMIERE - Signal"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-4",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal purchased from Store"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-5",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal free spirit"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal free spirit"
+      },
+      "expected": {
+        "title": "Signal free spirit"
+      }
+    },
+    {
+      "id": "remove_promotional_text-6",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal (Clara Remix)"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal (Clara Remix)"
+      },
+      "expected": {
+        "title": "Signal (Clara Remix)"
+      }
+    },
+    {
+      "id": "remove_promotional_text-7",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal [Exclusive] -"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-8",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal https://example.com"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-9",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal © 2024 Artist"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-10",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal unreleased"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal unreleased"
+      },
+      "expected": {
+        "title": "Signal unreleased"
+      }
+    },
+    {
+      "id": "remove_promotional_text-11",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal available on Store"
+      },
+      "options": {},
+      "source_candidate": true,
+      "source_output": {
+        "title": "Signal"
+      },
+      "expected": {
+        "title": "Signal"
+      }
+    },
+    {
+      "id": "remove_promotional_text-12",
+      "family": "remove_promotional_text",
+      "input": {
+        "title": "Signal - Support the artist"
+      },
+      "options": {},
+      "source_candidate": false,
+      "source_output": {
+        "title": "Signal - Support the artist"
+      },
+      "expected": {
+        "title": "Signal - Support the artist"
+      }
+    }
+  ]
+}

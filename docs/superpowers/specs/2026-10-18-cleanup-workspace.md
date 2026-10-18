@@ -34,7 +34,10 @@ source result; do not advertise these differences as exact parity.
 ## Shared rule engine
 
 Use original, independent Rust code with explicit typed options and validated
-limits. Rule order is user-controlled and deterministic. Preserve multiple
+limits. Smart Fix order is user-controlled and deterministic; canonical genre
+and contributor mappings follow. Active alias sources/targets are protected from
+text fixes in their selected roles so explicit mappings remain applicable and
+chosen canonical spelling survives repeated cleanup. Preserve multiple
 native contributors and genre values; do not split an artist name on punctuation
 to guess separate identities. Preserve field ordering where it has meaning.
 Empty/malformed extraction separators, invalid part indices, cyclic alias rules
