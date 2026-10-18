@@ -42,6 +42,21 @@ impl Default for PreparationSettings {
     }
 }
 impl PreparationSettings {
+    pub fn include_subfolders(&self) -> bool {
+        #[cfg(feature = "autotag")]
+        {
+            self.tagging
+                .as_ref()
+                .is_none_or(|config| config.options.include_subfolders)
+        }
+        #[cfg(not(feature = "autotag"))]
+        {
+            self.tagging
+                .as_ref()
+                .and_then(|config| config.get("options")?.get("includeSubfolders")?.as_bool())
+                .unwrap_or(true)
+        }
+    }
     pub fn validate(&self) -> Result<()> {
         self.engine.validate()?;
         #[cfg(feature = "autotag")]

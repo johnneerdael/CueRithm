@@ -246,3 +246,15 @@ fn skip_tagged_recognizes_cuerithm_and_legacy_markers_without_network() {
     }
     assert!(calls.lock().unwrap().is_empty());
 }
+
+#[test]
+fn invalid_file_tag_limits_are_rejected_before_any_write() {
+    let mut config = AutotagConfig::default();
+    config.options.track_number_leading_zeroes = usize::MAX;
+    assert!(config.validate().is_err());
+    config = AutotagConfig::default();
+    config.options.id3_comm_lang = Some("invalid".into());
+    assert!(config.validate().is_err());
+    config.options.id3_comm_lang = Some("eng".into());
+    assert!(config.validate().is_ok());
+}

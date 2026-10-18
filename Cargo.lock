@@ -953,6 +953,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "camelot-core",
+ "cuerithm-autotag",
  "cuerithm-library",
  "cuerithm-media",
  "serde",

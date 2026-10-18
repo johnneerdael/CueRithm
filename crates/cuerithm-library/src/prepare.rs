@@ -139,11 +139,14 @@ impl PreparationService {
         })
     }
     pub fn enqueue_paths(&self, paths: &[PathBuf]) -> Result<Vec<JobId>> {
-        let rev = self.library.settings()?.revision;
+        let snapshot = self.library.settings()?;
+        let recursive = snapshot.settings.include_subfolders();
+        let rev = snapshot.revision;
         let mut files = Vec::new();
         for path in paths {
             if path.is_dir() {
                 for entry in walkdir::WalkDir::new(path)
+                    .max_depth(if recursive { usize::MAX } else { 1 })
                     .follow_links(false)
                     .into_iter()
                     .filter_entry(|e| !e.path().starts_with(self.library.data_dir()))
@@ -273,7 +276,7 @@ impl Worker {
                 }
             })
             .ok();
-        let mut watched = HashSet::new();
+        let mut watched = std::collections::HashMap::new();
         let mut next_scan = Instant::now();
         let mut pending = HashSet::new();
         while !self.stop.load(Ordering::Relaxed) {
@@ -290,11 +293,12 @@ impl Worker {
                     break;
                 }
             };
+            let folders = &snapshot.settings.watch_folders;
+            let recursive = snapshot.settings.include_subfolders();
             if Instant::now() >= next_scan {
-                let folders = &snapshot.settings.watch_folders;
                 let mut errors = Vec::new();
-                for old in watched.clone() {
-                    if !folders.contains(&old) {
+                for (old, old_recursive) in watched.clone() {
+                    if !folders.contains(&old) || old_recursive != recursive {
                         if let Some(ref mut w) = watcher {
                             let _ = w.unwatch(&old);
                         }
@@ -306,11 +310,18 @@ impl Worker {
                         errors.push(format!("Folder is offline: {}", path.display()));
                         continue;
                     }
-                    if !watched.contains(path) {
+                    if !watched.contains_key(path) {
                         if let Some(ref mut w) = watcher {
-                            match w.watch(path, RecursiveMode::Recursive) {
+                            match w.watch(
+                                path,
+                                if recursive {
+                                    RecursiveMode::Recursive
+                                } else {
+                                    RecursiveMode::NonRecursive
+                                },
+                            ) {
                                 Ok(()) => {
-                                    watched.insert(path.clone());
+                                    watched.insert(path.clone(), recursive);
                                 }
                                 Err(e) => errors.push(e.to_string()),
                             }
@@ -320,7 +331,7 @@ impl Worker {
                     }
                 }
                 self.status.lock().unwrap().watch_errors = errors;
-                pending.extend(discovery.scan(folders, self.library.data_dir()));
+                pending.extend(discovery.scan(folders, self.library.data_dir(), recursive));
                 next_scan = Instant::now() + Duration::from_secs(5);
             }
             if !pending.is_empty() {
@@ -328,6 +339,7 @@ impl Worker {
                     .drain()
                     .filter(|p| {
                         p.is_file()
+                            && watch::in_scope(p, folders, recursive)
                             && watch::supported_path(p)
                             && !p.starts_with(self.library.data_dir())
                     })

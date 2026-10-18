@@ -107,6 +107,17 @@ struct Backend {
     source: Arc<dyn ProviderBackend>,
     gate: Gate,
 }
+#[derive(serde::Serialize)]
+pub struct TaggingCatalog {
+    pub defaults: AutotagConfig,
+    pub providers: Vec<PlatformInfo>,
+}
+pub fn settings_catalog() -> TaggingCatalog {
+    TaggingCatalog {
+        defaults: AutotagConfig::default(),
+        providers: Tagger::provider_options(),
+    }
+}
 pub struct Tagger {
     backends: Vec<Backend>,
 }

@@ -92,9 +92,15 @@ existing unfinished jobs migrate to the built-in revision on upgrade. The
 standalone CLI retains its explicit-model API. The app never invents results
 to mark an incomplete track ready.
 
-Beatport/Traxsource tagging, cleanup, ordinary/smart playlists and direct rekordbox
-6/7 sync are subsequent approved deliveries; their desktop controls are not yet
-enabled. No desktop XML fallback exists. This foundation is an unsigned test
+Automatic tagging reuses selected OneTagger code for Beatport and Traxsource.
+Provider order, matching, selected/overwrite fields, genres/styles, artwork and
+file-tag formats are saved once in Settings. Enabled tagging is required before
+Incoming promotes a track; provider errors remain available for retry. See
+[automatic tagging](docs/automatic-tagging.md) for policies and provider validation.
+Existing offline settings are preserved until tagging is enabled.
+
+Cleanup, ordinary/smart playlists and direct rekordbox 6/7 sync remain subsequent
+approved deliveries; their desktop controls are not yet enabled. No desktop XML fallback exists. This foundation is an unsigned test
 build, not a signed public release or a complete product-parity claim.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,

@@ -75,6 +75,7 @@ pub fn run() {
             commands::get_track,
             commands::get_artwork,
             commands::get_settings,
+            commands::tagging_catalog,
             commands::save_settings,
             commands::enqueue_paths,
             commands::retry_job,
