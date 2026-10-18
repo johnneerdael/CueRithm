@@ -197,7 +197,7 @@ impl Library {
             [&needle],
             |r| r.get(0),
         )?;
-        let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
+        let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
         let rows = stmt
             .query_map(params![needle, query.limit, offset], summary_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -224,7 +224,7 @@ impl Library {
             .collect::<rusqlite::Result<_>>()?)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash FROM tracks WHERE id=?1",[id],summary_row)?)
+        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated FROM tracks WHERE id=?1",[id],summary_row)?)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
         Ok(self
@@ -314,7 +314,15 @@ fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
             e.into_boxed_dyn_error(),
         )
     })?;
+    let mut metadata: std::collections::BTreeMap<String, serde_json::Value> = r
+        .get::<_, Option<String>>(12)?
+        .and_then(|s| serde_json::from_str::<cuerithm_media::MediaInfo>(&s).ok())
+        .map(|info| info.columns())
+        .unwrap_or_default();
+    metadata.insert("library.date_added".into(), r.get::<_, i64>(13)?.into());
+    metadata.insert("library.date_modified".into(), r.get::<_, i64>(14)?.into());
     Ok(TrackSummary {
+        metadata,
         id: r.get(0)?,
         source_sha256: r.get(11)?,
         display_path: path.to_string_lossy().into_owned(),

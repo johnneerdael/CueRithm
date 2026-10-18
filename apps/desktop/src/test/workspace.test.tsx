@@ -4,6 +4,51 @@ import App from "../App";
 import {fakeBridge,track} from "./bridge";
 
 describe("library workspace",()=>{
+  it("offers metadata from the whole library and retains custom columns after remount",async()=>{
+    const bridge=fakeBridge([{...track("a"),metadata:{"tag.label":"Example label","audio.sample_rate":44100}}]);
+    bridge.getMetadataFields=vi.fn(async()=>["tag.label","tag.custom:mood","audio.sample_rate"]);
+    const first=render(<App bridge={bridge}/>);
+    await screen.findByText("Track a");
+    fireEvent.click(screen.getByRole("button",{name:"Columns"}));
+    fireEvent.click(await screen.findByRole("checkbox",{name:"Label"}));
+    expect(screen.getByRole("checkbox",{name:"Custom:mood"})).toBeInTheDocument();
+    expect(screen.getByRole("columnheader",{name:"LABEL"})).toBeInTheDocument();
+    expect(screen.getByText("Example label")).toBeInTheDocument();
+    first.unmount();render(<App bridge={bridge}/>);
+    await screen.findByText("Example label");
+    expect(screen.getByRole("columnheader",{name:"LABEL"})).toBeInTheDocument();
+  });
+  it("jumps one bar with arrow keys using current playback position, queues repeats and respects controls",async()=>{
+    const bridge=fakeBridge([track("a")]);
+    const load=bridge.playerLoad;
+    bridge.playerLoad=vi.fn(async id=>({...await load(id),analysis:{complete:true,source_sample_rate:44100,analysis:{duration_seconds:240,key:null,energy:null,tempo:{bpm:120,beats_seconds:[0,.5,1],downbeats_seconds:null},lexicon_cues:null}}}));
+    render(<App bridge={bridge}/>);
+    await screen.findByText("Track a");
+    fireEvent.doubleClick(screen.getByText("Track a"));
+    await screen.findByRole("button",{name:"Pause"});
+    await bridge.playerSeek(3.25);
+    vi.mocked(bridge.playerSeek).mockClear();
+    fireEvent.keyDown(window,{key:"ArrowRight"});
+    fireEvent.keyDown(window,{key:"ArrowRight"});
+    await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledTimes(2));
+    expect(bridge.playerSeek).toHaveBeenNthCalledWith(1,5.25);
+    expect(bridge.playerSeek).toHaveBeenNthCalledWith(2,7.25);
+    fireEvent.keyDown(screen.getByRole("slider",{name:"Track overview"}),{key:"ArrowLeft"});
+    await waitFor(()=>expect(bridge.playerSeek).toHaveBeenLastCalledWith(5.25));
+    expect(bridge.playerSeek).toHaveBeenCalledTimes(3);
+    fireEvent.keyDown(screen.getByRole("searchbox"),{key:"ArrowRight"});
+    fireEvent.keyDown(screen.getByRole("slider",{name:"Volume"}),{key:"ArrowRight"});
+    fireEvent.keyDown(window,{key:"ArrowRight",metaKey:true});
+    expect(bridge.playerSeek).toHaveBeenCalledTimes(3);
+    await bridge.playerSeek(239);
+    vi.mocked(bridge.playerSeek).mockClear();
+    fireEvent.keyDown(window,{key:"ArrowRight"});
+    await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(240));
+    await bridge.playerSeek(.25);
+    vi.mocked(bridge.playerSeek).mockClear();
+    fireEvent.keyDown(window,{key:"ArrowLeft"});
+    await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(0));
+  });
   it("retries cover extraction after a transient failure and remount",async()=>{
     const bridge=fakeBridge([track("a")]);
     bridge.getArtwork=vi.fn().mockRejectedValueOnce(new Error("Drive offline")).mockResolvedValue("data:image/png;base64,iVBORw0KGgo=");

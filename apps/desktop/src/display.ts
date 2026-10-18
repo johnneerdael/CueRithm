@@ -5,3 +5,15 @@ export function time(seconds:number|undefined|null,precise=false):string {
 }
 const colors:Record<string,string>={Red:"#f26974",Blue:"#5c9ff2",Orange:"#edb267",Yellow:"#dfce62",Purple:"#b593f6",Green:"#59ceb0",Pink:"#e98ac4"};
 export const cueColor=(color:string)=>colors[color]??"#00d2bf";
+
+// Number/mode palette from https://dj.studio/blog/camelot-wheel (both rings).
+const camelotColors:Record<string,string>={
+  "1A":"#7bf4e5","1B":"#00eed3","2A":"#99f3c0","2B":"#44ed92",
+  "3A":"#c2f6a6","3B":"#95f061","4A":"#ffe4a1","4B":"#ffd359",
+  "5A":"#ffd1be","5B":"#ffb18e","6A":"#ffc6ca","6B":"#ff9da5",
+  "7A":"#ffc3db","7B":"#ff98c1","8A":"#f7c4ec","8B":"#f29be1",
+  "9A":"#e8cbff","9B":"#d7a6ff","10A":"#cfdeff","10B":"#aec6ff",
+  "11A":"#a8ecfc","11B":"#65e1fb","12A":"#79f4f6","12B":"#00efef",
+};
+export const camelotColor=(key:string|null|undefined)=>camelotColors[key?.trim().toUpperCase()??""];
+export const keyStyle=(key:string|null|undefined)=>{const color=camelotColor(key);return color?{background:color,borderColor:color,color:"#142421"}:undefined;};

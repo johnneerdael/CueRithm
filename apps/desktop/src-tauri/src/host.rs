@@ -28,6 +28,7 @@ pub struct Host {
     pub player: Mutex<Player>,
     pub loaded: Mutex<Option<(String, Arc<PreparedAudio>)>>,
     artwork_gate: Mutex<()>,
+    metadata_gate: Mutex<()>,
     pub generation: AtomicU64,
     pub alive: AtomicBool,
 }
@@ -71,6 +72,7 @@ impl Host {
             player: Mutex::new(Player::new()?),
             loaded: Mutex::new(None),
             artwork_gate: Mutex::new(()),
+            metadata_gate: Mutex::new(()),
             generation: AtomicU64::new(0),
             alive: AtomicBool::new(true),
         })
@@ -88,6 +90,34 @@ impl Host {
             source_sha256: self.library.source_hash(id)?,
             pcm_sha256,
         })
+    }
+    pub fn metadata_fields(&self) -> Result<Vec<String>> {
+        let _gate = self
+            .metadata_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Metadata refresh interrupted"))?;
+        for id in self.library.metadata_refresh_candidates()? {
+            if !self.alive.load(Ordering::Relaxed) {
+                break;
+            }
+            // Offline or changed sources keep their last confirmed metadata.
+            let _ = (|| -> Result<()> {
+                let hash = self.library.source_hash(&id)?;
+                let path = self.library.track_path(&id)?;
+                ensure!(
+                    cuerithm_media::file_sha256(&path)? == hash,
+                    "Source changed"
+                );
+                let info = self.runtime.probe(&path)?;
+                ensure!(
+                    cuerithm_media::file_sha256(&path)? == hash,
+                    "Source changed"
+                );
+                self.library.update_legacy_metadata(&id, &hash, &info)?;
+                Ok(())
+            })();
+        }
+        self.library.metadata_fields()
     }
     pub fn artwork(&self, id: &str, identity: &str) -> Result<Option<String>> {
         use base64::Engine as _;

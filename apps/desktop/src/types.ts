@@ -1,6 +1,6 @@
 export type View="tracks"|"incoming"|"archive";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added";
-export interface Track {id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
+export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null}
 export interface TrackPage {rows:Track[];total:number;revision:number;next_cursor:string|null}
 export interface Cue {time_seconds:number;name:string;color:string}
@@ -23,6 +23,7 @@ export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[]}
 export interface Bridge {
   getState():Promise<LibraryState>;
+  getMetadataFields():Promise<string[]>;
   listTracks(query:TrackQuery):Promise<TrackPage>;
   selectTrackIds(query:TrackQuery):Promise<string[]>;
   getTrack(id:string):Promise<Detail>;

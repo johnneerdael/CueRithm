@@ -104,16 +104,38 @@ known identities, static evidence and precise missing target acceptance.
 ## Preview and batch throughput
 
 The main waveform defaults to the entire playable track, with all cue positions.
-Optional 8/16/32-second zoom is available. Cmd+A/Ctrl+A selects every matching
+Click the main waveform to switch between the entire track and 16 seconds;
+the small overview remains a click-to-seek control. Left/Right jumps backward or
+forward one four-beat bar at the analyzed BPM, preserving playback. Repeated
+keypresses are ordered against the current native position and clamped to the
+playable duration. Text fields and volume retain their normal arrow keys.
+Cmd+A/Ctrl+A selects every matching
 track in the current view, including unloaded pages; editable fields retain text
 selection. Embedded covers are read without modifying audio, bounded to 8 MiB,
 validated by image signature, and cached by raw source identity. Missing artwork
 uses the music icon. Transient extraction errors retry after remount.
 
-Preparation uses two independent workers on machines reporting at least four
-logical CPUs, otherwise one. One watcher owns discovery; each worker owns its
+Preparation uses 75% of the logical CPUs available to the process, rounded down,
+with a minimum of one worker (14 available cores gives 10 workers). This follows
+the requested CPU allocation; it is not a benchmark-derived optimum or a hard CPU
+utilization limit. One watcher owns discovery; each worker owns its
 analysis engine. Attempt-checked mutations prevent stale callbacks from changing
 a reused job ID, and event sequences remain globally ordered. A controlled local
 two-track benchmark took 20.054s with one worker and 10.079s with two; key, BPM,
 energy and cues matched. This is a local throughput measurement, not a universal
 speed guarantee. The underlying detection arithmetic was unchanged.
+
+
+The searchable column picker includes source tags and audio/container properties
+from every populated track, including fields beyond the currently loaded page.
+It retains custom column choices/order, and includes independent album art,
+location, filetype and library creation/modification dates. Common metadata uses
+readable labels; custom tag names remain available. Unprepared rows do not block
+field discovery. Opening the picker backfills legacy metadata from unchanged
+sources in the background without rerunning musical analysis or replacing cues.
+The main picker is a separate accessible dialog. Missing values show a dash.
+Plays, Last Played and Danceability are outside the requested scope.
+
+Camelot key chips in the table and player use the number and major/minor colors
+of the [provided DJ.Studio reference](https://dj.studio/blog/camelot-wheel).
+The numeric key remains visible; unknown values keep a neutral presentation.

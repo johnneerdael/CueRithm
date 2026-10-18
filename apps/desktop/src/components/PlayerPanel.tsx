@@ -2,9 +2,9 @@ import {useMemo,useState} from "react";
 import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lucide-react";
 import Artwork from "./Artwork";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
-import {time,cueColor} from "../display";
+import {time,cueColor,keyStyle} from "../display";
 
-function Wave({data,position,start,end,beats,cues,onSeek,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;small?:boolean}){
+function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
   const path=useMemo(()=>{
     if(!data||!data.bins.length)return "";
@@ -18,9 +18,11 @@ function Wave({data,position,start,end,beats,cues,onSeek,small=false}:{data:Wave
     return pieces.join("");
   },[data,start,end,span]);
   const ticks=beats.filter(t=>t>=start&&t<=end);
-  return <div className={small?"wave overview":"wave detail-wave"} role="slider" aria-label={small?"Track overview":"Waveform seek"} aria-valuemin={0} aria-valuemax={data?.duration_seconds??0} aria-valuenow={position} tabIndex={data?0:-1}
-    onPointerDown={event=>{if(!data)return;const rect=event.currentTarget.getBoundingClientRect();onSeek(Math.max(0,Math.min(data.duration_seconds,start+(event.clientX-rect.left)/rect.width*span)));}}
-    onKeyDown={event=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();onSeek(Math.max(0,Math.min(data?.duration_seconds??0,position+(event.key==="ArrowLeft"?-1:1))));}}}>
+  return <div className={small?"wave overview":"wave detail-wave"} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"16 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
+    title={small?"Click to seek · ← / → jump one bar":"Click to show "+(zoomed?"entire track":"16 seconds")+" · ← / → jump one bar"}
+    onPointerDown={event=>{if(!data||!small)return;const rect=event.currentTarget.getBoundingClientRect();onSeek(Math.max(0,Math.min(data.duration_seconds,start+(event.clientX-rect.left)/rect.width*span)));}}
+    onClick={()=>{if(data&&!small)onToggleZoom?.();}}
+    onKeyDown={event=>{if(!small&&(event.key==="Enter"||event.key===" ")){event.preventDefault();event.stopPropagation();if(data)onToggleZoom?.();}}}>
     <svg viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
       {!small?ticks.map((beat,i)=><line key={i} x1={(beat-start)/span*1000} x2={(beat-start)/span*1000} y1="0" y2="80" className="beat-line"/>):null}
       <path d={path} className="wave-path" vectorEffect="non-scaling-stroke"/>
@@ -43,7 +45,7 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
     <div className="player-header">
       <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<AudioLines size={27}/>}/>:<AudioLines size={27}/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
-      {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="accent-text">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip" style={keyStyle(detail.analysis?.analysis.key?.camelot)}>{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
         <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
         <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>
@@ -53,8 +55,8 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
       <div className="player-volume"><Volume2 size={16}/><input aria-label="Volume" type="range" min={0} max={1} step={.01} value={status.volume} onChange={event=>onVolume(Number(event.target.value))}/></div>
     </div>
     <div className="waveform-area">
-      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><select aria-label="Waveform zoom" value={zoom} onChange={e=>setZoom(Number(e.target.value))}><option value={0}>Entire track</option><option value={8}>8 seconds</option><option value={16}>16 seconds</option><option value={32}>32 seconds</option></select></div>
-        <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek}/>
+      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><span>{zoom?"16 seconds":"Entire track"} · click waveform to switch</span></div>
+        <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek} zoomed={!!zoom} onToggleZoom={()=>setZoom(value=>value?0:16)}/>
         <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(end,true)}</span></div>
         <Wave small data={data} position={center} start={0} end={duration} beats={[]} cues={cues} onSeek={onSeek}/>
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}

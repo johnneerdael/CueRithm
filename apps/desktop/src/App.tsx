@@ -24,6 +24,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const request=useRef(0),loadedRows=useRef<Track[]>([]),revision=useRef(-1),playRequest=useRef(0),loadedDetail=useRef<Detail|null>(null);
+  const barSeekQueue=useRef<Promise<void>>(Promise.resolve());
   const selectedRef=useRef(selected);selectedRef.current=selected;
   const searchInput=useRef<HTMLInputElement>(null);
   const alive=useRef(true);
@@ -85,19 +86,34 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),8000);return()=>clearTimeout(timer);},[toast]);
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
   const seek=useCallback(async(seconds:number)=>{try{await bridge.playerSeek(seconds);setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[bridge,notify]);
+  const jumpBar=useCallback((direction:number)=>{
+    const bpm=detail?.analysis?.analysis.tempo?.bpm;
+    if(!detail||loadingTrack||!bpm||!Number.isFinite(bpm)||bpm<=0)return;
+    const generation=playRequest.current,id=detail.track.id;
+    barSeekQueue.current=barSeekQueue.current.then(async()=>{
+      if(generation!==playRequest.current)return;
+      const current=await bridge.playerStatus();
+      if(generation!==playRequest.current||current.track_id!==id)return;
+      await bridge.playerSeek(Math.max(0,Math.min(current.duration_seconds,current.position_seconds+direction*240/bpm)));
+      const next=await bridge.playerStatus();
+      if(alive.current&&generation===playRequest.current&&next.track_id===id)setPlayback(next);
+    }).catch(notify);
+  },[bridge,detail,loadingTrack,notify]);
   const selectAll=useCallback(async()=>{
     const q={...query.current};
     try{const ids=await bridge.selectTrackIds(q);if(alive.current&&q.view===query.current.view&&q.search===query.current.search)setSelected(new Set(ids));}catch(e){notify(e);}
   },[bridge,notify]);
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
+      if(event.defaultPrevented)return;
       if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();if(view==="settings")setView(lastView);searchInput.current?.focus();}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(view!=="settings"&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
+      if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&detail?.analysis?.analysis.tempo){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail){event.preventDefault();void toggle();}
     };
     window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);
-  },[toggle,detail,view,lastView,selectAll]);
+  },[toggle,detail,view,lastView,selectAll,jumpBar]);
   const resize=(event:React.PointerEvent,kind:"sidebar"|"player")=>{
     event.preventDefault();const x=event.clientX,y=event.clientY,sw=sideWidth,ph=playerHeight;
     const move=(e:PointerEvent)=>{if(kind==="sidebar")setSideWidth(Math.max(180,Math.min(340,sw+e.clientX-x)));else setPlayerHeight(Math.max(200,Math.min(420,ph+y-e.clientY)));};
@@ -143,7 +159,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
           <div className="table-toolbar"><span>{selected.size?selected.size+" selected":search?"Search results":"All "+(view==="incoming"?"incoming tracks":view==="archive"?"archived tracks":"tracks")}</span><div>
             {selected.size?<><button onClick={()=>{void (async()=>{for(const id of selectedRef.current)await bridge.reprepareTrack(id);setSelected(new Set());await refresh(true);})().catch(notify);}}><RotateCcw size={13}/>Analyze again</button><button onClick={()=>{void (async()=>{for(const id of selectedRef.current)await bridge.archiveTrack(id,view!=="archive");setSelected(new Set());await refresh(true);})().catch(notify);}}><Archive size={13}/>{view==="archive"?"Restore":"Archive"}</button></>:<span className="sort-note">SORTED BY {sort.toUpperCase()}</span>}
           </div></div>
-          {rows.length?<TrackTable artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={id=>void archive(id)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading&&!state?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading&&!state?"Opening your library…":search?"No matching tracks":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small></div>}
+          {rows.length?<TrackTable metadataLoader={async()=>{const fields=await bridge.getMetadataFields();await refresh(true);return fields;}} artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={id=>void archive(id)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading&&!state?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading&&!state?"Opening your library…":search?"No matching tracks":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small></div>}
           <footer className="library-footer"><span>{rows.length<total?rows.length+" of ":""}{total.toLocaleString()} tracks{selected.size?" · "+selected.size+" selected":""}</span><span><CheckCircle2 size={12}/>Offline audio analysis</span></footer>
         </>}
       </main>

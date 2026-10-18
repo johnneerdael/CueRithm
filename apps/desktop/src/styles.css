@@ -79,7 +79,7 @@ main{min-height:0;min-width:0;display:flex;flex-direction:column;position:relati
 .table-header{overflow:hidden}
 .metadata-cell{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .metadata-cell>.ellipsis{display:block}
-.columns-panel{position:absolute;right:25px;top:155px;width:235px;background:#262c29;border:1px solid #45534c;border-radius:6px;box-shadow:0 8px 25px #0006;padding:13px;z-index:40}
+.columns-panel{position:fixed;width:330px;max-height:50vh;overflow-y:auto;background:#262c29;border:1px solid #45534c;border-radius:6px;box-shadow:0 8px 25px #0006;padding:13px;z-index:40}
 .columns-title{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:10px}
 .column-option{display:flex;align-items:center;gap:4px;min-height:32px;font-size:14px}
 .column-option label{display:flex;align-items:center;gap:9px;flex:1}
@@ -146,7 +146,8 @@ main{min-height:0;min-width:0;display:flex;flex-direction:column;position:relati
 .waveform-area{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
 .wave-toolbar{height:22px;min-height:22px;display:flex;justify-content:space-between;align-items:center;font:8px ui-monospace,monospace;color:#648b6f;letter-spacing:.75px}
 .wave-subtitle{color:#41644d;margin-left:15px}
-.wave-toolbar select{border:0;background:transparent;padding:2px;color:#7da68b;font-size:10px}
+.detail-wave[aria-pressed="false"]{cursor:zoom-in}
+.detail-wave[aria-pressed="true"]{cursor:zoom-out}
 .wave{position:relative;cursor:crosshair;overflow:hidden;background:#172019}
 .wave svg{width:100%;height:100%;display:block}
 .wave-path{fill:none;stroke:#52b98e;stroke-width:1.35;opacity:.88}
@@ -218,3 +219,7 @@ input,textarea,[contenteditable=true]{-webkit-user-select:text;user-select:text}
 .wave-cue-label{position:absolute;top:3px;transform:translateX(-50%);font:10px ui-monospace,monospace;padding:1px 3px;background:#172019d9;border-radius:2px;pointer-events:none}
 
 .file-mark img,.now-playing-art img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+
+.column-search{width:100%;margin-bottom:10px}
+.columns-panel>small{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}
+.player-analysis b.player-key{font-size:13px;min-width:38px;padding:3px 5px}

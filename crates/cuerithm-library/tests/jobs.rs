@@ -57,6 +57,7 @@ fn info() -> MediaInfo {
         channels: 2,
         bits_per_sample: Some(16),
         tags: Default::default(),
+        properties: Default::default(),
     }
 }
 
@@ -426,4 +427,96 @@ fn stale_source_retry_cannot_replace_a_newer_running_revision() {
     lib.apply_analysis_for_run(&current, &result(), &info())
         .unwrap();
     assert_eq!(lib.settings().unwrap().revision, revision);
+}
+
+#[test]
+fn track_rows_expose_arbitrary_metadata_without_changing_analysis() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let source = d.path().join("track.flac");
+    std::fs::write(&source, b"source").unwrap();
+    let id = lib
+        .enqueue(&[source], lib.settings().unwrap().revision)
+        .unwrap()[0]
+        .clone();
+    let job = lib.claim_next().unwrap().unwrap();
+    let mut media = info();
+    media.tags.insert("label".into(), "Example label".into());
+    media.tags.insert("custom:mood".into(), "Warm".into());
+    lib.apply_analysis(&id, &result(), &media, &job.source_sha256)
+        .unwrap();
+    let row = lib.tracks(TrackQuery::default()).unwrap().rows.remove(0);
+    let json = serde_json::to_value(&row).unwrap();
+    assert_eq!(json["metadata"]["tag.label"], "Example label");
+    assert_eq!(json["metadata"]["audio.sample_rate"], 44100);
+    assert_eq!(row.key.as_deref(), Some("8B"));
+    let pending = d.path().join("pending.flac");
+    std::fs::write(&pending, b"pending source").unwrap();
+    lib.enqueue(&[pending], lib.settings().unwrap().revision)
+        .unwrap();
+    assert!(
+        lib.metadata_fields()
+            .unwrap()
+            .contains(&"tag.custom:mood".to_owned())
+    );
+}
+
+#[test]
+fn legacy_metadata_refresh_is_source_guarded_and_preserves_cues_and_analysis() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("db");
+    let lib = Library::open(&path).unwrap();
+    let source = d.path().join("track.flac");
+    std::fs::write(&source, b"source").unwrap();
+    let id = lib
+        .enqueue(&[source], lib.settings().unwrap().revision)
+        .unwrap()[0]
+        .clone();
+    let job = lib.claim_next().unwrap().unwrap();
+    lib.apply_analysis(&id, &result(), &info(), &job.source_sha256)
+        .unwrap();
+    let before = serde_json::to_value(lib.analysis(&job.track_id).unwrap()).unwrap();
+    let cues = lib.cue_revision_count(&job.track_id).unwrap();
+    rusqlite::Connection::open(path)
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET metadata_json=json_remove(metadata_json,'$.properties')",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        lib.metadata_refresh_candidates().unwrap(),
+        vec![job.track_id.clone()]
+    );
+    let mut metadata = info();
+    metadata
+        .tags
+        .insert("label".into(), "Backfilled label".into());
+    assert!(
+        !lib.update_legacy_metadata(&job.track_id, "stale source", &metadata)
+            .unwrap()
+    );
+    assert!(
+        lib.update_legacy_metadata(&job.track_id, &job.source_sha256, &metadata)
+            .unwrap()
+    );
+    assert!(
+        !lib.update_legacy_metadata(&job.track_id, &job.source_sha256, &info())
+            .unwrap()
+    );
+    assert!(
+        lib.metadata_fields()
+            .unwrap()
+            .contains(&"tag.label".to_owned())
+    );
+    assert_eq!(
+        lib.track(&job.track_id).unwrap().metadata["tag.label"],
+        "Backfilled label"
+    );
+    assert_eq!(lib.cue_revision_count(&job.track_id).unwrap(), cues);
+    assert_eq!(
+        serde_json::to_value(lib.analysis(&job.track_id).unwrap()).unwrap(),
+        before
+    );
+    assert!(lib.metadata_refresh_candidates().unwrap().is_empty());
 }

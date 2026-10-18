@@ -65,6 +65,11 @@ pub async fn select_track_ids(host: Managed<'_>, query: TrackQuery) -> Ipc<Vec<T
     work(move || lib.track_ids(query)).await
 }
 #[tauri::command]
+pub async fn metadata_fields(host: Managed<'_>) -> Ipc<Vec<String>> {
+    let host = host.inner().clone();
+    work(move || host.metadata_fields()).await
+}
+#[tauri::command]
 pub async fn list_jobs(host: Managed<'_>) -> Ipc<Vec<JobSummary>> {
     let lib = host.library.clone();
     work(move || lib.jobs()).await
