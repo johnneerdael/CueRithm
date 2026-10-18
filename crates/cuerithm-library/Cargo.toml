@@ -5,7 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+autotag = ["dep:cuerithm-autotag"]
+
 [dependencies]
+cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -19,6 +24,12 @@ fs2 = "0.4"
 notify = "=8.2.0"
 walkdir = "2"
 rodio = { version = "=0.21.1", default-features = false, features = ["playback"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem","Win32_Foundation"] }
 
 [dev-dependencies]
 tar = "0.4"
