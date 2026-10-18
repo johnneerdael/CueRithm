@@ -1,0 +1,125 @@
+[
+  {
+    "file": "pulses.mp3",
+    "frames": 2822400,
+    "sha256": "c655c10d041e904dfb9a6c2e787d5d80f348eda31ab9c1538bff7f16466e08af",
+    "lossless": false,
+    "encoder": "libmp3lame",
+    "options": []
+  },
+  {
+    "file": "pulses.aac",
+    "frames": 2824192,
+    "sha256": "f3266e186432903e8bc0067a60d10e9cd060a832da13082ac4a420bce7b9e281",
+    "lossless": false,
+    "encoder": "aac",
+    "options": []
+  },
+  {
+    "file": "pulses.m4a",
+    "frames": 2822400,
+    "sha256": "5736f8f8d0bdc942e05d728a27a137ddf3cda2954ee579fcecbb659492b35749",
+    "lossless": false,
+    "encoder": "aac",
+    "options": []
+  },
+  {
+    "file": "pulses.alac.m4a",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "alac",
+    "options": []
+  },
+  {
+    "file": "pulses.flac",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "flac",
+    "options": []
+  },
+  {
+    "file": "pulses.wav",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "pcm_s16le",
+    "options": []
+  },
+  {
+    "file": "pulses.aiff",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "pcm_s16be",
+    "options": []
+  },
+  {
+    "file": "pulses.ogg",
+    "frames": 2822400,
+    "sha256": "1b2a7d497a79beb897b9aa2d5baa96eeb8b56941698195e4ea3af786906fe47d",
+    "lossless": false,
+    "encoder": "vorbis",
+    "options": [
+      "-strict",
+      "experimental"
+    ]
+  },
+  {
+    "file": "pulses.opus",
+    "frames": 2822400,
+    "sha256": "9990d9728944b48e98a72da7101107ea35cbe4aa259e7f23b9bc9dfd0d46e884",
+    "lossless": false,
+    "encoder": "libopus",
+    "options": []
+  },
+  {
+    "file": "pulses.wma",
+    "frames": 2822144,
+    "sha256": "51ca5781cdc3f0270de49d90275e259237b10e82718a5e2dfb9d571b88963303",
+    "lossless": false,
+    "encoder": "wmav2",
+    "options": []
+  },
+  {
+    "file": "pulses.24.wav",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "pcm_s24le",
+    "options": []
+  },
+  {
+    "file": "pulses.float.wav",
+    "frames": 2822400,
+    "sha256": "c903442431977845ff1ff541b8cd7426b53c228493d356b2aea4282e53a85728",
+    "lossless": true,
+    "encoder": "pcm_f32le",
+    "options": []
+  },
+  {
+    "file": "pulses.mono48.wav",
+    "frames": 2822400,
+    "sha256": "f55dc46569a757caa4de4c664eb21faf474492653f8929c01637cb62ce271a1d",
+    "lossless": false,
+    "encoder": "pcm_s16le",
+    "options": [
+      "-ac",
+      "1",
+      "-ar",
+      "48000"
+    ]
+  },
+  {
+    "file": "pulses.stereo96.wav",
+    "frames": 2822400,
+    "sha256": "ade6fd79798e59218b501b239c49da0575f0303482754087725bcd728cab7f65",
+    "lossless": false,
+    "encoder": "pcm_s16le",
+    "options": [
+      "-ar",
+      "96000"
+    ]
+  }
+]

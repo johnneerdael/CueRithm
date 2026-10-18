@@ -21,3 +21,4 @@
 *.pth
 *.joblib
 .worktrees/
+tools/media-runtime/bin/
