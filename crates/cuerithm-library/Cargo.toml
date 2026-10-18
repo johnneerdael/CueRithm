@@ -18,6 +18,7 @@ uuid = { version = "1", features = ["v4"] }
 fs2 = "0.4"
 notify = "=8.2.0"
 walkdir = "2"
+rodio = { version = "=0.21.1", default-features = false, features = ["playback"] }
 
 [dev-dependencies]
 tar = "0.4"

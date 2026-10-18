@@ -366,6 +366,9 @@ impl Engine {
             "Source changed during analysis"
         );
         result.source_sample_rate = audio.info.sample_rate;
+        // A DSP-rate buffer may round by a fraction of a source frame. Public
+        // duration belongs to the shared playable clock, as do cues and playback.
+        result.analysis.duration_seconds = audio.clock.duration_seconds();
         result.media = Some(crate::prepared::PreparedMediaIdentity {
             decoder: audio.decoder_identity.clone(),
             codec: audio.info.codec.clone(),

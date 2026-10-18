@@ -1,0 +1,60 @@
+use cuerithm_library::playback::CacheSource;
+use cuerithm_library::waveform::{cached_waveform, waveform};
+use cuerithm_media::MediaRuntime;
+use rodio::Source;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
+#[test]
+fn every_format_shares_waveform_seek_and_analysis_clock() {
+    let d = tempfile::tempdir().unwrap();
+    let archive = std::fs::File::open(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/fixtures/media.tar.gz"),
+    )
+    .unwrap();
+    tar::Archive::new(flate2::read::GzDecoder::new(archive))
+        .unpack(d.path())
+        .unwrap();
+    let cases: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(d.path().join("cases.json")).unwrap()).unwrap();
+    let root = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin")
+        });
+    let rt = MediaRuntime::from_bundle(&root).unwrap();
+    for case in cases.as_array().unwrap() {
+        let audio = Arc::new(
+            rt.decode(&d.path().join(case["file"].as_str().unwrap()), d.path())
+                .unwrap(),
+        );
+        let peaks = waveform(&audio, 1024).unwrap();
+        let cached = cached_waveform(&audio, 1024, &d.path().join("wave-cache")).unwrap();
+        let reused = cached_waveform(&audio, 1024, &d.path().join("wave-cache")).unwrap();
+        assert_eq!(
+            serde_json::to_value(&peaks).unwrap(),
+            serde_json::to_value(reused).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&peaks).unwrap(),
+            serde_json::to_value(cached).unwrap()
+        );
+        assert_eq!(peaks.bins.len(), 1024);
+        assert_eq!(peaks.duration_seconds, audio.clock.duration_seconds());
+        assert!(
+            peaks
+                .bins
+                .iter()
+                .all(|b| b.min.is_finite() && b.max.is_finite() && b.min <= b.max)
+        );
+        let frame = audio.frames / 2;
+        let mut source = CacheSource::open(audio.clone()).unwrap();
+        source
+            .try_seek(Duration::from_secs_f64(frame as f64 / 44100.))
+            .unwrap();
+        assert_eq!(source.next(), Some(audio.read_frames(frame, 1).unwrap()[0]));
+        assert!(waveform(&audio, 0).is_err());
+    }
+}
