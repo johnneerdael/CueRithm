@@ -3,7 +3,7 @@ name = "cuerithm-desktop"
 version.workspace = true
 edition.workspace = true
 rust-version = "1.90"
-license.workspace = true
+license = "GPL-3.0-only"
 
 [lib]
 name = "cuerithm_desktop_lib"
@@ -21,7 +21,8 @@ sha2.workspace = true
 tempfile.workspace = true
 base64.workspace = true
 camelot-core = { path = "../../../crates/camelot-core", features = ["openkeyscan-key"] }
-cuerithm-library = { path = "../../../crates/cuerithm-library" }
+cuerithm-library = { path = "../../../crates/cuerithm-library", features = ["autotag"] }
+cuerithm-autotag = { path = "../../../crates/cuerithm-autotag" }
 cuerithm-media = { path = "../../../crates/cuerithm-media" }
 
 [build-dependencies]

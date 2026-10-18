@@ -14,7 +14,25 @@ export interface EngineSettings {
   key_model:string|null;key_neural_model:string|null;key_openkeyscan_model?:string|null;
   structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;
 }
-export interface Settings {watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
+export interface TagFrame {id3:string;vorbis:string;mp4:string}
+export interface TaggingOptions {
+  platforms:string[];tags:string[];overwriteTags:string[];overwrite:boolean;
+  threads:number;strictness:number;matchDuration:boolean;maxDurationDifference:number;matchById:boolean;
+  multipleMatches:"Default"|"Oldest"|"Newest";multiplatform:boolean;shortTitle:boolean;
+  parseFilename:boolean;filenameTemplate:string|null;titleRegex:string|null;skipTagged:boolean;
+  includeSubfolders:boolean;albumTagging:boolean;albumTaggingRatio:number;
+  camelot:boolean;mergeGenres:boolean;capitalizeGenres:boolean;stylesOptions:string;stylesCustomTag:TagFrame|null;
+  albumArtFile:boolean;removeAllCovers:boolean;coverFilename:string|null;
+  onlyYear:boolean;trackNumberLeadingZeroes:number;id3v24:boolean;id3CommLang:string|null;
+  separators:{id3:string;vorbis:string|null;mp4:string};
+  custom:Record<string,Record<string,unknown>>;
+  [key:string]:unknown;
+}
+export interface AutotagConfig {options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean}
+export type CustomOptionValue = {type:"boolean";value:boolean}|{type:"number";min:number;max:number;step:number;value:number}|{type:"string";value:string;hidden:boolean|null}|{type:"tag";value:TagFrame}|{type:"option";values:string[];value:string}|{type:"button"};
+export interface TaggingProvider {id:string;name:string;maxThreads:number;supportedTags:string[];customOptions:{options:{id:string;label:string;tooltip:string|null;value:CustomOptionValue}[]}}
+export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[]}
+export interface Settings {tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}
@@ -24,6 +42,8 @@ export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[
 export interface Bridge {
   getState():Promise<LibraryState>;
   getMetadataFields():Promise<string[]>;
+  getTaggingCatalog():Promise<TaggingCatalog>;
+  getTaggingStorage():Promise<{original_files:number;original_bytes:number;pending_cleanup:number}>;
   listTracks(query:TrackQuery):Promise<TrackPage>;
   selectTrackIds(query:TrackQuery):Promise<string[]>;
   getTrack(id:string):Promise<Detail>;

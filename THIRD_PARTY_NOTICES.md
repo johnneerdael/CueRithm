@@ -50,7 +50,9 @@ LGPL-2.1-or-later for this configuration. Runtime artifacts include its
 [FFmpeg licensing](https://ffmpeg.org/legal.html). Decoder provenance/hashes are
 recorded in each runtime's `runtime.json` and verified before audio processing.
 
-The Rust application source is available under this repository's MIT license;
+The independent engine retains this repository's MIT license. The desktop and
+selected OneTagger integration are distributed under GPL-3.0-only (see
+`apps/desktop/LICENSE` and `vendor/onetagger/LICENSE`);
 unsigned CI bundles include a matching source archive. Preserve the LGPL SoX
 source/notices and rebuild materials when distributing binaries. Do not replace
 the source offer with a bare binary checksum.
@@ -66,3 +68,24 @@ Python in the shipped application. The desktop embeds the pinned OpenKeyScan
 ONNX conversion under the upstream MIT notice and Cuerithm's locally trained
 energy SVC parameters under the repository license. Training music, captures,
 reference labels and licensed reference applications are not bundled.
+
+
+## Selected OneTagger integration (GPLv3 desktop)
+
+The user approved reuse of Marekkon5/onetagger code at commit
+`36523f71f2d9a5947912f3cb930f1a31fcb2e3ee` under GPLv3. Selected provider,
+matching and tag-format sources live in `vendor/onetagger`; their exact original
+file hashes are recorded in `UPSTREAM.json`. See `vendor/onetagger/README.md` for
+local adaptations. The independent engine retains its MIT notices. The combined
+desktop distribution uses GPL-3.0-only, with corresponding source and notices.
+No Lexicon application code, user credentials or personal music are included.
+
+
+## Native WMA/ASF metadata writer
+
+The tagging adapter statically builds TagLib 2.3.2 ASF support from a pinned
+prepared source archive under `vendor/taglib`. It retains TagLib's LGPL/MPL
+notices and bundled utf8cpp notice. The preparation script and manifest record
+the official release checksum, selected-source checksum and omitted upstream
+test/audio files. Build sources and notices are included in source archives.
+No separate TagLib installation is needed by the desktop user.

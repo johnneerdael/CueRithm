@@ -62,6 +62,15 @@ impl Library {
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             if discovered {
+                #[cfg(feature = "autotag")]
+                {
+                    let owned:Option<String>=tx.query_row("SELECT w.job_id FROM tag_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.current_job=w.job_id AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) LIMIT 1",params![path_bytes(&path),hash],|r|r.get(0)).optional()?;
+                    if let Some(id) = owned {
+                        ids.push(id);
+                        tx.commit()?;
+                        continue;
+                    }
+                }
                 let current: Option<String> = tx
                     .query_row(
                         "SELECT current_job FROM tracks WHERE path=?1 AND source_hash=?2",
@@ -88,15 +97,21 @@ impl Library {
         revision: &str,
     ) -> Result<JobId> {
         let encoded = path_bytes(path);
-        let existing_track: Option<(String, Option<String>, bool)> = tx
+        let existing_track: Option<(String, Option<String>, bool, String)> = tx
             .query_row(
-                "SELECT id,current_job,archived FROM tracks WHERE path=?1",
+                "SELECT id,current_job,archived,source_hash FROM tracks WHERE path=?1",
                 params![encoded],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .optional()?;
-        let (track, current, archived) =
-            existing_track.unwrap_or_else(|| (uuid::Uuid::new_v4().to_string(), None, false));
+        let (track, current, archived, track_hash) = existing_track.unwrap_or_else(|| {
+            (
+                uuid::Uuid::new_v4().to_string(),
+                None,
+                false,
+                hash.to_owned(),
+            )
+        });
         if archived {
             return current.context("Archived track has no preparation identity");
         }
@@ -106,7 +121,10 @@ impl Library {
             "SELECT id,state FROM jobs WHERE track_id=?1 AND source_hash=?2 AND settings_revision=?3",
             params![track,hash,revision], |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
         let id = if let Some((id, state)) = existing {
-            if current.as_deref() == Some(id.as_str()) && state != "superseded" {
+            if current.as_deref() == Some(id.as_str())
+                && state != "superseded"
+                && track_hash == hash
+            {
                 return Ok(id);
             }
             tx.execute(
@@ -177,7 +195,16 @@ impl Library {
     }
     fn set_stage_checked(&self, id: &str, attempt: Option<u32>, stage: &str) -> Result<()> {
         ensure!(
-            matches!(stage, "waiting" | "decoding" | "analysis" | "committing"),
+            matches!(
+                stage,
+                "waiting"
+                    | "decoding"
+                    | "analysis"
+                    | "matching"
+                    | "tagging"
+                    | "writing_tags"
+                    | "committing"
+            ),
             "Unknown preparation stage"
         );
         let conn = self.conn()?;
@@ -268,12 +295,36 @@ impl Library {
         info: &MediaInfo,
         source_sha: &str,
     ) -> Result<()> {
+        Self::validate_analysis(result)?;
+        let mut conn = self.conn()?;
+        let tx = conn.transaction()?;
+        let (track,expected,state,settings,current,path,actual_attempt):(String,String,String,String,String,Vec<u8>,u32)=tx.query_row(
+            "SELECT j.track_id,j.source_hash,j.state,s.json,t.current_job,t.path,j.attempts FROM jobs j JOIN tracks t ON t.id=j.track_id JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",
+            [id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?)))?;
+        ensure!(
+            state == "running" && current == id && attempt.is_none_or(|a| a == actual_attempt),
+            "Preparation is no longer current"
+        );
+        ensure!(
+            expected == source_sha && file_sha256(&bytes_path(&path)?)? == expected,
+            "Source changed before commit"
+        );
+        let snapshot: SettingsSnapshot = serde_json::from_str(&settings)?;
+        ensure!(
+            !snapshot.settings.autotag_enabled && !snapshot.settings.cleanup_enabled,
+            "Required metadata stages have not completed"
+        );
+        Self::store_analysis_tx(&tx, id, &track, result, info)?;
+        tx.commit()?;
+        Ok(())
+    }
+    pub(crate) fn validate_analysis(result: &FileAnalysis) -> Result<()> {
         let a = &result.analysis;
         ensure!(
             result.complete && a.duration_seconds.is_finite() && a.duration_seconds > 0.,
             "Incomplete track analysis"
         );
-        let key = a.key.as_ref().context("Key is unresolved")?;
+        a.key.as_ref().context("Key is unresolved")?;
         let tempo = a.tempo.as_ref().context("BPM and grid are unresolved")?;
         let energy = a.energy.as_ref().context("Energy is unresolved")?;
         ensure!(
@@ -295,24 +346,20 @@ impl Library {
                     && c.time_seconds < a.duration_seconds),
             "Invalid replacement cues"
         );
-        let mut conn = self.conn()?;
-        let tx = conn.transaction()?;
-        let (track,expected,state,settings,current,path,actual_attempt):(String,String,String,String,String,Vec<u8>,u32)=tx.query_row(
-            "SELECT j.track_id,j.source_hash,j.state,s.json,t.current_job,t.path,j.attempts FROM jobs j JOIN tracks t ON t.id=j.track_id JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",
-            [id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?)))?;
-        ensure!(
-            state == "running" && current == id && attempt.is_none_or(|a| a == actual_attempt),
-            "Preparation is no longer current"
-        );
-        ensure!(
-            expected == source_sha && file_sha256(&bytes_path(&path)?)? == expected,
-            "Source changed before commit"
-        );
-        let snapshot: SettingsSnapshot = serde_json::from_str(&settings)?;
-        ensure!(
-            !snapshot.settings.autotag_enabled && !snapshot.settings.cleanup_enabled,
-            "Required metadata stages have not completed"
-        );
+        Ok(())
+    }
+    pub(crate) fn store_analysis_tx(
+        tx: &rusqlite::Transaction<'_>,
+        id: &str,
+        track: &str,
+        result: &FileAnalysis,
+        info: &MediaInfo,
+    ) -> Result<()> {
+        let a = &result.analysis;
+        let key = a.key.as_ref().context("Key is unresolved")?;
+        let tempo = a.tempo.as_ref().context("BPM is unresolved")?;
+        let energy = a.energy.as_ref().context("Energy is unresolved")?;
+        let cues = a.lexicon_cues.as_ref().context("Cues are unresolved")?;
         let json = serde_json::to_string(result)?;
         let _: FileAnalysis =
             serde_json::from_str(&json).context("Analysis contains invalid numeric values")?;
@@ -359,8 +406,7 @@ impl Library {
             "UPDATE jobs SET state='completed',stage='completed',error=NULL,updated=?1 WHERE id=?2",
             params![now(), id],
         )?;
-        Self::bump(&tx)?;
-        tx.commit()?;
+        Self::bump(tx)?;
         Ok(())
     }
 }
