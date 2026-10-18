@@ -82,12 +82,15 @@ fn setup() -> (
     let runtime = MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
     (d, lib, source, runtime, settings)
 }
-fn until(mut done: impl FnMut() -> bool) {
+fn until(done: impl FnMut() -> bool) {
+    until_with_timeout(Duration::from_secs(60), done);
+}
+fn until_with_timeout(timeout: Duration, mut done: impl FnMut() -> bool) {
     let start = Instant::now();
     while !done() {
         assert!(
-            start.elapsed() < Duration::from_secs(60),
-            "preparation timed out"
+            start.elapsed() < timeout,
+            "preparation timed out after {timeout:?}"
         );
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -396,7 +399,9 @@ fn album_matching_reuses_the_selected_release_for_only_the_incoming_batch() {
     )
     .unwrap();
     service.enqueue_paths(&paths).unwrap();
-    until(|| {
+    // One worker prepares three complete 64-second fixtures sequentially.
+    // Keep the same per-track budget used by the single-track tests.
+    until_with_timeout(Duration::from_secs(60 * paths.len() as u64), || {
         assert!(
             !lib.jobs().unwrap().iter().any(|j| j.state == "attention"),
             "{:?}",
