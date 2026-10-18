@@ -79,3 +79,13 @@ file hashes are recorded in `UPSTREAM.json`. See `vendor/onetagger/README.md` fo
 local adaptations. The independent engine retains its MIT notices. The combined
 desktop distribution uses GPL-3.0-only, with corresponding source and notices.
 No Lexicon application code, user credentials or personal music are included.
+
+
+## Native WMA/ASF metadata writer
+
+The tagging adapter statically builds TagLib 2.3.2 ASF support from a pinned
+prepared source archive under `vendor/taglib`. It retains TagLib's LGPL/MPL
+notices and bundled utf8cpp notice. The preparation script and manifest record
+the official release checksum, selected-source checksum and omitted upstream
+test/audio files. Build sources and notices are included in source archives.
+No separate TagLib installation is needed by the desktop user.

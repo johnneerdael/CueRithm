@@ -64,7 +64,7 @@ impl Tag {
 
         // ID3
         let tag = if allow_new {
-            id3::ID3Tag::load_or_new(path)
+            id3::ID3Tag::load_or_new_checked(path)?
         } else {
             id3::ID3Tag::load_file(path)?
         };
@@ -110,6 +110,7 @@ impl Tag {
             Tag::MP4(_) => AudioFileFormat::MP4,
             Tag::ID3(id3) => match id3.format {
                 id3::ID3AudioFormat::MP3 => AudioFileFormat::MP3,
+                id3::ID3AudioFormat::AAC => AudioFileFormat::AAC,
                 id3::ID3AudioFormat::AIFF => AudioFileFormat::AIFF,
                 id3::ID3AudioFormat::WAV => AudioFileFormat::WAV,
             },

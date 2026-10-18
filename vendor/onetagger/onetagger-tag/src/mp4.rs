@@ -185,9 +185,12 @@ impl TagImpl for MP4Tag {
         }
     }
 
-    fn set_publish_date(&mut self, _date: &TagDate, _overwrite: bool) {
-        // Unsupported (mp4 barely even supports dates)
-        warn!("M4A Publish date isn't supported, skipping!");
+    fn set_publish_date(&mut self, date: &TagDate, overwrite: bool) {
+        let value = match (date.month, date.day) {
+            (Some(m), Some(d)) => format!("{:04}-{m:02}-{d:02}", date.year),
+            _ => date.year.to_string(),
+        };
+        self.set_raw("com.apple.iTunes:PUBLISHTIME", vec![value], overwrite);
     }
 
     // RATING NOT FINAL, used same as KID3
@@ -271,6 +274,14 @@ impl TagImpl for MP4Tag {
     }
 
     fn set_field(&mut self, field: Field, value: Vec<String>, overwrite: bool) {
+        if field == Field::TrackTotal {
+            if overwrite || self.tag.total_tracks().is_none() {
+                if let Some(n) = value.first().and_then(|s| s.parse().ok()) {
+                    self.tag.set_total_tracks(n);
+                }
+            }
+            return;
+        }
         let ident = MP4Tag::field_to_ident(field.clone());
         if self.tag.data_of(&ident).next().is_none() || overwrite {
             self.tag.remove_data_of(&ident);
@@ -343,7 +354,14 @@ impl TagImpl for MP4Tag {
             });
         }
         // Parse ISO timestamp
-        let date = DateTime::parse_from_str(&data, "%+").ok()?;
+        if let Ok(date) = DateTime::parse_from_str(&data, "%+") {
+            return Some(TagDate {
+                year: date.year(),
+                month: Some(date.month() as u8),
+                day: Some(date.day() as u8),
+            });
+        }
+        let date = NaiveDate::parse_from_str(data, "%Y-%m-%d").ok()?;
         Some(TagDate {
             year: date.year(),
             month: Some(date.month() as u8),

@@ -107,7 +107,6 @@ pub(crate) fn write_wav(path: impl AsRef<Path>, tag: Tag, version: Version) -> R
     let mut out = vec![];
     tag.write_to(Cursor::new(&mut out), version)?;
     riff_data.push(ChunkContents::Data(ID3_ID_1.clone(), out));
-    let riff_chunk = ChunkContents::Children(RIFF_ID.clone(), WAVE_ID.clone(), riff_data);
 
     // Generate LIST chunk
     let mut list_data = vec![];
@@ -133,11 +132,12 @@ pub(crate) fn write_wav(path: impl AsRef<Path>, tag: Tag, version: Version) -> R
         list_data.push(data);
     }
     let list_chunk = ChunkContents::Children(LIST_ID.clone(), INFO_ID.clone(), list_data);
+    riff_data.push(list_chunk);
+    let riff_chunk = ChunkContents::Children(RIFF_ID.clone(), WAVE_ID.clone(), riff_data);
 
     // Write to file
     let mut file = BufWriter::new(File::create(path)?);
     riff_chunk.write(&mut file)?;
-    list_chunk.write(&mut file)?;
 
     Ok(())
 }
