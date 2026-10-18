@@ -27,3 +27,4 @@ tools/media-runtime/bin/
 node_modules/
 apps/desktop/dist/
 apps/desktop/src-tauri/gen/
+__pycache__/
