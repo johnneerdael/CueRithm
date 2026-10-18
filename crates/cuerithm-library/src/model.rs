@@ -55,6 +55,8 @@ impl Default for TrackQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackSummary {
     pub id: TrackId,
+    #[serde(default)]
+    pub source_sha256: String,
     pub display_path: String,
     pub title: String,
     pub artist: String,
@@ -84,6 +86,7 @@ pub struct JobSummary {
     pub attempts: u32,
 }
 pub struct JobRun {
+    pub attempt: u32,
     pub id: JobId,
     pub track_id: TrackId,
     pub path: PathBuf,

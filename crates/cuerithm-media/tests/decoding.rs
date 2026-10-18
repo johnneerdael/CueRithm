@@ -153,3 +153,23 @@ fn preserves_selected_audio_stream_metadata() {
         }
     }
 }
+
+#[test]
+fn extracts_embedded_cover_without_decoding_or_modifying_it() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let rt = runtime();
+    let art = rt
+        .artwork(&root.join("tests/fixtures/covered.flac"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(art.mime, "image/png");
+    assert_eq!(
+        art.bytes,
+        std::fs::read(root.join("../../apps/desktop/src-tauri/icons/128x128.png")).unwrap()
+    );
+    assert!(
+        rt.artwork(&root.join("../camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"))
+            .unwrap()
+            .is_none()
+    );
+}

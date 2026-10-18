@@ -18,6 +18,8 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreparationEvent {
+    #[serde(default)]
+    pub attempt: u32,
     pub sequence: u64,
     pub job_id: JobId,
     pub track_id: TrackId,
@@ -38,34 +40,71 @@ pub struct PreparationService {
     library: Library,
     tx: SyncSender<Control>,
     stop: Arc<AtomicBool>,
-    join: Mutex<Option<JoinHandle<()>>>,
+    join: Mutex<Vec<JoinHandle<()>>>,
     subscribers: Subscribers,
     status: Arc<Mutex<ServiceStatus>>,
 }
 impl PreparationService {
     pub fn start(library: Library, runtime: MediaRuntime) -> Result<Self> {
+        let count = if thread::available_parallelism().is_ok_and(|n| n.get() >= 4) {
+            2
+        } else {
+            1
+        };
+        Self::start_with_workers(library, runtime, count)
+    }
+    pub fn start_with_workers(
+        library: Library,
+        runtime: MediaRuntime,
+        count: usize,
+    ) -> Result<Self> {
+        ensure!(
+            (1..=2).contains(&count),
+            "Preparation supports one or two workers"
+        );
         let (tx, rx) = mpsc::sync_channel(1024);
         let stop = Arc::new(AtomicBool::new(false));
         let subscribers = Arc::new(Mutex::new(Vec::new()));
         let status = Arc::new(Mutex::new(ServiceStatus::default()));
-        let worker = Worker {
-            library: library.clone(),
-            runtime,
-            stop: stop.clone(),
-            subscribers: subscribers.clone(),
-            status: status.clone(),
-            sequence: AtomicU64::new(0),
-            engine: None,
-        };
-        let callback = tx.clone();
-        let join = thread::Builder::new()
-            .name("cuerithm-preparation".into())
-            .spawn(move || worker.run(rx, callback))?;
+        let sequence = Arc::new(AtomicU64::new(0));
+        let mut joins = Vec::new();
+        let mut receiver = Some(rx);
+        for index in 0..count {
+            let worker = Worker {
+                library: library.clone(),
+                runtime: runtime.clone(),
+                stop: stop.clone(),
+                subscribers: subscribers.clone(),
+                status: status.clone(),
+                sequence: sequence.clone(),
+                engine: None,
+            };
+            let callback = tx.clone();
+            let receiver = if index == 0 { receiver.take() } else { None };
+            match thread::Builder::new()
+                .name(format!("cuerithm-preparation-{index}"))
+                .spawn(move || {
+                    if let Some(rx) = receiver {
+                        worker.run(rx, callback);
+                    } else {
+                        worker.run_analysis();
+                    }
+                }) {
+                Ok(join) => joins.push(join),
+                Err(error) => {
+                    stop.store(true, Ordering::Relaxed);
+                    for join in joins {
+                        let _ = join.join();
+                    }
+                    return Err(error.into());
+                }
+            }
+        }
         Ok(Self {
             library,
             tx,
             stop,
-            join: Mutex::new(Some(join)),
+            join: Mutex::new(joins),
             subscribers,
             status,
         })
@@ -112,7 +151,8 @@ impl PreparationService {
     pub fn shutdown(&self) {
         self.stop.store(true, Ordering::Relaxed);
         self.wake();
-        if let Some(join) = self.join.lock().unwrap().take() {
+        let joins = std::mem::take(&mut *self.join.lock().unwrap());
+        for join in joins {
             let _ = join.join();
         }
         self.subscribers.lock().unwrap().clear();
@@ -155,28 +195,39 @@ struct Worker {
     stop: Arc<AtomicBool>,
     subscribers: Subscribers,
     status: Arc<Mutex<ServiceStatus>>,
-    sequence: AtomicU64,
+    sequence: Arc<AtomicU64>,
     engine: Option<(SettingsRevision, Engine)>,
 }
 impl Worker {
     fn emit(&self, job: &JobRun, stage: &str, state: &str) {
+        let mut subscribers = self.subscribers.lock().unwrap();
         let event = PreparationEvent {
+            attempt: job.attempt,
             sequence: self.sequence.fetch_add(1, Ordering::Relaxed) + 1,
             job_id: job.id.clone(),
             track_id: job.track_id.clone(),
             stage: stage.into(),
             state: state.into(),
         };
-        self.subscribers
-            .lock()
-            .unwrap()
-            .retain(|tx| match tx.try_send(event.clone()) {
-                Ok(()) | Err(TrySendError::Full(_)) => true,
-                Err(TrySendError::Disconnected(_)) => false,
-            });
+        subscribers.retain(|tx| match tx.try_send(event.clone()) {
+            Ok(()) | Err(TrySendError::Full(_)) => true,
+            Err(TrySendError::Disconnected(_)) => false,
+        });
     }
     fn error(&self, error: anyhow::Error) {
         self.status.lock().unwrap().last_error = Some(format!("{error:#}"));
+    }
+    fn run_analysis(mut self) {
+        while !self.stop.load(Ordering::Relaxed) {
+            match self.library.claim_next() {
+                Ok(Some(job)) => self.process(job),
+                Ok(None) => thread::sleep(Duration::from_millis(50)),
+                Err(error) => {
+                    self.error(error);
+                    thread::sleep(Duration::from_millis(200));
+                }
+            }
+        }
     }
     fn run(mut self, rx: Receiver<Control>, tx: SyncSender<Control>) {
         let mut discovery = watch::Discovery::default();
@@ -248,7 +299,10 @@ impl Worker {
                             && !p.starts_with(self.library.data_dir())
                     })
                     .collect();
-                if let Err(e) = self.library.enqueue(&candidates, snapshot.revision) {
+                if let Err(e) = self
+                    .library
+                    .enqueue_discovered(&candidates, snapshot.revision)
+                {
                     self.error(e);
                 }
             }
@@ -279,7 +333,7 @@ impl Worker {
                 &self.stop,
             )?;
             if file_sha256(&job.path)? != job.source_sha256 {
-                self.library.retry(&job.id, None)?;
+                self.library.retry_for_run(&job)?;
                 self.emit(&job, "queued", "superseded");
                 return Ok(());
             }
@@ -300,7 +354,7 @@ impl Worker {
                 self.engine = Some((job.settings_revision.clone(), engine));
             }
             stage = "decoding";
-            self.library.set_stage(&job.id, stage)?;
+            self.library.set_stage_for_run(&job, stage)?;
             self.emit(&job, stage, "running");
             let audio = self
                 .runtime
@@ -310,7 +364,7 @@ impl Worker {
                 "Preparation is stopping"
             );
             stage = "analysis";
-            self.library.set_stage(&job.id, stage)?;
+            self.library.set_stage_for_run(&job, stage)?;
             self.emit(&job, stage, "running");
             let result = self
                 .engine
@@ -323,10 +377,10 @@ impl Worker {
                 "Preparation is stopping"
             );
             stage = "committing";
-            self.library.set_stage(&job.id, stage)?;
+            self.library.set_stage_for_run(&job, stage)?;
             self.emit(&job, stage, "running");
             self.library
-                .apply_analysis(&job.id, &result, &audio.info, &job.source_sha256)?;
+                .apply_analysis_for_run(&job, &result, &audio.info)?;
             self.emit(&job, "completed", "completed");
             Ok(())
         })();
@@ -336,7 +390,7 @@ impl Worker {
             }
             if self
                 .library
-                .fail(&job.id, stage, &format!("{error:#}"))
+                .fail_for_run(&job, stage, &format!("{error:#}"))
                 .is_ok()
             {
                 self.emit(&job, stage, "attention");

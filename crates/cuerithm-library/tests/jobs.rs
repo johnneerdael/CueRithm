@@ -338,3 +338,92 @@ fn restoring_a_missing_archived_source_stays_actionable() {
     assert_eq!(lib.tracks(TrackQuery::default()).unwrap().total, 0);
     assert_eq!(lib.cue_revision_count(&job.track_id).unwrap(), 1);
 }
+
+#[test]
+fn unchanged_discovered_files_keep_completed_analysis_after_settings_updates() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("x.flac");
+    std::fs::write(&path, b"A").unwrap();
+    let id = lib
+        .enqueue(
+            std::slice::from_ref(&path),
+            lib.settings().unwrap().revision,
+        )
+        .unwrap()[0]
+        .clone();
+    let job = lib.claim_next().unwrap().unwrap();
+    lib.apply_analysis(&id, &result(), &info(), &job.source_sha256)
+        .unwrap();
+    let revision = lib
+        .save_settings(PreparationSettings {
+            stability_millis: 50,
+            ..Default::default()
+        })
+        .unwrap();
+    lib.enqueue_discovered(std::slice::from_ref(&path), revision.clone())
+        .unwrap();
+    assert_eq!(lib.tracks(TrackQuery::default()).unwrap().total, 1);
+    assert!(lib.claim_next().unwrap().is_none());
+    lib.enqueue(&[path], revision).unwrap();
+    assert!(
+        lib.claim_next().unwrap().is_some(),
+        "explicit reanalysis still uses the new settings"
+    );
+}
+
+#[test]
+fn stale_attempts_cannot_mutate_a_reused_job_identity() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("x.flac");
+    let rev = lib.settings().unwrap().revision;
+    std::fs::write(&path, b"A").unwrap();
+    lib.enqueue(std::slice::from_ref(&path), rev.clone())
+        .unwrap();
+    let old = lib.claim_next().unwrap().unwrap();
+    std::fs::write(&path, b"B").unwrap();
+    lib.enqueue(std::slice::from_ref(&path), rev.clone())
+        .unwrap();
+    std::fs::write(&path, b"A").unwrap();
+    lib.enqueue(&[path], rev).unwrap();
+    let current = lib.claim_next().unwrap().unwrap();
+    assert_eq!(old.id, current.id);
+    assert!(lib.set_stage_for_run(&old, "analysis").is_err());
+    assert!(lib.fail_for_run(&old, "analysis", "old error").is_err());
+    assert!(
+        lib.apply_analysis_for_run(&old, &result(), &info())
+            .is_err()
+    );
+    lib.apply_analysis_for_run(&current, &result(), &info())
+        .unwrap();
+    assert_eq!(lib.cue_revision_count(&current.track_id).unwrap(), 1);
+}
+
+#[test]
+fn stale_source_retry_cannot_replace_a_newer_running_revision() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("x.flac");
+    std::fs::write(&path, b"A").unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&path),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let old = lib.claim_next().unwrap().unwrap();
+    std::fs::write(&path, b"B").unwrap();
+    let revision = lib
+        .save_settings(PreparationSettings {
+            stability_millis: 50,
+            ..Default::default()
+        })
+        .unwrap();
+    lib.enqueue(&[path], revision.clone()).unwrap();
+    let current = lib.claim_next().unwrap().unwrap();
+    assert!(lib.retry_for_run(&old).is_err());
+    lib.set_stage_for_run(&current, "analysis").unwrap();
+    lib.apply_analysis_for_run(&current, &result(), &info())
+        .unwrap();
+    assert_eq!(lib.settings().unwrap().revision, revision);
+}

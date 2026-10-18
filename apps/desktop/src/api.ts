@@ -6,7 +6,9 @@ import type {Bridge,PreparationEvent,PlaybackEvent} from "./types";
 export const nativeBridge:Bridge={
   getState:()=>invoke("library_state"),
   listTracks:query=>invoke("list_tracks",{query}),
+  selectTrackIds:query=>invoke("select_track_ids",{query}),
   getTrack:trackId=>invoke("get_track",{trackId}),
+  getArtwork:(trackId,sourceSha256)=>invoke("get_artwork",{trackId,sourceSha256}),
   saveSettings:settings=>invoke("save_settings",{settings}),
   enqueuePaths:paths=>invoke("enqueue_paths",{paths}),
   retryJob:jobId=>invoke("retry_job",{jobId}),

@@ -4,6 +4,39 @@ import App from "../App";
 import {fakeBridge,track} from "./bridge";
 
 describe("library workspace",()=>{
+  it("retries cover extraction after a transient failure and remount",async()=>{
+    const bridge=fakeBridge([track("a")]);
+    bridge.getArtwork=vi.fn().mockRejectedValueOnce(new Error("Drive offline")).mockResolvedValue("data:image/png;base64,iVBORw0KGgo=");
+    const first=render(<App bridge={bridge}/>);
+    await waitFor(()=>expect(bridge.getArtwork).toHaveBeenCalledTimes(1));
+    first.unmount();render(<App bridge={bridge}/>);
+    await screen.findByRole("img",{name:"Cover art"});
+    expect(bridge.getArtwork).toHaveBeenCalledTimes(2);
+  });
+  it("shows embedded cover art in the library and player",async()=>{
+    const bridge=fakeBridge([track("a")]);
+    bridge.getArtwork=vi.fn(async()=>"data:image/png;base64,iVBORw0KGgo=");
+    render(<App bridge={bridge}/>);
+    await screen.findByRole("img",{name:"Cover art"});
+    fireEvent.doubleClick(screen.getByText("Track a"));
+    await waitFor(()=>expect(screen.getAllByRole("img",{name:"Cover art"})).toHaveLength(2));
+  });
+  it("selects matching tracks beyond the loaded page with desktop shortcuts",async()=>{
+    const bridge=fakeBridge([track("a")]);
+    bridge.selectTrackIds=vi.fn(async()=>Array.from({length:450},(_,i)=>String(i)));
+    render(<App bridge={bridge}/>);
+    await screen.findByText("Track a");
+    const table=screen.getByRole("table");
+    for(const modifier of ["metaKey","ctrlKey"]){
+      const event=new KeyboardEvent("keydown",{key:"a",[modifier]:true,bubbles:true,cancelable:true});
+      table.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      await screen.findByText("450 selected");
+    }
+    const before=vi.mocked(bridge.selectTrackIds).mock.calls.length;
+    fireEvent.keyDown(screen.getByRole("searchbox"),{key:"a",metaKey:true});
+    expect(bridge.selectTrackIds).toHaveBeenCalledTimes(before);
+  });
   it("keeps selection separate from playback and updates committed Incoming tracks",async()=>{
     const bridge=fakeBridge([track("a"),track("b")]);
     render(<App bridge={bridge}/>);

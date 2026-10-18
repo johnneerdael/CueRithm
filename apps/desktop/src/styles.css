@@ -211,3 +211,10 @@ main{min-height:0;min-width:0;display:flex;flex-direction:column;position:relati
 ::-webkit-scrollbar-thumb{background:#344a3b;border-radius:5px}
 @media(max-width:1100px){.app-header{padding:12px 18px;gap:12px}.processing-indicator{font-size:11px}.global-search kbd{display:none}.table-grid{padding:0 12px}.player{padding:0 16px}.player-analysis{gap:10px;padding:0 10px}.player-volume input{width:44px}.now-playing{max-width:220px}.transport{margin:0 4px;gap:7px}.player-header{gap:8px}.view-title{padding:22px}.table-toolbar{padding:0 22px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+
+/* Native workspace selection belongs to rows; inputs retain text editing. */
+.app{-webkit-user-select:none;user-select:none}
+input,textarea,[contenteditable=true]{-webkit-user-select:text;user-select:text}
+.wave-cue-label{position:absolute;top:3px;transform:translateX(-50%);font:10px ui-monospace,monospace;padding:1px 3px;background:#172019d9;border-radius:2px;pointer-events:none}
+
+.file-mark img,.now-playing-art img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}

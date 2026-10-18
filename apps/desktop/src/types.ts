@@ -1,6 +1,6 @@
 export type View="tracks"|"incoming"|"archive";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added";
-export interface Track {id:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
+export interface Track {id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null}
 export interface TrackPage {rows:Track[];total:number;revision:number;next_cursor:string|null}
 export interface Cue {time_seconds:number;name:string;color:string}
@@ -18,13 +18,15 @@ export interface Settings {watch_folders:string[];stability_millis:number;engine
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}
-export interface PreparationEvent {sequence:number;job_id:string;track_id:string;stage:string;state:string}
+export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[]}
 export interface Bridge {
   getState():Promise<LibraryState>;
   listTracks(query:TrackQuery):Promise<TrackPage>;
+  selectTrackIds(query:TrackQuery):Promise<string[]>;
   getTrack(id:string):Promise<Detail>;
+  getArtwork(id:string,sourceSha256:string):Promise<string|null>;
   saveSettings(settings:Settings):Promise<Snapshot>;
   enqueuePaths(paths:string[]):Promise<string[]>;
   retryJob(id:string):Promise<void>;

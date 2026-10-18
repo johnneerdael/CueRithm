@@ -100,3 +100,20 @@ The approved scope after this foundation remains persistent Beatport/Traxsource
 tagging, cleanup, ordinary/full smart playlists and direct rekordbox 6/7 sync.
 See [the early direct contract](../research/rekordbox-direct-contract.md) for
 known identities, static evidence and precise missing target acceptance.
+
+## Preview and batch throughput
+
+The main waveform defaults to the entire playable track, with all cue positions.
+Optional 8/16/32-second zoom is available. Cmd+A/Ctrl+A selects every matching
+track in the current view, including unloaded pages; editable fields retain text
+selection. Embedded covers are read without modifying audio, bounded to 8 MiB,
+validated by image signature, and cached by raw source identity. Missing artwork
+uses the music icon. Transient extraction errors retry after remount.
+
+Preparation uses two independent workers on machines reporting at least four
+logical CPUs, otherwise one. One watcher owns discovery; each worker owns its
+analysis engine. Attempt-checked mutations prevent stale callbacks from changing
+a reused job ID, and event sequences remain globally ordered. A controlled local
+two-track benchmark took 20.054s with one worker and 10.079s with two; key, BPM,
+energy and cues matched. This is a local throughput measurement, not a universal
+speed guarantee. The underlying detection arithmetic was unchanged.

@@ -17,6 +17,7 @@ pub fn source_sha256() -> String {
         include_str!("clock.rs"),
         include_str!("decode.rs"),
         include_str!("probe.rs"),
+        include_str!("artwork.rs"),
         include_str!("runtime.rs"),
         include_str!("../Cargo.toml"),
     ] {
@@ -25,3 +26,5 @@ pub fn source_sha256() -> String {
     }
     format!("{:x}", hash.finalize())
 }
+mod artwork;
+pub use artwork::{Artwork, artwork_mime};

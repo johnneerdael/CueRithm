@@ -163,4 +163,14 @@ fn rejects_future_schema_without_replacing_it_and_keeps_query_order_stable() {
         .total,
         1
     );
+    assert_eq!(
+        lib.track_ids(TrackQuery {
+            view: TrackView::Incoming,
+            limit: 1,
+            ..Default::default()
+        })
+        .unwrap()
+        .len(),
+        5
+    );
 }
