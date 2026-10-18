@@ -69,8 +69,9 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     const prep=bridge.onPreparation(event=>{
       void refresh(false);
       if(event.state==="completed"&&loadedDetail.current?.track.id===event.track_id){
+        const generation=playRequest.current;
         void bridge.getTrack(event.track_id).then(next=>{
-          if(next.pcm_sha256&&next.pcm_sha256===loadedDetail.current?.pcm_sha256){loadedDetail.current=next;setDetail(next);}
+          if(alive.current&&generation===playRequest.current&&next.track.id===event.track_id&&loadedDetail.current?.track.id===event.track_id&&next.pcm_sha256&&next.pcm_sha256===loadedDetail.current.pcm_sha256){loadedDetail.current=next;setDetail(next);}
         }).catch(notify);
       }
     });

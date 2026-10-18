@@ -17,9 +17,29 @@ runs:
     - if: runner.os == 'macOS' && runner.arch == 'X64'
       shell: bash
       run: brew install nasm
-    - if: runner.os != 'Windows'
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      id: runtime-cache
+      with:
+        key: media-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/media-runtime/*.py', 'tools/media-runtime/*.sh', 'tools/media-runtime/*.ps1', 'tools/media-runtime/manifest.json') }}
+        path: |
+          tools/media-runtime/bin
+          .superpowers/media-build/ffmpeg-9.0.2.tar.xz
+    - if: runner.os != 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
       shell: bash
       run: bash tools/media-runtime/build.sh
-    - if: runner.os == 'Windows'
+    - if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
       shell: msys2 {0}
       run: bash tools/media-runtime/build.sh
+    - if: runner.os != 'Windows'
+      shell: bash
+      run: python3 tools/media-runtime/seal.py tools/media-runtime/bin
+    - if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: python tools/media-runtime/seal.py tools/media-runtime/bin
+    - if: steps.runtime-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+        path: |
+          tools/media-runtime/bin
+          .superpowers/media-build/ffmpeg-9.0.2.tar.xz

@@ -2,6 +2,9 @@ name: Engine checks
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: engine-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   engine-rust-floor:
     runs-on: ubuntu-24.04

@@ -13,54 +13,60 @@ impl Library {
             let path = path.canonicalize().context("Incoming file is missing")?;
             ensure!(path.is_file(), "Only audio files can be queued");
             let hash = file_sha256(&path)?;
-            let encoded = path_bytes(&path);
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
-            let track: Option<String> = tx
-                .query_row(
-                    "SELECT id FROM tracks WHERE path=?1",
-                    params![encoded],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            let track = track.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            let title = path.file_stem().unwrap_or_default().to_string_lossy();
-            tx.execute("INSERT OR IGNORE INTO tracks (id,path,title,source_hash,created,updated,search_text,sort_title) VALUES (?1,?2,?3,?4,?5,?5,?6,?6)",
-                params![track,encoded,title,hash,now(),title.to_lowercase()])?;
-            let existing:Option<(String,String)>=tx.query_row("SELECT id,state FROM jobs WHERE track_id=?1 AND source_hash=?2 AND settings_revision=?3",
-                params![track,hash,revision],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-            if let Some((id, state)) = existing {
-                if state != "superseded" {
-                    ids.push(id);
-                    tx.commit()?;
-                    continue;
-                }
-                tx.execute(
-                    "UPDATE jobs SET state='queued',stage='queued',error=NULL WHERE id=?1",
-                    [&id],
-                )?;
-                tx.execute("UPDATE jobs SET state='superseded' WHERE track_id=?1 AND id!=?2 AND state IN ('queued','running','attention')",params![track,id])?;
-                tx.execute("UPDATE tracks SET state='incoming',source_hash=?1,current_job=?2,updated=?3 WHERE id=?4",params![hash,id,now(),track])?;
-                Self::bump(&tx)?;
-                tx.commit()?;
-                ids.push(id);
-                continue;
-            }
-            let id = uuid::Uuid::new_v4().to_string();
-            tx.execute("UPDATE jobs SET state='superseded' WHERE track_id=?1 AND state IN ('queued','running','attention')",[&track])?;
-            tx.execute("INSERT INTO jobs(id,track_id,source_hash,settings_revision,state,stage,created,updated) VALUES(?1,?2,?3,?4,'queued','queued',?5,?5)",
-                params![id,track,hash,revision,now()])?;
-            tx.execute("UPDATE tracks SET state='incoming',source_hash=?1,current_job=?2,updated=?3 WHERE id=?4",params![hash,id,now(),track])?;
-            Self::bump(&tx)?;
+            ids.push(Self::enqueue_one(&tx, &path, &hash, &revision)?);
             tx.commit()?;
-            ids.push(id);
         }
         Ok(ids)
+    }
+    pub(crate) fn enqueue_one(
+        tx: &rusqlite::Transaction<'_>,
+        path: &std::path::Path,
+        hash: &str,
+        revision: &str,
+    ) -> Result<JobId> {
+        let encoded = path_bytes(path);
+        let existing_track: Option<(String, Option<String>, bool)> = tx
+            .query_row(
+                "SELECT id,current_job,archived FROM tracks WHERE path=?1",
+                params![encoded],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        let (track, current, archived) =
+            existing_track.unwrap_or_else(|| (uuid::Uuid::new_v4().to_string(), None, false));
+        if archived {
+            return current.context("Archived track has no preparation identity");
+        }
+        let title = path.file_stem().unwrap_or_default().to_string_lossy();
+        tx.execute("INSERT OR IGNORE INTO tracks (id,path,title,source_hash,created,updated,search_text,sort_title) VALUES (?1,?2,?3,?4,?5,?5,?6,?6)", params![track,encoded,title,hash,now(),title.to_lowercase()])?;
+        let existing: Option<(String,String)> = tx.query_row(
+            "SELECT id,state FROM jobs WHERE track_id=?1 AND source_hash=?2 AND settings_revision=?3",
+            params![track,hash,revision], |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
+        let id = if let Some((id, state)) = existing {
+            if current.as_deref() == Some(id.as_str()) && state != "superseded" {
+                return Ok(id);
+            }
+            tx.execute(
+                "UPDATE jobs SET state='queued',stage='queued',error=NULL,updated=?1 WHERE id=?2",
+                params![now(), id],
+            )?;
+            id
+        } else {
+            let id = uuid::Uuid::new_v4().to_string();
+            tx.execute("INSERT INTO jobs(id,track_id,source_hash,settings_revision,state,stage,created,updated) VALUES(?1,?2,?3,?4,'queued','queued',?5,?5)", params![id,track,hash,revision,now()])?;
+            id
+        };
+        tx.execute("UPDATE jobs SET state='superseded' WHERE track_id=?1 AND id!=?2 AND state IN ('queued','running','attention')", params![track,id])?;
+        tx.execute("UPDATE tracks SET state='incoming',source_hash=?1,current_job=?2,updated=?3 WHERE id=?4", params![hash,id,now(),track])?;
+        Self::bump(tx)?;
+        Ok(id)
     }
     pub fn claim_next(&self) -> Result<Option<JobRun>> {
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
-        let row=tx.query_row("SELECT j.id,j.track_id,t.path,j.source_hash,j.settings_revision FROM jobs j JOIN tracks t ON t.current_job=j.id WHERE j.state='queued' ORDER BY j.created,j.id LIMIT 1",[],
+        let row=tx.query_row("SELECT j.id,j.track_id,t.path,j.source_hash,j.settings_revision FROM jobs j JOIN tracks t ON t.current_job=j.id WHERE j.state='queued' AND t.archived=0 ORDER BY j.created,j.id LIMIT 1",[],
             |r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?))).optional()?;
         let Some((id, track_id, path, source_sha256, settings_revision)) = row else {
             return Ok(None);
@@ -129,6 +135,12 @@ impl Library {
         let next = self.enqueue(&[path], revision.unwrap_or(old_revision))?[0].clone();
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
+        ensure!(
+            !tx.query_row("SELECT archived FROM tracks WHERE id=?1", [&track], |r| {
+                r.get::<_, bool>(0)
+            })?,
+            "Restore archived tracks before preparing them"
+        );
         tx.execute(
             "UPDATE jobs SET state='queued',stage='queued',error=NULL WHERE id=?1",
             [&next],
