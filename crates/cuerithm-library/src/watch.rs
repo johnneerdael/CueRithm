@@ -68,15 +68,26 @@ pub fn wait_for_stable(path: &Path, interval: Duration, stop: &AtomicBool) -> Re
     Ok(())
 }
 
+pub(crate) fn in_scope(path: &Path, folders: &[PathBuf], recursive: bool) -> bool {
+    folders.iter().any(|folder| {
+        if recursive {
+            path.starts_with(folder)
+        } else {
+            path.parent() == Some(folder.as_path())
+        }
+    })
+}
+
 #[derive(Default)]
 pub(crate) struct Discovery {
     seen: HashMap<PathBuf, (u64, SystemTime)>,
 }
 impl Discovery {
-    pub fn scan(&mut self, folders: &[PathBuf], exclude: &Path) -> Vec<PathBuf> {
+    pub fn scan(&mut self, folders: &[PathBuf], exclude: &Path, recursive: bool) -> Vec<PathBuf> {
         let mut paths = Vec::new();
         for folder in folders {
             for entry in walkdir::WalkDir::new(folder)
+                .max_depth(if recursive { usize::MAX } else { 1 })
                 .follow_links(false)
                 .into_iter()
                 .filter_entry(|e| !e.path().starts_with(exclude))
@@ -97,5 +108,35 @@ impl Discovery {
             }
         }
         paths
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn discovery_and_live_events_obey_the_subfolder_setting() {
+        let d = tempfile::tempdir().unwrap();
+        let folder = d.path().join("incoming");
+        std::fs::create_dir_all(folder.join("nested")).unwrap();
+        let direct = folder.join("a.flac");
+        let nested = folder.join("nested/b.flac");
+        for path in [&direct, &nested] {
+            std::fs::write(path, b"discovery fixture").unwrap();
+        }
+        let folders = vec![folder];
+        let mut discovery = Discovery::default();
+        assert_eq!(
+            discovery.scan(&folders, &d.path().join("app"), false),
+            vec![direct.clone()]
+        );
+        assert_eq!(
+            discovery.scan(&folders, &d.path().join("app"), true),
+            vec![nested.clone()]
+        );
+        assert!(in_scope(&direct, &folders, false));
+        assert!(!in_scope(&nested, &folders, false));
+        assert!(in_scope(&nested, &folders, true));
+        assert!(!in_scope(&nested, &[], true));
     }
 }

@@ -1,0 +1,181 @@
+{
+  "defaults": {
+    "options": {
+      "platforms": [
+        "beatport",
+        "traxsource"
+      ],
+      "path": null,
+      "tags": [
+        "genre",
+        "bpm",
+        "style",
+        "label",
+        "releaseDate"
+      ],
+      "separators": {
+        "id3": ", ",
+        "vorbis": null,
+        "mp4": ", "
+      },
+      "id3v24": true,
+      "overwrite": true,
+      "overwriteTags": [],
+      "threads": 16,
+      "strictness": 0.7,
+      "mergeGenres": false,
+      "albumArtFile": false,
+      "camelot": false,
+      "parseFilename": false,
+      "filenameTemplate": "%artists% - %title%",
+      "shortTitle": false,
+      "matchDuration": false,
+      "maxDurationDifference": 30,
+      "matchById": false,
+      "multipleMatches": "Default",
+      "postCommand": null,
+      "stylesOptions": "default",
+      "stylesCustomTag": {
+        "id3": "STYLE",
+        "vorbis": "STYLE",
+        "mp4": "STYLE"
+      },
+      "trackNumberLeadingZeroes": 0,
+      "enableShazam": false,
+      "forceShazam": false,
+      "skipTagged": false,
+      "includeSubfolders": true,
+      "onlyYear": false,
+      "titleRegex": null,
+      "moveSuccess": false,
+      "moveSuccessPath": null,
+      "moveFailed": false,
+      "moveFailedPath": null,
+      "writeLrc": false,
+      "enhancedLrc": false,
+      "capitalizeGenres": false,
+      "id3CommLang": null,
+      "removeAllCovers": false,
+      "multiplatform": false,
+      "fetchAllResults": false,
+      "albumTagging": false,
+      "albumTaggingRatio": 0.5,
+      "coverFilename": null,
+      "custom": {
+        "traxsource": {},
+        "beatport": {
+          "art_resolution": 500,
+          "ignore_version": false,
+          "max_pages": 1
+        }
+      },
+      "spotify": null
+    },
+    "no_match": "keep_existing",
+    "analysis_tag_source": "measured",
+    "write_energy": true
+  },
+  "providers": [
+    {
+      "id": "beatport",
+      "name": "Beatport",
+      "description": "Overall more specialized in Techno, can match using ISRC",
+      "version": "1.0.0",
+      "maxThreads": 0,
+      "customOptions": {
+        "options": [
+          {
+            "id": "art_resolution",
+            "label": "Album art resolution",
+            "tooltip": null,
+            "value": {
+              "type": "number",
+              "min": 200,
+              "max": 1600,
+              "step": 100,
+              "value": 500
+            }
+          },
+          {
+            "id": "max_pages",
+            "label": "Max pages",
+            "tooltip": "How many pages of search results to scan for tracks",
+            "value": {
+              "type": "number",
+              "min": 1,
+              "max": 10,
+              "step": 1,
+              "value": 1
+            }
+          },
+          {
+            "id": "ignore_version",
+            "label": "Ignore version when matching",
+            "tooltip": "Ignores (Extended Mix), (Original Mix) and such",
+            "value": {
+              "type": "boolean",
+              "value": false
+            }
+          }
+        ]
+      },
+      "supportedTags": [
+        "title",
+        "version",
+        "artist",
+        "albumArtist",
+        "album",
+        "bpm",
+        "genre",
+        "style",
+        "label",
+        "url",
+        "releaseDate",
+        "publishDate",
+        "key",
+        "albumArt",
+        "otherTags",
+        "trackId",
+        "releaseId",
+        "duration",
+        "remixer",
+        "catalogNumber",
+        "trackTotal",
+        "isrc",
+        "trackNumber"
+      ],
+      "requiresAuth": false
+    },
+    {
+      "id": "traxsource",
+      "name": "Traxsource",
+      "description": "Overall more specialized in House",
+      "version": "1.0.0",
+      "maxThreads": 1,
+      "customOptions": {
+        "options": []
+      },
+      "supportedTags": [
+        "version",
+        "artist",
+        "bpm",
+        "key",
+        "title",
+        "url",
+        "label",
+        "releaseDate",
+        "genre",
+        "trackId",
+        "duration",
+        "album",
+        "releaseId",
+        "catalogNumber",
+        "albumArtist",
+        "trackNumber",
+        "trackTotal",
+        "albumArt"
+      ],
+      "requiresAuth": false
+    }
+  ]
+}

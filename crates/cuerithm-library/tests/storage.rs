@@ -174,3 +174,35 @@ fn rejects_future_schema_without_replacing_it_and_keeps_query_order_stable() {
         5
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn reopening_waits_for_a_briefly_inherited_child_lease() {
+    let d = tempfile::tempdir().unwrap();
+    let db = d.path().join("library.sqlite");
+    let library = cuerithm_library::Library::open(&db).unwrap();
+    // A concurrent decoder spawn can briefly inherit flock's open description.
+    // The child performs only async-signal-safe operations and never uses SQLite.
+    let child = unsafe { libc::fork() };
+    assert!(child >= 0);
+    if child == 0 {
+        let delay = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 100_000_000,
+        };
+        unsafe {
+            libc::nanosleep(&delay, std::ptr::null_mut());
+            libc::_exit(0);
+        }
+    }
+    drop(library);
+    let reopened = cuerithm_library::Library::open(&db);
+    unsafe {
+        libc::waitpid(child, std::ptr::null_mut(), 0);
+    }
+    assert!(
+        reopened.is_ok(),
+        "transient inherited lease must settle: {:?}",
+        reopened.err()
+    );
+}

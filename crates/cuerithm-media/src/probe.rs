@@ -25,6 +25,13 @@ impl MediaInfo {
                 .iter()
                 .map(|(key, value)| (format!("tag.{key}"), value.clone().into())),
         );
+        // OneTagger's FLAC label field uses PUBLISHER. Keep that raw field
+        // visible, and resolve the library's existing Label column as well.
+        if !values.contains_key("tag.label")
+            && let Some(publisher) = values.get("tag.publisher").cloned()
+        {
+            values.insert("tag.label".into(), publisher);
+        }
         values
     }
 }
@@ -110,5 +117,26 @@ impl MediaRuntime {
                 .as_str()
                 .and_then(|s| s.parse().ok()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn label_column_resolves_the_publisher_alias_without_losing_raw_metadata() {
+        let mut info = MediaInfo {
+            codec: "flac".into(),
+            sample_rate: 44100,
+            channels: 2,
+            bits_per_sample: Some(16),
+            tags: [("publisher".into(), "Fixture label".into())].into(),
+            properties: Default::default(),
+        };
+        assert_eq!(info.columns()["tag.label"], "Fixture label");
+        assert_eq!(info.columns()["tag.publisher"], "Fixture label");
+        info.tags.insert("label".into(), "Explicit label".into());
+        assert_eq!(info.columns()["tag.label"], "Explicit label");
+        assert_eq!(info.columns()["tag.publisher"], "Fixture label");
     }
 }

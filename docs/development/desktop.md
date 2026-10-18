@@ -3,7 +3,7 @@
 Use Rust stable **1.90 or newer** for the Tauri host, Node 22 and pnpm 12.14.0.
 The independent analysis crates retain their declared Rust 1.89 floor. Install
 the platform's [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
-and a native C/C++ compiler/CMake for OpenKeyScan. Linux also needs ALSA headers
+and a native C/C++ compiler/CMake for OpenKeyScan and bundled TagLib ASF support. Linux also needs ALSA headers
 (`libasound2-dev` on Ubuntu) for Rust playback. Engine-only builds do not require
 WebKit/GTK or ALSA: select `-p camelot-cli` or exclude both desktop and library.
 
@@ -39,8 +39,11 @@ There are no model path controls or first-run model setup. Upgrades preserve use
 preferences and requeue unfinished work against the built-in settings revision.
 Enabled unavailable stages stay in Incoming with a reason;
 there is no placeholder success. Full successful analysis replaces library cues
-atomically and promotes into Tracks. This foundation does not write file tags
-or sync a target DJ database. Source audio files remain untouched.
+atomically and promotes into Tracks. Enabled tagging also writes selected file
+tags through a staged, PCM-verified publication. Configure providers, field
+policies and output formats once in Settings; see [automatic tagging](../automatic-tagging.md).
+With tagging disabled, source audio files remain untouched. Direct DJ-database
+sync is a subsequent delivery.
 
 ## Checks
 
@@ -96,8 +99,8 @@ Tests and diagnostics establish what each run reports; CI configuration alone
 does not establish a green build, live Windows/Linux UI behavior, signing,
 notarization or target DJ-app round trips. Signing/public release is a later gate.
 
-The approved scope after this foundation remains persistent Beatport/Traxsource
-tagging, cleanup, ordinary/full smart playlists and direct rekordbox 6/7 sync.
+The approved scope after automatic tagging remains cleanup, ordinary/full smart
+playlists and direct rekordbox 6/7 sync.
 See [the early direct contract](../research/rekordbox-direct-contract.md) for
 known identities, static evidence and precise missing target acceptance.
 
@@ -139,3 +142,48 @@ Plays, Last Played and Danceability are outside the requested scope.
 Camelot key chips in the table and player use the number and major/minor colors
 of the [provided DJ.Studio reference](https://dj.studio/blog/camelot-wheel).
 The numeric key remains visible; unknown values keep a neutral presentation.
+
+
+The tagging-enabled library uses schema version 3. Publication journals
+retain native paths, before/after file identities, exact PCM proof, post-write
+metadata and analysis/cue payloads. File preparation and verification occur
+outside the database mutex; final ownership checks, atomic replacements and the
+result/cue/Ready transaction are serialized. Backup files and workspace directory
+entries are flushed before the journal can authorize publication. Existing files
+retain displaced bytes until a verified backup is available. Interrupted uncommitted operations
+roll back owned bytes and requeue; later user edits remain untouched and require
+attention. Audio and external-cover files participate in the same preparation.
+The watcher recognizes in-flight owned hashes instead of treating tag writes as
+new incoming files. A build without tagging support refuses pending journals
+rather than skipping recovery. Committed publication workspaces retain recovery
+original backups under application data; allow storage for retained audio backups
+when processing a large library. Settings reports the current original-backup
+count and size. Originals are retained indefinitely; no retention cleanup control
+is implemented. Redundant staged outputs are removed after successful completion
+or successful rollback. True no-op writes retain no duplicate audio. Persisted
+cleanup completion avoids rereading historical backups on every startup.
+
+Completed measured analysis is cached by source, immutable settings/model identity,
+decoder identity and executable SHA. Unchanged provider retries reuse that DSP
+result, including after restart; decoding still verifies the exact playable PCM
+for metadata publication. Source/settings/decoder/application changes invalidate
+reuse. Explicit Analyze again clears the track's analysis cache.
+
+Windows flush handles require write access; see Microsoft's
+[FlushFileBuffers contract](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers)
+and [file metadata caching](https://learn.microsoft.com/en-us/windows/win32/fileio/file-caching).
+Platform execution and hardware/power-loss testing remain separate evidence.
+
+Provider HTTP fixtures and tag/PCM round trips run on each native desktop target.
+Native live-service access is separate: Beatport matched and tagged a generated
+audio fixture; Traxsource returned HTTP403 on the development machine. Successful
+parser fixtures do not establish live Traxsource access. The saved defaults and
+provider/field catalog can be inspected without network requests using
+`cargo run -p cuerithm-autotag --example settings_catalog`. The frontend test
+fixture is generated from this command; compare it when changing adapter options.
+
+
+TagLib remains a statically linked library. On MSVC, its CMake runtime property
+and the C++ bridge follow Rust's `crt-static` target feature, so both select the
+same CRT mode. TagLib's legacy `/MD` string replacement alone does not cover
+modern CMake's [CMP0091 runtime property](https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html).
