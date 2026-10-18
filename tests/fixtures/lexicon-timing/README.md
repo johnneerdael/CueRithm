@@ -38,3 +38,10 @@ policy, long intros, irregular rhythm, tempo changes and complete music files.
 
 See `docs/research/lexicon-beatgrid.md` for the source trace, original silent
 input timeout and the boundary between this research and desktop integration.
+
+`onset-reference.json` adds 306 original numeric rows for the six module 974
+attack/onset/snapping helpers, using those eight exact inputs plus one original
+1.2-second silent-intro recipe. These are references for the next porting step;
+Rust onset-helper parity is not yet established. The helper inputs include
+explicit time/peak/period arguments; they are component tests, not full detector
+outputs. No real music is included.
