@@ -1,0 +1,61 @@
+name: Release
+
+# Publishes a prerelease for a main commit once both post-merge build workflows pass for it.
+on:
+  workflow_run:
+    workflows: [Engine checks, Desktop checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'main commit to release (both build workflows must have passed)'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require both build workflows to have passed for this commit
+        id: ready
+        run: |
+          ok=true
+          for wf in ci.yml desktop.yml; do
+            run=$(gh run list --workflow "$wf" --commit "$SHA" --status success --json databaseId,event --jq '[.[] | select(.event=="push" or .event=="workflow_dispatch")][0].databaseId')
+            if [ -z "$run" ] || [ "$run" = null ]; then ok=false; fi
+            if [ "$wf" = desktop.yml ]; then echo "desktop_run=$run" >> "$GITHUB_OUTPUT"; fi
+          done
+          # Skip when this commit is already released or an equal/newer main commit was.
+          if [ -n "$(git tag --points-at "$SHA")" ]; then ok=false; fi
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -n "$latest" ] && ! git merge-base --is-ancestor "$latest" "$SHA"; then ok=false; fi
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+      - name: Download desktop test artifacts
+        if: steps.ready.outputs.ok == 'true'
+        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-*' --dir dist
+      - name: Publish prerelease
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
+          version=$(python3 .github/scripts/release_notes.py version --base "$base")
+          python3 .github/scripts/release_notes.py notes --head "$SHA" --repo "$GITHUB_REPOSITORY" > notes.md
+          for dir in dist/*/; do (cd "$dir" && zip -qr "../$(basename "$dir").zip" .); done
+          gh release create "v$version" dist/*.zip --target "$SHA" --title "Cuerithm $version" --notes-file notes.md --prerelease
