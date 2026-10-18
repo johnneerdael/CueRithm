@@ -6,6 +6,8 @@ task_dest="$task_root/tools/media-runtime/bin"
 mkdir -p "$task_build" "$task_dest"
 python3 "$task_root/tools/media-runtime/prepare.py"
 cd "$task_build/ffmpeg-9.0.2"
+task_link_flags=""
+case "$(uname -s)" in MINGW*|MSYS*) task_link_flags="-static";; esac
 ./configure --prefix="$task_dest" --disable-autodetect --disable-network \
     --disable-doc --disable-debug --disable-shared --enable-static \
     --disable-everything --enable-ffmpeg --enable-ffprobe \
@@ -15,7 +17,7 @@ cd "$task_build/ffmpeg-9.0.2"
     --enable-parser=aac,aac_latm,flac,mpegaudio,opus,vorbis \
     --enable-decoder=aac,alac,flac,mp3float,mp3,opus,vorbis,wmav1,wmav2,wmapro,wmalossless,pcm_s8,pcm_u8,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_f64be,pcm_alaw,pcm_mulaw \
     --enable-encoder=pcm_f32le --enable-muxer=pcm_f32le \
-    --enable-filter=aresample,aformat,anull
+    --enable-filter=aresample,aformat,anull --extra-ldflags="$task_link_flags"
 make -j 8 ffmpeg ffprobe
 task_ext=""
 case "$(uname -s)" in MINGW*|MSYS*) task_ext=".exe";; esac

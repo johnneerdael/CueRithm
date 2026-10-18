@@ -1,0 +1,25 @@
+name: Pinned media runtime
+description: Build and verify native FFmpeg without external codec libraries
+runs:
+  using: composite
+  steps:
+    - if: runner.os == 'Windows'
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          make curl nasm diffutils
+          mingw-w64-x86_64-gcc mingw-w64-x86_64-python
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y nasm
+    - if: runner.os == 'macOS' && runner.arch == 'X64'
+      shell: bash
+      run: brew install nasm
+    - if: runner.os != 'Windows'
+      shell: bash
+      run: bash tools/media-runtime/build.sh
+    - if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: bash tools/media-runtime/build.sh
