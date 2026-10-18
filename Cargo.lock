@@ -985,6 +985,7 @@ dependencies = [
  "anyhow",
  "camelot-core",
  "cuerithm-autotag",
+ "cuerithm-cleanup",
  "cuerithm-media",
  "flate2",
  "fs2",

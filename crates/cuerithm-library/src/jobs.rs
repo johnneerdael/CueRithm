@@ -64,7 +64,7 @@ impl Library {
             if discovered {
                 #[cfg(feature = "autotag")]
                 {
-                    let owned:Option<String>=tx.query_row("SELECT w.job_id FROM tag_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.current_job=w.job_id AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) LIMIT 1",params![path_bytes(&path),hash],|r|r.get(0)).optional()?;
+                    let owned:Option<String>=tx.query_row("SELECT w.job_id FROM tag_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.current_job=w.job_id AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) UNION ALL SELECT t.current_job FROM cleanup_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.state='ready' AND t.archived=0 AND t.current_job=json_extract(w.payload_json,'$.before.row.row.current_job') AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) LIMIT 1",params![path_bytes(&path),hash],|r|r.get(0)).optional()?;
                     if let Some(id) = owned {
                         ids.push(id);
                         tx.commit()?;

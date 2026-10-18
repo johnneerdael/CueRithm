@@ -1,5 +1,14 @@
 //! Durable local library and background preparation.
 #[cfg(feature = "autotag")]
+mod artifacts;
+#[cfg(feature = "autotag")]
+mod cleanup;
+#[cfg(feature = "autotag")]
+pub use cleanup::{
+    CleanupBatchResult, CleanupFailure, CleanupHistory, CleanupPreview, CleanupProposal,
+    CleanupScope, CleanupService,
+};
+#[cfg(feature = "autotag")]
 mod album_context;
 mod analysis_cache;
 mod jobs;

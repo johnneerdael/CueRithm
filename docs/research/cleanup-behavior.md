@@ -80,4 +80,21 @@ library persistence, not confused with physical genre fields.
 
 Current adapter checks use generated audio in all fourteen fixture layouts,
 including Unicode paths and renamed files. They establish file staging behavior;
-manual library publication/Undo and automatic cleanup remain later acceptance.
+automatic Incoming cleanup and the native UI remain separate acceptance.
+
+## Manual library backend acceptance
+
+Persistent previews bind selected proposals to the source bytes, metadata,
+categorized tags, current preparation ownership and cue history. Applying or
+undoing a proposal preserves musical analysis and existing cue revisions.
+Metadata journals share atomic file replacement, durable originals, destination
+reservations, watch-event ownership and storage accounting with preparation.
+Interrupted publication rolls back before workers start; later user edits and
+recovery originals survive conflicts. Undo restores the exact original file
+bytes when its post-apply identity still matches.
+
+Generated-fixture checks cover all fourteen format layouts, partial selections,
+source/archive/preparation/metadata/custom-tag races, database rollback, restart
+before copying/after copying/after replacement, interrupted Undo and deferred
+temporary cleanup. Custom-tag-only changes preserve file bytes. These are backend
+checks; automatic pipeline and native UI acceptance are recorded separately.

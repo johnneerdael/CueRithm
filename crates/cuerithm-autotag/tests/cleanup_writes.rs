@@ -571,3 +571,67 @@ fn catalog_artist_replaces_existing_native_asf_contributors_before_cleanup() {
         vec!["New Artist", "Earth, Wind & Fire"]
     );
 }
+
+#[test]
+fn configured_id3_upgrade_preserves_slashes_in_unselected_contributor_names() {
+    use id3::{TagLike, Version};
+    let d = tempfile::tempdir().unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    tar::Archive::new(flate2::read::GzDecoder::new(
+        std::fs::File::open(root.join("tools/fixtures/media.tar.gz")).unwrap(),
+    ))
+    .unpack(d.path())
+    .unwrap();
+    let cases: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(d.path().join("cases.json")).unwrap()).unwrap();
+    let row = cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["file"].as_str().unwrap().ends_with(".mp3"))
+        .unwrap();
+    let path = d.path().join(row["file"].as_str().unwrap());
+    let mut tag = id3::Tag::new();
+    tag.set_title("Existing");
+    tag.set_artist("AC/DC");
+    tag.set_text("TCOM", "Composer/Name");
+    tag.write_to_path(&path, Version::Id3v23).unwrap();
+    let rt = MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
+    let mut cfg = config();
+    cfg.options.tags = vec![cuerithm_autotag::SupportedTag::Title];
+    cfg.options.id3v24 = true;
+    let outcome = TagMatchOutcome {
+        status: MatchStatus::Matched,
+        matches: vec![CatalogMatch::new(
+            1.,
+            CatalogTrack {
+                platform: "beatport".into(),
+                title: "Catalog title".into(),
+                ..Default::default()
+            },
+        )],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    let staged = TagWritePlan::build(
+        input(&rt, &path, d.path()),
+        &outcome,
+        &cfg,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .with_cleanup(CleanupConfig::default())
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    let after = read_metadata(&staged.path, &staged.metadata).unwrap();
+    assert_eq!(after.fields[&MetadataField::Artist], vec!["AC/DC"]);
+    assert_eq!(
+        after.fields[&MetadataField::Composer],
+        vec!["Composer/Name"]
+    );
+    assert_eq!(
+        id3::Tag::read_from_path(&staged.path).unwrap().version(),
+        Version::Id3v24
+    );
+}
