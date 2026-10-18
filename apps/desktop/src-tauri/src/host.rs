@@ -27,6 +27,7 @@ pub struct Host {
     pub preparation: PreparationService,
     pub player: Mutex<Player>,
     pub loaded: Mutex<Option<(String, Arc<PreparedAudio>)>>,
+    artwork_gate: Mutex<()>,
     pub generation: AtomicU64,
     pub alive: AtomicBool,
 }
@@ -69,6 +70,7 @@ impl Host {
             preparation,
             player: Mutex::new(Player::new()?),
             loaded: Mutex::new(None),
+            artwork_gate: Mutex::new(()),
             generation: AtomicU64::new(0),
             alive: AtomicBool::new(true),
         })
@@ -86,6 +88,64 @@ impl Host {
             source_sha256: self.library.source_hash(id)?,
             pcm_sha256,
         })
+    }
+    pub fn artwork(&self, id: &str, identity: &str) -> Result<Option<String>> {
+        use base64::Engine as _;
+        use std::io::Write;
+        ensure!(
+            identity.len() == 64 && identity.bytes().all(|b| b.is_ascii_hexdigit()),
+            "Invalid artwork identity"
+        );
+        let audio = self
+            .loaded
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Playback cache interrupted"))?
+            .as_ref()
+            .filter(|(track, a)| track == id && a.source_sha256 == identity)
+            .map(|(_, a)| a.clone());
+        if audio.is_none() && self.library.source_hash(id)? != identity {
+            return Ok(None);
+        }
+        let _gate = self
+            .artwork_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Artwork reader interrupted"))?;
+        let folder = self.library.data_dir().join("cache/artwork");
+        std::fs::create_dir_all(&folder)?;
+        let cached = folder.join(identity);
+        fn url(bytes: &[u8]) -> Option<String> {
+            cuerithm_media::artwork_mime(bytes).map(|mime| {
+                format!(
+                    "data:{mime};base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(bytes)
+                )
+            })
+        }
+        if let Ok(meta) = std::fs::metadata(&cached)
+            && meta.len() <= 8 * 1024 * 1024
+        {
+            let bytes = std::fs::read(&cached)?;
+            if bytes.is_empty() {
+                return Ok(None);
+            }
+            if let Some(value) = url(&bytes) {
+                return Ok(Some(value));
+            }
+        }
+        let path = if let Some(ref audio) = audio {
+            audio.snapshot_path.clone()
+        } else {
+            self.library.track_path(id)?
+        };
+        let art = self.runtime.artwork(&path)?;
+        if audio.is_none() && cuerithm_media::file_sha256(&path)? != identity {
+            return Ok(None);
+        }
+        let bytes = art.map(|a| a.bytes).unwrap_or_default();
+        let mut temp = tempfile::NamedTempFile::new_in(&folder)?;
+        temp.write_all(&bytes)?;
+        temp.persist(&cached).map_err(|e| e.error)?;
+        Ok(url(&bytes))
     }
     pub fn audio(&self, id: &str) -> Result<Arc<PreparedAudio>> {
         let loaded = self
@@ -148,6 +208,88 @@ impl Host {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_artwork_is_source_scoped_and_cached() {
+        let d = tempfile::tempdir().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let host = Host::open(d.path(), &root.join("tools/media-runtime/bin"), None).unwrap();
+        let source = root.join("crates/cuerithm-media/tests/fixtures/covered.flac");
+        host.library
+            .enqueue(&[source], host.library.settings().unwrap().revision)
+            .unwrap();
+        let id = host.library.jobs().unwrap()[0].track_id.clone();
+        let identity = host.library.source_hash(&id).unwrap();
+        let image = host.artwork(&id, &identity).unwrap().unwrap();
+        assert!(image.starts_with("data:image/png;base64,"));
+        assert_eq!(host.artwork(&id, &identity).unwrap().as_ref(), Some(&image));
+        assert!(host.artwork(&id, &"0".repeat(64)).unwrap().is_none());
+        host.preparation.shutdown();
+    }
+    #[test]
+    #[ignore = "local throughput benchmark; set CUERITHM_BENCH_AUDIO"]
+    fn benchmark_one_vs_two_workers_preserves_analysis_results() {
+        let source =
+            PathBuf::from(std::env::var_os("CUERITHM_BENCH_AUDIO").expect("Set benchmark source"));
+        let runtime =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tools/media-runtime/bin");
+        let mut reference = None;
+        for workers in [1, 2] {
+            let d = tempfile::tempdir().unwrap();
+            let root = d.path().join("app");
+            std::fs::create_dir_all(&root).unwrap();
+            let lib = Library::open(&root.join("db")).unwrap();
+            crate::builtin::BuiltinModels::install(&root)
+                .unwrap()
+                .configure_library(&lib)
+                .unwrap();
+            let mut paths = Vec::new();
+            for index in 0..2 {
+                let path = d.path().join(format!(
+                    "{index}.{}",
+                    source.extension().unwrap().to_string_lossy()
+                ));
+                std::fs::copy(&source, &path).unwrap();
+                paths.push(path);
+            }
+            let service = PreparationService::start_with_workers(
+                lib.clone(),
+                MediaRuntime::from_bundle(&runtime).unwrap(),
+                workers,
+            )
+            .unwrap();
+            let start = std::time::Instant::now();
+            service.enqueue_paths(&paths).unwrap();
+            while lib.counts().unwrap().tracks != 2 {
+                assert!(
+                    start.elapsed() < std::time::Duration::from_secs(300),
+                    "{:?}",
+                    lib.jobs().unwrap()
+                );
+                std::thread::sleep(std::time::Duration::from_millis(30));
+            }
+            println!(
+                "{workers} workers: {:.3}s for two tracks",
+                start.elapsed().as_secs_f64()
+            );
+            service.shutdown();
+            for job in lib.jobs().unwrap() {
+                let value =
+                    serde_json::to_value(lib.analysis(&job.track_id).unwrap().unwrap().analysis)
+                        .unwrap();
+                let values = serde_json::json!([
+                    value["key"],
+                    value["tempo"],
+                    value["energy"],
+                    value["lexicon_cues"]
+                ]);
+                if let Some(ref expected) = reference {
+                    assert_eq!(&values, expected);
+                } else {
+                    reference = Some(values);
+                }
+            }
+        }
+    }
     #[test]
     fn desktop_prepares_audio_without_user_model_configuration() {
         let d = tempfile::tempdir().unwrap();

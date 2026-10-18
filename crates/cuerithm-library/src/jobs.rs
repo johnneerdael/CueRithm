@@ -10,20 +10,49 @@ impl Library {
         self.settings_revision(revision)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
-        let rows: Vec<(Vec<u8>, String)> = {
-            let mut stmt = tx.prepare(
-                "SELECT path,source_hash FROM tracks WHERE state='incoming' AND archived=0",
-            )?;
-            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        let count = Self::requeue_unfinished_tx(&tx, revision, None)?;
+        tx.commit()?;
+        Ok(count)
+    }
+    pub(crate) fn requeue_unfinished_tx(
+        tx: &rusqlite::Transaction<'_>,
+        revision: &str,
+        obsolete: Option<&[SettingsRevision]>,
+    ) -> Result<usize> {
+        if obsolete.is_some_and(|ids| ids.is_empty()) {
+            return Ok(0);
+        }
+        let rows: Vec<(Vec<u8>, String, String)> = {
+            let mut stmt = tx.prepare("SELECT t.path,t.source_hash,j.settings_revision FROM tracks t JOIN jobs j ON j.id=t.current_job WHERE t.state='incoming' AND t.archived=0")?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
                 .collect::<rusqlite::Result<_>>()?
         };
-        for (path, hash) in &rows {
-            Self::enqueue_one(&tx, &bytes_path(path)?, hash, revision)?;
+        let mut count = 0;
+        for (path, hash, previous) in &rows {
+            if obsolete.is_some_and(|ids| !ids.contains(previous)) {
+                continue;
+            }
+            Self::enqueue_one(tx, &bytes_path(path)?, hash, revision)?;
+            count += 1;
         }
-        tx.commit()?;
-        Ok(rows.len())
+        Ok(count)
     }
     pub fn enqueue(&self, paths: &[PathBuf], revision: SettingsRevision) -> Result<Vec<JobId>> {
+        self.enqueue_sources(paths, revision, false)
+    }
+    pub fn enqueue_discovered(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+    ) -> Result<Vec<JobId>> {
+        self.enqueue_sources(paths, revision, true)
+    }
+    fn enqueue_sources(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+        discovered: bool,
+    ) -> Result<Vec<JobId>> {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();
         for path in paths {
@@ -32,6 +61,21 @@ impl Library {
             let hash = file_sha256(&path)?;
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
+            if discovered {
+                let current: Option<String> = tx
+                    .query_row(
+                        "SELECT current_job FROM tracks WHERE path=?1 AND source_hash=?2",
+                        params![path_bytes(&path), hash],
+                        |r| r.get(0),
+                    )
+                    .optional()?
+                    .flatten();
+                if let Some(id) = current {
+                    ids.push(id);
+                    tx.commit()?;
+                    continue;
+                }
+            }
             ids.push(Self::enqueue_one(&tx, &path, &hash, &revision)?);
             tx.commit()?;
         }
@@ -83,9 +127,9 @@ impl Library {
     pub fn claim_next(&self) -> Result<Option<JobRun>> {
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
-        let row=tx.query_row("SELECT j.id,j.track_id,t.path,j.source_hash,j.settings_revision FROM jobs j JOIN tracks t ON t.current_job=j.id WHERE j.state='queued' AND t.archived=0 ORDER BY j.created,j.id LIMIT 1",[],
-            |r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?))).optional()?;
-        let Some((id, track_id, path, source_sha256, settings_revision)) = row else {
+        let row=tx.query_row("SELECT j.id,j.track_id,t.path,j.source_hash,j.settings_revision,j.attempts FROM jobs j JOIN tracks t ON t.current_job=j.id WHERE j.state='queued' AND t.archived=0 ORDER BY j.created,j.id LIMIT 1",[],
+            |r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?,r.get::<_,u32>(5)?))).optional()?;
+        let Some((id, track_id, path, source_sha256, settings_revision, attempts)) = row else {
             return Ok(None);
         };
         let text: String = tx.query_row(
@@ -97,6 +141,9 @@ impl Library {
         tx.execute("UPDATE jobs SET state='running',stage='waiting',attempts=attempts+1,updated=?1 WHERE id=?2",params![now(),id])?;
         tx.commit()?;
         Ok(Some(JobRun {
+            attempt: attempts
+                .checked_add(1)
+                .context("Preparation attempt counter exhausted")?,
             id,
             track_id,
             path: bytes_path(&path)?,
@@ -123,6 +170,12 @@ impl Library {
             .collect::<rusqlite::Result<_>>()?)
     }
     pub fn set_stage(&self, id: &str, stage: &str) -> Result<()> {
+        self.set_stage_checked(id, None, stage)
+    }
+    pub fn set_stage_for_run(&self, job: &JobRun, stage: &str) -> Result<()> {
+        self.set_stage_checked(&job.id, Some(job.attempt), stage)
+    }
+    fn set_stage_checked(&self, id: &str, attempt: Option<u32>, stage: &str) -> Result<()> {
         ensure!(
             matches!(stage, "waiting" | "decoding" | "analysis" | "committing"),
             "Unknown preparation stage"
@@ -130,16 +183,22 @@ impl Library {
         let conn = self.conn()?;
         ensure!(
             conn.execute(
-                "UPDATE jobs SET stage=?1,updated=?2 WHERE id=?3 AND state='running'",
-                params![stage, now(), id]
+                "UPDATE jobs SET stage=?1,updated=?2 WHERE id=?3 AND state='running' AND (?4 IS NULL OR attempts=?4)",
+                params![stage, now(), id, attempt]
             )? == 1,
             "Preparation was superseded"
         );
         Ok(())
     }
     pub fn fail(&self, id: &str, stage: &str, error: &str) -> Result<()> {
+        self.fail_checked(id, None, stage, error)
+    }
+    pub fn fail_for_run(&self, job: &JobRun, stage: &str, error: &str) -> Result<()> {
+        self.fail_checked(&job.id, Some(job.attempt), stage, error)
+    }
+    fn fail_checked(&self, id: &str, attempt: Option<u32>, stage: &str, error: &str) -> Result<()> {
         let conn = self.conn()?;
-        ensure!(conn.execute("UPDATE jobs SET state='attention',stage=?1,error=?2,updated=?3 WHERE id=?4 AND state='running'",params![stage,error,now(),id])?==1,"Preparation is no longer running");
+        ensure!(conn.execute("UPDATE jobs SET state='attention',stage=?1,error=?2,updated=?3 WHERE id=?4 AND state='running' AND (?5 IS NULL OR attempts=?5)",params![stage,error,now(),id,attempt])?==1,"Preparation is no longer running");
         Ok(())
     }
     pub fn retry(&self, id: &str, revision: Option<SettingsRevision>) -> Result<JobId> {
@@ -170,9 +229,41 @@ impl Library {
         tx.commit()?;
         Ok(next)
     }
+    pub fn retry_for_run(&self, job: &JobRun) -> Result<JobId> {
+        let hash = file_sha256(&job.path)?;
+        let mut conn = self.conn()?;
+        let tx = conn.transaction()?;
+        let current:bool=tx.query_row("SELECT j.state='running' AND j.attempts=?2 AND t.current_job=j.id AND t.archived=0 AND j.settings_revision=?3 AND j.source_hash=?4 FROM jobs j JOIN tracks t ON t.id=j.track_id WHERE j.id=?1",params![job.id,job.attempt,job.settings_revision,job.source_sha256],|r|r.get(0))?;
+        ensure!(current, "Preparation was superseded");
+        let next = Self::enqueue_one(&tx, &job.path, &hash, &job.settings_revision)?;
+        tx.execute(
+            "UPDATE jobs SET state='queued',stage='queued',error=NULL,updated=?1 WHERE id=?2",
+            params![now(), next],
+        )?;
+        tx.commit()?;
+        Ok(next)
+    }
     pub fn apply_analysis(
         &self,
         id: &str,
+        result: &FileAnalysis,
+        info: &MediaInfo,
+        source_sha: &str,
+    ) -> Result<()> {
+        self.apply_analysis_checked(id, None, result, info, source_sha)
+    }
+    pub fn apply_analysis_for_run(
+        &self,
+        job: &JobRun,
+        result: &FileAnalysis,
+        info: &MediaInfo,
+    ) -> Result<()> {
+        self.apply_analysis_checked(&job.id, Some(job.attempt), result, info, &job.source_sha256)
+    }
+    fn apply_analysis_checked(
+        &self,
+        id: &str,
+        attempt: Option<u32>,
         result: &FileAnalysis,
         info: &MediaInfo,
         source_sha: &str,
@@ -206,11 +297,11 @@ impl Library {
         );
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
-        let (track,expected,state,settings,current,path):(String,String,String,String,String,Vec<u8>)=tx.query_row(
-            "SELECT j.track_id,j.source_hash,j.state,s.json,t.current_job,t.path FROM jobs j JOIN tracks t ON t.id=j.track_id JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",
-            [id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?)))?;
+        let (track,expected,state,settings,current,path,actual_attempt):(String,String,String,String,String,Vec<u8>,u32)=tx.query_row(
+            "SELECT j.track_id,j.source_hash,j.state,s.json,t.current_job,t.path,j.attempts FROM jobs j JOIN tracks t ON t.id=j.track_id JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",
+            [id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?)))?;
         ensure!(
-            state == "running" && current == id,
+            state == "running" && current == id && attempt.is_none_or(|a| a == actual_attempt),
             "Preparation is no longer current"
         );
         ensure!(

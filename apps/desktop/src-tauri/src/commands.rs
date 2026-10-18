@@ -60,6 +60,11 @@ pub async fn list_tracks(host: Managed<'_>, query: TrackQuery) -> Ipc<TrackPage>
     work(move || lib.tracks(query)).await
 }
 #[tauri::command]
+pub async fn select_track_ids(host: Managed<'_>, query: TrackQuery) -> Ipc<Vec<TrackId>> {
+    let lib = host.library.clone();
+    work(move || lib.track_ids(query)).await
+}
+#[tauri::command]
 pub async fn list_jobs(host: Managed<'_>) -> Ipc<Vec<JobSummary>> {
     let lib = host.library.clone();
     work(move || lib.jobs()).await
@@ -68,6 +73,15 @@ pub async fn list_jobs(host: Managed<'_>) -> Ipc<Vec<JobSummary>> {
 pub async fn get_track(host: Managed<'_>, track_id: String) -> Ipc<Detail> {
     let host = host.inner().clone();
     work(move || host.detail(&track_id)).await
+}
+#[tauri::command]
+pub async fn get_artwork(
+    host: Managed<'_>,
+    track_id: String,
+    source_sha256: String,
+) -> Ipc<Option<String>> {
+    let host = host.inner().clone();
+    work(move || host.artwork(&track_id, &source_sha256)).await
 }
 #[tauri::command]
 pub async fn get_settings(host: Managed<'_>) -> Ipc<SettingsSnapshot> {

@@ -1,7 +1,8 @@
 import {useRef,useState,useLayoutEffect,useEffect} from "react";
 import {createPortal} from "react-dom";
 import {Play,Music2,ChevronUp,ChevronDown,MoreHorizontal,RotateCcw,Archive,Columns3,ArrowUp,ArrowDown,X} from "lucide-react";
-import type {Track,Sort,Job,View} from "../types";
+import Artwork from "./Artwork";
+import type {Track,Sort,Job,View,Bridge} from "../types";
 import {time} from "../display";
 const height=42;
 type Column="title"|"artist"|"genre"|"bpm"|"key"|"energy"|"duration";
@@ -10,7 +11,7 @@ const labels:Record<Column,string>={title:"Title",artist:"Artist",genre:"Genre",
 const widths:Record<Column,string>={title:"minmax(150px,1.6fr)",artist:"minmax(110px,1fr)",genre:"minmax(85px,.8fr)",bpm:"74px",key:"58px",energy:"70px",duration:"60px"};
 const stages:Record<string,string>={queued:"Queued",waiting:"Waiting for file",decoding:"Decoding",analysis:"Analyzing",committing:"Applying cues",setup:"Setup"};
 function preferences():{order:Column[];hidden:Column[]}{try{const v=JSON.parse(localStorage.getItem("track-columns")??"null");if(v&&Array.isArray(v.order)&&v.order.length===7&&new Set(v.order).size===7&&v.order.every((c:Column)=>defaults.includes(c)))return {order:v.order,hidden:(v.hidden??[]).filter((c:Column)=>c!=="title"&&defaults.includes(c))};}catch{}return {order:defaults,hidden:[]};}
-export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading}:{rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(id:string)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
+export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading,artworkLoader}:{artworkLoader?:Bridge["getArtwork"];rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(id:string)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
   const viewport=useRef<HTMLDivElement>(null),header=useRef<HTMLDivElement>(null);
   const [top,setTop]=useState(0),[prefs,setPrefs]=useState(preferences);
   const [menu,setMenu]=useState<{id:string;x:number;y:number}|null>(null);
@@ -29,7 +30,7 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
   const head=(c:Column)=>{const sortable=c==="title"||c==="artist"||c==="bpm"||c==="energy";return sortable?<button onClick={()=>onSort(c)}>{labels[c].toUpperCase()}{sort===c?(descending?<ChevronDown size={12}/>:<ChevronUp size={12}/>):null}</button>:labels[c].toUpperCase();};
   const cell=(row:Track,job:Job|undefined,column:Column)=>{
     switch(column){
-      case "title":return <div className="title-cell"><span className="file-mark"><Music2 size={13}/></span><span className={"title-content"+(view==="incoming"&&job?" has-status":"")}><strong>{row.title}</strong>{view==="incoming"&&job?<small className={job.state==="attention"?"attention":"processing"}>{job.state==="attention"?job.error:stages[job.stage]??job.stage}</small>:<small className="file-extension">{row.display_path.split(".").pop()?.toUpperCase()}</small>}</span></div>;
+      case "title":return <div className="title-cell"><span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<Music2 size={13}/>}/></span><span className={"title-content"+(view==="incoming"&&job?" has-status":"")}><strong>{row.title}</strong>{view==="incoming"&&job?<small className={job.state==="attention"?"attention":"processing"}>{job.state==="attention"?job.error:stages[job.stage]??job.stage}</small>:<small className="file-extension">{row.display_path.split(".").pop()?.toUpperCase()}</small>}</span></div>;
       case "artist":return <span className="ellipsis muted">{row.artist||"—"}</span>;
       case "genre":return <span className="ellipsis genre">{row.genre||"—"}</span>;
       case "bpm":return <span className="number">{row.bpm?.toFixed(2)??"—"}</span>;

@@ -61,13 +61,29 @@ impl BuiltinModels {
         changed
     }
     pub fn configure_library(&self, library: &Library) -> Result<bool> {
-        let mut settings = library.settings()?.settings;
-        if !self.apply(&mut settings) {
+        let selected = library.settings()?;
+        let mut settings = selected.settings;
+        let changed = self.apply(&mut settings);
+        let expected = camelot_core::Engine::new(&settings.engine)?.model_identity();
+        let obsolete: Vec<_> = library
+            .unfinished_settings()?
+            .into_iter()
+            .filter(|snapshot| self.needs_migration(snapshot, &expected))
+            .map(|snapshot| snapshot.revision)
+            .collect();
+        if !changed && selected.models == expected && obsolete.is_empty() {
             return Ok(false);
         }
-        let revision = library.save_settings(settings)?;
-        library.requeue_unfinished(&revision)?;
+        library.save_settings_migrating(settings, &obsolete)?;
         Ok(true)
+    }
+    fn needs_migration(
+        &self,
+        snapshot: &cuerithm_library::SettingsSnapshot,
+        expected: &std::collections::BTreeMap<String, String>,
+    ) -> bool {
+        let mut settings = snapshot.settings.clone();
+        self.apply(&mut settings) || &snapshot.models != expected
     }
 }
 
@@ -120,5 +136,47 @@ mod tests {
             cuerithm_media::file_sha256(&repaired.energy).unwrap(),
             ENERGY_SHA
         );
+    }
+
+    #[test]
+    fn interrupted_old_migration_recovers_after_reopen() {
+        let d = tempfile::tempdir().unwrap();
+        let db = d.path().join("library.sqlite");
+        let models = BuiltinModels::install(d.path()).unwrap();
+        {
+            let lib = Library::open(&db).unwrap();
+            let source = d.path().join("track.flac");
+            std::fs::write(&source, b"source").unwrap();
+            let id = lib
+                .enqueue(&[source], lib.settings().unwrap().revision)
+                .unwrap()[0]
+                .clone();
+            lib.claim_next().unwrap().unwrap();
+            lib.fail(&id, "setup", "old missing model").unwrap();
+            let mut settings = lib.settings().unwrap().settings;
+            models.apply(&mut settings);
+            // Simulate the previous implementation dying between transactions.
+            lib.save_settings(settings).unwrap();
+        }
+        let lib = Library::open(&db).unwrap();
+        assert!(models.configure_library(&lib).unwrap());
+        assert!(lib.claim_next().unwrap().is_some());
+    }
+    #[test]
+    fn changed_implementation_identity_requires_migration_with_same_paths() {
+        let d = tempfile::tempdir().unwrap();
+        let models = BuiltinModels::install(d.path()).unwrap();
+        let mut settings = PreparationSettings::default();
+        models.apply(&mut settings);
+        let expected = std::collections::BTreeMap::from([(
+            "openkeyscan-frontend".to_string(),
+            "current".to_string(),
+        )]);
+        let snapshot = cuerithm_library::SettingsSnapshot {
+            revision: "old-build".into(),
+            settings,
+            models: Default::default(),
+        };
+        assert!(models.needs_migration(&snapshot, &expected));
     }
 }

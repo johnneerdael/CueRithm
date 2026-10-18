@@ -41,13 +41,67 @@ fn wait(lib: &Library, count: u64) {
             return;
         }
         assert!(
-            start.elapsed() < Duration::from_secs(180),
+            start.elapsed() < Duration::from_secs(60 * count.max(3)),
             "jobs: {:?}",
             lib.jobs().unwrap()
         );
         std::thread::sleep(Duration::from_millis(50));
     }
 }
+#[test]
+fn parallel_preparation_keeps_results_and_event_order_consistent() {
+    let d = tempfile::tempdir().unwrap();
+    let incoming = d.path().join("incoming");
+    std::fs::create_dir(&incoming).unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac");
+    for name in ["a.flac", "b.flac"] {
+        std::fs::copy(&source, incoming.join(name)).unwrap();
+    }
+    let lib = Library::open(&d.path().join("app/db")).unwrap();
+    let mut settings = configured(&lib, incoming);
+    settings.stability_millis = 300;
+    lib.save_settings(settings).unwrap();
+    let service = PreparationService::start_with_workers(lib.clone(), runtime(), 2).unwrap();
+    let events = service.subscribe();
+    let start = Instant::now();
+    loop {
+        if lib
+            .jobs()
+            .unwrap()
+            .iter()
+            .filter(|j| j.state == "running")
+            .count()
+            == 2
+        {
+            break;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "two jobs must run concurrently"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    wait(&lib, 2);
+    service.shutdown();
+    let received: Vec<_> = events.try_iter().collect();
+    assert!(
+        received
+            .windows(2)
+            .all(|pair| pair[0].sequence < pair[1].sequence)
+    );
+    let jobs = lib.jobs().unwrap();
+    assert_eq!(jobs.len(), 2);
+    let one = lib.analysis(&jobs[0].track_id).unwrap().unwrap();
+    let two = lib.analysis(&jobs[1].track_id).unwrap().unwrap();
+    for field in ["key", "tempo", "energy", "lexicon_cues"] {
+        assert_eq!(
+            serde_json::to_value(&one.analysis).unwrap()[field],
+            serde_json::to_value(&two.analysis).unwrap()[field]
+        );
+    }
+}
+
 #[test]
 fn all_common_formats_are_prepared_and_promoted_by_the_real_background_worker() {
     let d = tempfile::tempdir().unwrap();

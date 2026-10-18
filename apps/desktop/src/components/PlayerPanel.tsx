@@ -1,6 +1,7 @@
 import {useMemo,useState} from "react";
 import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lucide-react";
-import type {Playback,Detail,Waveform} from "../types";
+import Artwork from "./Artwork";
+import type {Playback,Detail,Waveform,Bridge} from "../types";
 import {time,cueColor} from "../display";
 
 function Wave({data,position,start,end,beats,cues,onSeek,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;small?:boolean}){
@@ -23,21 +24,24 @@ function Wave({data,position,start,end,beats,cues,onSeek,small=false}:{data:Wave
     <svg viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
       {!small?ticks.map((beat,i)=><line key={i} x1={(beat-start)/span*1000} x2={(beat-start)/span*1000} y1="0" y2="80" className="beat-line"/>):null}
       <path d={path} className="wave-path" vectorEffect="non-scaling-stroke"/>
-      {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
+      {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line data-cue={c.name} key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
       {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
     </svg>
+    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{String.fromCharCode(65+i)}</span>:null):null}
   </div>;
 }
-export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume}:{status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
-  const [zoom,setZoom]=useState(16);
+export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader}:{artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
+  const [zoom,setZoom]=useState(0);
   const duration=status.duration_seconds||data?.duration_seconds||0;
   const center=status.position_seconds;
-  const start=Math.max(0,Math.min(Math.max(0,duration-zoom),center-zoom*.35));
+  const span=zoom||duration;
+  const start=zoom?Math.max(0,Math.min(Math.max(0,duration-span),center-span*.35)):0;
+  const end=Math.min(duration,start+span);
   const cues=detail?.analysis?.analysis.lexicon_cues??null;
   const beats=detail?.analysis?.analysis.tempo?.beats_seconds??[];
   return <section className="player" aria-label="Music player">
     <div className="player-header">
-      <div className="now-playing-art"><AudioLines size={27}/></div>
+      <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<AudioLines size={27}/>}/>:<AudioLines size={27}/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
       {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="accent-text">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
@@ -49,9 +53,9 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
       <div className="player-volume"><Volume2 size={16}/><input aria-label="Volume" type="range" min={0} max={1} step={.01} value={status.volume} onChange={event=>onVolume(Number(event.target.value))}/></div>
     </div>
     <div className="waveform-area">
-      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><select aria-label="Waveform zoom" value={zoom} onChange={e=>setZoom(Number(e.target.value))}><option value={8}>8 seconds</option><option value={16}>16 seconds</option><option value={32}>32 seconds</option></select></div>
-        <Wave data={data} position={center} start={start} end={Math.min(duration,start+zoom)} beats={beats} cues={cues} onSeek={onSeek}/>
-        <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(Math.min(duration,start+zoom),true)}</span></div>
+      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><select aria-label="Waveform zoom" value={zoom} onChange={e=>setZoom(Number(e.target.value))}><option value={0}>Entire track</option><option value={8}>8 seconds</option><option value={16}>16 seconds</option><option value={32}>32 seconds</option></select></div>
+        <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek}/>
+        <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(end,true)}</span></div>
         <Wave small data={data} position={center} start={0} end={duration} beats={[]} cues={cues} onSeek={onSeek}/>
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}
     </div>

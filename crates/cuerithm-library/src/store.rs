@@ -82,6 +82,13 @@ impl Library {
         &self.inner.root
     }
     pub fn save_settings(&self, settings: PreparationSettings) -> Result<SettingsRevision> {
+        self.save_settings_migrating(settings, &[])
+    }
+    pub fn save_settings_migrating(
+        &self,
+        settings: PreparationSettings,
+        obsolete: &[SettingsRevision],
+    ) -> Result<SettingsRevision> {
         settings.validate()?;
         let models = camelot_core::Engine::new(&settings.engine)?.model_identity();
         let revision = format!(
@@ -105,8 +112,19 @@ impl Library {
             "INSERT OR REPLACE INTO selected_settings VALUES (1,?1)",
             params![revision],
         )?;
+        Self::requeue_unfinished_tx(&tx, &revision, Some(obsolete))?;
         tx.commit()?;
         Ok(revision)
+    }
+    pub fn unfinished_settings(&self) -> Result<Vec<SettingsSnapshot>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare("SELECT DISTINCT s.json FROM settings s JOIN jobs j ON j.settings_revision=s.revision JOIN tracks t ON t.current_job=j.id WHERE t.state='incoming' AND t.archived=0")?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows.into_iter()
+            .map(|s| serde_json::from_str(&s).map_err(Into::into))
+            .collect()
     }
     pub fn settings(&self) -> Result<SettingsSnapshot> {
         let conn = self.conn()?;
@@ -179,7 +197,7 @@ impl Library {
             [&needle],
             |r| r.get(0),
         )?;
-        let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
+        let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
         let rows = stmt
             .query_map(params![needle, query.limit, offset], summary_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -191,8 +209,22 @@ impl Library {
             next_cursor: (next < total).then(|| format!("{revision}:{next}:{query_id}")),
         })
     }
+    pub fn track_ids(&self, query: TrackQuery) -> Result<Vec<TrackId>> {
+        let condition = match query.view {
+            TrackView::Tracks => "state='ready' AND archived=0",
+            TrackView::Incoming => "state='incoming' AND archived=0",
+            TrackView::Archive => "archived=1",
+        };
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT id FROM tracks WHERE {condition} AND instr(search_text,?1)>0 ORDER BY id"
+        ))?;
+        Ok(stmt
+            .query_map([query.search.to_lowercase()], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration FROM tracks WHERE id=?1",[id],summary_row)?)
+        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash FROM tracks WHERE id=?1",[id],summary_row)?)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
         Ok(self
@@ -284,6 +316,7 @@ fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
     })?;
     Ok(TrackSummary {
         id: r.get(0)?,
+        source_sha256: r.get(11)?,
         display_path: path.to_string_lossy().into_owned(),
         title: r.get(2)?,
         artist: r.get(3)?,
