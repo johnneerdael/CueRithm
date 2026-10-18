@@ -94,6 +94,8 @@ jobs:
           cp "$(find dist/Cuerithm-test-macos-15 -name 'ffmpeg-*.tar.xz')" release/
       - name: Publish release
         if: steps.ready.outputs.ok == 'true'
+        env:
+          GH_DEBUG: api
         run: |
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
           version=$(python3 .github/scripts/release_notes.py version --base "$base")
