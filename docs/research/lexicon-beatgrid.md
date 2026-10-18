@@ -89,7 +89,7 @@ are checked by `tests/fixtures/lexicon-timing/generate.py`. Cases include
 the default range and a zero anchor. The independent Rust tempo-helper
 component now matches all eight best BPMs and peak arrays exactly, with confidence
 within 1e-12. Its input generator also matches all eight original PCM hashes.
-The complete Rust audio-to-anchor API now passes all 15 full-worker synthetic
+The complete Rust audio-to-anchor API now passes all 62 full-worker synthetic
 references described below. Decoder/engine/desktop integration remains outstanding;
 these generated signals do not establish musical correctness.
 
@@ -104,9 +104,13 @@ validation. The module 473 drop/DnB/immediate-start and module 578 intro helpers
 also match 216 original rows, covering all four intro classifications and a
 48000 Hz input. Module 382 walkback matches 1,224 result rows, including optional
 drop strength, intro-kind differences and half-beat counts. Module 358 initial
-selection and its final correction sequence are now independently implemented. The public Rust `analyze` API matches all 15 original whole-worker
+selection and its final correction sequence are now independently implemented. The public Rust `analyze` API matches all 62 original whole-worker
 BPM/anchor results within 1e-12; initial candidate/correction-state snapshots also
 match. These include 8/48 kHz, wider tempo bounds and a longer quiet intro.
+The additional 47 whole-worker cases use 64-second inputs, 120/174/220 BPM
+authored pulses, offsets from zero to 31 seconds and quiet intros of 8/22
+seconds under 50..300 BPM bounds. This also checks source half/third-tempo
+choices rather than forcing agreement with the authored pulse rate.
 A separate bank of 291 selector component results covers all 20 observed return
 sites, including explicit DnB structural selection, sparse starts, quiet beds,
 early-drop fallback and missing-drop behavior. Those component inputs supply

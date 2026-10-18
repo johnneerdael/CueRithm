@@ -5,12 +5,18 @@ use sha2::{Digest, Sha256};
 
 #[test]
 fn original_audio_to_selected_anchor_and_correction_state_match() {
-    let source: Value = serde_json::from_str(include_str!(
-        "../../../../../tests/fixtures/lexicon-timing/complete-stage-reference.json"
-    ))
-    .unwrap();
+    let cases: Vec<Value> = [
+        include_str!("../../../../../tests/fixtures/lexicon-timing/complete-stage-reference.json"),
+        include_str!("../../../../../tests/fixtures/lexicon-timing/complete-offset-reference.json"),
+    ]
+    .into_iter()
+    .flat_map(|text| {
+        let source: Value = serde_json::from_str(text).unwrap();
+        source["cases"].as_array().unwrap().clone()
+    })
+    .collect();
     let mut consumed = 0;
-    for case in source["cases"].as_array().unwrap() {
+    for case in &cases {
         if case["component_only"].as_bool() == Some(true) {
             continue;
         }
@@ -44,7 +50,7 @@ fn original_audio_to_selected_anchor_and_correction_state_match() {
         );
         consumed += 1;
     }
-    assert_eq!(consumed, 15);
+    assert_eq!(consumed, 62);
 }
 
 #[test]

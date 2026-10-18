@@ -132,3 +132,14 @@ returns unknown for unavailable rhythm, rather than a fabricated grid. The
 standalone tempo helper remains a distinct component boundary. No decoder,
 first-channel selection, preparation-cache or desktop default change is proven
 by these DSP-only fixtures.
+
+
+`complete-offset-reference.json` adds 47 complete 64-second whole-worker cases,
+using 50..300 BPM bounds, authored 120/174/220 BPM pulses, offsets from zero to
+31 seconds and 8/22-second quiet intros. Together with the 15 real complete-stage
+cases, all 62 initial candidate/state and public full audio-to-timing results
+pass within 1e-12. Explicit component-only cases remain excluded. The expected
+BPM is the original detector's result, including its half/third-tempo choices;
+it is not replaced by the authored pulse rate. Every PCM hash is independently
+regenerated in Rust and Python. Desktop and music-corpus validation remain
+outstanding.

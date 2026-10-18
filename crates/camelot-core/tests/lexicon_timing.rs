@@ -141,12 +141,18 @@ fn malformed_pcm_rate_or_tempo_bounds_are_explicit_errors() {
 
 #[test]
 fn original_complete_worker_audio_to_timing_references_match() {
-    let source: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/lexicon-timing/complete-stage-reference.json"
-    ))
-    .unwrap();
+    let cases: Vec<serde_json::Value> = [
+        include_str!("../../../tests/fixtures/lexicon-timing/complete-stage-reference.json"),
+        include_str!("../../../tests/fixtures/lexicon-timing/complete-offset-reference.json"),
+    ]
+    .into_iter()
+    .flat_map(|text| {
+        let source: serde_json::Value = serde_json::from_str(text).unwrap();
+        source["cases"].as_array().unwrap().clone()
+    })
+    .collect();
     let mut consumed = 0;
-    for case in source["cases"].as_array().unwrap() {
+    for case in &cases {
         if case["component_only"].as_bool() == Some(true) {
             continue;
         }
@@ -174,7 +180,7 @@ fn original_complete_worker_audio_to_timing_references_match() {
         );
         consumed += 1;
     }
-    assert_eq!(consumed, 15);
+    assert_eq!(consumed, 62);
 }
 
 #[test]
