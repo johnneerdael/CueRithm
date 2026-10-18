@@ -34,6 +34,11 @@ fn preview_is_read_only_and_selected_apply_and_undo_preserve_analysis_and_cues()
     assert!(applied.failed.is_empty());
     assert_eq!(f.lib.track(&f.ids[0]).unwrap().title, "signal track 0");
     assert_eq!(std::fs::read(&f.paths[1]).unwrap(), before[1]);
+    assert!(
+        serde_json::to_value(service.cleanup_history().unwrap()).unwrap()[0]["can_undo"]
+            .as_bool()
+            .unwrap_or(false)
+    );
     for (i, id) in f.ids.iter().enumerate() {
         assert_eq!(f.lib.cue_revision_count(id).unwrap(), 1);
         assert_eq!(
@@ -46,6 +51,11 @@ fn preview_is_read_only_and_selected_apply_and_undo_preserve_analysis_and_cues()
     assert_eq!(std::fs::read(&f.paths[0]).unwrap(), before[0]);
     assert_eq!(f.lib.track(&f.ids[0]).unwrap().title, "signal__track 0");
     assert_eq!(f.lib.cue_revision_count(&f.ids[0]).unwrap(), 1);
+    let history = service.cleanup_history().unwrap();
+    assert_eq!(
+        serde_json::to_value(history.iter().find(|h| h.id == applied.id).unwrap()).unwrap()["can_undo"],
+        false
+    );
 }
 #[test]
 fn stale_archive_preparation_and_file_changes_are_reported_per_track() {

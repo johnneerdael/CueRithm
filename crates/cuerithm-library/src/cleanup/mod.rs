@@ -456,7 +456,7 @@ impl CleanupService {
     }
     pub fn cleanup_history(&self) -> Result<Vec<CleanupHistory>> {
         let conn = self.library.conn()?;
-        let mut q=conn.prepare("SELECT id,kind,state,created,result_json FROM cleanup_batches ORDER BY created DESC,id")?;
+        let mut q=conn.prepare("SELECT b.id,b.kind,b.state,b.created,b.result_json,EXISTS(SELECT 1 FROM cleanup_writes w WHERE w.batch_id=b.id AND w.state='committed') FROM cleanup_batches b ORDER BY b.created DESC,b.id")?;
         let rows = q
             .query_map([], |r| {
                 Ok((
@@ -465,12 +465,14 @@ impl CleanupService {
                     r.get::<_, String>(2)?,
                     r.get::<_, i64>(3)?,
                     r.get::<_, String>(4)?,
+                    r.get::<_, bool>(5)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         rows.into_iter()
-            .map(|(id, kind, state, created, result)| {
+            .map(|(id, kind, state, created, result, can_undo)| {
                 Ok(CleanupHistory {
+                    can_undo,
                     id,
                     kind,
                     state,

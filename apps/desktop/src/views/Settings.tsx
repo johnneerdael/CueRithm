@@ -2,6 +2,7 @@ import {useEffect,useState} from "react";
 import {FolderPlus,FolderOpen,X,Save,ChevronLeft,Check} from "lucide-react";
 import type {Bridge,Snapshot,Settings as SettingsType,EngineSettings} from "../types";
 import TaggingSettings from "./TaggingSettings";
+import CleanupSettings from "./CleanupSettings";
 import {errorMessage} from "../api";
 export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
   const [draft,setDraft]=useState<SettingsType>(snapshot.settings);
@@ -28,7 +29,7 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
         <label className="setting-row"><div><strong>Emergency loop</strong><p>Include a loop when the track has a suitable section.</p></div><input type="checkbox" checked={draft.engine.lexicon_config?.add_emergency_loop??false} onChange={e=>engine({lexicon_config:{...draft.engine.lexicon_config!,add_emergency_loop:e.target.checked}})}/></label>
       </section>
       <TaggingSettings bridge={bridge} config={draft.tagging} enabled={draft.autotag_enabled} onChange={(tagging,enabled)=>{setSaved(false);setDraft(d=>({...d,tagging,autotag_enabled:enabled}));}}/>
-      <section className="setting-section future-settings"><div className="setting-heading"><span className="section-number">05</span><div><h2>Cleanup</h2><p>Genre, artist and Smart Fix rules.</p></div></div><p className="setting-note">Not available in this build.</p></section>
+      <CleanupSettings config={draft.cleanup} enabled={draft.cleanup_enabled} onChange={(cleanup,enabled)=>{setSaved(false);setDraft(d=>({...d,cleanup,cleanup_enabled:enabled}));}}/>
     </fieldset></div>
   </section>;
 }

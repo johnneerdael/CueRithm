@@ -36,6 +36,7 @@ pub struct CleanupBatchResult {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanupHistory {
+    pub can_undo: bool,
     pub id: String,
     pub kind: String,
     pub state: String,

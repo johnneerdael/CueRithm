@@ -2,7 +2,7 @@ use crate::host::{Detail, Host};
 use cuerithm_library::*;
 use serde::Serialize;
 use std::{path::PathBuf, sync::Arc};
-use tauri::State;
+use tauri::{Emitter, State};
 type Managed<'a> = State<'a, Arc<Host>>;
 #[derive(Debug, Serialize)]
 pub struct AppError {
@@ -96,6 +96,57 @@ pub async fn tagging_storage(host: Managed<'_>) -> Ipc<TaggingStorage> {
 #[tauri::command]
 pub fn tagging_catalog() -> cuerithm_autotag::TaggingCatalog {
     cuerithm_autotag::settings_catalog()
+}
+#[tauri::command]
+pub async fn cleanup_catalog(
+    host: Managed<'_>,
+    config: cuerithm_cleanup::CleanupConfig,
+) -> Ipc<CleanupCatalog> {
+    let lib = host.library.clone();
+    work(move || lib.cleanup_catalog(&config)).await
+}
+#[tauri::command]
+pub async fn preview_cleanup(
+    host: Managed<'_>,
+    scope: CleanupScope,
+    config: cuerithm_cleanup::CleanupConfig,
+) -> Ipc<CleanupPreview> {
+    let service = CleanupService::new(host.library.clone(), host.runtime.clone());
+    work(move || service.preview_cleanup(scope, config)).await
+}
+#[tauri::command]
+pub async fn cleanup_history(host: Managed<'_>) -> Ipc<Vec<CleanupHistory>> {
+    let service = CleanupService::new(host.library.clone(), host.runtime.clone());
+    work(move || service.cleanup_history()).await
+}
+#[tauri::command]
+pub async fn apply_cleanup(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    plan_id: String,
+    proposal_ids: Vec<String>,
+) -> Ipc<CleanupBatchResult> {
+    let service = CleanupService::new(host.library.clone(), host.runtime.clone());
+    let result = work(move || service.apply_cleanup(&plan_id, &proposal_ids)).await?;
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"track_ids": result.applied}),
+    );
+    Ok(result)
+}
+#[tauri::command]
+pub async fn undo_cleanup(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    batch_id: String,
+) -> Ipc<CleanupBatchResult> {
+    let service = CleanupService::new(host.library.clone(), host.runtime.clone());
+    let result = work(move || service.undo_cleanup(&batch_id)).await?;
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"track_ids": result.applied}),
+    );
+    Ok(result)
 }
 #[tauri::command]
 pub async fn get_settings(host: Managed<'_>) -> Ipc<SettingsSnapshot> {

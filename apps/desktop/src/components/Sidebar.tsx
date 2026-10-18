@@ -1,7 +1,7 @@
 import {Music2,Inbox,Archive,Settings,Folder,ChevronRight,Plus,RefreshCw,Wand2,Radio} from "lucide-react";
 import icon from "../assets/icon.svg";
-import type {LibraryState,View} from "../types";
-export default function Sidebar({view,onView,state}:{view:View|"settings";onView:(view:View|"settings")=>void;state:LibraryState|null}){
+import type {LibraryState,WorkspaceView} from "../types";
+export default function Sidebar({view,onView,state}:{view:WorkspaceView;onView:(view:WorkspaceView)=>void;state:LibraryState|null}){
   return <aside className="sidebar">
     <div className="brand" data-tauri-drag-region><img src={icon} alt=""/><span>Cuerithm<small>MUSIC LIBRARY</small></span></div>
     <div className="sidebar-section">LIBRARY</div>
@@ -14,7 +14,7 @@ export default function Sidebar({view,onView,state}:{view:View|"settings";onView
     <div className="playlist-empty"><Folder size={16}/><span>Your playlists</span><ChevronRight size={14}/></div>
     <div className="sidebar-note">Playlist tools will appear here when available.</div>
     <div className="sidebar-section">TOOLS</div>
-    <button className="nav unavailable" disabled title="Cleanup is not available in this build"><Wand2 size={18}/>Cleanup</button>
+    <button className={view==="cleanup"?"nav active":"nav"} onClick={()=>onView("cleanup")}><Wand2 size={18}/>Cleanup</button>
     <button className="nav unavailable" disabled title="Direct rekordbox sync is not available in this build"><RefreshCw size={18}/>Rekordbox</button>
     <div className="sidebar-bottom">
       <div className="offline-label"><Radio size={13}/><span>LOCAL LIBRARY</span><i/></div>

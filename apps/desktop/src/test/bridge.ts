@@ -13,6 +13,11 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    cleanupCatalog:vi.fn(async()=>({genres:[],artists:[],categories:[],unavailable_tracks:[]})),
+    previewCleanup:vi.fn(async()=>({id:"plan",created:1,proposals:[],unchanged:[],failed:[]})),
+    applyCleanup:vi.fn(async()=>({id:"batch",applied:[],unchanged:[],conflicted:[],failed:[]})),
+    cleanupHistory:vi.fn(async()=>[]),undoCleanup:vi.fn(async()=>({id:"undo",applied:[],unchanged:[],conflicted:[],failed:[]})),
+    onLibraryChange:vi.fn(async()=>()=>{}),
     getTaggingStorage:vi.fn(async()=>({original_files:0,original_bytes:0,pending_cleanup:0})),
     getTaggingCatalog:vi.fn(async()=>JSON.parse(JSON.stringify(catalog))),
     getMetadataFields:vi.fn(async()=>[]),
