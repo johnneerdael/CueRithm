@@ -92,6 +92,8 @@ impl PreparationService {
         let sequence = Arc::new(AtomicU64::new(0));
         #[cfg(feature = "autotag")]
         let album_groups = Arc::new(crate::album_context::AlbumGroups::default());
+        // Invalidate persisted DSP caches on any executable/algorithm upgrade.
+        let engine_identity = file_sha256(&std::env::current_exe()?)?;
         let mut joins = Vec::new();
         let mut receiver = Some(rx);
         for index in 0..count {
@@ -103,6 +105,7 @@ impl PreparationService {
                 status: status.clone(),
                 sequence: sequence.clone(),
                 engine: None,
+                engine_identity: engine_identity.clone(),
                 #[cfg(feature = "autotag")]
                 tagger: tagger.clone(),
                 #[cfg(feature = "autotag")]
@@ -170,6 +173,7 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        self.library.clear_track_analysis_cache(&track)?;
         let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
         for job in jobs {
@@ -229,6 +233,7 @@ struct Worker {
     status: Arc<Mutex<ServiceStatus>>,
     sequence: Arc<AtomicU64>,
     engine: Option<(SettingsRevision, Engine)>,
+    engine_identity: String,
     #[cfg(feature = "autotag")]
     tagger: Arc<Tagger>,
     #[cfg(feature = "autotag")]
@@ -408,15 +413,29 @@ impl Worker {
                 !self.stop.load(Ordering::Relaxed),
                 "Preparation is stopping"
             );
-            stage = "analysis";
-            self.library.set_stage_for_run(&job, stage)?;
-            self.emit(&job, stage, "running");
-            let result = self
-                .engine
-                .as_mut()
-                .context("Missing analysis engine")?
-                .1
-                .analyze_prepared(&audio)?;
+            ensure!(
+                audio.source_sha256 == job.source_sha256,
+                "Source changed before analysis"
+            );
+            let result = if let Some(cached) =
+                self.library
+                    .cached_analysis(&job, &self.engine_identity, &audio)?
+            {
+                cached
+            } else {
+                stage = "analysis";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                let result = self
+                    .engine
+                    .as_mut()
+                    .context("Missing analysis engine")?
+                    .1
+                    .analyze_prepared(&audio)?;
+                self.library
+                    .cache_analysis(&job, &self.engine_identity, &result)?;
+                result
+            };
             ensure!(
                 !self.stop.load(Ordering::Relaxed),
                 "Preparation is stopping"
@@ -483,9 +502,10 @@ impl Worker {
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
                 );
-                let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
                 stage = "writing_tags";
-                self.library.set_stage_for_run(&job, stage)?;
+                // The journal transaction sets this stage. Once it succeeds,
+                // always enter publication, which settles obsolete attempts too.
+                let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
                 self.emit(&job, stage, "running");
                 self.library.publish_preparation(&job, &journal)?;
                 if config.options.album_tagging {

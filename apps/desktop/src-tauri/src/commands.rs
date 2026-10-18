@@ -89,6 +89,11 @@ pub async fn get_artwork(
     work(move || host.artwork(&track_id, &source_sha256)).await
 }
 #[tauri::command]
+pub async fn tagging_storage(host: Managed<'_>) -> Ipc<TaggingStorage> {
+    let lib = host.library.clone();
+    work(move || lib.tagging_storage()).await
+}
+#[tauri::command]
 pub fn tagging_catalog() -> cuerithm_autotag::TaggingCatalog {
     cuerithm_autotag::settings_catalog()
 }

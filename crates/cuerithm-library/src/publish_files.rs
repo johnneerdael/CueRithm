@@ -104,6 +104,15 @@ pub(crate) fn sync_parent(path: &Path) -> Result<()> {
     {
         std::fs::File::open(path.parent().context("Missing destination folder")?)?.sync_all()?;
     }
+    #[cfg(windows)]
+    if path.is_file() {
+        // Flush the renamed file's data and metadata before the SQLite commit.
+        std::fs::File::options()
+            .read(true)
+            .write(true)
+            .open(path)?
+            .sync_all()?;
+    }
     Ok(())
 }
 pub(crate) fn copy_prepared(from: &Path, to: &Path, expected: &str) -> Result<()> {
@@ -117,8 +126,8 @@ pub(crate) fn copy_prepared(from: &Path, to: &Path, expected: &str) -> Result<()
         .context("Reserve publication temporary")?;
     let result = (|| -> Result<()> {
         std::io::copy(&mut input, &mut output)?;
-        output.sync_all()?;
         std::fs::set_permissions(to, std::fs::metadata(from)?.permissions())?;
+        output.sync_all()?;
         ensure!(
             cuerithm_media::file_sha256(to)? == expected,
             "Staged file changed during publication copy"
@@ -131,4 +140,114 @@ pub(crate) fn copy_prepared(from: &Path, to: &Path, expected: &str) -> Result<()
     }
     result?;
     Ok(())
+}
+
+pub(crate) fn durable_assets(
+    files: &[std::path::PathBuf],
+    workspace: &Path,
+    root: &Path,
+) -> Result<()> {
+    durability_barrier(files, workspace, root, |path, directory| {
+        if directory {
+            #[cfg(unix)]
+            {
+                std::fs::File::open(path)?.sync_all()?;
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS;
+                std::fs::File::options()
+                    .read(true)
+                    .write(true)
+                    .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+                    .open(path)?
+                    .sync_all()?;
+            }
+        } else {
+            // FlushFileBuffers requires write access on Windows. A SHA read is
+            // not a persistence barrier for either data or file metadata.
+            std::fs::File::options()
+                .read(true)
+                .write(true)
+                .open(path)?
+                .sync_all()?;
+        }
+        Ok(())
+    })
+}
+fn durability_barrier(
+    files: &[std::path::PathBuf],
+    workspace: &Path,
+    root: &Path,
+    mut sync: impl FnMut(&Path, bool) -> Result<()>,
+) -> Result<()> {
+    ensure!(workspace.starts_with(root), "Invalid durable workspace");
+    for file in files {
+        sync(file, false)?;
+    }
+    let mut directory = workspace;
+    loop {
+        sync(directory, true)?;
+        if directory == root {
+            break;
+        }
+        directory = directory
+            .parent()
+            .context("Workspace leaves application data")?;
+    }
+    sync(
+        root.parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new(".")),
+        true,
+    )?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn backup_durability_flushes_files_before_workspace_ancestors() {
+        let root = Path::new("app");
+        let workspace = root.join("tagging/workspace");
+        let files = vec![
+            workspace.join("original.flac"),
+            workspace.join("cover-original.jpg"),
+            workspace.join("staged.flac"),
+        ];
+        let mut calls = Vec::new();
+        durability_barrier(&files, &workspace, root, |path, directory| {
+            calls.push((path.to_path_buf(), directory));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            &calls[..3],
+            files.iter().map(|p| (p.clone(), false)).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            &calls[3..],
+            [
+                (workspace, true),
+                (root.join("tagging"), true),
+                (root.to_owned(), true),
+                (std::path::PathBuf::from("."), true)
+            ]
+        );
+        let mut called = 0;
+        let error = durability_barrier(&files, &root.join("tagging/workspace"), root, |_, _| {
+            called += 1;
+            if called == 2 {
+                anyhow::bail!("injected flush failure")
+            }
+            Ok(())
+        });
+        assert!(error.is_err());
+        assert_eq!(
+            called, 2,
+            "a failed flush must prevent the publication boundary"
+        );
+    }
 }

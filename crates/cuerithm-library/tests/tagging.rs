@@ -307,24 +307,31 @@ fn archive_and_damaged_backup_reject_publication() {
 }
 #[test]
 fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
-    let d = tempfile::tempdir().unwrap();
-    let db = d.path().join("legacy.sqlite");
-    let conn = rusqlite::Connection::open(&db).unwrap();
-    conn.execute_batch(include_str!("../migrations/001_initial.sql"))
-        .unwrap();
-    conn.execute("INSERT INTO tracks(id,path,title,source_hash,created,updated) VALUES('old',?1,'Legacy title','hash',1,1)",[b"unix:/legacy.flac".to_vec()]).unwrap();
-    drop(conn);
-    let _lib = Library::open(&db).unwrap();
-    let conn = rusqlite::Connection::open(&db).unwrap();
-    let version: i64 = conn
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(version, 2);
-    let title: String = conn
-        .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(title, "Legacy title");
+    for old_version in [1, 2] {
+        let d = tempfile::tempdir().unwrap();
+        let db = d.path().join("legacy.sqlite");
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(include_str!("../migrations/001_initial.sql"))
+            .unwrap();
+        if old_version == 2 {
+            conn.execute_batch(include_str!("../migrations/002_tag_writes.sql"))
+                .unwrap();
+        }
+        conn.execute("INSERT INTO tracks(id,path,title,source_hash,created,updated) VALUES('old',?1,'Legacy title','hash',1,1)",[b"unix:/legacy.flac".to_vec()]).unwrap();
+        drop(conn);
+        let _lib = Library::open(&db).unwrap();
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 3);
+        let title: String = conn
+            .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(title, "Legacy title");
+    }
 }
+
 #[test]
 fn watcher_does_not_enqueue_an_owned_intermediate_tag_write() {
     let f = Fixture::new();
@@ -340,4 +347,82 @@ fn watcher_does_not_enqueue_an_owned_intermediate_tag_write() {
         .unwrap();
     assert_eq!(ids, vec![run.id.clone()]);
     assert_eq!(f.lib.jobs().unwrap()[0].attempts, run.attempt);
+}
+
+fn assert_finished_stage_cleanup(fail: bool) {
+    let f = Fixture::new();
+    let (run, mut staged, result) = f.prepare("New title");
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    if fail {
+        rusqlite::Connection::open(&f.db).unwrap().execute_batch("CREATE TRIGGER fail_cleanup_test BEFORE INSERT ON cue_revisions BEGIN SELECT RAISE(ABORT,'injected failure'); END;").unwrap();
+    }
+    assert_eq!(f.lib.publish_preparation(&run, &journal).is_err(), fail);
+    assert!(
+        !staged.path.exists(),
+        "redundant full staged audio must be removed"
+    );
+    assert_eq!(file_sha256(&staged.backup_path).unwrap(), run.source_sha256);
+    let storage = f.lib.tagging_storage().unwrap();
+    assert_eq!(storage.original_files, 1);
+    assert_eq!(
+        storage.original_bytes,
+        std::fs::metadata(&staged.backup_path).unwrap().len()
+    );
+    assert_eq!(storage.pending_cleanup, 0);
+    let complete: bool = rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .query_row(
+            "SELECT cleanup_complete FROM tag_writes WHERE id=?1",
+            [&journal],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(complete);
+    let db = f.db.clone();
+    drop(f.lib);
+    for _ in 0..2 {
+        let lib = Library::open(&db).unwrap();
+        assert!(!staged.path.exists());
+        drop(lib);
+    }
+}
+#[test]
+fn committed_publication_cleans_staged_audio_and_records_completion() {
+    assert_finished_stage_cleanup(false);
+}
+#[test]
+fn rolled_back_publication_cleans_staged_audio_and_records_completion() {
+    assert_finished_stage_cleanup(true);
+}
+#[test]
+fn no_op_publication_retains_no_redundant_audio_copies() {
+    let f = Fixture::new();
+    let (run, old_staged, result) = f.prepare("Unused");
+    drop(old_staged);
+    let audio = f.rt.decode(&f.source, f.lib.data_dir()).unwrap();
+    let input = TagInput {
+        path: f.source.clone(),
+        source_sha256: audio.source_sha256.clone(),
+        media: audio.info.clone(),
+        duration_seconds: audio.clock.duration_seconds(),
+    };
+    let mut config = AutotagConfig::default();
+    config.options.tags.clear();
+    config.write_energy = false;
+    let outcome = TagMatchOutcome {
+        status: MatchStatus::NoMatch,
+        matches: vec![],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    let plan = TagWritePlan::build(input, &outcome, &config, &AnalysisTags::default()).unwrap();
+    let mut staged = plan
+        .stage_prepared(&f.rt, &audio, f.lib.data_dir())
+        .unwrap();
+    assert_eq!(staged.source_before_sha256, staged.source_after_sha256);
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    f.lib.publish_preparation(&run, &journal).unwrap();
+    assert!(!staged.path.exists());
+    assert!(!staged.backup_path.exists());
+    assert_eq!(file_sha256(&f.source).unwrap(), run.source_sha256);
 }

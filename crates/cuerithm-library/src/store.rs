@@ -35,12 +35,26 @@ impl Library {
             .create(true)
             .truncate(false)
             .open(lock_path)?;
-        fs2::FileExt::try_lock_exclusive(&lease).context("This library is already open")?;
+        // A decoder fork can briefly inherit flock's open-file description
+        // before exec closes it. Keep exclusion, but let that transient settle.
+        let lock_started = std::time::Instant::now();
+        loop {
+            match fs2::FileExt::try_lock_exclusive(&lease) {
+                Ok(()) => break,
+                Err(error)
+                    if error.raw_os_error() == fs2::lock_contended_error().raw_os_error()
+                        && lock_started.elapsed() < std::time::Duration::from_millis(250) =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+                Err(error) => return Err(error).context("This library is already open"),
+            }
+        }
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=2).contains(&version),
+            (0..=3).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -57,6 +71,12 @@ impl Library {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
                 include_str!("../migrations/002_tag_writes.sql")
+            ))?;
+        }
+        if version < 3 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/003_preparation_cache.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]

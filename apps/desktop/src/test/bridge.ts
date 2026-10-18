@@ -13,6 +13,7 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    getTaggingStorage:vi.fn(async()=>({original_files:0,original_bytes:0,pending_cleanup:0})),
     getTaggingCatalog:vi.fn(async()=>JSON.parse(JSON.stringify(catalog))),
     getMetadataFields:vi.fn(async()=>[]),
     rows,jobs:[],changed:e=>listener?.(e),

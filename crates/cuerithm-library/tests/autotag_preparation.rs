@@ -186,6 +186,7 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
     let tagger = Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap());
     let original = file_sha256(&source).unwrap();
     let service = PreparationService::start_with_tagger(lib.clone(), rt, 1, tagger).unwrap();
+    let events = service.subscribe();
     let ids = service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
@@ -197,6 +198,11 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
     until(|| ready(&lib));
     service.shutdown();
     assert_eq!(lib.counts().unwrap().incoming, 0);
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        1,
+        "unchanged provider retry must reuse completed analysis"
+    );
 }
 
 fn ready(lib: &Library) -> bool {
@@ -404,4 +410,125 @@ fn album_matching_reuses_the_selected_release_for_only_the_incoming_batch() {
     for row in lib.tracks(Default::default()).unwrap().rows {
         assert_eq!(lib.cue_revision_count(&row.id).unwrap(), 1);
     }
+}
+
+#[test]
+fn supersession_after_journal_insert_does_not_block_the_replacement_attempt() {
+    let (_d, lib, source, rt, settings) = setup();
+    lib.save_settings(settings).unwrap();
+    rusqlite::Connection::open(lib.data_dir().join("db")).unwrap().execute_batch("CREATE TRIGGER supersede_first_write AFTER INSERT ON tag_writes WHEN (SELECT COUNT(*) FROM tag_writes)=1 BEGIN UPDATE jobs SET state='queued',stage='queued',attempts=attempts+1 WHERE id=NEW.job_id; END;").unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        rt,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog]).unwrap()),
+    )
+    .unwrap();
+    service.enqueue_paths(&[source]).unwrap();
+    until(|| ready(&lib));
+    service.shutdown();
+    let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
+    let pending: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tag_writes WHERE state='prepared'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(pending, 0);
+    assert_eq!(
+        lib.cue_revision_count(&lib.tracks(Default::default()).unwrap().rows[0].id)
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn analysis_cache_survives_restart_and_settings_changes_invalidate_it() {
+    let (_d, lib, source, rt, settings) = setup();
+    lib.save_settings(settings.clone()).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(true),
+        empty: false,
+    });
+    let tagger = Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap());
+    let service =
+        PreparationService::start_with_tagger(lib.clone(), rt.clone(), 1, tagger.clone()).unwrap();
+    let id = service.enqueue_paths(&[source]).unwrap().remove(0);
+    until(|| lib.jobs().unwrap().iter().any(|j| j.state == "attention"));
+    service.shutdown();
+    drop(service);
+    let db = lib.data_dir().join("db");
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let service = PreparationService::start_with_tagger(lib.clone(), rt, 1, tagger).unwrap();
+    let events = service.subscribe();
+    service.retry(id.clone(), None).unwrap();
+    until(|| {
+        catalog.calls.load(Ordering::SeqCst) >= 2
+            && lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        0,
+        "restart should reuse full analysis"
+    );
+    let mut changed = settings;
+    changed
+        .engine
+        .lexicon_config
+        .as_mut()
+        .unwrap()
+        .min_cue_length_beats = 96;
+    let revision = lib.save_settings(changed).unwrap();
+    catalog.fail.store(false, Ordering::SeqCst);
+    service.retry(id, Some(revision)).unwrap();
+    until(|| ready(&lib));
+    service.shutdown();
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        1,
+        "new settings require new analysis"
+    );
+}
+
+#[test]
+fn explicit_analyze_again_recomputes_an_unchanged_offline_track() {
+    let (_d, lib, source, rt, mut settings) = setup();
+    settings.autotag_enabled = false;
+    lib.save_settings(settings).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        rt,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap()),
+    )
+    .unwrap();
+    let events = service.subscribe();
+    let before = file_sha256(&source).unwrap();
+    service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap();
+    until(|| ready(&lib));
+    let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
+    service.reprepare(row.id.clone()).unwrap();
+    until(|| lib.cue_revision_count(&row.id).unwrap() == 2);
+    service.shutdown();
+    assert_eq!(
+        events.try_iter().filter(|e| e.stage == "analysis").count(),
+        2
+    );
+    assert_eq!(file_sha256(&source).unwrap(), before);
+    assert_eq!(catalog.calls.load(Ordering::SeqCst), 0);
 }

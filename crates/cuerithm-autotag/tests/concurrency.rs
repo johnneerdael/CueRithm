@@ -108,7 +108,7 @@ fn stopping_a_waiting_provider_call_does_not_start_another_request() {
         while !backend.active.load(Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
-        let stop = AtomicBool::new(true);
+        let stop = Arc::new(AtomicBool::new(true));
         let start = std::time::Instant::now();
         assert!(
             tagger

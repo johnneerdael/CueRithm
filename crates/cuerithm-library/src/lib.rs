@@ -1,6 +1,7 @@
 //! Durable local library and background preparation.
 #[cfg(feature = "autotag")]
 mod album_context;
+mod analysis_cache;
 mod jobs;
 mod metadata;
 mod prepare;
@@ -8,6 +9,8 @@ mod prepare;
 mod publish_files;
 #[cfg(feature = "autotag")]
 mod tagging;
+#[cfg(feature = "autotag")]
+pub use tagging::TaggingStorage;
 pub mod watch;
 pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
 mod model;
