@@ -93,7 +93,9 @@ same typed input; do not infer them from cue names or fabricate extra markers.
 
 Persist definitions separately from evaluated membership. Validate the complete
 dependency graph, including descendant-folder dependencies, and reject cycles.
-Evaluate dependencies in order from a coherent library revision; publish a
+Use a dedicated smart-input revision that ignores job-progress and output-only
+materialization changes, alongside the playlist-edit/preference revisions.
+Evaluate dependencies in order from that coherent snapshot; publish a
 complete result only if its source and playlist revisions still match. Report
 stale/unavailable status while retaining the last good result. Refresh on
 preparation/metadata/cleanup/playlist edits and relative time. File availability

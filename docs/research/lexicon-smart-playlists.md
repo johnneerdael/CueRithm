@@ -5,7 +5,7 @@ Static inspection of licensed Lexicon 1.11.15, ASAR SHA-256
 Source remains in the private extraction. This inventory does not establish a
 Rust implementation or runtime parity. Anchors refer to formatted renderer lines.
 A private isolated helper probe now records 637 original synthetic scalar and
-combination cases under Node 26 with a frozen UTC clock. It executes the shipped
+combination cases with a frozen UTC clock. It executes the shipped
 rounding/date helpers and selected pure filters; assertions and known tag/category
 lookups use controlled fixtures. No app entry point, filesystem or network API is
 exposed. This does not yet cover every operator or native library behavior.
@@ -161,3 +161,16 @@ lookaround/backreference execution despite older documentation wording. It has
 no public execution budget. A port that uses it needs a small, licensed bounded
 execution adaptation and dedicated differential tests; no product dependency or
 modified regex engine has been added at this research stage.
+
+
+## Reference runtime verification
+
+The initial new probes used host Node 22.22.2. They were replayed through the
+installed signed Electron 32.3.3 runtime (Node 20.18.1, V8 12.8.374.38-electron.0)
+with its already-enabled RunAsNode fuse. This executes only the selected helper
+probe; no application startup or private library is loaded. All 637 scalar/
+combination outputs are identical. The regex corpus contains 1,798 original
+synthetic cases; modifier-group syntax is accepted by shipped V8 and rejected
+by host Node 22, so shipped-runtime expectations are authoritative. The published
+131 cleanup helper outputs, originally recorded under Node 26.0.0, were also
+replayed under shipped V8 without a source-output difference.
