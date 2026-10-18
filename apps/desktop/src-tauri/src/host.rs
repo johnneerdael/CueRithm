@@ -25,6 +25,7 @@ pub struct Host {
     pub library: Library,
     pub runtime: MediaRuntime,
     pub preparation: PreparationService,
+    pub smart_playlists: cuerithm_library::SmartPlaylistService,
     pub player: Mutex<Player>,
     pub loaded: Mutex<Option<(String, Arc<PreparedAudio>)>>,
     artwork_gate: Mutex<()>,
@@ -64,11 +65,13 @@ impl Host {
         builtin.configure_library(&library)?;
         let runtime = MediaRuntime::from_bundle(runtime)?;
         let preparation = PreparationService::start(library.clone(), runtime.clone())?;
+        let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
         Ok(Self {
             builtin,
             library,
             runtime,
             preparation,
+            smart_playlists,
             player: Mutex::new(Player::new()?),
             loaded: Mutex::new(None),
             artwork_gate: Mutex::new(()),

@@ -1,8 +1,8 @@
 export type View="tracks"|"incoming"|"archive";
 export type WorkspaceView=View|"settings"|"cleanup";
-export type Sort="title"|"artist"|"bpm"|"energy"|"added";
+export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
-export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null}
+export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null}
 export interface TrackPage {rows:Track[];total:number;revision:number;next_cursor:string|null}
 export interface Cue {time_seconds:number;name:string;color:string}
 export interface Analysis {analysis:{duration_seconds:number;key:{camelot:string}|null;tempo:{bpm:number;beats_seconds:number[];downbeats_seconds:number[]|null}|null;energy:{level:number;method:string}|null;lexicon_cues:{cues:Cue[];emergency_loop:{time_seconds:number;loop_beats:number}|null}|null};media?:{source_sha256:string;pcm_sha256?:string;codec:string};source_sample_rate:number;complete:boolean}
@@ -52,7 +52,7 @@ export interface CleanupHistory {can_undo:boolean;id:string;kind:string;state:st
 export interface CleanupCatalogValue {value:string;track_count:number;protected:boolean;mapping:CanonicalMapping|null}
 export interface CleanupCatalog {genres:CleanupCatalogValue[];artists:(CleanupCatalogValue&{roles:Partial<Record<ContributorRole,number>>})[];categories:string[];unavailable_tracks:CleanupFailure[]}
 export type CleanupScope={kind:"all_ready"}|{kind:"track_ids";track_ids:string[]};
-export interface LibraryChangeEvent {track_ids:string[]}
+export interface LibraryChangeEvent {track_ids:string[];playlist_ids?:string[]}
 export interface Settings {cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
@@ -61,6 +61,20 @@ export interface PreparationEvent {sequence:number;attempt?:number;job_id:string
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[]}
 export interface Bridge {
+  getPlaylists():Promise<import("./playlist-types").PlaylistWorkspace>;
+  editPlaylist(edit:import("./playlist-types").PlaylistEdit,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
+  undoPlaylist(editId:string,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
+  getSmartCatalog():Promise<import("./playlist-types").SmartCatalog>;
+  resolvePlaylistDate(day:string,expectedRevision:number):Promise<number>;
+  previewSmartList(definition:import("./playlist-types").SmartDefinition,scope:{track_ids:string[]|null;playlist_id:string|null}):Promise<import("./playlist-types").SmartPreview>;
+  saveSmartPlaylist(previewId:string,playlistId:string|null,name:string,parentId:string|null,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
+  previewPlaylistTool(request:import("./playlist-types").PlaylistToolRequest):Promise<import("./playlist-types").PlaylistToolPreview>;
+  applyPlaylistTool(previewId:string,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
+  previewSmartGeneration(request:import("./playlist-types").SmartGenerationRequest):Promise<import("./playlist-types").GenerationPreview>;
+  applySmartGeneration(previewId:string,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
+  getPlaylistPreferences():Promise<import("./playlist-types").PlaylistPreferenceSnapshot>;
+  savePlaylistPreferences(preferences:import("./playlist-types").PlaylistPreferences,expectedRevision:number):Promise<import("./playlist-types").PlaylistPreferenceSnapshot>;
+  playlistMembers(playlistId:string,manual:boolean):Promise<string[]>;
   cleanupCatalog(config:CleanupConfig):Promise<CleanupCatalog>;
   previewCleanup(scope:CleanupScope,config:CleanupConfig):Promise<CleanupPreview>;
   applyCleanup(planId:string,proposalIds:string[]):Promise<CleanupBatchResult>;

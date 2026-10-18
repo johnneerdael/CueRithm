@@ -205,3 +205,121 @@ pub(super) fn apply(lib: &Library, kind: &str, id: &str, expected: u64) -> Resul
     Ok(change)
 }
 use rusqlite::OptionalExtension;
+
+impl Library {
+    pub fn save_smart_preview(
+        &self,
+        preview_id: &str,
+        playlist_id: Option<&str>,
+        name: String,
+        parent_id: Option<String>,
+        expected_revision: u64,
+    ) -> Result<PlaylistChange> {
+        let text: String = self
+            .conn()?
+            .query_row(
+                "SELECT payload_json FROM playlist_previews WHERE id=?1 AND kind='smart'",
+                [preview_id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .context("Unknown or consumed smart preview")?;
+        let payload: serde_json::Value = serde_json::from_str(&text)?;
+        ensure!(
+            payload["schema"] == 1,
+            "Smart preview format changed; preview again"
+        );
+        let preview: SmartPreview = serde_json::from_value(payload["preview"].clone())?;
+        let scope: SmartPreviewScope = serde_json::from_value(payload["scope"].clone())?;
+        let definition: SmartDefinition = serde_json::from_value(payload["definition"].clone())?;
+        ensure!(
+            scope.playlist_id.as_deref() == playlist_id && scope.track_ids.is_none(),
+            "Smart preview belongs to another owner or partial scope"
+        );
+        ensure!(
+            expected_revision == preview.stamp.playlist_revision,
+            "Preview revision does not match"
+        );
+        let guard = Guard {
+            stamp: preview.stamp,
+            created: preview.created,
+            expires: preview.expires,
+            data_bound: true,
+            zone: Some(serde_json::from_value(payload["zone"].clone())?),
+            observations: serde_json::from_value(payload["observations"].clone())?,
+            engine: serde_json::from_value(payload["engine"].clone())?,
+        };
+        #[cfg(feature = "autotag")]
+        let _gate = self
+            .inner
+            .tag_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Metadata access interrupted"))?;
+        let mut conn = self.conn()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let current: Option<String> = tx
+            .query_row(
+                "SELECT payload_json FROM playlist_previews WHERE id=?1 AND kind='smart'",
+                [preview_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        ensure!(
+            current.as_deref() == Some(text.as_str()),
+            "Smart preview changed or was consumed"
+        );
+        validate(&tx, &guard, crate::now())?;
+        let before = load(&tx)?;
+        let mut after = before.clone();
+        let mut created = vec![];
+        let operation = uuid::Uuid::new_v4().to_string();
+        let edit = if let Some(id) = playlist_id {
+            let node = &tree::active(&before, id)?.node;
+            ensure!(
+                node.kind == PlaylistKind::Smartlist,
+                "Preview owner is not a smart playlist"
+            );
+            let mut edits = vec![
+                PlaylistEdit::Rename {
+                    id: id.into(),
+                    name,
+                },
+                PlaylistEdit::SetDefinition {
+                    id: id.into(),
+                    definition,
+                },
+            ];
+            if parent_id != node.parent_id {
+                let position = tree::children(&before, &parent_id, true).len() as u32;
+                edits.push(PlaylistEdit::Move {
+                    id: id.into(),
+                    parent_id,
+                    position,
+                });
+            }
+            PlaylistEdit::Batch { edits }
+        } else {
+            PlaylistEdit::Create {
+                id: None,
+                parent_id,
+                kind: PlaylistKind::Smartlist,
+                name,
+                definition: Some(definition),
+            }
+        };
+        edits::apply(
+            &mut after,
+            &tree::known_tracks(&tx)?,
+            edit,
+            &operation,
+            &mut created,
+            0,
+            &mut 0,
+        )?;
+        let change =
+            commit_tree_change(&tx, &before, after, created, expected_revision, operation)?;
+        tx.execute("DELETE FROM playlist_previews WHERE id=?1", [preview_id])?;
+        tx.commit()?;
+        Ok(change)
+    }
+}

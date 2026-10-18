@@ -775,6 +775,7 @@ impl Library {
         Ok(Snapshot {
             tree,
             field_catalog: SmartFieldCatalog {
+                time_zone: zone.clone(),
                 catalog,
                 tags: tag_choices,
                 categories: category_choices,

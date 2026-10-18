@@ -9,6 +9,7 @@ mod tags;
 mod text;
 use anyhow::{Context, Result, ensure};
 use cuerithm_regex::Pattern;
+pub use dates::calendar_day_epoch;
 pub use keys::{camelot as key_to_camelot, compatible as compatible_keys};
 pub use model::*;
 pub use numeric::comparison_bpm;

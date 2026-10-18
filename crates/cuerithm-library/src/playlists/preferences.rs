@@ -35,6 +35,19 @@ pub(crate) fn zone(preferences: &PlaylistPreferences) -> Result<String> {
     Ok(zone)
 }
 impl Library {
+    pub fn resolve_playlist_calendar_day(
+        &self,
+        day: &str,
+        expected_preferences: u64,
+    ) -> Result<i64> {
+        let conn = self.conn()?;
+        let snapshot = preferences(&conn)?;
+        ensure!(
+            snapshot.revision == expected_preferences,
+            "Library time zone changed; reload the editor"
+        );
+        cuerithm_smartlists::calendar_day_epoch(day, &zone(&snapshot.preferences)?)
+    }
     pub fn get_playlist_preferences(&self) -> Result<PlaylistPreferencesSnapshot> {
         preferences(&*self.conn()?)
     }

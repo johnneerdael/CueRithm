@@ -173,6 +173,7 @@ pub struct SmartCategoryChoice {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmartFieldCatalog {
+    pub time_zone: String,
     pub catalog: cuerithm_smartlists::FieldCatalog,
     pub tags: Vec<SmartTagChoice>,
     pub categories: Vec<SmartCategoryChoice>,
@@ -322,4 +323,11 @@ pub struct GenerationPreview {
     pub folder_id: Option<String>,
     pub new_nodes: usize,
     pub items: Vec<GeneratedSmartList>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistWorkspace {
+    pub tree: PlaylistState,
+    pub statuses: Vec<SmartListStatus>,
+    pub latest_undo: Option<String>,
 }

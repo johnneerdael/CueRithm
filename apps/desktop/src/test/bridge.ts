@@ -13,6 +13,20 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    getPlaylists:vi.fn(async()=>({tree:{revision:0,nodes:[]},statuses:[],latest_undo:null,service_error:null})),
+    editPlaylist:vi.fn(async()=>({edit_id:"edit",revision:1,created_ids:[],affected_ids:[]})),
+    undoPlaylist:vi.fn(async()=>({edit_id:"undo",revision:2,created_ids:[],affected_ids:[]})),
+    getSmartCatalog:vi.fn(async()=>({time_zone:"UTC",catalog:{fields:{},tags:[],categories:{},playlists:{}},tags:[],categories:[],playlists:[],stamp:{input_revision:0,playlist_revision:0,preference_revision:0}})),
+    resolvePlaylistDate:vi.fn(async day=>Date.parse(`${day}T00:00:00Z`)),
+    previewSmartList:vi.fn(async()=>({id:"preview",track_ids:[],stamp:{input_revision:0,playlist_revision:0,preference_revision:0},created:1,expires:null})),
+    saveSmartPlaylist:vi.fn(async()=>({edit_id:"smart",revision:1,created_ids:[],affected_ids:[]})),
+    previewPlaylistTool:vi.fn(async()=>({id:"tool",stamp:{input_revision:0,playlist_revision:0,preference_revision:0},created:1,expires:null,changes:[]})),
+    applyPlaylistTool:vi.fn(async()=>({edit_id:"tool",revision:1,created_ids:[],affected_ids:[]})),
+    previewSmartGeneration:vi.fn(async()=>({id:"generation",stamp:{input_revision:0,playlist_revision:0,preference_revision:0},created:1,expires:null,folder_id:null,new_nodes:0,items:[]})),
+    applySmartGeneration:vi.fn(async()=>({edit_id:"generation",revision:1,created_ids:[],affected_ids:[]})),
+    getPlaylistPreferences:vi.fn(async()=>({revision:0,preferences:{time_zone:null,key_mixing_mode:"harmonic" as const}})),
+    savePlaylistPreferences:vi.fn(async preferences=>({revision:1,preferences})),
+    playlistMembers:vi.fn(async()=>[]),
     cleanupCatalog:vi.fn(async()=>({genres:[],artists:[],categories:[],unavailable_tracks:[]})),
     previewCleanup:vi.fn(async()=>({id:"plan",created:1,proposals:[],unchanged:[],failed:[]})),
     applyCleanup:vi.fn(async()=>({id:"batch",applied:[],unchanged:[],conflicted:[],failed:[]})),

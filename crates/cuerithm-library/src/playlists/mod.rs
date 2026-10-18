@@ -10,6 +10,7 @@ mod service;
 mod snapshot;
 mod tools;
 mod tree;
+mod workspace;
 use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
 use cuerithm_smartlists::PlaylistReference;
@@ -20,9 +21,9 @@ pub use model::{
     NativePlaylistFacts, PlaylistChange, PlaylistCombineMode, PlaylistEdit, PlaylistKind,
     PlaylistNode, PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistPrefix,
     PlaylistPreviewItem, PlaylistSortOrder, PlaylistState, PlaylistToolPreview,
-    PlaylistToolRequest, SmartCategoryChoice, SmartFieldCatalog, SmartGenerationRequest,
-    SmartListFailure, SmartListStatus, SmartPreview, SmartPreviewScope, SmartRefresh, SmartStamp,
-    SmartState, SmartTagChoice,
+    PlaylistToolRequest, PlaylistWorkspace, SmartCategoryChoice, SmartDefinition,
+    SmartFieldCatalog, SmartGenerationRequest, SmartListFailure, SmartListStatus, SmartPreview,
+    SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;

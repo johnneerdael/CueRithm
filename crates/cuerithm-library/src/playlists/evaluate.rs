@@ -299,7 +299,7 @@ fn cache_matches(status: &snapshot::CachedStatus, stamp: &SmartStamp, signature:
         && status.preference == Some(stamp.preference_revision)
         && status.signature.as_deref() == Some(signature)
 }
-fn empty_status(id: &str, state: SmartState) -> SmartListStatus {
+pub(super) fn empty_status(id: &str, state: SmartState) -> SmartListStatus {
     SmartListStatus {
         playlist_id: id.into(),
         state,
@@ -309,7 +309,7 @@ fn empty_status(id: &str, state: SmartState) -> SmartListStatus {
         last_good_revision: None,
     }
 }
-fn state_priority(state: SmartState) -> u8 {
+pub(super) fn state_priority(state: SmartState) -> u8 {
     match state {
         SmartState::Ready => 0,
         SmartState::Pending => 1,
@@ -327,6 +327,17 @@ fn smart_status(
 ) -> Result<SmartListStatus> {
     let id = &node.node.id;
     let cached=conn.query_row("SELECT state,error,input_revision,playlist_revision,preference_revision,evaluated_at,next_refresh,last_good_revision,definition_hash FROM smart_playlist_status WHERE playlist_id=?1",[id],snapshot::CachedStatus::from_row).optional()?;
+    projected_status(node, cached, stamp, prefs, zone, now_millis)
+}
+pub(super) fn projected_status(
+    node: &StoredNode,
+    cached: Option<snapshot::CachedStatus>,
+    stamp: &SmartStamp,
+    prefs: &PlaylistPreferences,
+    zone: &str,
+    now_millis: i64,
+) -> Result<SmartListStatus> {
+    let id = &node.node.id;
     let Some(cached) = cached else {
         return Ok(empty_status(id, SmartState::Pending));
     };
@@ -679,7 +690,7 @@ impl Library {
             created: now_millis,
             expires: outcome.next,
         };
-        let payload = serde_json::json!({"definition":definition,"scope":scope,"preview":preview,"zone":snapshot.zone,"observations":snapshot.observations});
+        let payload = serde_json::json!({"schema":1,"engine":env!("CUERITHM_SMART_ENGINE_ID"),"definition":definition,"scope":scope,"preview":preview,"zone":snapshot.zone,"observations":snapshot.observations});
         Ok(PreparedSmartPreview {
             preview,
             payload,

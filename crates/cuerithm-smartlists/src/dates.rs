@@ -1,6 +1,20 @@
 use crate::{DateUnit, EvaluationContext, FieldValue, Operator, RuleValue, SmartTrack};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use chrono::{DateTime, Duration, LocalResult, Months, NaiveDateTime, Offset, TimeZone, Utc};
+/// Resolve a calendar input using the same IANA gap/fold policy as date rules.
+pub fn calendar_day_epoch(day: &str, time_zone: &str) -> Result<i64> {
+    let date = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")?;
+    ensure!(
+        date.format("%Y-%m-%d").to_string() == day,
+        "Use YYYY-MM-DD for calendar dates"
+    );
+    let context = EvaluationContext::new(0, time_zone)?;
+    Ok(resolve(
+        &context,
+        date.and_hms_opt(0, 0, 0).context("Invalid calendar day")?,
+    )?
+    .timestamp_millis())
+}
 fn local(context: &EvaluationContext, time: i64) -> Result<DateTime<chrono_tz::Tz>> {
     Ok(DateTime::from_timestamp_millis(time)
         .context("Date outside supported range")?

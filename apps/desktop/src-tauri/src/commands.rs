@@ -23,6 +23,184 @@ impl From<anyhow::Error> for AppError {
     }
 }
 type Ipc<T> = Result<T, AppError>;
+#[derive(Serialize)]
+pub struct PlaylistResponse {
+    #[serde(flatten)]
+    workspace: PlaylistWorkspace,
+    service_error: Option<String>,
+}
+#[tauri::command]
+pub async fn playlists_workspace(host: Managed<'_>) -> Ipc<PlaylistResponse> {
+    let host = host.inner().clone();
+    work(move || {
+        Ok(PlaylistResponse {
+            workspace: host.library.playlist_workspace()?,
+            service_error: host.smart_playlists.last_error()?,
+        })
+    })
+    .await
+}
+fn playlist_changed(app: &tauri::AppHandle, change: &PlaylistChange) {
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"track_ids":[],"playlist_ids":change.affected_ids}),
+    );
+}
+#[tauri::command]
+pub async fn edit_playlist(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    edit: PlaylistEdit,
+    expected_revision: u64,
+) -> Ipc<PlaylistChange> {
+    let lib = host.library.clone();
+    let result = work(move || lib.apply_playlist_edit(edit, expected_revision)).await?;
+    playlist_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn undo_playlist(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    edit_id: String,
+    expected_revision: u64,
+) -> Ipc<PlaylistChange> {
+    let lib = host.library.clone();
+    let result = work(move || lib.undo_playlist_edit(&edit_id, expected_revision)).await?;
+    playlist_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn smart_field_catalog(host: Managed<'_>) -> Ipc<SmartFieldCatalog> {
+    let lib = host.library.clone();
+    work(move || lib.smart_field_catalog()).await
+}
+#[tauri::command]
+pub async fn preview_smart_list(
+    host: Managed<'_>,
+    definition: SmartDefinition,
+    scope: SmartPreviewScope,
+) -> Ipc<SmartPreview> {
+    let lib = host.library.clone();
+    work(move || {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_millis()
+            .min(i64::MAX as u128) as i64;
+        lib.preview_smart_list(definition, scope, now)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn save_smart_playlist(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    preview_id: String,
+    playlist_id: Option<String>,
+    name: String,
+    parent_id: Option<String>,
+    expected_revision: u64,
+) -> Ipc<PlaylistChange> {
+    let lib = host.library.clone();
+    let result = work(move || {
+        lib.save_smart_preview(
+            &preview_id,
+            playlist_id.as_deref(),
+            name,
+            parent_id,
+            expected_revision,
+        )
+    })
+    .await?;
+    playlist_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn preview_playlist_tool(
+    host: Managed<'_>,
+    request: PlaylistToolRequest,
+) -> Ipc<PlaylistToolPreview> {
+    let lib = host.library.clone();
+    work(move || lib.preview_playlist_tool(request)).await
+}
+#[tauri::command]
+pub async fn apply_playlist_tool(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    preview_id: String,
+    expected_revision: u64,
+) -> Ipc<PlaylistChange> {
+    let lib = host.library.clone();
+    let result = work(move || lib.apply_playlist_tool(&preview_id, expected_revision)).await?;
+    playlist_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn preview_smart_generation(
+    host: Managed<'_>,
+    request: SmartGenerationRequest,
+) -> Ipc<GenerationPreview> {
+    let lib = host.library.clone();
+    work(move || lib.preview_smart_generation(request)).await
+}
+#[tauri::command]
+pub async fn apply_smart_generation(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    preview_id: String,
+    expected_revision: u64,
+) -> Ipc<PlaylistChange> {
+    let lib = host.library.clone();
+    let result = work(move || lib.apply_smart_generation(&preview_id, expected_revision)).await?;
+    playlist_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn get_playlist_preferences(host: Managed<'_>) -> Ipc<PlaylistPreferencesSnapshot> {
+    let lib = host.library.clone();
+    work(move || lib.get_playlist_preferences()).await
+}
+#[tauri::command]
+pub async fn resolve_playlist_calendar_day(
+    host: Managed<'_>,
+    day: String,
+    expected_revision: u64,
+) -> Ipc<i64> {
+    let lib = host.library.clone();
+    work(move || lib.resolve_playlist_calendar_day(&day, expected_revision)).await
+}
+#[tauri::command]
+pub async fn save_playlist_preferences(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    preferences: PlaylistPreferences,
+    expected_revision: u64,
+) -> Ipc<PlaylistPreferencesSnapshot> {
+    let lib = host.library.clone();
+    let result =
+        work(move || lib.save_playlist_preferences(preferences, expected_revision)).await?;
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"track_ids":[],"playlist_ids":[]}),
+    );
+    Ok(result)
+}
+#[tauri::command]
+pub async fn playlist_members(
+    host: Managed<'_>,
+    playlist_id: String,
+    manual: bool,
+) -> Ipc<Vec<String>> {
+    let lib = host.library.clone();
+    work(move || {
+        if manual {
+            lib.manual_playlist_members(&playlist_id)
+        } else {
+            lib.playlist_members(&playlist_id)
+        }
+    })
+    .await
+}
 async fn work<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> Ipc<T> {
     tauri::async_runtime::spawn_blocking(f)
         .await

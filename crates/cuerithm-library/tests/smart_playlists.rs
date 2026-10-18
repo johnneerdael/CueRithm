@@ -39,6 +39,175 @@ fn native_star_ratings_are_not_the_raw_vorbis_percentage() {
     assert_eq!(preview.track_ids, f.ids);
     assert_eq!(std::fs::read(&f.paths[0]).unwrap(), before);
 }
+
+#[test]
+fn workspace_batches_tree_statuses_and_durable_latest_undo_without_changing_inputs() {
+    let f = fixture();
+    create(&f.lib, "folder", None, PlaylistKind::Folder, None);
+    create(
+        &f.lib,
+        "recent",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "dateAdded",
+            Operator::DateRecent,
+            RuleValue::Relative {
+                count: 1,
+                unit: cuerithm_smartlists::DateUnit::Days,
+            },
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let input = f.lib.smart_input_revision().unwrap();
+    let state = f.lib.playlist_workspace_at(NOW).unwrap();
+    assert_eq!(state.tree.nodes.len(), 2);
+    assert!(state.latest_undo.is_some());
+    assert!(state.statuses.iter().all(|s| s.state == SmartState::Ready));
+    let expired = f.lib.playlist_workspace_at(NOW + 60_000).unwrap();
+    assert!(
+        expired
+            .statuses
+            .iter()
+            .all(|s| s.state == SmartState::Stale)
+    );
+    create(
+        &f.lib,
+        "bad",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "cloudUpload",
+            Operator::BooleanTrue,
+            RuleValue::None,
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW + 1).unwrap();
+    let state = f.lib.playlist_workspace_at(NOW + 1).unwrap();
+    assert_eq!(
+        state
+            .statuses
+            .iter()
+            .find(|s| s.playlist_id == "folder")
+            .unwrap()
+            .state,
+        SmartState::Error
+    );
+    assert!(
+        state
+            .statuses
+            .iter()
+            .find(|s| s.playlist_id == "folder")
+            .unwrap()
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("bad")
+    );
+    let undo = state.latest_undo.unwrap();
+    f.lib
+        .undo_playlist_edit(&undo, state.tree.revision)
+        .unwrap();
+    assert!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .iter()
+            .all(|n| n.id != "bad")
+    );
+    assert_eq!(f.lib.smart_input_revision().unwrap(), input);
+}
+
+#[test]
+fn saving_smart_preview_pins_inputs_and_owner_and_consumes_only_on_success() {
+    let f = fixture();
+    let rules = definition("bpm", Operator::NumberEquals, RuleValue::Number(128.));
+    let old = f
+        .lib
+        .preview_smart_list(rules.clone(), SmartPreviewScope::default(), NOW)
+        .unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute(
+        "UPDATE tracks SET title='Later title' WHERE id=?1",
+        [&f.ids[0]],
+    )
+    .unwrap();
+    assert!(
+        f.lib
+            .save_smart_preview(
+                &old.id,
+                None,
+                "Captured".into(),
+                None,
+                old.stamp.playlist_revision
+            )
+            .is_err()
+    );
+    assert!(f.lib.playlist_state().unwrap().nodes.is_empty());
+    let preview = f
+        .lib
+        .preview_smart_list(rules.clone(), SmartPreviewScope::default(), NOW)
+        .unwrap();
+    let saved = f
+        .lib
+        .save_smart_preview(
+            &preview.id,
+            None,
+            "Captured".into(),
+            None,
+            preview.stamp.playlist_revision,
+        )
+        .unwrap();
+    let id = saved.created_ids[0].clone();
+    assert!(
+        f.lib
+            .save_smart_preview(
+                &preview.id,
+                None,
+                "Again".into(),
+                None,
+                preview.stamp.playlist_revision
+            )
+            .is_err()
+    );
+    let other = f
+        .lib
+        .preview_smart_list(rules.clone(), SmartPreviewScope::default(), NOW)
+        .unwrap();
+    assert!(
+        f.lib
+            .save_smart_preview(
+                &other.id,
+                Some(&id),
+                "Wrong owner".into(),
+                None,
+                other.stamp.playlist_revision
+            )
+            .is_err()
+    );
+    let editing = f
+        .lib
+        .preview_smart_list(
+            rules,
+            SmartPreviewScope {
+                playlist_id: Some(id.clone()),
+                ..Default::default()
+            },
+            NOW,
+        )
+        .unwrap();
+    f.lib
+        .save_smart_preview(
+            &editing.id,
+            Some(&id),
+            "Renamed".into(),
+            None,
+            editing.stamp.playlist_revision,
+        )
+        .unwrap();
+    assert_eq!(f.lib.playlist_state().unwrap().nodes[0].name, "Renamed");
+}
 const NOW: i64 = 1792324800000;
 
 #[test]

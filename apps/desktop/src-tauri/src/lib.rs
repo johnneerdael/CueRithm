@@ -93,7 +93,21 @@ pub fn run() {
             commands::player_pause,
             commands::player_seek,
             commands::player_volume,
-            commands::player_status
+            commands::player_status,
+            commands::playlists_workspace,
+            commands::edit_playlist,
+            commands::undo_playlist,
+            commands::smart_field_catalog,
+            commands::preview_smart_list,
+            commands::save_smart_playlist,
+            commands::preview_playlist_tool,
+            commands::apply_playlist_tool,
+            commands::preview_smart_generation,
+            commands::apply_smart_generation,
+            commands::get_playlist_preferences,
+            commands::resolve_playlist_calendar_day,
+            commands::save_playlist_preferences,
+            commands::playlist_members
         ])
         .build(context())
         .expect("Create Cuerithm desktop")
@@ -112,6 +126,7 @@ pub fn run() {
                             let _ = player.pause();
                         }
                         host.preparation.shutdown();
+                        host.smart_playlists.shutdown();
                         app.exit(0);
                     });
                 }
