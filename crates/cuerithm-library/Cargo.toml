@@ -16,3 +16,9 @@ cuerithm-media = { path = "../cuerithm-media" }
 rusqlite = { version = "=0.37.0", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 fs2 = "0.4"
+notify = "=8.2.0"
+walkdir = "2"
+
+[dev-dependencies]
+tar = "0.4"
+flate2 = "1"
