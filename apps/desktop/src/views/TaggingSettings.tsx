@@ -15,10 +15,12 @@ const routes=[["default","Genres and styles separately"],["onlyGenres","Genres o
 const swap=(values:string[],index:number,delta:number)=>{const next=[...values];[next[index],next[index+delta]]=[next[index+delta],next[index]];return next;};
 
 export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge:Bridge;config:AutotagConfig|null|undefined;enabled:boolean;onChange:(config:AutotagConfig,enabled:boolean)=>void}){
+  const [storage,setStorage]=useState<Awaited<ReturnType<Bridge["getTaggingStorage"]>>|null>(null);
   const [catalog,setCatalog]=useState<TaggingCatalog|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   useEffect(()=>{let active=true;setError(null);bridge.getTaggingCatalog().then(value=>{if(active)setCatalog(value);}).catch(e=>{if(active)setError(errorMessage(e));});return ()=>{active=false;};},[bridge,retry]);
+  useEffect(()=>{let active=true;bridge.getTaggingStorage().then(value=>{if(active)setStorage(value);}).catch(()=>{});return ()=>{active=false;};},[bridge]);
   if(error)return <section className="setting-section"><h2>Automatic tagging</h2><p role="alert">{error}</p><button className="secondary" onClick={()=>setRetry(n=>n+1)}>Retry loading tagging settings</button></section>;
   if(!catalog)return <section className="setting-section" aria-busy="true"><h2>Automatic tagging</h2><p className="setting-note">Loading tagging settings…</p></section>;
   const current=config??catalog.defaults;
@@ -35,6 +37,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
   return <section className="setting-section tagging-settings">
     <div className="setting-heading"><span className="section-number">04</span><div><h2>Automatic tagging</h2><p>Apply these settings to every incoming track after analysis.</p></div></div>
     <Toggle label="Automatic tagging" value={enabled} onChange={value=>onChange(current,value)} note="Catalog lookups use an internet connection. Analysis and cue generation work offline."/>
+    <div className="setting-row"><div><strong>Recovery backups</strong><p>Original file backups are retained in application data. Temporary stage files are cleaned automatically.</p></div><span className="fixed-setting">{storage?`${(storage.original_bytes/1048576).toFixed(1)} MB · ${storage.original_files} files`:"Storage unavailable"}</span></div>
     <div className="provider-order" aria-label="Catalog providers">{ordered.map(id=>{
       const provider=catalog.providers.find(p=>p.id===id);if(!provider)return null;
       const index=options.platforms.indexOf(id),selected=index>=0;
@@ -79,9 +82,8 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
     </details>
     <details className="tagging-group"><summary>Artwork</summary>
       <p className="setting-note">Enable Album art in Fields to write to embed catalog artwork.</p>
-      {bool("removeAllCovers","Replace all embedded covers","Used when Album art is selected for overwrite.")}
-      {bool("albumArtFile","Save artwork beside the audio")}
-      {text("coverFilename","Cover filename template","Optional; defaults to cover.jpg. Relative subfolders are supported.")}
+      <Row label="Artwork destination"><select aria-label="Artwork destination" value={options.albumArtFile?"external":"embedded"} onChange={e=>opt({albumArtFile:e.target.value==="external"})}><option value="embedded">Embed in audio file</option><option value="external">External cover file</option></select></Row>
+      {options.albumArtFile?<><p className="setting-note">Existing embedded covers are retained. Catalog artwork is saved beside the audio instead.</p>{text("coverFilename","Cover filename template","Optional; defaults to cover.jpg. Relative subfolders are supported.")}</>:bool("removeAllCovers","Replace all embedded covers","Used when Album art is selected for overwrite.")}
     </details>
     <details className="tagging-group"><summary>File tag format</summary>
       <Row label="ID3 version"><select aria-label="ID3 version" value={options.id3v24?"2.4":"2.3"} onChange={e=>opt({id3v24:e.target.value==="2.4"})}><option value="2.4">ID3v2.4</option><option value="2.3">ID3v2.3</option></select></Row>

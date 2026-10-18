@@ -71,7 +71,41 @@ fn safe_target(target: &Path, source: &Path) -> Result<()> {
     );
     Ok(())
 }
+#[derive(Debug, Default, serde::Serialize)]
+pub struct TaggingStorage {
+    pub original_files: u64,
+    pub original_bytes: u64,
+    pub pending_cleanup: u64,
+}
 impl Library {
+    pub fn tagging_storage(&self) -> Result<TaggingStorage> {
+        let (paths, pending) = {
+            let conn = self.conn()?;
+            let mut query = conn
+                .prepare("SELECT DISTINCT backup FROM tag_write_files WHERE backup IS NOT NULL")?;
+            let paths = query
+                .query_map([], |r| r.get::<_, Vec<u8>>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            let pending=conn.query_row("SELECT COUNT(*) FROM tag_writes WHERE state IN ('committed','rolled_back') AND cleanup_complete=0",[],|r|r.get(0))?;
+            (paths, pending)
+        };
+        let mut storage = TaggingStorage {
+            pending_cleanup: pending,
+            ..Default::default()
+        };
+        for path in paths {
+            match std::fs::symlink_metadata(bytes_path(&path)?) {
+                Ok(meta) if meta.is_file() && !meta.file_type().is_symlink() => {
+                    storage.original_files += 1;
+                    storage.original_bytes = storage.original_bytes.saturating_add(meta.len());
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(storage)
+    }
     pub fn begin_tag_write(
         &self,
         run: &JobRun,
@@ -161,6 +195,13 @@ impl Library {
                 file.publish.clone()
             };
         }
+        let assets: Vec<_> = files
+            .iter()
+            .flat_map(|file| {
+                std::iter::once(file.staged.clone()).chain(file.backup.iter().cloned())
+            })
+            .collect();
+        publish_files::durable_assets(&assets, &workspace, &self.data_dir().canonicalize()?)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(Self::run_owns(&tx, run)?, "Preparation was superseded");
@@ -171,6 +212,10 @@ impl Library {
                 "Another preparation owns this destination; retry tagging"
             );
         }
+        tx.execute(
+            "UPDATE jobs SET stage='writing_tags',updated=?1 WHERE id=?2",
+            params![now(), run.id],
+        )?;
         tx.execute("INSERT INTO tag_writes(id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,pcm_hash,frames,decoder,analysis_json,metadata_json,provenance_json,workspace,created) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",params![id,run.id,run.track_id,run.attempt,run.settings_revision,staged.source_before_sha256,staged.source_after_sha256,staged.pcm_sha256,staged.frames,staged.decoder_identity,serde_json::to_string(result)?,serde_json::to_string(&staged.metadata)?,serde_json::to_string(&staged.provenance)?,path_bytes(&workspace),now()])?;
         for (n, f) in files.iter().enumerate() {
             tx.execute(
@@ -260,14 +305,14 @@ impl Library {
                 && journal.revision == run.settings_revision,
             "Publication was superseded"
         );
-        ensure!(
-            journal
-                .workspace
-                .canonicalize()?
-                .starts_with(self.data_dir().canonicalize()?),
-            "Invalid journal workspace"
-        );
         let preparation = (|| -> Result<()> {
+            ensure!(
+                journal
+                    .workspace
+                    .canonicalize()?
+                    .starts_with(self.data_dir().canonicalize()?),
+                "Invalid journal workspace"
+            );
             // Copy all output bytes before acquiring the SQLite commit boundary.
             for f in &journal.files {
                 safe_target(&f.target, &run.path)?;
@@ -371,9 +416,14 @@ impl Library {
                     id
                 ],
             )?;
+            if rollback.is_ok() && cleanup_temporaries(&journal.files, self.data_dir()).is_ok() {
+                conn.execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
+            }
             return Err(error);
         }
-        cleanup_temporaries(&journal.files);
+        if cleanup_temporaries(&journal.files, self.data_dir()).is_ok() {
+            conn.execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
+        }
         Ok(())
     }
     pub fn recover_tag_writes(&self) -> Result<()> {
@@ -430,13 +480,16 @@ impl Library {
         }
         let committed: Vec<String> = {
             let conn = self.conn()?;
-            let mut stmt = conn.prepare("SELECT id FROM tag_writes WHERE state='committed'")?;
+            let mut stmt = conn.prepare("SELECT id FROM tag_writes WHERE state IN ('committed','rolled_back') AND cleanup_complete=0")?;
             stmt.query_map([], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?
         };
         for id in committed {
-            if let Ok(journal) = self.load_tag_write(&id) {
-                cleanup_temporaries(&journal.files);
+            if let Ok(journal) = self.load_tag_write(&id)
+                && cleanup_temporaries(&journal.files, self.data_dir()).is_ok()
+            {
+                self.conn()?
+                    .execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
             }
         }
         Ok(())
@@ -513,25 +566,59 @@ fn rollback(files: &[Artifact]) -> Result<()> {
     }
     Ok(())
 }
-fn cleanup_temporaries(files: &[Artifact]) {
+fn cleanup_temporaries(files: &[Artifact], root: &Path) -> Result<()> {
     for file in files {
-        let backup_safe = match (&file.backup, &file.before) {
-            (Some(path), Some(hash)) => file_sha256(path).ok().as_ref() == Some(hash),
-            _ => false,
-        };
-        if !backup_safe {
-            continue;
-        }
-        for path in [&file.publish, &file.displaced] {
-            if file
-                .before
+        // Only the original recovery copy survives a changed publication. A
+        // no-op did not displace any source bytes and needs no audio backup.
+        if let Some(before) = &file.before
+            && before != &file.after
+        {
+            let backup = file
+                .backup
                 .as_ref()
-                .is_some_and(|before| file_sha256(path).ok().as_ref() == Some(before))
-            {
-                let _ = std::fs::remove_file(path);
+                .context("Missing durable original backup")?;
+            ensure!(
+                file_sha256(backup)? == *before,
+                "Original backup is unavailable; temporary recovery bytes retained"
+            );
+            // Also cover journals written by older versions before the explicit
+            // pre-journal durability barrier existed.
+            publish_files::durable_assets(
+                std::slice::from_ref(backup),
+                &backup
+                    .parent()
+                    .context("Missing backup workspace")?
+                    .canonicalize()?,
+                &root.canonicalize()?,
+            )?;
+        }
+        let mut removed = std::collections::HashSet::new();
+        for path in [&file.staged, &file.publish, &file.displaced] {
+            if !removed.insert(path) {
+                continue;
+            }
+            if let Some(hash) = current_hash(path)? {
+                ensure!(
+                    hash == file.after || file.before.as_ref() == Some(&hash),
+                    "Changed temporary file retained"
+                );
+                std::fs::remove_file(path)?;
+                publish_files::sync_parent(path)?;
             }
         }
+        if file.before.as_ref() == Some(&file.after)
+            && let Some(backup) = &file.backup
+            && let Some(hash) = current_hash(backup)?
+        {
+            ensure!(
+                Some(&hash) == file.before.as_ref(),
+                "Changed no-op backup retained"
+            );
+            std::fs::remove_file(backup)?;
+            publish_files::sync_parent(backup)?;
+        }
     }
+    Ok(())
 }
 #[cfg(test)]
 mod tests {
@@ -578,7 +665,7 @@ mod tests {
             publish: displaced.clone(),
             displaced: displaced.clone(),
         };
-        cleanup_temporaries(&[artifact]);
+        assert!(cleanup_temporaries(&[artifact], d.path()).is_err());
         assert_eq!(std::fs::read(displaced).unwrap(), b"original");
     }
 }

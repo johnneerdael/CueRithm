@@ -39,8 +39,9 @@ Key/BPM file tags can use measured analysis or catalog metadata. Track energy is
 a separate optional file write and remains a single whole-track rating.
 
 Genre/style routing offers eight routes, optional merging/capitalization and
-per-format custom style fields. Artwork can be embedded and optionally saved
-beside the audio using a relative filename template. Enable Album art under
+per-format custom style fields. Choose embedded artwork or an external cover file
+beside the audio using a relative filename template. External mode retains
+existing embedded covers. Enable Album art under
 Fields to write to retrieve artwork. Artwork overwrites follow the same field
 policy. File-format settings include ID3v2.3/2.4, separators, comment language,
 year-only dates and track-number padding. Beatport adds artwork resolution,
@@ -49,7 +50,10 @@ search-page count and version matching controls.
 If a catalog returns no match, either retain existing catalog metadata and finish
 with configured measured tags, or leave the track in Incoming for attention.
 A no-match outcome is retained in preparation provenance. Failed writes retain
-previous cues and use journaled backups/recovery. If a file changes during lookup,
+previous cues and use journaled backups/recovery. Original backups are retained
+in application data; Settings shows their count and size. Redundant staged
+outputs are cleaned automatically, and no-op writes retain no duplicate audio.
+Unchanged provider retries reuse completed full analysis. If a file changes during lookup,
 its new bytes are analysed before publication; an older attempt cannot overwrite
 a newer job.
 

@@ -43,6 +43,7 @@ export interface Bridge {
   getState():Promise<LibraryState>;
   getMetadataFields():Promise<string[]>;
   getTaggingCatalog():Promise<TaggingCatalog>;
+  getTaggingStorage():Promise<{original_files:number;original_bytes:number;pending_cleanup:number}>;
   listTracks(query:TrackQuery):Promise<TrackPage>;
   selectTrackIds(query:TrackQuery):Promise<string[]>;
   getTrack(id:string):Promise<Detail>;

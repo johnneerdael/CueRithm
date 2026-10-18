@@ -197,17 +197,17 @@ fn traxsource_valid_search_and_detail_populate_metadata() {
 }
 #[test]
 fn expired_token_is_refreshed_without_reacquiring_a_held_lock() {
-    use onetagger_selected_providers::beatport::{Beatport, BeatportOAuth};
-    use std::sync::{Arc, Mutex};
+    use onetagger_selected_providers::beatport::{Beatport, BeatportOAuth, BeatportTokenCache};
+    use std::sync::Arc;
     let (url, server) = fixture(
         200,
         r#"{"access_token":"fresh-fixture-token","expires_in":3600}"#,
         Duration::ZERO,
     );
-    let token = Arc::new(Mutex::new(Some(BeatportOAuth {
+    let token = Arc::new(BeatportTokenCache::with_token(BeatportOAuth {
         access_token: "expired-fixture-token".into(),
         expires_in: 0,
-    })));
+    }));
     let source = Beatport::with_endpoints(
         token,
         reqwest::blocking::Client::builder()
@@ -220,4 +220,175 @@ fn expired_token_is_refreshed_without_reacquiring_a_held_lock() {
     );
     assert_eq!(source.update_token().unwrap(), "fresh-fixture-token");
     server.join().unwrap();
+}
+
+#[test]
+fn beatport_searches_configured_later_pages_and_release_order() {
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
+    for oldest in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let stop = Arc::new(AtomicBool::new(false));
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let (server_stop, server_requests) = (stop.clone(), requests.clone());
+        let server = thread::spawn(move || {
+            while !server_stop.load(Ordering::SeqCst) {
+                let (mut stream, _) = match listener.accept() {
+                    Ok(value) => value,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(e) => panic!("{e}"),
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut buffer = [0; 8192];
+                let n = stream.read(&mut buffer).unwrap();
+                let request = String::from_utf8_lossy(&buffer[..n]);
+                let first = request.lines().next().unwrap().to_owned();
+                server_requests.lock().unwrap().push(first.clone());
+                let second = first.contains("page=2");
+                let body=if first.starts_with("POST") {serde_json::json!({"access_token":"fixture-token","expires_in":3600})} else {
+                    serde_json::json!({"tracks":[{"id":if second {2}else{1},"name":if second||oldest {"Signal"}else{"Different title"},"artists":[{"id":1,"name":"Fixture Artist"}],"exclusive":false,"genre":{"id":1,"name":"House"},"mix_name":"","length_ms":300000,"new_release_date":if second {"2020-01-01"}else{"2024-01-01"},"release":{"id":1,"name":"Fixture","label":{"id":1,"name":"Fixture Label"},"image":{"id":1,"dynamic_uri":"https://example.test/{w}/{h}"}},"remixers":[],"slug":"signal"}]})
+                }.to_string();
+                stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).unwrap();
+            }
+        });
+        let tagger = Tagger::with_endpoints(
+            CatalogEndpoints::for_local_server(&url, Duration::from_secs(2)).unwrap(),
+        )
+        .unwrap();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["beatport".into()];
+        config.options.strictness = 1.;
+        config.options.custom.0.get_mut("beatport").unwrap()["max_pages"] = 2.into();
+        if oldest {
+            config.options.multiple_matches = onetagger_tagger::MultipleMatchesSort::Oldest;
+        }
+        let outcome = tagger.match_track(&input(), &config);
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        let outcome = outcome.unwrap();
+        assert_eq!(
+            outcome.status,
+            MatchStatus::Matched,
+            "later page not searched"
+        );
+        assert!(
+            requests
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|r| r.contains("page=2")),
+            "Max pages was ignored"
+        );
+        assert_eq!(outcome.matches[0].track.track_id.as_deref(), Some("2"));
+    }
+}
+
+fn token_waiter_fixture(cancel_during_request: bool) {
+    use std::sync::{
+        Arc, Barrier,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    use std::time::Instant;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let stop_server = Arc::new(AtomicBool::new(false));
+    let requests = Arc::new(AtomicUsize::new(0));
+    let (server_stop, count) = (stop_server.clone(), requests.clone());
+    let server = thread::spawn(move || {
+        while !server_stop.load(Ordering::SeqCst) {
+            let (mut stream, _) = match listener.accept() {
+                Ok(v) => v,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(2));
+                    continue;
+                }
+                Err(e) => panic!("{e}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut bytes = [0; 8192];
+            let _ = stream.read(&mut bytes);
+            count.fetch_add(1, Ordering::SeqCst);
+            thread::sleep(Duration::from_millis(if cancel_during_request {
+                250
+            } else {
+                100
+            }));
+            let _ = stream.write_all(
+                b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            );
+        }
+    });
+    let tagger = Arc::new(
+        Tagger::with_endpoints(
+            CatalogEndpoints::for_local_server(&url, Duration::from_millis(180)).unwrap(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let barrier = Arc::new(Barrier::new(9));
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["beatport".into()];
+    config.options.threads = 8;
+    let mut workers = Vec::new();
+    for _ in 0..8 {
+        let (tagger, cancel, barrier, config) = (
+            tagger.clone(),
+            cancel.clone(),
+            barrier.clone(),
+            config.clone(),
+        );
+        workers.push(thread::spawn(move || {
+            barrier.wait();
+            assert!(
+                tagger
+                    .match_track_cancellable(&input(), &config, &cancel)
+                    .is_err()
+            );
+        }));
+    }
+    let started = Instant::now();
+    barrier.wait();
+    while requests.load(Ordering::SeqCst) == 0 {
+        assert!(started.elapsed() < Duration::from_secs(2));
+        thread::sleep(Duration::from_millis(2));
+    }
+    if cancel_during_request {
+        thread::sleep(Duration::from_millis(30));
+        cancel.store(true, Ordering::SeqCst);
+    }
+    for worker in workers {
+        worker.join().unwrap();
+    }
+    let elapsed = started.elapsed();
+    stop_server.store(true, Ordering::SeqCst);
+    server.join().unwrap();
+    assert_eq!(
+        requests.load(Ordering::SeqCst),
+        1,
+        "waiters must share one failed token refresh"
+    );
+    assert!(
+        elapsed < Duration::from_millis(900),
+        "shutdown serialized refresh timeouts: {elapsed:?}"
+    );
+}
+#[test]
+fn token_refresh_failure_is_shared_with_concurrent_waiters() {
+    token_waiter_fixture(false);
+}
+#[test]
+fn cancellation_does_not_serialize_token_timeout_requests() {
+    token_waiter_fixture(true);
 }

@@ -427,11 +427,8 @@ impl TagImpl for ID3Tag {
     }
 
     // Set/Get named field
-    fn set_field(&mut self, field: Field, mut value: Vec<String>, overwrite: bool) {
-        // Modify duration from seconds to milliseconds
-        if field == Field::Duration {
-            value[0] = format!("{}000", value[0]);
-        }
+    fn set_field(&mut self, field: Field, value: Vec<String>, overwrite: bool) {
+        // The adapter supplies ID3 duration in TLEN's native milliseconds.
         self.set_raw(field.id3(), value, overwrite);
     }
     fn get_field(&self, field: Field) -> Option<Vec<String>> {

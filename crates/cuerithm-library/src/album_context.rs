@@ -26,7 +26,7 @@ impl Choice {
         &self,
         tagger: &Tagger,
         config: &AutotagConfig,
-        cancel: &AtomicBool,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<Option<AlbumHint>> {
         let mut cached = self
             .album

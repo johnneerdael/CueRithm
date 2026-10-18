@@ -246,3 +246,86 @@ fn repeated_raw_tag_overwrite_keeps_one_value() {
         1
     );
 }
+
+#[test]
+fn id3_duration_uses_one_seconds_to_milliseconds_conversion() {
+    for extension in ["mp3", "aac", "aiff", "wav"] {
+        let (d, path, rt) = fixture(extension);
+        let input = source(&rt, &path, d.path());
+        if extension == "aac" {
+            assert!(input.duration_seconds.fract() > 0.);
+        }
+        let expected = (input.duration_seconds * 1000.).round().to_string();
+        let mut config = AutotagConfig::default();
+        config.options.tags = vec![SupportedTag::Duration];
+        let staged = TagWritePlan::build(input, &result(), &config, &AnalysisTags::default())
+            .unwrap()
+            .stage(&rt, d.path())
+            .unwrap();
+        let wrapper = Tag::load_file(&staged.path, false).unwrap();
+        assert_eq!(
+            wrapper.tag().get_raw("TLEN"),
+            Some(vec![expected]),
+            "{extension}"
+        );
+    }
+}
+#[test]
+fn track_number_and_total_obey_independent_selection_and_overwrite() {
+    for extension in ["mp3", "m4a", "flac"] {
+        let (d, path, rt) = fixture(extension);
+        {
+            let mut wrapper = Tag::load_file(&path, true).unwrap();
+            let tag = wrapper.tag_mut();
+            tag.set_track_number("7", Some(20), true);
+            tag.save_file(&path).unwrap();
+        }
+        let input = source(&rt, &path, d.path());
+        for (tags, overwrite, exceptions, number, total) in [
+            (vec![SupportedTag::TrackNumber], true, vec![], "3", "20"),
+            (
+                vec![SupportedTag::TrackNumber, SupportedTag::TrackTotal],
+                false,
+                vec![SupportedTag::TrackNumber],
+                "3",
+                "20",
+            ),
+            (
+                vec![SupportedTag::TrackNumber, SupportedTag::TrackTotal],
+                false,
+                vec![SupportedTag::TrackTotal],
+                "7",
+                "12",
+            ),
+            (
+                vec![SupportedTag::TrackNumber, SupportedTag::TrackTotal],
+                false,
+                vec![],
+                "7",
+                "20",
+            ),
+            (vec![SupportedTag::TrackTotal], true, vec![], "7", "12"),
+        ] {
+            let mut config = AutotagConfig::default();
+            config.options.tags = tags;
+            config.options.overwrite = overwrite;
+            config.options.overwrite_tags = exceptions;
+            let staged =
+                TagWritePlan::build(input.clone(), &result(), &config, &AnalysisTags::default())
+                    .unwrap()
+                    .stage(&rt, d.path())
+                    .unwrap();
+            let wrapper = Tag::load_file(&staged.path, false).unwrap();
+            assert_eq!(
+                wrapper.tag().get_field(Field::TrackNumber),
+                Some(vec![number.into()]),
+                "{extension} number"
+            );
+            assert_eq!(
+                wrapper.tag().get_field(Field::TrackTotal),
+                Some(vec![total.into()]),
+                "{extension} total"
+            );
+        }
+    }
+}

@@ -44,3 +44,11 @@ track-total writes and full-precision MP4 BPM text alongside its integer atom.
 The pure filename-template parser is selected for cover filenames only; no
 file-renaming workflow is imported. Padding and generated cover paths are
 bounded. Cuerithm's marker uses its own name and respects the MetaTags selection.
+
+Final integration corrections preserve independent track-number/total policies
+for combined ID3 and MP4 representations. ID3 duration is supplied once in native
+milliseconds. Beatport advances through configured pages after nonmatches and
+collects configured pages for oldest/newest selection. Its shared token refresh
+releases the mutex during network I/O, shares failures briefly, and receives the
+same cancellation flag as the preparation workers. Existing matching arithmetic
+and public catalog endpoints remain unchanged.

@@ -463,48 +463,7 @@ impl TagWritePlan {
                     tag.set_raw(&name, vec![value], overwrite(selected));
                 }
             }
-            if enabled(SupportedTag::TrackNumber)
-                && let Some(number) = &track.track_number
-            {
-                tag.set_track_number(
-                    &number.to_string_with_zeroes(config.track_number_leading_zeroes),
-                    if enabled(SupportedTag::TrackTotal) {
-                        track.track_total
-                    } else {
-                        None
-                    },
-                    overwrite(SupportedTag::TrackNumber),
-                );
-            }
-            if enabled(SupportedTag::TrackTotal)
-                && !enabled(SupportedTag::TrackNumber)
-                && let Some(total) = track.track_total
-            {
-                if matches!(
-                    format,
-                    AudioFileFormat::MP3
-                        | AudioFileFormat::AAC
-                        | AudioFileFormat::AIFF
-                        | AudioFileFormat::WAV
-                ) {
-                    let current = tag
-                        .get_raw("TRCK")
-                        .and_then(|v| v.first().cloned())
-                        .unwrap_or_else(|| "0".into());
-                    let mut parts = current.splitn(2, '/');
-                    let number = parts.next().unwrap_or("0");
-                    let present = parts.next().is_some_and(|v| !v.is_empty());
-                    if overwrite(SupportedTag::TrackTotal) || !present {
-                        tag.set_track_number(number, Some(total), true);
-                    }
-                } else {
-                    tag.set_field(
-                        Field::TrackTotal,
-                        vec![total.to_string()],
-                        overwrite(SupportedTag::TrackTotal),
-                    );
-                }
-            }
+            apply_track_numbers(tag, format, config, &track);
             if enabled(SupportedTag::Duration) {
                 let seconds = self.input.duration_seconds;
                 let value = if matches!(
@@ -660,5 +619,74 @@ impl TagWritePlan {
             }
         }
         Ok(())
+    }
+}
+
+// ID3 stores both independently configured fields in one TRCK frame. Resolve
+// each component first so selecting/overwriting one cannot erase the other.
+fn apply_track_numbers(
+    tag: &mut dyn TagImpl,
+    format: &AudioFileFormat,
+    config: &onetagger_tagger::TaggerConfig,
+    track: &CatalogTrack,
+) {
+    let number = config
+        .tag_enabled(SupportedTag::TrackNumber)
+        .then_some(track.track_number.as_ref())
+        .flatten()
+        .map(|n| n.to_string_with_zeroes(config.track_number_leading_zeroes));
+    let total = config
+        .tag_enabled(SupportedTag::TrackTotal)
+        .then_some(track.track_total)
+        .flatten();
+    if matches!(
+        format,
+        AudioFileFormat::MP3 | AudioFileFormat::AAC | AudioFileFormat::AIFF | AudioFileFormat::WAV
+    ) {
+        let current = tag
+            .get_raw("TRCK")
+            .and_then(|v| v.first().cloned())
+            .unwrap_or_default();
+        let mut parts = current.splitn(2, '/');
+        let old_number = parts.next().unwrap_or_default();
+        let old_total = parts.next().filter(|s| !s.is_empty());
+        let write_number = number.is_some()
+            && (config.overwrite_tag(SupportedTag::TrackNumber) || old_number.is_empty());
+        let write_total = total.is_some()
+            && (config.overwrite_tag(SupportedTag::TrackTotal) || old_total.is_none());
+        if write_number || write_total {
+            let resolved_number = if write_number {
+                number.as_deref().unwrap()
+            } else if old_number.is_empty() {
+                "0"
+            } else {
+                old_number
+            };
+            let resolved_total = if write_total {
+                total.map(|n| n.to_string())
+            } else {
+                old_total.map(str::to_owned)
+            };
+            let value = match resolved_total {
+                Some(total) => format!("{resolved_number}/{total}"),
+                None => resolved_number.to_owned(),
+            };
+            tag.set_raw("TRCK", vec![value], true);
+        }
+    } else {
+        if let Some(number) = number {
+            tag.set_track_number(
+                &number,
+                None,
+                config.overwrite_tag(SupportedTag::TrackNumber),
+            );
+        }
+        if let Some(total) = total {
+            tag.set_field(
+                Field::TrackTotal,
+                vec![total.to_string()],
+                config.overwrite_tag(SupportedTag::TrackTotal),
+            );
+        }
     }
 }

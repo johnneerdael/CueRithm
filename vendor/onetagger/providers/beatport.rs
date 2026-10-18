@@ -11,21 +11,47 @@ use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Condvar, Mutex,
+};
+use std::time::{Duration, Instant};
 
 const INVALID_ART: &'static str = "ab2d1d04-233d-4b08-8234-9782b34dcab8";
 
+#[derive(Debug, Default)]
+struct TokenState {
+    token: Option<BeatportOAuth>,
+    refreshing: bool,
+    failure: Option<(Instant, String)>,
+}
+#[derive(Debug, Default)]
+pub struct BeatportTokenCache {
+    state: Mutex<TokenState>,
+    changed: Condvar,
+}
+impl BeatportTokenCache {
+    pub fn with_token(token: BeatportOAuth) -> Self {
+        Self {
+            state: Mutex::new(TokenState {
+                token: Some(token),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+}
 pub struct Beatport {
     client: Client,
-    access_token: Arc<Mutex<Option<BeatportOAuth>>>,
+    access_token: Arc<BeatportTokenCache>,
     api: String,
     auth: String,
+    cancel: Arc<AtomicBool>,
 }
 
 impl Beatport {
     /// Create new instance
-    pub fn new(access_token: Arc<Mutex<Option<BeatportOAuth>>>) -> Beatport {
+    pub fn new(access_token: Arc<BeatportTokenCache>) -> Beatport {
         let client = Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
             .timeout(Duration::from_secs(60))
@@ -36,11 +62,12 @@ impl Beatport {
             access_token,
             api: "https://api.beatport.com".into(),
             auth: "https://account.beatport.com".into(),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub fn with_endpoints(
-        access_token: Arc<Mutex<Option<BeatportOAuth>>>,
+        access_token: Arc<BeatportTokenCache>,
         client: Client,
         _web: &str,
         api: &str,
@@ -51,7 +78,13 @@ impl Beatport {
             access_token,
             api: api.trim_end_matches('/').into(),
             auth: auth.trim_end_matches('/').into(),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
+        self.cancel = cancel;
+        self
     }
 
     /// Search for tracks on beatport
@@ -80,19 +113,36 @@ impl Beatport {
 
     /// Update embed auth token
     pub fn update_token(&self) -> Result<String, Error> {
-        let mut token = self
+        let mut state = self
             .access_token
+            .state
             .lock()
             .map_err(|_| anyhow!("Token refresh interrupted"))?;
-        if token
-            .as_ref()
-            .is_some_and(|value| value.expires_in <= timestamp!())
-        {
-            *token = None;
+        loop {
+            if self.cancel.load(Ordering::Relaxed) {
+                return Err(anyhow!("Tagging is stopping"));
+            }
+            if let Some(token) = state.token.as_ref().filter(|t| t.expires_in > timestamp!()) {
+                return Ok(token.access_token.clone());
+            }
+            if let Some((at, message)) = &state.failure {
+                if at.elapsed() < Duration::from_secs(2) {
+                    return Err(anyhow!("Recent catalog token refresh failed: {message}"));
+                }
+            }
+            if !state.refreshing {
+                state.refreshing = true;
+                break;
+            }
+            state = self
+                .access_token
+                .changed
+                .wait_timeout(state, Duration::from_millis(50))
+                .map_err(|_| anyhow!("Token refresh interrupted"))?
+                .0;
         }
-        // Fetch new if doesn't exist
-        if (*token).is_none() {
-            // Taken from https://embed.beatport.com/?id=4418593&type=release
+        drop(state);
+        let fetched = (|| -> Result<BeatportOAuth, Error> {
             let mut response: BeatportOAuth = self.client.post(format!("{}/o/token/",self.auth))
                 .form(&json!({
                     "client_id": "2tiTbKxmQFwnbFjMONU4k7njMRZmV3ZMwRBndiZs",
@@ -100,13 +150,35 @@ impl Beatport {
                     "grant_type": "client_credentials"
                 }))
                 .send()?.bounded_json()?;
-            response.expires_in = response.expires_in * 1000 + timestamp!() - 10_000;
-            *token = Some(response);
+            response.expires_in = response
+                .expires_in
+                .saturating_mul(1000)
+                .saturating_add(timestamp!())
+                .saturating_sub(10_000);
+            Ok(response)
+        })();
+        let mut state = self
+            .access_token
+            .state
+            .lock()
+            .map_err(|_| anyhow!("Token refresh interrupted"))?;
+        state.refreshing = false;
+        match &fetched {
+            Ok(token) => {
+                state.token = Some(token.clone());
+                state.failure = None;
+            }
+            Err(error) => {
+                state.token = None;
+                state.failure = Some((Instant::now(), error.to_string()));
+            }
         }
-        let t = token
-            .clone()
-            .ok_or_else(|| anyhow!("Missing catalog token"))?;
-        Ok(t.access_token)
+        drop(state);
+        self.access_token.changed.notify_all();
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err(anyhow!("Tagging is stopping"));
+        }
+        fetched.map(|token| token.access_token)
     }
 
     /// Fetch track using API
@@ -483,8 +555,13 @@ impl AutotaggerSource for Beatport {
                     };
 
                     // Return
-                    output.extend(tracks);
-                    if config.fetch_all_results {
+                    output.extend(tracks.into_iter().filter(|candidate| {
+                        MatchingUtils::match_duration(info, &candidate.track, config)
+                    }));
+                    if config.fetch_all_results
+                        || output.is_empty()
+                        || config.multiple_matches != onetagger_tagger::MultipleMatchesSort::Default
+                    {
                         continue;
                     }
                     return Ok(output);
@@ -554,13 +631,13 @@ impl AutotaggerSource for Beatport {
 /// For creating Beatport instances
 #[derive(Debug, Clone)]
 pub struct BeatportBuilder {
-    access_token: Arc<Mutex<Option<BeatportOAuth>>>,
+    access_token: Arc<BeatportTokenCache>,
 }
 
 impl AutotaggerSourceBuilder for BeatportBuilder {
     fn new() -> BeatportBuilder {
         BeatportBuilder {
-            access_token: Arc::new(Mutex::new(None)),
+            access_token: Arc::new(BeatportTokenCache::default()),
         }
     }
 

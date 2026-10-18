@@ -66,6 +66,34 @@ pub trait ProviderBackend: Send + Sync {
         Ok(None)
     }
     fn candidates(&self, input: &TagInput, config: &AutotagConfig) -> Result<Vec<CatalogMatch>>;
+    fn candidates_cancellable(
+        &self,
+        input: &TagInput,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<CatalogMatch>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        self.candidates(input, config)
+    }
+    fn album_cancellable(
+        &self,
+        id: &str,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Option<CatalogAlbum>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        self.album(id, config)
+    }
+    fn extend_cancellable(
+        &self,
+        track: &mut CatalogTrack,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<()> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        self.extend(track, config)
+    }
+
     fn extend(&self, _track: &mut CatalogTrack, _config: &AutotagConfig) -> Result<()> {
         Ok(())
     }
@@ -76,7 +104,7 @@ struct Gate {
     changed: Condvar,
 }
 impl Gate {
-    fn acquire(&self, limit: usize, cancel: &AtomicBool) -> Result<Permit<'_>> {
+    fn acquire(&self, limit: usize, cancel: &Arc<AtomicBool>) -> Result<Permit<'_>> {
         let mut active = self
             .active
             .lock()
@@ -162,13 +190,13 @@ impl Tagger {
         Ok(found)
     }
     pub fn match_track(&self, input: &TagInput, config: &AutotagConfig) -> Result<TagMatchOutcome> {
-        self.match_track_cancellable(input, config, &AtomicBool::new(false))
+        self.match_track_cancellable(input, config, &Arc::new(AtomicBool::new(false)))
     }
     pub fn match_track_cancellable(
         &self,
         input: &TagInput,
         config: &AutotagConfig,
-        cancel: &AtomicBool,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<TagMatchOutcome> {
         self.match_track_with_album(input, config, cancel, None)
     }
@@ -177,7 +205,7 @@ impl Tagger {
         provider: ProviderId,
         id: &str,
         config: &AutotagConfig,
-        cancel: &AtomicBool,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<Option<Arc<CatalogAlbum>>> {
         config.validate()?;
         let backend = self
@@ -191,13 +219,16 @@ impl Tagger {
             usize::from(config.options.threads)
         };
         let _permit = backend.gate.acquire(limit, cancel)?;
-        Ok(backend.source.album(id, config)?.map(Arc::new))
+        Ok(backend
+            .source
+            .album_cancellable(id, config, cancel)?
+            .map(Arc::new))
     }
     pub fn match_track_with_album(
         &self,
         input: &TagInput,
         config: &AutotagConfig,
-        cancel: &AtomicBool,
+        cancel: &Arc<AtomicBool>,
         hint: Option<&AlbumHint>,
     ) -> Result<TagMatchOutcome> {
         config.validate()?;
@@ -246,7 +277,7 @@ impl Tagger {
                     vec![]
                 };
                 if found.is_empty() {
-                    found = b.source.candidates(input, config)?;
+                    found = b.source.candidates_cancellable(input, config, cancel)?;
                 }
                 ensure!(
                     found.iter().all(|m| m.accuracy.is_finite()
@@ -260,7 +291,8 @@ impl Tagger {
                 }
                 ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
                 let mut matched = found.remove(0);
-                b.source.extend(&mut matched.track, config)?;
+                b.source
+                    .extend_cancellable(&mut matched.track, config, cancel)?;
                 Ok(Some(matched))
             })();
             match result {

@@ -50,7 +50,7 @@ fn album_candidates_can_resolve_tracks_without_repeating_catalog_search() {
             ProviderId::Beatport,
             "release-1",
             &config,
-            &AtomicBool::new(false),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap()
         .unwrap();
@@ -76,7 +76,12 @@ fn album_candidates_can_resolve_tracks_without_repeating_catalog_search() {
         },
     };
     let result = tagger
-        .match_track_with_album(&input, &config, &AtomicBool::new(false), Some(&hint))
+        .match_track_with_album(
+            &input,
+            &config,
+            &Arc::new(AtomicBool::new(false)),
+            Some(&hint),
+        )
         .unwrap();
     assert_eq!(result.matches.len(), 1);
     assert_eq!(
@@ -86,7 +91,12 @@ fn album_candidates_can_resolve_tracks_without_repeating_catalog_search() {
     assert_eq!(provider.searches.load(Ordering::SeqCst), 0);
     config.options.album_tagging = false;
     let _ = tagger
-        .match_track_with_album(&input, &config, &AtomicBool::new(false), Some(&hint))
+        .match_track_with_album(
+            &input,
+            &config,
+            &Arc::new(AtomicBool::new(false)),
+            Some(&hint),
+        )
         .unwrap();
     assert_eq!(provider.searches.load(Ordering::SeqCst), 1);
 }

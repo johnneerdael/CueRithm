@@ -1,13 +1,16 @@
 use crate::{AutotagConfig, CatalogMatch, CatalogTrack, ProviderBackend, ProviderId, TagInput};
 use anyhow::{Result, ensure};
 use onetagger_selected_providers::{
-    beatport::{Beatport, BeatportBuilder, BeatportOAuth},
+    beatport::{Beatport, BeatportBuilder, BeatportTokenCache},
     traxsource::{Traxsource, TraxsourceBuilder},
 };
 use onetagger_tagger::{AutotaggerSource, AutotaggerSourceBuilder, MatchingUtils, PlatformInfo};
 use reqwest::blocking::Client;
 use std::{
-    sync::{Arc, Mutex},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 #[derive(Clone)]
@@ -72,7 +75,7 @@ pub(crate) fn backends(endpoints: CatalogEndpoints) -> Result<Vec<Arc<dyn Provid
             id,
             client,
             endpoints: endpoints.clone(),
-            token: Arc::new(Mutex::new(None)),
+            token: Arc::new(BeatportTokenCache::default()),
         }));
     }
     Ok(out)
@@ -81,18 +84,21 @@ struct Native {
     id: ProviderId,
     client: Client,
     endpoints: CatalogEndpoints,
-    token: Arc<Mutex<Option<BeatportOAuth>>>,
+    token: Arc<BeatportTokenCache>,
 }
 impl Native {
-    fn source(&self) -> Box<dyn AutotaggerSource> {
+    fn source(&self, cancel: Arc<AtomicBool>) -> Box<dyn AutotaggerSource> {
         match self.id {
-            ProviderId::Beatport => Box::new(Beatport::with_endpoints(
-                self.token.clone(),
-                self.client.clone(),
-                &self.endpoints.web,
-                &self.endpoints.api,
-                &self.endpoints.auth,
-            )),
+            ProviderId::Beatport => Box::new(
+                Beatport::with_endpoints(
+                    self.token.clone(),
+                    self.client.clone(),
+                    &self.endpoints.web,
+                    &self.endpoints.api,
+                    &self.endpoints.auth,
+                )
+                .with_cancel(cancel),
+            ),
             ProviderId::Traxsource => Box::new(Traxsource::with_endpoints(
                 self.client.clone(),
                 &self.endpoints.traxsource,
@@ -102,22 +108,52 @@ impl Native {
 }
 impl ProviderBackend for Native {
     fn album(&self, id: &str, config: &AutotagConfig) -> Result<Option<crate::CatalogAlbum>> {
-        self.source().get_album(id, &config.options)
+        self.album_cancellable(id, config, &Arc::new(AtomicBool::new(false)))
+    }
+    fn album_cancellable(
+        &self,
+        id: &str,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Option<crate::CatalogAlbum>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        self.source(cancel.clone()).get_album(id, &config.options)
     }
     fn id(&self) -> ProviderId {
         self.id
     }
     fn candidates(&self, input: &TagInput, config: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+        self.candidates_cancellable(input, config, &Arc::new(AtomicBool::new(false)))
+    }
+    fn candidates_cancellable(
+        &self,
+        input: &TagInput,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<CatalogMatch>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
         let mut info = input.audio_info(config)?;
         if !config.options.match_by_id {
             info.tags.remove("BEATPORT_TRACK_ID");
             info.isrc = None;
         }
-        let mut found = self.source().match_track(&info, &config.options)?;
+        let mut found = self
+            .source(cancel.clone())
+            .match_track(&info, &config.options)?;
         found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));
         Ok(found)
     }
     fn extend(&self, track: &mut CatalogTrack, config: &AutotagConfig) -> Result<()> {
-        self.source().extend_track(track, &config.options)
+        self.extend_cancellable(track, config, &Arc::new(AtomicBool::new(false)))
+    }
+    fn extend_cancellable(
+        &self,
+        track: &mut CatalogTrack,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<()> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        self.source(cancel.clone())
+            .extend_track(track, &config.options)
     }
 }

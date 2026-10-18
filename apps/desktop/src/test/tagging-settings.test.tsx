@@ -8,10 +8,12 @@ import {fakeBridge,track} from "./bridge";
 describe("automatic tagging Settings",()=>{
   it("persists provider order, field policies and catalog options across remount",async()=>{
     const bridge=fakeBridge([]);
+    bridge.getTaggingStorage=vi.fn(async()=>({original_files:2,original_bytes:1048576,pending_cleanup:0}));
     const first=render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
     fireEvent.click(await screen.findByLabelText("Automatic tagging"));
+    await screen.findByText("1.0 MB · 2 files");
     fireEvent.click(screen.getByRole("button",{name:"Move Traxsource earlier"}));
     fireEvent.click(screen.getByLabelText("Write Title"));
     fireEvent.click(screen.getByLabelText("Overwrite all selected fields"));
@@ -69,6 +71,19 @@ describe("automatic tagging Settings",()=>{
     await screen.findByText("Settings could not be saved");
     expect(screen.getByLabelText("Max pages")).toBeEnabled();
     expect(screen.getByLabelText("Max pages")).toHaveValue(3);
+  });
+  it("makes external artwork an explicit alternative to embedded artwork",async()=>{
+    const bridge=fakeBridge([]);
+    render(<App bridge={bridge}/>);
+    await screen.findByText("Your library starts here");
+    fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    await screen.findByLabelText("Automatic tagging");
+    fireEvent.click(screen.getByText("Artwork",{selector:"summary"}));
+    fireEvent.change(screen.getByLabelText("Artwork destination"),{target:{value:"external"}});
+    expect(screen.getByText(/Existing embedded covers are retained/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
+    await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+    expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].tagging?.options.albumArtFile).toBe(true);
   });
   it("shows required catalog and writing stages in Incoming",async()=>{
     const bridge=fakeBridge([{...track("a"),state:"incoming"}]);
