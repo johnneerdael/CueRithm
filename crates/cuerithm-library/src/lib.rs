@@ -1,4 +1,6 @@
 //! Durable local library and background preparation.
+#[cfg(feature = "autotag")]
+mod album_context;
 mod jobs;
 mod metadata;
 mod prepare;

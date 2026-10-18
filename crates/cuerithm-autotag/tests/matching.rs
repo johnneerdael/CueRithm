@@ -229,3 +229,20 @@ fn remix_version_is_not_an_exact_match_when_strictness_requires_it() {
             .is_empty()
     );
 }
+#[test]
+fn skip_tagged_recognizes_cuerithm_and_legacy_markers_without_network() {
+    let (tagger, calls) = tagger(true, true, false);
+    let mut config = AutotagConfig::default();
+    config.options.skip_tagged = true;
+    for marker in ["cuerithm_taggeddate", "1t_taggeddate"] {
+        let mut source = input();
+        source
+            .media
+            .tags
+            .insert(marker.into(), "2026-01-01_AT".into());
+        let result = tagger.match_track(&source, &config).unwrap();
+        assert_eq!(result.status, MatchStatus::AlreadyTagged);
+        assert!(result.matches.is_empty());
+    }
+    assert!(calls.lock().unwrap().is_empty());
+}

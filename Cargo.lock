@@ -976,6 +976,7 @@ dependencies = [
  "fs2",
  "libc",
  "notify",
+ "onetagger-tag",
  "rodio",
  "rusqlite",
  "serde",

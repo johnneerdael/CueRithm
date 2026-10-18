@@ -48,6 +48,10 @@ impl AutotagConfig {
     pub fn validate(&self) -> Result<()> {
         let c = &self.options;
         ensure!(
+            c.album_tagging_ratio.is_finite() && (0.0..=1.0).contains(&c.album_tagging_ratio),
+            "Invalid album matching ratio"
+        );
+        ensure!(
             !c.platforms.is_empty() && c.platforms.len() <= 2,
             "Choose Beatport and/or Traxsource"
         );

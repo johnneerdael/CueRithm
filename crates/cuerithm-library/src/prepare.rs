@@ -1,6 +1,8 @@
 use crate::*;
 use anyhow::{Context, Result, ensure};
 use camelot_core::Engine;
+#[cfg(feature = "autotag")]
+use cuerithm_autotag::{AnalysisTags, TagInput, TagWritePlan, Tagger};
 use cuerithm_media::{MediaRuntime, file_sha256};
 use notify::{RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -59,12 +61,37 @@ impl PreparationService {
         runtime: MediaRuntime,
         count: usize,
     ) -> Result<Self> {
+        Self::start_inner(
+            library,
+            runtime,
+            count,
+            #[cfg(feature = "autotag")]
+            Arc::new(Tagger::new()?),
+        )
+    }
+    #[cfg(feature = "autotag")]
+    pub fn start_with_tagger(
+        library: Library,
+        runtime: MediaRuntime,
+        count: usize,
+        tagger: Arc<Tagger>,
+    ) -> Result<Self> {
+        Self::start_inner(library, runtime, count, tagger)
+    }
+    fn start_inner(
+        library: Library,
+        runtime: MediaRuntime,
+        count: usize,
+        #[cfg(feature = "autotag")] tagger: Arc<Tagger>,
+    ) -> Result<Self> {
         ensure!(count > 0, "Preparation needs at least one worker");
         let (tx, rx) = mpsc::sync_channel(1024);
         let stop = Arc::new(AtomicBool::new(false));
         let subscribers = Arc::new(Mutex::new(Vec::new()));
         let status = Arc::new(Mutex::new(ServiceStatus::default()));
         let sequence = Arc::new(AtomicU64::new(0));
+        #[cfg(feature = "autotag")]
+        let album_groups = Arc::new(crate::album_context::AlbumGroups::default());
         let mut joins = Vec::new();
         let mut receiver = Some(rx);
         for index in 0..count {
@@ -76,6 +103,10 @@ impl PreparationService {
                 status: status.clone(),
                 sequence: sequence.clone(),
                 engine: None,
+                #[cfg(feature = "autotag")]
+                tagger: tagger.clone(),
+                #[cfg(feature = "autotag")]
+                album_groups: album_groups.clone(),
             };
             let callback = tx.clone();
             let receiver = if index == 0 { receiver.take() } else { None };
@@ -195,6 +226,10 @@ struct Worker {
     status: Arc<Mutex<ServiceStatus>>,
     sequence: Arc<AtomicU64>,
     engine: Option<(SettingsRevision, Engine)>,
+    #[cfg(feature = "autotag")]
+    tagger: Arc<Tagger>,
+    #[cfg(feature = "autotag")]
+    album_groups: Arc<crate::album_context::AlbumGroups>,
 }
 impl Worker {
     fn emit(&self, job: &JobRun, stage: &str, state: &str) {
@@ -374,17 +409,130 @@ impl Worker {
                 !self.stop.load(Ordering::Relaxed),
                 "Preparation is stopping"
             );
-            stage = "committing";
-            self.library.set_stage_for_run(&job, stage)?;
-            self.emit(&job, stage, "running");
-            self.library
-                .apply_analysis_for_run(&job, &result, &audio.info)?;
+            #[cfg(feature = "autotag")]
+            if job.snapshot.settings.autotag_enabled {
+                let config = job
+                    .snapshot
+                    .settings
+                    .tagging
+                    .as_ref()
+                    .context("Missing tagging settings")?;
+                stage = "matching";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                let input = TagInput {
+                    path: job.path.clone(),
+                    source_sha256: audio.source_sha256.clone(),
+                    media: audio.info.clone(),
+                    duration_seconds: audio.clock.duration_seconds(),
+                };
+                let folder = job.path.parent().context("Missing track folder")?;
+                let hint = if config.options.album_tagging {
+                    let members = self
+                        .library
+                        .incoming_album_members(folder, &job.settings_revision)?;
+                    self.album_groups
+                        .prepare(folder, &job.settings_revision, &members);
+                    self.album_groups
+                        .selected(folder, &job.settings_revision)
+                        .map(|choice| choice.hint(&self.tagger, config, &self.stop))
+                        .transpose()?
+                        .flatten()
+                } else {
+                    None
+                };
+                let matched = self.tagger.match_track_with_album(
+                    &input,
+                    config,
+                    &self.stop,
+                    hint.as_ref(),
+                )?;
+                ensure!(
+                    !self.stop.load(Ordering::Relaxed),
+                    "Preparation is stopping"
+                );
+                stage = "tagging";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                let key = result.analysis.key.as_ref();
+                let measured = AnalysisTags {
+                    camelot_key: key.map(|k| k.camelot.clone()),
+                    standard_key: key.map(|k| k.key.name()),
+                    bpm: result.analysis.tempo.as_ref().map(|t| t.bpm),
+                    energy: result.analysis.energy.as_ref().map(|e| e.level),
+                };
+                let plan = TagWritePlan::build(input, &matched, config, &measured)?;
+                let mut staged = plan.stage_prepared(
+                    &self.runtime,
+                    &audio,
+                    &self.library.data_dir().join("tagging"),
+                )?;
+                ensure!(
+                    !self.stop.load(Ordering::Relaxed),
+                    "Preparation is stopping"
+                );
+                let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
+                stage = "writing_tags";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                self.library.publish_preparation(&job, &journal)?;
+                if config.options.album_tagging {
+                    let release = matched
+                        .matches
+                        .iter()
+                        .find(|m| m.track.platform == "beatport")
+                        .and_then(|m| m.track.release_id.as_deref());
+                    self.album_groups.observe(
+                        folder,
+                        &job.settings_revision,
+                        &job.track_id,
+                        release,
+                        config.options.album_tagging_ratio,
+                    );
+                }
+            } else {
+                stage = "committing";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                self.library
+                    .apply_analysis_for_run(&job, &result, &audio.info)?;
+            }
+            #[cfg(not(feature = "autotag"))]
+            {
+                stage = "committing";
+                self.library.set_stage_for_run(&job, stage)?;
+                self.emit(&job, stage, "running");
+                self.library
+                    .apply_analysis_for_run(&job, &result, &audio.info)?;
+            }
             self.emit(&job, "completed", "completed");
             Ok(())
         })();
         if let Err(error) = outcome {
             if self.stop.load(Ordering::Relaxed) {
                 return;
+            }
+            // A provider lookup can outlive an external metadata edit. The DSP and
+            // staged tags belong to the old bytes; enqueue the new identity only
+            // while this exact attempt still owns the track.
+            if file_sha256(&job.path).is_ok_and(|hash| hash != job.source_sha256)
+                && self.library.retry_for_run(&job).is_ok()
+            {
+                self.emit(&job, "queued", "superseded");
+                return;
+            }
+            #[cfg(feature = "autotag")]
+            if let Some(config) = job.snapshot.settings.tagging.as_ref()
+                && config.options.album_tagging
+                && let Some(folder) = job.path.parent()
+            {
+                self.album_groups.observe(
+                    folder,
+                    &job.settings_revision,
+                    &job.track_id,
+                    None,
+                    config.options.album_tagging_ratio,
+                );
             }
             if self
                 .library

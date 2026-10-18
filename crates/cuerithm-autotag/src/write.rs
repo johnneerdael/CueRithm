@@ -59,7 +59,7 @@ impl TagWritePlan {
     ) -> Result<Self> {
         config.validate()?;
         ensure!(
-            outcome.matches.is_empty() == (outcome.status == MatchStatus::NoMatch),
+            outcome.matches.is_empty() == (outcome.status != MatchStatus::Matched),
             "Invalid match outcome"
         );
         ensure!(
