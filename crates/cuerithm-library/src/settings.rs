@@ -102,8 +102,8 @@ impl PreparationSettings {
                 .validate()?;
         }
         ensure!(
-            self.engine.energy_model.is_some(),
-            "Choose an energy model in Settings"
+            self.engine.lexicon_energy || self.engine.energy_model.is_some(),
+            "Track energy is not configured"
         );
         Ok(())
     }

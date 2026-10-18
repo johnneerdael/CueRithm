@@ -13,7 +13,7 @@ export interface EngineSettings {
   config:{key_frame_size:number;key_hop_size:number;rhythm_frame_size:number;rhythm_hop_size:number;min_bpm:number;max_bpm:number};
   sample_rate:number;max_seconds:number|null;beat_model:string|null;mel_model:string|null;
   key_model:string|null;key_neural_model:string|null;key_openkeyscan_model?:string|null;
-  structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;
+  structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;lexicon_energy?:boolean;
 }
 export interface TagFrame {id3:string;vorbis:string;mp4:string}
 export interface TaggingOptions {

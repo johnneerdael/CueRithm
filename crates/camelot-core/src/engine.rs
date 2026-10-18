@@ -38,6 +38,9 @@ pub struct EngineSettings {
     /// Local, explicitly supplied RBF SVC; produces one duration-modal track rating.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub energy_model: Option<PathBuf>,
+    /// Built-in whole-track acoustic energy, evaluated on 22050 Hz mono PCM.
+    #[serde(default)]
+    pub lexicon_energy: bool,
 }
 
 #[cfg(test)]
@@ -125,6 +128,7 @@ impl Default for EngineSettings {
             cue_config: None,
             lexicon_config: None,
             energy_model: None,
+            lexicon_energy: false,
         }
     }
 }
@@ -137,6 +141,7 @@ impl EngineSettings {
             self.key_neural_model.as_ref().map(|_| 22050),
             self.key_openkeyscan_model.as_ref().map(|_| 44100),
             self.lexicon_config.as_ref().map(|_| 44100),
+            self.lexicon_energy.then_some(22050),
         ]
         .into_iter()
         .flatten()
@@ -150,6 +155,14 @@ impl EngineSettings {
 
     pub fn validate(&self) -> Result<()> {
         self.config.validate()?;
+        ensure!(
+            !self.lexicon_energy || self.energy_model.is_none(),
+            "Select one track energy method"
+        );
+        ensure!(
+            !self.lexicon_energy || self.max_seconds.is_none(),
+            "Track energy requires complete input"
+        );
         if self.source_profile_timing {
             ensure!(
                 self.max_seconds.is_none(),
@@ -306,6 +319,12 @@ impl Engine {
 
     pub fn model_identity(&self) -> BTreeMap<String, String> {
         let mut models = BTreeMap::new();
+        if self.settings.lexicon_energy {
+            models.insert(
+                "track-energy-dsp".into(),
+                format!("{:x}", Sha256::digest(include_bytes!("lexicon_energy.rs"))),
+            );
+        }
         if let Some(energy) = &self.energy {
             models.insert("track-energy-svc".into(), energy.source_sha256().into());
         }
@@ -525,6 +544,8 @@ impl Engine {
         }
         if self.energy.is_some() {
             config_identity["energy_method"] = "svc-duration-mode-v1".into();
+        } else if self.settings.lexicon_energy {
+            config_identity["energy_method"] = crate::lexicon_energy::METHOD.into();
         }
         if let Some(rate) = openkeyscan_sample_rate {
             config_identity["openkeyscan_sample_rate"] = rate.into();
@@ -583,6 +604,17 @@ impl Engine {
             };
             analysis.energy = model.estimate(&segments)?;
             analysis.engine.push_str("+track-energy-svc-v1");
+        } else if self.settings.lexicon_energy {
+            let input = decoded
+                .iter()
+                .find(|a| a.sample_rate == 22050)
+                .context("Missing energy input rate")?;
+            analysis.energy = crate::lexicon_energy::analyze(&input.samples, input.sample_rate)?
+                .map(|result| crate::energy::TrackEnergy {
+                    level: result.level,
+                    method: crate::lexicon_energy::METHOD.into(),
+                });
+            analysis.engine.push_str("+track-energy-dsp-v1");
         }
         if let Some(snapshot) = &source_snapshot {
             ensure!(

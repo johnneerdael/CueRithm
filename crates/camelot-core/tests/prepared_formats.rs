@@ -65,7 +65,10 @@ fn common_formats_receive_full_analysis_without_flac_container_restrictions() {
         .unwrap();
     let cases: serde_json::Value =
         serde_json::from_slice(&std::fs::read(d.path().join("cases.json")).unwrap()).unwrap();
-    let mut engine = Engine::new(&settings(d.path())).unwrap();
+    let mut configuration = settings(d.path());
+    configuration.energy_model = None;
+    configuration.lexicon_energy = true;
+    let mut engine = Engine::new(&configuration).unwrap();
     let rt = runtime();
     let mut lossless_key = None;
     for row in cases.as_array().unwrap() {
@@ -77,7 +80,10 @@ fn common_formats_receive_full_analysis_without_flac_container_restrictions() {
         assert!(result.complete);
         assert!(result.analysis.key.is_some());
         assert!(result.analysis.tempo.is_some());
-        assert!(result.analysis.energy.is_some());
+        assert_eq!(
+            result.analysis.energy.as_ref().unwrap().method,
+            camelot_core::lexicon_energy::METHOD
+        );
         let cues = result.analysis.lexicon_cues.as_ref().unwrap();
         assert!(!cues.cues.is_empty());
         assert!(

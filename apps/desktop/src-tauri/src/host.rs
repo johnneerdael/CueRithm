@@ -341,7 +341,10 @@ mod tests {
         let id = host.library.jobs().unwrap()[0].track_id.clone();
         let analysis = host.library.analysis(&id).unwrap().unwrap();
         assert_eq!(analysis.openkeyscan_sample_rate, Some(44100));
-        assert!(analysis.analysis.energy.is_some());
+        assert_eq!(
+            analysis.analysis.energy.as_ref().unwrap().method,
+            camelot_core::lexicon_energy::METHOD
+        );
         assert!(!analysis.analysis.lexicon_cues.unwrap().cues.is_empty());
         host.preparation.shutdown();
     }
