@@ -154,7 +154,7 @@ pub(crate) fn tracks(lib: &Library, query: TrackQuery) -> Result<TrackPage> {
         named_params! {":scope":sql.scope,":needle":sql.needle},
         |r| r.get(0),
     )?;
-    let mut q=conn.prepare(&format!("{CTE} SELECT t.id,t.path,t.title,t.artist,t.album,t.genre,t.state,t.musical_key,t.bpm,t.energy,t.duration,t.source_hash,t.metadata_json,t.created,t.updated FROM {} WHERE {} ORDER BY {} LIMIT :limit OFFSET :offset",sql.source,sql.condition,sql.order))?;
+    let mut q=conn.prepare(&format!("{CTE} SELECT t.id,t.path,t.title,t.artist,t.album,t.genre,t.state,t.musical_key,t.bpm,t.energy,t.duration,t.source_hash,t.metadata_json,t.created,t.updated,json_extract(t.tagging_json,'$.status') FROM {} WHERE {} ORDER BY {} LIMIT :limit OFFSET :offset",sql.source,sql.condition,sql.order))?;
     let rows=q.query_map(named_params!{":scope":sql.scope,":needle":sql.needle,":limit":query.limit,":offset":sql.offset},crate::store::summary_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
     let next = sql.offset + rows.len() as u64;
     Ok(TrackPage {
