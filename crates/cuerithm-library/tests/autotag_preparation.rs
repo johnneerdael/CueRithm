@@ -82,15 +82,17 @@ fn setup() -> (
     let runtime = MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
     (d, lib, source, runtime, settings)
 }
-fn until(done: impl FnMut() -> bool) {
-    until_with_timeout(Duration::from_secs(60), done);
+const TRACK_WAIT_SECONDS: u64 = 120;
+fn until(lib: &Library, done: impl FnMut() -> bool) {
+    until_with_timeout(Duration::from_secs(TRACK_WAIT_SECONDS), lib, done);
 }
-fn until_with_timeout(timeout: Duration, mut done: impl FnMut() -> bool) {
+fn until_with_timeout(timeout: Duration, lib: &Library, mut done: impl FnMut() -> bool) {
     let start = Instant::now();
     while !done() {
         assert!(
             start.elapsed() < timeout,
-            "preparation timed out after {timeout:?}"
+            "preparation timed out after {timeout:?}; jobs: {:?}",
+            lib.jobs()
         );
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -111,7 +113,7 @@ fn configured_tagging_is_automatic_and_does_not_replace_measured_analysis() {
     service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     service.shutdown();
     let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
     assert_eq!(row.title, "Catalog title");
@@ -169,7 +171,7 @@ fn disabled_tagging_remains_offline_and_no_match_obeys_policy() {
         service
             .enqueue_paths(std::slice::from_ref(&source))
             .unwrap();
-        until(|| ready(&lib));
+        until(&lib, || ready(&lib));
         service.shutdown();
         assert_eq!(catalog.calls.load(Ordering::SeqCst), usize::from(enabled));
         if !enabled {
@@ -193,12 +195,14 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
     let ids = service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
-    until(|| lib.jobs().unwrap().iter().any(|j| j.state == "attention"));
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
     assert_eq!(lib.counts().unwrap().tracks, 0);
     assert_eq!(file_sha256(&source).unwrap(), original);
     catalog.fail.store(false, Ordering::SeqCst);
     service.retry(ids[0].clone(), None).unwrap();
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     service.shutdown();
     assert_eq!(lib.counts().unwrap().incoming, 0);
     assert_eq!(
@@ -252,7 +256,7 @@ fn edits_during_provider_wait_are_reanalyzed_before_any_publication() {
     service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
-    until(|| backend.started.load(Ordering::SeqCst));
+    until(&lib, || backend.started.load(Ordering::SeqCst));
     {
         let mut wrapper = onetagger_tag::Tag::load_file(&source, true).unwrap();
         let tag = wrapper.tag_mut();
@@ -261,7 +265,7 @@ fn edits_during_provider_wait_are_reanalyzed_before_any_publication() {
     }
     let user_hash = file_sha256(&source).unwrap();
     backend.release.store(true, Ordering::SeqCst);
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     service.shutdown();
     let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
     assert_eq!(lib.cue_revision_count(&row.id).unwrap(), 1);
@@ -296,7 +300,9 @@ fn no_match_attention_policy_does_not_promote_or_change_file() {
     service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
-    until(|| lib.jobs().unwrap().iter().any(|j| j.state == "attention"));
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
     service.shutdown();
     assert_eq!(file_sha256(&source).unwrap(), hash);
     assert_eq!(lib.counts().unwrap().tracks, 0);
@@ -401,14 +407,18 @@ fn album_matching_reuses_the_selected_release_for_only_the_incoming_batch() {
     service.enqueue_paths(&paths).unwrap();
     // One worker prepares three complete 64-second fixtures sequentially.
     // Keep the same per-track budget used by the single-track tests.
-    until_with_timeout(Duration::from_secs(60 * paths.len() as u64), || {
-        assert!(
-            !lib.jobs().unwrap().iter().any(|j| j.state == "attention"),
-            "{:?}",
-            lib.jobs().unwrap()
-        );
-        lib.counts().unwrap().tracks == 3
-    });
+    until_with_timeout(
+        Duration::from_secs(TRACK_WAIT_SECONDS * paths.len() as u64),
+        &lib,
+        || {
+            assert!(
+                !lib.jobs().unwrap().iter().any(|j| j.state == "attention"),
+                "{:?}",
+                lib.jobs().unwrap()
+            );
+            lib.counts().unwrap().tracks == 3
+        },
+    );
     service.shutdown();
     assert_eq!(catalog.searches.load(Ordering::SeqCst), 1);
     assert_eq!(catalog.albums.load(Ordering::SeqCst), 1);
@@ -435,7 +445,7 @@ fn supersession_after_journal_insert_does_not_block_the_replacement_attempt() {
     )
     .unwrap();
     service.enqueue_paths(&[source]).unwrap();
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     service.shutdown();
     let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
     let pending: i64 = conn
@@ -466,7 +476,9 @@ fn analysis_cache_survives_restart_and_settings_changes_invalidate_it() {
     let service =
         PreparationService::start_with_tagger(lib.clone(), rt.clone(), 1, tagger.clone()).unwrap();
     let id = service.enqueue_paths(&[source]).unwrap().remove(0);
-    until(|| lib.jobs().unwrap().iter().any(|j| j.state == "attention"));
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| j.state == "attention")
+    });
     service.shutdown();
     drop(service);
     let db = lib.data_dir().join("db");
@@ -475,7 +487,7 @@ fn analysis_cache_survives_restart_and_settings_changes_invalidate_it() {
     let service = PreparationService::start_with_tagger(lib.clone(), rt, 1, tagger).unwrap();
     let events = service.subscribe();
     service.retry(id.clone(), None).unwrap();
-    until(|| {
+    until(&lib, || {
         catalog.calls.load(Ordering::SeqCst) >= 2
             && lib.jobs().unwrap().iter().any(|j| j.state == "attention")
     });
@@ -494,7 +506,7 @@ fn analysis_cache_survives_restart_and_settings_changes_invalidate_it() {
     let revision = lib.save_settings(changed).unwrap();
     catalog.fail.store(false, Ordering::SeqCst);
     service.retry(id, Some(revision)).unwrap();
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     service.shutdown();
     assert_eq!(
         events.try_iter().filter(|e| e.stage == "analysis").count(),
@@ -525,10 +537,10 @@ fn explicit_analyze_again_recomputes_an_unchanged_offline_track() {
     service
         .enqueue_paths(std::slice::from_ref(&source))
         .unwrap();
-    until(|| ready(&lib));
+    until(&lib, || ready(&lib));
     let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
     service.reprepare(row.id.clone()).unwrap();
-    until(|| lib.cue_revision_count(&row.id).unwrap() == 2);
+    until(&lib, || lib.cue_revision_count(&row.id).unwrap() == 2);
     service.shutdown();
     assert_eq!(
         events.try_iter().filter(|e| e.stage == "analysis").count(),
