@@ -2,6 +2,10 @@
 mod jobs;
 mod metadata;
 mod prepare;
+#[cfg(feature = "autotag")]
+mod publish_files;
+#[cfg(feature = "autotag")]
+mod tagging;
 pub mod watch;
 pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
 mod model;

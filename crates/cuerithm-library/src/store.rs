@@ -11,6 +11,8 @@ use std::{
 
 pub(crate) struct Inner {
     pub conn: Mutex<Connection>,
+    #[cfg(feature = "autotag")]
+    pub tag_gate: Mutex<()>,
     pub _lease: File,
     pub root: PathBuf,
 }
@@ -38,7 +40,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=1).contains(&version),
+            (0..=2).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -51,8 +53,28 @@ impl Library {
         }
         let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
         ensure!(app == 1129665093, "This is not a Cuerithm library");
+        if version < 2 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/002_tag_writes.sql")
+            ))?;
+        }
+        #[cfg(not(feature = "autotag"))]
+        {
+            let pending: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM tag_writes WHERE state='prepared'",
+                [],
+                |r| r.get(0),
+            )?;
+            ensure!(
+                pending == 0,
+                "Pending metadata writes require a tagging-enabled build for recovery"
+            );
+        }
+
         conn.pragma_update(None, "foreign_keys", true)?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
+        conn.pragma_update(None, "synchronous", "FULL")?;
         conn.execute(
             "UPDATE jobs SET state='queued',stage='queued',error=NULL WHERE state='running'",
             [],
@@ -60,6 +82,8 @@ impl Library {
         let lib = Self {
             inner: Arc::new(Inner {
                 conn: Mutex::new(conn),
+                #[cfg(feature = "autotag")]
+                tag_gate: Mutex::new(()),
                 _lease: lease,
                 root: root.to_path_buf(),
             }),
@@ -70,6 +94,8 @@ impl Library {
         if count == 0 {
             lib.save_settings(PreparationSettings::default())?;
         }
+        #[cfg(feature = "autotag")]
+        lib.recover_tag_writes()?;
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

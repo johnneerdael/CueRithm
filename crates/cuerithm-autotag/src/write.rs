@@ -23,6 +23,7 @@ pub struct TagWritePlan {
     config: AutotagConfig,
     analysis: AnalysisTags,
     artwork: Option<crate::image::Artwork>,
+    provenance: serde_json::Value,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -35,9 +36,14 @@ pub struct StagedTagWrite {
     pub decoder_identity: String,
     pub metadata: MediaInfo,
     pub sidecars: Vec<crate::StagedSidecar>,
+    pub provenance: serde_json::Value,
+    workspace: PathBuf,
     private: Option<tempfile::TempDir>,
 }
 impl StagedTagWrite {
+    pub fn workspace(&self) -> &Path {
+        &self.workspace
+    }
     pub fn retain_for_journal(&mut self) {
         if let Some(dir) = self.private.take() {
             let _ = dir.keep();
@@ -77,6 +83,7 @@ impl TagWritePlan {
             config: config.clone(),
             analysis: analysis.clone(),
             artwork: None,
+            provenance: serde_json::to_value(outcome)?,
         })
     }
     pub fn with_artwork(mut self, bytes: Vec<u8>) -> Result<Self> {
@@ -237,6 +244,8 @@ impl TagWritePlan {
             pcm_sha256: pcm,
             frames: audio.frames,
             decoder_identity: runtime.identity.clone(),
+            provenance: self.provenance.clone(),
+            workspace: private.path().to_owned(),
             private: Some(private),
         })
     }

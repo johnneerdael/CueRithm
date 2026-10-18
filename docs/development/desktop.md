@@ -139,3 +139,17 @@ Plays, Last Played and Danceability are outside the requested scope.
 Camelot key chips in the table and player use the number and major/minor colors
 of the [provided DJ.Studio reference](https://dj.studio/blog/camelot-wheel).
 The numeric key remains visible; unknown values keep a neutral presentation.
+
+
+The upcoming tagging-enabled library uses schema version 2. Publication journals
+retain native paths, before/after file identities, exact PCM proof, post-write
+metadata and analysis/cue payloads. File preparation and verification occur
+outside the database mutex; final ownership checks, atomic replacements and the
+result/cue/Ready transaction are serialized. Existing files retain displaced
+bytes until a verified backup is available. Interrupted uncommitted operations
+roll back owned bytes and requeue; later user edits remain untouched and require
+attention. Audio and external-cover files participate in the same preparation.
+The watcher recognizes in-flight owned hashes instead of treating tag writes as
+new incoming files. A build without tagging support refuses pending journals
+rather than skipping recovery. This documents the adapter under development;
+the automatic service and settings UI are separate integration tasks.

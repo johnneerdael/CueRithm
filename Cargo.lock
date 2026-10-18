@@ -970,9 +970,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camelot-core",
+ "cuerithm-autotag",
  "cuerithm-media",
  "flate2",
  "fs2",
+ "libc",
  "notify",
  "rodio",
  "rusqlite",
@@ -983,6 +985,7 @@ dependencies = [
  "tempfile",
  "uuid",
  "walkdir",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
