@@ -227,6 +227,8 @@ pub struct FileAnalysis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_timing: Option<SourceTimingMetadata>,
     pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media: Option<crate::prepared::PreparedMediaIdentity>,
 }
 
 pub struct Engine {
@@ -334,17 +336,87 @@ impl Engine {
     }
 
     pub fn analyze_file(&mut self, path: &Path) -> Result<FileAnalysis> {
+        self.analyze_file_inner(path, None)
+    }
+
+    pub fn analyze_prepared(
+        &mut self,
+        audio: &cuerithm_media::PreparedAudio,
+    ) -> Result<FileAnalysis> {
+        ensure!(
+            self.settings.max_seconds.is_none(),
+            "Preparation requires complete input"
+        );
+        ensure!(
+            audio.source_is_unchanged()?,
+            "Source changed before analysis"
+        );
+        let legacy_profile = audio.info.codec == "flac"
+            && audio.info.sample_rate == 44100
+            && audio.info.channels == 2
+            && audio.info.bits_per_sample == Some(16);
+        let mut result = if legacy_profile {
+            self.analyze_file(&audio.snapshot_path)?
+        } else {
+            let wave = crate::prepared::float_wave(audio)?;
+            self.analyze_file_inner(wave.path(), Some(audio))?
+        };
+        ensure!(
+            audio.source_is_unchanged()?,
+            "Source changed during analysis"
+        );
+        result.source_sample_rate = audio.info.sample_rate;
+        // A DSP-rate buffer may round by a fraction of a source frame. Public
+        // duration belongs to the shared playable clock, as do cues and playback.
+        result.analysis.duration_seconds = audio.clock.duration_seconds();
+        result.media = Some(crate::prepared::PreparedMediaIdentity {
+            decoder: audio.decoder_identity.clone(),
+            codec: audio.info.codec.clone(),
+            source_sha256: audio.source_sha256.clone(),
+            pcm_sha256: audio.pcm_sha256()?,
+            clock: audio.clock.clone(),
+        });
+        result.analysis.config_sha256 = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(
+                &serde_json::json!({"analysis":result.analysis.config_sha256,"decoder":audio.decoder_identity,
+                    "feature_profile":if legacy_profile {"validated-file-profile"} else {"canonical-full-pcm16-v1"}})
+            )?)
+        );
+        result.analysis.engine.push_str("+common-media-v1");
+        Ok(result)
+    }
+
+    fn analyze_file_inner(
+        &mut self,
+        path: &Path,
+        prepared: Option<&cuerithm_media::PreparedAudio>,
+    ) -> Result<FileAnalysis> {
         let start = Instant::now();
-        let source_snapshot = (self.settings.source_profile_timing || self.energy.is_some())
-            .then(|| SourceSnapshot::capture(path))
-            .transpose()?;
+        let source_snapshot = (prepared.is_none()
+            && (self.settings.source_profile_timing || self.energy.is_some()))
+        .then(|| SourceSnapshot::capture(path))
+        .transpose()?;
         let decode_path = source_snapshot
             .as_ref()
             .map_or(path, |snapshot| snapshot.file.path());
+        let pcm = match prepared {
+            Some(audio) if self.settings.source_profile_timing || self.energy.is_some() => {
+                Some(audio.stereo_s16()?)
+            }
+            _ => None,
+        };
+        let profile = pcm
+            .as_ref()
+            .map(|samples| camelot_source_analysis::PcmProfile::new(samples, samples.len() / 2))
+            .transpose()?;
         let source_timing = self
             .settings
             .source_profile_timing
-            .then(|| camelot_source_analysis::analyze_timing_file(decode_path))
+            .then(|| match &profile {
+                Some(p) => camelot_source_analysis::analyze_timing_pcm(p),
+                None => camelot_source_analysis::analyze_timing_file(decode_path),
+            })
             .transpose()?;
         let beat_sample_rate = self.settings.beat_model.as_ref().map(|_| 22050);
         let neural_key_sample_rate = self.settings.key_neural_model.as_ref().map(|_| 22050);
@@ -380,7 +452,12 @@ impl Engine {
                 beats_seconds: timing.beats_seconds,
                 downbeats_seconds: None,
                 downbeat_time: Some(timing.downbeat_time),
-                method: "source-profile-timing-v1".into(),
+                method: if prepared.is_some() {
+                    "canonical-pcm-timing-v1"
+                } else {
+                    "source-profile-timing-v1"
+                }
+                .into(),
             });
             analysis.engine.push_str("+source-profile-timing-v1");
             SourceTimingMetadata {
@@ -500,7 +577,10 @@ impl Engine {
             analysis.engine.push_str("+lexicon-cues-v1");
         }
         if let Some(model) = &self.energy {
-            let segments = camelot_source_analysis::analyze_energy_file(decode_path)?;
+            let segments = match &profile {
+                Some(p) => camelot_source_analysis::analyze_energy_pcm(p)?,
+                None => camelot_source_analysis::analyze_energy_file(decode_path)?,
+            };
             analysis.energy = model.estimate(&segments)?;
             analysis.engine.push_str("+track-energy-svc-v1");
         }
@@ -520,6 +600,7 @@ impl Engine {
             openkeyscan_sample_rate,
             source_timing,
             elapsed_seconds: start.elapsed().as_secs_f64(),
+            media: None,
         })
     }
 }

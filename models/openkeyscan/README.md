@@ -15,9 +15,10 @@ cargo run --release -p camelot-cli --features openkeyscan-key -- analyze audio.f
 The engine verifies the exact graph checksum in `model.json`. It does not
 convert checkpoints or download models while analyzing. The graph was exported
 from the pinned upstream OpenKeyScan3 checkpoint; no locally trained head or
-library-label adjustment is used. Weights are not bundled here. The upstream
-repository has an MIT license; this folder preserves that notice, and does not
-assert separate checkpoint redistribution terms not stated by the publisher.
+library-label adjustment is used. The desktop embeds this graph from `models/builtin/` and selects it
+automatically. The standalone engine/CLI retains explicit model selection. The
+upstream repository has an MIT license and documents bundling its trained model;
+this folder preserves its notice and the builtin manifest pins the converted graph.
 
 The backend decodes/resamples directly to 44100 Hz, computes the fixed CQT and
 returns raw logits in the candidate ranking, not calibrated probabilities.

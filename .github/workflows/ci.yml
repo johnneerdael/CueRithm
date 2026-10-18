@@ -2,22 +2,32 @@ name: Engine checks
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: engine-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
+  engine-rust-floor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: rustup toolchain install 1.89 --profile minimal
+      - run: cargo +1.89 check -p camelot-cli --all-features --locked
   engine:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/media-runtime
       - name: Install Rust checks
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
       - name: Format
         run: cargo +stable fmt --all -- --check
       - name: Lint
-        run: cargo +stable clippy --workspace --all-targets --all-features --locked -- -D warnings
+        run: cargo +stable clippy --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-targets --all-features --locked -- -D warnings
       - name: Tests
-        run: cargo +stable test --workspace --all-features --release --locked -- --test-threads=2
+        run: cargo +stable test --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked -- --test-threads=2
       - name: Release build
-        run: cargo +stable build --workspace --all-features --release --locked
+        run: cargo +stable build --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked

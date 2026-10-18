@@ -2,12 +2,18 @@
 
 ## Project Structure & Module Organization
 
-This workspace contains an independent Rust audio-analysis engine. The user's current priority is the engine; defer the Tauri 2 UI until it is settled. Target macOS, Windows and Linux. Cue generation uses the validated Lexicon-compatible DSP in `lexicon_cues.rs`; preserve its calculations. Keep key analysis, BPM and a single whole-track energy rating. Do not restart Mixed In Key cue inference, attach energy labels to structural cues, or expose per-segment energy in normal analysis.
+This workspace contains an independent Rust audio-analysis engine and is expanding into the Cuerithm desktop library application. Use Tauri 2 with React/TypeScript and a Rust backend; target macOS, Windows and Linux. The user approved a library sidebar, track table and persistent waveform/cue panel with OneTagger's charcoal/teal visual direction. Incoming automatically applies configured tagging/cleanup, full analysis and replacement cues before moving completed tracks into Tracks. Include Beatport/Traxsource auto-tagging, Lexicon-style cleanup and playlists, and direct-only rekordbox 6/7 sync; do not add XML transport. See the current design under `docs/superpowers/specs/` for delivery boundaries and review status. Cue generation uses the validated Lexicon-compatible DSP in `lexicon_cues.rs`; preserve its calculations. Keep key analysis, BPM and a single whole-track energy rating. Do not restart Mixed In Key cue inference, attach energy labels to structural cues, or expose per-segment energy in normal analysis.
 
 - `crates/camelot-core/`: PCM decoding, notation, DSP and evaluation.
 - `crates/camelot-cli/`: analysis and benchmark CLI.
 - `docs/research/`: public aggregate findings and provenance.
 - `.analysis/`: private binary copies, corpus labels and experiments; exclude from publication.
+
+The first usable desktop delivery must support MP3, AAC/ADTS and AAC/M4A,
+ALAC/M4A, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA throughout analysis and
+playback. Do not ship a FLAC-only stage or mark other formats complete after
+skipping required timing/energy work. Bundle required native decoder resources;
+users must not install a decoder runtime themselves.
 
 ## Build, Test, and Development Commands
 

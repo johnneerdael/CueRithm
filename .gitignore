@@ -18,5 +18,14 @@
 /mixedinkey*.exe
 /Setup*/
 *.onnx
+!models/builtin/openkeyscan3-logits.onnx
 *.pth
 *.joblib
+.worktrees/
+tools/media-runtime/bin/
+
+# Desktop generated dependencies and frontend/build output
+node_modules/
+apps/desktop/dist/
+apps/desktop/src-tauri/gen/
+__pycache__/

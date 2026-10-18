@@ -1,0 +1,45 @@
+name: Pinned media runtime
+description: Build and verify native FFmpeg without external codec libraries
+runs:
+  using: composite
+  steps:
+    - if: runner.os == 'Windows'
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          make curl nasm diffutils
+          mingw-w64-x86_64-gcc mingw-w64-x86_64-python
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y nasm
+    - if: runner.os == 'macOS' && runner.arch == 'X64'
+      shell: bash
+      run: brew install nasm
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      id: runtime-cache
+      with:
+        key: media-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/media-runtime/*.py', 'tools/media-runtime/*.sh', 'tools/media-runtime/*.ps1', 'tools/media-runtime/manifest.json') }}
+        path: |
+          tools/media-runtime/bin
+          .superpowers/media-build/ffmpeg-9.0.2.tar.xz
+    - if: runner.os != 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: bash tools/media-runtime/build.sh
+    - if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
+      shell: msys2 {0}
+      run: bash tools/media-runtime/build.sh
+    - if: runner.os != 'Windows'
+      shell: bash
+      run: python3 tools/media-runtime/seal.py tools/media-runtime/bin
+    - if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: python tools/media-runtime/seal.py tools/media-runtime/bin
+    - if: steps.runtime-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+        path: |
+          tools/media-runtime/bin
+          .superpowers/media-build/ffmpeg-9.0.2.tar.xz

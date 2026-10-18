@@ -1,8 +1,8 @@
 # Cuerithm
 
 An offline Rust engine for DJ track analysis: musical key, BPM, structural cues
-and one energy rating per track. The planned desktop host is Tauri 2; the engine
-and JSON CLI are the current focus. The canonical repository is
+and one energy rating per track, with a Tauri 2 desktop preparation workspace.
+The canonical repository is
 [johnneerdael/Cuerithm](https://github.com/johnneerdael/Cuerithm).
 
 Cues come exclusively from the validated Lexicon-compatible DSP: Start, Drop,
@@ -14,7 +14,7 @@ Mixed In Key cue inference and per-cue/per-segment energy labels are retired.
 ## Build and analyze
 
 ```sh
-cargo build --workspace --release
+cargo build -p camelot-cli --release
 cargo run --release -p camelot-cli -- analyze "/path/to/track.wav" --lexicon-cues
 ```
 
@@ -53,8 +53,8 @@ omitted. See [energy model setup](models/energy/README.md).
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features --release
+cargo clippy --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-targets --all-features -- -D warnings
+cargo test --workspace --exclude cuerithm-desktop --all-features --release
 ```
 
 The upstream 47 cue tests cover DSP primitives, sections, drops, breakdowns,
@@ -64,9 +64,38 @@ invalid/unknown inputs. Cues requested without usable timing produce an empty
 cue result. The original cue calculations remain unchanged behind a checked
 application boundary.
 
-Models, captured traffic, music, reference labels, installers and private
+Captured traffic, music, reference labels, installers and private
 research artifacts stay outside Git. Older MiK cue studies are historical;
 they are not an active Cuerithm cue backend. See
 [integration notes](docs/cuerithm-integration.md),
 [OpenKeyScan setup](models/openkeyscan/README.md) and
 [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Desktop preparation
+
+The desktop workspace adds Tracks, automatic Incoming preparation, Archive,
+persistent Settings and native waveform/cue preview. Watch folders run full key,
+BPM, beatgrid, scalar energy and cue analysis, then promote successful tracks
+automatically. A completed replacement retains the previous cue revision;
+failed analysis keeps the last valid cues. Original audio stays in place.
+
+The bundled decoder supports MP3, AAC/ADTS, AAC/M4A, ALAC/M4A, FLAC, WAV, AIFF,
+Ogg Vorbis, Opus and WMA, including high-depth/float PCM. All share the decoded
+playable timeline. The desktop's prepared-input API generalizes the explicit
+CLI FLAC-profile restriction described above; it does not change that CLI API.
+Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
+
+OpenKeyScan key detection, track energy and structural cue analysis are built
+into the desktop application. No model selection, downloads or extra setup is
+required. Pinned parameters are embedded, checked and cached automatically;
+existing unfinished jobs migrate to the built-in revision on upgrade. The
+standalone CLI retains its explicit-model API. The app never invents results
+to mark an incomplete track ready.
+
+Beatport/Traxsource tagging, cleanup, ordinary/smart playlists and direct rekordbox
+6/7 sync are subsequent approved deliveries; their desktop controls are not yet
+enabled. No desktop XML fallback exists. This foundation is an unsigned test
+build, not a signed public release or a complete product-parity claim.
+
+See [desktop development and acceptance](docs/development/desktop.md) for setup,
+commands, platform prerequisites and artifact verification.

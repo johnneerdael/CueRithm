@@ -20,6 +20,8 @@ rustfft.workspace = true
 rubato.workspace = true
 symphonia.workspace = true
 camelot-source-analysis = { path = "../camelot-source-analysis" }
+cuerithm-media = { path = "../cuerithm-media" }
+hound.workspace = true
 beat-this = { version = "=1.1.0", default-features = false, optional = true }
 url = "2.5.8"
 
@@ -31,5 +33,6 @@ sha2.workspace = true
 cmake = { version = "=0.1.58", optional = true }
 
 [dev-dependencies]
-hound.workspace = true
+tar = "0.4"
+flate2 = "1"
 roxmltree = "0.21.1"
