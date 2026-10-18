@@ -48,6 +48,16 @@ impl AutotagConfig {
     pub fn validate(&self) -> Result<()> {
         let c = &self.options;
         ensure!(
+            c.track_number_leading_zeroes <= 8,
+            "Track number padding must be between 0 and 8"
+        );
+        if let Some(language) = &c.id3_comm_lang {
+            ensure!(
+                language.len() == 3 && language.bytes().all(|b| b.is_ascii_alphabetic()),
+                "ID3 comment language must contain three ASCII letters"
+            );
+        }
+        ensure!(
             c.album_tagging_ratio.is_finite() && (0.0..=1.0).contains(&c.album_tagging_ratio),
             "Invalid album matching ratio"
         );

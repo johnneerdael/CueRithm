@@ -1,3 +1,4 @@
+import catalog from "./tagging-catalog.json";
 import {vi} from "vitest";
 import type {Bridge,Track,Settings,PreparationEvent,Job,Playback} from "../types";
 export const track=(id:string):Track=>({metadata:{},id,source_sha256:"hash-"+id,display_path:"/music/"+id+".flac",title:"Track "+id,artist:"Artist",album:"",genre:"House",state:"ready",key:"8A",bpm:128,energy:6,duration:240});
@@ -12,6 +13,7 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    getTaggingCatalog:vi.fn(async()=>JSON.parse(JSON.stringify(catalog))),
     getMetadataFields:vi.fn(async()=>[]),
     rows,jobs:[],changed:e=>listener?.(e),
     selectTrackIds:vi.fn(async q=>bridge.rows.filter(r=>q.view==="incoming"?r.state==="incoming":r.state==="ready").map(r=>r.id)),

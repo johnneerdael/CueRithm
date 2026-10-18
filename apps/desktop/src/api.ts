@@ -10,6 +10,7 @@ export const nativeBridge:Bridge={
   selectTrackIds:query=>invoke("select_track_ids",{query}),
   getTrack:trackId=>invoke("get_track",{trackId}),
   getArtwork:(trackId,sourceSha256)=>invoke("get_artwork",{trackId,sourceSha256}),
+  getTaggingCatalog:()=>invoke("tagging_catalog"),
   saveSettings:settings=>invoke("save_settings",{settings}),
   enqueuePaths:paths=>invoke("enqueue_paths",{paths}),
   retryJob:jobId=>invoke("retry_job",{jobId}),
