@@ -181,3 +181,9 @@ parser fixtures do not establish live Traxsource access. The saved defaults and
 provider/field catalog can be inspected without network requests using
 `cargo run -p cuerithm-autotag --example settings_catalog`. The frontend test
 fixture is generated from this command; compare it when changing adapter options.
+
+
+TagLib remains a statically linked library. On MSVC, its CMake runtime property
+and the C++ bridge follow Rust's `crt-static` target feature, so both select the
+same CRT mode. TagLib's legacy `/MD` string replacement alone does not cover
+modern CMake's [CMP0091 runtime property](https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html).
