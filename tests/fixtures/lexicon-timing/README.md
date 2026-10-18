@@ -57,6 +57,14 @@ riser and grid corrections are not covered by these DP results.
 per-call correction tracking across nine original synthetic inputs. Debug-only
 output fields are omitted. These are **pending** Rust parity references, not
 passing phase-helper tests. They cover applied subsequent-beat, silent rescue,
-weak-phase and grid-correlation cases. Additional applied cases are still needed
-for both calibration helpers, drop/half-beat verification and riser strategies.
+weak-phase and grid-correlation cases. The separate authored-candidate references below add positive calibration,
+drop verification and riser-A cases; half-beat and riser-B coverage is still
+outstanding.
 The long silent-intro recipe is distinct from the shorter onset fixture recipe.
+
+`phase-authored-reference.json` adds 180 component rows for the calibration,
+drop-verification and riser helpers. Their candidate peak times are explicitly
+supplied authored transient starts, not outputs from a detector. Input PCM
+hashes are unchanged. These rows test the helpers' explicit-input contracts;
+they do not establish that a complete analysis will supply those candidates.
+Rust phase-helper parity remains pending.
