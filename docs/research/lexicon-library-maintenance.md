@@ -91,7 +91,49 @@ limit is exhausted. Metadata candidates do not suggest automatic cue transfer;
 only an explicitly exact-audio group may suggest a separate donor. Suggestions
 perform no file or database writes.
 
-This is the pure matching checkpoint. Exact-audio fingerprinting, persisted
+This is the pure matching checkpoint. Library fingerprint orchestration, persisted
 ignores/review, playlist replacement, durable merge/undo, unused-file and
 missing/corrupt scanners, and native delivery remain incomplete. The full port
 plan is `docs/superpowers/plans/2026-10-19-library-maintenance.md`.
+
+## Native fingerprint boundary (2026-10-19)
+
+`MediaRuntime::fingerprint` now provides the separate native-rate/channel
+signed-16 PCM MD5 path needed for exact duplicate candidates. It hashes a
+verified private source snapshot, prioritizes default audio disposition and
+then channel count (first on ties), and retains the native rate/layout. A generated
+two-stream MOV verifies this choice against the original binary. It does not reuse
+the resampled stereo playback cache. Returned data pins the encoded source
+SHA-256, decoder identity, algorithm, PCM format, rate, channels, selected audio
+stream ordinal and audio-stream count. Empty decoded audio is not a candidate.
+
+The minimal FFmpeg 9.0.2 build now enables its MD5 muxer and signed-16 PCM
+encoder. Sealing checks these capabilities as well as existing playback,
+artwork, decoder and system-linkage requirements. The recipe identity is
+`cuerithm-swr44100-stereo-f32-native-md5-v2`. Existing runtime-cache keys include
+the changed recipe/scripts; no Homebrew decoder is used by the application.
+
+Four generated WAV cases, spanning 8/44.1/48/96 kHz and mono/stereo, agree with
+digests produced by the installed Lexicon's FFmpeg 7.0. Across the repository's
+14 generated common-format fixtures, the new runtime produces valid digests for
+all 14 and matches that reference decoder for 12. AAC/ADTS and AAC/M4A differ
+between the two decoder builds. Therefore a fingerprint cache must include the
+decoder identity; this checkpoint does not establish cross-version AAC digest
+parity. Lossless containers with identical playable PCM produce the same digest.
+The authored WAV reference/provenance is under `crates/cuerithm-media/tests/`.
+
+Cancellation is checked during hashing, copying, probing and decoding. Probe and
+fingerprint processes each have the inspected worker's 30-second limit and bounded
+output; child processes are killed and reaped on cancellation or limits. The
+private snapshot is removed on success or error. Final validation rejects source
+or snapshot changes, including a path replaced by a symlink to identical bytes.
+
+Actual video streams remain separate from audio and embedded pictures. The
+check applies to stream contents, even under a misleading extension, and accepts
+attached artwork. Those are explicit reliability policies beyond the inspected
+worker's MP4-extension-only video check. Strict decoding reports failures instead
+of retaining the source worker's swallowed command errors. No scan mutates an
+audio file or library record.
+
+This implements the media boundary. Library scan orchestration, persisted cache,
+scopes, unused/missing/corrupt results, review and merge/undo remain pending.

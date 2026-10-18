@@ -1,3 +1,4 @@
+use crate::{CancellationToken, MediaTaskError};
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -6,10 +7,20 @@ use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
+
+struct ChildGuard(Child);
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        if self.0.try_wait().ok().flatten().is_none() {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct MediaRuntime {
@@ -72,32 +83,53 @@ impl MediaRuntime {
         &self,
         program: &Path,
         args: &[OsString],
-        mut out: File,
+        out: File,
         max_bytes: u64,
     ) -> Result<File> {
+        self.run_controlled(
+            program,
+            args,
+            out,
+            max_bytes,
+            Duration::from_secs(300),
+            &CancellationToken::default(),
+        )
+    }
+
+    pub(crate) fn run_controlled(
+        &self,
+        program: &Path,
+        args: &[OsString],
+        mut out: File,
+        max_bytes: u64,
+        timeout: Duration,
+        cancellation: &CancellationToken,
+    ) -> Result<File> {
+        cancellation.check()?;
         let mut err = tempfile::tempfile()?;
-        let mut child = Command::new(program)
+        let child = Command::new(program)
             .args(args)
             .stdin(Stdio::null())
             .stdout(Stdio::from(out.try_clone()?))
             .stderr(Stdio::from(err.try_clone()?))
             .spawn()
             .context("Start bundled decoder")?;
+        let mut child = ChildGuard(child);
         let start = Instant::now();
         let status = loop {
-            if start.elapsed() > Duration::from_secs(300)
-                || out.metadata()?.len() > max_bytes
-                || err.metadata()?.len() > 1_048_576
-            {
-                let _ = child.kill();
-                let _ = child.wait();
-                bail!("Decoder exceeded time or output limits");
+            cancellation.check()?;
+            if start.elapsed() > timeout {
+                return Err(MediaTaskError::TimedOut.into());
             }
-            if let Some(status) = child.try_wait()? {
+            if out.metadata()?.len() > max_bytes || err.metadata()?.len() > 1_048_576 {
+                return Err(MediaTaskError::OutputLimit.into());
+            }
+            if let Some(status) = child.0.try_wait()? {
                 break status;
             }
             thread::sleep(Duration::from_millis(20));
         };
+        cancellation.check()?;
         if !status.success() {
             err.seek(SeekFrom::Start(0))?;
             let mut detail = String::new();
@@ -110,5 +142,80 @@ impl MediaRuntime {
         );
         out.seek(SeekFrom::Start(0))?;
         Ok(out)
+    }
+}
+
+#[cfg(test)]
+mod process_tests {
+    use super::*;
+    fn realtime_args(source: &Path) -> Vec<OsString> {
+        ["-nostdin", "-v", "error", "-re", "-stream_loop", "-1", "-i"]
+            .into_iter()
+            .map(Into::into)
+            .chain([source.as_os_str().to_owned()])
+            .chain(["-vn", "-f", "md5", "pipe:1"].into_iter().map(Into::into))
+            .collect()
+    }
+    #[test]
+    fn cancelled_or_timed_out_native_processes_stop_promptly() {
+        let root = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin")
+            });
+        let runtime = MediaRuntime::from_bundle(&root).unwrap();
+        let d = tempfile::tempdir().unwrap();
+        let source = d.path().join("loop.wav");
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 8000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut out = hound::WavWriter::create(&source, spec).unwrap();
+        for _ in 0..8000 {
+            out.write_sample::<i16>(0).unwrap();
+        }
+        out.finalize().unwrap();
+        let args = realtime_args(&source);
+        let token = CancellationToken::default();
+        let next = token.clone();
+        let canceller = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(50));
+            next.cancel();
+        });
+        let started = Instant::now();
+        let error = runtime
+            .run_controlled(
+                &runtime.ffmpeg,
+                &args,
+                tempfile::tempfile().unwrap(),
+                4096,
+                Duration::from_secs(5),
+                &token,
+            )
+            .unwrap_err();
+        canceller.join().unwrap();
+        assert_eq!(
+            error.downcast_ref::<MediaTaskError>(),
+            Some(&MediaTaskError::Cancelled)
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let started = Instant::now();
+        let error = runtime
+            .run_controlled(
+                &runtime.ffmpeg,
+                &args,
+                tempfile::tempfile().unwrap(),
+                4096,
+                Duration::from_millis(50),
+                &CancellationToken::default(),
+            )
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<MediaTaskError>(),
+            Some(&MediaTaskError::TimedOut)
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 }

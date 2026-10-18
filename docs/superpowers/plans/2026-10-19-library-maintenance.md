@@ -80,7 +80,9 @@ selection, import and preparation behavior.
   unavailable members for review without selecting them as a keeper.
 - Add unused and missing/corrupt scanning with generated directory fixtures,
   sidecars, symlinks, unreadable locations, disconnected roots and path variants.
-- Require unchanged source hashes and no audio/database writes from scans.
+- Require unchanged source hashes and no changes to audio, metadata, analysis,
+  cues, playlist membership or preparation jobs from scans. Persisting owned
+  scan/cache state is allowed and must not invalidate unrelated library inputs.
 
 ### 3. Durable review and publication
 
