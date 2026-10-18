@@ -121,6 +121,27 @@ pub fn decode_at_rates(
     target_rates: &[u32],
     max_seconds: Option<f64>,
 ) -> Result<Vec<DecodedAudio>> {
+    Ok(decode_inputs(path, target_rates, max_seconds, false)?.0)
+}
+
+/// Decode once, retaining native-rate first-channel Float32 PCM for timing in
+/// addition to the unchanged downmixed analysis rates. Both use the same packet
+/// boundaries, gapless trimming, source identity and completion checks.
+pub fn decode_at_rates_with_first_channel(
+    path: &Path,
+    target_rates: &[u32],
+    max_seconds: Option<f64>,
+) -> Result<(Vec<DecodedAudio>, DecodedAudio)> {
+    let (mixed, first) = decode_inputs(path, target_rates, max_seconds, true)?;
+    Ok((mixed, first.context("Missing first-channel timing input")?))
+}
+
+fn decode_inputs(
+    path: &Path,
+    target_rates: &[u32],
+    max_seconds: Option<f64>,
+    retain_first_channel: bool,
+) -> Result<(Vec<DecodedAudio>, Option<DecodedAudio>)> {
     ensure!(
         !target_rates.is_empty(),
         "At least one analysis sample rate is required"
@@ -165,6 +186,10 @@ pub fn decode_at_rates(
         (8000..=384000).contains(&source_rate),
         "Unsupported source sample rate"
     );
+    ensure!(
+        !retain_first_channel || source_rate <= 192000,
+        "Unsupported native timing sample rate"
+    );
     let expected_frames = params.n_frames;
     let trim_allowance = params.delay.unwrap_or(0) as u64 + params.padding.unwrap_or(0) as u64;
     let mut decoder =
@@ -176,6 +201,7 @@ pub fn decode_at_rates(
     let frame_limit = max_seconds.map(|t| (t * source_rate as f64).round() as u64);
     let mut frames = 0_u64;
     let mut reached_limit = false;
+    let mut first_channel = retain_first_channel.then(Vec::new);
     loop {
         let packet = match format.next_packet() {
             Ok(packet) => packet,
@@ -206,6 +232,15 @@ pub fn decode_at_rates(
             mono.iter().all(|x| x.is_finite()),
             "Non-finite audio samples"
         );
+        if let Some(first) = &mut first_channel {
+            first.extend(
+                interleaved
+                    .samples()
+                    .chunks_exact(channels)
+                    .take(remaining)
+                    .map(|frame| frame[0]),
+            );
+        }
         frames += mono.len() as u64;
         for resampler in &mut resamplers {
             resampler.push(&mono)?;
@@ -237,7 +272,7 @@ pub fn decode_at_rates(
         before.len() == after.len() && before.modified()? == after.modified()?,
         "Source changed during analysis"
     );
-    resamplers
+    let downmixed = resamplers
         .into_iter()
         .zip(target_rates)
         .map(|(resampler, &sample_rate)| {
@@ -249,5 +284,13 @@ pub fn decode_at_rates(
                 verified_integrity,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>>>()?;
+    let first = first_channel.map(|samples| DecodedAudio {
+        samples,
+        sample_rate: source_rate,
+        source_sample_rate: source_rate,
+        complete,
+        verified_integrity,
+    });
+    Ok((downmixed, first))
 }
