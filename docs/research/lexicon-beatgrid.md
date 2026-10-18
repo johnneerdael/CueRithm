@@ -86,8 +86,11 @@ Eight original 32-second, 44100 Hz synthetic recipes now have numeric tempo,
 peak and final-anchor references. The independently regenerated PCM hashes
 are checked by `tests/fixtures/lexicon-timing/generate.py`. Cases include
 120/128/174 BPM, fractional tempo, offbeat hats, a quiet intro, an input below
-the default range and a zero anchor. These are inputs/outputs for future Rust
-tests; they do not yet assert a Rust implementation matches.
+the default range and a zero anchor. The independent Rust tempo-helper
+component now matches all eight best BPMs and peak arrays exactly, with confidence within 1e-12. Its input generator
+also matches all eight original PCM hashes. The complete anchor detector and
+desktop timing switch remain outstanding; the worker-anchor references are
+not yet passing Rust parity tests.
 
 Additional private diagnostics showed:
 

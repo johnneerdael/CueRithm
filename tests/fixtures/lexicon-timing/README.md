@@ -28,7 +28,9 @@ python3 tests/fixtures/lexicon-timing/generate.py
 Use `--output /path/to/new/private/directory` only when actual PCM files are
 needed for a research runner. Python is a fixture utility, not a product runtime.
 
-These are porting references, not passing Rust tests or proof of musical quality.
+The Rust tempo-helper tests now pass all eight BPM/peak references and
+confidence within 1e-12. The final worker-anchor references remain porting
+references, not passing Rust tests or proof of musical quality.
 In particular, a 94 BPM input becomes 188 BPM under the configured range. The
 detected anchor is not necessarily the exact start of the authored burst.
 Further coverage is needed for other ranges, sample rates, stereo channel
