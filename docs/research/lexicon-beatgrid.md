@@ -92,6 +92,13 @@ also matches all eight original PCM hashes. The complete anchor detector and
 desktop timing switch remain outstanding; the worker-anchor references are
 not yet passing Rust parity tests.
 
+The next component checks also pass on this host: all 306 original module 974
+onset/attack/snapping rows, every one of 88,168 Float32 envelope values from
+module 809 bit-for-bit, eight DP beat chains, eight applied phase corrections
+and sixteen unchanged/early-anchor decisions. These do not cover the remaining
+module 522 calibration/riser/grid corrections or the complete module 358
+anchor decision tree. The desktop still selects the previous timing backend.
+
 Additional private diagnostics showed:
 
 - A silent 12-second input did not return before a 45-second VM deadline.

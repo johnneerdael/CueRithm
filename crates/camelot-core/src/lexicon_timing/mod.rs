@@ -5,6 +5,11 @@ use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
 mod tempo;
+// Removed when the complete anchor pipeline consumes these internal helpers.
+#[allow(dead_code)]
+mod dp;
+#[allow(dead_code)]
+mod onset;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LexiconTempoOptions {
@@ -50,3 +55,6 @@ pub fn analyze_tempo(
     );
     Ok(tempo::analyze(pcm, sample_rate, options))
 }
+
+#[cfg(test)]
+mod tests;

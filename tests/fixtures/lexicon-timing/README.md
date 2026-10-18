@@ -41,7 +41,22 @@ input timeout and the boundary between this research and desktop integration.
 
 `onset-reference.json` adds 306 original numeric rows for the six module 974
 attack/onset/snapping helpers, using those eight exact inputs plus one original
-1.2-second silent-intro recipe. These are references for the next porting step;
-Rust onset-helper parity is not yet established. The helper inputs include
+1.2-second silent-intro recipe. The Rust onset-helper unit tests now match all 306 rows within 1e-12. The helper inputs include
 explicit time/peak/period arguments; they are component tests, not full detector
 outputs. No real music is included.
+
+`dp-reference.json` records eight original spectral-flux envelopes (88,168
+Float32 values), beat chains, eight applied phase corrections and sixteen
+unchanged/early-anchor decisions from module 809. The independent Rust tests
+compare every envelope value bit-for-bit and check the chain/correction outputs.
+This is component evidence on the current host; cross-platform and complete
+anchor-tree validation remain outstanding. The other module 522 calibration,
+riser and grid corrections are not covered by these DP results.
+
+`phase-reference.json` records 585 module 522 functional result rows and
+per-call correction tracking across nine original synthetic inputs. Debug-only
+output fields are omitted. These are **pending** Rust parity references, not
+passing phase-helper tests. They cover applied subsequent-beat, silent rescue,
+weak-phase and grid-correlation cases. Additional applied cases are still needed
+for both calibration helpers, drop/half-beat verification and riser strategies.
+The long silent-intro recipe is distinct from the shorter onset fixture recipe.

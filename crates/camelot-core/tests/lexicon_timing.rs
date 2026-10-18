@@ -1,6 +1,9 @@
 use camelot_core::lexicon_timing::{LexiconTempoOptions, analyze_tempo};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+#[path = "support/lexicon_pcm.rs"]
+mod fixture;
+use fixture::{Recipe, signal};
 
 #[derive(Deserialize)]
 struct Reference {
@@ -12,14 +15,6 @@ struct Source {
     sample_rate: u32,
     min_tempo: f64,
     max_tempo: f64,
-}
-#[derive(Deserialize)]
-struct Recipe {
-    frames: usize,
-    quiet_until_frames: usize,
-    offbeat_hats: bool,
-    bpm: f64,
-    offset_frames: usize,
 }
 #[derive(Deserialize)]
 struct Case {
@@ -37,34 +32,6 @@ struct ExpectedTempo {
     tempo: f64,
     confidence: f64,
     peaks: Vec<usize>,
-}
-fn signal(recipe: &Recipe, rate: u32) -> Vec<f32> {
-    let mut pcm = vec![0.; recipe.frames];
-    for beat in 0.. {
-        let start = (recipe.offset_frames as f64 + beat as f64 * 60. * rate as f64 / recipe.bpm)
-            .round() as usize;
-        if start >= pcm.len() {
-            break;
-        }
-        let gain = if start < recipe.quiet_until_frames {
-            1. / 16.
-        } else {
-            1.
-        };
-        for index in 0..4096.min(pcm.len() - start) {
-            let sign = if index % 512 < 256 { 1. } else { -1. };
-            pcm[start + index] = ((4096 - index) as f64 / 4096. * sign * gain) as f32;
-        }
-        if recipe.offbeat_hats {
-            let hat = start + (30. * rate as f64 / recipe.bpm).round() as usize;
-            for index in 0..256.min(pcm.len().saturating_sub(hat)) {
-                let sign = if index % 2 == 1 { 1. } else { -1. };
-                pcm[hat + index] =
-                    (pcm[hat + index] as f64 + (256 - index) as f64 / 2048. * sign) as f32;
-            }
-        }
-    }
-    pcm
 }
 #[test]
 fn original_tempo_helper_references_match_exact_peaks_bpm_and_confidence() {
