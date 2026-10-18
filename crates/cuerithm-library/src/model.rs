@@ -57,6 +57,8 @@ pub struct TrackSummary {
     pub id: TrackId,
     #[serde(default)]
     pub source_sha256: String,
+    #[serde(default)]
+    pub metadata: std::collections::BTreeMap<String, serde_json::Value>,
     pub display_path: String,
     pub title: String,
     pub artist: String,

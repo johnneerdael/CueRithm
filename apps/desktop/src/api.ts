@@ -5,6 +5,7 @@ import {open} from "@tauri-apps/plugin-dialog";
 import type {Bridge,PreparationEvent,PlaybackEvent} from "./types";
 export const nativeBridge:Bridge={
   getState:()=>invoke("library_state"),
+  getMetadataFields:()=>invoke("metadata_fields"),
   listTracks:query=>invoke("list_tracks",{query}),
   selectTrackIds:query=>invoke("select_track_ids",{query}),
   getTrack:trackId=>invoke("get_track",{trackId}),

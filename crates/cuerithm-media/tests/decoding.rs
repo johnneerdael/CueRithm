@@ -173,3 +173,21 @@ fn extracts_embedded_cover_without_decoding_or_modifying_it() {
             .is_none()
     );
 }
+
+#[test]
+fn preserves_arbitrary_embedded_tags_and_audio_properties() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/metadata.flac");
+    let info = runtime().probe(&source).unwrap();
+    assert_eq!(
+        info.tags.get("label").map(String::as_str),
+        Some("Example label")
+    );
+    assert_eq!(
+        info.tags.get("album_artist").map(String::as_str),
+        Some("Album artist")
+    );
+    assert_eq!(
+        info.tags.get("custom:mood").map(String::as_str),
+        Some("Warm")
+    );
+}

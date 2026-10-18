@@ -151,7 +151,7 @@ no Spotify audio-features, Quick Tag, separate tag-editor application or
 auto-renamer workspace in this scope. Any imported setting whose meaning is
 replaced by the incoming pipeline must have a documented mapping.
 
-Reuse of GPLv3 OneTagger code is proposed for a GPLv3 desktop application, with
+Reuse of GPLv3 OneTagger code was explicitly approved on 2026-10-18 for a GPLv3 desktop application, with
 notices and provenance retained. Existing independently maintained MIT engine
 code can retain its own notices. Do not import code while leaving an inaccurate
 MIT-only description for the combined desktop distribution.
@@ -283,3 +283,5 @@ Run Rust/TypeScript checks and desktop builds on all target systems. Verify real
 rendered screens for loading, failure, empty, populated and large-library states.
 Existing engine CI and the 47 cue cases remain regression gates; they do not
 establish the new application's UI, tagging or sync correctness.
+
+User clarification (2026-10-18): Plays, Last Played and Danceability are excluded.

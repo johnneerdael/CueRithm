@@ -10,14 +10,60 @@ pub struct MediaInfo {
     pub channels: u32,
     pub bits_per_sample: Option<u32>,
     pub tags: BTreeMap<String, String>,
+    #[serde(default)]
+    pub properties: BTreeMap<String, serde_json::Value>,
+}
+impl MediaInfo {
+    pub fn columns(&self) -> BTreeMap<String, serde_json::Value> {
+        let mut values = self.properties.clone();
+        values.insert("audio.codec".into(), self.codec.clone().into());
+        values.insert("audio.sample_rate".into(), self.sample_rate.into());
+        values.insert("audio.channels".into(), self.channels.into());
+        values.insert("audio.bits_per_sample".into(), self.bits_per_sample.into());
+        values.extend(
+            self.tags
+                .iter()
+                .map(|(key, value)| (format!("tag.{key}"), value.clone().into())),
+        );
+        values
+    }
+}
+fn properties(
+    prefix: &str,
+    value: &serde_json::Value,
+    out: &mut BTreeMap<String, serde_json::Value>,
+) {
+    if let Some(object) = value.as_object() {
+        for (key, value) in object {
+            if key == "tags" || key == "filename" {
+                continue;
+            }
+            properties(&format!("{prefix}.{key}"), value, out);
+        }
+    } else if !value.is_null() {
+        out.insert(prefix.into(), value.clone());
+    }
 }
 impl MediaRuntime {
     pub fn probe(&self, path: &Path) -> Result<MediaInfo> {
         ensure!(path.is_file(), "Audio source must be a local file");
         let path = path.canonicalize()?;
-        let args: Vec<OsString> = ["-v","error","-protocol_whitelist","file,pipe","-select_streams","a:0",
-            "-show_entries","stream=codec_name,sample_rate,channels,bits_per_raw_sample:stream_tags=title,artist,album,genre:format_tags=title,artist,album,genre","-of","json"].into_iter().map(Into::into)
-            .chain([path.as_os_str().to_owned()]).collect();
+        let args: Vec<OsString> = [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream:format",
+            "-of",
+            "json",
+        ]
+        .into_iter()
+        .map(Into::into)
+        .chain([path.as_os_str().to_owned()])
+        .collect();
         let mut out = self.run(&self.ffprobe, &args, tempfile::tempfile()?, 1_048_576)?;
         let mut bytes = Vec::new();
         out.read_to_end(&mut bytes)?;
@@ -48,7 +94,11 @@ impl MediaRuntime {
                 }
             }
         }
+        let mut fields = BTreeMap::new();
+        properties("audio", stream, &mut fields);
+        properties("format", &doc["format"], &mut fields);
         Ok(MediaInfo {
+            properties: fields,
             codec: stream["codec_name"]
                 .as_str()
                 .context("Missing codec")?

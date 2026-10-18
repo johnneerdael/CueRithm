@@ -36,6 +36,11 @@ enum Control {
     Changed(Vec<PathBuf>),
 }
 type Subscribers = Arc<Mutex<Vec<SyncSender<PreparationEvent>>>>;
+fn worker_count(available_cores: usize) -> usize {
+    available_cores
+        .saturating_sub(available_cores.div_ceil(4))
+        .max(1)
+}
 pub struct PreparationService {
     library: Library,
     tx: SyncSender<Control>,
@@ -46,11 +51,7 @@ pub struct PreparationService {
 }
 impl PreparationService {
     pub fn start(library: Library, runtime: MediaRuntime) -> Result<Self> {
-        let count = if thread::available_parallelism().is_ok_and(|n| n.get() >= 4) {
-            2
-        } else {
-            1
-        };
+        let count = worker_count(thread::available_parallelism().map_or(1, |n| n.get()));
         Self::start_with_workers(library, runtime, count)
     }
     pub fn start_with_workers(
@@ -58,10 +59,7 @@ impl PreparationService {
         runtime: MediaRuntime,
         count: usize,
     ) -> Result<Self> {
-        ensure!(
-            (1..=2).contains(&count),
-            "Preparation supports one or two workers"
-        );
+        ensure!(count > 0, "Preparation needs at least one worker");
         let (tx, rx) = mpsc::sync_channel(1024);
         let stop = Arc::new(AtomicBool::new(false));
         let subscribers = Arc::new(Mutex::new(Vec::new()));
@@ -395,6 +393,28 @@ impl Worker {
             {
                 self.emit(&job, stage, "attention");
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::worker_count;
+
+    #[test]
+    fn workers_use_75_percent_of_available_cores_rounded_down() {
+        for (cores, expected) in [
+            (0, 1),
+            (1, 1),
+            (2, 1),
+            (3, 2),
+            (4, 3),
+            (8, 6),
+            (14, 10),
+            (16, 12),
+            (64, 48),
+        ] {
+            assert_eq!(worker_count(cores), expected, "{cores} cores");
         }
     }
 }

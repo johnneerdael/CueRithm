@@ -1,5 +1,6 @@
 //! Durable local library and background preparation.
 mod jobs;
+mod metadata;
 mod prepare;
 pub mod watch;
 pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};

@@ -69,6 +69,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::library_state,
             commands::list_tracks,
+            commands::metadata_fields,
             commands::select_track_ids,
             commands::list_jobs,
             commands::get_track,
