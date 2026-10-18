@@ -13,12 +13,15 @@ pub use config::{AnalysisTagSource, AutotagConfig, NoMatchPolicy};
 pub use input::TagInput;
 use onetagger_tagger::MatchingUtils;
 pub use onetagger_tagger::{
-    FrameName, PlatformInfo, SupportedTag, TaggerConfig, Track as CatalogTrack,
-    TrackMatch as CatalogMatch,
+    Album as CatalogAlbum, FrameName, PlatformInfo, SupportedTag, TaggerConfig,
+    Track as CatalogTrack, TrackMatch as CatalogMatch,
 };
 pub use providers::CatalogEndpoints;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{
+    Arc, Condvar, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderId {
@@ -38,6 +41,7 @@ impl ProviderId {
 pub enum MatchStatus {
     Matched,
     NoMatch,
+    AlreadyTagged,
 }
 #[derive(Debug, Serialize)]
 pub struct ProviderFailure {
@@ -51,8 +55,16 @@ pub struct TagMatchOutcome {
     pub attempted: Vec<ProviderId>,
     pub warnings: Vec<ProviderFailure>,
 }
+#[derive(Clone)]
+pub struct AlbumHint {
+    pub provider: ProviderId,
+    pub album: Arc<CatalogAlbum>,
+}
 pub trait ProviderBackend: Send + Sync {
     fn id(&self) -> ProviderId;
+    fn album(&self, _id: &str, _config: &AutotagConfig) -> Result<Option<CatalogAlbum>> {
+        Ok(None)
+    }
     fn candidates(&self, input: &TagInput, config: &AutotagConfig) -> Result<Vec<CatalogMatch>>;
     fn extend(&self, _track: &mut CatalogTrack, _config: &AutotagConfig) -> Result<()> {
         Ok(())
@@ -64,17 +76,20 @@ struct Gate {
     changed: Condvar,
 }
 impl Gate {
-    fn acquire(&self, limit: usize) -> Result<Permit<'_>> {
+    fn acquire(&self, limit: usize, cancel: &AtomicBool) -> Result<Permit<'_>> {
         let mut active = self
             .active
             .lock()
             .map_err(|_| anyhow::anyhow!("Provider gate interrupted"))?;
         while *active >= limit {
+            ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
             active = self
                 .changed
-                .wait(active)
-                .map_err(|_| anyhow::anyhow!("Provider gate interrupted"))?;
+                .wait_timeout(active, std::time::Duration::from_millis(100))
+                .map_err(|_| anyhow::anyhow!("Provider gate interrupted"))?
+                .0;
         }
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
         *active += 1;
         Ok(Permit(self))
     }
@@ -136,7 +151,54 @@ impl Tagger {
         Ok(found)
     }
     pub fn match_track(&self, input: &TagInput, config: &AutotagConfig) -> Result<TagMatchOutcome> {
+        self.match_track_cancellable(input, config, &AtomicBool::new(false))
+    }
+    pub fn match_track_cancellable(
+        &self,
+        input: &TagInput,
+        config: &AutotagConfig,
+        cancel: &AtomicBool,
+    ) -> Result<TagMatchOutcome> {
+        self.match_track_with_album(input, config, cancel, None)
+    }
+    pub fn get_album(
+        &self,
+        provider: ProviderId,
+        id: &str,
+        config: &AutotagConfig,
+        cancel: &AtomicBool,
+    ) -> Result<Option<Arc<CatalogAlbum>>> {
         config.validate()?;
+        let backend = self
+            .backends
+            .iter()
+            .find(|b| b.source.id() == provider)
+            .ok_or_else(|| anyhow::anyhow!("Provider unavailable"))?;
+        let limit = if provider == ProviderId::Traxsource {
+            1
+        } else {
+            usize::from(config.options.threads)
+        };
+        let _permit = backend.gate.acquire(limit, cancel)?;
+        Ok(backend.source.album(id, config)?.map(Arc::new))
+    }
+    pub fn match_track_with_album(
+        &self,
+        input: &TagInput,
+        config: &AutotagConfig,
+        cancel: &AtomicBool,
+        hint: Option<&AlbumHint>,
+    ) -> Result<TagMatchOutcome> {
+        config.validate()?;
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        if config.options.skip_tagged && input.audio_info(config)?.tagged.at() {
+            return Ok(TagMatchOutcome {
+                status: MatchStatus::AlreadyTagged,
+                matches: vec![],
+                attempted: vec![],
+                warnings: vec![],
+            });
+        }
         let mut out = TagMatchOutcome {
             status: MatchStatus::NoMatch,
             matches: vec![],
@@ -157,8 +219,24 @@ impl Tagger {
                 usize::from(config.options.threads)
             };
             let result = (|| -> Result<Option<CatalogMatch>> {
-                let _permit = b.gate.acquire(limit)?;
-                let mut found = b.source.candidates(input, config)?;
+                let _permit = b.gate.acquire(limit, cancel)?;
+                let mut found = if config.options.album_tagging {
+                    if let Some(hint) = hint.filter(|h| h.provider == provider) {
+                        let mut found =
+                            Self::match_candidates(input, hint.album.tracks.clone(), config)?;
+                        for item in &mut found {
+                            item.reason = onetagger_tagger::MatchReason::Album;
+                        }
+                        found
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+                if found.is_empty() {
+                    found = b.source.candidates(input, config)?;
+                }
                 ensure!(
                     found.iter().all(|m| m.accuracy.is_finite()
                         && (0.0..=1.0).contains(&m.accuracy)
@@ -169,6 +247,7 @@ impl Tagger {
                 if found.is_empty() {
                     return Ok(None);
                 }
+                ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
                 let mut matched = found.remove(0);
                 b.source.extend(&mut matched.track, config)?;
                 Ok(Some(matched))

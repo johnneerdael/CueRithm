@@ -101,6 +101,9 @@ impl Native {
     }
 }
 impl ProviderBackend for Native {
+    fn album(&self, id: &str, config: &AutotagConfig) -> Result<Option<crate::CatalogAlbum>> {
+        self.source().get_album(id, &config.options)
+    }
     fn id(&self) -> ProviderId {
         self.id
     }

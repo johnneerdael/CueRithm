@@ -83,7 +83,7 @@ impl TagInput {
         for (key, value) in &self.media.tags {
             tags.insert(key.to_uppercase(), vec![value.clone()]);
         }
-        let tagged = match tag("1t_taggeddate") {
+        let tagged = match tag("1t_taggeddate").or_else(|| tag("cuerithm_taggeddate")) {
             Some(v) if v.ends_with("_AT") => FileTaggedStatus::AutoTagger,
             Some(v) if v.ends_with("_AF") => FileTaggedStatus::AudioFeatures,
             Some(_) => FileTaggedStatus::Tagged,

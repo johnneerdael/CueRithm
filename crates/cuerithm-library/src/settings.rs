@@ -1,3 +1,5 @@
+#[cfg(feature = "autotag")]
+use anyhow::Context;
 use anyhow::{Result, ensure};
 use camelot_core::{
     EngineSettings,
@@ -13,6 +15,10 @@ pub struct PreparationSettings {
     pub stability_millis: u64,
     pub engine: EngineSettings,
     pub autotag_enabled: bool,
+    #[cfg(feature = "autotag")]
+    pub tagging: Option<cuerithm_autotag::AutotagConfig>,
+    #[cfg(not(feature = "autotag"))]
+    pub tagging: Option<serde_json::Value>,
     pub cleanup_enabled: bool,
 }
 impl Default for PreparationSettings {
@@ -30,6 +36,7 @@ impl Default for PreparationSettings {
                 ..Default::default()
             },
             autotag_enabled: false,
+            tagging: None,
             cleanup_enabled: false,
         }
     }
@@ -37,6 +44,10 @@ impl Default for PreparationSettings {
 impl PreparationSettings {
     pub fn validate(&self) -> Result<()> {
         self.engine.validate()?;
+        #[cfg(feature = "autotag")]
+        if let Some(config) = &self.tagging {
+            config.validate()?;
+        }
         ensure!(
             self.engine.max_seconds.is_none(),
             "Preparation requires full-track analysis"
@@ -52,10 +63,15 @@ impl PreparationSettings {
         Ok(())
     }
     pub fn ready(&self) -> Result<()> {
-        ensure!(
-            !self.autotag_enabled,
-            "Auto tagging is not available in this build"
-        );
+        if self.autotag_enabled {
+            #[cfg(not(feature = "autotag"))]
+            anyhow::bail!("Auto tagging is not available in this build");
+            #[cfg(feature = "autotag")]
+            self.tagging
+                .as_ref()
+                .context("Configure automatic tagging in Settings")?
+                .validate()?;
+        }
         ensure!(
             !self.cleanup_enabled,
             "Automatic cleanup is not available in this build"

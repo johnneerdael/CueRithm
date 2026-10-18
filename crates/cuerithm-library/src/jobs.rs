@@ -195,7 +195,16 @@ impl Library {
     }
     fn set_stage_checked(&self, id: &str, attempt: Option<u32>, stage: &str) -> Result<()> {
         ensure!(
-            matches!(stage, "waiting" | "decoding" | "analysis" | "committing"),
+            matches!(
+                stage,
+                "waiting"
+                    | "decoding"
+                    | "analysis"
+                    | "matching"
+                    | "tagging"
+                    | "writing_tags"
+                    | "committing"
+            ),
             "Unknown preparation stage"
         );
         let conn = self.conn()?;
