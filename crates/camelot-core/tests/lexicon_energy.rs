@@ -35,10 +35,9 @@ fn original_local_helper_matches_synthetic_pcm_and_explicit_silence_policy() {
             "{} fixture integrity",
             case.name
         );
-        let pcm: Vec<f32> = bytes
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
-            .collect();
+        let (samples, remainder) = bytes.as_chunks::<4>();
+        assert!(remainder.is_empty(), "{} fixture alignment", case.name);
+        let pcm: Vec<f32> = samples.iter().map(|b| f32::from_le_bytes(*b)).collect();
         let result = analyze(&pcm, 22050).unwrap();
         assert_eq!(
             result.as_ref().map(|r| r.level),

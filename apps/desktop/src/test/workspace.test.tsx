@@ -20,14 +20,24 @@ describe("library workspace",()=>{
   });
   it("jumps one bar with arrow keys using current playback position, queues repeats and respects controls",async()=>{
     const bridge=fakeBridge([track("a")]);
+    let playbackEvent:Parameters<typeof bridge.onPlayback>[0]=()=>{};
+    bridge.onPlayback=vi.fn(async handler=>{playbackEvent=handler;return()=>{};});
+    let finishPlay!:()=>void;
+    const playFinished=new Promise<void>(resolve=>{finishPlay=resolve;});
+    const play=bridge.playerPlay;
+    // Native playback events can announce Playing before load() clears busy.
+    bridge.playerPlay=vi.fn(async()=>{await play();playbackEvent({sequence:1,status:await bridge.playerStatus()});await playFinished;});
     const load=bridge.playerLoad;
     bridge.playerLoad=vi.fn(async id=>({...await load(id),analysis:{complete:true,source_sample_rate:44100,analysis:{duration_seconds:240,key:null,energy:null,tempo:{bpm:120,beats_seconds:[0,.5,1],downbeats_seconds:null},lexicon_cues:null}}}));
     render(<App bridge={bridge}/>);
     await screen.findByText("Track a");
     fireEvent.doubleClick(screen.getByText("Track a"));
-    await screen.findByRole("button",{name:"Pause"});
+    const pause=await screen.findByRole("button",{name:"Pause"});
+    expect(pause).toBeDisabled();
     await bridge.playerSeek(3.25);
     vi.mocked(bridge.playerSeek).mockClear();
+    finishPlay();
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Pause"})).toBeEnabled());
     fireEvent.keyDown(window,{key:"ArrowRight"});
     fireEvent.keyDown(window,{key:"ArrowRight"});
     await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledTimes(2));
