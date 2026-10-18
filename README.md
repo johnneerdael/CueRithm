@@ -64,7 +64,7 @@ invalid/unknown inputs. Cues requested without usable timing produce an empty
 cue result. The original cue calculations remain unchanged behind a checked
 application boundary.
 
-Models, captured traffic, music, reference labels, installers and private
+Captured traffic, music, reference labels, installers and private
 research artifacts stay outside Git. Older MiK cue studies are historical;
 they are not an active Cuerithm cue backend. See
 [integration notes](docs/cuerithm-integration.md),
@@ -85,9 +85,12 @@ playable timeline. The desktop's prepared-input API generalizes the explicit
 CLI FLAC-profile restriction described above; it does not change that CLI API.
 Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
 
-Models remain external: configure local model paths once in Settings. An energy
-model is required for full preparation; missing/invalid models stay actionable
-in Incoming. The app never invents results to mark an incomplete track ready.
+OpenKeyScan key detection, track energy and structural cue analysis are built
+into the desktop application. No model selection, downloads or extra setup is
+required. Pinned parameters are embedded, checked and cached automatically;
+existing unfinished jobs migrate to the built-in revision on upgrade. The
+standalone CLI retains its explicit-model API. The app never invents results
+to mark an incomplete track ready.
 
 Beatport/Traxsource tagging, cleanup, ordinary/smart playlists and direct rekordbox
 6/7 sync are subsequent approved deliveries; their desktop controls are not yet

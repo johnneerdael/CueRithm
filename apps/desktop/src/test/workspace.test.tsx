@@ -25,8 +25,10 @@ describe("library workspace",()=>{
     render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
-    await screen.findByLabelText("Energy model");
-    fireEvent.change(screen.getByLabelText("Energy model"),{target:{value:"/models/energy.json"}});
+    await screen.findByLabelText("Minimum breakdown length");
+    expect(screen.queryByLabelText(/Energy model|OpenKeyScan model/)).not.toBeInTheDocument();
+    expect(screen.getByText(/All analysis engines are included/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Minimum breakdown length"),{target:{value:"128"}});
     fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
     await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
     expect(screen.queryByText("Select platforms")).not.toBeInTheDocument();

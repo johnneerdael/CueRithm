@@ -7,7 +7,6 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
   const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);
   useEffect(()=>{setDraft(snapshot.settings);},[snapshot.revision]);
   const engine=(patch:Partial<EngineSettings>)=>{setSaved(false);setDraft(d=>({...d,engine:{...d.engine,...patch}}));};
-  const pick=async(kind:"key"|"energy")=>{try{const path=await bridge.chooseModel(kind);if(path)engine(kind==="key"?{key_openkeyscan_model:path}:{energy_model:path});}catch(e){setError(errorMessage(e));}};
   return <section className="settings-view">
     <div className="view-title"><div><button className="back-link" onClick={onBack}><ChevronLeft size={15}/>Library</button><h1>Settings</h1><p>Configure preparation once. Incoming tracks take it from here.</p></div>
     <button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError(null);try{await bridge.saveSettings(draft);setSaved(true);onSaved();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}}>{saved?<Check size={16}/>:<Save size={16}/>} {busy?"Saving…":saved?"Settings saved":"Save settings"}</button></div>
@@ -19,12 +18,7 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
         <p className="setting-note">Completed tracks move into Tracks automatically. Original audio files stay in place.</p>
       </section>
       <section className="setting-section"><div className="setting-heading"><span className="section-number">02</span><div><h2>Analysis</h2><p>Key, BPM, beatgrid, one track energy rating and structural cues.</p></div></div>
-        <label className="field-label" htmlFor="key-model">OpenKeyScan model <span>Recommended</span></label>
-        <div className="path-field"><input id="key-model" value={draft.engine.key_openkeyscan_model??""} onChange={e=>engine({key_openkeyscan_model:e.target.value||null})} placeholder="Choose the local .onnx model"/><button onClick={()=>void pick("key")} aria-label="Browse key model"><FolderOpen size={17}/></button></div>
-        <p className="setting-note">Leave empty to use built-in key analysis. Audio analysis stays offline.</p>
-        <label className="field-label" htmlFor="energy-model">Energy model</label>
-        <div className="path-field"><input id="energy-model" value={draft.engine.energy_model??""} onChange={e=>engine({energy_model:e.target.value||null})} placeholder="Choose the local energy .json model"/><button onClick={()=>void pick("energy")} aria-label="Browse energy model"><FolderOpen size={17}/></button></div>
-        <p className="setting-note">Required before preparation can finish. Energy is stored as one rating per track.</p>
+        <p className="setting-note">All analysis engines are included and work offline. No model setup is required.</p>
       </section>
       <section className="setting-section"><div className="setting-heading"><span className="section-number">03</span><div><h2>Cue generation</h2><p>Validated structural cues, applied after full analysis.</p></div></div>
         <div className="setting-row"><div><strong>Existing cue points</strong><p>Replace after successful analysis. Failed preparation keeps the previous cues.</p></div><span className="fixed-setting"><Check size={14}/>Replace</span></div>

@@ -19,7 +19,9 @@ pub struct Detail {
     pub source_sha256: String,
     pub pcm_sha256: Option<String>,
 }
+
 pub struct Host {
+    pub builtin: crate::builtin::BuiltinModels,
     pub library: Library,
     pub runtime: MediaRuntime,
     pub preparation: PreparationService,
@@ -56,9 +58,12 @@ impl Host {
                 }
             }
         }
+        let builtin = crate::builtin::BuiltinModels::install(root)?;
+        builtin.configure_library(&library)?;
         let runtime = MediaRuntime::from_bundle(runtime)?;
         let preparation = PreparationService::start(library.clone(), runtime.clone())?;
         Ok(Self {
+            builtin,
             library,
             runtime,
             preparation,
@@ -137,5 +142,35 @@ impl Host {
             &self.library.data_dir().join("cache/waveforms"),
         )
         .context("Load waveform")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn desktop_prepares_audio_without_user_model_configuration() {
+        let d = tempfile::tempdir().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let host = Host::open(d.path(), &root.join("tools/media-runtime/bin"), None).unwrap();
+        host.library.settings().unwrap().settings.ready().unwrap();
+        host.preparation
+            .enqueue_paths(&[
+                root.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac")
+            ])
+            .unwrap();
+        let start = std::time::Instant::now();
+        while host.library.counts().unwrap().tracks != 1 {
+            let jobs = host.library.jobs().unwrap();
+            assert!(!jobs.iter().any(|j| j.state == "attention"), "{jobs:?}");
+            assert!(start.elapsed() < std::time::Duration::from_secs(180));
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let id = host.library.jobs().unwrap()[0].track_id.clone();
+        let analysis = host.library.analysis(&id).unwrap().unwrap();
+        assert_eq!(analysis.openkeyscan_sample_rate, Some(44100));
+        assert!(analysis.analysis.energy.is_some());
+        assert!(!analysis.analysis.lexicon_cues.unwrap().cues.is_empty());
+        host.preparation.shutdown();
     }
 }

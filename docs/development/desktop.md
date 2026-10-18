@@ -19,7 +19,8 @@ executables statically link compiler support rather than requiring MSYS2 DLLs.
 The resulting ignored `tools/media-runtime/bin/` contains ffmpeg, ffprobe,
 runtime hashes/recipe and LGPL notice. Never substitute Homebrew-linked binaries
 or download an unverified decoder while preparing music. Python is build/test
-tooling only. Models, music and library databases remain outside Git.
+tooling only. The selected built-in parameters are under `models/builtin/`;
+music, training captures/labels and library databases remain outside Git.
 
 ```sh
 pnpm --dir apps/desktop install --frozen-lockfile
@@ -32,8 +33,11 @@ avoid pointing tests at a real library. A new acceptance database may read
 `CUERITHM_BOOTSTRAP_SETTINGS` (a complete PreparationSettings JSON). Existing
 databases always retain their own settings. Normal users use Settings once.
 
-Set the local energy model path, optionally the OpenKeyScan model, and watch
-folders in Settings. Enabled unavailable stages stay in Incoming with a reason;
+Set watch folders and cue preferences in Settings. Key/energy parameters are
+embedded in desktop executables, verified, and atomically cached under app data.
+There are no model path controls or first-run model setup. Upgrades preserve user
+preferences and requeue unfinished work against the built-in settings revision.
+Enabled unavailable stages stay in Incoming with a reason;
 there is no placeholder success. Full successful analysis replaces library cues
 atomically and promotes into Tracks. This foundation does not write file tags
 or sync a target DJ database. Source audio files remain untouched.

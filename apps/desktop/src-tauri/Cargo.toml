@@ -17,6 +17,8 @@ tauri-plugin-dialog = "2"
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
 camelot-core = { path = "../../../crates/camelot-core", features = ["openkeyscan-key"] }
 cuerithm-library = { path = "../../../crates/cuerithm-library" }
 cuerithm-media = { path = "../../../crates/cuerithm-media" }

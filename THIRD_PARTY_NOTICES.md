@@ -9,8 +9,8 @@ The fixed key network/frontend specification follows
 [rekordcloud/openkeyscan-analyzer](https://github.com/rekordcloud/openkeyscan-analyzer),
 commit `d5cac64bc7195826b6eb10c55b9b0c97fb3287c0`, copyright 2025 Alexander Sommer.
 Its MIT notice is preserved at `models/openkeyscan/LICENSE.upstream`.
-Model/checkpoint identities and the fact that weights are external are in
-`models/openkeyscan/model.json`. CQT filter-bank arrays were generated with
+Model/checkpoint identities and desktop distribution details are in
+`models/openkeyscan/model.json` and `models/builtin/manifest.json`. CQT filter-bank arrays were generated with
 librosa 0.11.0/NumPy 1.26.4 using the fixed parameters documented in the research
 specification; no music or per-track reference answer is embedded in them.
 
@@ -62,5 +62,7 @@ is `apps/desktop/src/assets/Dosis-OFL.txt`. Cuerithm's icon is original SVG.
 React and Tauri declare MIT licensing; Lucide declares ISC; Rodio declares
 MIT OR Apache-2.0. Exact dependency identities are in `Cargo.lock` and
 `apps/desktop/pnpm-lock.yaml`. Build tools and test fixtures do not require
-Python in the shipped application. Trained model weights and licensed reference
-applications are not bundled.
+Python in the shipped application. The desktop embeds the pinned OpenKeyScan
+ONNX conversion under the upstream MIT notice and Cuerithm's locally trained
+energy SVC parameters under the repository license. Training music, captures,
+reference labels and licensed reference applications are not bundled.

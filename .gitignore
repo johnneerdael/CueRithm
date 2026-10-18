@@ -18,6 +18,7 @@
 /mixedinkey*.exe
 /Setup*/
 *.onnx
+!models/builtin/openkeyscan3-logits.onnx
 *.pth
 *.joblib
 .worktrees/

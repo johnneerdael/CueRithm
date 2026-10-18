@@ -6,6 +6,23 @@ use rusqlite::{OptionalExtension, params};
 use std::path::PathBuf;
 
 impl Library {
+    pub fn requeue_unfinished(&self, revision: &SettingsRevision) -> Result<usize> {
+        self.settings_revision(revision)?;
+        let mut conn = self.conn()?;
+        let tx = conn.transaction()?;
+        let rows: Vec<(Vec<u8>, String)> = {
+            let mut stmt = tx.prepare(
+                "SELECT path,source_hash FROM tracks WHERE state='incoming' AND archived=0",
+            )?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        for (path, hash) in &rows {
+            Self::enqueue_one(&tx, &bytes_path(path)?, hash, revision)?;
+        }
+        tx.commit()?;
+        Ok(rows.len())
+    }
     pub fn enqueue(&self, paths: &[PathBuf], revision: SettingsRevision) -> Result<Vec<JobId>> {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();

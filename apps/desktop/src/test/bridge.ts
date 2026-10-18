@@ -25,7 +25,7 @@ export function fakeBridge(rows:Track[]) {
     getWaveform:vi.fn(async()=>({duration_seconds:240,bins:[]})),
     onPreparation:vi.fn(async handler=>{listener=handler;return ()=>{listener=null;};}),
     onPlayback:vi.fn(async()=>()=>{}),onDrop:vi.fn(async()=>()=>{}),
-    chooseFiles:vi.fn(async()=>[]),chooseFolder:vi.fn(async()=>null),chooseModel:vi.fn(async()=>null),
+    chooseFiles:vi.fn(async()=>[]),chooseFolder:vi.fn(async()=>null),
   };
   return bridge;
 }
