@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes a prerelease for a main commit once both post-merge build workflows pass for it.
+# Publishes a signed, notarized macOS release for a main commit once both post-merge build workflows pass for it.
 on:
   workflow_run:
     workflows: [Engine checks, Desktop checks]
@@ -23,8 +23,8 @@ concurrency:
 jobs:
   release:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    runs-on: macos-15
+    timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
@@ -48,14 +48,53 @@ jobs:
           latest=$(git tag --list 'v*' --sort=-v:refname | head -1)
           if [ -n "$latest" ] && ! git merge-base --is-ancestor "$latest" "$SHA"; then ok=false; fi
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
-      - name: Download desktop test artifacts
+      - name: Download macOS app builds
         if: steps.ready.outputs.ok == 'true'
-        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-*' --dir dist
-      - name: Publish prerelease
+        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-macos-*' --dir dist
+      - name: Import Developer ID certificate
+        if: steps.ready.outputs.ok == 'true'
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/release.keychain-db"
+          password=$(openssl rand -base64 24)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          identity=$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)
+          [ -n "$identity" ] || { echo 'Developer ID identity not found' >&2; exit 1; }
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+      - name: Sign and notarize
+        if: steps.ready.outputs.ok == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
+        run: |
+          export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"
+          printf '%s\n' "$NOTARY_PRIVATE_KEY" > "$NOTARY_KEY_PATH"
+          trap 'rm -f "$NOTARY_KEY_PATH"' EXIT
+          mkdir release
+          sign() { tools/release/sign-macos.sh "$(find "dist/$1" -name '*.app.tar.gz')" "release/Cuerithm-$2.dmg"; }
+          sign Cuerithm-test-macos-15 arm64
+          sign Cuerithm-test-macos-15-intel x64
+          # Corresponding source for the bundled decoder and the application.
+          cp "$(find dist/Cuerithm-test-macos-15 -name cuerithm-source.tar.gz)" release/
+          cp "$(find dist/Cuerithm-test-macos-15 -name 'ffmpeg-*.tar.xz')" release/
+      - name: Publish release
         if: steps.ready.outputs.ok == 'true'
         run: |
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
           version=$(python3 .github/scripts/release_notes.py version --base "$base")
           python3 .github/scripts/release_notes.py notes --head "$SHA" --repo "$GITHUB_REPOSITORY" > notes.md
-          for dir in dist/*/; do (cd "$dir" && zip -qr "../$(basename "$dir").zip" .); done
-          gh release create "v$version" dist/*.zip --target "$SHA" --title "Cuerithm $version" --notes-file notes.md --prerelease
+          for f in release/Cuerithm-*.dmg; do mv "$f" "${f%.dmg}-$version.dmg"; done
+          gh release create "v$version" release/* --target "$SHA" --title "Cuerithm $version" --notes-file notes.md --latest
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/release.keychain-db" || true
