@@ -11,6 +11,10 @@ post-command behavior. Provider icons are omitted; Cuerithm supplies its own UI.
 
 Local adaptations:
 
+- Ogg Vorbis/Opus `has_art` checks for a nonempty picture list; upstream inverted
+  this result. Present/absent detection is verified alongside staged artwork
+  writing across all 14 supported audio layouts.
+
 - Standalone workspace/package metadata and Rust formatting.
 - Explicit AAC and WMA input types, with distinct ID3/ASF field identities;
   this alone is not a claim of completed physical format writing.

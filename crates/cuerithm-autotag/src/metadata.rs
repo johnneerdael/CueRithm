@@ -15,6 +15,15 @@ pub fn read_metadata(path: &Path, info: &MediaInfo) -> Result<Metadata> {
         read(*tag.tag(), &format)
     }
 }
+pub fn has_embedded_artwork(path: &Path, info: &MediaInfo) -> Result<bool> {
+    let format = audio_format(info)?;
+    if format == AudioFileFormat::WMA {
+        Ok(AsfTag::open(path)?.has_art())
+    } else {
+        let tag = Tag::load_format(path, &format, true)?;
+        Ok(tag.tag().has_art())
+    }
+}
 fn binding(field: MetadataField, format: &AudioFileFormat) -> &'static str {
     use MetadataField::*;
     let (id3, vorbis, mp4, asf) = match field {

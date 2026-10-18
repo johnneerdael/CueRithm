@@ -1,0 +1,1061 @@
+use cuerithm_library::*;
+use cuerithm_smartlists::{
+    KeyMixingMode, Operator, PlaylistReference, RuleValue, SmartDefinition, SmartRule,
+};
+use rusqlite::{Connection, params};
+#[cfg(feature = "autotag")]
+#[path = "support/cleanup_fixture.rs"]
+#[allow(dead_code)]
+mod cleanup_fixture;
+const NOW: i64 = 1792324800000;
+
+#[test]
+fn upgraded_evaluator_does_not_reuse_legacy_memberships_without_a_code_identity() {
+    use sha2::{Digest, Sha256};
+    let f = fixture();
+    let rules = definition("bpm", Operator::NumberEquals, RuleValue::Number(128.));
+    create(
+        &f.lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(rules.clone()),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let prefs = f.lib.get_playlist_preferences().unwrap().preferences;
+    let old = format!(
+        "{:x}",
+        Sha256::digest(
+            serde_json::to_vec(&serde_json::json!({
+                "definition": rules, "zone":"UTC", "mixing_mode":prefs.key_mixing_mode
+            }))
+            .unwrap()
+        )
+    );
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute(
+        "UPDATE smart_playlist_status SET definition_hash=?1 WHERE playlist_id='smart'",
+        [old],
+    )
+    .unwrap();
+    let refreshed = f.lib.refresh_smart_lists(NOW + 1).unwrap();
+    assert_eq!(refreshed.evaluated, vec!["smart".to_owned()]);
+    assert!(refreshed.unchanged.is_empty());
+}
+
+#[test]
+fn background_refresh_tracks_library_edits_and_stops_without_preparing_audio() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberEquals,
+            RuleValue::Number(128.),
+        )),
+    );
+    let source = std::fs::read(f.dir.path().join("Alpha.flac")).unwrap();
+    let analysis = serde_json::to_value(f.lib.analysis(&f.ids[0]).unwrap()).unwrap();
+    let jobs = serde_json::to_value(f.lib.jobs().unwrap()).unwrap();
+    let preparation = f.lib.settings().unwrap().revision;
+    let cues = f.lib.cue_revision_count(&f.ids[0]).unwrap();
+    let service = SmartPlaylistService::start(f.lib.clone()).unwrap();
+    let wait = |expected: Vec<String>| {
+        let started = std::time::Instant::now();
+        loop {
+            let status = f.lib.playlist_evaluation_status("smart").unwrap();
+            if status.state == SmartState::Ready
+                && f.lib.playlist_members("smart").unwrap() == expected
+            {
+                break;
+            }
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(5),
+                "{status:?}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    };
+    wait(vec![f.ids[0].clone()]);
+    f.lib.set_archived(&f.ids[0], true).unwrap();
+    wait(vec![]);
+    assert!(service.last_error().unwrap().is_none());
+    service.shutdown();
+    f.lib.set_archived(&f.ids[0], false).unwrap();
+    assert_eq!(
+        f.lib.playlist_evaluation_status("smart").unwrap().state,
+        SmartState::Stale
+    );
+    let restarted = SmartPlaylistService::start(f.lib.clone()).unwrap();
+    wait(vec![f.ids[0].clone()]);
+    restarted.shutdown();
+    assert_eq!(
+        std::fs::read(f.dir.path().join("Alpha.flac")).unwrap(),
+        source
+    );
+    assert_eq!(
+        serde_json::to_value(f.lib.analysis(&f.ids[0]).unwrap()).unwrap(),
+        analysis
+    );
+    assert_eq!(serde_json::to_value(f.lib.jobs().unwrap()).unwrap(), jobs);
+    assert_eq!(f.lib.settings().unwrap().revision, preparation);
+    assert_eq!(f.lib.cue_revision_count(&f.ids[0]).unwrap(), cues);
+}
+
+#[test]
+fn dynamic_evaluation_cannot_publish_at_its_expiry_boundary() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "recent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "dateAdded",
+            Operator::DateRecent,
+            RuleValue::Relative {
+                count: 1,
+                unit: cuerithm_smartlists::DateUnit::Days,
+            },
+        )),
+    );
+    let prepared = f.lib.evaluate_smart_lists(NOW).unwrap();
+    assert!(
+        f.lib
+            .commit_smart_evaluation(prepared, NOW + 60_000)
+            .is_err()
+    );
+    assert!(f.lib.playlist_members("recent").unwrap().is_empty());
+}
+
+#[test]
+fn corrected_clock_can_refresh_fresh_snapshots_without_overwriting_newer_work() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "recent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "dateAdded",
+            Operator::DateRecent,
+            RuleValue::Relative {
+                count: 1,
+                unit: cuerithm_smartlists::DateUnit::Days,
+            },
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW + 2 * 86_400_000).unwrap();
+    assert!(f.lib.playlist_members("recent").unwrap().is_empty());
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members("recent").unwrap().len(), 2);
+}
+
+#[test]
+fn dependent_status_and_preview_inherit_relative_expiry() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "recent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "dateAdded",
+            Operator::DateRecent,
+            RuleValue::Relative {
+                count: 1,
+                unit: cuerithm_smartlists::DateUnit::Days,
+            },
+        )),
+    );
+    let rules = definition(
+        "playlist",
+        Operator::PlaylistInSpecificSmartlist,
+        RuleValue::Playlist(PlaylistReference {
+            id: "recent".into(),
+            kind: PlaylistKind::Smartlist,
+            path: vec![],
+        }),
+    );
+    create(
+        &f.lib,
+        "dependent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(rules.clone()),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        f.lib
+            .playlist_evaluation_status_at("dependent", NOW + 60_000)
+            .unwrap()
+            .state,
+        SmartState::Stale
+    );
+    let preview = f
+        .lib
+        .preview_smart_list(
+            rules,
+            SmartPreviewScope {
+                playlist_id: Some("dependent".into()),
+                ..Default::default()
+            },
+            NOW,
+        )
+        .unwrap();
+    assert_eq!(preview.expires, Some(NOW + 60_000));
+}
+
+#[test]
+fn standard_metadata_fields_resolve_common_date_track_and_album_artist_tags() {
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    let text: String = conn
+        .query_row(
+            "SELECT metadata_json FROM tracks WHERE id=?1",
+            [&f.ids[0]],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let mut info: serde_json::Value = serde_json::from_str(&text).unwrap();
+    info["tags"].as_object_mut().unwrap().remove("year");
+    info["tags"]["date"] = "2024-09-21".into();
+    info["tags"]["track"] = "7/12".into();
+    info["tags"]["album_artist"] = "Album artist alias".into();
+    conn.execute(
+        "UPDATE tracks SET metadata_json=?1 WHERE id=?2",
+        params![info.to_string(), f.ids[0]],
+    )
+    .unwrap();
+    for (field, op, value) in [
+        ("year", Operator::NumberEquals, RuleValue::Number(2024.)),
+        ("trackNumber", Operator::NumberEquals, RuleValue::Number(7.)),
+        (
+            "albumArtist",
+            Operator::StringEquals,
+            RuleValue::Text("Album artist alias".into()),
+        ),
+        (
+            "tag.track",
+            Operator::StringEquals,
+            RuleValue::Text("7/12".into()),
+        ),
+    ] {
+        let preview = f
+            .lib
+            .preview_smart_list(
+                definition(field, op, value),
+                SmartPreviewScope::default(),
+                NOW,
+            )
+            .unwrap();
+        assert_eq!(preview.track_ids, vec![f.ids[0].clone()], "{field}");
+    }
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn cleanup_publication_invalidates_the_snapshot_without_playlist_file_writes() {
+    let f = cleanup_fixture::Fixture::new(1);
+    create(
+        &f.lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "title",
+            Operator::StringContains,
+            RuleValue::Text("signal".into()),
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let captured = f.lib.evaluate_smart_lists(NOW + 1).unwrap();
+    let cleanup = f.service();
+    let preview = cleanup
+        .preview_cleanup(CleanupScope::AllReady, cleanup_fixture::config())
+        .unwrap();
+    let applied = cleanup
+        .apply_cleanup(
+            &preview.id,
+            &preview
+                .proposals
+                .iter()
+                .map(|p| p.id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+    assert_eq!(applied.applied, f.ids);
+    let bytes = std::fs::read(&f.paths[0]).unwrap();
+    let analysis = serde_json::to_value(f.lib.analysis(&f.ids[0]).unwrap()).unwrap();
+    let cues = f.lib.cue_revision_count(&f.ids[0]).unwrap();
+    assert!(f.lib.commit_smart_evaluation(captured, NOW + 2).is_err());
+    f.lib.refresh_smart_lists(NOW + 2).unwrap();
+    assert_eq!(f.lib.playlist_members("smart").unwrap(), f.ids);
+    assert_eq!(std::fs::read(&f.paths[0]).unwrap(), bytes);
+    assert_eq!(
+        serde_json::to_value(f.lib.analysis(&f.ids[0]).unwrap()).unwrap(),
+        analysis
+    );
+    assert_eq!(f.lib.cue_revision_count(&f.ids[0]).unwrap(), cues);
+}
+
+#[test]
+fn real_preparation_publication_invalidates_an_earlier_smart_snapshot() {
+    use std::{
+        path::Path,
+        time::{Duration, Instant},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("Prepared test.flac");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    std::fs::copy(
+        root.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+        &path,
+    )
+    .unwrap();
+    let lib = Library::open(&dir.path().join("app/db")).unwrap();
+    let mut settings = lib.settings().unwrap().settings;
+    settings.engine.lexicon_energy = true;
+    settings.stability_millis = 20;
+    let revision = lib.save_settings(settings).unwrap();
+    lib.enqueue(std::slice::from_ref(&path), revision).unwrap();
+    create(
+        &lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberGreaterThan,
+            RuleValue::Number(100.),
+        )),
+    );
+    let captured = lib.evaluate_smart_lists(NOW).unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    let rt =
+        cuerithm_media::MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
+    let worker = PreparationService::start_with_workers(lib.clone(), rt.clone(), 1).unwrap();
+    let start = Instant::now();
+    while lib.counts().unwrap().tracks != 1 {
+        let jobs = lib.jobs().unwrap();
+        assert!(!jobs.iter().any(|j| j.state == "attention"), "{jobs:?}");
+        assert!(start.elapsed() < Duration::from_secs(60), "{jobs:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    worker.shutdown();
+    let id = lib.jobs().unwrap()[0].track_id.clone();
+    let analysis = serde_json::to_value(lib.analysis(&id).unwrap()).unwrap();
+    let cues = lib.cue_revision_count(&id).unwrap();
+    assert!(lib.commit_smart_evaluation(captured, NOW + 1).is_err());
+    lib.refresh_smart_lists(NOW + 1).unwrap();
+    assert_eq!(lib.playlist_members("smart").unwrap(), vec![id.clone()]);
+    let audio = rt.decode(&path, &dir.path().join("decoded")).unwrap();
+    let cache = lib.data_dir().join("cache/waveforms");
+    cuerithm_library::waveform::cached_waveform(&audio, 16384, &cache).unwrap();
+    let wave_path = std::fs::read_dir(&cache)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let good = std::fs::read(&wave_path).unwrap();
+    let wave_rule = definition("waveform", Operator::BooleanTrue, RuleValue::None);
+    create(
+        &lib,
+        "wave",
+        None,
+        PlaylistKind::Smartlist,
+        Some(wave_rule.clone()),
+    );
+    lib.refresh_smart_lists(NOW + 2).unwrap();
+    assert_eq!(lib.playlist_members("wave").unwrap(), vec![id.clone()]);
+    let mut bad: serde_json::Value = serde_json::from_slice(&good).unwrap();
+    bad["bins"][0]["min"] = 2.into();
+    bad["bins"][0]["max"] = (-2).into();
+    std::fs::write(&wave_path, serde_json::to_vec(&bad).unwrap()).unwrap();
+    assert!(
+        lib.preview_smart_list(wave_rule, SmartPreviewScope::default(), NOW + 3)
+            .is_err()
+    );
+    let captured = lib.evaluate_smart_lists(NOW + 60_002).unwrap();
+    std::fs::write(&wave_path, good).unwrap();
+    assert!(lib.commit_smart_evaluation(captured, NOW + 60_003).is_err());
+    std::fs::remove_file(wave_path).unwrap();
+    lib.refresh_smart_lists(NOW + 60_003).unwrap();
+    assert!(lib.playlist_members("wave").unwrap().is_empty());
+    assert_eq!(std::fs::read(path).unwrap(), bytes);
+    assert_eq!(
+        serde_json::to_value(lib.analysis(&id).unwrap()).unwrap(),
+        analysis
+    );
+    assert_eq!(lib.cue_revision_count(&id).unwrap(), cues);
+    assert_eq!(lib.jobs().unwrap()[0].attempts, 1);
+}
+struct Fixture {
+    dir: tempfile::TempDir,
+    lib: Library,
+    ids: Vec<String>,
+}
+fn definition(field: &str, op: Operator, value: RuleValue) -> SmartDefinition {
+    SmartDefinition {
+        match_all: true,
+        rules: vec![SmartRule {
+            id: "rule".into(),
+            field: field.into(),
+            operator: op,
+            value,
+            or: false,
+        }],
+    }
+}
+fn create(
+    lib: &Library,
+    id: &str,
+    parent: Option<&str>,
+    kind: PlaylistKind,
+    rules: Option<SmartDefinition>,
+) {
+    lib.apply_playlist_edit(
+        PlaylistEdit::Create {
+            id: Some(id.into()),
+            parent_id: parent.map(str::to_owned),
+            kind,
+            name: id.into(),
+            definition: rules,
+        },
+        lib.playlist_state().unwrap().revision,
+    )
+    .unwrap();
+}
+fn fixture() -> Fixture {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("db")).unwrap();
+    let mut ids = vec![];
+    let preferences = lib.get_playlist_preferences().unwrap();
+    lib.save_playlist_preferences(
+        PlaylistPreferences {
+            time_zone: Some("UTC".into()),
+            key_mixing_mode: KeyMixingMode::Harmonic,
+        },
+        preferences.revision,
+    )
+    .unwrap();
+    for (index, title) in ["Alpha", "Beta", "Incoming"].iter().enumerate() {
+        let path = dir.path().join(format!("{title}.flac"));
+        std::fs::write(
+            &path,
+            b"synthetic input; no DSP is invoked in a playlist query",
+        )
+        .unwrap();
+        let job = lib
+            .enqueue(&[path], lib.settings().unwrap().revision)
+            .unwrap()[0]
+            .clone();
+        let id = lib
+            .jobs()
+            .unwrap()
+            .iter()
+            .find(|j| j.id == job)
+            .unwrap()
+            .track_id
+            .clone();
+        ids.push(id.clone());
+        if index == 2 {
+            continue;
+        }
+        let info = serde_json::json!({"codec":"flac","sample_rate":44100,"channels":2,"bits_per_sample":16,"tags":{"artist":"Earth, Wind & Fire","bpm":"333","initialkey":"1B","energy":"1","label":"flattened label","year":"2025"},"properties":{"audio.bit_rate":"320000","format.size":"10000"}});
+        let analysis = serde_json::json!({"analysis":{"engine":"fixture","engine_source_sha256":"fixture","config_sha256":"fixture","duration_seconds":240.0,"sample_rate":44100,"key":{"key":{"tonic":9,"mode":"minor"},"camelot":"8A","margin":0.1,"candidates":[]},"tempo":{"bpm":if index==0{128.0}else{130.0},"candidates":[],"beats_seconds":[0.0,0.46875],"downbeats_seconds":null,"method":"fixture"},"cues":null,"lexicon_cues":{"cues":[{"time_seconds":1.0,"name":"Intro","color":"#ff0000"}],"emergency_loop":{"time_seconds":200.0,"loop_beats":16}},"energy":{"level":if index==0{6}else{8},"method":"fixture"}},"complete":true,"verified_integrity":true,"source_sample_rate":44100,"elapsed_seconds":0.0});
+        let _: camelot_core::FileAnalysis = serde_json::from_value(analysis.clone()).unwrap();
+        let native = serde_json::json!({"fields":{"title":[title],"artist":["Earth, Wind & Fire"],"genre":["House"],"label":["Native label"]},"custom_tags":[]});
+        let conn = Connection::open(dir.path().join("db")).unwrap();
+        conn.execute("update tracks set state='ready',title=?1,sort_title=lower(?1),search_text=lower(?1),artist='Earth, Wind & Fire',genre='House',bpm=?2,energy=?3,musical_key='8A',duration=240,metadata_json=?4,native_metadata_json=?5,analysis_json=?6,created=?7,updated=?7 where id=?8",params![title,if index==0{128.0}else{130.0},if index==0{6}else{8},info.to_string(),native.to_string(),analysis.to_string(),NOW-3600000,id]).unwrap();
+        conn.execute(
+            "update jobs set state='completed',stage='completed' where id=?1",
+            [&job],
+        )
+        .unwrap();
+        conn.execute(
+            "insert into cue_revisions values(?1,?2,?3,?4,1)",
+            params![
+                format!("cue-{index}"),
+                id,
+                job,
+                analysis["analysis"]["lexicon_cues"].to_string()
+            ],
+        )
+        .unwrap();
+    }
+    let conn = Connection::open(dir.path().join("db")).unwrap();
+    conn.execute_batch("insert into custom_tag_categories values('category','Mood');insert into custom_tags values('tag','category','Dark');").unwrap();
+    conn.execute("insert into track_custom_tags values(?1,'tag')", [&ids[0]])
+        .unwrap();
+    Fixture { dir, lib, ids }
+}
+#[test]
+fn real_snapshot_uses_measured_analysis_native_fields_tags_and_current_cue_facts() {
+    let f = fixture();
+    let before = f.lib.analysis(&f.ids[0]).unwrap().unwrap();
+    let cue_count = f.lib.cue_revision_count(&f.ids[0]).unwrap();
+    for (id, rules) in [
+        (
+            "bpm",
+            definition("bpm", Operator::NumberEquals, RuleValue::Number(128.)),
+        ),
+        (
+            "native",
+            definition(
+                "label",
+                Operator::StringEquals,
+                RuleValue::Text("Native label".into()),
+            ),
+        ),
+        (
+            "tagged",
+            definition(
+                "tags",
+                Operator::TagsIncludes,
+                RuleValue::Ids(vec!["tag".into()]),
+            ),
+        ),
+        (
+            "loop",
+            definition(
+                "cuepoints",
+                Operator::CuepointHasActiveLoop,
+                RuleValue::None,
+            ),
+        ),
+    ] {
+        create(&f.lib, id, None, PlaylistKind::Smartlist, Some(rules));
+    }
+    let refresh = f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(refresh.errors.is_empty());
+    assert_eq!(
+        f.lib.playlist_members("bpm").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib.playlist_members("tagged").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    assert_eq!(f.lib.playlist_members("native").unwrap().len(), 2);
+    assert_eq!(f.lib.playlist_members("loop").unwrap().len(), 2);
+    let catalog = f.lib.smart_field_catalog().unwrap();
+    assert!(catalog.catalog.fields.contains_key("tag.bpm"));
+    assert!(!catalog.catalog.fields.contains_key("danceability"));
+    assert!(
+        catalog.catalog.fields["popularity"]
+            .unavailable_reason
+            .is_some()
+    );
+    assert_eq!(
+        serde_json::to_value(before).unwrap(),
+        serde_json::to_value(f.lib.analysis(&f.ids[0]).unwrap().unwrap()).unwrap()
+    );
+    assert_eq!(f.lib.cue_revision_count(&f.ids[0]).unwrap(), cue_count);
+}
+#[test]
+fn dependencies_publish_together_and_errors_retain_last_good_without_partial_dependents() {
+    let f = fixture();
+    create(&f.lib, "folder", None, PlaylistKind::Folder, None);
+    create(
+        &f.lib,
+        "z-source",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberEquals,
+            RuleValue::Number(128.),
+        )),
+    );
+    create(
+        &f.lib,
+        "a-dependent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "playlist",
+            Operator::PlaylistInSpecificPlaylistFolder,
+            RuleValue::Playlist(PlaylistReference {
+                id: "folder".into(),
+                kind: PlaylistKind::Folder,
+                path: vec![],
+            }),
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("a-dependent").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    let bad = definition(
+        "tags",
+        Operator::TagsIncludes,
+        RuleValue::Ids(vec!["deleted".into()]),
+    );
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::SetDefinition {
+                id: "z-source".into(),
+                definition: bad,
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    let result = f.lib.refresh_smart_lists(NOW + 1).unwrap();
+    assert_eq!(result.errors.len(), 2);
+    assert_eq!(
+        f.lib.playlist_members("z-source").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib.playlist_members("a-dependent").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib
+            .playlist_evaluation_status("a-dependent")
+            .unwrap()
+            .state,
+        SmartState::Error
+    );
+    assert_eq!(
+        f.lib.playlist_evaluation_status("folder").unwrap().state,
+        SmartState::Error
+    );
+}
+#[test]
+fn stale_evaluations_are_rejected_after_data_tree_or_preference_changes() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberEquals,
+            RuleValue::Number(128.),
+        )),
+    );
+    let prepared = f.lib.evaluate_smart_lists(NOW).unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute("update tracks set title='Edited' where id=?1", [&f.ids[0]])
+        .unwrap();
+    assert!(f.lib.commit_smart_evaluation(prepared, NOW).is_err());
+    assert!(f.lib.playlist_members("smart").unwrap().is_empty());
+    let prepared = f.lib.evaluate_smart_lists(NOW).unwrap();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::Rename {
+                id: "smart".into(),
+                name: "Changed".into(),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    assert!(f.lib.commit_smart_evaluation(prepared, NOW).is_err());
+    let prepared = f.lib.evaluate_smart_lists(NOW).unwrap();
+    let prefs = f.lib.get_playlist_preferences().unwrap();
+    f.lib
+        .save_playlist_preferences(
+            PlaylistPreferences {
+                time_zone: Some("Europe/Amsterdam".into()),
+                key_mixing_mode: KeyMixingMode::Fuzzy,
+            },
+            prefs.revision,
+        )
+        .unwrap();
+    assert!(f.lib.commit_smart_evaluation(prepared, NOW).is_err());
+}
+#[test]
+fn progress_and_result_publication_do_not_cause_an_endless_refresh_loop() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "smart",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberGreaterThan,
+            RuleValue::Number(100.),
+        )),
+    );
+    let prepared = f.lib.evaluate_smart_lists(NOW).unwrap();
+    let input = f.lib.smart_input_revision().unwrap();
+    let job = f.lib.claim_next().unwrap().unwrap();
+    f.lib.set_stage(&job.id, "decoding").unwrap();
+    f.lib.commit_smart_evaluation(prepared, NOW).unwrap();
+    assert_eq!(f.lib.smart_input_revision().unwrap(), input);
+    let again = f.lib.refresh_smart_lists(NOW + 1).unwrap();
+    assert!(again.evaluated.is_empty());
+    assert_eq!(again.unchanged, vec!["smart".to_owned()]);
+}
+#[test]
+fn independent_preferences_never_change_preparation_or_enqueue_work() {
+    let f = fixture();
+    let settings = f.lib.settings().unwrap().revision;
+    let jobs = f.lib.jobs().unwrap().len();
+    let input = f.lib.smart_input_revision().unwrap();
+    let prefs = f.lib.get_playlist_preferences().unwrap();
+    let saved = f
+        .lib
+        .save_playlist_preferences(
+            PlaylistPreferences {
+                time_zone: Some("Asia/Tokyo".into()),
+                key_mixing_mode: KeyMixingMode::Fuzzy,
+            },
+            prefs.revision,
+        )
+        .unwrap();
+    assert!(saved.revision > prefs.revision);
+    assert_eq!(f.lib.settings().unwrap().revision, settings);
+    assert_eq!(f.lib.jobs().unwrap().len(), jobs);
+    assert_eq!(f.lib.smart_input_revision().unwrap(), input);
+    assert!(
+        f.lib
+            .save_playlist_preferences(saved.preferences, prefs.revision)
+            .is_err()
+    );
+}
+#[test]
+fn playlist_query_cursors_selection_and_manual_order_stay_bound_to_scope() {
+    let f = fixture();
+    for id in ["a", "b"] {
+        create(&f.lib, id, None, PlaylistKind::Playlist, None);
+    }
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::AddMembers {
+                id: "a".into(),
+                track_ids: vec![f.ids[1].clone(), f.ids[0].clone()],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::AddMembers {
+                id: "b".into(),
+                track_ids: vec![f.ids[0].clone()],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    let query = TrackQuery {
+        playlist_id: Some("a".into()),
+        sort: TrackSort::PlaylistOrder,
+        limit: 1,
+        ..Default::default()
+    };
+    let page = f.lib.tracks(query.clone()).unwrap();
+    assert_eq!(page.rows[0].id, f.ids[1]);
+    assert_eq!(
+        f.lib.track_ids(query.clone()).unwrap(),
+        vec![f.ids[1].clone(), f.ids[0].clone()]
+    );
+    assert!(
+        f.lib
+            .tracks(TrackQuery {
+                playlist_id: Some("b".into()),
+                cursor: page.next_cursor,
+                ..query
+            })
+            .is_err()
+    );
+}
+#[test]
+fn preview_and_relative_cutoffs_are_clocked_pinned_and_never_return_partial_success() {
+    let f = fixture();
+    let rules = definition(
+        "dateAdded",
+        Operator::DateRecent,
+        RuleValue::Relative {
+            count: 1,
+            unit: cuerithm_smartlists::DateUnit::Days,
+        },
+    );
+    create(
+        &f.lib,
+        "recent",
+        None,
+        PlaylistKind::Smartlist,
+        Some(rules.clone()),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members("recent").unwrap().len(), 2);
+    let preview = f
+        .lib
+        .preview_smart_list(rules, SmartPreviewScope::default(), NOW)
+        .unwrap();
+    assert_eq!(preview.track_ids.len(), 2);
+    assert!(
+        f.lib
+            .preview_smart_list(
+                definition("cloudUpload", Operator::BooleanTrue, RuleValue::None),
+                SmartPreviewScope::default(),
+                NOW
+            )
+            .is_err()
+    );
+    let prepared = f.lib.evaluate_smart_lists(NOW + 60000).unwrap();
+    assert!(
+        f.lib
+            .commit_smart_evaluation(prepared, NOW + 120001)
+            .is_err()
+    );
+    f.lib.refresh_smart_lists(NOW + 2 * 86400000).unwrap();
+    assert!(f.lib.playlist_members("recent").unwrap().is_empty());
+}
+
+#[test]
+fn native_import_facts_are_explicit_and_latest_revision_wins_without_rewriting_analysis() {
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    let job = f
+        .lib
+        .jobs()
+        .unwrap()
+        .iter()
+        .find(|j| j.track_id == f.ids[0])
+        .unwrap()
+        .id
+        .clone();
+    let facts = NativePlaylistFacts {
+        version: 1,
+        source: "synthetic-native-import".into(),
+        cues: vec![cuerithm_smartlists::SmartCue {
+            label: Some("Marker".into()),
+            color: Some("#00ff00".into()),
+            kind: cuerithm_smartlists::CueKind::Loop,
+            active_loop: true,
+            memory: true,
+        }],
+        tempos: vec![128., 130.],
+    };
+    let current = serde_json::json!({"cues":[],"emergency_loop":null,"native_facts":facts});
+    conn.execute(
+        "insert into cue_revisions values('native',?1,?2,?3,2)",
+        params![f.ids[0], job, current.to_string()],
+    )
+    .unwrap();
+    create(
+        &f.lib,
+        "memory",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "cuepoints",
+            Operator::CuepointHasMemoryCue,
+            RuleValue::None,
+        )),
+    );
+    create(
+        &f.lib,
+        "variable",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "tempomarkers",
+            Operator::TempomarkerNotSameBpm,
+            RuleValue::None,
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("memory").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib.playlist_members("variable").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+}
+#[test]
+fn older_clocked_results_and_partial_sql_publications_are_rejected_atomically() {
+    let f = fixture();
+    for id in ["a", "b"] {
+        create(
+            &f.lib,
+            id,
+            None,
+            PlaylistKind::Smartlist,
+            Some(definition(
+                "bpm",
+                Operator::NumberGreaterThan,
+                RuleValue::Number(100.),
+            )),
+        );
+    }
+    let older = f.lib.evaluate_smart_lists(NOW).unwrap();
+    let newer = f.lib.evaluate_smart_lists(NOW + 1).unwrap();
+    f.lib.commit_smart_evaluation(newer, NOW + 1).unwrap();
+    assert!(f.lib.commit_smart_evaluation(older, NOW + 1).is_err());
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::SetDefinition {
+                id: "a".into(),
+                definition: definition("bpm", Operator::NumberEquals, RuleValue::Number(128.)),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::SetDefinition {
+                id: "b".into(),
+                definition: definition("bpm", Operator::NumberEquals, RuleValue::Number(128.)),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute_batch("CREATE TRIGGER injected_smart_failure BEFORE INSERT ON smart_playlist_members WHEN NEW.playlist_id='b' BEGIN SELECT RAISE(FAIL,'injected'); END;").unwrap();
+    let before = f.lib.revision().unwrap();
+    assert!(f.lib.refresh_smart_lists(NOW + 2).is_err());
+    assert_eq!(f.lib.playlist_members("a").unwrap().len(), 2);
+    assert_eq!(f.lib.playlist_members("b").unwrap().len(), 2);
+    assert_eq!(f.lib.revision().unwrap(), before);
+}
+#[test]
+fn missing_files_refresh_on_time_and_changed_observations_cannot_publish() {
+    let f = fixture();
+    create(
+        &f.lib,
+        "missing",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "CustomFileMissing",
+            Operator::BooleanTrue,
+            RuleValue::None,
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(f.lib.playlist_members("missing").unwrap().is_empty());
+    let prepared = f.lib.evaluate_smart_lists(NOW + 60000).unwrap();
+    std::fs::remove_file(f.dir.path().join("Alpha.flac")).unwrap();
+    assert!(
+        f.lib
+            .commit_smart_evaluation(prepared, NOW + 60000)
+            .is_err()
+    );
+    f.lib.refresh_smart_lists(NOW + 60001).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("missing").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+}
+#[test]
+fn archive_rules_and_folder_queries_preserve_archived_manual_intent() {
+    let f = fixture();
+    create(&f.lib, "folder", None, PlaylistKind::Folder, None);
+    create(
+        &f.lib,
+        "manual",
+        Some("folder"),
+        PlaylistKind::Playlist,
+        None,
+    );
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::AddMembers {
+                id: "manual".into(),
+                track_ids: vec![f.ids[0].clone()],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.set_archived(&f.ids[0], true).unwrap();
+    let q = TrackQuery {
+        playlist_id: Some("folder".into()),
+        ..Default::default()
+    };
+    assert_eq!(f.lib.tracks(q.clone()).unwrap().total, 0);
+    assert_eq!(
+        f.lib
+            .tracks(TrackQuery {
+                view: TrackView::Archive,
+                ..q.clone()
+            })
+            .unwrap()
+            .total,
+        1
+    );
+    create(
+        &f.lib,
+        "archived",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "archived",
+            Operator::BooleanTrue,
+            RuleValue::None,
+        )),
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.tracks(q).unwrap().total, 1);
+}
+#[test]
+fn previews_reject_cycles_and_selection_does_not_restrict_dependency_evaluation() {
+    let f = fixture();
+    create(&f.lib, "folder", None, PlaylistKind::Folder, None);
+    create(
+        &f.lib,
+        "child",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(definition(
+            "bpm",
+            Operator::NumberEquals,
+            RuleValue::Number(128.),
+        )),
+    );
+    let cycle = definition(
+        "playlist",
+        Operator::PlaylistInSpecificPlaylistFolder,
+        RuleValue::Playlist(PlaylistReference {
+            id: "folder".into(),
+            kind: PlaylistKind::Folder,
+            path: vec![],
+        }),
+    );
+    assert!(
+        f.lib
+            .preview_smart_list(
+                cycle,
+                SmartPreviewScope {
+                    playlist_id: Some("child".into()),
+                    ..Default::default()
+                },
+                NOW
+            )
+            .is_err()
+    );
+    let member = definition(
+        "playlist",
+        Operator::PlaylistInSpecificSmartlist,
+        RuleValue::Playlist(PlaylistReference {
+            id: "child".into(),
+            kind: PlaylistKind::Smartlist,
+            path: vec![],
+        }),
+    );
+    let preview = f
+        .lib
+        .preview_smart_list(
+            member,
+            SmartPreviewScope {
+                track_ids: Some(vec![f.ids[1].clone()]),
+                ..Default::default()
+            },
+            NOW,
+        )
+        .unwrap();
+    assert!(preview.track_ids.is_empty());
+}

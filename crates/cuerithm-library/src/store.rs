@@ -218,77 +218,10 @@ impl Library {
         Ok(())
     }
     pub fn tracks(&self, query: TrackQuery) -> Result<TrackPage> {
-        ensure!((1..=500).contains(&query.limit), "Invalid page size");
-        let conn = self.conn()?;
-        let revision: u64 =
-            conn.query_row("SELECT value FROM meta WHERE key='revision'", [], |r| {
-                r.get(0)
-            })?;
-        let query_id = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&json!([
-                query.view,
-                query.search,
-                query.sort,
-                query.descending,
-                query.limit
-            ]))?)
-        );
-        let offset: u64 = if let Some(cursor) = &query.cursor {
-            let parts: Vec<&str> = cursor.split(':').collect();
-            ensure!(
-                parts.len() == 3 && parts[0] == revision.to_string() && parts[2] == query_id,
-                "Stale cursor; refresh the library"
-            );
-            parts[1].parse()?
-        } else {
-            0
-        };
-        let condition = match query.view {
-            TrackView::Tracks => "state='ready' AND archived=0",
-            TrackView::Incoming => "state='incoming' AND archived=0",
-            TrackView::Archive => "archived=1",
-        };
-        let column = match query.sort {
-            TrackSort::Title => "sort_title",
-            TrackSort::Artist => "sort_artist",
-            TrackSort::Bpm => "bpm",
-            TrackSort::Energy => "energy",
-            TrackSort::Added => "created",
-        };
-        let direction = if query.descending { "DESC" } else { "ASC" };
-        let filter = format!("{condition} AND instr(search_text,?1)>0");
-        let needle = query.search.to_lowercase();
-        let total: u64 = conn.query_row(
-            &format!("SELECT COUNT(*) FROM tracks WHERE {filter}"),
-            [&needle],
-            |r| r.get(0),
-        )?;
-        let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
-        let rows = stmt
-            .query_map(params![needle, query.limit, offset], summary_row)?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        let next = offset + rows.len() as u64;
-        Ok(TrackPage {
-            rows,
-            total,
-            revision,
-            next_cursor: (next < total).then(|| format!("{revision}:{next}:{query_id}")),
-        })
+        crate::playlists::queries::tracks(self, query)
     }
     pub fn track_ids(&self, query: TrackQuery) -> Result<Vec<TrackId>> {
-        let condition = match query.view {
-            TrackView::Tracks => "state='ready' AND archived=0",
-            TrackView::Incoming => "state='incoming' AND archived=0",
-            TrackView::Archive => "archived=1",
-        };
-        let conn = self.conn()?;
-        let mut stmt = conn.prepare(&format!(
-            "SELECT id FROM tracks WHERE {condition} AND instr(search_text,?1)>0 ORDER BY id"
-        ))?;
-        Ok(stmt
-            .query_map([query.search.to_lowercase()], |r| r.get(0))?
-            .collect::<rusqlite::Result<_>>()?)
+        crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
         Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated FROM tracks WHERE id=?1",[id],summary_row)?)
@@ -372,7 +305,7 @@ impl Library {
     }
 }
 
-fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
+pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
     let path: Vec<u8> = r.get(1)?;
     let path = bytes_path(&path).map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(

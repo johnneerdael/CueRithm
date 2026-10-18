@@ -92,3 +92,98 @@ pub(crate) struct StoredNode {
 }
 pub(crate) type Tree = std::collections::BTreeMap<String, StoredNode>;
 pub(crate) type Delta = std::collections::BTreeMap<String, Option<StoredNode>>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlaylistPreferences {
+    pub time_zone: Option<String>,
+    pub key_mixing_mode: cuerithm_smartlists::KeyMixingMode,
+}
+impl Default for PlaylistPreferences {
+    fn default() -> Self {
+        Self {
+            time_zone: None,
+            key_mixing_mode: cuerithm_smartlists::KeyMixingMode::Harmonic,
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistPreferencesSnapshot {
+    pub revision: u64,
+    pub preferences: PlaylistPreferences,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SmartStamp {
+    pub input_revision: u64,
+    pub playlist_revision: u64,
+    pub preference_revision: u64,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SmartState {
+    Pending,
+    Ready,
+    Stale,
+    Error,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartListStatus {
+    pub playlist_id: String,
+    pub state: SmartState,
+    pub error: Option<String>,
+    pub evaluated_at: Option<i64>,
+    pub next_refresh: Option<i64>,
+    pub last_good_revision: Option<u64>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartListFailure {
+    pub playlist_id: String,
+    pub message: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartRefresh {
+    pub stamp: SmartStamp,
+    pub evaluated: Vec<String>,
+    pub unchanged: Vec<String>,
+    pub errors: Vec<SmartListFailure>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SmartPreviewScope {
+    pub track_ids: Option<Vec<String>>,
+    pub playlist_id: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartPreview {
+    pub id: String,
+    pub track_ids: Vec<String>,
+    pub stamp: SmartStamp,
+    pub created: i64,
+    pub expires: Option<i64>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartTagChoice {
+    pub id: String,
+    pub category_id: String,
+    pub name: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartCategoryChoice {
+    pub id: String,
+    pub name: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartFieldCatalog {
+    pub catalog: cuerithm_smartlists::FieldCatalog,
+    pub tags: Vec<SmartTagChoice>,
+    pub categories: Vec<SmartCategoryChoice>,
+    pub playlists: Vec<PlaylistNode>,
+    pub stamp: SmartStamp,
+}
+/// Explicit facts from a future native DJ import, never inferred from cue labels.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativePlaylistFacts {
+    pub version: u32,
+    pub source: String,
+    pub cues: Vec<cuerithm_smartlists::SmartCue>,
+    pub tempos: Vec<f64>,
+}

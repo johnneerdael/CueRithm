@@ -79,3 +79,46 @@ Chrono0.4.45 and chrono-tz0.10.4 supply checked dates and compiled IANA zones;
 [Chrono-TZ gap information](https://docs.rs/chrono-tz/0.10.4/chrono_tz/struct.GapInfo.html)
 are the pinned API references. The bounded ECMAScript adapter has its own
 1798-case corpus and execution-limit tests from the preceding task.
+
+## Library evaluation boundary
+
+The library adapter now captures one transactional tree, metadata/custom-tag,
+measured analysis, current cue-fact, preference and clock snapshot. It evaluates
+dependencies before dependents and atomically publishes complete memberships
+only while input revisions and the prior published-result baseline still match.
+This compare-and-swap also permits a fresh evaluation after a clock correction,
+while rejecting an older concurrently computed result. Failed lists retain
+their last-good membership and expose errors; dependents do not consume partial
+or failed results.
+
+Relative and file-dependent lists have a one-minute deadline propagated through
+smart-list and folder dependencies. The background service checks revisions,
+definition/build signatures and deadlines once per second; it evaluates only
+when needed and supports shutdown between tracks. Playlist preferences have
+their own revision and never change preparation settings or enqueue analysis.
+The build-time fingerprint covers evaluator, adapter, native tag and regex
+sources, keeping old cached memberships from surviving an implementation change.
+
+Previews pin file observations, time zone and expiry as well as database
+revisions. Changed files or an expired clock reject publication. Waveform rules
+inspect the actual cache and validate its complete playable clock, duration and
+finite, ordered bins. Failed reads are observed too, so a repaired cache cannot
+publish an obsolete error. Missing files and unavailable reads remain distinct.
+
+Logical BPM/key/energy use measured analysis; raw tags remain separately
+addressable metadata. Common date/year, fractional track-number and album-artist
+tag aliases are normalized without rewriting tags. Native contributor values
+retain their boundaries. Generated structural cues do not invent native memory
+or variable-tempo facts; explicitly imported facts can supply those fields.
+
+The current local five-crate regression run passes 299 tests with eight optional
+tests ignored. Twenty library integration cases include actual preparation and
+cleanup publication races, scoped paging/selection, previous-good retention,
+clock corrections, dependency expiry and unchanged audio/analysis/cue histories.
+Separate service/preview unit tests exercise controlled clocks and changed-file
+publication. Embedded-artwork detection is checked before and after staged writes
+across all 14 audio layouts; this exposed and corrected the upstream Ogg reader's
+inverted `has_art` result, documented in the vendored adaptation notes.
+
+These are library/predicate checks. Playlist tools, bulk generation, the native
+playlist editor and final cross-platform desktop delivery remain separate work.

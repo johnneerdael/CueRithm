@@ -143,6 +143,9 @@ pub(crate) fn validate(tree: &Tree, tracks: &BTreeSet<String>) -> Result<()> {
     validate_dependencies(tree)
 }
 fn validate_dependencies(tree: &Tree) -> Result<()> {
+    dependency_order(tree).map(|_| ())
+}
+pub(crate) fn dependency_order(tree: &Tree) -> Result<Vec<String>> {
     let mut edges: BTreeMap<String, BTreeSet<String>> = tree
         .values()
         .filter(|s| !s.node.deleted && s.node.kind == PlaylistKind::Smartlist)
@@ -187,9 +190,9 @@ fn validate_dependencies(tree: &Tree) -> Result<()> {
         .filter(|(_, n)| **n == 0)
         .map(|(id, _)| id.clone())
         .collect();
-    let mut visited = 0;
+    let mut order = vec![];
     while let Some(id) = queue.pop_front() {
-        visited += 1;
+        order.push(id.clone());
         if let Some(dependents) = reverse.get(&id) {
             for d in dependents {
                 let count = counts.get_mut(d).unwrap();
@@ -200,8 +203,11 @@ fn validate_dependencies(tree: &Tree) -> Result<()> {
             }
         }
     }
-    ensure!(visited == edges.len(), "Smart playlist dependency cycle");
-    Ok(())
+    ensure!(
+        order.len() == edges.len(),
+        "Smart playlist dependency cycle"
+    );
+    Ok(order)
 }
 pub(crate) fn resolve(tree: &Tree, reference: &PlaylistReference) -> Result<String> {
     if !reference.id.is_empty() {

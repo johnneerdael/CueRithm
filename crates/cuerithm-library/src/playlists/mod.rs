@@ -1,13 +1,25 @@
 mod edits;
+mod evaluate;
 mod history;
 mod model;
+mod preferences;
+pub(crate) mod queries;
+mod service;
+mod snapshot;
 mod tree;
 use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
 use cuerithm_smartlists::PlaylistReference;
+pub use evaluate::SmartEvaluation;
 use model::{Delta, StoredNode, Tree};
-pub use model::{PlaylistChange, PlaylistEdit, PlaylistKind, PlaylistNode, PlaylistState};
+pub use model::{
+    NativePlaylistFacts, PlaylistChange, PlaylistEdit, PlaylistKind, PlaylistNode,
+    PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistState, SmartCategoryChoice,
+    SmartFieldCatalog, SmartListFailure, SmartListStatus, SmartPreview, SmartPreviewScope,
+    SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
+};
 use rusqlite::{Connection, TransactionBehavior, params};
+pub use service::SmartPlaylistService;
 use std::collections::BTreeSet;
 
 pub(crate) fn load(conn: &Connection) -> Result<Tree> {
