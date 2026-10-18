@@ -8,10 +8,14 @@ on:
     types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft]
   pull_request_review:
     types: [submitted, edited, dismissed]
-  pull_request_review_thread:
-    types: [resolved, unresolved]
   issue_comment:
     types: [created, edited]
+  # Resolving a thread fires no workflow event; recheck with `gh workflow run pr-gate.yml -f pr_number=N`.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to recheck'
+        required: true
 
 permissions:
   contents: read
@@ -19,7 +23,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: pr-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: pr-gate-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
@@ -37,4 +41,4 @@ jobs:
       - name: Evaluate review and PR body
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/pr_gate.py --pr '${{ github.event.pull_request.number || github.event.issue.number }}'
+        run: python3 .github/scripts/pr_gate.py --pr '${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number }}'
