@@ -26,6 +26,29 @@ fn main() {
     }
     let mut config = cmake::Config::new(&source);
     config.profile("Release");
+    let msvc = std::env::var("TARGET").unwrap().contains("msvc");
+    let static_crt = std::env::var("CARGO_CFG_TARGET_FEATURE")
+        .unwrap_or_default()
+        .split(',')
+        .any(|feature| feature == "crt-static");
+    if msvc {
+        // CMP0091 selects the CRT through a target property; TagLib's legacy
+        // flag replacement alone does not affect modern CMake generators.
+        config
+            .static_crt(static_crt)
+            .define(
+                "CMAKE_MSVC_RUNTIME_LIBRARY",
+                if static_crt {
+                    "MultiThreaded"
+                } else {
+                    "MultiThreadedDLL"
+                },
+            )
+            .define(
+                "ENABLE_STATIC_RUNTIME",
+                if static_crt { "ON" } else { "OFF" },
+            );
+    }
     for flag in [
         "BUILD_SHARED_LIBS",
         "BUILD_TESTING",
@@ -47,7 +70,6 @@ fn main() {
     config
         .define("WITH_ASF", "ON")
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")
-        .define("ENABLE_STATIC_RUNTIME", "ON")
         .define("CMAKE_INSTALL_LIBDIR", "lib")
         .define("CMAKE_DISABLE_FIND_PACKAGE_utf8cpp", "ON")
         .define("utf8cpp_INCLUDE_DIR", source.join("3rdparty/utfcpp/source"));
@@ -60,8 +82,8 @@ fn main() {
         .define("TAGLIB_STATIC", None)
         .include(dest.join("include/taglib"))
         .file(root.join("native/asf.cpp"));
-    if std::env::var("TARGET").unwrap().contains("msvc") {
-        wrapper.static_crt(true);
+    if msvc {
+        wrapper.static_crt(static_crt);
     }
     wrapper.compile("cuerithm_asf");
     println!(
