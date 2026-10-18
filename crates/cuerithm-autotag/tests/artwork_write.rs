@@ -1,6 +1,6 @@
 use cuerithm_autotag::{
     AnalysisTags, AutotagConfig, CatalogMatch, CatalogTrack, MatchStatus, SupportedTag, TagInput,
-    TagMatchOutcome, TagWritePlan,
+    TagMatchOutcome, TagWritePlan, has_embedded_artwork,
 };
 use cuerithm_media::MediaRuntime;
 use std::path::Path;
@@ -34,6 +34,11 @@ fn embeds_validated_cover_art_across_all_common_formats_without_touching_audio()
     for case in cases.as_array().unwrap() {
         let path = d.path().join(case["file"].as_str().unwrap());
         let before = rt.decode(&path, d.path()).unwrap();
+        assert!(
+            !has_embedded_artwork(&path, &before.info).unwrap(),
+            "{}",
+            path.display()
+        );
         let input = TagInput {
             path: path.clone(),
             source_sha256: before.source_sha256.clone(),
@@ -53,6 +58,11 @@ fn embeds_validated_cover_art_across_all_common_formats_without_touching_audio()
             .unwrap_or_else(|| panic!("Missing {} artwork", path.display()));
         assert_eq!(art.bytes, image, "{}", path.display());
         assert_eq!(art.mime, "image/png");
+        assert!(
+            has_embedded_artwork(&staged.path, &rt.probe(&staged.path).unwrap()).unwrap(),
+            "{}",
+            path.display()
+        );
         assert!(rt.artwork(&path).unwrap().is_none());
     }
 }

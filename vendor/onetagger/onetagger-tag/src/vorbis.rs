@@ -196,7 +196,7 @@ impl TagImpl for VorbisTag {
     }
 
     fn has_art(&self) -> bool {
-        self.tag.pictures().is_empty()
+        !self.tag.pictures().is_empty()
     }
 
     fn get_art(&self) -> Vec<Picture> {

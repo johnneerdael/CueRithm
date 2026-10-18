@@ -4,7 +4,7 @@ mod config;
 mod metadata;
 mod write;
 pub use cuerithm_cleanup::{FieldChange, Metadata, MetadataField};
-pub use metadata::read_metadata;
+pub use metadata::{has_embedded_artwork, read_metadata, read_star_rating};
 pub use write::{AnalysisTags, StagedTagWrite, TagWritePlan};
 mod image;
 mod sidecar;
