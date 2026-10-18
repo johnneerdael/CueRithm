@@ -174,3 +174,29 @@ under Rust orchestration and generalizes timing/energy PCM inputs. It preserves
 the existing validated FLAC path as a regression baseline and does not assume
 that converting a container proves equivalent cues, key or energy results.
 Users should not need a system FFmpeg installation.
+
+
+## Follow-up preparation, 2026-10-18
+
+The user explicitly approved GPLv3 OneTagger reuse for the desktop, preserving
+separate MIT engine notices. The pinned local source still matches the commit
+above. Source inspection confirms direct `AutotaggerSource` matching/extension
+traits and separate `TaggerConfig`/format code, so importing its full batch/UI
+runtime is unnecessary. The upstream default is 16 tagging threads; provider
+traffic limits must stay separate from the Cuerithm analysis allocation policy.
+
+The native tag-format enum directly lists FLAC, AIFF, MP3, MP4, WAV and OGG
+(with Opus treated as Ogg); ADTS AAC/WMA require explicit adaptation. They must
+not silently lose the new application's common-format support.
+
+An ordinary curl preflight of the two public search URLs returned HTTP403 for
+both providers. This is seen for that client only; native provider operation is
+not yet validated. Live native-client checks, bounded errors and deterministic
+HTTP fixtures belong to the implementation acceptance, not a source-only claim.
+Public page captures remain in ignored local research storage.
+
+Leanrea reuse of the prior extraction confirmed the eleven Smart Fix classes
+and the separate scan/preview/confirm/undo boundaries. Casing transforms route
+through the common transformer catalog, with protected words and artist/title
+special cases. This remains static behavior evidence until paired fixtures run.
+See the next [automatic tagging plan](../superpowers/plans/2026-10-18-incoming-autotag.md).
