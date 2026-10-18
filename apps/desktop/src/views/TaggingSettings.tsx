@@ -57,7 +57,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
       {bool("parseFilename","Read artist and title from filename")}
       {text("filenameTemplate","Filename template","For example: %artists% - %title%. Other placeholders match unused parts.")}
       {text("titleRegex","Title cleanup pattern","A regular expression removed from the title before matching.")}
-      {bool("skipTagged","Skip previously tagged catalog lookups","Recognizes OneTagger and Cuerithm markers. Full audio analysis and replacement cues still run.")}
+      {bool("skipTagged","Skip previously tagged catalog lookups","Recognizes OneTagger and CueRithm markers. Full audio analysis and replacement cues still run.")}
       {bool("albumTagging","Album matching","Use an identified Beatport release for the remaining incoming files in the same folder.")}
       {number("albumTaggingRatio","Album matching ratio",0,1,0.05,"Fraction of incoming files that must match one release before reusing its track list.")}
     </details>
@@ -66,7 +66,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
       <div className="tag-field-grid" role="group" aria-label="Metadata field policies"><div className="tag-field-head"><span>Field</span><span>Write</span><span>Overwrite</span></div>{fields.map(field=>{
         const label=labelFor(field);
         const supported=catalog.providers.filter(p=>options.platforms.includes(p.id)&&p.supportedTags.includes(field)).map(p=>p.name);
-        return <div className="tag-field-row" key={field}><span>{label}<small>{field==="metaTags"?"Cuerithm":supported.join(" · ")||"Not supplied by the selected providers"}</small></span><input type="checkbox" aria-label={"Write "+label} checked={options.tags.includes(field)} onChange={e=>setList("tags",field,e.target.checked)}/><input type="checkbox" aria-label={"Overwrite "+label} checked={options.overwrite||options.overwriteTags.includes(field)} disabled={options.overwrite||!options.tags.includes(field)} onChange={e=>setList("overwriteTags",field,e.target.checked)}/></div>;
+        return <div className="tag-field-row" key={field}><span>{label}<small>{field==="metaTags"?"CueRithm":supported.join(" · ")||"Not supplied by the selected providers"}</small></span><input type="checkbox" aria-label={"Write "+label} checked={options.tags.includes(field)} onChange={e=>setList("tags",field,e.target.checked)}/><input type="checkbox" aria-label={"Overwrite "+label} checked={options.overwrite||options.overwriteTags.includes(field)} disabled={options.overwrite||!options.tags.includes(field)} onChange={e=>setList("overwriteTags",field,e.target.checked)}/></div>;
       })}</div>
       <Row label="Key and BPM written to files" note="Applies to selected Key/BPM fields. The library always keeps its measured analysis."><select aria-label="Key and BPM written to files" value={current.analysis_tag_source} onChange={e=>update({analysis_tag_source:e.target.value as AutotagConfig["analysis_tag_source"]})}><option value="measured">Cuerithm analysis</option><option value="catalog">Catalog metadata</option></select></Row>
       {bool("camelot","Write Camelot keys")}
@@ -99,6 +99,6 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
       if(spec.type==="option")return <Row key={option.id} label={option.label}><select aria-label={option.label} value={typeof value==="string"?value:spec.value} onChange={e=>set(e.target.value)}>{spec.values.map(v=><option key={v}>{v}</option>)}</select></Row>;
       return null;
     })}</details>)}
-    <p className="setting-note tagging-license">Tagging uses OneTagger source under GPLv3. Cuerithm desktop is GPLv3; the separate analysis engine remains MIT.</p>
+    <p className="setting-note tagging-license">Tagging uses OneTagger source under GPLv3. CueRithm desktop is GPLv3; the separate analysis engine remains MIT.</p>
   </section>;
 }

@@ -61,7 +61,7 @@ jobs:
         run: pnpm --dir apps/desktop tauri build --bundles app
       - name: Verify macOS bundled resources
         if: runner.os == 'macOS'
-        run: target/release/bundle/macos/Cuerithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
+        run: target/release/bundle/macos/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
       - name: Package Linux app
         if: runner.os == 'Linux'
         run: pnpm --dir apps/desktop tauri build --bundles deb
@@ -85,7 +85,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Package Mac artifact without losing executable modes
         if: runner.os == 'macOS'
-        run: tar -czf target/release/bundle/Cuerithm-${{ runner.arch }}.app.tar.gz -C target/release/bundle/macos Cuerithm.app
+        run: tar -czf target/release/bundle/Cuerithm-${{ runner.arch }}.app.tar.gz -C target/release/bundle/macos CueRithm.app
       - name: Include matching application source
         shell: bash
         run: git archive --format=tar.gz -o target/release/bundle/cuerithm-source.tar.gz HEAD

@@ -1,6 +1,7 @@
 import {useMemo,useState} from "react";
-import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lucide-react";
+import {Play,Pause,SkipBack,Volume2,LoaderCircle,Headphones} from "lucide-react";
 import Artwork from "./Artwork";
+import BrandMark from "./BrandMark";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
 import {time,cueColor} from "../display";
 
@@ -43,7 +44,7 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
   const beats=detail?.analysis?.analysis.tempo?.beats_seconds??[];
   return <section className="player" aria-label="Music player">
     <div className="player-header">
-      <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<AudioLines size={27}/>}/>:<AudioLines size={27}/>}</div>
+      <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/>:<BrandMark/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
       {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">

@@ -1,8 +1,9 @@
 import {useRef,useState,useLayoutEffect,useEffect,useMemo} from "react";
 import {createPortal} from "react-dom";
-import {Play,Music2,ChevronUp,ChevronDown,MoreHorizontal,RotateCcw,Archive,Columns3,ArrowUp,ArrowDown,X,LoaderCircle,Check} from "lucide-react";
+import {Play,ChevronUp,ChevronDown,MoreHorizontal,RotateCcw,Archive,Columns3,ArrowUp,ArrowDown,X,LoaderCircle,Check} from "lucide-react";
 import Artwork from "./Artwork";
 import Glyph from "./Glyph";
+import BrandMark from "./BrandMark";
 import RowPreview,{type PreviewLoader} from "./RowPreview";
 import type {Track,Sort,Job,View,Bridge} from "../types";
 import {time} from "../display";
@@ -61,8 +62,8 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
   };
   const cell=(row:Track,job:Job|undefined,column:Column)=>{
     switch(column){
-      case "title":return <div className="title-cell">{!visibleColumns.includes("artwork")?<span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<Music2 size={15}/>}/></span>:null}<span className={"title-content"+(view==="incoming"&&job?" has-status":"")}><span className="title-line"><strong title={row.title}>{row.title}</strong><small className="file-extension">{row.display_path.split(".").pop()?.toUpperCase()}</small></span>{view==="incoming"&&job?<small className={job.state==="attention"?"attention":"processing"}>{job.state==="attention"?job.error:stages[job.stage]??job.stage}</small>:<small className="artist-line" title={row.artist}>{row.artist||"—"}</small>}</span></div>;
-      case "artwork":return <span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<Music2 size={17}/>}/></span>;
+      case "title":return <div className="title-cell">{!visibleColumns.includes("artwork")?<span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/></span>:null}<span className={"title-content"+(view==="incoming"&&job?" has-status":"")}><span className="title-line"><strong title={row.title}>{row.title}</strong><small className="file-extension">{row.display_path.split(".").pop()?.toUpperCase()}</small></span>{view==="incoming"&&job?<small className={job.state==="attention"?"attention":"processing"}>{job.state==="attention"?job.error:stages[job.stage]??job.stage}</small>:<small className="artist-line" title={row.artist}>{row.artist||"—"}</small>}</span></div>;
+      case "artwork":return <span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/></span>;
       case "artist":return <span className="ellipsis muted">{row.artist||"—"}</span>;
       case "genre":return <span className="ellipsis genre">{row.genre||"—"}</span>;
       case "bpm":return <span className="number">{row.bpm?.toFixed(2)??"—"}</span>;
