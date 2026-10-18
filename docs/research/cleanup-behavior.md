@@ -120,5 +120,19 @@ Seven focused generated-fixture checks cover persisted rules/restart,
 cleanup-only and provider-before-cleanup preparation, categorized tag retention,
 protected/no-op metadata, concurrent custom-tag changes with cached-analysis
 retry, superseded settings, native role counts and unavailable legacy files.
-The complete workspace release suite passes 595 tests with six explicitly
+The complete workspace release suite passes 597 tests with six explicitly
 optional tests ignored. Native cleanup UI acceptance remains pending.
+
+
+## Review regression coverage
+
+Discovery hashes and enqueue decisions now share the publication boundary. A
+deterministic regression reproduces an old-hash watcher moving a manually cleaned
+track back into Incoming, then verifies that serialization preserves its ready
+job and cue history. No indefinite old-hash suppression is used.
+
+Default debug tests cover short/empty/nonmatching titles in Mix Parentheses and
+alternating edge punctuation in Garbage cleanup. Edge cleanup converges in one
+application while preserving attached plus/ampersand text. CI runs the pure rule
+crate with debug overflow checks in addition to the full release suites. Durable
+history exposes saved per-track failures/conflicts after reopening the view.

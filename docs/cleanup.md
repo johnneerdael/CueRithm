@@ -44,7 +44,9 @@ tracks can still complete. Conflicted tracks need a fresh scan.
 
 ## Undo and recovery
 
-Undo history survives restart. Undo restores the original file bytes and library
+Undo history survives restart, including outcome counts and expandable
+per-track conflict/failure messages. Track names are loaded when a report is
+opened; stable IDs remain visible if the track is unavailable. Undo restores the original file bytes and library
 metadata if the current post-apply identity still matches. Newer edits are
 preserved and reported as conflicts. Fully undone batches no longer offer Undo.
 Recovery runs before preparation workers start and preserves later user bytes.

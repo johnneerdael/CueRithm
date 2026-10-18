@@ -42,46 +42,42 @@ fn empty_brackets(value: &str) -> String {
     out.into_iter().collect()
 }
 pub(super) fn edges(value: &str) -> String {
-    let mut text = value
-        .trim_start_matches(|c: char| c.is_whitespace() || "-_|])?.}\\/".contains(c))
-        .trim_end_matches(|c: char| c.is_whitespace() || "-_|[(\\/".contains(c))
-        .to_owned();
-    let leading = text.chars().take_while(|c| matches!(c, '&' | '+')).count();
-    if leading > 0
-        && text
+    let mut text = value;
+    loop {
+        text = text.trim_start_matches(|c: char| c.is_whitespace() || "-_|])?.}\\/".contains(c));
+        let leading: usize = text
             .chars()
-            .nth(leading)
-            .is_none_or(|c| !c.is_alphanumeric() && !matches!(c, '&' | '+'))
-    {
-        text = text
-            .chars()
-            .skip(leading)
-            .collect::<String>()
-            .trim_start()
-            .to_owned();
+            .take_while(|c| matches!(c, '&' | '+'))
+            .map(char::len_utf8)
+            .sum();
+        let rest = &text[leading..];
+        if leading == 0 || rest.chars().next().is_some_and(|c| c.is_alphanumeric()) {
+            break;
+        }
+        text = rest;
     }
-    let trailing = text
-        .chars()
-        .rev()
-        .take_while(|c| matches!(c, '&' | '+'))
-        .count();
-    if trailing > 0
-        && text
+    loop {
+        text = text.trim_end_matches(|c: char| c.is_whitespace() || "-_|[(\\/".contains(c));
+        let trailing: usize = text
             .chars()
             .rev()
-            .nth(trailing)
-            .is_none_or(|c| !c.is_alphanumeric() && !matches!(c, '&' | '+'))
-    {
-        let count = text.chars().count() - trailing;
-        text = text
-            .chars()
-            .take(count)
-            .collect::<String>()
-            .trim_end()
-            .to_owned();
+            .take_while(|c| matches!(c, '&' | '+'))
+            .map(char::len_utf8)
+            .sum();
+        let rest = &text[..text.len() - trailing];
+        if trailing == 0
+            || rest
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric())
+        {
+            break;
+        }
+        text = rest;
     }
-    text
+    text.to_owned()
 }
+
 pub(super) fn garbage(value: &str) -> String {
     let text = edges(&empty_brackets(value));
     let mut out = String::with_capacity(text.len());

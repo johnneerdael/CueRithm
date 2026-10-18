@@ -106,3 +106,12 @@ it("reports empty scans and recoverable errors without publishing a failed previ
  fireEvent.click(screen.getByRole("button",{name:"Scan tracks"}));await screen.findByRole("alert");
  expect(screen.getByRole("alert")).toHaveTextContent("Source unavailable");expect(screen.queryByRole("button",{name:/^Apply/})).not.toBeInTheDocument();
 });
+
+it("retains identifiable conflict and failure details in history after reopening Cleanup",async()=>{
+ const bridge=fakeBridge([track("a")]);
+ bridge.cleanupHistory=vi.fn(async()=>[{can_undo:true,id:"old-batch",kind:"apply",state:"interrupted",created:Date.now(),result:{id:"old-batch",applied:["a"],unchanged:[],conflicted:[{track_id:"newer-edit",message:"Newer metadata preserved"}],failed:[{track_id:"offline-file",message:"Source disk unavailable"}]}}]);
+ await openCleanup(bridge);
+ fireEvent.click(screen.getByText("1 conflict · 1 failed"));
+ expect(screen.getByText("newer-edit")).toBeInTheDocument();expect(screen.getByText("Newer metadata preserved")).toBeInTheDocument();
+ expect(screen.getByText("offline-file")).toBeInTheDocument();expect(screen.getByText("Source disk unavailable")).toBeInTheDocument();
+});

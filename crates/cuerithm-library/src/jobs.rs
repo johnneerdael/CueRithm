@@ -53,12 +53,30 @@ impl Library {
         revision: SettingsRevision,
         discovered: bool,
     ) -> Result<Vec<JobId>> {
+        self.enqueue_sources_with(paths, revision, discovered, file_sha256)
+    }
+    pub(crate) fn enqueue_sources_with(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+        discovered: bool,
+        hash_source: impl Fn(&std::path::Path) -> Result<String>,
+    ) -> Result<Vec<JobId>> {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();
         for path in paths {
             let path = path.canonicalize().context("Incoming file is missing")?;
             ensure!(path.is_file(), "Only audio files can be queued");
-            let hash = file_sha256(&path)?;
+            // Keep the hash and its enqueue decision on the same side of any
+            // metadata replacement/commit. An old hash must not requeue a file
+            // after a successful manual cleanup or catalog publication.
+            #[cfg(feature = "autotag")]
+            let _gate = self
+                .inner
+                .tag_gate
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+            let hash = hash_source(&path)?;
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             if discovered {

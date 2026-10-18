@@ -2,6 +2,63 @@ use super::*;
 #[path = "../../tests/support/cleanup_fixture.rs"]
 mod fixture;
 use fixture::{Fixture, config};
+
+#[test]
+fn discovered_hash_cannot_outlive_a_manual_cleanup_publication() {
+    use std::sync::{TryLockError, mpsc};
+    let f = Fixture::new(1);
+    let service = f.service();
+    let preview = service
+        .preview_cleanup(CleanupScope::AllReady, config())
+        .unwrap();
+    let before_job = f.lib.jobs().unwrap()[0].id.clone();
+    let revision = f.lib.settings().unwrap().revision;
+    let lib = f.lib.clone();
+    let path = f.paths[0].clone();
+    let (hashed, saw_hash) = mpsc::channel();
+    let (resume, resumed) = mpsc::channel();
+    let discovery = std::thread::spawn(move || {
+        lib.enqueue_sources_with(&[path], revision, true, |path| {
+            let value = file_sha256(path)?;
+            hashed.send(()).unwrap();
+            resumed.recv().unwrap();
+            Ok(value)
+        })
+    });
+    saw_hash
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    let serialized = match f.lib.inner.tag_gate.try_lock() {
+        Ok(guard) => {
+            drop(guard);
+            false
+        }
+        Err(TryLockError::WouldBlock) => true,
+        Err(error) => panic!("{error}"),
+    };
+    let proposals: Vec<_> = preview.proposals.iter().map(|p| p.id.clone()).collect();
+    let applied = if serialized {
+        // Correct ordering prevents publication until discovery finishes.
+        let publisher = std::thread::spawn(move || service.apply_cleanup(&preview.id, &proposals));
+        resume.send(()).unwrap();
+        publisher.join().unwrap().unwrap()
+    } else {
+        // Reproduce the reported interleaving when hashing is outside the gate.
+        let result = service.apply_cleanup(&preview.id, &proposals).unwrap();
+        resume.send(()).unwrap();
+        result
+    };
+    discovery.join().unwrap().unwrap();
+    assert_eq!(applied.applied, f.ids);
+    assert_eq!(f.lib.track(&f.ids[0]).unwrap().state, "ready");
+    assert_eq!(f.lib.jobs().unwrap().len(), 1);
+    assert_eq!(f.lib.jobs().unwrap()[0].id, before_job);
+    assert_eq!(f.lib.cue_revision_count(&f.ids[0]).unwrap(), 1);
+    assert!(
+        serialized,
+        "Discovery hashing must share the publication boundary"
+    );
+}
 fn prepare(f: &Fixture) -> (CleanupService, String, String) {
     let service = f.service();
     let preview = service

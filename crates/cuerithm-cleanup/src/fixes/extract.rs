@@ -134,11 +134,8 @@ pub(super) fn mix_parentheses(title: &str) -> Result<String> {
         let lower = title.to_lowercase();
         ["original mix", "extended mix", "club mix", "radio edit"]
             .iter()
-            .filter_map(|suffix| {
-                lower
-                    .ends_with(suffix)
-                    .then_some(title.len() - suffix.len())
-            })
+            .filter(|suffix| lower.ends_with(**suffix))
+            .map(|suffix| title.len() - suffix.len())
             .min()
     };
     let Some(index) = suffix else {

@@ -4,6 +4,21 @@ import type {Bridge,Snapshot,CleanupConfig,CleanupPreview,CleanupBatchResult,Cle
 import {errorMessage} from "../api";
 import {emptyCleanup,SmartFixEditor,CanonicalEditor} from "./CleanupSettings";
 
+function HistoryDetails({history,bridge}:{history:CleanupHistory;bridge:Bridge}){
+ const [expanded,setExpanded]=useState(false),[titles,setTitles]=useState<Record<string,string>>({});
+ const problems=[...history.result.conflicted.map(f=>({...f,kind:"Conflict"})),...history.result.failed.map(f=>({...f,kind:"Failed"}))];
+ const ids=[...new Set(problems.map(f=>f.track_id))],signature=JSON.stringify(ids);
+ useEffect(()=>{
+  if(!expanded)return;let canceled=false,next=0;
+  // Fetch display names only for an opened report, with bounded concurrency.
+  const read=async()=>{while(!canceled&&next<ids.length){const id=ids[next++];try{const detail=await bridge.getTrack(id);if(!canceled)setTitles(old=>({...old,[id]:detail.track.title}));}catch{/* Stable IDs remain available if a track cannot be loaded. */}}};
+  void Promise.all(Array.from({length:Math.min(4,ids.length)},read));
+  return()=>{canceled=true;};
+ },[bridge,expanded,signature]);
+ if(!problems.length)return null;
+ return <div className="cleanup-history-details"><button className="back-link" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{history.result.conflicted.length} {history.result.conflicted.length===1?"conflict":"conflicts"} · {history.result.failed.length} failed</button>{expanded?<ul>{problems.map((f,i)=><li key={f.track_id+":"+i}><strong>{titles[f.track_id]??f.track_id}</strong>{titles[f.track_id]?<small>{f.track_id}</small>:null}<span>{f.kind}: <span>{f.message}</span></span></li>)}</ul>:null}</div>;
+}
+
 export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:Bridge;snapshot:Snapshot;selectedIds:string[];onChanged:()=>void}){
  const [config,setConfig]=useState<CleanupConfig>(()=>snapshot.settings.cleanup??emptyCleanup());
  const [baseline,setBaseline]=useState(()=>JSON.stringify(snapshot.settings.cleanup??emptyCleanup()));
@@ -71,7 +86,7 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
    </section>:null}
    {result?<div className="cleanup-result"><h2>Cleanup result</h2><p>{result.applied.length} applied · {result.unchanged.length} unchanged · {result.conflicted.length} conflicts · {result.failed.length} failed</p>{result.conflicted.length?<p>Changed tracks were preserved. Scan again for a fresh preview.</p>:null}</div>:null}
    {failures.length?<ul className="cleanup-failures">{failures.map((f,i)=><li key={f.track_id+":"+i}>{f.message}</li>)}</ul>:null}
-   <section className="cleanup-history"><h2>Undo history</h2>{!history.length?<p className="cleanup-note">Applied changes and recovery results will appear here.</p>:history.map(h=><div className="cleanup-history-row" key={h.id}><div><strong>{h.kind==="undo"?"Undo":"Cleanup"}</strong><small>{new Date(h.created).toLocaleString()} · {h.state} · {h.result.applied.length} {h.result.applied.length===1?"track":"tracks"}</small></div>{h.kind==="apply"&&h.can_undo?<button className="secondary" disabled={!!busy} aria-label={"Undo "+h.id} onClick={()=>void run("Undoing cleanup…",async()=>afterWrite(await bridge.undoCleanup(h.id)))}><Undo2 size={14}/>Undo</button>:null}</div>)}</section>
+   <section className="cleanup-history"><h2>Undo history</h2>{!history.length?<p className="cleanup-note">Applied changes and recovery results will appear here.</p>:history.map(h=><div className="cleanup-history-entry" key={h.id}><div className="cleanup-history-row"><div><strong>{h.kind==="undo"?"Undo":"Cleanup"}</strong><small>{new Date(h.created).toLocaleString()} · {h.state} · {h.result.applied.length} {h.result.applied.length===1?"track":"tracks"}</small></div>{h.kind==="apply"&&h.can_undo?<button className="secondary" disabled={!!busy} aria-label={"Undo "+h.id} onClick={()=>void run("Undoing cleanup…",async()=>afterWrite(await bridge.undoCleanup(h.id)))}><Undo2 size={14}/>Undo</button>:null}</div><HistoryDetails history={h} bridge={bridge}/></div>)}</section>
   </div>
  </section>;
 }

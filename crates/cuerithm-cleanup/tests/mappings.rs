@@ -324,6 +324,9 @@ fn garbage_cleanup_is_idempotent_and_preserves_real_text() {
         "Signal+",
         "(Real Version)",
         "Signal [ ] -",
+        "+ - A",
+        "A - +",
+        "& / + - A - + / &",
     ] {
         let input = metadata(&[(MetadataField::Title, &[title])]);
         let config = CleanupConfig {
@@ -337,5 +340,17 @@ fn garbage_cleanup_is_idempotent_and_preserves_real_text() {
         };
         let once = apply(&config, &input).unwrap().metadata;
         assert_eq!(apply(&config, &once).unwrap().metadata, once, "{title}");
+    }
+}
+
+#[test]
+fn mix_parentheses_preserves_short_empty_and_nonmatching_titles() {
+    let config = CleanupConfig {
+        fixes: vec![fix("mix", SmartFix::MixParentheses)],
+        ..Default::default()
+    };
+    for title in ["", "A", "Song", "é", "🎵", "A longer normal title"] {
+        let input = metadata(&[(MetadataField::Title, &[title])]);
+        assert_eq!(apply(&config, &input).unwrap().metadata, input, "{title}");
     }
 }
