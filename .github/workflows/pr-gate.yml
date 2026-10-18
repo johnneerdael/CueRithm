@@ -1,0 +1,40 @@
+name: PR gate
+
+# Cheap merge gate: PR body sections plus a completed @codex review of the head commit.
+# Heavy builds run after the merge (ci.yml, desktop.yml); label a PR `full-ci` to run them early.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Trusted scripts from main only; never check out or run PR code with this token.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Evaluate review and PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/pr_gate.py --pr '${{ github.event.pull_request.number || github.event.issue.number }}'
