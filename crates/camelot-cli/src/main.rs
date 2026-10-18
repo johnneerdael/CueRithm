@@ -126,6 +126,7 @@ impl EngineArgs {
             source_profile_timing: self.source_profile_timing,
             cue_config: None,
             energy_model: self.energy_model,
+            lexicon_energy: false,
             lexicon_config: self
                 .lexicon_cues
                 .then(|| camelot_core::lexicon_cues::LexiconConfig {

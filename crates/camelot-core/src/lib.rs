@@ -6,6 +6,7 @@ pub mod energy;
 pub mod engine;
 pub mod evaluation;
 pub mod key;
+pub mod lexicon_energy;
 // Preserve the validated port verbatim; validate/lint integration separately.
 #[allow(clippy::all, unused_variables, unused_assignments, unused_parens)]
 #[rustfmt::skip]

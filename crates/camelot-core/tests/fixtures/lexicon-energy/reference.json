@@ -1,0 +1,443 @@
+{
+  "source": {
+    "application": "Lexicon",
+    "version": "1.11.15.0",
+    "runtime": {
+      "node": "20.18.1",
+      "acorn": "8.12.1",
+      "ada": "2.9.0",
+      "ares": "1.33.1",
+      "base64": "0.5.2",
+      "brotli": "1.0.9",
+      "cjs_module_lexer": "1.4.1",
+      "cldr": "44.1",
+      "icu": "74.2",
+      "llhttp": "8.1.2",
+      "modules": "128",
+      "napi": "9",
+      "nghttp2": "1.61.0",
+      "openssl": "0.0.0",
+      "simdutf": "5.5.0",
+      "tz": "2024a",
+      "undici": "6.20.0",
+      "unicode": "15.1",
+      "uv": "1.46.0",
+      "uvwasi": "0.0.21",
+      "v8": "12.8.374.38-electron.0",
+      "zlib": "1.3.0.1-motley",
+      "electron": "32.3.3",
+      "chrome": "128.0.6613.186"
+    },
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "scope": "Synthetic 22050 Hz mono PCM at the original local energy helper boundary; not browser decode/resampling parity"
+  },
+  "cases": [
+    {
+      "name": "empty",
+      "expected": {
+        "level": 9,
+        "crestDb": 0,
+        "flatness": 0,
+        "highMidRatio": 0,
+        "subRatio": 0,
+        "score": 9.0124
+      },
+      "file": "empty.f32",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "policy_level": null
+    },
+    {
+      "name": "short",
+      "expected": {
+        "level": 9,
+        "crestDb": 0,
+        "flatness": 0,
+        "highMidRatio": 0,
+        "subRatio": 0,
+        "score": 9.0124
+      },
+      "file": "short.f32",
+      "sha256": "f89944288ca5971a690a519dde1d5d7d4f9e048e7cbe5ae8cb6d4fce879fda0d",
+      "policy_level": null
+    },
+    {
+      "name": "silence",
+      "expected": {
+        "level": 9,
+        "crestDb": 0,
+        "flatness": 0,
+        "highMidRatio": 0,
+        "subRatio": 0,
+        "score": 9.0124
+      },
+      "file": "silence.f32",
+      "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479",
+      "policy_level": null
+    },
+    {
+      "name": "tone-35-0.01",
+      "expected": {
+        "level": 10,
+        "crestDb": 2.98052884815111,
+        "flatness": 7.176164581323974e-05,
+        "highMidRatio": 5.831403262364266e-14,
+        "subRatio": 0.9994516117232186,
+        "score": 10.511628217693902
+      },
+      "file": "tone-35-0.01.f32",
+      "sha256": "ec94a78264d4a1e8371c9bbd74e4930985bb955d368c0ee1707ab94a13989ac5",
+      "policy_level": 10
+    },
+    {
+      "name": "tone-35-0.5",
+      "expected": {
+        "level": 10,
+        "crestDb": 2.9805285041036846,
+        "flatness": 2.1533093784244428e-08,
+        "highMidRatio": 5.814177129115014e-14,
+        "subRatio": 0.9994516117232186,
+        "score": 10.51009056757761
+      },
+      "file": "tone-35-0.5.f32",
+      "sha256": "7338feffb231e2a2a1d641469fca6cccdb4ba6e51f02860e24be6ee3bdae4b9e",
+      "policy_level": 10
+    },
+    {
+      "name": "tone-100-0.01",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.0106383856141505,
+        "flatness": 8.015683124540374e-05,
+        "highMidRatio": 8.373095753218485e-14,
+        "subRatio": 1.0512858352740295e-05,
+        "score": 7.5183138903635
+      },
+      "file": "tone-100-0.01.f32",
+      "sha256": "e666a5028f373a0dfc3f5fb7dbe656488d2ec4b6ea769e43b8e35341abb7c0c0",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-100-0.5",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.0106387029459194,
+        "flatness": 2.5695489164994408e-08,
+        "highMidRatio": 8.343752741055937e-14,
+        "subRatio": 1.051285705346215e-05,
+        "score": 7.516596041667266
+      },
+      "file": "tone-100-0.5.f32",
+      "sha256": "8e020a279bac389c005a294542d687559c60dd483afc0ac0f2d4dee753f206a4",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-440-0.01",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.0112122610744976,
+        "flatness": 6.907585234979965e-05,
+        "highMidRatio": 1.6969460424884436e-14,
+        "subRatio": 3.0878459263734244e-11,
+        "score": 7.517759898148303
+      },
+      "file": "tone-440-0.01.f32",
+      "sha256": "28c7a3c5fd986bd07feb1e9f1b98fd87298fd40f3fe10b72ce39c3fab96e6fa6",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-440-0.5",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.011212119783112,
+        "flatness": 3.039422554910029e-08,
+        "highMidRatio": 1.6794219411990532e-14,
+        "subRatio": 3.087633100584686e-11,
+        "score": 7.516279909908568
+      },
+      "file": "tone-440-0.5.f32",
+      "sha256": "b9d9ba2fa15157d0e0bf2dbd83a1d57b98d4fb4d031428acb9ccbb9d14477e01",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-1200-0.01",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.009787277176166,
+        "flatness": 5.108351667461518e-05,
+        "highMidRatio": 6.075943072082955e-12,
+        "subRatio": 2.6491495299977883e-13,
+        "score": 7.518082217661119
+      },
+      "file": "tone-1200-0.01.f32",
+      "sha256": "a037c3450c8d82ab9283ca0c02e04c1e539f90049daa61f72713def2ffa7b1ca",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-1200-0.5",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.009787544221994,
+        "flatness": 2.9806755159305405e-08,
+        "highMidRatio": 6.0761542127117454e-12,
+        "subRatio": 2.649260118619382e-13,
+        "score": 7.516987697653568
+      },
+      "file": "tone-1200-0.5.f32",
+      "sha256": "858ca9a31f678c3982799cd01c05b7dfd0e0852353dd57777f0052e709617a9f",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-3000-0.01",
+      "expected": {
+        "level": 10,
+        "crestDb": 3.010103274402333,
+        "flatness": 5.035280732304922e-05,
+        "highMidRatio": 1,
+        "subRatio": 1.3325635371070538e-15,
+        "score": 17.70090955089098
+      },
+      "file": "tone-3000-0.01.f32",
+      "sha256": "67026db8daab6ca12d5e575380d2aae6e52b5034c40179d5eb71b11fe590fe0f",
+      "policy_level": 10
+    },
+    {
+      "name": "tone-3000-0.5",
+      "expected": {
+        "level": 10,
+        "crestDb": 3.010103345333646,
+        "flatness": 2.453542435887357e-08,
+        "highMidRatio": 1,
+        "subRatio": 1.3163782424810642e-15,
+        "score": 17.699830678812337
+      },
+      "file": "tone-3000-0.5.f32",
+      "sha256": "d1b255b7684ff574db8bb2c42c95dc167ab38dacef5b039db3e149a5c1f78af4",
+      "policy_level": 10
+    },
+    {
+      "name": "tone-7000-0.01",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.0076819031232134,
+        "flatness": 5.130056368735885e-05,
+        "highMidRatio": 2.2117218216518306e-15,
+        "subRatio": 6.708621077313335e-18,
+        "score": 7.519132925316455
+      },
+      "file": "tone-7000-0.01.f32",
+      "sha256": "ebd1fc592b3db7644f6a708ee9eab90c27f6cf660333f02f9cadbff453714037",
+      "policy_level": 8
+    },
+    {
+      "name": "tone-7000-0.5",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.007681785069087,
+        "flatness": 2.208206747614635e-08,
+        "highMidRatio": 2.0121617365628416e-15,
+        "subRatio": 4.849878779527126e-18,
+        "score": 7.5180337784396425
+      },
+      "file": "tone-7000-0.5.f32",
+      "sha256": "7f7a7df04a4d4d12e60dbf5179611b778ea2397fcdcf6e365d3831b446a054f2",
+      "policy_level": 8
+    },
+    {
+      "name": "noise",
+      "expected": {
+        "level": 10,
+        "crestDb": 4.786710589794377,
+        "flatness": 0.5604209025700887,
+        "highMidRatio": 0.26694172422091167,
+        "subRatio": 0.00439061774717023,
+        "score": 21.378657807704744
+      },
+      "file": "noise.f32",
+      "sha256": "4cf45d5ec5876b8768b30a4548f7693aef443ce7569834e98c999500ef9e4f66",
+      "policy_level": 10
+    },
+    {
+      "name": "gated-noise",
+      "expected": {
+        "level": 10,
+        "crestDb": 13.840718417908729,
+        "flatness": 0.568162875516074,
+        "highMidRatio": 0.24312797827380045,
+        "subRatio": 0.009928229830360838,
+        "score": 16.820138766927162
+      },
+      "file": "gated-noise.f32",
+      "sha256": "a7b90607d3b3c5e75f8419076ae4169a9ca5047baf26f0af2032b0e371450f01",
+      "policy_level": 10
+    },
+    {
+      "name": "silence-then-noise",
+      "expected": {
+        "level": 10,
+        "crestDb": 4.924700073464002,
+        "flatness": 0.5621442012488842,
+        "highMidRatio": 0.26963469572365284,
+        "subRatio": 0.0047832944910624065,
+        "score": 21.375631147266716
+      },
+      "file": "silence-then-noise.f32",
+      "sha256": "137e4e5c53541207f9ff89e6c86d82fe6af5ae7221214518b300b765f4421a1a",
+      "policy_level": 10
+    },
+    {
+      "name": "dc",
+      "expected": {
+        "level": 9,
+        "crestDb": 0,
+        "flatness": 2.98208924220944e-08,
+        "highMidRatio": 4.4977798476777617e-14,
+        "subRatio": 1.270163210165265e-07,
+        "score": 9.012401017775147
+      },
+      "file": "dc.f32",
+      "sha256": "612d08da54122a8b28ca10e0b7695e253c881d0b78070302ae7c799e80f2f441",
+      "policy_level": 9
+    },
+    {
+      "name": "impulse",
+      "expected": {
+        "level": 10,
+        "crestDb": 33.1132996716906,
+        "flatness": 1,
+        "highMidRatio": 0.27272728085517883,
+        "subRatio": 0.0039100684225559235,
+        "score": 16.78489174498171
+      },
+      "file": "impulse.f32",
+      "sha256": "d63f336ac74840e1b6dc6e8c90ee7a896acfd13d3a0eb32947f02618dacded9a",
+      "policy_level": 10
+    },
+    {
+      "name": "tail-transient-1",
+      "expected": {
+        "level": 8,
+        "crestDb": 3.0114473599600267,
+        "flatness": 6.353376491574636e-09,
+        "highMidRatio": 1.656301812239563e-14,
+        "subRatio": 3.1349126735181656e-11,
+        "score": 7.516162515488435
+      },
+      "file": "tail-transient-1.f32",
+      "sha256": "8b1183facace4359bd3e2927a851c5cd6fe91c85b8dce1b178b5c11fa622c29e",
+      "policy_level": 8
+    },
+    {
+      "name": "tail-transient-0.8",
+      "expected": {
+        "level": 7,
+        "crestDb": 4.949647503533924,
+        "flatness": 1.0303960916825294e-08,
+        "highMidRatio": 1.669993014089696e-14,
+        "subRatio": 3.1351421932042505e-11,
+        "score": 6.553167858838479
+      },
+      "file": "tail-transient-0.8.f32",
+      "sha256": "cf5cca411104a0ed200ce2d0447640ef623d685ce54f26f2b1bae468e612f4d3",
+      "policy_level": 7
+    },
+    {
+      "name": "tail-transient-0.5",
+      "expected": {
+        "level": 5,
+        "crestDb": 9.03204727323965,
+        "flatness": 3.061403235965992e-08,
+        "highMidRatio": 1.656301812239563e-14,
+        "subRatio": 3.1349126735181656e-11,
+        "score": 4.524827968626872
+      },
+      "file": "tail-transient-0.5.f32",
+      "sha256": "4cd5059f465d9032b594176cf45a85fa1549062e36ef5019db23393d9edb1190",
+      "policy_level": 5
+    },
+    {
+      "name": "tail-transient-0.25",
+      "expected": {
+        "level": 2,
+        "crestDb": 15.052647186519275,
+        "flatness": 1.637305925586671e-07,
+        "highMidRatio": 1.656301812239563e-14,
+        "subRatio": 3.1349126735181656e-11,
+        "score": 1.5334957552004749
+      },
+      "file": "tail-transient-0.25.f32",
+      "sha256": "7992de3f5d7a977553a14db7ebee61bfc42a301e88a171d9c4a1791ed2e87149",
+      "policy_level": 2
+    },
+    {
+      "name": "tail-transient-0.1",
+      "expected": {
+        "level": 1,
+        "crestDb": 23.0114472433728,
+        "flatness": 9.521953953398307e-07,
+        "highMidRatio": 1.669993014089696e-14,
+        "subRatio": 3.1351421932042505e-11,
+        "score": -2.420817151515678
+      },
+      "file": "tail-transient-0.1.f32",
+      "sha256": "4253cb6cca70a466e6337504354c072c6c9ae0adb08a32a71600bd2a13feeba3",
+      "policy_level": 1
+    },
+    {
+      "name": "tail-transient-0.05",
+      "expected": {
+        "level": 1,
+        "crestDb": 29.032047156652418,
+        "flatness": 3.4389261145406635e-06,
+        "highMidRatio": 1.669993014089696e-14,
+        "subRatio": 3.1351421932042505e-11,
+        "score": -5.412098912868959
+      },
+      "file": "tail-transient-0.05.f32",
+      "sha256": "daf677c31c09f8519cfce796cde93ba9cb9e47bc0bf5a7bad91c2132d79c982e",
+      "policy_level": 1
+    },
+    {
+      "name": "tail-transient-0.02",
+      "expected": {
+        "level": 1,
+        "crestDb": 36.99084736145652,
+        "flatness": 1.8915614914889872e-05,
+        "highMidRatio": 1.6725594353664323e-14,
+        "subRatio": 3.1349923958895465e-11,
+        "score": -9.366097036324756
+      },
+      "file": "tail-transient-0.02.f32",
+      "sha256": "607f3bb873334fc4128fc31fc9c5b677d9a856b42dfe206f9f2f0b91ad9915be",
+      "policy_level": 1
+    },
+    {
+      "name": "tail-transient-0.01",
+      "expected": {
+        "level": 1,
+        "crestDb": 43.01144727473614,
+        "flatness": 6.907498821171679e-05,
+        "highMidRatio": 1.6725594353664323e-14,
+        "subRatio": 3.1349923958895465e-11,
+        "score": -12.356356886911747
+      },
+      "file": "tail-transient-0.01.f32",
+      "sha256": "35c4bda7a2e7a6d315300272121793ba4d193009868c4e2364d51f77398699f6",
+      "policy_level": 1
+    },
+    {
+      "name": "tail-transient-0.001",
+      "expected": {
+        "level": 1,
+        "crestDb": 63.01144732671278,
+        "flatness": 0.005245875186202201,
+        "highMidRatio": 1.6629287593095952e-14,
+        "subRatio": 3.1350526026218226e-11,
+        "score": -22.18238702369222
+      },
+      "file": "tail-transient-0.001.f32",
+      "sha256": "06a4c12ab230c04bcdc4fdf15b44a8f495aa32b801cea2f6db868dca1c1026a6",
+      "policy_level": 1
+    }
+  ],
+  "policy": "No rating for less than one 2048-sample frame or digital silence; original returns 9. Nonfinite PCM is rejected. Other finite helper inputs retain source levels."
+}

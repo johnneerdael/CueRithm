@@ -179,7 +179,13 @@ main{min-height:0;min-width:0;display:flex;flex-direction:column;position:relati
 .settings-body{overflow:auto;flex:1;min-height:0;padding:0 30px 28px}
 .setting-section{border-top:1px solid #304237;padding:22px 0 20px;max-width:850px}
 .setting-heading{display:flex;gap:15px;align-items:flex-start;margin-bottom:20px}
-.section-number{font:10px ui-monospace,monospace;color:#447a59;padding-top:6px}
+.settings-workspace{display:flex;flex:1;min-height:0;overflow:hidden}
+.settings-nav{display:flex;flex-direction:column;gap:4px;flex:0 0 185px;padding:12px 12px 24px 24px;overflow:auto;border-right:1px solid var(--line)}
+.settings-nav button{justify-content:flex-start;text-align:left;padding:11px 12px;border-radius:5px;color:var(--muted);font-size:13px}
+.settings-nav button:hover{background:var(--raised)}
+.settings-nav button[aria-current="page"]{background:#163a34;color:var(--accent)}
+.settings-body .setting-section{border-top:0}
+@media(max-width:800px){.settings-nav{flex-basis:145px;padding-left:12px}.settings-body{padding-left:18px;padding-right:18px}}
 .setting-heading h2{font-size:20px;font-weight:600;margin:0 0 5px}
 .setting-heading p{font-size:14px;color:#799483;margin:0;line-height:1.5}
 .folder-list{margin-left:29px;margin-bottom:10px}

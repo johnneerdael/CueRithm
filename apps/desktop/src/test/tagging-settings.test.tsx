@@ -12,6 +12,7 @@ describe("automatic tagging Settings",()=>{
     const first=render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     fireEvent.click(await screen.findByLabelText("Automatic tagging"));
     await screen.findByText("1.0 MB · 2 files");
     fireEvent.click(screen.getByRole("button",{name:"Move Traxsource earlier"}));
@@ -35,6 +36,7 @@ describe("automatic tagging Settings",()=>{
     first.unmount();render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     expect(await screen.findByLabelText("Automatic tagging")).toBeChecked();
     expect(screen.getByLabelText("Max pages")).toHaveValue(4);
     expect(screen.getByLabelText("No catalog match")).toHaveValue("attention");
@@ -47,11 +49,13 @@ describe("automatic tagging Settings",()=>{
     render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     await screen.findByText("Loading tagging settings…");
     fireEvent.click(screen.getByRole("button",{name:"Library"}));
     release(catalog as TaggingCatalog);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     await screen.findByText("Options unavailable");
     fireEvent.click(screen.getByRole("button",{name:"Retry loading tagging settings"}));
     await screen.findByLabelText("Automatic tagging");
@@ -63,6 +67,7 @@ describe("automatic tagging Settings",()=>{
     render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     fireEvent.click(await screen.findByLabelText("Automatic tagging"));
     fireEvent.change(screen.getByLabelText("Max pages"),{target:{value:"3"}});
     fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
@@ -77,6 +82,7 @@ describe("automatic tagging Settings",()=>{
     render(<App bridge={bridge}/>);
     await screen.findByText("Your library starts here");
     fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
     await screen.findByLabelText("Automatic tagging");
     fireEvent.click(screen.getByText("Artwork",{selector:"summary"}));
     fireEvent.change(screen.getByLabelText("Artwork destination"),{target:{value:"external"}});
