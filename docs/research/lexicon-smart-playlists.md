@@ -4,6 +4,11 @@ Static inspection of licensed Lexicon 1.11.15, ASAR SHA-256
 `85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860`.
 Source remains in the private extraction. This inventory does not establish a
 Rust implementation or runtime parity. Anchors refer to formatted renderer lines.
+A private isolated helper probe now records 637 original synthetic scalar and
+combination cases under Node 26 with a frozen UTC clock. It executes the shipped
+rounding/date helpers and selected pure filters; assertions and known tag/category
+lookups use controlled fixtures. No app entry point, filesystem or network API is
+exposed. This does not yet cover every operator or native library behavior.
 
 ## Complete operator inventory
 
@@ -149,5 +154,10 @@ provides checked calendar-month arithmetic, including invalid local-time cases.
 and offers UTF-16 matching, but does not guarantee linear matching time.
 [fancy-regex's builder](https://docs.rs/fancy-regex/latest/fancy_regex/struct.RegexBuilder.html)
 provides a backtracking limit. Neither documentation alone establishes exact
-Lexicon regex equivalence; pin a tested syntax/flags/Unicode/budget policy before
-implementation, with unsupported inputs reported explicitly.
+Lexicon regex equivalence. The downloaded official regress 0.12.0 archive has
+SHA-256 `32eef8b209c3c1c15dbad02c1f30f9539f00dc7253e0cbcdaae442a50a09d7c1`.
+Its current source includes Unicode properties/sets, UTF-16/UCS-2 paths and
+lookaround/backreference execution despite older documentation wording. It has
+no public execution budget. A port that uses it needs a small, licensed bounded
+execution adaptation and dedicated differential tests; no product dependency or
+modified regex engine has been added at this research stage.
