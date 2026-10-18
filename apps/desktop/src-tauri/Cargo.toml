@@ -3,7 +3,7 @@ name = "cuerithm-desktop"
 version.workspace = true
 edition.workspace = true
 rust-version = "1.90"
-license.workspace = true
+license = "GPL-3.0-only"
 
 [lib]
 name = "cuerithm_desktop_lib"

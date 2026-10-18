@@ -33,12 +33,12 @@
 
 ### Task 1: Licensed providers, matching and configuration
 
-**Files:** Create `vendor/onetagger/` (selected tag/tagger/provider source plus license/provenance), `crates/cuerithm-autotag/{Cargo.toml,src/lib.rs,src/config.rs,src/providers.rs,tests/matching.rs,tests/providers.rs}`; modify workspace manifest, desktop license metadata and notices.
+**Files:** Create `vendor/onetagger/` (selected tag/tagger/provider source plus license/provenance), `crates/cuerithm-autotag/{Cargo.toml,src/lib.rs,src/config.rs,src/providers.rs,tests/matching.rs,tests/providers.rs,tests/http.rs,tests/concurrency.rs}`; modify workspace manifest, desktop license metadata and notices.
 
 **Interfaces:** `AutotagConfig` owns validated selected-provider `TaggerConfig`, no-match policy and field-source preference. `TagInput` contains native source path, actual media information and playable duration. `Tagger::match_track(&TagInput,&AutotagConfig) -> Result<TagMatchOutcome>` returns explicit matched/no-match with provider, reasons, confidence and selected metadata; performs no file writes. `Tagger::provider_options()` supplies only the two selected providers' options.
 
 - [ ] Write failing tests for first-success order, configured multi-provider merge, duration/version strictness, provider IDs, custom fields, invalid settings, no-match, timeout/403 and malformed/empty responses. Use injectable HTTP fixtures. No test depends on live catalog availability.
-- [ ] Run `cargo test -p cuerithm-autotag --test matching --test providers`; expect missing adapter errors first.
+- [ ] Run `cargo test -p cuerithm-autotag --tests`; expect missing adapter errors first.
 - [ ] Vendor the minimum source boundaries. Preserve matching arithmetic; make necessary parser failures return errors, bound HTTP requests, avoid token logging, and fix token refresh ownership rather than retaining recursive lock acquisition. Keep Traxsource at one simultaneous request. Add explicit AAC/WMA input modeling rather than labeling them another format.
 - [ ] Apply GPLv3 desktop distribution metadata/notices, preserving the separately MIT engine. Record every source adaptation.
 - [ ] Run the tests and Clippy, require all fixtures pass; commit the independently testable adapter. Record actual live native-client results separately from fixture results.
