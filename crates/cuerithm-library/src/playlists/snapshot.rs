@@ -230,7 +230,7 @@ pub(crate) fn dynamic(definition: &SmartDefinition) -> bool {
     definition.rules.iter().any(|r| {
         matches!(
             r.field.as_str(),
-            "CustomFileMissing" | "coverartPreview" | "waveform"
+            "CustomFileMissing" | "coverartPreview" | "waveform" | "rating"
         ) || matches!(
             r.operator,
             cuerithm_smartlists::Operator::DateRecent
@@ -258,6 +258,23 @@ impl Library {
         extra: Option<&SmartDefinition>,
         inspect_files: bool,
         stop: Option<&AtomicBool>,
+    ) -> Result<Snapshot> {
+        self.smart_snapshot_with_fields(now, extra, inspect_files, stop, true)
+    }
+    pub(super) fn smart_generation_snapshot(
+        &self,
+        now: i64,
+        fields: &SmartDefinition,
+    ) -> Result<Snapshot> {
+        self.smart_snapshot_with_fields(now, Some(fields), true, None, false)
+    }
+    fn smart_snapshot_with_fields(
+        &self,
+        now: i64,
+        extra: Option<&SmartDefinition>,
+        inspect_files: bool,
+        stop: Option<&AtomicBool>,
+        include_tree_fields: bool,
     ) -> Result<Snapshot> {
         ensure!(
             !stop.is_some_and(|s| s.load(Ordering::Acquire)),
@@ -336,6 +353,8 @@ impl Library {
                 .unwrap()
                 .unavailable_reason =
                 Some("Native metadata reading is unavailable in this build".into());
+            catalog.fields.get_mut("rating").unwrap().unavailable_reason =
+                Some("Native star-rating reading is unavailable in this build".into());
         }
         let mut statement = tx.prepare("SELECT id,name FROM custom_tag_categories ORDER BY id")?;
         for row in
@@ -384,21 +403,25 @@ impl Library {
         let mut need_file = false;
         let mut need_art = false;
         let mut need_wave = false;
+        let mut need_rating = false;
         for def in tree
             .values()
             .filter(|r| !r.node.deleted)
             .filter_map(|r| r.node.definition.as_ref())
+            .filter(|_| include_tree_fields)
             .chain(extra)
         {
             for r in &def.rules {
                 need_file |= r.field == "CustomFileMissing";
                 need_art |= r.field == "coverartPreview";
                 need_wave |= r.field == "waveform";
+                need_rating |= r.field == "rating";
             }
         }
         need_file &= inspect_files;
         need_art &= inspect_files;
         need_wave &= inspect_files;
+        need_rating &= inspect_files;
         let mut statement=tx.prepare("SELECT id,path,title,artist,album,genre,state,archived,analysis_json,metadata_json,native_metadata_json,created,updated,(SELECT json FROM cue_revisions c WHERE c.track_id=tracks.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1) FROM tracks ORDER BY sort_title,id")?;
         let rows = statement
             .query_map([], |r| {
@@ -539,7 +562,6 @@ impl Library {
                         &["tag.tracknumber", "tag.track", "tag.track_number"][..],
                         1.,
                     ),
-                    ("rating", &["tag.rating"][..], 1.),
                 ] {
                     if let Some(n) = sources.iter().find_map(|source| {
                         row.track
@@ -687,10 +709,28 @@ impl Library {
                         "location".into(),
                         FieldValue::Text(path.to_string_lossy().into_owned()),
                     );
-                    if need_file || need_art {
+                    if need_file || need_art || need_rating {
                         let observed = observe(&path);
                         row.track.file = observed.availability.clone();
                         observations.push(observed);
+                    }
+                    #[cfg(feature = "autotag")]
+                    if need_rating {
+                        match media
+                            .as_ref()
+                            .map_err(|e| anyhow::anyhow!(e.to_string()))
+                            .and_then(|info| cuerithm_autotag::read_star_rating(&path, info))
+                        {
+                            Ok(rating) => {
+                                row.track.fields.insert(
+                                    "rating".into(),
+                                    FieldValue::Number(rating.unwrap_or(0).into()),
+                                );
+                            }
+                            Err(e) => {
+                                row.unavailable.insert("rating".into(), e.to_string());
+                            }
+                        }
                     }
                     #[cfg(feature = "autotag")]
                     if need_art {

@@ -1,5 +1,6 @@
 mod edits;
 mod evaluate;
+mod generator;
 mod history;
 mod model;
 mod preferences;
@@ -15,11 +16,13 @@ use cuerithm_smartlists::PlaylistReference;
 pub use evaluate::SmartEvaluation;
 use model::{Delta, StoredNode, Tree};
 pub use model::{
+    GeneratedSmartList, GenerationDimension, GenerationPreview, GenerationTarget,
     NativePlaylistFacts, PlaylistChange, PlaylistCombineMode, PlaylistEdit, PlaylistKind,
     PlaylistNode, PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistPrefix,
     PlaylistPreviewItem, PlaylistSortOrder, PlaylistState, PlaylistToolPreview,
-    PlaylistToolRequest, SmartCategoryChoice, SmartFieldCatalog, SmartListFailure, SmartListStatus,
-    SmartPreview, SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
+    PlaylistToolRequest, SmartCategoryChoice, SmartFieldCatalog, SmartGenerationRequest,
+    SmartListFailure, SmartListStatus, SmartPreview, SmartPreviewScope, SmartRefresh, SmartStamp,
+    SmartState, SmartTagChoice,
 };
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;

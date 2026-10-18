@@ -1,4 +1,5 @@
 use super::*;
+use cuerithm_smartlists::SmartDefinition;
 use std::collections::BTreeMap;
 
 struct ContextData {
@@ -244,13 +245,14 @@ impl ContextData {
         }
     }
 }
-fn insert(
+pub(super) fn insert(
     tree: &mut Tree,
     parent: Option<String>,
     kind: PlaylistKind,
     name: String,
     members: Vec<String>,
     created: &mut Vec<String>,
+    definition: Option<SmartDefinition>,
 ) -> Result<String> {
     if let Some(p) = &parent {
         ensure!(
@@ -260,7 +262,7 @@ fn insert(
     }
     ensure!(
         created.len() < 5000,
-        "A playlist tool can create at most 5000 nodes"
+        "An operation can create at most 5000 nodes"
     );
     let id = uuid::Uuid::new_v4().to_string();
     let position = tree::children(tree, &parent, true).len() as u32;
@@ -276,7 +278,7 @@ fn insert(
                 name,
                 position,
                 favorite_position: None,
-                definition: None,
+                definition,
                 deleted: false,
                 deleted_by: None,
             },
@@ -350,6 +352,7 @@ impl Library {
                     name,
                     members,
                     &mut created,
+                    None,
                 )?;
             }
             PlaylistToolRequest::SortSiblings {
@@ -433,6 +436,7 @@ impl Library {
                         renamed.unwrap_or_else(|| row.node.name.clone()),
                         members,
                         &mut created,
+                        None,
                     )?;
                     for child in tree::children(before, &Some(old), true) {
                         queue.push_back((child, Some(new.clone()), None));

@@ -7,6 +7,10 @@ fn rounded(value: f64, digits: u32) -> Result<f64> {
     let precise: f64 = format!("{product:.14e}").parse()?;
     Ok(((precise + 0.5).floor() / scale).copysign(value))
 }
+/// The same two-decimal BPM projection used by numeric smart-list predicates.
+pub fn comparison_bpm(value: f64) -> Result<f64> {
+    rounded(value, 2)
+}
 pub(crate) fn matches(
     track: &SmartTrack,
     field: &str,

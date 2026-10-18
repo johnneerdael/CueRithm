@@ -24,6 +24,20 @@ pub fn has_embedded_artwork(path: &Path, info: &MediaInfo) -> Result<bool> {
         Ok(tag.tag().has_art())
     }
 }
+/// Native 0–5 stars through the format reader; no normalized rating remains None.
+pub fn read_star_rating(path: &Path, info: &MediaInfo) -> Result<Option<u8>> {
+    let format = audio_format(info)?;
+    let rating = if format == AudioFileFormat::WMA {
+        AsfTag::open(path)?.get_rating()
+    } else {
+        Tag::load_format(path, &format, true)?.tag().get_rating()
+    };
+    ensure!(
+        rating.is_none_or(|n| n <= 5),
+        "Native star rating is outside 0–5"
+    );
+    Ok(rating)
+}
 fn binding(field: MetadataField, format: &AudioFileFormat) -> &'static str {
     use MetadataField::*;
     let (id3, vorbis, mp4, asf) = match field {
@@ -48,6 +62,7 @@ fn binding(field: MetadataField, format: &AudioFileFormat) -> &'static str {
         _ => id3,
     }
 }
+
 fn effective_binding(
     field: MetadataField,
     format: &AudioFileFormat,
@@ -124,4 +139,56 @@ pub(crate) fn edit(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod rating_tests {
+    use super::*;
+    #[test]
+    fn native_stars_round_trip_across_common_layouts_without_changing_pcm() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        tar::Archive::new(flate2::read::GzDecoder::new(
+            std::fs::File::open(root.join("tools/fixtures/media.tar.gz")).unwrap(),
+        ))
+        .unpack(dir.path())
+        .unwrap();
+        let cases: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(dir.path().join("cases.json")).unwrap()).unwrap();
+        assert_eq!(cases.as_array().unwrap().len(), 14);
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin"))
+                .unwrap();
+        for row in cases.as_array().unwrap() {
+            let path = dir.path().join(row["file"].as_str().unwrap());
+            let before = runtime.decode(&path, dir.path()).unwrap();
+            let format = audio_format(&before.info).unwrap();
+            for stars in [4, 0] {
+                if format == AudioFileFormat::WMA {
+                    let mut tag = AsfTag::open(&path).unwrap();
+                    tag.set_rating(stars, true);
+                    tag.save_file(&path).unwrap();
+                } else {
+                    let mut tag = Tag::load_format(&path, &format, true).unwrap();
+                    tag.tag_mut().set_rating(stars, true);
+                    tag.tag_mut().save_file(&path).unwrap();
+                }
+                let info = runtime.probe(&path).unwrap();
+                assert_eq!(
+                    read_star_rating(&path, &info).unwrap().unwrap_or(0),
+                    stars,
+                    "{}",
+                    path.display()
+                );
+            }
+            let after = runtime.decode(&path, dir.path()).unwrap();
+            assert_eq!(
+                after.pcm_sha256().unwrap(),
+                before.pcm_sha256().unwrap(),
+                "{}",
+                path.display()
+            );
+            assert_eq!(after.frames, before.frames);
+        }
+    }
 }

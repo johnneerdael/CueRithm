@@ -7,6 +7,38 @@ use rusqlite::{Connection, params};
 #[path = "support/cleanup_fixture.rs"]
 #[allow(dead_code)]
 mod cleanup_fixture;
+
+#[cfg(feature = "autotag")]
+#[test]
+fn native_star_ratings_are_not_the_raw_vorbis_percentage() {
+    let f = cleanup_fixture::Fixture::new(1);
+    let mut tag = onetagger_tag::Tag::load_file(&f.paths[0], true).unwrap();
+    tag.tag_mut().set_rating(4, true);
+    tag.tag_mut().save_file(&f.paths[0]).unwrap();
+    let info = f.rt.probe(&f.paths[0]).unwrap();
+    assert_eq!(info.tags.get("rating").map(String::as_str), Some("80"));
+    let conn = Connection::open(&f.db).unwrap();
+    conn.execute(
+        "UPDATE tracks SET metadata_json=?1,source_hash=?2 WHERE id=?3",
+        params![
+            serde_json::to_string(&info).unwrap(),
+            cuerithm_media::file_sha256(&f.paths[0]).unwrap(),
+            f.ids[0]
+        ],
+    )
+    .unwrap();
+    let before = std::fs::read(&f.paths[0]).unwrap();
+    let preview = f
+        .lib
+        .preview_smart_list(
+            definition("rating", Operator::NumberEquals, RuleValue::Number(4.)),
+            SmartPreviewScope::default(),
+            NOW,
+        )
+        .unwrap();
+    assert_eq!(preview.track_ids, f.ids);
+    assert_eq!(std::fs::read(&f.paths[0]).unwrap(), before);
+}
 const NOW: i64 = 1792324800000;
 
 #[test]

@@ -111,7 +111,7 @@ tag aliases are normalized without rewriting tags. Native contributor values
 retain their boundaries. Generated structural cues do not invent native memory
 or variable-tempo facts; explicitly imported facts can supply those fields.
 
-The current local five-crate regression run passes 299 tests with eight optional
+The library-integration checkpoint passed 299 tests with eight optional
 tests ignored. Twenty library integration cases include actual preparation and
 cleanup publication races, scoped paging/selection, previous-good retention,
 clock corrections, dependency expiry and unchanged audio/analysis/cue histories.
@@ -120,5 +120,8 @@ publication. Embedded-artwork detection is checked before and after staged write
 across all 14 audio layouts; this exposed and corrected the upstream Ogg reader's
 inverted `has_art` result, documented in the vendored adaptation notes.
 
-These are library/predicate checks. Playlist tools, bulk generation, the native
-playlist editor and final cross-platform desktop delivery remain separate work.
+The next tools/generation checkpoint passes 321 tests across the five crates
+with eight optional tests ignored, including the native star-rating and
+5,000-node generation checks. See [tools and generation](playlist-tools-and-generation.md)
+for helper provenance and policy boundaries. The native playlist editor and
+final cross-platform desktop delivery remain subsequent plan tasks.

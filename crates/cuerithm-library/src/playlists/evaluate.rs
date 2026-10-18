@@ -154,7 +154,7 @@ fn membership_context(
     }
     members
 }
-fn blocked(
+pub(super) fn blocked(
     definition: &SmartDefinition,
     snapshot: &Snapshot,
     row: &snapshot::SnapshotTrack,

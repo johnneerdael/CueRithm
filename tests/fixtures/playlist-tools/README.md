@@ -21,3 +21,21 @@ Name sorting uses trimmed/lowercase UTF-16 lexical keys; descending order revers
 ties as in the source. Track-count sorting uses direct membership, so folders
 have zero direct links. These are bounded behavior checks, not a claim of full
 Lexicon UI equivalence.
+
+`generator-reference.json` records 20 original `SmartlistGenerator` static-helper
+cases producing 65 items. Distinct field values, tag labels and field descriptors
+are controlled inputs; field/operator identifiers are normalized. This measures
+range/bucket formulas, selected tags, full numeric domains, cartesian composition
+and empty collections, rather than the installed catalog or persistence layer.
+The Rust helper tests compare every raw result, including the source's integer
+upper bounds for ten-BPM ranges.
+
+The public generator deliberately discovers BPM buckets at the predicate's
+two-decimal precision and uses inclusive upper bounds ending in `.99`, covering
+fractional values the source's integer upper bounds omit. It also normalizes
+observed text using predicate trim/case semantics, skips empty names, and defaults
+to observed values. Explicit full-domain energy/rating generation remains
+available. Unknown selected tags and conflicting existing definitions are errors;
+matching existing definitions retain their identities. All-empty generation
+creates no empty destination folder. These policies are separate from the raw
+helper comparisons.

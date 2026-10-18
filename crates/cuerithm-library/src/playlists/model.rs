@@ -265,3 +265,61 @@ pub struct PlaylistToolPreview {
     pub expires: Option<i64>,
     pub changes: Vec<PlaylistPreviewItem>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GenerationTarget {
+    Folder {
+        id: String,
+    },
+    NewFolder {
+        parent_id: Option<String>,
+        name: String,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GenerationDimension {
+    Field {
+        field: String,
+        #[serde(default)]
+        include_unobserved: bool,
+    },
+    Tags {
+        tag_ids: Option<Vec<String>>,
+    },
+    Category {
+        category_id: String,
+    },
+    Decades,
+    BpmRanges,
+    BitrateBuckets,
+    SizeBuckets,
+    DurationBuckets,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartGenerationRequest {
+    pub target: GenerationTarget,
+    pub dimensions: Vec<GenerationDimension>,
+    #[serde(default)]
+    pub combine: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeneratedSmartList {
+    pub id: String,
+    pub parent_id: String,
+    pub name: String,
+    pub definition: SmartDefinition,
+    pub track_count: usize,
+    pub is_new: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerationPreview {
+    pub id: String,
+    pub stamp: SmartStamp,
+    pub created: i64,
+    pub expires: Option<i64>,
+    pub folder_id: Option<String>,
+    pub new_nodes: usize,
+    pub items: Vec<GeneratedSmartList>,
+}

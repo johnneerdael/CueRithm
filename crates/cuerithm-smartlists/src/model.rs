@@ -352,7 +352,7 @@ impl SmartTrack {
             file: FileAvailability::Unavailable("File availability has not been checked".into()),
         }
     }
-    pub(crate) fn value(&self, field: &str) -> FieldValue {
+    pub fn value(&self, field: &str) -> FieldValue {
         match field {
             "archived" => FieldValue::Boolean(self.archived),
             "waveform" => FieldValue::Boolean(self.waveform),
