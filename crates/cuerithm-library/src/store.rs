@@ -230,6 +230,13 @@ impl Library {
     }
 
     pub fn set_archived(&self, id: &str, archived: bool) -> Result<()> {
+        let restore = if archived {
+            None
+        } else {
+            let path = self.track_path(id)?;
+            let hash = cuerithm_media::file_sha256(&path);
+            Some((path, hash, self.settings()?.revision))
+        };
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(
@@ -241,6 +248,24 @@ impl Library {
         );
         if archived {
             tx.execute("UPDATE jobs SET state='superseded' WHERE track_id=?1 AND state IN ('queued','running','attention')",[id])?;
+        } else if let Some((path, hash, revision)) = restore {
+            match hash {
+                Ok(hash) => {
+                    Self::enqueue_one(&tx, &path, &hash, &revision)?;
+                }
+                Err(error) => {
+                    let hash: String =
+                        tx.query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
+                            r.get(0)
+                        })?;
+                    let job = Self::enqueue_one(&tx, &path, &hash, &revision)?;
+                    tx.execute(
+                        "UPDATE jobs SET state='attention',stage='waiting',error=?1 WHERE id=?2",
+                        params![format!("Source unavailable: {error:#}"), job],
+                    )?;
+                    tx.execute("UPDATE tracks SET state='incoming' WHERE id=?1", [id])?;
+                }
+            }
         }
         Self::bump(&tx)?;
         tx.commit()?;

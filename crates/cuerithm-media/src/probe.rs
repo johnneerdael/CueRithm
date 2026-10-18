@@ -16,7 +16,7 @@ impl MediaRuntime {
         ensure!(path.is_file(), "Audio source must be a local file");
         let path = path.canonicalize()?;
         let args: Vec<OsString> = ["-v","error","-protocol_whitelist","file,pipe","-select_streams","a:0",
-            "-show_entries","stream=codec_name,sample_rate,channels,bits_per_raw_sample:format_tags=title,artist,album,genre","-of","json"].into_iter().map(Into::into)
+            "-show_entries","stream=codec_name,sample_rate,channels,bits_per_raw_sample:stream_tags=title,artist,album,genre:format_tags=title,artist,album,genre","-of","json"].into_iter().map(Into::into)
             .chain([path.as_os_str().to_owned()]).collect();
         let mut out = self.run(&self.ffprobe, &args, tempfile::tempfile()?, 1_048_576)?;
         let mut bytes = Vec::new();
@@ -37,14 +37,17 @@ impl MediaRuntime {
             (8000..=384000).contains(&sample_rate) && (1..=32).contains(&channels),
             "Unsupported audio rate/channel layout"
         );
-        let tags = doc["format"]["tags"]
-            .as_object()
-            .map(|tags| {
-                tags.iter()
-                    .filter_map(|(k, v)| v.as_str().map(|s| (k.to_lowercase(), s.to_owned())))
-                    .collect()
-            })
-            .unwrap_or_default();
+        // Container defaults first, selected audio-stream values take precedence.
+        let mut tags = BTreeMap::new();
+        for object in [&doc["format"]["tags"], &stream["tags"]] {
+            if let Some(values) = object.as_object() {
+                for (key, value) in values {
+                    if let Some(value) = value.as_str().filter(|s| !s.trim().is_empty()) {
+                        tags.insert(key.to_lowercase(), value.to_owned());
+                    }
+                }
+            }
+        }
         Ok(MediaInfo {
             codec: stream["codec_name"]
                 .as_str()

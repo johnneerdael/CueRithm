@@ -127,3 +127,29 @@ fn rejects_truncated_flac_nonfinite_pcm_and_modified_runtime() {
     .unwrap();
     assert!(MediaRuntime::from_bundle(d.path()).is_err());
 }
+
+#[test]
+fn preserves_selected_audio_stream_metadata() {
+    let rt = runtime();
+    for name in ["tagged.opus", "tagged.ogg"] {
+        let info = rt
+            .probe(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures")
+                    .join(name),
+            )
+            .unwrap();
+        for (key, value) in [
+            ("title", "Éclair"),
+            ("artist", "Studio Artist"),
+            ("album", "Original Test"),
+            ("genre", "House"),
+        ] {
+            assert_eq!(
+                info.tags.get(key).map(String::as_str),
+                Some(value),
+                "{name}: {key}"
+            );
+        }
+    }
+}
