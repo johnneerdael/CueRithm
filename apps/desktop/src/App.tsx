@@ -1,5 +1,5 @@
 import {useState,useEffect,useRef,useCallback} from "react";
-import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Settings as SettingsIcon,Upload} from "lucide-react";
+import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Upload} from "lucide-react";
 import {nativeBridge,errorMessage} from "./api";
 import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery} from "./types";
 import Sidebar from "./components/Sidebar";
@@ -133,7 +133,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
           <div className="view-title library-heading"><div><div className="eyebrow">LIBRARY</div><h1>{view==="incoming"?"Incoming":view==="archive"?"Archive":"Tracks"}<span className="heading-count">{view==="incoming"?state?.counts.incoming:view==="archive"?state?.counts.archive:state?.counts.tracks}</span></h1><p>{view==="incoming"?"Automatic preparation. Ready tracks move into your library.":view==="archive"?"Archived tracks keep their analysis and cues.":"Key, BPM, energy and structural cues."}</p></div>
             <div className="view-actions">{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
           </div>
-          {state&&!state.settings.settings.engine.energy_model?<div className="setup-banner"><SettingsIcon size={16}/><span>Choose your local models to finish analysis setup.</span><button onClick={()=>onView("settings")}>Configure analysis</button></div>:null}
+
           {view==="incoming"&&state?.service.watch_errors.length?<div className="watch-warning">{state.service.watch_errors.join(" · ")}</div>:null}
           <div className="table-toolbar"><span>{selected.size?selected.size+" selected":search?"Search results":"All "+(view==="incoming"?"incoming tracks":view==="archive"?"archived tracks":"tracks")}</span><div>
             {selected.size?<><button onClick={()=>{void (async()=>{for(const id of selectedRef.current)await bridge.reprepareTrack(id);setSelected(new Set());await refresh(true);})().catch(notify);}}><RotateCcw size={13}/>Analyze again</button><button onClick={()=>{void (async()=>{for(const id of selectedRef.current)await bridge.archiveTrack(id,view!=="archive");setSelected(new Set());await refresh(true);})().catch(notify);}}><Archive size={13}/>{view==="archive"?"Restore":"Archive"}</button></>:<span className="sort-note">SORTED BY {sort.toUpperCase()}</span>}

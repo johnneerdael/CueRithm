@@ -77,10 +77,11 @@ pub async fn get_settings(host: Managed<'_>) -> Ipc<SettingsSnapshot> {
 #[tauri::command]
 pub async fn save_settings(
     host: Managed<'_>,
-    settings: PreparationSettings,
+    mut settings: PreparationSettings,
 ) -> Ipc<SettingsSnapshot> {
     let host = host.inner().clone();
     work(move || {
+        host.builtin.apply(&mut settings);
         host.library.save_settings(settings)?;
         host.preparation.wake();
         let _ = host.preparation.retry_attention();

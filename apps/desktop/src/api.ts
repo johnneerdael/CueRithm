@@ -30,7 +30,6 @@ export const nativeBridge:Bridge={
     return Array.isArray(value)?value:value?[value]:[];
   },
   chooseFolder:async()=>{const value=await open({directory:true,multiple:false});return typeof value==="string"?value:null;},
-  chooseModel:async kind=>{const value=await open({multiple:false,filters:[{name:kind==="key"?"OpenKeyScan model":"Energy model",extensions:[kind==="key"?"onnx":"json"]}]});return typeof value==="string"?value:null;},
 };
 export function errorMessage(error:unknown):string {
   return typeof error==="object"&&error!==null&&"message" in error?String(error.message):String(error);

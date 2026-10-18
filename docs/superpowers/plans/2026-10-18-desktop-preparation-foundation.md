@@ -26,7 +26,11 @@ under Rust orchestration, native Rust playback, frontend component/browser tests
 - Apply every enabled required preparation stage before automatic promotion.
 - All preparation options persist in Settings; no per-import configuration wizard.
 - No XML transport or fallback in the desktop app.
-- Preserve the validated Lexicon DSP, existing FLAC results and private assets.
+- Preserve the validated Lexicon DSP, existing FLAC results and private research.
+- User correction on 2026-10-18: desktop key, energy and cues are built in. Embed
+  the pinned key/energy parameters; remove model-path setup; preserve watch/cue
+  preferences and resume unfinished setup jobs. This supersedes external-model
+  setup instructions below; the independent CLI retains explicit model APIs.
 - Users do not install FFmpeg, Python or OneTagger to run the application.
 - Existing engine remains usable independently of desktop/system GUI dependencies.
 
@@ -175,7 +179,7 @@ workspace members.
 `Library::save_settings(settings: PreparationSettings) -> Result<SettingsRevision>`.
 Use stable opaque `TrackId`/`JobId`; UI commands operate on IDs. Settings hold
 watch folders, model paths/identities and stage policies; defaults require key,
-timing, energy and replacement cues. Model setup is persistent, never per import.
+timing, energy and replacement cues. Desktop installs built-in models automatically.
 
 - [ ] **Step 1 — Write failing storage tests.** Reopen after writes; validate
   migrations, cursor sorting/search, duplicate path events, settings snapshots,
@@ -277,8 +281,8 @@ and playback events and reconcile against persisted state after reconnect.
   using `#181818`, `#202020`, `#00D2BF`, `#106c61`. Use React with table
   virtualization; keep durable state in Rust. Resolve app-data and bundled
   decoder paths in the host. Route folder selection/drop to queue enrollment,
-  not a tagging wizard. Provide one-time model setup with explicit missing-model
-  messages. Never expose arbitrary command execution or a generic filesystem
+  not a tagging wizard. Embed and automatically select key/energy parameters;
+  report installation failures without a model-path setup flow. Never expose arbitrary command execution or a generic filesystem
   bridge to the frontend. Do not add OneTagger's unrelated tool pages.
 - [ ] **Step 4 — Run** UI tests, TypeScript checks and a frontend production build;
   launch the actual Tauri app with real generated files of every required format.

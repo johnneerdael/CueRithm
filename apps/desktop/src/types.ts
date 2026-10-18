@@ -42,5 +42,4 @@ export interface Bridge {
   onDrop(handler:(paths:string[])=>void,active:(value:boolean)=>void):Promise<()=>void>;
   chooseFiles():Promise<string[]>;
   chooseFolder():Promise<string|null>;
-  chooseModel(kind:"key"|"energy"):Promise<string|null>;
 }

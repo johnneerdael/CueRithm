@@ -1,6 +1,34 @@
 use cuerithm_library::{Library, PreparationSettings, TrackQuery, TrackView};
 
 #[test]
+fn engine_setup_migration_requeues_unfinished_work_without_reading_sources() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("offline.flac");
+    std::fs::write(&path, b"source").unwrap();
+    let id = lib
+        .enqueue(
+            std::slice::from_ref(&path),
+            lib.settings().unwrap().revision,
+        )
+        .unwrap()[0]
+        .clone();
+    lib.claim_next().unwrap().unwrap();
+    lib.fail(&id, "setup", "old missing model").unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let revision = lib
+        .save_settings(PreparationSettings {
+            stability_millis: 50,
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(lib.requeue_unfinished(&revision).unwrap(), 1);
+    let job = lib.claim_next().unwrap().unwrap();
+    assert_eq!(job.settings_revision, revision);
+    assert_ne!(job.id, id);
+}
+
+#[test]
 fn persists_settings_deduplicates_sources_and_recovers_running_jobs() {
     let d = tempfile::tempdir().unwrap();
     let db = d.path().join("library.sqlite");

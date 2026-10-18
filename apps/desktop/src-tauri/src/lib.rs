@@ -1,17 +1,23 @@
+mod builtin;
 mod commands;
 mod host;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
 
+fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
 pub fn diagnostics() -> Result<()> {
-    let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+    let context = context();
     let folder = tauri::utils::platform::resource_dir(context.package_info(), &Default::default())?
         .join("media");
     let runtime = cuerithm_media::MediaRuntime::from_bundle(&folder)?;
+    builtin::BuiltinModels::verify()?;
     println!(
         "{}",
-        serde_json::json!({"application":"Cuerithm","version":env!("CARGO_PKG_VERSION"),"decoder":runtime.identity,"resources_verified":true})
+        serde_json::json!({"application":"Cuerithm","version":env!("CARGO_PKG_VERSION"),"decoder":runtime.identity,"resources_verified":true,"built_in_analysis_verified":true})
     );
     Ok(())
 }
@@ -79,7 +85,7 @@ pub fn run() {
             commands::player_volume,
             commands::player_status
         ])
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("Create Cuerithm desktop")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested {

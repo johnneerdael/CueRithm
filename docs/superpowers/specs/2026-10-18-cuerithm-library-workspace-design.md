@@ -141,7 +141,8 @@ Settings include:
 - Beatport-specific artwork resolution, result-page count and version matching.
 - Traxsource's provider concurrency restriction.
 - Field-source preferences, cleanup order/mappings and protected values.
-- Analysis backend/model settings, cue template and replacement policy.
+- Built-in offline key/energy/cue engines, cue template and replacement policy.
+  No model selection or downloads are required (user correction, 2026-10-18).
 - Direct rekordbox version/location, field mappings, cue destinations and sync
   inclusion policy.
 
