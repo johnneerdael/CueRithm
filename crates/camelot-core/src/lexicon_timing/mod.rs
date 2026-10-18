@@ -4,7 +4,13 @@
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
+mod anchors;
+#[allow(dead_code)]
+mod intro;
 mod tempo;
+#[allow(dead_code)]
+mod walkback;
 // Removed when the complete anchor pipeline consumes these internal helpers.
 #[allow(dead_code)]
 mod dp;

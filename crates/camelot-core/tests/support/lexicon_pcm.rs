@@ -12,6 +12,24 @@ pub struct Recipe {
 }
 pub fn signal(recipe: &Recipe, rate: u32) -> Vec<f32> {
     let mut pcm = vec![0.; recipe.frames];
+    if recipe.variant.starts_with("intro-") {
+        for (i, value) in pcm.iter_mut().enumerate() {
+            *value = if i >= recipe.quiet_until_frames {
+                0.5
+            } else if recipe.variant == "intro-atmospheric" {
+                1. / 16.
+            } else if recipe.variant == "intro-buildup" {
+                ((i / 4096) as f64).powi(2) as f32 / 65536.
+            } else {
+                0.
+            };
+        }
+        return pcm;
+    }
+
+    if recipe.variant == "late-bed" {
+        pcm[..recipe.offset_frames.min(recipe.frames)].fill(1. / 256.);
+    }
     if recipe.variant == "soft-riser" {
         pcm[..(4 * rate as usize).min(recipe.frames)].fill(1. / 32.);
     }

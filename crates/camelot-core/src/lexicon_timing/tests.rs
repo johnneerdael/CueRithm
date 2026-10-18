@@ -460,3 +460,7 @@ fn phase_guards_do_not_turn_empty_or_invalid_coordinates_into_new_anchors() {
     assert!(!phase::rescue_silent(&[], 44100, 0., 128.).applied);
     assert!(!phase::rescue_weak(&[], 44100, 0., 128.).applied);
 }
+
+mod anchors;
+
+mod walkback;

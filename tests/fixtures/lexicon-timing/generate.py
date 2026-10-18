@@ -12,9 +12,22 @@ import struct
 def samples(recipe, rate):
     pcm = bytearray(recipe["frames"] * 4)
     variant = recipe.get("variant", "")
+    if variant.startswith("intro-"):
+        for index in range(recipe["frames"]):
+            value = (
+                0.5 if index >= recipe["quiet_until_frames"]
+                else 1 / 16 if variant == "intro-atmospheric"
+                else (index // 4096) ** 2 / 65536 if variant == "intro-buildup"
+                else 0
+            )
+            struct.pack_into("<f", pcm, index * 4, value)
+        return pcm
     if variant == "soft-riser":
         count = min(4 * rate, recipe["frames"])
         pcm[:count * 4] = struct.pack("<f", 1 / 32) * count
+    if variant == "late-bed":
+        count = min(recipe["offset_frames"], recipe["frames"])
+        pcm[:count * 4] = struct.pack("<f", 1 / 256) * count
     beat = 0
     while True:
         start = math.floor(recipe["offset_frames"] + beat * 60 * rate / recipe["bpm"] + 0.5)
@@ -47,7 +60,7 @@ def main():
         args.output.mkdir(parents=True, exist_ok=False)
     reference = json.loads(args.reference.read_text())
     for case in reference["cases"]:
-        pcm = samples(case["recipe"], reference["source"]["sample_rate"])
+        pcm = samples(case["recipe"], case.get("sample_rate", reference["source"]["sample_rate"]))
         actual = hashlib.sha256(pcm).hexdigest()
         if actual != case["pcm_sha256"]:
             raise ValueError(f"PCM hash mismatch: {case['name']}: {actual}")

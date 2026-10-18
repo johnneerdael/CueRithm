@@ -99,8 +99,12 @@ and sixteen unchanged/early-anchor decisions. The module 522 phase tests now
 also match 790 original functional result/state rows, including changed and
 unchanged calibration, subsequent-beat, half-beat, silent/weak rescue, grid
 correlation, grid-advancement and riser A/B cases. This remains component
-validation; the complete module 358 anchor decision tree is not yet integrated.
-The desktop still selects the previous timing backend.
+validation. The module 473 drop/DnB/immediate-start and module 578 intro helpers
+also match 216 original rows, covering all four intro classifications and a
+48000 Hz input. Module 382 walkback matches 1,224 result rows, including optional
+drop strength, intro-kind differences and half-beat counts. The complete module
+358 anchor decision tree is not yet integrated. The desktop still selects the
+previous timing backend.
 
 Additional private diagnostics showed:
 
