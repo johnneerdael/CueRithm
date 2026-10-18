@@ -136,3 +136,34 @@ fn prepared_analysis_rejects_changed_sources_and_truncated_settings() {
         .is_err()
     );
 }
+
+#[test]
+fn reported_duration_is_the_playable_clock_even_for_fractional_dsp_frames() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("odd-length.wav");
+    let mut wav = hound::WavWriter::create(
+        &path,
+        hound::WavSpec {
+            channels: 2,
+            sample_rate: 44100,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        },
+    )
+    .unwrap();
+    for _ in 0..44101 {
+        wav.write_sample(0.1_f32).unwrap();
+        wav.write_sample(0.1_f32).unwrap();
+    }
+    wav.finalize().unwrap();
+    let audio = runtime().decode(&path, d.path()).unwrap();
+    let mut engine = Engine::new(&EngineSettings::default()).unwrap();
+    assert_eq!(
+        engine
+            .analyze_prepared(&audio)
+            .unwrap()
+            .analysis
+            .duration_seconds,
+        audio.clock.duration_seconds()
+    );
+}
