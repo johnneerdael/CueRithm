@@ -119,6 +119,7 @@ fn beatport_search_uses_catalog_api_instead_of_webpage_markup() {
             ("GET", "/v4/catalog/search/", r#"{"tracks":[]}"#),
         ] {
             let (mut stream, _) = listener.accept().unwrap();
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
@@ -159,6 +160,7 @@ fn traxsource_valid_search_and_detail_populate_metadata() {
     let server = thread::spawn(move || {
         for (path, body) in [("/search/tracks?", search), ("/track/123/signal", detail)] {
             let (mut stream, _) = listener.accept().unwrap();
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
@@ -245,6 +247,9 @@ fn beatport_searches_configured_later_pages_and_release_order() {
                     }
                     Err(e) => panic!("{e}"),
                 };
+                // Accepted sockets inherit O_NONBLOCK on macOS. Accept polling
+                // stays nonblocking; request reads need their bounded timeout.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -314,6 +319,7 @@ fn token_waiter_fixture(cancel_during_request: bool) {
                 }
                 Err(e) => panic!("{e}"),
             };
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
