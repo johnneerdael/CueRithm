@@ -34,6 +34,11 @@ jobs:
           ref: ${{ env.SHA }}
           fetch-depth: 0
           persist-credentials: false
+      # Release tooling always comes from main, so signing fixes apply to older green commits too.
+      - name: Use release tooling from main
+        run: |
+          git fetch --no-tags origin main
+          git checkout origin/main -- tools/release .github/scripts
       - name: Require both build workflows to have passed for this commit
         id: ready
         run: |

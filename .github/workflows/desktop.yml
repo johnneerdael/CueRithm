@@ -2,7 +2,7 @@ name: Desktop checks
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', 'README.md', '.github/PULL_REQUEST_TEMPLATE.md']
+    paths-ignore: ['docs/**', 'README.md', '.github/PULL_REQUEST_TEMPLATE.md', '.github/scripts/**', '.github/workflows/pr-gate.yml', '.github/workflows/release.yml', 'tools/release/**']
   pull_request:
     types: [labeled, synchronize]
   workflow_dispatch:
