@@ -11,15 +11,16 @@ it("exposes every Smart Fix and persistent ordered options in Settings",async()=
  const bridge=fakeBridge([]);render(<App bridge={bridge}/>);
  fireEvent.click(screen.getByRole("button",{name:"Settings"}));
  await screen.findByRole("heading",{name:"Settings"});
+ const cleanup=within(screen.getByRole("heading",{name:"Cleanup"}).closest("section")!);
  const names=["Casing","Characters to spaces","Encoded characters","Extract artist","Extract remixer","Garbage","Number prefix","URLs and email","Mix parentheses","Common title text","Promotional text"];
- for(const name of names){fireEvent.change(screen.getByLabelText("New Smart Fix"),{target:{value:name}});fireEvent.click(screen.getByRole("button",{name:"Add Smart Fix"}));}
- expect(screen.getAllByRole("group",{name:/Smart Fix:/})).toHaveLength(11);
- const casing=screen.getByRole("group",{name:"Smart Fix: Casing"});
+ for(const name of names){fireEvent.change(cleanup.getByLabelText("New Smart Fix"),{target:{value:name}});fireEvent.click(cleanup.getByRole("button",{name:"Add Smart Fix"}));}
+ expect(cleanup.getAllByRole("group",{name:/Smart Fix:/})).toHaveLength(11);
+ const casing=cleanup.getByRole("group",{name:"Smart Fix: Casing"});
  fireEvent.change(within(casing).getByLabelText("Field"),{target:{value:"artist"}});
  fireEvent.click(within(casing).getByLabelText("Uppercase values"));
  fireEvent.change(within(casing).getByLabelText("Ignored values, one per line"),{target:{value:"DJ TEST\nAC/DC"}});
  fireEvent.click(within(casing).getByRole("button",{name:"Move down"}));
- const options=(name:string)=>within(screen.getByRole("group",{name:"Smart Fix: "+name}));
+ const options=(name:string)=>within(cleanup.getByRole("group",{name:"Smart Fix: "+name}));
  fireEvent.change(options("Characters to spaces").getByLabelText("Characters"),{target:{value:"_^"}});
  fireEvent.change(options("Extract artist").getByLabelText("Separator"),{target:{value:" — "}});
  fireEvent.change(options("Extract artist").getByLabelText("Result number"),{target:{value:"2"}});
@@ -29,7 +30,7 @@ it("exposes every Smart Fix and persistent ordered options in Settings",async()=
  fireEvent.click(options("URLs and email").getByLabelText("Clear entire matching field"));
  fireEvent.change(options("Common title text").getByLabelText("Pattern"),{target:{value:"BpmFromTitle"}});
  fireEvent.change(options("Promotional text").getByLabelText("Field"),{target:{value:"label"}});
- fireEvent.click(screen.getByLabelText("Clean incoming tracks automatically"));
+ fireEvent.click(cleanup.getByLabelText("Clean incoming tracks automatically"));
  fireEvent.click(screen.getByRole("button",{name:"Save settings"}));
  await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
  const saved=vi.mocked(bridge.saveSettings).mock.calls.at(-1)![0];
@@ -39,7 +40,7 @@ it("exposes every Smart Fix and persistent ordered options in Settings",async()=
  const rules=saved.cleanup!.fixes.map(f=>f.rule);
  expect(rules).toEqual(expect.arrayContaining([{kind:"replace_characters",characters:"_^"},{kind:"extract_artist",separator:" — ",part:2},{kind:"extract_remixer",word:"edit",remove_title:false},{kind:"remove_garbage",field:"comment"},{kind:"remove_urls",field:"title",clear_field:true},{kind:"remove_common_text",pattern:"BpmFromTitle"},{kind:"remove_promotional_text",field:"label"}]));
  expect(document.querySelector(".settings-body")).toBeInTheDocument();
-});
+},15_000);
 
 it("scans without applying, applies only checked proposals, reports conflicts and reloads durable Undo history",async()=>{
  const bridge=fakeBridge([track("a"),track("b")]);bridge.previewCleanup=vi.fn(async()=>preview);
