@@ -5,7 +5,7 @@
 set -euo pipefail
 archive=$1
 dmg=$2
-work=$(mktemp -d)
+work=$(cd "$(mktemp -d)" && pwd -P)  # the app rejects symlinked paths such as /var
 trap 'rm -rf "$work"' EXIT
 tar -xzf "$archive" -C "$work"
 app="$work/Cuerithm.app"
