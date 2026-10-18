@@ -22,3 +22,8 @@
 *.joblib
 .worktrees/
 tools/media-runtime/bin/
+
+# Desktop generated dependencies and frontend/build output
+node_modules/
+apps/desktop/dist/
+apps/desktop/src-tauri/gen/

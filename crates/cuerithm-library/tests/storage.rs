@@ -75,6 +75,9 @@ fn rejects_future_schema_without_replacing_it_and_keeps_query_order_stable() {
     };
     let one = lib.tracks(query.clone()).unwrap();
     assert_eq!(one.rows[0].title, "Alpha");
+    let running = lib.claim_next().unwrap().unwrap();
+    lib.set_stage(&running.id, "decoding").unwrap();
+    lib.fail(&running.id, "decoding", "test failure").unwrap();
     let two = lib
         .tracks(TrackQuery {
             cursor: one.next_cursor,
@@ -95,6 +98,20 @@ fn rejects_future_schema_without_replacing_it_and_keeps_query_order_stable() {
         ..Default::default()
     })
     .unwrap();
+    // Settings/job-only updates do not invalidate a track-page cursor.
+    assert!(
+        lib.tracks(TrackQuery {
+            view: TrackView::Incoming,
+            limit: 1,
+            cursor: Some(cursor.clone()),
+            ..Default::default()
+        })
+        .is_ok()
+    );
+    let added = d.path().join("Delta.flac");
+    std::fs::write(&added, b"delta").unwrap();
+    lib.enqueue(&[added], lib.settings().unwrap().revision)
+        .unwrap();
     assert!(
         lib.tracks(TrackQuery {
             view: TrackView::Incoming,

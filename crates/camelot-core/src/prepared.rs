@@ -8,6 +8,8 @@ pub struct PreparedMediaIdentity {
     pub decoder: String,
     pub codec: String,
     pub source_sha256: String,
+    #[serde(default)]
+    pub pcm_sha256: String,
     pub clock: AudioClock,
 }
 pub(crate) fn float_wave(audio: &PreparedAudio) -> Result<tempfile::NamedTempFile> {

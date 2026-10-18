@@ -105,7 +105,6 @@ impl Library {
             "INSERT OR REPLACE INTO selected_settings VALUES (1,?1)",
             params![revision],
         )?;
-        Self::bump(&tx)?;
         tx.commit()?;
         Ok(revision)
     }
@@ -181,38 +180,9 @@ impl Library {
             |r| r.get(0),
         )?;
         let mut stmt=conn.prepare(&format!("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration FROM tracks WHERE {filter} ORDER BY {column} {direction},id ASC LIMIT ?2 OFFSET ?3"))?;
-        let raw = stmt.query_map(params![needle, query.limit, offset], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, Vec<u8>>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-                r.get::<_, String>(5)?,
-                r.get::<_, String>(6)?,
-                r.get::<_, Option<String>>(7)?,
-                r.get::<_, Option<f64>>(8)?,
-                r.get::<_, Option<u8>>(9)?,
-                r.get::<_, Option<f64>>(10)?,
-            ))
-        })?;
-        let mut rows = Vec::new();
-        for row in raw {
-            let (id, path, title, artist, album, genre, state, key, bpm, energy, duration) = row?;
-            rows.push(TrackSummary {
-                id,
-                display_path: bytes_path(&path)?.to_string_lossy().into_owned(),
-                title,
-                artist,
-                album,
-                genre,
-                state,
-                key,
-                bpm,
-                energy,
-                duration,
-            });
-        }
+        let rows = stmt
+            .query_map(params![needle, query.limit, offset], summary_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         let next = offset + rows.len() as u64;
         Ok(TrackPage {
             rows,
@@ -220,6 +190,19 @@ impl Library {
             revision,
             next_cursor: (next < total).then(|| format!("{revision}:{next}:{query_id}")),
         })
+    }
+    pub fn track(&self, id: &str) -> Result<TrackSummary> {
+        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration FROM tracks WHERE id=?1",[id],summary_row)?)
+    }
+    pub fn source_hash(&self, id: &str) -> Result<String> {
+        Ok(self
+            .conn()?
+            .query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
+                r.get(0)
+            })?)
+    }
+    pub fn counts(&self) -> Result<LibraryCounts> {
+        Ok(self.conn()?.query_row("SELECT COUNT(CASE WHEN state='ready' AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM tracks",[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
     }
     pub fn track_path(&self, id: &str) -> Result<PathBuf> {
         let bytes: Vec<u8> =
@@ -263,4 +246,28 @@ impl Library {
         tx.commit()?;
         Ok(())
     }
+}
+
+fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
+    let path: Vec<u8> = r.get(1)?;
+    let path = bytes_path(&path).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            1,
+            rusqlite::types::Type::Blob,
+            e.into_boxed_dyn_error(),
+        )
+    })?;
+    Ok(TrackSummary {
+        id: r.get(0)?,
+        display_path: path.to_string_lossy().into_owned(),
+        title: r.get(2)?,
+        artist: r.get(3)?,
+        album: r.get(4)?,
+        genre: r.get(5)?,
+        state: r.get(6)?,
+        key: r.get(7)?,
+        bpm: r.get(8)?,
+        energy: r.get(9)?,
+        duration: r.get(10)?,
+    })
 }
