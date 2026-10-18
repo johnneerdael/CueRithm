@@ -65,3 +65,9 @@ parity and source parity are not musical ground truth.
 
 Deliver a reviewed PR with Linux, Windows, macOS ARM and Intel checks. Do not
 claim the new desktop timing is shipped before that integration is merged.
+
+Delivery ruling: preserve cue semantics while allowing minimal corrections of
+demonstrated source-port defects, each with original numeric regressions. These
+are Float64 IIR feedback with Float32 stores, the quieter-before earlier-drop
+condition and the fractional transient-count threshold. Do not fit cue positions
+to songs or change the key/scalar-energy calculations.

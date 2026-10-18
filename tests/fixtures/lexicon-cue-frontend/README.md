@@ -43,6 +43,13 @@ the previous Rust comparison was reversed. Positive/veto, head, short-range,
 zero and empty inputs are covered. These regressions accompany the retained
 47 cue tests and check source behavior those tests did not cover.
 
+`transient-threshold-reference.json` contains nine original inline drop-helper
+results on authored energies and transient counts. The threshold is a fractional
+20% of the largest count: 13 transients do not meet a threshold of 13.2. The
+previous Rust cast truncated that threshold. Integer thresholds, zero counts,
+single-transient and empty cases are also pinned. A separate private 29-track
+tuning probe exposed this defect; no music-derived arrays are published here.
+
 Primary filter references:
 
 - [Web Audio 1.0 Q options](https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilteroptions-q)

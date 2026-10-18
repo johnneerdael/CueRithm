@@ -51,6 +51,8 @@ mod tempo;
 mod walkback;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Candidate-search bounds. Source-compatible refinement can round slightly
+/// outside a supplied noninteger bound; these are not hard output clamps.
 pub struct LexiconTempoOptions {
     pub min_tempo: f64,
     pub max_tempo: f64,

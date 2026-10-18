@@ -828,12 +828,12 @@ fn energy_threshold_drop_with_transients(
     let max_transients = transient_counts.iter().cloned().max().unwrap_or(0);
     let rolling_thresh = max_rolling * DROP_ROLLING_THRESHOLD;
     let energy_thresh = peak_energy * DROP_ENERGY_THRESHOLD;
-    let transient_thresh = (max_transients as f64 * DROP_TRANSIENT_THRESHOLD) as usize;
+    let transient_thresh = max_transients as f64 * DROP_TRANSIENT_THRESHOLD;
 
     for i in 0..sections.len() {
         if rolling[i] >= rolling_thresh
             && sections[i].energy >= energy_thresh
-            && transient_counts.get(i).copied().unwrap_or(0) >= transient_thresh
+            && transient_counts.get(i).copied().unwrap_or(0) as f64 >= transient_thresh
         {
             return Some(i);
         }

@@ -91,7 +91,7 @@ the default range and a zero anchor. The independent Rust tempo-helper
 component now matches all eight best BPMs and peak arrays exactly, with confidence
 within 1e-12. Its input generator also matches all eight original PCM hashes.
 The complete Rust audio-to-anchor API now passes all 62 full-worker synthetic
-references described below. Decoder/engine integration also passes; native desktop delivery remains outstanding;
+references described below. Decoder/engine integration also passes; hosted desktop delivery remains outstanding;
 these generated signals do not establish musical correctness.
 
 The next component checks also pass on this host: all 306 original module 974
@@ -184,7 +184,9 @@ their elapsed times are not a controlled performance comparison.
 The complete Rust timing API and measured synthetic component/full-worker
 boundaries pass on this host. The opt-in engine backend is available as
 `EngineSettings.lexicon_timing` or the research CLI `--lexicon-timing`, with
-fixed 98..195 BPM bounds. It is mutually exclusive with source-profile and
+fixed 98..195 BPM candidate-search bounds. The source refinement may round
+slightly outside custom noninteger bounds; the public helper preserves this
+behavior rather than adding an output clamp. It is mutually exclusive with source-profile and
 learned timing and requires complete input. Direct decoding retains native-rate
 first-channel samples from the same packet stream as the unchanged downmix;
 prepared analysis uses canonical 44100 Hz first-channel PCM on the playable
@@ -206,7 +208,7 @@ change, while a timing-backend change invalidates the preparation cache;
 unchanged cached analysis survives restart. Timing source and input/frontend
 code hashes, channel policy, rate and fixed bounds enter identity. The disabled
 flag is omitted from serialized settings to preserve legacy settings identities.
-The current broad local core/library/CLI gate passes 253 tests with eight
+The current broad local core/library/CLI/desktop gate passes 264 tests with nine
 optional tests ignored. Desktop selection/migration passes nine tests with one
 optional benchmark ignored; all 29 UI tests pass. Hosted cross-platform checks
 and the final branch review remain outstanding.
@@ -271,5 +273,21 @@ and the renderer route records its input method and rate. Existing completed
 analyses stay intact; unfinished/explicitly reanalyzed work uses the corrected
 implementation. See the [fixture provenance](../../tests/fixtures/lexicon-cue-frontend/README.md).
 
-Owned-library timing validation is complete as described above. Cue and energy
-agreement on the real-music corpus have not been measured by that timing run.
+A separate cue pilot selected every tenth tuning group before prediction:
+29 complete tracks and 126 resulting cues. It initially matched 28/29 tracks.
+The outlier exposed a third existing port defect: the source compares integer
+transient counts against a fractional threshold, while Rust truncated 13.2 to
+13. Identical filtered samples still produced the discrepancy, isolating the
+decision arithmetic. Nine authored original-helper cases pin fractional,
+integer, zero and empty thresholds. Keeping the threshold as Float64 corrects
+the outlier; the fresh run matches **29/29 complete cue results exactly**.
+
+The original worker receives its previously verified timing, raw first-channel
+PCM and an independently implemented scalar lowpass cascade; Rust runs fresh
+complete timing/frontend/cue analysis. Configuration is Never, 64 beats, no
+emergency loop and no genre hint. The exact comparison covers cue positions,
+types, colors and loop result. This boundary is not an installed Chromium 128
+renderer/file-decode capture, other cue configurations or musical ground truth.
+All source/PCM identity guards passed. Per-track data stays private; aggregate
+identities are included in the benchmark summary above. Real-music scalar
+energy agreement remains unmeasured by these timing and cue runs.

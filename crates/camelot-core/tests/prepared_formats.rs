@@ -203,7 +203,7 @@ fn lexicon_timing_uses_canonical_first_channel_grid_and_cues_for_every_media_lay
         let mut position = 0;
         while position < audio.frames {
             let samples = audio.read_frames(position, 65536).unwrap();
-            for frame in samples.chunks_exact(2) {
+            for frame in samples.as_chunks::<2>().0 {
                 first.push(frame[0]);
             }
             position += samples.len() as u64 / 2;

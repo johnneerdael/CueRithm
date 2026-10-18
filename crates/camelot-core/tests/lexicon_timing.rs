@@ -5,6 +5,26 @@ use sha2::{Digest, Sha256};
 mod fixture;
 use fixture::{Recipe, signal};
 
+#[test]
+fn fractional_search_bounds_do_not_clamp_source_compatible_refinement() {
+    let mut pcm = vec![0.; 12 * 8000];
+    for start in (1000..pcm.len()).step_by(4798) {
+        let end = (start + 400).min(pcm.len());
+        pcm[start..end].fill(1.);
+    }
+    let evidence = analyze_tempo(
+        &pcm,
+        8000,
+        &LexiconTempoOptions {
+            min_tempo: 100.02,
+            max_tempo: 100.08,
+        },
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(evidence.bpm, 100.);
+}
+
 #[derive(Deserialize)]
 struct Reference {
     source: Source,

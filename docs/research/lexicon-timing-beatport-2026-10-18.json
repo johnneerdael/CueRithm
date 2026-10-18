@@ -62,5 +62,29 @@
     }
   },
   "timing_limits": "Ten concurrent disjoint shards plus one single-track retry. Rust includes full native decode and default DSP key analysis; original-worker boundary times timing only. Not a controlled speed comparison or shipping-UI throughput measurement.",
-  "heldout_limits": "Tuning only; no reference-label manifest read. An earlier separate diagnostic exposed timing for one reserved group, documented in the exposure audit. No claim that all held-out groups are untouched."
+  "heldout_limits": "Tuning only; no reference-label manifest read. An earlier separate diagnostic exposed timing for one reserved group, documented in the exposure audit. No claim that all held-out groups are untouched.",
+  "cue_decision_pilot": {
+    "groups": 29,
+    "selection": "Every tenth sorted tuning group, ordinals1,11,...281, fixed before predictions",
+    "exact_cue_result_matches": 29,
+    "unresolved": 0,
+    "original_pre_fix_matches": 28,
+    "cue_count": 126,
+    "configuration": {
+      "drop_at_start": "Never",
+      "min_cue_length_beats": 64,
+      "add_emergency_loop": false,
+      "genre": null
+    },
+    "boundary": "Original worker cue entry with verified prior original timing, complete native first-channel PCM and independently computed scalar seven-stage default-Q lowpass input. Rust fresh complete analysis supplies its own timing/frontend/cues. Exact positions, names, colors and emergency-loop result compared. Not installed Chromium128 renderer/file-decode equivalence or musical ground truth.",
+    "correction": "Preserve the source fractional transient threshold instead of truncating to an integer. Nine authored original-helper references verify it independently of music.",
+    "rust_binary_sha256": "778d8f1e0ae445f42a410b953f20dc4e06d300c489af9cc0213aa366ed90ba0c",
+    "rust_algorithms": {
+      "lexicon-cues-dsp": "53196c7c5baa7518cefab9693e12be173ed224f181b07ef153cdd7954eb54c26",
+      "lexicon-timing-dsp": "aee5f1a865b05a85cc2ef9b4093a6976d71d9aa8e2f76f834f68e18cb96a3c41",
+      "lexicon-timing-input": "f2b0c6719e97b22f6db4872c28c878010101b8980e2f34780382e8c783e02ff7"
+    },
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "source_integrity": "Every source snapshot/source SHA and frozen decoded S16 PCM MD5 guard passed; no source writes."
+  }
 }
