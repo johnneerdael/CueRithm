@@ -1,0 +1,17 @@
+[package]
+name = "cuerithm-autotag"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license = "GPL-3.0-only"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+cuerithm-media = { path = "../cuerithm-media" }
+onetagger-tag = { path = "../../vendor/onetagger/onetagger-tag", default-features = false }
+onetagger-tagger = { path = "../../vendor/onetagger/onetagger-tagger" }
+reqwest = { version = "0.12", default-features = false, features = ["blocking","json","rustls-tls"] }
+regex = "1"
+onetagger-selected-providers = { path = "../../vendor/onetagger/providers" }

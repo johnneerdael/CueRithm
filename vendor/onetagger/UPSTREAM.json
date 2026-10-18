@@ -1,0 +1,27 @@
+{
+  "repository": "https://github.com/Marekkon5/onetagger",
+  "commit": "36523f71f2d9a5947912f3cb930f1a31fcb2e3ee",
+  "files_sha256": {
+    "crates/onetagger-tag/Cargo.toml": "632f2bba5b7892fae5f2c52867ecfd771fefc28fcfa050b76e65fa534c2c33e9",
+    "crates/onetagger-tag/src/vorbis.rs": "50148ab932c460023cbb049bed9607662b6359956f77d39fca74d8c8c34de449",
+    "crates/onetagger-tag/src/lib.rs": "952162ceb9dbf1e932de870a1365338c6e3a29f3002a6b750047d4c9fecf8374",
+    "crates/onetagger-tag/src/flac.rs": "fc403a89272bf5b5e3ce6974022fdc6d1b94fa1bc2bc486e4742cba7fb450a65",
+    "crates/onetagger-tag/src/mp4.rs": "284841bed7a0e4ed2cf804bdc5dfd085426351c13d0575dfedea4bdd51cbc0a0",
+    "crates/onetagger-tag/src/wav.rs": "83e5cd014e32c3630cefd8735ded53cba925d9e1749df0d4a29f660494799213",
+    "crates/onetagger-tag/src/id3.rs": "7bd2d4bee19516e6a3c3ba1a1f31021c83f9ba8040592cf0a8d40340d23ed6c8",
+    "crates/onetagger-tagger/Cargo.toml": "73a6a9b3e0c703127516244c053e8354cfd70d6177e50e543b5b17083819f9fc",
+    "crates/onetagger-tagger/src/lib.rs": "fbddb3a98df9081264c2a9853d4468a3f3d13739e7a2fd7d402b03a36d5fbbc4",
+    "crates/onetagger-tagger/src/custom.rs": "1861278b8ca259ab648c2f291f9815a8b3f7de74b814002f7866c077659f026a",
+    "crates/onetagger-platforms/src/beatport.rs": "bfc17d913d3b8738b5eaa11ee4b4054767f5e7b10365c6d80ace324f7655306c",
+    "crates/onetagger-platforms/src/traxsource.rs": "7ac566306f9acc9462e6f610afd6dc1bf6b3528fb252d647f1fae2013da26754"
+  },
+  "additional_sources": [
+    {
+      "repository": "https://github.com/rosgr100/onetagger",
+      "commit": "f7adb26a2e0790b0ff751bee04a05c1c20dbd009",
+      "path": "crates/onetagger-platforms/src/beatport.rs",
+      "sha256": "5804a4e8d73e642854524c58d0a189693c03c653e8fb93582eb319b17c603166",
+      "selected_changes": "catalog search endpoint, tracks result wrapper; no fallback matching changes"
+    }
+  ]
+}

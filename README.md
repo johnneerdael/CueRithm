@@ -99,3 +99,9 @@ build, not a signed public release or a complete product-parity claim.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
 commands, platform prerequisites and artifact verification.
+
+
+The independent analysis engine remains MIT-licensed. The desktop application
+and selected OneTagger integration use GPLv3; see
+[desktop license](apps/desktop/LICENSE) and
+[third-party notices](THIRD_PARTY_NOTICES.md).
