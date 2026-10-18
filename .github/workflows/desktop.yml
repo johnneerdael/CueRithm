@@ -20,7 +20,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libasound2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential cmake libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libasound2-dev
       - uses: ./.github/actions/media-runtime
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -42,8 +42,8 @@ jobs:
         run: |
           cargo +stable fmt --all -- --check
           cargo +stable clippy -p cuerithm-desktop -p cuerithm-library --all-targets --locked -- -D warnings
-      - name: Decoder, worker, persistence and playback timeline tests
-        run: cargo +stable test -p cuerithm-library -p cuerithm-media -p cuerithm-desktop --release --locked -- --test-threads=2
+      - name: Tagging, decoder, worker, recovery and playback tests
+        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop --release --locked -- --test-threads=2
       - name: Synthetic sync and linkage invariants
         shell: bash
         run: |
@@ -98,3 +98,6 @@ jobs:
             THIRD_PARTY_NOTICES.md
             crates/camelot-core/vendor/soxr/LICENCE
             crates/camelot-core/vendor/soxr/COPYING.LGPL
+            vendor/onetagger/LICENSE
+            vendor/onetagger/UPSTREAM.json
+            vendor/taglib/
