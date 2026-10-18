@@ -52,3 +52,7 @@ collects configured pages for oldest/newest selection. Its shared token refresh
 releases the mutex during network I/O, shares failures briefly, and receives the
 same cancellation flag as the preparation workers. Existing matching arithmetic
 and public catalog endpoints remain unchanged.
+
+ID3v2.3-to-v2.4 upgrades preserve literal slashes in known human-readable text values,
+including contributor names such as AC/DC. rust-id3 internal list separators are
+normalized before configured catalog writes, retaining frame flags and encoding.

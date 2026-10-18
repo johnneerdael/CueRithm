@@ -329,3 +329,33 @@ fn track_number_and_total_obey_independent_selection_and_overwrite() {
         }
     }
 }
+
+#[test]
+fn id3_upgrade_preserves_slashes_in_unselected_contributors() {
+    use id3::{TagLike, Version};
+    let (d, path, rt) = fixture("mp3");
+    let mut tag = id3::Tag::new();
+    tag.set_title("Original");
+    tag.set_artist("AC/DC");
+    tag.set_text("TCOM", "Composer/Name");
+    tag.write_to_path(&path, Version::Id3v23).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Title];
+    config.options.id3v24 = true;
+    let staged = TagWritePlan::build(
+        source(&rt, &path, d.path()),
+        &result(),
+        &config,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    let actual = id3::Tag::read_from_path(&staged.path).unwrap();
+    assert_eq!(actual.version(), Version::Id3v24);
+    assert_eq!(actual.artist(), Some("AC/DC"));
+    assert_eq!(
+        actual.get("TCOM").unwrap().content().text(),
+        Some("Composer/Name")
+    );
+}
