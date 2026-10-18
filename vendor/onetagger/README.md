@@ -62,7 +62,3 @@ text-value accessors beside the existing configurable separator APIs. ID3 cleanu
 manages only the unqualified comment, retaining other comment identities. Ogg
 reads inspect the header even when the filename suffix is misleading. Existing
 catalog matching and separator settings retain their original path.
-
-ID3v2.3-to-v2.4 upgrades preserve literal slashes in known human-readable text values,
-including contributor names such as AC/DC. rust-id3 internal list separators are
-normalized before configured catalog writes, retaining frame flags and encoding.

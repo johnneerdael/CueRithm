@@ -1,3 +1,6 @@
+mod catalog;
+pub(crate) mod store;
+pub use catalog::{CleanupArtistValue, CleanupCatalog, CleanupCatalogValue};
 mod journal;
 mod model;
 use crate::{
@@ -35,7 +38,7 @@ struct Plan {
     public: CleanupPreview,
     proposals: Vec<Proposal>,
 }
-fn custom_tags(conn: &Connection, id: &str) -> Result<Vec<CustomTag>> {
+pub(crate) fn custom_tags(conn: &Connection, id: &str) -> Result<Vec<CustomTag>> {
     let mut q=conn.prepare("SELECT c.name,t.name FROM track_custom_tags l JOIN custom_tags t ON t.id=l.tag_id JOIN custom_tag_categories c ON c.id=t.category_id WHERE l.track_id=?1 ORDER BY c.name,t.name")?;
     Ok(q.query_map([id], |r| {
         Ok(CustomTag {

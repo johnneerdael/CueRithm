@@ -5,8 +5,8 @@ mod artifacts;
 mod cleanup;
 #[cfg(feature = "autotag")]
 pub use cleanup::{
-    CleanupBatchResult, CleanupFailure, CleanupHistory, CleanupPreview, CleanupProposal,
-    CleanupScope, CleanupService,
+    CleanupArtistValue, CleanupBatchResult, CleanupCatalog, CleanupCatalogValue, CleanupFailure,
+    CleanupHistory, CleanupPreview, CleanupProposal, CleanupScope, CleanupService,
 };
 #[cfg(feature = "autotag")]
 mod album_context;

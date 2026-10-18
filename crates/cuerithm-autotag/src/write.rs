@@ -26,6 +26,7 @@ pub struct TagWritePlan {
     provenance: serde_json::Value,
     cleanup: Option<cuerithm_cleanup::CleanupConfig>,
     metadata_edits: Vec<cuerithm_cleanup::FieldChange>,
+    custom_tags: Vec<cuerithm_cleanup::CustomTag>,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -40,6 +41,7 @@ pub struct StagedTagWrite {
     pub sidecars: Vec<crate::StagedSidecar>,
     pub provenance: serde_json::Value,
     pub cleanup: Option<cuerithm_cleanup::CleanupReport>,
+    pub native_metadata: cuerithm_cleanup::Metadata,
     workspace: PathBuf,
     private: Option<tempfile::TempDir>,
 }
@@ -89,7 +91,17 @@ impl TagWritePlan {
             provenance: serde_json::to_value(outcome)?,
             cleanup: None,
             metadata_edits: vec![],
+            custom_tags: vec![],
         })
+    }
+    pub fn with_custom_tags(mut self, tags: Vec<cuerithm_cleanup::CustomTag>) -> Result<Self> {
+        cuerithm_cleanup::Metadata {
+            custom_tags: tags.clone(),
+            ..Default::default()
+        }
+        .validate()?;
+        self.custom_tags = tags;
+        Ok(self)
     }
     pub fn with_cleanup(mut self, config: cuerithm_cleanup::CleanupConfig) -> Result<Self> {
         config.validate()?;
@@ -123,6 +135,7 @@ impl TagWritePlan {
         cuerithm_cleanup::Metadata,
     )> {
         let mut expected = crate::metadata::read(tag, format)?;
+        expected.custom_tags = self.custom_tags.clone();
         crate::metadata::edit(tag, format, &self.metadata_edits)?;
         for edit in &self.metadata_edits {
             expected.set(edit.field, edit.after.clone());
@@ -294,12 +307,12 @@ impl TagWritePlan {
         let after = runtime
             .decode(&path, cache)
             .context("Verify tagged audio")?;
+        let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
         if (self.cleanup.is_some() || !self.metadata_edits.is_empty())
             && let Some(expected) = expected_metadata
         {
-            let actual = crate::metadata::read_metadata(&path, &after.info)?;
             ensure!(
-                actual.fields == expected.fields,
+                native_metadata.fields == expected.fields,
                 "Metadata cannot be represented exactly in this tag format"
             );
         }
@@ -331,6 +344,7 @@ impl TagWritePlan {
             decoder_identity: runtime.identity.clone(),
             provenance: self.provenance.clone(),
             cleanup,
+            native_metadata,
             workspace: private.path().to_owned(),
             private: Some(private),
         })

@@ -285,3 +285,20 @@ Existing engine CI and the 47 cue cases remain regression gates; they do not
 establish the new application's UI, tagging or sync correctness.
 
 User clarification (2026-10-18): Plays, Last Played and Danceability are excluded.
+
+
+## Added library-maintenance scope (2026-10-18)
+
+The user requested the installed Lexicon's duplicate and orphan-file cleanup as
+well. Static inspection of 1.11.15 confirms duplicate scanning/review/merge,
+unused-file scanning and missing/corrupt-track scanning. Include these in the
+Rust port, using the evidence in `docs/research/lexicon-library-maintenance.md`.
+Keep unused disk files separate from missing library records. Duplicate merge
+must support a selected keeper, locks/ignores, cue/tag transfer and playlist
+reference replacement before archiving other copies. Its playlist updates depend
+on the playlist store; source audio removal is a separate reviewed action.
+Scans do not delete files. Preserve current file identities, referenced files,
+analysis provenance and recovery behavior across desktop platforms. This scope
+does not add streaming-library support or the excluded Plays, Last Played and
+Danceability metrics. It remains an additional delivery after the current
+metadata cleanup work, alongside the planned playlists and direct rekordbox sync.

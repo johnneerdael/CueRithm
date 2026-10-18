@@ -189,7 +189,7 @@ pub(super) fn insert(
     tx.commit()?;
     Ok(())
 }
-fn set_custom_tags(
+pub(super) fn set_custom_tags(
     conn: &Connection,
     id: &str,
     tags: &[cuerithm_cleanup::CustomTag],
@@ -264,6 +264,7 @@ fn commit_metadata(conn: &Connection, payload: &Payload, after: &str) -> Result<
         &payload.before.track_id,
         &payload.report.metadata.custom_tags,
     )?;
+    super::store::store_native(conn, &payload.before.track_id, &payload.report.metadata)?;
     if let Some(id) = &payload.undo_of {
         ensure!(
             conn.execute(

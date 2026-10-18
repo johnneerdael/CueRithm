@@ -202,6 +202,7 @@ impl Library {
                     | "analysis"
                     | "matching"
                     | "tagging"
+                    | "cleanup"
                     | "writing_tags"
                     | "committing"
             ),
@@ -277,7 +278,7 @@ impl Library {
         info: &MediaInfo,
         source_sha: &str,
     ) -> Result<()> {
-        self.apply_analysis_checked(id, None, result, info, source_sha)
+        self.apply_analysis_checked(id, None, result, info, source_sha, None)
     }
     pub fn apply_analysis_for_run(
         &self,
@@ -285,7 +286,31 @@ impl Library {
         result: &FileAnalysis,
         info: &MediaInfo,
     ) -> Result<()> {
-        self.apply_analysis_checked(&job.id, Some(job.attempt), result, info, &job.source_sha256)
+        self.apply_analysis_checked(
+            &job.id,
+            Some(job.attempt),
+            result,
+            info,
+            &job.source_sha256,
+            None,
+        )
+    }
+    #[cfg(feature = "autotag")]
+    pub(crate) fn apply_prepared_analysis_for_run(
+        &self,
+        job: &JobRun,
+        result: &FileAnalysis,
+        info: &MediaInfo,
+        native: Option<&cuerithm_cleanup::Metadata>,
+    ) -> Result<()> {
+        self.apply_analysis_checked(
+            &job.id,
+            Some(job.attempt),
+            result,
+            info,
+            &job.source_sha256,
+            native,
+        )
     }
     fn apply_analysis_checked(
         &self,
@@ -294,6 +319,7 @@ impl Library {
         result: &FileAnalysis,
         info: &MediaInfo,
         source_sha: &str,
+        native: Option<&cuerithm_cleanup::Metadata>,
     ) -> Result<()> {
         Self::validate_analysis(result)?;
         let mut conn = self.conn()?;
@@ -315,6 +341,12 @@ impl Library {
             "Required metadata stages have not completed"
         );
         Self::store_analysis_tx(&tx, id, &track, result, info)?;
+        #[cfg(feature = "autotag")]
+        if let Some(native) = native {
+            crate::cleanup::store::store_native(&tx, &track, native)?;
+        }
+        #[cfg(not(feature = "autotag"))]
+        let _ = native;
         tx.commit()?;
         Ok(())
     }
@@ -373,7 +405,7 @@ impl Library {
                 now()
             ],
         )?;
-        tx.execute("UPDATE tracks SET state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
+        tx.execute("UPDATE tracks SET native_metadata_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
             params![json,serde_json::to_string(info)?,key.camelot,tempo.bpm,energy.level,a.duration_seconds,now(),track])?;
         for (field, value) in &info.tags {
             let column = match field.as_str() {

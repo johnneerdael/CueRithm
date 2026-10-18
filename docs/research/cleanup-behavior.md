@@ -80,7 +80,7 @@ library persistence, not confused with physical genre fields.
 
 Current adapter checks use generated audio in all fourteen fixture layouts,
 including Unicode paths and renamed files. They establish file staging behavior;
-automatic Incoming cleanup and the native UI remain separate acceptance.
+automatic Incoming cleanup and the native UI are separate acceptance stages.
 
 ## Manual library backend acceptance
 
@@ -98,3 +98,27 @@ source/archive/preparation/metadata/custom-tag races, database rollback, restart
 before copying/after copying/after replacement, interrupted Undo and deferred
 temporary cleanup. Custom-tag-only changes preserve file bytes. These are backend
 checks; automatic pipeline and native UI acceptance are recorded separately.
+
+
+## Automatic preparation and counted catalogs
+
+Incoming uses the same persisted rule configuration as manual cleanup. Offline
+cleanup does not contact a catalog provider. When auto-tagging is enabled,
+selected provider tags are written before cleanup. One journal publishes the
+physical metadata, cleanup report, categorized tags, native value cache and
+analysis/cues together; stale settings or concurrent custom-tag changes cannot
+publish an obsolete result. Retry retains valid audio analysis.
+
+Genre and contributor catalogs count distinct ready tracks, including per-role
+counts. Native contributor arrays preserve names containing commas. Legacy rows
+can backfill their derived metadata cache from a guarded native read; unavailable
+files are reported without inventing contributors from flattened display text.
+Explicit protected names remain locked. Analysis-only preparation caches native
+metadata when readable without requiring a metadata write.
+
+Seven focused generated-fixture checks cover persisted rules/restart,
+cleanup-only and provider-before-cleanup preparation, categorized tag retention,
+protected/no-op metadata, concurrent custom-tag changes with cached-analysis
+retry, superseded settings, native role counts and unavailable legacy files.
+The complete workspace release suite passes 595 tests with six explicitly
+optional tests ignored. Native cleanup UI acceptance remains pending.

@@ -23,6 +23,8 @@ struct Journal {
     analysis: FileAnalysis,
     metadata: MediaInfo,
     provenance: serde_json::Value,
+    cleanup: Option<cuerithm_cleanup::CleanupReport>,
+    native_metadata: Option<cuerithm_cleanup::Metadata>,
     workspace: PathBuf,
     state: String,
     files: Vec<Artifact>,
@@ -161,6 +163,12 @@ impl Library {
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(Self::run_owns(&tx, run)?, "Preparation was superseded");
+        crate::cleanup::store::validate_report(
+            &tx,
+            &run.track_id,
+            Self::preparation_cleanup_config(&run.snapshot)?,
+            staged.cleanup.as_ref(),
+        )?;
         for file in &files {
             let busy:i64=tx.query_row("SELECT (SELECT COUNT(*) FROM tag_write_files f JOIN tag_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared') + (SELECT COUNT(*) FROM cleanup_write_files f JOIN cleanup_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')",[path_bytes(&file.target)],|r|r.get(0))?;
             ensure!(
@@ -172,7 +180,7 @@ impl Library {
             "UPDATE jobs SET stage='writing_tags',updated=?1 WHERE id=?2",
             params![now(), run.id],
         )?;
-        tx.execute("INSERT INTO tag_writes(id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,pcm_hash,frames,decoder,analysis_json,metadata_json,provenance_json,workspace,created) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",params![id,run.id,run.track_id,run.attempt,run.settings_revision,staged.source_before_sha256,staged.source_after_sha256,staged.pcm_sha256,staged.frames,staged.decoder_identity,serde_json::to_string(result)?,serde_json::to_string(&staged.metadata)?,serde_json::to_string(&staged.provenance)?,path_bytes(&workspace),now()])?;
+        tx.execute("INSERT INTO tag_writes(id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,pcm_hash,frames,decoder,analysis_json,metadata_json,provenance_json,workspace,created,cleanup_json,native_metadata_json) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",params![id,run.id,run.track_id,run.attempt,run.settings_revision,staged.source_before_sha256,staged.source_after_sha256,staged.pcm_sha256,staged.frames,staged.decoder_identity,serde_json::to_string(result)?,serde_json::to_string(&staged.metadata)?,serde_json::to_string(&staged.provenance)?,path_bytes(&workspace),now(),staged.cleanup.as_ref().map(serde_json::to_string).transpose()?,serde_json::to_string(&staged.native_metadata)?])?;
         for (n, f) in files.iter().enumerate() {
             tx.execute(
                 "INSERT INTO tag_write_files VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
@@ -198,7 +206,7 @@ impl Library {
     }
     fn load_tag_write(&self, id: &str) -> Result<Journal> {
         let conn = self.conn()?;
-        let mut journal=conn.query_row("SELECT id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,analysis_json,metadata_json,provenance_json,workspace,state FROM tag_writes WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,u32>(3)?,r.get::<_,String>(4)?,r.get::<_,String>(5)?,r.get::<_,String>(6)?,r.get::<_,String>(7)?,r.get::<_,String>(8)?,r.get::<_,String>(9)?,r.get::<_,Vec<u8>>(10)?,r.get::<_,String>(11)?)))?;
+        let mut journal=conn.query_row("SELECT id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,analysis_json,metadata_json,provenance_json,workspace,state,cleanup_json,native_metadata_json FROM tag_writes WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,u32>(3)?,r.get::<_,String>(4)?,r.get::<_,String>(5)?,r.get::<_,String>(6)?,r.get::<_,String>(7)?,r.get::<_,String>(8)?,r.get::<_,String>(9)?,r.get::<_,Vec<u8>>(10)?,r.get::<_,String>(11)?,r.get::<_,Option<String>>(12)?,r.get::<_,Option<String>>(13)?)))?;
         let mut stmt=conn.prepare("SELECT target,staged,backup,before_hash,after_hash,publish_path,displaced_path FROM tag_write_files WHERE write_id=?1 ORDER BY ordinal")?;
         let encoded = stmt
             .query_map([id], |r| {
@@ -240,6 +248,8 @@ impl Library {
             analysis: serde_json::from_str(&journal.7)?,
             metadata: serde_json::from_str(&journal.8)?,
             provenance: serde_json::from_str(&journal.9)?,
+            cleanup: journal.12.map(|s| serde_json::from_str(&s)).transpose()?,
+            native_metadata: journal.13.map(|s| serde_json::from_str(&s)).transpose()?,
             workspace: bytes_path(&journal.10)?,
             state: journal.11,
             files,
@@ -293,10 +303,12 @@ impl Library {
                 |r| r.get(0),
             )?;
             let snapshot: SettingsSnapshot = serde_json::from_str(&settings)?;
-            ensure!(
-                !snapshot.settings.cleanup_enabled,
-                "Required cleanup has not completed"
-            );
+            crate::cleanup::store::validate_report(
+                &tx,
+                &journal.track,
+                Self::preparation_cleanup_config(&snapshot)?,
+                journal.cleanup.as_ref(),
+            )?;
             for f in &journal.files {
                 safe_target(&f.target, &run.path)?;
                 ensure!(
@@ -340,13 +352,21 @@ impl Library {
                 &journal.metadata,
             )?;
             tx.execute(
-                "UPDATE tracks SET source_hash=?1,tagging_json=?2 WHERE id=?3",
-                params![
-                    journal.after,
-                    serde_json::to_string(&journal.provenance)?,
-                    journal.track
-                ],
+                "UPDATE tracks SET source_hash=?1 WHERE id=?2",
+                params![journal.after, journal.track],
             )?;
+            if snapshot.settings.autotag_enabled {
+                tx.execute(
+                    "UPDATE tracks SET tagging_json=?1 WHERE id=?2",
+                    params![serde_json::to_string(&journal.provenance)?, journal.track],
+                )?;
+            }
+            if let Some(native) = &journal.native_metadata {
+                crate::cleanup::store::store_native(&tx, &journal.track, native)?;
+            }
+            if let Some(report) = &journal.cleanup {
+                crate::cleanup::store::apply_report(&tx, &journal.track, report)?;
+            }
             tx.execute(
                 "UPDATE tag_writes SET state='committed',error=NULL WHERE id=?1",
                 [id],
