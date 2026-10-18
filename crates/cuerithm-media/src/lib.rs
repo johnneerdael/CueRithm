@@ -7,6 +7,7 @@ pub use clock::AudioClock;
 pub use decode::PreparedAudio;
 pub use probe::MediaInfo;
 pub use runtime::MediaRuntime;
+pub use runtime::sha256 as file_sha256;
 
 pub fn source_sha256() -> String {
     use sha2::{Digest, Sha256};

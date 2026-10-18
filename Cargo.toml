@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media"]
+members = ["crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library"]
 resolver = "2"
 
 [workspace.package]
