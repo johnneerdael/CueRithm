@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes a signed, notarized macOS release for a main commit once both post-merge build workflows pass for it.
+# Publishes a release (signed, notarized macOS; unsigned Linux and Windows) for a main commit once both post-merge build workflows pass for it.
 on:
   workflow_run:
     workflows: [Engine checks, Desktop checks]
@@ -61,9 +61,9 @@ jobs:
           if [ -n "$(git tag --points-at "$target")" ]; then ok=false; fi
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
-      - name: Download macOS app builds
+      - name: Download desktop builds
         if: steps.ready.outputs.ok == 'true'
-        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-macos-*' --dir dist
+        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-*' --dir dist
       - name: Import Developer ID certificate
         if: steps.ready.outputs.ok == 'true'
         env:
@@ -96,6 +96,10 @@ jobs:
           mkdir release
           sign() { tools/release/sign-macos.sh "$(find "dist/$1" -name '*.app.tar.gz')" "release/Cuerithm-$2.dmg"; }
           sign Cuerithm-test-macos-15 arm64
+          # Unsigned Linux and Windows builds.
+          cp "$(find dist/Cuerithm-test-ubuntu-24.04 -name '*.deb')" release/Cuerithm-linux-x64.deb
+          (cd dist/Cuerithm-test-windows-2025/target/release/bundle/portable && zip -qr "$GITHUB_WORKSPACE/release/Cuerithm-windows-x64.zip" .)
+          cp THIRD_PARTY_NOTICES.md release/
           # Corresponding source for the bundled decoder and the application.
           cp "$(find dist/Cuerithm-test-macos-15 -name cuerithm-source.tar.gz)" release/
           cp "$(find dist/Cuerithm-test-macos-15 -name 'ffmpeg-*.tar.xz')" release/
@@ -107,7 +111,7 @@ jobs:
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
           version=$(python3 .github/scripts/release_notes.py version --base "$base")
           python3 .github/scripts/release_notes.py notes --head "$TARGET" --repo "$GITHUB_REPOSITORY" > notes.md
-          for f in release/Cuerithm-*.dmg; do mv "$f" "${f%.dmg}-$version.dmg"; done
+          for f in release/Cuerithm-*.dmg release/Cuerithm-*.deb release/Cuerithm-*.zip; do mv "$f" "${f%.*}-$version.${f##*.}"; done
           gh release create "v$version" release/* --target "$TARGET" --title "Cuerithm $version" --notes-file notes.md --latest
       - name: Remove signing keychain
         if: always()
