@@ -1,0 +1,48 @@
+/* CueRithm 1.0 | Use data-theme="light" or "dark" on the application root. */
+:root, [data-theme="light"] {
+  --cr-bg: #F7F7F2;
+  --cr-surface: #FFFFFF;
+  --cr-raised: #F0F1F7;
+  --cr-text: #171A24;
+  --cr-muted: #606779;
+  --cr-subtle: #656D80;
+  --cr-border: #7B849A;
+  --cr-divider: #D8DBE4;
+  --cr-accent: #2946D8;
+  --cr-primary: #3658F5;
+  --cr-onPrimary: #FFFFFF;
+  --cr-selection: #E9EDFF;
+  --cr-success: #17644E;
+  --cr-warning: #77540D;
+  --cr-danger: #AE3024;
+  --cr-focus: #2946D8;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --cr-bg: #10121B;
+  --cr-surface: #191C28;
+  --cr-raised: #222635;
+  --cr-text: #F5F6FA;
+  --cr-muted: #B0B7CB;
+  --cr-subtle: #8B94AE;
+  --cr-border: #6B7692;
+  --cr-divider: #303648;
+  --cr-accent: #8C9FFF;
+  --cr-primary: #3658F5;
+  --cr-onPrimary: #FFFFFF;
+  --cr-selection: #293454;
+  --cr-success: #76D4B1;
+  --cr-warning: #F4C779;
+  --cr-danger: #FF9D91;
+  --cr-focus: #B4C1FF;
+  color-scheme: dark;
+}
+:root {
+  --cr-brand-cobalt:#3658F5; --cr-brand-coral:#FF785E;
+  --cr-font-display:"Space Grotesk",sans-serif;
+  --cr-font-ui:"Inter",sans-serif;
+  --cr-font-data:"IBM Plex Mono",monospace;
+  --cr-radius-control:8px; --cr-radius-panel:12px;
+}
+:focus-visible { outline:2px solid var(--cr-focus); outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }

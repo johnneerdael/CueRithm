@@ -1,6 +1,7 @@
 import {playbackBpm} from "./published-analysis";
 import {useState,useEffect,useRef,useCallback} from "react";
-import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Upload} from "lucide-react";
+import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Upload,Sun,Moon,SunMoon} from "lucide-react";
+import {useTheme} from "./theme";
 import {nativeBridge,errorMessage} from "./api";
 import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery,WorkspaceView} from "./types";
 import Sidebar from "./components/Sidebar";
@@ -19,6 +20,7 @@ import {usePlaylistDrag} from "./use-playlist-drag";
 import {descendantIds} from "./playlist-tree";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
+function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
 export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const [view,setView]=useState<WorkspaceView>("tracks");
@@ -40,8 +42,12 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const [toast,setToast]=useState<string|null>(null),[bootError,setBootError]=useState<string|null>(null);
   const [playback,setPlayback]=useState<Playback>(idle),[detail,setDetail]=useState<Detail|null>(null),[wave,setWave]=useState<Waveform|null>(null),[loadingTrack,setLoadingTrack]=useState(false);
   const [dragging,setDragging]=useState(false);
+  const {mode,cycle}=useTheme();
+  const [collapsed,setCollapsed]=useState(()=>flag("sidebar-collapsed"));
   const [sideWidth,setSideWidth]=useState(()=>preference("sidebar-width",224,180,340));
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
+  useEffect(()=>{try{localStorage.setItem("sidebar-collapsed",collapsed?"1":"0");}catch{}},[collapsed]);
+  const previewLoader=useCallback(async(id:string)=>{const [wave,detail]=await Promise.all([bridge.getWaveform(id,240),bridge.getTrack(id)]);return {wave,detail};},[bridge]);
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const playlistRequest=useRef(0);
   const loadedScope=useRef("");
@@ -136,6 +142,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
       if(event.defaultPrevented||internalDrag.active.current)return;
       if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(view==="settings"||view==="cleanup")setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
+      if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(view!=="settings"&&view!=="cleanup"&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
       if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&playbackBpm(loadedDetail.current?.analysis)){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
@@ -220,13 +227,14 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const activePlaylistStatus=playlists?.statuses.find(status=>status.playlist_id===playlistId);
   const libraryView=view==="settings"||view==="cleanup"?lastView:view;
   const dragPayload=internalDrag.drag,dragLabel=dragPayload?.kind==="tracks"?`${dragPayload.ids.length} tracks`:dragPayload?playlists?.tree.nodes.find(n=>n.id===dragPayload.id)?.name??"Playlist":"";
-  return <div className="app" data-internal-dragging={!!internalDrag.drag||undefined} onClickCapture={internalDrag.suppressClick} onDoubleClickCapture={internalDrag.suppressClick} style={{"--sidebar-width":sideWidth+"px","--player-height":playerHeight+"px"} as React.CSSProperties}>
-    <Sidebar view={view} onView={onView} state={state} playlists={playlists} activePlaylistId={playlistId} onPlaylist={onPlaylist} onCreate={()=>{setPlaylistPanel(null);setPlaylistEditor({node:null,parentId:activePlaylist?.kind==="folder"?activePlaylist.id:null});}} onEdit={node=>{setPlaylistPanel(null);setPlaylistEditor({node,parentId:node.parent_id});}} onAction={playlistAction} onUndo={undoPlaylist} busy={playlistBusy||!!playlistEditor} playlistPanel={playlistPanel} onTools={()=>openPlaylistPanel("tools")} drag={internalDrag.drag} onPlaylistDragStart={startPlaylistDrag}/>
+  return <div className="app" data-collapsed={collapsed} data-internal-dragging={!!internalDrag.drag||undefined} onClickCapture={internalDrag.suppressClick} onDoubleClickCapture={internalDrag.suppressClick} style={{"--sidebar-width":sideWidth+"px","--player-height":playerHeight+"px"} as React.CSSProperties}>
+    <Sidebar view={view} onView={onView} state={state} playlists={playlists} activePlaylistId={playlistId} onPlaylist={onPlaylist} onCreate={()=>{setPlaylistPanel(null);setPlaylistEditor({node:null,parentId:activePlaylist?.kind==="folder"?activePlaylist.id:null});}} onEdit={node=>{setPlaylistPanel(null);setPlaylistEditor({node,parentId:node.parent_id});}} onAction={playlistAction} onUndo={undoPlaylist} busy={playlistBusy||!!playlistEditor} playlistPanel={playlistPanel} onTools={()=>openPlaylistPanel("tools")} drag={internalDrag.drag} onPlaylistDragStart={startPlaylistDrag} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(v=>!v)}/>
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column">
       <header className="app-header" data-tauri-drag-region>
         <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(view==="settings"||view==="cleanup")onView(lastView);}}/><kbd>⌘ F</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
+        <button className="icon-button theme-toggle" aria-label={"Colour theme: "+mode} title={"Colour theme: "+mode+" (click to change)"} onClick={cycle}>{mode==="light"?<Sun size={17}/>:mode==="dark"?<Moon size={17}/>:<SunMoon size={17}/>}</button>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>
       </header>
       <main>
@@ -242,7 +250,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
             {selected.size?<><button onClick={()=>{void (async()=>{for(const id of selectedRef.current)await bridge.reprepareTrack(id);setSelected(new Set());await refresh(true);})().catch(notify);}}><RotateCcw size={13}/>Analyze again</button>{activePlaylist||view!=="archive"?<button onClick={()=>void archiveSelected(true)}><Archive size={13}/>Archive</button>:null}{activePlaylist||view==="archive"?<button onClick={()=>void archiveSelected(false)}><Archive size={13}/>Restore</button>:null}</>:<span className="sort-note">SORTED BY {sort.toUpperCase()}</span>}
           </div></div>
           {playlists?<PlaylistMembershipControls workspace={playlists} active={activePlaylist} selected={selected} manualOrder={sort==="playlist_order"&&!descending} busy={playlistBusy} onEdit={playlistAction} onMove={reorderSelected} onManualOrder={()=>{setSort("playlist_order");setDescending(false);}}/>:null}
-          {rows.length?<TrackTable onTrackDragStart={startTrackDrag} metadataLoader={async()=>{const fields=await bridge.getMetadataFields();await refresh(true);return fields;}} artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={row=>void archive(row)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading?(state?"Loading tracks…":"Opening your library…"):search?"No matching tracks":activePlaylist?"No tracks in this playlist":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":activePlaylist?activePlaylist.kind==="smartlist"?"Tracks appear here when they match the playlist conditions.":activePlaylist.kind==="folder"?"Tracks from playlists in this folder appear here.":"Add tracks from your library to this playlist.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!activePlaylist&&!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}{!activePlaylist?<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small>:null}</div>}
+          {rows.length?<TrackTable previewLoader={previewLoader} onTrackDragStart={startTrackDrag} metadataLoader={async()=>{const fields=await bridge.getMetadataFields();await refresh(true);return fields;}} artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={row=>void archive(row)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading?(state?"Loading tracks…":"Opening your library…"):search?"No matching tracks":activePlaylist?"No tracks in this playlist":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":activePlaylist?activePlaylist.kind==="smartlist"?"Tracks appear here when they match the playlist conditions.":activePlaylist.kind==="folder"?"Tracks from playlists in this folder appear here.":"Add tracks from your library to this playlist.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!activePlaylist&&!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}{!activePlaylist?<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small>:null}</div>}
           <footer className="library-footer"><span>{rows.length<total?rows.length+" of ":""}{total.toLocaleString()} tracks{selected.size?" · "+selected.size+" selected":""}</span><span><CheckCircle2 size={12}/>Offline audio analysis</span></footer>
         </>}
       </main>

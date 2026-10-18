@@ -2,7 +2,7 @@ import {useMemo,useState} from "react";
 import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lucide-react";
 import Artwork from "./Artwork";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
-import {time,cueColor,keyStyle} from "../display";
+import {time,cueColor} from "../display";
 import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
@@ -46,7 +46,7 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
     <div className="player-header">
       <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<AudioLines size={27}/>}/>:<AudioLines size={27}/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
-      {detail?<div className="player-analysis"><span><b>{playbackBpm(detail.analysis)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip" style={keyStyle(detail.analysis?.analysis.key?.camelot)}>{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      {detail?<div className="player-analysis"><span><b>{playbackBpm(detail.analysis)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
         <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
         <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>

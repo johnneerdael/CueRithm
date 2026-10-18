@@ -257,7 +257,7 @@ impl Library {
         crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived FROM tracks WHERE id=?1",[id],summary_row)?)
+        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,json_extract(tagging_json,'$.status') FROM tracks WHERE id=?1",[id],summary_row)?)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
         Ok(self
@@ -369,6 +369,9 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
         .unwrap_or_default();
     metadata.insert("library.date_added".into(), r.get::<_, i64>(13)?.into());
     metadata.insert("library.date_modified".into(), r.get::<_, i64>(14)?.into());
+    if let Some(status) = r.get::<_, Option<String>>(16)? {
+        metadata.insert("library.tag_status".into(), status.into());
+    }
     Ok(TrackSummary {
         metadata,
         id: r.get(0)?,
