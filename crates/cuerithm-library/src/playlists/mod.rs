@@ -3,9 +3,11 @@ mod evaluate;
 mod history;
 mod model;
 mod preferences;
+mod previews;
 pub(crate) mod queries;
 mod service;
 mod snapshot;
+mod tools;
 mod tree;
 use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
@@ -13,10 +15,11 @@ use cuerithm_smartlists::PlaylistReference;
 pub use evaluate::SmartEvaluation;
 use model::{Delta, StoredNode, Tree};
 pub use model::{
-    NativePlaylistFacts, PlaylistChange, PlaylistEdit, PlaylistKind, PlaylistNode,
-    PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistState, SmartCategoryChoice,
-    SmartFieldCatalog, SmartListFailure, SmartListStatus, SmartPreview, SmartPreviewScope,
-    SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
+    NativePlaylistFacts, PlaylistChange, PlaylistCombineMode, PlaylistEdit, PlaylistKind,
+    PlaylistNode, PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistPrefix,
+    PlaylistPreviewItem, PlaylistSortOrder, PlaylistState, PlaylistToolPreview,
+    PlaylistToolRequest, SmartCategoryChoice, SmartFieldCatalog, SmartListFailure, SmartListStatus,
+    SmartPreview, SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;
@@ -151,6 +154,47 @@ fn persist(conn: &Connection, before: &Delta, after: &Delta) -> Result<()> {
     Library::bump(conn)?;
     Ok(())
 }
+fn commit_tree_change(
+    tx: &rusqlite::Transaction<'_>,
+    before: &Tree,
+    mut after: Tree,
+    created: Vec<String>,
+    expected: u64,
+    id: String,
+) -> Result<PlaylistChange> {
+    let current = revision(tx)?;
+    ensure!(
+        current == expected,
+        "Playlist changed; refresh before editing"
+    );
+    let tracks = tree::known_tracks(tx)?;
+    tree::validate(before, &tracks)?;
+    tree::normalize(&mut after);
+    tree::validate(&after, &tracks)?;
+    for (key, row) in &mut after {
+        if before.get(key) != Some(&*row) {
+            row.last_edit_id = id.clone();
+        }
+    }
+    let (a, b) = diff(before, &after);
+    if a.is_empty() {
+        return Ok(PlaylistChange {
+            edit_id: None,
+            revision: current,
+            created_ids: vec![],
+            affected_ids: vec![],
+        });
+    }
+    persist(tx, &a, &b)?;
+    tx.execute("INSERT INTO playlist_edits(id,kind,before_json,after_json,created) VALUES(?1,'edit',?2,?3,?4)",params![id,serde_json::to_string(&a)?,serde_json::to_string(&b)?,now()])?;
+    Ok(PlaylistChange {
+        edit_id: Some(id),
+        revision: revision(tx)?,
+        created_ids: created,
+        affected_ids: b.keys().cloned().collect(),
+    })
+}
+
 impl Library {
     pub fn playlist_state(&self) -> Result<PlaylistState> {
         let conn = self.conn()?;
@@ -193,42 +237,27 @@ impl Library {
     ) -> Result<PlaylistChange> {
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let current = revision(&tx)?;
         ensure!(
-            current == expected_revision,
+            revision(&tx)? == expected_revision,
             "Playlist changed; refresh before editing"
         );
         let before = load(&tx)?;
         let tracks = tree::known_tracks(&tx)?;
         tree::validate(&before, &tracks)?;
         let mut after = before.clone();
-        let id = uuid::Uuid::new_v4().to_string();
         let mut created = vec![];
-        edits::apply(&mut after, &tracks, edit, &id, &mut created, 0, &mut 0)?;
-        tree::normalize(&mut after);
-        tree::validate(&after, &tracks)?;
-        for (key, row) in &mut after {
-            if before.get(key) != Some(&*row) {
-                row.last_edit_id = id.clone();
-            }
-        }
-        let (a, b) = diff(&before, &after);
-        if a.is_empty() {
-            return Ok(PlaylistChange {
-                edit_id: None,
-                revision: current,
-                created_ids: vec![],
-                affected_ids: vec![],
-            });
-        }
-        persist(&tx, &a, &b)?;
-        tx.execute("INSERT INTO playlist_edits(id,kind,before_json,after_json,created) VALUES(?1,'edit',?2,?3,?4)",params![id,serde_json::to_string(&a)?,serde_json::to_string(&b)?,now()])?;
-        let change = PlaylistChange {
-            edit_id: Some(id),
-            revision: revision(&tx)?,
-            created_ids: created,
-            affected_ids: b.keys().cloned().collect(),
-        };
+        let operation = uuid::Uuid::new_v4().to_string();
+        edits::apply(
+            &mut after,
+            &tracks,
+            edit,
+            &operation,
+            &mut created,
+            0,
+            &mut 0,
+        )?;
+        let change =
+            commit_tree_change(&tx, &before, after, created, expected_revision, operation)?;
         tx.commit()?;
         Ok(change)
     }

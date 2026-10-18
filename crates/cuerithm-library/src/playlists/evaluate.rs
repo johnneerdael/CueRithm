@@ -11,12 +11,12 @@ use std::{
     },
 };
 #[derive(Debug)]
-struct Outcome {
-    id: String,
-    members: Option<Vec<String>>,
-    error: Option<String>,
-    signature: String,
-    next: Option<i64>,
+pub(super) struct Outcome {
+    pub(super) id: String,
+    pub(super) members: Option<Vec<String>>,
+    pub(super) error: Option<String>,
+    pub(super) signature: String,
+    pub(super) next: Option<i64>,
 }
 
 #[cfg(test)]
@@ -285,6 +285,12 @@ fn compute(
         });
     }
     Ok(outcomes)
+}
+pub(super) fn computed_memberships(snapshot: &Snapshot) -> Result<BTreeMap<String, Outcome>> {
+    Ok(compute(snapshot, &snapshot.tree, None, None)?
+        .into_iter()
+        .map(|o| (o.id.clone(), o))
+        .collect())
 }
 fn cache_matches(status: &snapshot::CachedStatus, stamp: &SmartStamp, signature: &str) -> bool {
     matches!(status.state.as_str(), "ready" | "error")

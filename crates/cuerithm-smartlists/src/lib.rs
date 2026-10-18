@@ -15,6 +15,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+pub use text::trim as javascript_trim;
 #[derive(Debug)]
 pub struct EvaluationContext {
     pub now_millis: i64,

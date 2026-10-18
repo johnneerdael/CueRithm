@@ -187,3 +187,81 @@ pub struct NativePlaylistFacts {
     pub cues: Vec<cuerithm_smartlists::SmartCue>,
     pub tempos: Vec<f64>,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaylistCombineMode {
+    Union,
+    Intersection,
+    AbsentFromAll,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaylistSortOrder {
+    NameAscending,
+    NameDescending,
+    TrackCountDescending,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PlaylistPrefix {
+    Number {
+        start: u32,
+        leading_zero: bool,
+        replace_existing: bool,
+    },
+    Text {
+        text: String,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PlaylistToolRequest {
+    Combine {
+        source_ids: Vec<String>,
+        parent_id: Option<String>,
+        name: String,
+        mode: PlaylistCombineMode,
+    },
+    SortSiblings {
+        parent_id: Option<String>,
+        ids: Option<Vec<String>>,
+        order: PlaylistSortOrder,
+    },
+    Prefix {
+        ids: Vec<String>,
+        prefix: PlaylistPrefix,
+    },
+    Uppercase {
+        ids: Vec<String>,
+    },
+    ReorderMembers {
+        id: String,
+        track_ids: Vec<String>,
+    },
+    Snapshot {
+        source_id: String,
+        parent_id: Option<String>,
+        name: String,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistPreviewItem {
+    pub id: String,
+    pub name: String,
+    pub previous_name: Option<String>,
+    pub kind: PlaylistKind,
+    pub parent_id: Option<String>,
+    pub position: u32,
+    pub track_count: usize,
+    pub definition: Option<SmartDefinition>,
+    pub is_new: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistToolPreview {
+    pub id: String,
+    pub stamp: SmartStamp,
+    pub created: i64,
+    pub expires: Option<i64>,
+    pub changes: Vec<PlaylistPreviewItem>,
+}

@@ -1,0 +1,769 @@
+{
+  "schema": 1,
+  "source": {
+    "application": "Lexicon",
+    "version": "1.11.15.0",
+    "asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "renderer_pretty_sha256": "032bb911711c2ed0da24ce67fad2187fa456faf58ec65f0379c03fb9ef1397e3",
+    "helper_sha256": "cdcb11789459a1355c025ba3aa592991716d47bb93d3edeec03096159ebaeaad",
+    "boundary": "Unchanged PlaylistToolPrefix class, positive explicit inputs, presence/truthy assertions supplied by controlled stubs. No app startup, filesystem/library/network API or proprietary code published.",
+    "runtime": {
+      "node": "20.18.1",
+      "acorn": "8.12.1",
+      "ada": "2.9.0",
+      "ares": "1.33.1",
+      "base64": "0.5.2",
+      "brotli": "1.0.9",
+      "cjs_module_lexer": "1.4.1",
+      "cldr": "44.1",
+      "icu": "74.2",
+      "llhttp": "8.1.2",
+      "modules": "128",
+      "napi": "9",
+      "nghttp2": "1.61.0",
+      "openssl": "0.0.0",
+      "simdutf": "5.5.0",
+      "tz": "2024a",
+      "undici": "6.20.0",
+      "unicode": "15.1",
+      "uv": "1.46.0",
+      "uvwasi": "0.0.21",
+      "v8": "12.8.374.38-electron.0",
+      "zlib": "1.3.0.1-motley",
+      "electron": "32.3.3",
+      "chrome": "128.0.6613.186"
+    }
+  },
+  "numeric": [
+    {
+      "name": "Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 Track"
+    },
+    {
+      "name": "Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 Track"
+    },
+    {
+      "name": "Track",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 Track"
+    },
+    {
+      "name": "Track",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 Track"
+    },
+    {
+      "name": "01 - Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 01 - Track"
+    },
+    {
+      "name": "01 - Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 Track"
+    },
+    {
+      "name": "01 - Track",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 Track"
+    },
+    {
+      "name": "01 - Track",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 Track"
+    },
+    {
+      "name": "2.Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 2.Track"
+    },
+    {
+      "name": "2.Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 Track"
+    },
+    {
+      "name": "2.Track",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 Track"
+    },
+    {
+      "name": "2.Track",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 Track"
+    },
+    {
+      "name": "123",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 123"
+    },
+    {
+      "name": "123",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01"
+    },
+    {
+      "name": "123",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003"
+    },
+    {
+      "name": "123",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1"
+    },
+    {
+      "name": "1234",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 1234"
+    },
+    {
+      "name": "1234",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 1234"
+    },
+    {
+      "name": "1234",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 1234"
+    },
+    {
+      "name": "1234",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 1234"
+    },
+    {
+      "name": "12abc",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 12abc"
+    },
+    {
+      "name": "12abc",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 12abc"
+    },
+    {
+      "name": "12abc",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 12abc"
+    },
+    {
+      "name": "12abc",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 12abc"
+    },
+    {
+      "name": "١٢ Name",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 ١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 ١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 ١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 ١٢ Name"
+    },
+    {
+      "name": "﻿ Leading",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 ﻿ Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 ﻿ Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 ﻿ Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 ﻿ Leading"
+    },
+    {
+      "name": " Name ",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01  Name"
+    },
+    {
+      "name": " Name ",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01  Name"
+    },
+    {
+      "name": " Name ",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003  Name"
+    },
+    {
+      "name": " Name ",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1  Name"
+    },
+    {
+      "name": "A B",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 A B"
+    },
+    {
+      "name": "A B",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 A B"
+    },
+    {
+      "name": "A B",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 A B"
+    },
+    {
+      "name": "A B",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 A B"
+    },
+    {
+      "name": "9 -  Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 9 -  Track"
+    },
+    {
+      "name": "9 -  Track",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 Track"
+    },
+    {
+      "name": "9 -  Track",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 Track"
+    },
+    {
+      "name": "9 -  Track",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 Track"
+    },
+    {
+      "name": "99.  X",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 99.  X"
+    },
+    {
+      "name": "99.  X",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 X"
+    },
+    {
+      "name": "99.  X",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 X"
+    },
+    {
+      "name": "99.  X",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 X"
+    },
+    {
+      "name": "12-Name",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": false,
+      "expected": "01 12-Name"
+    },
+    {
+      "name": "12-Name",
+      "index": 0,
+      "count": 3,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "01 Name"
+    },
+    {
+      "name": "12-Name",
+      "index": 2,
+      "count": 100,
+      "start": 1,
+      "pad": true,
+      "replace": true,
+      "expected": "003 Name"
+    },
+    {
+      "name": "12-Name",
+      "index": 1,
+      "count": 2,
+      "start": 0,
+      "pad": false,
+      "replace": true,
+      "expected": "1 Name"
+    }
+  ],
+  "text": [
+    {
+      "name": "Track",
+      "prefix": "Set - ",
+      "expected": "Set - Track"
+    },
+    {
+      "name": "Track",
+      "prefix": "DJ ",
+      "expected": "DJ Track"
+    },
+    {
+      "name": "Track",
+      "prefix": "﻿ ",
+      "expected": "Track"
+    },
+    {
+      "name": "Track",
+      "prefix": "X",
+      "expected": "XTrack"
+    },
+    {
+      "name": "01 - Track",
+      "prefix": "Set - ",
+      "expected": "Set - 01 - Track"
+    },
+    {
+      "name": "01 - Track",
+      "prefix": "DJ ",
+      "expected": "DJ 01 - Track"
+    },
+    {
+      "name": "01 - Track",
+      "prefix": "﻿ ",
+      "expected": "01 - Track"
+    },
+    {
+      "name": "01 - Track",
+      "prefix": "X",
+      "expected": "X01 - Track"
+    },
+    {
+      "name": "2.Track",
+      "prefix": "Set - ",
+      "expected": "Set - 2.Track"
+    },
+    {
+      "name": "2.Track",
+      "prefix": "DJ ",
+      "expected": "DJ 2.Track"
+    },
+    {
+      "name": "2.Track",
+      "prefix": "﻿ ",
+      "expected": "2.Track"
+    },
+    {
+      "name": "2.Track",
+      "prefix": "X",
+      "expected": "X2.Track"
+    },
+    {
+      "name": "123",
+      "prefix": "Set - ",
+      "expected": "Set - 123"
+    },
+    {
+      "name": "123",
+      "prefix": "DJ ",
+      "expected": "DJ 123"
+    },
+    {
+      "name": "123",
+      "prefix": "﻿ ",
+      "expected": "123"
+    },
+    {
+      "name": "123",
+      "prefix": "X",
+      "expected": "X123"
+    },
+    {
+      "name": "1234",
+      "prefix": "Set - ",
+      "expected": "Set - 1234"
+    },
+    {
+      "name": "1234",
+      "prefix": "DJ ",
+      "expected": "DJ 1234"
+    },
+    {
+      "name": "1234",
+      "prefix": "﻿ ",
+      "expected": "1234"
+    },
+    {
+      "name": "1234",
+      "prefix": "X",
+      "expected": "X1234"
+    },
+    {
+      "name": "12abc",
+      "prefix": "Set - ",
+      "expected": "Set - 12abc"
+    },
+    {
+      "name": "12abc",
+      "prefix": "DJ ",
+      "expected": "DJ 12abc"
+    },
+    {
+      "name": "12abc",
+      "prefix": "﻿ ",
+      "expected": "12abc"
+    },
+    {
+      "name": "12abc",
+      "prefix": "X",
+      "expected": "X12abc"
+    },
+    {
+      "name": "١٢ Name",
+      "prefix": "Set - ",
+      "expected": "Set - ١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "prefix": "DJ ",
+      "expected": "DJ ١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "prefix": "﻿ ",
+      "expected": "١٢ Name"
+    },
+    {
+      "name": "١٢ Name",
+      "prefix": "X",
+      "expected": "X١٢ Name"
+    },
+    {
+      "name": "﻿ Leading",
+      "prefix": "Set - ",
+      "expected": "Set - ﻿ Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "prefix": "DJ ",
+      "expected": "DJ ﻿ Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "prefix": "﻿ ",
+      "expected": "Leading"
+    },
+    {
+      "name": "﻿ Leading",
+      "prefix": "X",
+      "expected": "X﻿ Leading"
+    },
+    {
+      "name": " Name ",
+      "prefix": "Set - ",
+      "expected": "Set -  Name"
+    },
+    {
+      "name": " Name ",
+      "prefix": "DJ ",
+      "expected": "DJ  Name"
+    },
+    {
+      "name": " Name ",
+      "prefix": "﻿ ",
+      "expected": "Name"
+    },
+    {
+      "name": " Name ",
+      "prefix": "X",
+      "expected": "X Name"
+    },
+    {
+      "name": "A B",
+      "prefix": "Set - ",
+      "expected": "Set - A B"
+    },
+    {
+      "name": "A B",
+      "prefix": "DJ ",
+      "expected": "DJ A B"
+    },
+    {
+      "name": "A B",
+      "prefix": "﻿ ",
+      "expected": "A B"
+    },
+    {
+      "name": "A B",
+      "prefix": "X",
+      "expected": "XA B"
+    },
+    {
+      "name": "9 -  Track",
+      "prefix": "Set - ",
+      "expected": "Set - 9 -  Track"
+    },
+    {
+      "name": "9 -  Track",
+      "prefix": "DJ ",
+      "expected": "DJ 9 -  Track"
+    },
+    {
+      "name": "9 -  Track",
+      "prefix": "﻿ ",
+      "expected": "9 -  Track"
+    },
+    {
+      "name": "9 -  Track",
+      "prefix": "X",
+      "expected": "X9 -  Track"
+    },
+    {
+      "name": "99.  X",
+      "prefix": "Set - ",
+      "expected": "Set - 99.  X"
+    },
+    {
+      "name": "99.  X",
+      "prefix": "DJ ",
+      "expected": "DJ 99.  X"
+    },
+    {
+      "name": "99.  X",
+      "prefix": "﻿ ",
+      "expected": "99.  X"
+    },
+    {
+      "name": "99.  X",
+      "prefix": "X",
+      "expected": "X99.  X"
+    },
+    {
+      "name": "12-Name",
+      "prefix": "Set - ",
+      "expected": "Set - 12-Name"
+    },
+    {
+      "name": "12-Name",
+      "prefix": "DJ ",
+      "expected": "DJ 12-Name"
+    },
+    {
+      "name": "12-Name",
+      "prefix": "﻿ ",
+      "expected": "12-Name"
+    },
+    {
+      "name": "12-Name",
+      "prefix": "X",
+      "expected": "X12-Name"
+    }
+  ]
+}
