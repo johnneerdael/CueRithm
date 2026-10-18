@@ -102,7 +102,6 @@ jobs:
       - name: Publish release
         if: steps.ready.outputs.ok == 'true'
         env:
-          GH_DEBUG: api
           TARGET: ${{ steps.ready.outputs.target }}
         run: |
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
