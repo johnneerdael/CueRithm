@@ -342,10 +342,41 @@ mod tests {
         let analysis = host.library.analysis(&id).unwrap().unwrap();
         assert_eq!(analysis.openkeyscan_sample_rate, Some(44100));
         assert_eq!(
+            analysis.analysis.tempo.as_ref().unwrap().method,
+            camelot_core::lexicon_timing::METHOD
+        );
+        assert!(
+            analysis
+                .analysis
+                .engine
+                .contains("+lexicon-cue-webaudio-v1")
+        );
+        assert_eq!(
             analysis.analysis.energy.as_ref().unwrap().method,
             camelot_core::lexicon_energy::METHOD
         );
-        assert!(!analysis.analysis.lexicon_cues.unwrap().cues.is_empty());
+        assert!(
+            !analysis
+                .analysis
+                .lexicon_cues
+                .as_ref()
+                .unwrap()
+                .cues
+                .is_empty()
+        );
         host.preparation.shutdown();
+        let previous = serde_json::to_value(&analysis).unwrap();
+        let mut old_settings = host.library.settings().unwrap().settings;
+        old_settings.engine.lexicon_timing = false;
+        old_settings.engine.source_profile_timing = true;
+        host.library.save_settings(old_settings).unwrap();
+        assert!(host.builtin.configure_library(&host.library).unwrap());
+        assert_eq!(
+            serde_json::to_value(host.library.analysis(&id).unwrap().unwrap()).unwrap(),
+            previous,
+            "Default migration must preserve completed results"
+        );
+        assert_eq!(host.library.counts().unwrap().tracks, 1);
+        assert_eq!(host.library.jobs().unwrap()[0].state, "completed");
     }
 }

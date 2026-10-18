@@ -2,18 +2,19 @@
 
 Inspected 2026-10-18 with leanrea. The installed Lexicon application, source
 music and application libraries were preserved. Private extraction and probes
-remain outside published source. Source observations and original-worker
-experiments below do not establish a completed Rust port.
+remain outside published source. The independent Rust timing implementation now
+has component, synthetic worker and owned-corpus agreement evidence. Native
+desktop delivery and cross-platform validation remain separate gates.
 
 ## Current Cuerithm behavior
 
-The desktop's `BuiltinModels::apply` enables `source_profile_timing`. Its BPM,
-grid and anchor therefore come from Cuerithm's independent reconstruction of
-MIK's local timing pipeline. `Engine::analyze` supplies that BPM and anchor to
-the independent Lexicon-compatible cue generator. Lexicon cues and the local
-Lexicon acoustic energy meter do not imply Lexicon beatgrid parity.
+The desktop's `BuiltinModels::apply` now selects `lexicon_timing`, clearing the
+previous source-profile and learned timing configuration. Its BPM and anchor
+come from the complete local reconstruction described below. Unrounded timing
+feeds the constant grid and Lexicon-compatible cue generator. Key analysis and
+the local scalar energy meter retain their own downmixed input.
 
-The recorded 282-track comparison validates MIK BPM agreement; exact full-grid
+The earlier 282-track comparison validates MIK BPM agreement; exact full-grid
 agreement was checked on five captured cases. See
 [source timing](source-timing-engine.md). Neither result proves the grid agrees
 with Lexicon or with human musical annotation.
@@ -90,7 +91,7 @@ the default range and a zero anchor. The independent Rust tempo-helper
 component now matches all eight best BPMs and peak arrays exactly, with confidence
 within 1e-12. Its input generator also matches all eight original PCM hashes.
 The complete Rust audio-to-anchor API now passes all 62 full-worker synthetic
-references described below. Decoder/engine/desktop integration remains outstanding;
+references described below. Decoder/engine integration also passes; native desktop delivery remains outstanding;
 these generated signals do not establish musical correctness.
 
 The next component checks also pass on this host: all 306 original module 974
@@ -116,9 +117,37 @@ sites, including explicit DnB structural selection, sparse starts, quiet beds,
 early-drop fallback and missing-drop behavior. Those component inputs supply
 tempo/peak evidence explicitly, so they do not count as 291 full audio-to-timing
 predictions or every internal predicate combination. The final-correction tests
-also retain eight explicit component-only cases. The desktop still selects the
-previous timing backend; no larger music-corpus or cross-platform parity claim
-follows from these tests.
+also retain eight explicit component-only cases. These synthetic tests alone do
+not establish music-corpus or cross-platform agreement.
+
+## Owned Beatport timing comparison
+
+All **282 distinct tuning audio groups**, representing 328 files in the frozen
+434-file manifest, match the original Lexicon worker's BPM and first-beat anchor
+exactly: maximum absolute differences are zero. The inputs span 38.37–557.08
+seconds and total 26.59 hours. Every input is native 44100 Hz stereo 16-bit FLAC;
+both predictors use its first channel. No reference-label manifest or reserved
+audio was read in this run. This is development-corpus agreement with the
+original algorithm, not independent musical ground truth or a cue/energy score.
+
+Each prediction uses a private immutable encoded snapshot. Decoded S16 PCM MD5
+must equal the frozen manifest before either prediction, and encoded hashes
+are checked before and after. All timestamps had drifted, so timestamp equality
+was deliberately not used as proof of audio identity. No source tags or files
+were written. One original-worker attempt exceeded 240 seconds under concurrent
+load; a separate 600-second retry completed after about 504 seconds and matched
+exactly. The initial timeout is retained in the private evidence.
+
+The pinned Rust predictor is commit `73435d7`, before subsequent cue-only
+corrections; its timing DSP is unchanged. Ten disjoint shards ran concurrently,
+followed by that single retry. Rust full-analysis median was 1.86 seconds and
+95th percentile 2.99 seconds. This includes native decoding and default DSP key
+analysis; original-worker timing excludes those stages. These different
+boundaries and load conditions do not support an application speed ratio.
+Aggregate identities and timings are recorded in
+[the benchmark summary](lexicon-timing-beatport-2026-10-18.json). Per-track data
+and the proprietary worker remain private. The earlier reserved-group exposure
+above still applies; this run does not restore an untouched holdout claim.
 
 Additional private diagnostics showed:
 
@@ -178,12 +207,12 @@ unchanged cached analysis survives restart. Timing source and input/frontend
 code hashes, channel policy, rate and fixed bounds enter identity. The disabled
 flag is omitted from serialized settings to preserve legacy settings identities.
 The current broad local core/library/CLI gate passes 253 tests with eight
-optional tests ignored. Desktop tests must be repeated after selection/migration
-changes. Desktop selection, full music-corpus/native packaging and
-hosted cross-platform checks are still outstanding.
+optional tests ignored. Desktop selection/migration passes nine tests with one
+optional benchmark ignored; all 29 UI tests pass. Hosted cross-platform checks
+and the final branch review remain outstanding.
 
-Preserve the current key, energy and cue implementations during delivery;
-do not change cue calculations to compensate for timing discrepancies. The public full-analysis API rejects inputs shorter
+Preserve the key and energy implementations during delivery. Cue corrections
+below have their own source-derived regressions. The public full-analysis API rejects inputs shorter
 than ten seconds as unknown after validating PCM/rate/options. This minimum was
 traced through renderer module 57132 to module 45706 `$W` (`$ = 10`);
 the tempo-helper API remains a separate, shorter-input component boundary.
@@ -191,17 +220,23 @@ The renderer also has a 1800-second application scheduling cap; that UI policy
 is not imposed on this Rust DSP API. No source silent-input hang or fabricated
 120/zero fallback is reproduced.
 
-Before selecting it for desktop preparation, compare a larger owned full-track
-corpus and record disagreement/failure counts. Validate native packaged
-preparation, playback, fractional/persisted BPM and grid/cue presentation;
-exercise the decoder/clock/common-format gates on macOS, Windows and Linux.
+The owned full-track comparison above is complete. A packaged 84.40 MiB macOS
+ARM application also prepared an isolated authored 64-second FLAC automatically:
+120 BPM, anchor zero, 128 grid beats, key 2A, scalar energy 10 and replacement
+cues. Native playback, full-track/16-second waveform switching, cue seeking and
+two-second forward/backward bar jumps were observed. Explicit reanalysis
+returned the same key/timing/energy/cues, incremented attempts to two and saved
+two cue revisions; encoded source SHA-256 remained unchanged. No real music or
+user library was used for this native test. Fractional timing and all common
+formats are covered by engine/library tests, rather than this one native case.
+Exercise the decoder/clock/common-format gates on macOS Intel, Windows and Linux.
 Silence and unsupported input must return an explicit unknown/error promptly.
 Existing completed analyses stay intact until explicit reanalysis; unfinished
 jobs must capture/migrate the selected engine identity consistently.
 
 Do not add an Analysis settings page or a user model download. Keep the legacy
 timing backend available to research and regression tests. The desktop default
-has **not** changed in this investigation.
+now selects this implementation, while completed results remain preserved.
 
 
 ## Cue preprocessing and corrected source arithmetic
@@ -236,9 +271,5 @@ and the renderer route records its input method and rate. Existing completed
 analyses stay intact; unfinished/explicitly reanalyzed work uses the corrected
 implementation. See the [fixture provenance](../../tests/fixtures/lexicon-cue-frontend/README.md).
 
-Owned-library timing validation is running on all 282 distinct frozen tuning
-groups (328 files). Per-track data remains private. Decoded S16 PCM MD5 must
-match the frozen identity before prediction, with encoded SHA before/after;
-current mtime drift does not bypass audio-identity checks. A reference-only
-240-second timeout is tracked separately and retried with a longer bounded
-budget. No final corpus accuracy result is claimed while that run is pending.
+Owned-library timing validation is complete as described above. Cue and energy
+agreement on the real-music corpus have not been measured by that timing run.

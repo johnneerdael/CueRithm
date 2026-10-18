@@ -47,13 +47,23 @@ impl BuiltinModels {
             || !e.lexicon_energy
             || e.key_model.is_some()
             || e.key_neural_model.is_some()
-            || !e.source_profile_timing;
+            || e.source_profile_timing
+            || !e.lexicon_timing
+            || e.beat_model.is_some()
+            || e.mel_model.is_some()
+            || e.max_seconds.is_some()
+            || e.cue_config.is_some();
         e.key_openkeyscan_model = Some(self.key.clone());
         e.energy_model = None;
         e.lexicon_energy = true;
         e.key_model = None;
         e.key_neural_model = None;
-        e.source_profile_timing = true;
+        e.source_profile_timing = false;
+        e.lexicon_timing = true;
+        e.beat_model = None;
+        e.mel_model = None;
+        e.max_seconds = None;
+        e.cue_config = None;
         changed
     }
     pub fn configure_library(&self, library: &Library) -> Result<bool> {
@@ -87,6 +97,28 @@ impl BuiltinModels {
 mod tests {
     use super::*;
     use cuerithm_library::{Library, PreparationSettings};
+    #[test]
+    fn desktop_selects_complete_local_timing_and_clears_obsolete_backends() {
+        let d = tempfile::tempdir().unwrap();
+        let models = BuiltinModels::install(d.path()).unwrap();
+        let mut settings = PreparationSettings::default();
+        settings.engine.source_profile_timing = true;
+        settings.engine.beat_model = Some(d.path().join("missing-beat.onnx"));
+        settings.engine.mel_model = Some(d.path().join("missing-mel.onnx"));
+        settings.engine.max_seconds = Some(30.0);
+        settings.engine.cue_config = Some(serde_json::json!({"enabled": true}));
+        assert!(models.apply(&mut settings));
+        assert!(settings.engine.lexicon_timing);
+        assert!(!settings.engine.source_profile_timing);
+        assert!(settings.engine.beat_model.is_none());
+        assert!(settings.engine.mel_model.is_none());
+        assert!(settings.engine.max_seconds.is_none());
+        assert!(settings.engine.cue_config.is_none());
+        settings.ready().unwrap();
+        let engine = camelot_core::Engine::new(&settings.engine).unwrap();
+        assert!(engine.model_identity().contains_key("lexicon-timing-dsp"));
+        assert!(!models.apply(&mut settings));
+    }
     #[test]
     fn energy_is_compiled_and_migrates_legacy_svc_settings_without_a_model_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -173,7 +205,9 @@ mod tests {
         }
         let lib = Library::open(&db).unwrap();
         assert!(models.configure_library(&lib).unwrap());
-        assert!(lib.claim_next().unwrap().is_some());
+        let job = lib.claim_next().unwrap().unwrap();
+        assert!(job.snapshot.settings.engine.lexicon_timing);
+        assert!(!job.snapshot.settings.engine.source_profile_timing);
     }
     #[test]
     fn changed_implementation_identity_requires_migration_with_same_paths() {

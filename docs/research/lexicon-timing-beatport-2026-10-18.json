@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "date": "2026-10-18",
+  "scope": "Development corpus agreement with original Lexicon 1.11.15.0 timing worker, not musical ground truth or cue/energy evaluation",
+  "groups": 282,
+  "represented_tuning_files": 328,
+  "frozen_total_files": 434,
+  "untouched_in_this_run_holdout_files": 106,
+  "audio_identity": "Exact decoded S16 PCM MD5 checked against frozen input manifest before every prediction; encoded snapshot/source SHA256 checked before and after. All source mtimes had drifted.",
+  "results": {
+    "comparable": 282,
+    "exact_bpm_matches": 282,
+    "exact_first_beat_matches": 282,
+    "maximum_absolute_bpm_difference": 0,
+    "maximum_absolute_anchor_difference_seconds": 0,
+    "unresolved": 0,
+    "initial_reference_timeouts": 1,
+    "retry_reference_budget_seconds": 600
+  },
+  "bounds_bpm": [
+    98,
+    195
+  ],
+  "input": {
+    "sample_rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "timing_channel": "first",
+    "duration_seconds": {
+      "min": 38.371156462585034,
+      "median": 336.94352607709754,
+      "max": 557.0835827664399
+    },
+    "total_audio_hours": 26.593596208112874
+  },
+  "provenance": {
+    "manifest_sha256": "91ede6070b87785d0c79a57762d284ae3eec3f1280a6ede063ce0674e4dc0578",
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "worker_pretty_sha256": "b477cab3a61a12df98a1b026a493b3f95d512801383b43ba3a2f43f541d897dc",
+    "rust_binary_sha256": "07f1707024131a5a03eeb20cc1aec0990de18e3d1ce072ae512c2ec729b3787c",
+    "decoder_sha256": "beedd98420815a153852a423612950056f0e20194ecbe1faa39e777813261343"
+  },
+  "rust_predictor_commit": "73435d7",
+  "timings_ms": {
+    "decode_ms": {
+      "min": 35.1300840000622,
+      "median": 163.38254199997755,
+      "p95_nearest_rank": 311.5549999999348,
+      "max": 2186.862042
+    },
+    "rust_full_analysis_ms": {
+      "min": 310.40804199990816,
+      "median": 1861.8532919999561,
+      "p95_nearest_rank": 2987.2933329999796,
+      "max": 5650.642708
+    },
+    "reference_timing_worker_ms": {
+      "min": 9868.245833000168,
+      "median": 85469.42808350001,
+      "p95_nearest_rank": 118949.283084,
+      "max": 504462.798125
+    }
+  },
+  "timing_limits": "Ten concurrent disjoint shards plus one single-track retry. Rust includes full native decode and default DSP key analysis; original-worker boundary times timing only. Not a controlled speed comparison or shipping-UI throughput measurement.",
+  "heldout_limits": "Tuning only; no reference-label manifest read. An earlier separate diagnostic exposed timing for one reserved group, documented in the exposure audit. No claim that all held-out groups are untouched."
+}
