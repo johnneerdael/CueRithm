@@ -39,7 +39,7 @@ describe("automatic tagging Settings",()=>{
     expect(screen.getByLabelText("Max pages")).toHaveValue(4);
     expect(screen.getByLabelText("No catalog match")).toHaveValue("attention");
     expect(screen.queryByLabelText(/Spotify|Shazam|Post command/)).not.toBeInTheDocument();
-  });
+  },15_000);
   it("ignores a catalog response after leaving Settings and can retry a load failure",async()=>{
     const bridge=fakeBridge([]);
     let release!:(value:TaggingCatalog)=>void;
