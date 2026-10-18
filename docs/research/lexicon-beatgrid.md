@@ -107,6 +107,15 @@ Additional private diagnostics showed:
   Absolute anchor differences were about **1.84 ms and 46.36 ms**. This small
   diagnostic establishes a timing difference, not superiority or corpus parity.
 
+A selection error was found after these probes: one of the two files belongs
+to a reserved group in the frozen input manifest. Its source-timing output has
+now been observed; it must not be counted as an untouched held-out timing/parity
+case in a later evaluation. The exposure is recorded in a separate private
+audit without changing the frozen split. No reference-label manifest was opened
+and no parameters were fitted from this diagnostic. Future development probes
+must verify `split=tuning` before decoding. The numbers above are exploratory,
+not held-out accuracy evidence.
+
 The two source files were SHA-256 checked before/after; no tags or library
 records were written. Private per-track outputs and hashes are not published.
 These experiments do not prove WebAudio decode equivalence. The original
