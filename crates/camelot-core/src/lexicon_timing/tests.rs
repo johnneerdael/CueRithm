@@ -179,3 +179,284 @@ fn dp_short_silent_invalid_and_already_early_anchors_do_not_fabricate_a_correcti
     }
     assert!(!super::dp::correct_phase(&[], 0, 0.2, 128.).applied);
 }
+
+#[test]
+fn original_phase_corrections_and_tracking_match() {
+    use super::phase;
+    let mut consumed = 0;
+    let mut changed = std::collections::BTreeSet::new();
+    for text in [
+        include_str!("../../../../tests/fixtures/lexicon-timing/phase-reference.json"),
+        include_str!("../../../../tests/fixtures/lexicon-timing/phase-authored-reference.json"),
+        include_str!("../../../../tests/fixtures/lexicon-timing/phase-edge-reference.json"),
+    ] {
+        let source: Value = serde_json::from_str(text).unwrap();
+        let rate = source["source"]["sample_rate"].as_u64().unwrap() as u32;
+        for case in source["cases"].as_array().unwrap() {
+            let recipe: fixture::Recipe = serde_json::from_value(case["recipe"].clone()).unwrap();
+            let pcm = fixture::signal(&recipe, rate);
+            let mut hash = Sha256::new();
+            for sample in &pcm {
+                hash.update(sample.to_le_bytes());
+            }
+            assert_eq!(
+                format!("{:x}", hash.finalize()),
+                case["pcm_sha256"].as_str().unwrap()
+            );
+            for row in case["rows"].as_array().unwrap() {
+                let name = row["helper"].as_str().unwrap();
+                let args = row["args"].as_array().unwrap();
+                let n = |i: usize| args[i].as_f64().unwrap();
+                let peaks = || serde_json::from_value::<Vec<f64>>(args[2].clone()).unwrap();
+                let mut state = phase::CorrectionState::default();
+                let actual = match name {
+                    "correctFirstBeatNearZero" => {
+                        serde_json::to_value(phase::near_zero(n(0))).unwrap()
+                    }
+                    "correctFirstBeatFromSubsequentBeats" => {
+                        let options = args
+                            .get(3)
+                            .map(|v| serde_json::from_value(v.clone()).unwrap())
+                            .unwrap_or_default();
+                        serde_json::to_value(phase::subsequent(
+                            &pcm,
+                            rate,
+                            n(0),
+                            n(1),
+                            &options,
+                            &mut state,
+                        ))
+                        .unwrap()
+                    }
+                    "calibrateOnsetFromLaterBeats" => serde_json::to_value(phase::calibrate_onset(
+                        &pcm,
+                        rate,
+                        n(0),
+                        n(1),
+                        &peaks(),
+                    ))
+                    .unwrap(),
+                    "calibrateFirstBeatFromDrop" => serde_json::to_value(phase::calibrate_drop(
+                        &pcm,
+                        rate,
+                        n(0),
+                        n(1),
+                        &peaks(),
+                    ))
+                    .unwrap(),
+                    "verifyPhaseFromDrop" => {
+                        serde_json::to_value(phase::verify_drop(&pcm, rate, n(0), n(1), &peaks()))
+                            .unwrap()
+                    }
+                    "findGridAlignmentOffset" => serde_json::to_value(phase::align(
+                        &pcm,
+                        rate,
+                        n(0),
+                        n(1),
+                        n(2) as usize,
+                        n(3) as usize,
+                        false,
+                    ))
+                    .unwrap(),
+                    "findGridAlignmentOffsetAREnergy" => serde_json::to_value(phase::align(
+                        &pcm,
+                        rate,
+                        n(0),
+                        n(1),
+                        n(2) as usize,
+                        n(3) as usize,
+                        true,
+                    ))
+                    .unwrap(),
+                    "correctHalfBeatPhaseDirectScan" => {
+                        serde_json::to_value(phase::half_beat(&pcm, rate, n(0), n(1))).unwrap()
+                    }
+                    "rescueSilentFirstBeat" => {
+                        serde_json::to_value(phase::rescue_silent(&pcm, rate, n(0), n(1))).unwrap()
+                    }
+                    "rescueWeakGridPhase" => {
+                        serde_json::to_value(phase::rescue_weak(&pcm, rate, n(0), n(1))).unwrap()
+                    }
+                    "validateBeatGrid" => {
+                        serde_json::to_value(phase::validate_grid(&pcm, rate, n(0), n(1))).unwrap()
+                    }
+                    "validateRiserPosition" => serde_json::to_value(phase::validate_riser(
+                        &pcm,
+                        rate,
+                        n(0),
+                        n(1),
+                        &peaks(),
+                    ))
+                    .unwrap(),
+                    _ => panic!("Unhandled phase reference {name}"),
+                };
+                equal(
+                    &actual,
+                    &row["result"],
+                    &format!("{} {name} {args:?}", case["name"]),
+                );
+                equal(
+                    &serde_json::to_value(state.last).unwrap(),
+                    &row["tracking"],
+                    &format!("{} {name} tracking", case["name"]),
+                );
+                if [
+                    "applied",
+                    "appliedCorrection",
+                    "usedCalibration",
+                    "usedCorrection",
+                ]
+                .iter()
+                .any(|key| row["result"][key].as_bool() == Some(true))
+                    || row["result"]["skippedBeats"]
+                        .as_u64()
+                        .is_some_and(|v| v > 0)
+                {
+                    changed.insert(name.to_owned());
+                }
+                if name == "correctFirstBeatFromSubsequentBeats"
+                    && row["result"]["appliedCorrection"].as_bool() == Some(true)
+                    && row["tracking"].is_null()
+                {
+                    changed.insert("onset-refinement-fallback".into());
+                }
+                if let Some(strategy) = row["result"]["strategy"].as_str() {
+                    changed.insert(format!("{name}:{strategy}"));
+                }
+                consumed += 1;
+            }
+        }
+    }
+    assert_eq!(consumed, 790);
+    for name in [
+        "onset-refinement-fallback",
+        "correctFirstBeatFromSubsequentBeats",
+        "calibrateOnsetFromLaterBeats",
+        "calibrateFirstBeatFromDrop",
+        "verifyPhaseFromDrop",
+        "correctHalfBeatPhaseDirectScan",
+        "rescueSilentFirstBeat",
+        "rescueWeakGridPhase",
+        "validateBeatGrid",
+        "validateRiserPosition:A",
+        "validateRiserPosition:B",
+        "findGridAlignmentOffset",
+        "findGridAlignmentOffsetAREnergy",
+    ] {
+        assert!(
+            changed.contains(name),
+            "Missing positive source branch {name}"
+        );
+    }
+}
+
+#[test]
+fn source_rounding_preserves_negative_ties_and_values_just_below_half() {
+    for (value, expected) in [
+        (-187.5_f64, -187_f64),
+        (-0.5, -0.),
+        (-1.5, -1.),
+        (0.49999999999999994, 0.),
+        (0.5, 1.),
+    ] {
+        assert_eq!(onset::js_round(value).to_bits(), expected.to_bits());
+    }
+}
+
+#[test]
+fn correction_state_is_per_analysis_and_noop_calls_do_not_erase_prior_corrections() {
+    use super::phase;
+    let source: Value = serde_json::from_str(include_str!(
+        "../../../../tests/fixtures/lexicon-timing/phase-reference.json"
+    ))
+    .unwrap();
+    let case = source["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| {
+            c["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["tracking"]["source"] == "sbc")
+        })
+        .unwrap();
+    let row = case["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["tracking"]["source"] == "sbc")
+        .unwrap();
+    let recipe: fixture::Recipe = serde_json::from_value(case["recipe"].clone()).unwrap();
+    let pcm = fixture::signal(&recipe, 44100);
+    let args = row["args"].as_array().unwrap();
+    let options = args
+        .get(3)
+        .map(|v| serde_json::from_value(v.clone()).unwrap())
+        .unwrap_or_default();
+    let (mut first, mut second) = (
+        phase::CorrectionState::default(),
+        phase::CorrectionState::default(),
+    );
+    let result = phase::subsequent(
+        &pcm,
+        44100,
+        args[0].as_f64().unwrap(),
+        args[1].as_f64().unwrap(),
+        &options,
+        &mut first,
+    );
+    assert!(result.applied_correction);
+    equal(
+        &serde_json::to_value(&first.last).unwrap(),
+        &row["tracking"],
+        "per-analysis correction",
+    );
+    assert!(second.last.is_none());
+    let previous = serde_json::to_value(&first.last).unwrap();
+    assert!(
+        !phase::subsequent(&[], 44100, 0., 128., &Default::default(), &mut first)
+            .applied_correction
+    );
+    assert_eq!(serde_json::to_value(&first.last).unwrap(), previous);
+    second.note_grid(0.25, -20.);
+    assert_eq!(second.last.as_ref().unwrap().source, "gridcorr");
+    assert_eq!(serde_json::to_value(&first.last).unwrap(), previous);
+    first.reset();
+    assert!(first.last.is_none());
+    assert!(second.last.is_some());
+}
+
+#[test]
+fn phase_guards_do_not_turn_empty_or_invalid_coordinates_into_new_anchors() {
+    use super::phase;
+    let pcm = vec![0.; 44100];
+    for (rate, anchor, bpm) in [
+        (0, 0.2, 128.),
+        (44100, 2., 128.),
+        (44100, 0.2, 0.),
+        (44100, 0.2, f64::NAN),
+    ] {
+        let mut state = phase::CorrectionState::default();
+        assert!(
+            !phase::subsequent(&pcm, rate, anchor, bpm, &Default::default(), &mut state)
+                .applied_correction
+        );
+        assert!(state.last.is_none());
+        assert!(!phase::calibrate_drop(&pcm, rate, anchor, bpm, &[]).used_calibration);
+        assert!(!phase::verify_drop(&pcm, rate, anchor, bpm, &[]).used_correction);
+        assert!(!phase::half_beat(&pcm, rate, anchor, bpm).used_correction);
+        assert!(!phase::rescue_silent(&pcm, rate, anchor, bpm).applied);
+        assert!(!phase::rescue_weak(&pcm, rate, anchor, bpm).applied);
+        assert!(!phase::validate_riser(&pcm, rate, anchor, bpm, &[]).was_in_riser);
+        assert!(!phase::align(&pcm, rate, anchor, bpm, 4, 80, false).applied_correction);
+        assert_eq!(
+            phase::validate_grid(&pcm, rate, anchor, bpm).skipped_beats,
+            0
+        );
+    }
+    assert!(!phase::calibrate_onset(&[], 44100, 0., 0., &[]).used_calibration);
+    assert!(!phase::rescue_silent(&[], 44100, 0., 128.).applied);
+    assert!(!phase::rescue_weak(&[], 44100, 0., 128.).applied);
+}

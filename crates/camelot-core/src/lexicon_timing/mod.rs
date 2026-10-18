@@ -10,6 +10,8 @@ mod tempo;
 mod dp;
 #[allow(dead_code)]
 mod onset;
+#[allow(dead_code, unused_imports)]
+mod phase;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LexiconTempoOptions {

@@ -41,7 +41,8 @@ input timeout and the boundary between this research and desktop integration.
 
 `onset-reference.json` adds 306 original numeric rows for the six module 974
 attack/onset/snapping helpers, using those eight exact inputs plus one original
-1.2-second silent-intro recipe. The Rust onset-helper unit tests now match all 306 rows within 1e-12. The helper inputs include
+1.2-second silent-intro recipe. The Rust onset-helper unit tests now match all
+306 rows within 1e-12. The helper inputs include
 explicit time/peak/period arguments; they are component tests, not full detector
 outputs. No real music is included.
 
@@ -55,16 +56,26 @@ riser and grid corrections are not covered by these DP results.
 
 `phase-reference.json` records 585 module 522 functional result rows and
 per-call correction tracking across nine original synthetic inputs. Debug-only
-output fields are omitted. These are **pending** Rust parity references, not
-passing phase-helper tests. They cover applied subsequent-beat, silent rescue,
-weak-phase and grid-correlation cases. The separate authored-candidate references below add positive calibration,
-drop verification and riser-A cases; half-beat and riser-B coverage is still
-outstanding.
-The long silent-intro recipe is distinct from the shorter onset fixture recipe.
+output fields are omitted. `phase-authored-reference.json` adds 180 rows with
+explicit authored transient-start candidates. Those candidate times are
+component inputs, not outputs from a detector; they do not establish that a
+complete analysis supplies those candidates.
 
-`phase-authored-reference.json` adds 180 component rows for the calibration,
-drop-verification and riser helpers. Their candidate peak times are explicitly
-supplied authored transient starts, not outputs from a detector. Input PCM
-hashes are unchanged. These rows test the helpers' explicit-input contracts;
-they do not establish that a complete analysis will supply those candidates.
-Rust phase-helper parity remains pending.
+`phase-edge-reference.json` adds 25 rows on three original recipes: intermittent
+offbeat hats trigger half-beat correction; a soft/quiet pickup triggers riser B
+and grid advancement; a short input triggers onset refinement without changing
+subsequent-correction tracking. The short helper fixture does not establish that
+short audio is suitable for complete track analysis. The longer silent-intro
+recipe in the phase fixtures differs from the onset fixture's shorter intro.
+
+The Rust tests match all 790 phase result/state rows within 1e-12 on the current
+host and require positive cases for each changing helper, including riser A/B.
+The near-zero helper is intentionally unchanged in the source. Separate tests
+check per-analysis state isolation and retention across no-op calls. Complete
+anchor-tree and desktop parity are still outstanding.
+
+Verify the edge inputs independently with:
+
+```sh
+python3 tests/fixtures/lexicon-timing/generate.py --reference tests/fixtures/lexicon-timing/phase-edge-reference.json
+```

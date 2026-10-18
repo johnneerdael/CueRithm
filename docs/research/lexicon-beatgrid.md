@@ -95,9 +95,12 @@ not yet passing Rust parity tests.
 The next component checks also pass on this host: all 306 original module 974
 onset/attack/snapping rows, every one of 88,168 Float32 envelope values from
 module 809 bit-for-bit, eight DP beat chains, eight applied phase corrections
-and sixteen unchanged/early-anchor decisions. These do not cover the remaining
-module 522 calibration/riser/grid corrections or the complete module 358
-anchor decision tree. The desktop still selects the previous timing backend.
+and sixteen unchanged/early-anchor decisions. The module 522 phase tests now
+also match 790 original functional result/state rows, including changed and
+unchanged calibration, subsequent-beat, half-beat, silent/weak rescue, grid
+correlation, grid-advancement and riser A/B cases. This remains component
+validation; the complete module 358 anchor decision tree is not yet integrated.
+The desktop still selects the previous timing backend.
 
 Additional private diagnostics showed:
 

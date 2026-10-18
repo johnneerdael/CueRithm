@@ -11,16 +11,23 @@ import struct
 
 def samples(recipe, rate):
     pcm = bytearray(recipe["frames"] * 4)
+    variant = recipe.get("variant", "")
+    if variant == "soft-riser":
+        count = min(4 * rate, recipe["frames"])
+        pcm[:count * 4] = struct.pack("<f", 1 / 32) * count
     beat = 0
     while True:
         start = math.floor(recipe["offset_frames"] + beat * 60 * rate / recipe["bpm"] + 0.5)
         if start >= recipe["frames"]:
             break
+        if variant == "soft-riser" and 2 <= beat <= 8:
+            beat += 1
+            continue
         gain = 1 / 16 if start < recipe["quiet_until_frames"] else 1
         for index in range(min(4096, recipe["frames"] - start)):
             sign = 1 if index % 512 < 256 else -1
             struct.pack_into("<f", pcm, 4 * (start + index), (4096 - index) / 4096 * sign * gain)
-        if recipe["offbeat_hats"]:
+        if recipe["offbeat_hats"] and (variant != "sparse-half" or beat % 3 == 0):
             hat = start + math.floor(30 * rate / recipe["bpm"] + 0.5)
             for index in range(min(256, recipe["frames"] - hat)):
                 offset = 4 * (hat + index)
@@ -34,10 +41,11 @@ def samples(recipe, rate):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Write PCM to a new private research directory")
+    parser.add_argument("--reference", type=Path, default=Path(__file__).with_name("reference.json"))
     args = parser.parse_args()
     if args.output:
         args.output.mkdir(parents=True, exist_ok=False)
-    reference = json.loads(Path(__file__).with_name("reference.json").read_text())
+    reference = json.loads(args.reference.read_text())
     for case in reference["cases"]:
         pcm = samples(case["recipe"], reference["source"]["sample_rate"])
         actual = hashlib.sha256(pcm).hexdigest()

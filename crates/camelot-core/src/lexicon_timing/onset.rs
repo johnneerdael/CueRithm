@@ -32,6 +32,22 @@ pub(super) fn power(pcm: &[f32], start: usize, end: usize) -> f64 {
     }
     pcm[start..end].iter().map(|v| (*v as f64).powi(2)).sum()
 }
+pub(super) fn js_round(value: f64) -> f64 {
+    if !value.is_finite() {
+        return value;
+    }
+    let floor = value.floor();
+    let result = if value - floor < 0.5 {
+        floor
+    } else {
+        floor + 1.
+    };
+    if result == 0. && value.is_sign_negative() {
+        -0.
+    } else {
+        result
+    }
+}
 fn rms_window(pcm: &[f32], start: usize, count: usize) -> f64 {
     (power(pcm, start, start.saturating_add(count)) / count as f64).sqrt()
 }
@@ -198,12 +214,7 @@ pub(super) fn snap(at: f64, peaks: &[f64], period: f64, tolerance: f64) -> f64 {
         }
     }
     let relative = (at - anchor) / period;
-    let floor = relative.floor();
-    let rounded = if relative - floor < 0.5 {
-        floor
-    } else {
-        floor + 1.
-    };
+    let rounded = js_round(relative);
     let aligned = anchor + rounded * period;
     if (aligned - at).abs() <= tolerance {
         return aligned;
