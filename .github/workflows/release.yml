@@ -96,7 +96,6 @@ jobs:
           mkdir release
           sign() { tools/release/sign-macos.sh "$(find "dist/$1" -name '*.app.tar.gz')" "release/Cuerithm-$2.dmg"; }
           sign Cuerithm-test-macos-15 arm64
-          sign Cuerithm-test-macos-15-intel x64
           # Corresponding source for the bundled decoder and the application.
           cp "$(find dist/Cuerithm-test-macos-15 -name cuerithm-source.tar.gz)" release/
           cp "$(find dist/Cuerithm-test-macos-15 -name 'ffmpeg-*.tar.xz')" release/

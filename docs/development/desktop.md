@@ -93,7 +93,7 @@ a portable executable with its media folder; macOS archives the actual app with
 executable permissions preserved. Artifacts include source/rebuild materials.
 
 The [desktop workflow](../../.github/workflows/desktop.yml) covers Linux x86_64,
-Windows x86_64 and macOS arm64/x86_64 on
+Windows x86_64 and macOS arm64 (Intel Macs are not built) on
 [GitHub's native runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 Tests and diagnostics establish what each run reports; CI configuration alone
 does not establish a green build, live Windows/Linux UI behavior, signing,
