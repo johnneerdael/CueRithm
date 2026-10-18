@@ -1,17 +1,13 @@
 mod commands;
 mod host;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
 
 pub fn diagnostics() -> Result<()> {
-    let exe = std::env::current_exe()?;
-    let parent = exe.parent().context("Missing executable directory")?;
-    let folder = if parent.file_name().is_some_and(|n| n == "MacOS") {
-        parent.join("../Resources/media")
-    } else {
-        parent.join("media")
-    };
+    let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+    let folder = tauri::utils::platform::resource_dir(context.package_info(), &Default::default())?
+        .join("media");
     let runtime = cuerithm_media::MediaRuntime::from_bundle(&folder)?;
     println!(
         "{}",
