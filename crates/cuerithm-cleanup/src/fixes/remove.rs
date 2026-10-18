@@ -55,9 +55,9 @@ pub(super) fn common(value: &str, pattern: CommonTextPattern) -> Result<String> 
                     && suffix[end..]
                         .chars()
                         .all(|c| c == ' ' || c.is_ascii_digit())
-                    {
-                        return Ok(value[..index].trim().into());
-                    }
+                {
+                    return Ok(value[..index].trim().into());
+                }
             }
         }
         CommonTextPattern::OriginalMixFromTitle => {
@@ -68,22 +68,24 @@ pub(super) fn common(value: &str, pattern: CommonTextPattern) -> Result<String> 
         }
         CommonTextPattern::CamelotKeyEnergyFromTitle => {
             if let Some(end) = key_prefix(value)
-                && let Some(rest) = value[end..].strip_prefix(" - ") {
-                    let digits = rest.chars().take_while(|c| c.is_ascii_digit()).count();
-                    if (1..=3).contains(&digits)
-                        && let Some(title) = rest[digits..].strip_prefix(" - ") {
-                            return Ok(title.trim().into());
-                        }
+                && let Some(rest) = value[end..].strip_prefix(" - ")
+            {
+                let digits = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+                if (1..=3).contains(&digits)
+                    && let Some(title) = rest[digits..].strip_prefix(" - ")
+                {
+                    return Ok(title.trim().into());
                 }
+            }
         }
         CommonTextPattern::BpmFromTitle => {
             if let Some((title, number)) = value.rsplit_once(' ')
                 && number.len() >= 2
-                    && !number.starts_with('0')
-                    && number.chars().all(|c| c.is_ascii_digit())
-                {
-                    return Ok(title.trim().into());
-                }
+                && !number.starts_with('0')
+                && number.chars().all(|c| c.is_ascii_digit())
+            {
+                return Ok(title.trim().into());
+            }
         }
     }
     Ok(value.to_owned())

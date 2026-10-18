@@ -338,6 +338,25 @@ impl TagImpl for MP4Tag {
         self.raw_by_ident(&ident)
     }
 
+    fn get_native(&self, key: &str) -> Option<Vec<String>> {
+        let values: Vec<_> = self
+            .tag
+            .data_of(&Self::string_to_ident(key))
+            .filter_map(|d| match d {
+                Data::Utf8(s) | Data::Utf16(s) => Some(s.clone()),
+                _ => None,
+            })
+            .collect();
+        (!values.is_empty()).then_some(values)
+    }
+    fn set_native(&mut self, key: &str, values: Vec<String>) {
+        let ident = Self::string_to_ident(key);
+        self.tag.remove_data_of(&ident);
+        for value in values {
+            self.tag.add_data(ident.clone(), Data::Utf8(value));
+        }
+    }
+
     fn remove_raw(&mut self, tag: &str) {
         self.tag.remove_data_of(&MP4Tag::string_to_ident(tag));
     }

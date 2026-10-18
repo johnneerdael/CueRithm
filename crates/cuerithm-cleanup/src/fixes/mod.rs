@@ -83,9 +83,10 @@ pub(crate) fn apply_fix(
             SmartFix::ExtractArtist { .. } | SmartFix::ExtractRemixer { .. } => unreachable!(),
         };
         if let Some(result) = result
-            && (!result.is_empty() || value.is_empty()) {
-                after.push(result);
-            }
+            && (!result.is_empty() || value.is_empty())
+        {
+            after.push(result);
+        }
     }
     metadata.set(field, after);
     Ok(())

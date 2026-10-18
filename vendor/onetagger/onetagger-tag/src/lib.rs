@@ -71,6 +71,25 @@ impl Tag {
         Ok(Tag::ID3(tag))
     }
 
+    /// Load by verified container rather than the filename suffix.
+    pub fn load_format(
+        path: &Path,
+        format: &AudioFileFormat,
+        allow_new: bool,
+    ) -> Result<Tag, Error> {
+        use id3::ID3AudioFormat as I;
+        Ok(match format {
+            AudioFileFormat::FLAC => Tag::FLAC(flac::FLACTag::load_file(path)?),
+            AudioFileFormat::MP4 => Tag::MP4(mp4::MP4Tag::load_file(path)?),
+            AudioFileFormat::OGG => Tag::Vorbis(vorbis::VorbisTag::load_file(path)?),
+            AudioFileFormat::MP3 => Tag::ID3(id3::ID3Tag::load_format(path, I::MP3, allow_new)?),
+            AudioFileFormat::AAC => Tag::ID3(id3::ID3Tag::load_format(path, I::AAC, allow_new)?),
+            AudioFileFormat::AIFF => Tag::ID3(id3::ID3Tag::load_format(path, I::AIFF, allow_new)?),
+            AudioFileFormat::WAV => Tag::ID3(id3::ID3Tag::load_format(path, I::WAV, allow_new)?),
+            AudioFileFormat::WMA => return Err(anyhow!("ASF requires the native adapter")),
+        })
+    }
+
     // Set proper separators for every format
     pub fn set_separators(&mut self, separators: &TagSeparators) {
         match self {
@@ -156,6 +175,11 @@ pub trait TagImpl {
     fn set_raw(&mut self, tag: &str, value: Vec<String>, overwrite: bool);
     fn get_raw(&self, tag: &str) -> Option<Vec<String>>;
     fn remove_raw(&mut self, tag: &str);
+
+    /// Native text values without configured display separators.
+    fn get_native(&self, tag: &str) -> Option<Vec<String>>;
+    /// Replace native text values, retaining unrelated frames.
+    fn set_native(&mut self, tag: &str, values: Vec<String>);
 
     /// Set lyrics
     fn set_lyrics(&mut self, lyrics: &Lyrics, synced: bool, overwrite: bool);

@@ -1,7 +1,10 @@
 //! Automatic tagging adapters. GPL-3.0-only; the independent analysis engine is MIT.
 mod asf;
 mod config;
+mod metadata;
 mod write;
+pub use cuerithm_cleanup::{FieldChange, Metadata, MetadataField};
+pub use metadata::read_metadata;
 pub use write::{AnalysisTags, StagedTagWrite, TagWritePlan};
 mod image;
 mod sidecar;

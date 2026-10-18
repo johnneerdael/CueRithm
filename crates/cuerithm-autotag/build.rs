@@ -24,6 +24,31 @@ fn main() {
             .unpack(&out)
             .unwrap();
     }
+    // Keep repeated ASF values together. Splitting the first value into the
+    // extended-content object and the rest into the metadata library reorders
+    // them when that library precedes the content object in an existing file.
+    let asf_source = source.join("taglib/asf/asffile.cpp");
+    let mut text = std::fs::read_to_string(&asf_source).unwrap();
+    let mut changed = false;
+    for original in [
+        "if(!inExtendedContentDescriptionObject && !guid",
+        "if(!inMetadataObject && !guid",
+    ] {
+        let patched = original.replacen("if(", "if(attributes.size() == 1 && ", 1);
+        if text.contains(original) {
+            assert_eq!(text.matches(original).count(), 1, "Ambiguous ASF patch");
+            text = text.replace(original, &patched);
+            changed = true;
+        } else {
+            assert!(
+                text.contains(&patched),
+                "Unsupported ASF source for repeat-order patch"
+            );
+        }
+    }
+    if changed {
+        std::fs::write(&asf_source, text).unwrap();
+    }
     let mut config = cmake::Config::new(&source);
     config.profile("Release");
     let msvc = std::env::var("TARGET").unwrap().contains("msvc");

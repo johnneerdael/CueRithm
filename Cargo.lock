@@ -929,6 +929,7 @@ dependencies = [
  "cc",
  "chrono",
  "cmake",
+ "cuerithm-cleanup",
  "cuerithm-media",
  "flate2",
  "id3",

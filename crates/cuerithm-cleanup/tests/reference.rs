@@ -28,9 +28,10 @@ fn all_eleven_families_match_recorded_reference_or_explicit_non_loss_policy() {
             .map(|v| serde_json::from_value(v).unwrap())
             .unwrap_or_default();
         if family == "remove_common_text"
-            && let Some(kind) = options.remove("kind") {
-                options.insert("pattern".into(), kind);
-            }
+            && let Some(kind) = options.remove("kind")
+        {
+            options.insert("pattern".into(), kind);
+        }
         options.insert("kind".into(), family.into());
         let rule: SmartFix = serde_json::from_value(options.into()).unwrap();
         let config = CleanupConfig {

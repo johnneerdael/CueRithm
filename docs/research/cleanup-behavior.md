@@ -59,3 +59,25 @@ preserve source genre detail when requested.
 Manual publication/undo, automatic pipeline integration, real format writes and
 native UI checks are separate implementation acceptance. Reference helper
 fixtures alone do not establish those outcomes.
+
+## Structured file metadata boundary
+
+The cleanup adapter selects the tag reader from verified media/container data,
+including wrong filename suffixes. Native value arrays remain arrays; punctuation
+inside a contributor name is not a delimiter. ASF retains a display Author and
+repeated WM/Artist values; a documented TagLib build modification keeps repeated
+attributes in one metadata object to preserve order.
+
+Cleanup runs after selected catalog writes and their overwrite policy. The raw
+catalog response and cleanup report remain separate. Manual patches pin every
+field's before value. Staging verifies the resulting human metadata, full decoded
+PCM and frame count before publication. Values the target tag format cannot
+represent exactly fail rather than silently merging. A cleanup that changes no
+physical fields does not serialize the tag, preserving file bytes. Cleanup-only
+writes preserve the existing ID3 version and qualified/language-specific comments
+outside the managed unqualified comment. Custom categorized tags are returned for
+library persistence, not confused with physical genre fields.
+
+Current adapter checks use generated audio in all fourteen fixture layouts,
+including Unicode paths and renamed files. They establish file staging behavior;
+manual library publication/Undo and automatic cleanup remain later acceptance.
