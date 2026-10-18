@@ -638,7 +638,13 @@ impl Engine {
         });
         if let Some(config) = &self.settings.lexicon_config {
             config_identity["lexicon_config"] = serde_json::to_value(config)?;
-            config_identity["lexicon_sample_rate"] = 44100.into();
+            config_identity["lexicon_sample_rate"] = timing_input
+                .as_ref()
+                .map_or(44100, |input| input.sample_rate)
+                .into();
+            if timing_input.is_some() {
+                config_identity["lexicon_channel"] = "first".into();
+            }
         }
         if let Some(input) = &timing_input {
             config_identity["lexicon_timing"] = serde_json::json!({
@@ -668,10 +674,13 @@ impl Engine {
         if let Some(config) = &self.settings.lexicon_config {
             let result = match &analysis.tempo {
                 Some(tempo) => {
-                    let input = decoded
-                        .iter()
-                        .find(|a| a.sample_rate == 44100)
-                        .context("Missing cue input rate")?;
+                    let input = match &timing_input {
+                        Some(first) => first,
+                        None => decoded
+                            .iter()
+                            .find(|a| a.sample_rate == 44100)
+                            .context("Missing cue input rate")?,
+                    };
                     let first = tempo
                         .downbeat_time
                         .or_else(|| tempo.beats_seconds.first().copied())

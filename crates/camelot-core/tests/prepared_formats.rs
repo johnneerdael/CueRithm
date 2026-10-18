@@ -200,13 +200,11 @@ fn lexicon_timing_uses_canonical_first_channel_grid_and_cues_for_every_media_lay
         let path = d.path().join(row["file"].as_str().unwrap());
         let audio = rt.decode(&path, d.path()).unwrap();
         let mut first = Vec::with_capacity(audio.frames as usize);
-        let mut mono = Vec::with_capacity(audio.frames as usize);
         let mut position = 0;
         while position < audio.frames {
             let samples = audio.read_frames(position, 65536).unwrap();
             for frame in samples.chunks_exact(2) {
                 first.push(frame[0]);
-                mono.push((frame[0] + frame[1]) / 2.);
             }
             position += samples.len() as u64 / 2;
         }
@@ -245,7 +243,7 @@ fn lexicon_timing_uses_canonical_first_channel_grid_and_cues_for_every_media_lay
                 .all(|beat| *beat >= 0. && *beat < audio.clock.duration_seconds())
         );
         let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
-            &mono,
+            &first,
             44100,
             expected.bpm,
             expected.first_beat_seconds,

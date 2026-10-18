@@ -70,9 +70,8 @@ fn native_timing_keeps_full_fractional_bpm_grid_and_cues_on_the_left_channel_clo
     }
     assert!(timing.beats_seconds.len() > 100);
     assert!(result.complete && result.source_timing.is_none());
-    let mixed = camelot_core::audio::decode(&path, 44100, None).unwrap();
     let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
-        &mixed.samples,
+        &left,
         rate,
         expected.bpm,
         expected.first_beat_seconds,
@@ -169,4 +168,52 @@ fn native_timing_reports_the_complete_input_clock_even_when_the_key_rate_rounds_
     let actual = Engine::new(&settings).unwrap().analyze_file(&path).unwrap();
     assert_eq!(actual.analysis.duration_seconds, left.len() as f64 / 44100.);
     assert!(actual.analysis.tempo.is_some());
+}
+
+#[test]
+fn lexicon_cues_share_the_native_first_channel_with_timing_instead_of_the_key_mix() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("quiet-left-loud-right.wav");
+    let recipe: fixture::Recipe = serde_json::from_value(serde_json::json!({
+        "frames": 64 * 44100, "bpm": 128., "offset_frames": 5513,
+        "quiet_until_frames": 16 * 44100, "offbeat_hats": false,
+    }))
+    .unwrap();
+    let left = fixture::signal(&recipe, 44100);
+    wave(&path, &left, &vec![0.75; left.len()], 44100);
+    let expected_timing = lexicon_timing::analyze(&left, 44100, &Default::default())
+        .unwrap()
+        .unwrap();
+    let config = Default::default();
+    let expected_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+        &left,
+        44100,
+        expected_timing.bpm,
+        expected_timing.first_beat_seconds,
+        &config,
+    )
+    .unwrap();
+    let mixed = camelot_core::audio::decode(&path, 44100, None).unwrap();
+    let mixed_cues = camelot_core::lexicon_cues::try_generate_structural_cues(
+        &mixed.samples,
+        44100,
+        expected_timing.bpm,
+        expected_timing.first_beat_seconds,
+        &config,
+    )
+    .unwrap();
+    let expected = serde_json::to_value(&expected_cues).unwrap();
+    assert_ne!(
+        expected,
+        serde_json::to_value(mixed_cues).unwrap(),
+        "The asymmetric fixture must distinguish first-channel routing"
+    );
+    let actual = Engine::new(&settings())
+        .unwrap()
+        .analyze_file(&path)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(actual.analysis.lexicon_cues.unwrap()).unwrap(),
+        expected
+    );
 }

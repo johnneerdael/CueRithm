@@ -162,6 +162,12 @@ prepared analysis uses canonical 44100 Hz first-channel PCM on the playable
 clock. Native timing rejects rates above 192000 Hz; canonical preparation can
 still resample supported high-rate sources before timing.
 
+The new mode also routes that retained first channel, at its actual native or
+canonical rate, to the existing cue DSP. The worker trace at 18699–18735 uses
+that same raw channel for timing and cues. Legacy timing modes retain their
+existing cue routing; key and energy remain downmixed. An asymmetric quiet-left/
+loud-right case now distinguishes and verifies this routing correction.
+
 Engine tests preserve more-than-two-decimal BPM through the constant grid and
 cue generation, report the exact native clock despite key-rate frame rounding,
 and leave key/scalar-energy outputs unchanged. All 14 canonical media layouts
@@ -171,7 +177,7 @@ change, while a timing-backend change invalidates the preparation cache;
 unchanged cached analysis survives restart. Timing source and input/frontend
 code hashes, channel policy, rate and fixed bounds enter identity. The disabled
 flag is omitted from serialized settings to preserve legacy settings identities.
-The current broad local core/library/CLI gate passes 247 tests with eight
+The current broad local core/library/CLI gate passes 248 tests with eight
 optional tests ignored; eight desktop library tests also pass with one optional
 benchmark ignored. Desktop selection, full music-corpus/native packaging and
 hosted cross-platform checks are still outstanding.
@@ -196,3 +202,21 @@ jobs must capture/migrate the selected engine identity consistently.
 Do not add an Analysis settings page or a user model download. Keep the legacy
 timing backend available to research and regression tests. The desktop default
 has **not** changed in this investigation.
+
+
+## Cue preprocessing still needs a separate parity check
+
+The renderer builds seven `BiquadFilterNode` lowpass stages at
+800/400/400/200/200/200/200 Hz and supplies their first-channel output to cue
+detection. It does not supply `Q` explicitly. The existing independent cue port
+has a fallback cascade with Butterworth Q = 1/sqrt(2). The
+[Web Audio 1.0 filter options](https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilteroptions-q)
+default to Q = 1, interpreted as dB for lowpass filters. **Inference:** the
+renderer-supplied filter and the port's fallback are not interchangeable.
+The shipped renderer's numerical output has not yet been measured; static
+reading and the specification do not establish exact runtime filter parity.
+Do not modify the accepted cue arithmetic or claim real-track cue equivalence
+until this preprocessing boundary has explicit input/output checks. A private
+copied-runtime launcher produced no filter output and was terminated; it is not
+reference evidence. The installed application and its fuse settings were
+preserved.
