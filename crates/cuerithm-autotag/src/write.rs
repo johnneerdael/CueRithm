@@ -164,6 +164,9 @@ impl TagWritePlan {
         #[cfg(windows)]
         {
             let mut p = std::fs::metadata(&path)?.permissions();
+            // Windows clears its read-only attribute; Unix uses owner-write
+            // permissions above and never executes this branch.
+            #[allow(clippy::permissions_set_readonly_false)]
             p.set_readonly(false);
             std::fs::set_permissions(&path, p)?;
         }
