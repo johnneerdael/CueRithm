@@ -22,6 +22,8 @@ mod tagging;
 pub use tagging::TaggingStorage;
 pub mod watch;
 pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
+mod playlists;
+pub use playlists::*;
 mod model;
 pub mod playback;
 mod settings;

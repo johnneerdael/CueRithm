@@ -97,6 +97,19 @@ fn family(op: Operator) -> Family {
         KeySimilar => Family::Key,
     }
 }
+fn reference_kind(operator: Operator) -> Option<PlaylistKind> {
+    match operator {
+        Operator::PlaylistInSpecificPlaylist | Operator::PlaylistNotInSpecificPlaylist => {
+            Some(PlaylistKind::Playlist)
+        }
+        Operator::PlaylistInSpecificPlaylistFolder
+        | Operator::PlaylistNotInSpecificPlaylistFolder => Some(PlaylistKind::Folder),
+        Operator::PlaylistInSpecificSmartlist | Operator::PlaylistNotInSpecificSmartlist => {
+            Some(PlaylistKind::Smartlist)
+        }
+        _ => None,
+    }
+}
 impl SmartDefinition {
     /// Structural validation is independent of the current catalog and dependencies.
     pub fn validate_shape(&self) -> Result<()> {
@@ -173,11 +186,11 @@ impl SmartDefinition {
                         && ids.iter().collect::<BTreeSet<_>>().len() == ids.len()
                 }
                 (_, V::Playlist(p)) => {
-                    family(r.operator) == Family::Membership
+                    reference_kind(r.operator) == Some(p.kind)
                         && !p.id.is_empty()
                         && p.id.len() <= 128
                         && p.path.len() <= 64
-                        && p.path.iter().all(|s| s.len() <= 255)
+                        && p.path.iter().all(|s| s.chars().count() <= 255)
                 }
                 _ => false,
             };

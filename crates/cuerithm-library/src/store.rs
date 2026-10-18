@@ -54,7 +54,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=5).contains(&version),
+            (0..=6).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -89,6 +89,12 @@ impl Library {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
                 include_str!("../migrations/005_cleanup_preparation.sql")
+            ))?;
+        }
+        if version < 6 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/006_playlists.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]
@@ -170,7 +176,7 @@ impl Library {
             params![revision, serde_json::to_string(&snapshot)?, now()],
         )?;
         tx.execute(
-            "INSERT OR REPLACE INTO selected_settings VALUES (1,?1)",
+            "INSERT INTO selected_settings VALUES (1,?1) ON CONFLICT(singleton) DO UPDATE SET revision=excluded.revision",
             params![revision],
         )?;
         Self::requeue_unfinished_tx(&tx, &revision, Some(obsolete))?;

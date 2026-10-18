@@ -998,6 +998,7 @@ dependencies = [
  "cuerithm-autotag",
  "cuerithm-cleanup",
  "cuerithm-media",
+ "cuerithm-smartlists",
  "flate2",
  "fs2",
  "libc",
