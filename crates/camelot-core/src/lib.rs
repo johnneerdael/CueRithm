@@ -29,3 +29,4 @@ pub use engine::{Engine, EngineSettings, FileAnalysis, SourceTimingMetadata};
 pub use key::{Mode, MusicalKey};
 pub use rhythm::{TempoCandidate, TempoEstimate};
 pub use tonal::{KeyCandidate, KeyEstimate, TonalFeatures};
+pub mod prepared;

@@ -10,11 +10,13 @@
 mod dsp;
 
 mod energy;
+mod pcm;
 mod pipeline;
 mod request;
 mod timing;
 mod waveform;
 
+pub use pcm::{PcmProfile, analyze_energy_pcm, analyze_timing_pcm};
 #[doc(inline)]
 pub use pipeline::{analyze_file, analyze_pcm};
 pub use request::{AnalysisRequest, EnergySegment, FeatureAnalysis, KeySegment};

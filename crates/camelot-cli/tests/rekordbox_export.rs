@@ -38,6 +38,7 @@ fn fixture(dir: &std::path::Path, complete: bool) -> (std::path::PathBuf, std::p
         openkeyscan_sample_rate: None,
         source_timing: None,
         elapsed_seconds: 0.0,
+        media: None,
     };
     let saved = dir.join("analysis.json");
     fs::write(&saved, serde_json::to_vec(&file).unwrap()).unwrap();
