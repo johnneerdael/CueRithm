@@ -65,8 +65,8 @@ React and Tauri declare MIT licensing; Lucide declares ISC; Rodio declares
 MIT OR Apache-2.0. Exact dependency identities are in `Cargo.lock` and
 `apps/desktop/pnpm-lock.yaml`. Build tools and test fixtures do not require
 Python in the shipped application. The desktop embeds the pinned OpenKeyScan
-ONNX conversion under the upstream MIT notice and Cuerithm's locally trained
-energy SVC parameters under the repository license. Training music, captures,
+ONNX conversion under the upstream MIT notice. Track energy is independently
+implemented Rust acoustic DSP; no proprietary code or energy model is embedded. Training music, captures,
 reference labels and licensed reference applications are not bundled.
 
 

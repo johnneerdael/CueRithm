@@ -1,5 +1,5 @@
 {
-  "revision": 1,
+  "revision": 2,
   "distribution": "embedded in desktop executable; no runtime download",
   "key": {
     "file": "openkeyscan3-logits.onnx",
@@ -9,24 +9,11 @@
     "license": "MIT; ../openkeyscan/LICENSE.upstream"
   },
   "energy": {
-    "file": "energy-svc-v1.json",
-    "sha256": "bf7079a52240d04d8d3d5c6a7db537a47673c19655dcde45bcc10cb210272d96",
-    "origin": "Cuerithm local development SVC training export; not vendor model weights",
-    "license": "repository MIT",
-    "features": 183,
-    "C": 10,
-    "gamma": 0.1,
-    "classes": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "support_vectors": 2760
+    "implementation": "../../crates/camelot-core/src/lexicon_energy.rs",
+    "method": "lexicon-acoustic-energy-v1",
+    "origin": "Independent Rust implementation of observed local acoustic calculation in Lexicon 1.11.15.0",
+    "external_model": false,
+    "input": "full-track mono 22050 Hz PCM",
+    "output": "one integer rating 1-10; no rating for digital silence or less than one frame"
   }
 }

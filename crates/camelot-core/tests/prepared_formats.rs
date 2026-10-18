@@ -65,7 +65,10 @@ fn common_formats_receive_full_analysis_without_flac_container_restrictions() {
         .unwrap();
     let cases: serde_json::Value =
         serde_json::from_slice(&std::fs::read(d.path().join("cases.json")).unwrap()).unwrap();
-    let mut engine = Engine::new(&settings(d.path())).unwrap();
+    let mut configuration = settings(d.path());
+    configuration.energy_model = None;
+    configuration.lexicon_energy = true;
+    let mut engine = Engine::new(&configuration).unwrap();
     let rt = runtime();
     let mut lossless_key = None;
     for row in cases.as_array().unwrap() {
@@ -77,7 +80,10 @@ fn common_formats_receive_full_analysis_without_flac_container_restrictions() {
         assert!(result.complete);
         assert!(result.analysis.key.is_some());
         assert!(result.analysis.tempo.is_some());
-        assert!(result.analysis.energy.is_some());
+        assert_eq!(
+            result.analysis.energy.as_ref().unwrap().method,
+            camelot_core::lexicon_energy::METHOD
+        );
         let cues = result.analysis.lexicon_cues.as_ref().unwrap();
         assert!(!cues.cues.is_empty());
         assert!(
@@ -166,4 +172,104 @@ fn reported_duration_is_the_playable_clock_even_for_fractional_dsp_frames() {
             .duration_seconds,
         audio.clock.duration_seconds()
     );
+}
+
+#[test]
+fn lexicon_timing_uses_canonical_first_channel_grid_and_cues_for_every_media_layout() {
+    let d = tempfile::tempdir().unwrap();
+    let archive = std::fs::File::open(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/fixtures/media.tar.gz"),
+    )
+    .unwrap();
+    tar::Archive::new(flate2::read::GzDecoder::new(archive))
+        .unpack(d.path())
+        .unwrap();
+    let cases: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(d.path().join("cases.json")).unwrap()).unwrap();
+    let settings = EngineSettings {
+        lexicon_timing: true,
+        lexicon_energy: true,
+        lexicon_config: Some(Default::default()),
+        ..Default::default()
+    };
+    let mut engine = Engine::new(&settings).unwrap();
+    let rt = runtime();
+    let mut consumed = 0;
+    let mut lossless_timing = None;
+    for row in cases.as_array().unwrap() {
+        let path = d.path().join(row["file"].as_str().unwrap());
+        let audio = rt.decode(&path, d.path()).unwrap();
+        let mut first = Vec::with_capacity(audio.frames as usize);
+        let mut position = 0;
+        while position < audio.frames {
+            let samples = audio.read_frames(position, 65536).unwrap();
+            for frame in samples.as_chunks::<2>().0 {
+                first.push(frame[0]);
+            }
+            position += samples.len() as u64 / 2;
+        }
+        let expected = camelot_core::lexicon_timing::analyze(&first, 44100, &Default::default())
+            .unwrap()
+            .unwrap();
+        let result = engine
+            .analyze_prepared(&audio)
+            .unwrap_or_else(|error| panic!("{}: {error:#}", path.display()));
+        assert!(result.complete);
+        assert_eq!(
+            result.analysis.duration_seconds,
+            audio.clock.duration_seconds()
+        );
+        let identity = result.media.as_ref().unwrap();
+        assert_eq!(identity.source_sha256, audio.source_sha256);
+        assert_eq!(identity.pcm_sha256, audio.pcm_sha256().unwrap());
+        let timing = result.analysis.tempo.as_ref().unwrap();
+        assert_eq!(timing.method, "lexicon-timing-v1");
+        assert_eq!(
+            timing.bpm.to_bits(),
+            expected.bpm.to_bits(),
+            "{} BPM",
+            row["file"]
+        );
+        assert_eq!(
+            timing.downbeat_time.unwrap().to_bits(),
+            expected.first_beat_seconds.to_bits(),
+            "{} anchor",
+            row["file"]
+        );
+        assert!(
+            timing
+                .beats_seconds
+                .iter()
+                .all(|beat| *beat >= 0. && *beat < audio.clock.duration_seconds())
+        );
+        let expected_cues = camelot_core::lexicon_cues::try_generate_renderer_cues(
+            &first,
+            44100,
+            expected.bpm,
+            expected.first_beat_seconds,
+            settings.lexicon_config.as_ref().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(&result.analysis.lexicon_cues).unwrap(),
+            serde_json::to_value(Some(expected_cues)).unwrap(),
+            "{} cues",
+            row["file"]
+        );
+        assert!(result.analysis.key.is_some());
+        assert_eq!(
+            result.analysis.energy.as_ref().unwrap().method,
+            camelot_core::lexicon_energy::METHOD
+        );
+        if row["lossless"] == true {
+            let actual = serde_json::to_value(timing).unwrap();
+            if let Some(ref expected) = lossless_timing {
+                assert_eq!(&actual, expected);
+            } else {
+                lossless_timing = Some(actual);
+            }
+        }
+        consumed += 1;
+    }
+    assert_eq!(consumed, 14);
 }

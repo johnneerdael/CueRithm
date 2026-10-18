@@ -1,4 +1,5 @@
 export type View="tracks"|"incoming"|"archive";
+export type WorkspaceView=View|"settings"|"cleanup";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null}
@@ -12,7 +13,7 @@ export interface EngineSettings {
   config:{key_frame_size:number;key_hop_size:number;rhythm_frame_size:number;rhythm_hop_size:number;min_bpm:number;max_bpm:number};
   sample_rate:number;max_seconds:number|null;beat_model:string|null;mel_model:string|null;
   key_model:string|null;key_neural_model:string|null;key_openkeyscan_model?:string|null;
-  structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;
+  structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;lexicon_energy?:boolean;
 }
 export interface TagFrame {id3:string;vorbis:string;mp4:string}
 export interface TaggingOptions {
@@ -32,7 +33,27 @@ export interface AutotagConfig {options:TaggingOptions;no_match:"keep_existing"|
 export type CustomOptionValue = {type:"boolean";value:boolean}|{type:"number";min:number;max:number;step:number;value:number}|{type:"string";value:string;hidden:boolean|null}|{type:"tag";value:TagFrame}|{type:"option";values:string[];value:string}|{type:"button"};
 export interface TaggingProvider {id:string;name:string;maxThreads:number;supportedTags:string[];customOptions:{options:{id:string;label:string;tooltip:string|null;value:CustomOptionValue}[]}}
 export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[]}
-export interface Settings {tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
+export type MetadataField="title"|"artist"|"album"|"album_artist"|"genre"|"comment"|"grouping"|"label"|"remixer"|"mix"|"producer"|"composer"|"lyricist";
+export type ContributorRole="artist"|"remixer"|"producer"|"composer"|"lyricist";
+export type CommonTextPattern="CamelotKeyFromTitle"|"OriginalMixFromTitle"|"CamelotKeyEnergyFromTitle"|"BpmFromTitle";
+export type SmartFix={kind:"title_case";field:MetadataField;uppercase:boolean;lowercase:boolean}|{kind:"replace_characters";characters:string}|{kind:"decode_entities"}|{kind:"extract_artist";separator:string;part:number}|{kind:"extract_remixer";word:string;remove_title:boolean}|{kind:"remove_garbage";field:MetadataField}|{kind:"remove_number_prefix"}|{kind:"remove_urls";field:MetadataField;clear_field:boolean}|{kind:"mix_parentheses"}|{kind:"remove_common_text";pattern:CommonTextPattern}|{kind:"remove_promotional_text";field:MetadataField};
+export interface ConfiguredFix {id:string;enabled:boolean;ignored_values:string[];rule:SmartFix}
+export interface CanonicalMapping {from:string;to:string|null}
+export interface GenreRules {enabled:boolean;mappings:CanonicalMapping[];protected_values:string[];conversion:{category:string;genres:string[];remove_genre:boolean}|null}
+export interface ArtistRules {enabled:boolean;roles:ContributorRole[];mappings:CanonicalMapping[];protected_values:string[]}
+export interface CleanupConfig {fixes:ConfiguredFix[];genres:GenreRules;artists:ArtistRules}
+export interface HumanMetadata {fields:Partial<Record<MetadataField,string[]>>;custom_tags:{category:string;value:string}[]}
+export interface FieldChange {field:MetadataField;before:string[];after:string[]}
+export interface CleanupReport {original:HumanMetadata;metadata:HumanMetadata;changes:FieldChange[];applied_rules:string[]}
+export interface CleanupFailure {track_id:string;message:string}
+export interface CleanupPreview {id:string;created:number;proposals:{id:string;track_id:string;title:string;report:CleanupReport}[];unchanged:string[];failed:CleanupFailure[]}
+export interface CleanupBatchResult {id:string;applied:string[];unchanged:string[];conflicted:CleanupFailure[];failed:CleanupFailure[]}
+export interface CleanupHistory {can_undo:boolean;id:string;kind:string;state:string;created:number;result:CleanupBatchResult}
+export interface CleanupCatalogValue {value:string;track_count:number;protected:boolean;mapping:CanonicalMapping|null}
+export interface CleanupCatalog {genres:CleanupCatalogValue[];artists:(CleanupCatalogValue&{roles:Partial<Record<ContributorRole,number>>})[];categories:string[];unavailable_tracks:CleanupFailure[]}
+export type CleanupScope={kind:"all_ready"}|{kind:"track_ids";track_ids:string[]};
+export interface LibraryChangeEvent {track_ids:string[]}
+export interface Settings {cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}
@@ -40,6 +61,12 @@ export interface PreparationEvent {sequence:number;attempt?:number;job_id:string
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[]}
 export interface Bridge {
+  cleanupCatalog(config:CleanupConfig):Promise<CleanupCatalog>;
+  previewCleanup(scope:CleanupScope,config:CleanupConfig):Promise<CleanupPreview>;
+  applyCleanup(planId:string,proposalIds:string[]):Promise<CleanupBatchResult>;
+  cleanupHistory():Promise<CleanupHistory[]>;
+  undoCleanup(batchId:string):Promise<CleanupBatchResult>;
+  onLibraryChange(handler:(event:LibraryChangeEvent)=>void):Promise<()=>void>;
   getState():Promise<LibraryState>;
   getMetadataFields():Promise<string[]>;
   getTaggingCatalog():Promise<TaggingCatalog>;

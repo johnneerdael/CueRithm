@@ -54,7 +54,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=3).contains(&version),
+            (0..=5).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -79,10 +79,22 @@ impl Library {
                 include_str!("../migrations/003_preparation_cache.sql")
             ))?;
         }
+        if version < 4 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/004_cleanup.sql")
+            ))?;
+        }
+        if version < 5 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/005_cleanup_preparation.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM tag_writes WHERE state='prepared'",
+                "SELECT (SELECT COUNT(*) FROM tag_writes WHERE state='prepared') + (SELECT COUNT(*) FROM cleanup_writes WHERE state='prepared')",
                 [],
                 |r| r.get(0),
             )?;
@@ -115,7 +127,10 @@ impl Library {
             lib.save_settings(PreparationSettings::default())?;
         }
         #[cfg(feature = "autotag")]
-        lib.recover_tag_writes()?;
+        {
+            lib.recover_tag_writes()?;
+            lib.recover_cleanup_writes()?;
+        }
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

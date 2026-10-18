@@ -2,8 +2,14 @@ import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {open} from "@tauri-apps/plugin-dialog";
-import type {Bridge,PreparationEvent,PlaybackEvent} from "./types";
+import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./types";
 export const nativeBridge:Bridge={
+  cleanupCatalog:config=>invoke("cleanup_catalog",{config}),
+  previewCleanup:(scope,config)=>invoke("preview_cleanup",{scope,config}),
+  applyCleanup:(planId,proposalIds)=>invoke("apply_cleanup",{planId,proposalIds}),
+  cleanupHistory:()=>invoke("cleanup_history"),
+  undoCleanup:batchId=>invoke("undo_cleanup",{batchId}),
+  onLibraryChange:handler=>listen<LibraryChangeEvent>("library-change",event=>handler(event.payload)),
   getState:()=>invoke("library_state"),
   getMetadataFields:()=>invoke("metadata_fields"),
   listTracks:query=>invoke("list_tracks",{query}),

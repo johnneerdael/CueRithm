@@ -1,22 +1,24 @@
-# Built-in desktop analysis parameters
+# Built-in desktop analysis
 
-The desktop executable embeds both files, verifies their pinned SHA-256 values,
-and manages its own versioned cache. Users never choose or download model files.
-Structural cue detection and BPM/beatgrid DSP are compiled Rust code.
+The desktop embeds the pinned OpenKeyScan3 key graph, verifies its SHA-256,
+and manages its versioned cache. Users never choose or download model files.
+OpenKeyScan3 uses the unchanged ONNX conversion documented in
+`../openkeyscan/model.json`. Its MIT notice is preserved in
+`../openkeyscan/LICENSE.upstream`.
 
-OpenKeyScan3 uses the unchanged pinned ONNX conversion documented in
-`../openkeyscan/model.json`. The upstream project distributes its trained model
-and documents bundling it in applications. Its MIT notice is preserved in
-`../openkeyscan/LICENSE.upstream`; include it with redistribution.
+Track energy now uses compiled Rust acoustic DSP: crest factor, spectral
+flatness, high-mid and sub-bass ratios combined by a fixed formula. There is no
+energy parameter file, training step or network request in the desktop path.
+See `../../docs/research/local-track-energy.md` for source evidence, the
+synthetic reference boundary and intentional silence policy.
+Structural cue detection and BPM/beatgrid DSP are also compiled Rust code.
 
-The energy file is Cuerithm's locally trained RBF SVC export: C=10, gamma=0.1,
-183 acoustic features, 2760 support vectors and classes 1–9. Inference uses the
-existing Rust one-vs-one implementation and exposes one aggregated track rating.
-These are learned numeric parameters, not vendor model weights. They are
-distributed under this repository's MIT license. Training music, request/response
-captures and per-track reference labels are excluded.
+The old `energy-svc-v1.json` remains a historical development artifact for the
+standalone explicit-model research API. It is not embedded or installed by the
+desktop. Existing cached copies are left untouched on upgrade; desktop settings
+and unfinished jobs migrate to compiled energy. Previously completed track
+ratings change only when those tracks are reanalyzed.
 
-`manifest.json` records identities and provenance. Bundling changes setup and
-distribution; it does not establish new held-out accuracy or exact reproduction
-of a server's independent OverallEnergy formula. The standalone engine/CLI still
-supports explicit model files.
+`manifest.json` records active desktop component identities. Synthetic helper
+agreement is not a claim of end-to-end browser decode parity or real-music
+accuracy. Licensed applications, private captures and music are not bundled.

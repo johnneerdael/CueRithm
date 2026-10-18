@@ -99,8 +99,12 @@ Tests and diagnostics establish what each run reports; CI configuration alone
 does not establish a green build, live Windows/Linux UI behavior, signing,
 notarization or target DJ-app round trips. Signing/public release is a later gate.
 
-The approved scope after automatic tagging remains cleanup, ordinary/full smart
-playlists and direct rekordbox 6/7 sync.
+Cleanup now has a shared Rust rule engine, all-format staged metadata changes,
+automatic Incoming integration and a native preview/apply/Undo workspace. See
+[cleanup](../cleanup.md) and its [behavior evidence](../research/cleanup-behavior.md).
+
+The remaining approved scope includes ordinary/full smart playlists, duplicate
+and file maintenance, and direct rekordbox 6/7 sync.
 See [the early direct contract](../research/rekordbox-direct-contract.md) for
 known identities, static evidence and precise missing target acceptance.
 
@@ -187,3 +191,20 @@ TagLib remains a statically linked library. On MSVC, its CMake runtime property
 and the C++ bridge follow Rust's `crt-static` target feature, so both select the
 same CRT mode. TagLib's legacy `/MD` string replacement alone does not cover
 modern CMake's [CMP0091 runtime property](https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html).
+
+
+## Cleanup native acceptance
+
+On macOS arm64, the packaged 88.03 MiB app passed resource/built-in diagnostics.
+An isolated library prepared one generated 64-second FLAC. A native preview left
+file bytes unchanged; Apply updated its title; after restart, Undo restored the
+original file SHA-256. Complete analysis JSON and existing cue history were
+identical throughout. While loaded and playing, the title refreshed after Undo
+and the playback clock continued from its current position. Counted native genre
+and contributor views preserved a comma-containing artist as one name. Settings
+and preview scrolling were inspected in the native window.
+
+This acceptance used generated audio only. It did not normalize the user's
+music library or establish live Windows/Linux UI behavior, power-loss hardware
+behavior or full Lexicon application parity. Native CI packages and tests provide
+their own exact-head evidence.

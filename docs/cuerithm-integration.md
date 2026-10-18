@@ -29,16 +29,17 @@ cue settings/rate and energy model content are included when enabled.
 
 ## One energy value
 
-The optional local RBF SVC consumes the existing 183 energy features and
-aggregates internal labels by nominal duration. Only one track rating is
-serialized; no segment energy or energy-named cues are produced. The rating
-uses the retained client tag aggregation and is distinct from the remote
-OverallEnergy research target. Numeric model artifacts remain private.
+The desktop uses the compiled local acoustic meter in `lexicon_energy.rs`.
+Full-track mono 22050 Hz PCM supplies crest factor, spectral flatness, high-mid
+and sub-bass ratios; a fixed formula produces one rating from 1 to 10. No energy
+model file, server response, source tag or cue classification enters the result.
+Silence and input shorter than one analysis frame remain unrated. See
+[local track energy](research/local-track-energy.md) for evidence and limitations.
 
-Energy extraction has its own file entry point, avoiding unused key/request-cue
-feature production. Energy and timing consumers share the same captured encoded
-source as the key/cue decoders. Content/metadata are checked again before return.
-Complete-input requirements and unsupported profiles remain explicit errors.
+The standalone explicit-model SVC API remains available for historical research;
+it is not selected or embedded by the desktop. Backend/configuration identity
+changes invalidate preparation caches. Upgrade migrates settings and unfinished
+jobs without rewriting completed tracks; explicit reanalysis updates old ratings.
 
 ## Historical material
 

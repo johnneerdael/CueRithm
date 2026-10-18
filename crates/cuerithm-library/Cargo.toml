@@ -10,6 +10,7 @@ default = []
 autotag = ["dep:cuerithm-autotag"]
 
 [dependencies]
+cuerithm-cleanup = { path = "../cuerithm-cleanup" }
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 serde.workspace = true

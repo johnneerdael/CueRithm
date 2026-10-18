@@ -87,8 +87,10 @@ Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
 
 OpenKeyScan key detection, track energy and structural cue analysis are built
 into the desktop application. No model selection, downloads or extra setup is
-required. Pinned parameters are embedded, checked and cached automatically;
-existing unfinished jobs migrate to the built-in revision on upgrade. The
+required. The key graph is embedded, checked and cached automatically; energy
+uses compiled acoustic DSP without an external model file. Settings has separate
+Incoming, Cue generation, Automatic tagging and Cleanup pages.
+Existing unfinished jobs migrate to the built-in revision on upgrade. The
 standalone CLI retains its explicit-model API. The app never invents results
 to mark an incomplete track ready.
 
@@ -99,9 +101,16 @@ Incoming promotes a track; provider errors remain available for retry. See
 [automatic tagging](docs/automatic-tagging.md) for policies and provider validation.
 Existing offline settings are preserved until tagging is enabled.
 
-Cleanup, ordinary/smart playlists and direct rekordbox 6/7 sync remain subsequent
-approved deliveries; their desktop controls are not yet enabled. No desktop XML fallback exists. This foundation is an unsigned test
-build, not a signed public release or a complete product-parity claim.
+Cleanup includes eleven configurable Smart Fixes, exact genre/artist mappings,
+protected values, counted catalogs and categorized genre tags. Manual scans
+preview selected changes; Apply updates files and library with durable Undo. The
+same saved rules run during Incoming when enabled. See [cleanup](docs/cleanup.md)
+for the workflow and validation boundaries.
+
+Ordinary/smart playlists, duplicate/file maintenance and direct rekordbox 6/7
+sync remain subsequent approved deliveries. No desktop XML fallback exists.
+This is an unsigned test build, not a signed public release or a complete
+product-parity claim.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
 commands, platform prerequisites and artifact verification.

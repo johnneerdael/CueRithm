@@ -1,17 +1,19 @@
 import {useState,useEffect,useRef,useCallback} from "react";
 import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Upload} from "lucide-react";
 import {nativeBridge,errorMessage} from "./api";
-import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery} from "./types";
+import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery,WorkspaceView} from "./types";
 import Sidebar from "./components/Sidebar";
 import TrackTable from "./components/TrackTable";
 import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
+import Cleanup from "./views/Cleanup";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
 export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
-  const [view,setView]=useState<View|"settings">("tracks");
+  const [view,setView]=useState<WorkspaceView>("tracks");
   const [lastView,setLastView]=useState<View>("tracks");
+  const [cleanupSelection,setCleanupSelection]=useState<string[]>([]);
   const [state,setState]=useState<LibraryState|null>(null);
   const [rows,setRows]=useState<Track[]>([]),[total,setTotal]=useState(0);
   const [search,setSearch]=useState(""),[sort,setSort]=useState<Sort>("title"),[descending,setDescending]=useState(false);
@@ -28,7 +30,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const selectedRef=useRef(selected);selectedRef.current=selected;
   const searchInput=useRef<HTMLInputElement>(null);
   const alive=useRef(true);
-  query.current={view:view==="settings"?lastView:view,search,sort,descending,limit:200,cursor:null};
+  query.current={view:view==="settings"||view==="cleanup"?lastView:view,search,sort,descending,limit:200,cursor:null};
   const notify=useCallback((error:unknown)=>{const message=errorMessage(error);if(!message.includes("superseded"))setToast(message);},[]);
 
   const fetchRows=useCallback(async(reset=false)=>{
@@ -67,21 +69,21 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     alive.current=true;let lastPlayback=0;
     void refresh(true);
     void bridge.playerStatus().then(s=>{if(alive.current)setPlayback(s);}).catch(notify);
-    const prep=bridge.onPreparation(event=>{
-      void refresh(false);
-      if(event.state==="completed"&&loadedDetail.current?.track.id===event.track_id){
-        const generation=playRequest.current;
-        void bridge.getTrack(event.track_id).then(next=>{
-          if(alive.current&&generation===playRequest.current&&next.track.id===event.track_id&&loadedDetail.current?.track.id===event.track_id&&next.pcm_sha256&&next.pcm_sha256===loadedDetail.current.pcm_sha256){loadedDetail.current=next;setDetail(next);}
-        }).catch(notify);
-      }
-    });
+    const refreshDetail=(id:string)=>{
+      if(loadedDetail.current?.track.id!==id)return;
+      const generation=playRequest.current;
+      void bridge.getTrack(id).then(next=>{
+        if(alive.current&&generation===playRequest.current&&next.track.id===id&&loadedDetail.current?.track.id===id&&next.pcm_sha256&&next.pcm_sha256===loadedDetail.current.pcm_sha256){loadedDetail.current=next;setDetail(next);}
+      }).catch(notify);
+    };
+    const prep=bridge.onPreparation(event=>{void refresh(false);if(event.state==="completed")refreshDetail(event.track_id);});
+    const library=bridge.onLibraryChange(event=>{void refresh(false);for(const id of event.track_ids)refreshDetail(id);});
     const player=bridge.onPlayback(event=>{if(alive.current&&event.sequence>lastPlayback){lastPlayback=event.sequence;setPlayback(event.status);}});
     const drop=bridge.onDrop(paths=>void addPaths(paths),setDragging);
     const timer=setInterval(()=>void refresh(false),1500);
-    return()=>{alive.current=false;clearInterval(timer);void prep.then(unlisten=>unlisten());void player.then(unlisten=>unlisten());void drop.then(unlisten=>unlisten());};
+    return()=>{alive.current=false;clearInterval(timer);void prep.then(unlisten=>unlisten());void library.then(unlisten=>unlisten());void player.then(unlisten=>unlisten());void drop.then(unlisten=>unlisten());};
   },[bridge,refresh,addPaths,notify]);
-  useEffect(()=>{if(view==="settings")return;void fetchRows(true);},[view,search,sort,descending,fetchRows]);
+  useEffect(()=>{if(view==="settings"||view==="cleanup")return;void fetchRows(true);},[view,search,sort,descending,fetchRows]);
   useEffect(()=>{setSelected(new Set());},[view,search]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),8000);return()=>clearTimeout(timer);},[toast]);
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
@@ -106,9 +108,9 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented)return;
-      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();if(view==="settings")setView(lastView);searchInput.current?.focus();}
+      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();if(view==="settings"||view==="cleanup")setView(lastView);searchInput.current?.focus();}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
-      if(view!=="settings"&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
+      if(view!=="settings"&&view!=="cleanup"&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
       if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&detail?.analysis?.analysis.tempo){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail){event.preventDefault();void toggle();}
     };
@@ -121,7 +123,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     window.addEventListener("pointermove",move);window.addEventListener("pointerup",end);
   };
   useEffect(()=>{try{localStorage.setItem("sidebar-width",String(sideWidth));localStorage.setItem("player-height",String(playerHeight));}catch{}},[sideWidth,playerHeight]);
-  const onView=(next:View|"settings")=>{if(next!=="settings")setLastView(next);setView(next);};
+  const onView=(next:WorkspaceView)=>{if(next==="cleanup")setCleanupSelection([...selectedRef.current]);if(next!=="settings"&&next!=="cleanup")setLastView(next);setView(next);};
   const onSelect=(row:Track,event:React.MouseEvent)=>{
     setSelected(previous=>{
       if(event.ctrlKey||event.metaKey){const next=new Set(previous);if(next.has(row.id))next.delete(row.id);else next.add(row.id);return next;}
@@ -138,19 +140,19 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const archive=async(id:string)=>{try{await bridge.archiveTrack(id,view!=="archive");setSelected(new Set());await refresh(true);}catch(e){notify(e);}};
   const active=state?.jobs.filter(j=>j.state==="running"||j.state==="queued")??[];
   const attention=state?.jobs.filter(j=>j.state==="attention")??[];
-  const libraryView=view==="settings"?lastView:view;
+  const libraryView=view==="settings"||view==="cleanup"?lastView:view;
   return <div className="app" style={{"--sidebar-width":sideWidth+"px","--player-height":playerHeight+"px"} as React.CSSProperties}>
     <Sidebar view={view} onView={onView} state={state}/>
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column">
       <header className="app-header" data-tauri-drag-region>
-        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);if(view==="settings")onView(lastView);}}/><kbd>⌘ F</kbd></div>
+        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);if(view==="settings"||view==="cleanup")onView(lastView);}}/><kbd>⌘ F</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>
       </header>
       <main>
         {bootError?<div role="alert" className="error-banner">{bootError}<button onClick={()=>void refresh(true)}>Try again</button></div>:null}
-        {view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:<>
+        {view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
           <div className="view-title library-heading"><div><div className="eyebrow">LIBRARY</div><h1>{view==="incoming"?"Incoming":view==="archive"?"Archive":"Tracks"}<span className="heading-count">{view==="incoming"?state?.counts.incoming:view==="archive"?state?.counts.archive:state?.counts.tracks}</span></h1><p>{view==="incoming"?"Automatic preparation. Ready tracks move into your library.":view==="archive"?"Archived tracks keep their analysis and cues.":"Key, BPM, energy and structural cues."}</p></div>
             <div className="view-actions">{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
           </div>

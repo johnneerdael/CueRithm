@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "date": "2026-10-19",
+  "scope": "Frozen development corpus comparison against original Lexicon 1.11.15.0 cue worker; not held-out evaluation, human musical accuracy, or complete installed-app file-decoding equivalence.",
+  "groups": 282,
+  "represented_tuning_files": 328,
+  "frozen_total_files": 434,
+  "results": {
+    "resolved": 282,
+    "exact_complete_cue_matches": 282,
+    "reference_cue_count": 1261,
+    "mismatches": 0,
+    "unresolved": 0,
+    "exact_bpm_matches": 282,
+    "exact_first_beat_matches": 282,
+    "repeat_pilot_matches": 29,
+    "exact_named_cues": 1261,
+    "missing_named_cues": 0,
+    "extra_named_cues": 0,
+    "maximum_position_difference_seconds": 0.0
+  },
+  "configuration": {
+    "tempo_bounds_bpm": [
+      98,
+      195
+    ],
+    "drop_at_start": "Never",
+    "min_cue_length_beats": 64,
+    "add_emergency_loop": false,
+    "genre": null
+  },
+  "input": {
+    "sample_rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "timing_channel": "first",
+    "duration_seconds": {
+      "min": 38.371156462585034,
+      "median": 336.94352607709754,
+      "max": 557.0835827664399
+    },
+    "total_audio_hours": 26.593596208112874
+  },
+  "provenance": {
+    "manifest_sha256": "91ede6070b87785d0c79a57762d284ae3eec3f1280a6ede063ce0674e4dc0578",
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "worker_pretty_sha256": "b477cab3a61a12df98a1b026a493b3f95d512801383b43ba3a2f43f541d897dc",
+    "rust_binary_sha256": "01b589c931daf630e25ad3219eb74c0fd34f1cc14264a241bcf8f9a51304d63c",
+    "decoder_sha256": "beedd98420815a153852a423612950056f0e20194ecbe1faa39e777813261343",
+    "runner_sha256": "dae40dce6ae205e8d92e6989f97ab6abfdf303aedfa81a7ead29cde2080edd76",
+    "rust_algorithms": {
+      "lexicon-cues-dsp": "6c0064bc668a4dfa86579ca8bb0e5ad4be5f0d7220ea82dc4d5b74a8a12a9f10",
+      "lexicon-timing-dsp": "aee5f1a865b05a85cc2ef9b4093a6976d71d9aa8e2f76f834f68e18cb96a3c41",
+      "lexicon-timing-input": "f2b0c6719e97b22f6db4872c28c878010101b8980e2f34780382e8c783e02ff7"
+    },
+    "reference_runtime": {
+      "node": "20.18.1",
+      "acorn": "8.12.1",
+      "ada": "2.9.0",
+      "ares": "1.33.1",
+      "base64": "0.5.2",
+      "brotli": "1.0.9",
+      "cjs_module_lexer": "1.4.1",
+      "cldr": "44.1",
+      "icu": "74.2",
+      "llhttp": "8.1.2",
+      "modules": "128",
+      "napi": "9",
+      "nghttp2": "1.61.0",
+      "openssl": "0.0.0",
+      "simdutf": "5.5.0",
+      "tz": "2024a",
+      "undici": "6.20.0",
+      "unicode": "15.1",
+      "uv": "1.46.0",
+      "uvwasi": "0.0.21",
+      "v8": "12.8.374.38-electron.0",
+      "zlib": "1.3.0.1-motley",
+      "electron": "32.3.3",
+      "chrome": "128.0.6613.186"
+    }
+  },
+  "comparison_boundary": "Rust performs fresh full analysis from native audio. Original cue worker receives independently computed seven-stage scalar WebAudio-default filtered first-channel PCM and previously verified original timing. Exact cue JSON comparison includes positions, names, colors and emergency-loop result. No proprietary runtime enters the product.",
+  "source_integrity": "Frozen decoded S16 PCM MD5 checked before prediction; source/snapshot encoded SHA256 before and source SHA256 after each case; no audio tags or library databases written.",
+  "heldout_limits": "Tuning only; no reference-label manifest read. An earlier separate diagnostic exposed timing for one reserved group, documented in the exposure audit. No claim that all held-out groups are untouched.",
+  "limits": [
+    "Only one fixed cue configuration tested on this corpus; genre hints and alternative templates are not covered by these real-music results.",
+    "Whole-track energy was not evaluated in this run.",
+    "The 29-track pilot exposed a fractional transient-threshold defect. The first full-corpus run exposed a refinement-pass return defect on one track. Both were corrected using original-helper authored regressions before this run. This is development agreement, not independent unseen-data generalization.",
+    "Original Chromium128 renderer decoding/resampling was not run; the original worker boundary is explicit.",
+    "Ten concurrent benchmark workers; measured latencies are not a controlled product-throughput comparison."
+  ],
+  "timings_ms": {
+    "decode_ms": {
+      "median": 217.73729149999053,
+      "p95_nearest_rank": 584.8560419999994,
+      "max": 3423.368584
+    },
+    "rust_full_analysis_ms": {
+      "median": 3382.12025,
+      "p95_nearest_rank": 5355.120583000011,
+      "max": 8457.410833000002
+    },
+    "reference_cue_worker_ms": {
+      "median": 2558.947208500007,
+      "p95_nearest_rank": 3803.955167,
+      "max": 6992.944042000003
+    },
+    "total_ms": {
+      "median": 7734.245208000015,
+      "p95_nearest_rank": 11993.58608300001,
+      "max": 15329.879832999985
+    }
+  },
+  "per_cue_type": {
+    "Start": {
+      "reference_cues": 282,
+      "exact_matches": 282,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    },
+    "Drop": {
+      "reference_cues": 282,
+      "exact_matches": 282,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    },
+    "Last beat": {
+      "reference_cues": 282,
+      "exact_matches": 282,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    },
+    "Breakdown": {
+      "reference_cues": 179,
+      "exact_matches": 179,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    },
+    "Second Drop": {
+      "reference_cues": 197,
+      "exact_matches": 197,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    },
+    "Second Breakdown": {
+      "reference_cues": 39,
+      "exact_matches": 39,
+      "missing": 0,
+      "maximum_position_difference_seconds": 0
+    }
+  },
+  "previous_baseline": {
+    "report": "lexicon-cue-beatport-2026-10-18.json",
+    "exact_complete_cue_matches": 281,
+    "exact_named_cues": 1260,
+    "reference_cue_count": 1261,
+    "correction": "Keep the transition guard return local to the peak-region refinement pass so subsequent passes still run."
+  }
+}

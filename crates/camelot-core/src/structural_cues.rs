@@ -1,5 +1,8 @@
 //! Checked integration boundary for the unchanged Lexicon-compatible DSP.
-use crate::lexicon_cues::{LexiconConfig, StructuralCueResult, generate_structural_cues};
+use crate::lexicon_cues::{
+    LexiconConfig, StructuralCueResult, generate_structural_cues,
+    generate_structural_cues_with_filtered,
+};
 use anyhow::{Result, ensure};
 
 impl LexiconConfig {
@@ -18,6 +21,28 @@ pub fn try_generate_structural_cues(
     bpm: f64,
     first_beat: f64,
     config: &LexiconConfig,
+) -> Result<StructuralCueResult> {
+    checked_generate(pcm, sample_rate, bpm, first_beat, config, false)
+}
+
+/// Apply the shipped renderer's Web Audio lowpass defaults before cue detection.
+pub fn try_generate_renderer_cues(
+    pcm: &[f32],
+    sample_rate: u32,
+    bpm: f64,
+    first_beat: f64,
+    config: &LexiconConfig,
+) -> Result<StructuralCueResult> {
+    checked_generate(pcm, sample_rate, bpm, first_beat, config, true)
+}
+
+fn checked_generate(
+    pcm: &[f32],
+    sample_rate: u32,
+    bpm: f64,
+    first_beat: f64,
+    config: &LexiconConfig,
+    renderer_frontend: bool,
 ) -> Result<StructuralCueResult> {
     config.validate()?;
     ensure!(
@@ -43,7 +68,19 @@ pub fn try_generate_structural_cues(
             emergency_loop: None,
         });
     }
-    let mut result = generate_structural_cues(pcm, sample_rate, bpm, first_beat, config);
+    let mut result = if renderer_frontend {
+        let filtered = crate::lexicon_cue_frontend::filter(pcm, sample_rate)?;
+        generate_structural_cues_with_filtered(
+            pcm,
+            sample_rate,
+            bpm,
+            first_beat,
+            config,
+            Some(&filtered),
+        )
+    } else {
+        generate_structural_cues(pcm, sample_rate, bpm, first_beat, config)
+    };
     // A beat grid may begin just before a cropped file. Keep that anchor for
     // every DSP calculation; only clip cues at that anchor to the boundary.
     for cue in &mut result.cues {

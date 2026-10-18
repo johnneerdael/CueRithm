@@ -334,10 +334,22 @@ impl TagImpl for AsfTag {
         }
     }
     fn set_field(&mut self, field: Field, values: Vec<String>, overwrite: bool) {
-        self.set_raw(field.asf(), values, overwrite);
+        if field == Field::Artist {
+            if overwrite || (self.values("WM/Artist").is_none() && self.values("Author").is_none())
+            {
+                self.set_raw("WM/Artist", values.clone(), true);
+                self.set_raw("Author", values, true);
+            }
+        } else {
+            self.set_raw(field.asf(), values, overwrite);
+        }
     }
     fn get_field(&self, field: Field) -> Option<Vec<String>> {
-        self.get_raw(field.asf())
+        if field == Field::Artist {
+            self.values("WM/Artist").or_else(|| self.values("Author"))
+        } else {
+            self.get_raw(field.asf())
+        }
     }
     fn set_raw(&mut self, key: &str, mut values: Vec<String>, overwrite: bool) {
         if !overwrite && self.values(key).is_some() {
@@ -365,6 +377,12 @@ impl TagImpl for AsfTag {
     }
     fn get_raw(&self, key: &str) -> Option<Vec<String>> {
         self.values(key)
+    }
+    fn get_native(&self, key: &str) -> Option<Vec<String>> {
+        self.values(key)
+    }
+    fn set_native(&mut self, key: &str, values: Vec<String>) {
+        self.set_raw(key, values, true);
     }
     fn remove_raw(&mut self, key: &str) {
         if unsafe { cw_asf_clear(self.handle.as_ptr(), key.as_ptr(), key.len()) } == 0 {

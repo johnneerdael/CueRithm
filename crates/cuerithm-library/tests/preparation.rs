@@ -228,3 +228,84 @@ fn offline_watch_folder_reappears_and_interrupted_jobs_resume_after_reopen() {
     wait(&lib, 2);
     assert_eq!(lib.jobs().unwrap().len(), 2);
 }
+
+#[test]
+fn lexicon_timing_prepares_all_formats_and_keeps_completed_results_until_reanalysis() {
+    let d = tempfile::tempdir().unwrap();
+    let incoming = d.path().join("incoming");
+    std::fs::create_dir(&incoming).unwrap();
+    let archive = std::fs::File::open(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/fixtures/media.tar.gz"),
+    )
+    .unwrap();
+    tar::Archive::new(flate2::read::GzDecoder::new(archive))
+        .unpack(&incoming)
+        .unwrap();
+    let cases: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(incoming.join("cases.json")).unwrap()).unwrap();
+    let hashes: Vec<_> = cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            let path = incoming.join(row["file"].as_str().unwrap());
+            let hash = cuerithm_media::file_sha256(&path).unwrap();
+            (path, hash)
+        })
+        .collect();
+    assert_eq!(hashes.len(), 14);
+    let lib = Library::open(&d.path().join("app/library.sqlite")).unwrap();
+    let mut settings = PreparationSettings {
+        watch_folders: vec![incoming],
+        stability_millis: 20,
+        ..Default::default()
+    };
+    settings.engine.source_profile_timing = false;
+    settings.engine.lexicon_timing = true;
+    settings.engine.lexicon_energy = true;
+    lib.save_settings(settings.clone()).unwrap();
+    let service = PreparationService::start_with_workers(lib.clone(), runtime(), 2).unwrap();
+    wait(&lib, 14);
+    service.shutdown();
+    let jobs = lib.jobs().unwrap();
+    assert_eq!(jobs.len(), 14);
+    assert!(jobs.iter().all(|job| job.state == "completed"), "{jobs:?}");
+    let results: Vec<_> = jobs
+        .iter()
+        .map(|job| {
+            let result = lib.analysis(&job.track_id).unwrap().unwrap();
+            assert_eq!(
+                result.analysis.tempo.as_ref().unwrap().method,
+                "lexicon-timing-v1"
+            );
+            assert_eq!(
+                result.analysis.energy.as_ref().unwrap().method,
+                camelot_core::lexicon_energy::METHOD
+            );
+            assert!(result.analysis.key.is_some());
+            assert!(
+                !result
+                    .analysis
+                    .lexicon_cues
+                    .as_ref()
+                    .unwrap()
+                    .cues
+                    .is_empty()
+            );
+            (job.track_id.clone(), serde_json::to_value(result).unwrap())
+        })
+        .collect();
+    settings.engine.lexicon_timing = false;
+    settings.engine.source_profile_timing = true;
+    lib.save_settings(settings).unwrap();
+    for (track, old) in results {
+        assert_eq!(
+            serde_json::to_value(lib.analysis(&track).unwrap().unwrap()).unwrap(),
+            old,
+            "Changing the default must preserve completed results"
+        );
+    }
+    for (path, hash) in hashes {
+        assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), hash);
+    }
+}

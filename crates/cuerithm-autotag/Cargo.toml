@@ -9,6 +9,7 @@ license = "GPL-3.0-only"
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+cuerithm-cleanup = { path = "../cuerithm-cleanup" }
 cuerithm-media = { path = "../cuerithm-media" }
 onetagger-tag = { path = "../../vendor/onetagger/onetagger-tag", features = ["tag"] }
 onetagger-tagger = { path = "../../vendor/onetagger/onetagger-tagger" }

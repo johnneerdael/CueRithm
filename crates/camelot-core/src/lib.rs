@@ -6,7 +6,11 @@ pub mod energy;
 pub mod engine;
 pub mod evaluation;
 pub mod key;
-// Preserve the validated port verbatim; validate/lint integration separately.
+mod lexicon_cue_frontend;
+pub mod lexicon_energy;
+pub mod lexicon_timing;
+// Keep the cue decisions together; source-derived corrections have explicit
+// numerical and worker-reference regressions alongside the original cases.
 #[allow(clippy::all, unused_variables, unused_assignments, unused_parens)]
 #[rustfmt::skip]
 pub mod lexicon_cues;

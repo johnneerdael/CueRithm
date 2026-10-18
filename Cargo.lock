@@ -929,6 +929,7 @@ dependencies = [
  "cc",
  "chrono",
  "cmake",
+ "cuerithm-cleanup",
  "cuerithm-media",
  "flate2",
  "id3",
@@ -947,6 +948,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuerithm-cleanup"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "html-escape",
+ "regex",
+ "serde",
+ "serde_json",
+ "unicode-normalization",
+]
+
+[[package]]
 name = "cuerithm-desktop"
 version = "0.1.0"
 dependencies = [
@@ -954,6 +967,7 @@ dependencies = [
  "base64 0.22.1",
  "camelot-core",
  "cuerithm-autotag",
+ "cuerithm-cleanup",
  "cuerithm-library",
  "cuerithm-media",
  "serde",
@@ -972,6 +986,7 @@ dependencies = [
  "anyhow",
  "camelot-core",
  "cuerithm-autotag",
+ "cuerithm-cleanup",
  "cuerithm-media",
  "flate2",
  "fs2",
@@ -1998,6 +2013,12 @@ name = "hound"
 version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62adaabb884c94955b19907d60019f4e145d091c75345379e70d1ee696f7854f"
+
+[[package]]
+name = "html-escape"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46c1ff2d1cbf39efe5af0900ced8a069b5e61557a17544eb0c4a50239937389e"
 
 [[package]]
 name = "html5ever"
@@ -6015,6 +6036,15 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-segmentation"
