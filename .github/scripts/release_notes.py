@@ -32,7 +32,7 @@ def entries(commits, bodies):
 
 
 def render(public, internal, other):
-    out = ["Unsigned test build: macOS builds are not notarized and Windows builds are not signed.", ""]
+    out = ["macOS builds are signed with a Developer ID and notarized. Windows and Linux builds are not yet published.", ""]
     for title, items in [("Changes", public), ("Internal", internal), ("Direct commits", other)]:
         if items:
             out += [f"## {title}", ""] + [f"- {item}" for item in items] + [""]
