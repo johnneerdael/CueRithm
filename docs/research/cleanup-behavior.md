@@ -1,0 +1,61 @@
+# Cleanup behavior evidence
+
+## Reference boundary
+
+Observed source: licensed Lexicon 1.11.15, ASAR SHA256
+`85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860`.
+The local reference harness executes selected pure helper functions in an
+isolated JavaScript context, without running application startup or operating a
+library. An unused renderer-enum initialization is bypassed; actual string,
+HTML and casing dependencies are retained. Independent scalar cases reset the
+text-cleaner module's mutable regex state. The fixtures record the Node runtime
+and formatted-source hash. This establishes helper outputs, not end-to-end UI
+parity or behavior in every Lexicon build.
+
+131 original synthetic metadata cases cover the following source behavior:
+
+| Fix | Explicit options and observed boundary |
+| --- | --- |
+| Casing | Text field; uppercase/lowercase candidate switches; whole-value ignores. Mixed-case values are skipped. Common casing preserves acronym rules. |
+| Characters to spaces | Literal characters in Title, replaced individually with trimmed edges. |
+| Encoded characters | Title entity candidates, with one-level helper replacement. |
+| Extract artist | Missing Artist only; literal separator; 1-based result number; the standard spaced hyphen also accepts a spaced en dash. |
+| Extract remixer | Missing Remixer only; configured suffix word and optional Title update; generic mix/version names are excluded. |
+| Garbage | Text field; repeated spaces, edge punctuation and empty brackets; human text is the target. |
+| Number prefix | Title prefix; source candidate pattern is broader than digits. |
+| URLs | Text field; URL/email cleanup or clear the selected field. |
+| Mix parentheses | Title; trailing mix/version description, respecting an already-open parenthesis. |
+| Common title text | Camelot prefix/suffix, Original Mix suffix, Camelot/energy prefix, or trailing numeric BPM-like suffix. |
+| Promotional text | Selected text field; bracketed promotion, premiere prefix and promotional/provenance tails. |
+
+The reference symbols are `SmartfixTitleCase`, `SmartfixReplaceWithSpace`,
+`SmartfixReplaceEncoded`, `SmartfixExtractArtist`, `SmartfixExtractRemixer`,
+`SmartfixRemoveGarbage`, `SmartfixRemoveNumberPrefix`, `SmartfixRemoveUrl`,
+`SmartfixAddMixParentheses`, `SmartfixRemoveCommonText` and
+`SmartfixRemovePromotionalText`. Shared string/casing helpers and the source
+transformer catalog are part of the comparison. Extracted JavaScript and app
+assets remain private and are not distributed.
+
+## Deliberate data-preserving expectations
+
+Raw source outputs remain in fixtures. Separate expected-policy fields identify
+intentional changes: preserve `vs`; decode numeric/nested entities with bounded
+work; retain Unicode words as words rather than numeric prefixes; replace Unicode
+scalar characters intact; keep bare audio filenames during URL cleanup; remove
+complete email addresses; normalize whitespace created by empty-bracket removal.
+Do not call these changed cases exact reproductions. Unknown metadata and
+protected contributors remain untouched.
+
+## Genre and contributor cleanup
+
+Seen source paths collect distinct values/counts, apply explicit replacements,
+support locks and record undo. Contributor roles are artist, remixer, producer,
+composer and lyricist. The source applies selected exact values; similarity is
+not evidence of identity. Cuerithm preserves native multi-value boundaries,
+provides unique affected-track and role counts, and retains provider/original
+provenance while mapping to useful canonical values. Categorized custom tags
+preserve source genre detail when requested.
+
+Manual publication/undo, automatic pipeline integration, real format writes and
+native UI checks are separate implementation acceptance. Reference helper
+fixtures alone do not establish those outcomes.
