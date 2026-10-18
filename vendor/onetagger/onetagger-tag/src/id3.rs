@@ -168,6 +168,48 @@ impl ID3Tag {
 
     // ID3 Settings
     pub fn set_id3v24(&mut self, id3v24: bool) {
+        if id3v24 && !self.id3v24 {
+            // rust-id3 decodes v2.3 slashes as internal list separators. Keep
+            // the original literal spelling when upgrading unselected fields;
+            // configured catalog writes run after this conversion.
+            for frame in self.tag.frames_vec_mut() {
+                let content = match frame.content() {
+                    Content::Text(text)
+                        if matches!(
+                            frame.id(),
+                            "TIT2"
+                                | "TPE1"
+                                | "TALB"
+                                | "TPE2"
+                                | "TCON"
+                                | "TIT1"
+                                | "TPUB"
+                                | "TPE4"
+                                | "TIT3"
+                                | "TCOM"
+                                | "TEXT"
+                        ) && text.contains('\0') =>
+                    {
+                        Some(Content::Text(text.replace('\0', "/")))
+                    }
+                    Content::ExtendedText(text)
+                        if text.description == "PRODUCER" && text.value.contains('\0') =>
+                    {
+                        let mut text = text.clone();
+                        text.value = text.value.replace('\0', "/");
+                        Some(Content::ExtendedText(text))
+                    }
+                    _ => None,
+                };
+                if let Some(content) = content {
+                    let mut replacement =
+                        Frame::with_content(frame.id(), content).set_encoding(frame.encoding());
+                    replacement.set_tag_alter_preservation(frame.tag_alter_preservation());
+                    replacement.set_file_alter_preservation(frame.file_alter_preservation());
+                    *frame = replacement;
+                }
+            }
+        }
         self.id3v24 = id3v24;
     }
 
