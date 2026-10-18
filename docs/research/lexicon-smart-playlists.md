@@ -2,8 +2,9 @@
 
 Static inspection of licensed Lexicon 1.11.15, ASAR SHA-256
 `85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860`.
-Source remains in the private extraction. This inventory does not establish a
-Rust implementation or runtime parity. Anchors refer to formatted renderer lines.
+Source remains in the private extraction. The pure Rust evaluator is now
+tested against the helper corpus; native playlist integration remains pending.
+Anchors refer to formatted renderer lines.
 A private isolated helper probe now records 637 original synthetic scalar and
 combination cases with a frozen UTC clock. It executes the shipped
 rounding/date helpers and selected pure filters; assertions and known tag/category
@@ -17,64 +18,64 @@ synthetic fixtures and an implementation disposition before a full support claim
 
 | Operator | Current port status |
 | --- | --- |
-| `StringContains` | Pending |
-| `StringNotContains` | Pending |
-| `StringEquals` | Pending |
-| `StringNotEquals` | Pending |
-| `StringStartsWith` | Pending |
-| `StringNotStartsWith` | Pending |
-| `StringEndsWith` | Pending |
-| `StringNotEndsWith` | Pending |
-| `StringRegExpMatch` | Pending |
-| `StringNotRegExpMatch` | Pending |
-| `NumberEquals` | Pending |
-| `NumberNotEquals` | Pending |
-| `NumberGreaterThan` | Pending |
-| `NumberGreaterThanEquals` | Pending |
-| `NumberLessThan` | Pending |
-| `NumberLessThanEquals` | Pending |
-| `NumberBetween` | Pending |
-| `DateEquals` | Pending |
-| `DateNotEquals` | Pending |
-| `DateAfter` | Pending |
-| `DateBefore` | Pending |
-| `DateRecent` | Pending |
-| `DateNotRecent` | Pending |
-| `DateBetween` | Pending |
-| `ColorEquals` | Pending |
-| `ColorNotEquals` | Pending |
-| `BooleanTrue` | Pending |
-| `BooleanFalse` | Pending |
-| `TagsIncludes` | Pending |
-| `TagsNotIncludes` | Pending |
-| `TagsAtleastOne` | Pending |
-| `TagsExact` | Pending |
-| `TagCategoryNone` | Pending |
-| `TagCategoryAtleastOneAnyCat` | Pending |
-| `TagCategoryAtleastOneAllCAt` | Pending |
-| `Exists` | Pending |
-| `ExistsNot` | Pending |
-| `TempomarkerSameBpm` | Pending |
-| `TempomarkerNotSameBpm` | Pending |
-| `BpmExactNumber` | Pending |
-| `BpmNotExactNumber` | Pending |
-| `PlaylistInSpecificPlaylist` | Pending |
-| `PlaylistNotInSpecificPlaylist` | Pending |
-| `PlaylistInSpecificPlaylistFolder` | Pending |
-| `PlaylistNotInSpecificPlaylistFolder` | Pending |
-| `PlaylistInSpecificSmartlist` | Pending |
-| `PlaylistNotInSpecificSmartlist` | Pending |
-| `CuepointAnyLabelIncludes` | Pending |
-| `CuepointAnyColorEquals` | Pending |
-| `CuepointNoLabelIncludes` | Pending |
-| `CuepointNoColorEquals` | Pending |
-| `CuepointHasLoop` | Pending |
-| `CuepointHasNoLoop` | Pending |
-| `CuepointHasActiveLoop` | Pending |
-| `CuepointHasNoActiveLoop` | Pending |
-| `CuepointHasMemoryCue` | Pending |
-| `CuepointHasNoMemoryCue` | Pending |
-| `KeySimilar` | Pending |
+| `StringContains` | Pure evaluator tested; library/UI pending |
+| `StringNotContains` | Pure evaluator tested; library/UI pending |
+| `StringEquals` | Pure evaluator tested; library/UI pending |
+| `StringNotEquals` | Pure evaluator tested; library/UI pending |
+| `StringStartsWith` | Pure evaluator tested; library/UI pending |
+| `StringNotStartsWith` | Pure evaluator tested; library/UI pending |
+| `StringEndsWith` | Pure evaluator tested; library/UI pending |
+| `StringNotEndsWith` | Pure evaluator tested; library/UI pending |
+| `StringRegExpMatch` | Pure evaluator tested; library/UI pending |
+| `StringNotRegExpMatch` | Pure evaluator tested; library/UI pending |
+| `NumberEquals` | Pure evaluator tested; library/UI pending |
+| `NumberNotEquals` | Pure evaluator tested; library/UI pending |
+| `NumberGreaterThan` | Pure evaluator tested; library/UI pending |
+| `NumberGreaterThanEquals` | Pure evaluator tested; library/UI pending |
+| `NumberLessThan` | Pure evaluator tested; library/UI pending |
+| `NumberLessThanEquals` | Pure evaluator tested; library/UI pending |
+| `NumberBetween` | Pure evaluator tested; library/UI pending |
+| `DateEquals` | Pure evaluator tested; library/UI pending |
+| `DateNotEquals` | Pure evaluator tested; library/UI pending |
+| `DateAfter` | Pure evaluator tested; library/UI pending |
+| `DateBefore` | Pure evaluator tested; library/UI pending |
+| `DateRecent` | Pure evaluator tested; library/UI pending |
+| `DateNotRecent` | Pure evaluator tested; library/UI pending |
+| `DateBetween` | Pure evaluator tested; library/UI pending |
+| `ColorEquals` | Pure evaluator tested; library/UI pending |
+| `ColorNotEquals` | Pure evaluator tested; library/UI pending |
+| `BooleanTrue` | Pure evaluator tested; library/UI pending |
+| `BooleanFalse` | Pure evaluator tested; library/UI pending |
+| `TagsIncludes` | Pure evaluator tested; library/UI pending |
+| `TagsNotIncludes` | Pure evaluator tested; library/UI pending |
+| `TagsAtleastOne` | Pure evaluator tested; library/UI pending |
+| `TagsExact` | Pure evaluator tested; library/UI pending |
+| `TagCategoryNone` | Pure evaluator tested; library/UI pending |
+| `TagCategoryAtleastOneAnyCat` | Pure evaluator tested; library/UI pending |
+| `TagCategoryAtleastOneAllCAt` | Pure evaluator tested; library/UI pending |
+| `Exists` | Pure evaluator tested; library/UI pending |
+| `ExistsNot` | Pure evaluator tested; library/UI pending |
+| `TempomarkerSameBpm` | Pure evaluator tested; library/UI pending |
+| `TempomarkerNotSameBpm` | Pure evaluator tested; library/UI pending |
+| `BpmExactNumber` | Pure evaluator tested; library/UI pending |
+| `BpmNotExactNumber` | Pure evaluator tested; library/UI pending |
+| `PlaylistInSpecificPlaylist` | Pure evaluator tested; library/UI pending |
+| `PlaylistNotInSpecificPlaylist` | Pure evaluator tested; library/UI pending |
+| `PlaylistInSpecificPlaylistFolder` | Pure evaluator tested; library/UI pending |
+| `PlaylistNotInSpecificPlaylistFolder` | Pure evaluator tested; library/UI pending |
+| `PlaylistInSpecificSmartlist` | Pure evaluator tested; library/UI pending |
+| `PlaylistNotInSpecificSmartlist` | Pure evaluator tested; library/UI pending |
+| `CuepointAnyLabelIncludes` | Pure evaluator tested; library/UI pending |
+| `CuepointAnyColorEquals` | Pure evaluator tested; library/UI pending |
+| `CuepointNoLabelIncludes` | Pure evaluator tested; library/UI pending |
+| `CuepointNoColorEquals` | Pure evaluator tested; library/UI pending |
+| `CuepointHasLoop` | Pure evaluator tested; library/UI pending |
+| `CuepointHasNoLoop` | Pure evaluator tested; library/UI pending |
+| `CuepointHasActiveLoop` | Pure evaluator tested; library/UI pending |
+| `CuepointHasNoActiveLoop` | Pure evaluator tested; library/UI pending |
+| `CuepointHasMemoryCue` | Pure evaluator tested; library/UI pending |
+| `CuepointHasNoMemoryCue` | Pure evaluator tested; library/UI pending |
+| `KeySimilar` | Pure evaluator tested; library/UI pending |
 
 ## Combination and archive behavior
 
@@ -158,9 +159,9 @@ Lexicon regex equivalence. The downloaded official regress 0.12.0 archive has
 SHA-256 `32eef8b209c3c1c15dbad02c1f30f9539f00dc7253e0cbcdaae442a50a09d7c1`.
 Its current source includes Unicode properties/sets, UTF-16/UCS-2 paths and
 lookaround/backreference execution despite older documentation wording. It has
-no public execution budget. A port that uses it needs a small, licensed bounded
-execution adaptation and dedicated differential tests; no product dependency or
-modified regex engine has been added at this research stage.
+no upstream public execution budget. The bounded licensed adaptation and pure
+evaluator are now implemented with dedicated differential tests;
+see `smart-playlist-parity.md` for measured coverage and remaining integration.
 
 
 ## Reference runtime verification

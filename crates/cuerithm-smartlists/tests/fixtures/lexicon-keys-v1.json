@@ -1,0 +1,8907 @@
+{
+  "node": "v20.18.1",
+  "electron": "32.3.3",
+  "v8": "12.8.374.38-electron.0",
+  "helper_hashes": {
+    "39808": "4589c3f4a3a81252e1d6476e898ab94c1decf49ea29cbfcb7432d3c3efde7337",
+    "56851": "1ce2b594f2cebe710532bd3b75e4adbd93b091905d333da0c92dd291b6959b27"
+  },
+  "cases": [
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "1B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "2B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "3B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "4B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "5B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "6B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "7B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "8B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "9B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "10B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "11B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12A",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Harmonic",
+      "left": "12B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1A",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "1B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "2B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "2A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "2B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "3B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "3A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "3B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "4B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "4A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "4B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "5B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "5A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "5B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "6B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "6A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "6B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "7B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "7A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "7B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "8B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "8A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "8B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "11A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "11B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "9B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10A",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "9A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "9B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "12A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "10B",
+      "right": "12B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11A",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "1A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "1B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "10A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "10B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "11B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12A",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "1A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "1B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "2A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "2B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "3A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "3B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "4A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "4B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "5A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "5B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "6A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "6B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "7A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "7B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "8A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "8B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "9A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "9B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "10A",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "10B",
+      "source_result": false,
+      "expected_policy": false
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "11A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "11B",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "12A",
+      "source_result": true,
+      "expected_policy": true
+    },
+    {
+      "mode": "Fuzzy",
+      "left": "12B",
+      "right": "12B",
+      "source_result": true,
+      "expected_policy": true
+    }
+  ],
+  "mapping": [
+    {
+      "value": "8b",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "08b",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "1d",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "01d",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "c",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "cmaj",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "c major",
+      "source_number": 1,
+      "camelot": "8B"
+    },
+    {
+      "value": "8a",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "08a",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "1m",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "01m",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "am",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "amin",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "a minor",
+      "source_number": 2,
+      "camelot": "8A"
+    },
+    {
+      "value": "9b",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "09b",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "2d",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "02d",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "g",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "gmaj",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "g major",
+      "source_number": 3,
+      "camelot": "9B"
+    },
+    {
+      "value": "9a",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "09a",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "2m",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "02m",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "em",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "emin",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "e minor",
+      "source_number": 4,
+      "camelot": "9A"
+    },
+    {
+      "value": "10b",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "3d",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "03d",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "d",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "dmaj",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "d major",
+      "source_number": 5,
+      "camelot": "10B"
+    },
+    {
+      "value": "10a",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "3m",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "03m",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "bm",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "bmin",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "b minor",
+      "source_number": 6,
+      "camelot": "10A"
+    },
+    {
+      "value": "11b",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "4d",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "04d",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "a",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "amaj",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "a major",
+      "source_number": 7,
+      "camelot": "11B"
+    },
+    {
+      "value": "11a",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "4m",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "04m",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "f#m",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "f#min",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "gbm",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "f# minor",
+      "source_number": 8,
+      "camelot": "11A"
+    },
+    {
+      "value": "12b",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "5d",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "05d",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "e",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "emaj",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "e major",
+      "source_number": 9,
+      "camelot": "12B"
+    },
+    {
+      "value": "12a",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "5m",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "05m",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "c#m",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "c#min",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "dbm",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "c# minor",
+      "source_number": 10,
+      "camelot": "12A"
+    },
+    {
+      "value": "1b",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "01b",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "6d",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "06d",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "b",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "bmaj",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "b major",
+      "source_number": 11,
+      "camelot": "1B"
+    },
+    {
+      "value": "1a",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "01a",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "6m",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "06m",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "g#m",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "g#min",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "abm",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "g# minor",
+      "source_number": 12,
+      "camelot": "1A"
+    },
+    {
+      "value": "2b",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "02b",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "7d",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "07d",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "f#",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "f#maj",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "gb",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "f# major",
+      "source_number": 13,
+      "camelot": "2B"
+    },
+    {
+      "value": "2a",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "02a",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "7m",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "07m",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "d#m",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "d#min",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "ebm",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "d# minor",
+      "source_number": 14,
+      "camelot": "2A"
+    },
+    {
+      "value": "3b",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "03b",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "8d",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "08d",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "c#",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "c#maj",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "db",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "c# major",
+      "source_number": 15,
+      "camelot": "3B"
+    },
+    {
+      "value": "3a",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "03a",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "8m",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "08m",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "a#m",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "a#min",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "bbm",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "a# minor",
+      "source_number": 16,
+      "camelot": "3A"
+    },
+    {
+      "value": "4b",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "04b",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "9d",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "09d",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "g#",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "g#maj",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "ab",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "g# major",
+      "source_number": 17,
+      "camelot": "4B"
+    },
+    {
+      "value": "4a",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "04a",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "9m",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "09m",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "fm",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "fmin",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "f minor",
+      "source_number": 18,
+      "camelot": "4A"
+    },
+    {
+      "value": "5b",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "05b",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "10d",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "d#",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "d#maj",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "eb",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "d# major",
+      "source_number": 19,
+      "camelot": "5B"
+    },
+    {
+      "value": "5a",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "05a",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "10m",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "cm",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "cmin",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "c minor",
+      "source_number": 20,
+      "camelot": "5A"
+    },
+    {
+      "value": "6b",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "06b",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "11d",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "a#",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "a#maj",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "bb",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "a# major",
+      "source_number": 21,
+      "camelot": "6B"
+    },
+    {
+      "value": "6a",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "06a",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "11m",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "gm",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "gmin",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "g minor",
+      "source_number": 22,
+      "camelot": "6A"
+    },
+    {
+      "value": "7b",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "07b",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "12d",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "f",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "fmaj",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "f major",
+      "source_number": 23,
+      "camelot": "7B"
+    },
+    {
+      "value": "7a",
+      "source_number": 24,
+      "camelot": "7A"
+    },
+    {
+      "value": "07a",
+      "source_number": 24,
+      "camelot": "7A"
+    },
+    {
+      "value": "12m",
+      "source_number": 24,
+      "camelot": "7A"
+    },
+    {
+      "value": "dm",
+      "source_number": 24,
+      "camelot": "7A"
+    },
+    {
+      "value": "dmin",
+      "source_number": 24,
+      "camelot": "7A"
+    },
+    {
+      "value": "d minor",
+      "source_number": 24,
+      "camelot": "7A"
+    }
+  ]
+}

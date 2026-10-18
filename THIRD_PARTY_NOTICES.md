@@ -99,3 +99,11 @@ The pinned upstream archive, original licenses and precise modification record
 are under `vendor/regress/`. Adaptations cover per-execution work limits and
 source-verified legacy/UnicodeSets compatibility. No Lexicon code/assets are
 included in this component.
+
+## Smart-playlist calendar calculations
+
+The pure evaluator uses Chrono 0.4.45 and Chrono-TZ 0.10.4 under their declared
+MIT OR Apache-2.0 licenses, with compiled IANA time-zone data. Exact transitive
+dependency identities are recorded in `Cargo.lock`; preserve upstream licenses
+with corresponding source distribution. No external date/JavaScript runtime is
+required by playlist evaluation.

@@ -1,0 +1,7962 @@
+{
+  "node": "v20.18.1",
+  "timeZone": "UTC",
+  "freeze": 1792324800000,
+  "rows": [
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {},
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {},
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {},
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {},
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": " SIGNAL "
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Café"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Éclair"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "Earth, Wind & Fire"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        ""
+      ],
+      "result": true
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        " signal"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "é"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "^S"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/^s/i"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/café/iu"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "/(a+)+$/"
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "equals",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "contains",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "startsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "endsWith",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "StringFilter",
+      "method": "regexMatch",
+      "track": {
+        "title": "🎵"
+      },
+      "args": [
+        "title",
+        "["
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {},
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {},
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {},
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {},
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {},
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {},
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {},
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {},
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {},
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {},
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        -1
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        0
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        120
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "equals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "greaterThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThan",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "lessThanEquals",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm",
+        125
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {},
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {},
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 0
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 120
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 120.0004
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 120.0005
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 123.455
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": true
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isExactNumber",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": false
+    },
+    {
+      "group": "NumberFilter",
+      "method": "isNotExactNumber",
+      "track": {
+        "bpm": 124.995
+      },
+      "args": [
+        "bpm"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": null
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": null
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": ""
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": 0
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": 0
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": false
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": false
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": "   "
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "exists",
+      "track": {
+        "title": "A"
+      },
+      "args": [
+        "title"
+      ],
+      "result": true
+    },
+    {
+      "group": "AnyFilter",
+      "method": "notExists",
+      "track": {
+        "title": "A"
+      },
+      "args": [
+        "title"
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": []
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        []
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          1,
+          2
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasEvery",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasNone",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": true
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasAtleastOne",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "TagFilter",
+      "method": "hasExact",
+      "track": {
+        "tags": [
+          1,
+          2,
+          9
+        ]
+      },
+      "args": [
+        [
+          3
+        ]
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "equals",
+      "track": {
+        "dateAdded": null
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "after",
+      "track": {
+        "dateAdded": null
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "before",
+      "track": {
+        "dateAdded": null
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "equals",
+      "track": {
+        "dateAdded": 1792281540000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "after",
+      "track": {
+        "dateAdded": 1792281540000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "before",
+      "track": {
+        "dateAdded": 1792281540000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "equals",
+      "track": {
+        "dateAdded": 1792281600000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "after",
+      "track": {
+        "dateAdded": 1792281600000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "before",
+      "track": {
+        "dateAdded": 1792281600000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "equals",
+      "track": {
+        "dateAdded": 1792367940000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "after",
+      "track": {
+        "dateAdded": 1792367940000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "before",
+      "track": {
+        "dateAdded": 1792367940000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "equals",
+      "track": {
+        "dateAdded": 1792368000000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "DateFilter",
+      "method": "after",
+      "track": {
+        "dateAdded": 1792368000000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": true
+    },
+    {
+      "group": "DateFilter",
+      "method": "before",
+      "track": {
+        "dateAdded": 1792368000000
+      },
+      "args": [
+        "dateAdded",
+        "2026-10-18T00:00:00.000Z"
+      ],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "allSameBpm",
+      "track": {
+        "tempomarkers": []
+      },
+      "args": [],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "notAllSameBpm",
+      "track": {
+        "tempomarkers": []
+      },
+      "args": [],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "allSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          }
+        ]
+      },
+      "args": [],
+      "result": true
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "notAllSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          }
+        ]
+      },
+      "args": [],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "allSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          },
+          {
+            "bpm": 120
+          }
+        ]
+      },
+      "args": [],
+      "result": true
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "notAllSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          },
+          {
+            "bpm": 120
+          }
+        ]
+      },
+      "args": [],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "allSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          },
+          {
+            "bpm": 121
+          }
+        ]
+      },
+      "args": [],
+      "result": false
+    },
+    {
+      "group": "TempomarkerFilter",
+      "method": "notAllSameBpm",
+      "track": {
+        "tempomarkers": [
+          {
+            "bpm": 120
+          },
+          {
+            "bpm": 121
+          }
+        ]
+      },
+      "args": [],
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": true,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "yes",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": false
+      },
+      "result": true
+    },
+    {
+      "group": "combination",
+      "matchAll": false,
+      "rules": [
+        {
+          "field": "title",
+          "operator": "StringEquals",
+          "values": [
+            "yes"
+          ],
+          "or": true
+        },
+        {
+          "field": "genre",
+          "operator": "StringEquals",
+          "values": [
+            "house"
+          ],
+          "or": true
+        },
+        {
+          "field": "bpm",
+          "operator": "NumberGreaterThan",
+          "values": [
+            100
+          ]
+        }
+      ],
+      "track": {
+        "title": "no",
+        "genre": "house",
+        "bpm": 120,
+        "archived": true
+      },
+      "result": false
+    }
+  ],
+  "provenance": {
+    "filters.js": "551eb6375b4d6645b6ce52be9c189e42c0ee081ab98061c2dd77fddda3742fd4",
+    "30381.factory.js": "0c4c814c1ffdaeeb1a593f2edc163490e71a73330d69eb4cccef482b320390f9",
+    "43597.factory.js": "4f82ec820fde68481ae6f92e04ef8086651cff2b8d54092c7966a485b954fa92",
+    "probe.cjs": "a27202991269c31b8acb37fa843df7fb4ecfdcd579b39f66e10d7226d5e88d02"
+  },
+  "source_runtime": {
+    "electron": "32.3.3",
+    "node": "20.18.1",
+    "v8": "12.8.374.38-electron.0"
+  }
+}
