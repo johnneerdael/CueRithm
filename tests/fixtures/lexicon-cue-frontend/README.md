@@ -50,6 +50,14 @@ previous Rust cast truncated that threshold. Integer thresholds, zero counts,
 single-transient and empty cases are also pinned. A separate private 29-track
 tuning probe exposed this defect; no music-derived arrays are published here.
 
+`second-drop-continuation-reference.json` contains eight original `zt` helper
+results on authored energy arrays. A transition guard preserves its current
+position only for the peak-region pass; the remaining refinement passes must
+still run. The previous Rust return exited the complete chain. Shifted inputs,
+a nonzero prior drop, energy-boundary cases, sustained input and a flat control
+pin the source behavior. One discrepancy in the private 282-track development
+comparison led to this regression; none of its music-derived arrays are included.
+
 Primary filter references:
 
 - [Web Audio 1.0 Q options](https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilteroptions-q)

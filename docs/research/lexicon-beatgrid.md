@@ -208,10 +208,15 @@ change, while a timing-backend change invalidates the preparation cache;
 unchanged cached analysis survives restart. Timing source and input/frontend
 code hashes, channel policy, rate and fixed bounds enter identity. The disabled
 flag is omitted from serialized settings to preserve legacy settings identities.
-The current broad local core/library/CLI/desktop gate passes 264 tests with nine
-optional tests ignored. Desktop selection/migration passes nine tests with one
-optional benchmark ignored; all 29 UI tests pass. Hosted cross-platform checks
-and the final branch review remain outstanding.
+The 2026-10-19 broad local core/library/CLI/desktop gate passes 265 tests with
+nine optional tests ignored, including the second-drop continuation regression
+below. All-target/all-feature Clippy and formatting checks pass. The preceding
+`97c3d2b` checkpoint also passed 29 UI tests and hosted engine/packaged desktop
+checks on Linux, Windows, macOS ARM and Intel ([engine](https://github.com/johnneerdael/CueRithm/actions/runs/39157474405),
+[desktop](https://github.com/johnneerdael/CueRithm/actions/runs/39157474437)). A whole-branch
+review at `2830ab1` found no confirmed blockers; subsequent source-derived cue
+corrections have focused authored regressions and corpus reruns. Hosted checks
+must run again for the new correction's delivery commit.
 
 Preserve the key and energy implementations during delivery. Cue corrections
 below have their own source-derived regressions. The public full-analysis API rejects inputs shorter
@@ -291,3 +296,22 @@ renderer/file-decode capture, other cue configurations or musical ground truth.
 All source/PCM identity guards passed. Per-track data stays private; aggregate
 identities are included in the benchmark summary above. Real-music scalar
 energy agreement remains unmeasured by these timing and cue runs.
+
+
+The subsequent full comparison covered all 282 distinct tuning groups. Its
+[unchanged baseline](lexicon-cue-beatport-2026-10-18.json) matched 281 complete
+cue results and 1,260 of 1,261 individual cues. One first Drop was 29.7674 seconds
+early. Original and Rust section energies were identical, as were the initial
+drop and breakdown. The mismatch came from second-drop refinement: a transition
+guard returned from the entire Rust chain, whereas the source returned only
+from the peak-region pass and continued later passes. A labeled block confines
+that exit to its pass. Eight authored original-helper cases reproduce the
+control-flow error and pin its correction; no music-derived arrays are published.
+
+The [fresh corrected run](lexicon-cue-beatport-2026-10-19.json) matches all
+**282 complete cue results and all 1,261 cues exactly**, with no missing/extra
+cues or unresolved cases. BPM and first-beat positions remain exact on all
+282 groups, and all 29 pilot cases repeat unchanged. Source/decoded-PCM identity
+guards pass. This remains development-set agreement under the single stated
+configuration and worker boundary; it does not establish unseen-music accuracy,
+other cue settings, browser decoding equivalence, or whole-track energy parity.

@@ -2184,7 +2184,7 @@ fn refine_second_drop(sections: &[Section], candidate_idx: usize, drop_idx: usiz
     };
 
     // Pass 4: skip to peak region
-    a = {
+    a = 'peak_region: {
         let e = a;
         if e + 12 >= len {
             e
@@ -2198,7 +2198,7 @@ fn refine_second_drop(sections: &[Section], candidate_idx: usize, drop_idx: usiz
                     let prev = sections[e - 1].energy;
                     let next = sections[e + 1].energy;
                     if prev < 0.25 * peak_energy && r >= 0.65 * peak_energy && next >= 1.25 * r {
-                        return a; // keep current and skip rest would be wrong; just don't modify
+                        break 'peak_region e;
                     }
                 }
                 let scan_end = len.min(e + 17);
