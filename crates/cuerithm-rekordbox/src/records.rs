@@ -46,6 +46,58 @@ impl TargetRecord {
         Ok(self.unsigned(name)?.and_then(|v| u32::try_from(v).ok()))
     }
 }
+pub(crate) fn row_values(
+    columns: &[String],
+    row: &rusqlite::Row<'_>,
+) -> Result<BTreeMap<String, TargetValue>> {
+    let mut values = BTreeMap::new();
+    for (index, name) in columns.iter().enumerate() {
+        let value = match row.get_ref(index)? {
+            ValueRef::Null => TargetValue::Null,
+            ValueRef::Integer(v) => TargetValue::Integer(v),
+            ValueRef::Real(v) => {
+                ensure!(v.is_finite(), "Nonfinite target value");
+                TargetValue::Real(v)
+            }
+            ValueRef::Text(v) => TargetValue::Text(
+                std::str::from_utf8(v)
+                    .context("Unsupported target text encoding")?
+                    .into(),
+            ),
+            ValueRef::Blob(v) => TargetValue::Blob(v.to_vec()),
+        };
+        values.insert(name.clone(), value);
+    }
+    Ok(values)
+}
+/// The same fingerprint a collection read records for a row, so a writer can tell whether the row
+/// still matches what was last observed.
+pub(crate) fn row_fingerprint(
+    conn: &Connection,
+    table: &str,
+    key: &str,
+    id: &str,
+) -> Result<Option<(String, BTreeMap<String, TargetValue>)>> {
+    let mut q = conn.prepare(&format!("SELECT * FROM \"{table}\" WHERE \"{key}\"=?1"))?;
+    let columns = q
+        .column_names()
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let mut cursor = q.query([id])?;
+    let Some(row) = cursor.next()? else {
+        return Ok(None);
+    };
+    let values = row_values(&columns, row)?;
+    ensure!(
+        cursor.next()?.is_none(),
+        "Ambiguous target row identity in {table}"
+    );
+    Ok(Some((
+        format!("{:x}", Sha256::digest(serde_json::to_vec(&values)?)),
+        values,
+    )))
+}
 pub(crate) fn read_records(
     conn: &Connection,
     table: &str,
@@ -99,24 +151,7 @@ pub(crate) fn read_records(
             *count <= max,
             "Collection read budget exceeded; no partial import returned"
         );
-        let mut values = BTreeMap::new();
-        for (index, name) in columns.iter().enumerate() {
-            let value = match row.get_ref(index)? {
-                ValueRef::Null => TargetValue::Null,
-                ValueRef::Integer(v) => TargetValue::Integer(v),
-                ValueRef::Real(v) => {
-                    ensure!(v.is_finite(), "Nonfinite target value");
-                    TargetValue::Real(v)
-                }
-                ValueRef::Text(v) => TargetValue::Text(
-                    std::str::from_utf8(v)
-                        .context("Unsupported target text encoding")?
-                        .into(),
-                ),
-                ValueRef::Blob(v) => TargetValue::Blob(v.to_vec()),
-            };
-            values.insert(name.clone(), value);
-        }
+        let values = row_values(&columns, row)?;
         let id = match values.get(key) {
             Some(TargetValue::Text(v)) => v.clone(),
             Some(TargetValue::Integer(v)) => v.to_string(),

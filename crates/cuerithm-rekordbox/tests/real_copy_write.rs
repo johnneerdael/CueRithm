@@ -1,0 +1,173 @@
+//! Acceptance of the writer on a copy of a real rekordbox 7 library: real schema, indexes and rows.
+//!
+//! Skipped unless `CUERITHM_REKORDBOX_COPY` names a copied `master.db` (with its WAL/SHM next to it) and a
+//! supported rekordbox is installed for the key. The copy is snapshotted into a temporary file first, so
+//! neither the original nor the copy is ever opened for writing. Nothing from the library is printed.
+use cuerithm_media::CancellationToken;
+use cuerithm_rekordbox::*;
+use std::path::PathBuf;
+
+fn key() -> DatabaseKey {
+    let cancel = CancellationToken::default();
+    let paths = DiscoveryPaths::current().unwrap();
+    let found = discover_targets(&paths, &cancel).unwrap();
+    let target = found
+        .installations
+        .first()
+        .expect("a rekordbox installation");
+    let source = NativeKeySource::for_installation(target, paths.platform).unwrap();
+    resolve_database_key(
+        &source,
+        &paths.agent_options_file().unwrap(),
+        Default::default(),
+        &cancel,
+    )
+    .unwrap()
+}
+fn collection(
+    path: &std::path::Path,
+    key: &DatabaseKey,
+) -> (RekordboxCollection, DatabaseChecks, String) {
+    let db = ReadOnlyDatabase::open(path, key).unwrap();
+    let collection = db
+        .read_collection(Default::default(), &CancellationToken::default())
+        .unwrap();
+    (
+        collection,
+        db.checks().unwrap(),
+        db.schema().unwrap().fingerprint,
+    )
+}
+fn usn(collection: &RekordboxCollection) -> i64 {
+    collection.identity.local_update_count.unwrap() as i64
+}
+
+#[test]
+fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
+    let Some(copy) = std::env::var_os("CUERITHM_REKORDBOX_COPY").map(PathBuf::from) else {
+        eprintln!("skipped: CUERITHM_REKORDBOX_COPY is not set");
+        return;
+    };
+    let key = key();
+    let cache = tempfile::tempdir().unwrap();
+    let snapshot = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(cache.path(), &key, &CancellationToken::default())
+        .unwrap();
+    let (before, checks_before, schema) = collection(&snapshot.path, &key);
+    assert!(checks_before.integrity_ok);
+    assert!(
+        WRITE_PROFILES
+            .iter()
+            .any(|p| p.schema_fingerprint == schema),
+        "The copied library is not a verified write profile"
+    );
+    let track = before
+        .tracks
+        .iter()
+        .find(|t| t.importable_local() && !t.cues.is_empty())
+        .expect("a track with cues");
+    let others_before: Vec<_> = before
+        .tracks
+        .iter()
+        .filter(|t| t.identity.content_id != track.identity.content_id)
+        .map(|t| (t.identity.content_id.clone(), t.raw_hash.clone()))
+        .collect();
+    let cue = |in_msec, out_msec, kind, comment: &str| CueRow {
+        in_msec,
+        out_msec,
+        kind,
+        active_loop: false,
+        beat_loop_size: None,
+        color: None,
+        color_table_index: Some(41),
+        comment: Some(comment.into()),
+    };
+    let fields = ContentFields {
+        title: Some(format!("{} (Cuerithm acceptance)", track.metadata.title)),
+        genre: Some("Cuerithm Acceptance Genre".into()),
+        comment: Some("written by the acceptance test".into()),
+        ..Default::default()
+    };
+    let cues = vec![cue(2000, -1, 1, "Start"), cue(90_000, -1, 2, "Drop")];
+    let plan = WritePlan {
+        tracks: vec![TrackWrite {
+            content_id: track.identity.content_id.clone(),
+            expected_fingerprint: track.raw_hash.clone(),
+            fields: fields.clone(),
+            cues: Some(cues.clone()),
+        }],
+    };
+    let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
+    let report = db.apply(&plan, &CancellationToken::default()).unwrap();
+    drop(db);
+    assert_eq!(report.usn, Some(usn(&before) + 1));
+    assert_eq!((report.tracks_updated, report.cues_replaced), (1, 1));
+
+    // The result must read back through the independent reader with the schema and integrity unchanged.
+    let (after, checks_after, schema_after) = collection(&snapshot.path, &key);
+    assert!(checks_after.integrity_ok);
+    assert_eq!(
+        checks_after.foreign_key_issues,
+        checks_before.foreign_key_issues
+    );
+    assert_eq!(schema_after, schema);
+    assert_eq!(usn(&after), usn(&before) + 1);
+    assert_eq!(after.tracks.len(), before.tracks.len());
+    let written = after
+        .tracks
+        .iter()
+        .find(|t| t.identity.content_id == track.identity.content_id)
+        .unwrap();
+    assert_eq!(Some(&written.metadata.title), fields.title.as_ref());
+    assert_eq!(written.metadata.genre, "Cuerithm Acceptance Genre");
+    assert_eq!(written.metadata.comment, "written by the acceptance test");
+    assert_eq!(written.metadata.artist, track.metadata.artist);
+    assert_eq!(written.bpm, track.bpm);
+    // Identity is unchanged except the row's change number, which now carries this write's.
+    let mut identity = serde_json::to_value(&written.identity).unwrap();
+    let mut original = serde_json::to_value(&track.identity).unwrap();
+    assert_eq!(identity["local_usn"], usn(&after));
+    identity.as_object_mut().unwrap().remove("local_usn");
+    original.as_object_mut().unwrap().remove("local_usn");
+    assert_eq!(identity, original);
+    assert_eq!(written.cues.len(), 2);
+    let mut seen: Vec<_> = written
+        .cues
+        .iter()
+        .map(|c| (c.start_seconds, c.kind, c.comment.clone()))
+        .collect();
+    seen.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    assert_eq!(
+        seen,
+        [
+            (Some(2.0), 1, "Start".to_string()),
+            (Some(90.0), 2, "Drop".to_string())
+        ]
+    );
+    // Every other track is byte-for-byte what it was.
+    for (id, hash) in others_before {
+        let now = after
+            .tracks
+            .iter()
+            .find(|t| t.identity.content_id == id)
+            .unwrap();
+        assert_eq!(now.raw_hash, hash, "unrelated track {id} changed");
+    }
+    // An identical second write is a recorded no-op.
+    let again = WritePlan {
+        tracks: vec![TrackWrite {
+            expected_fingerprint: written.raw_hash.clone(),
+            ..plan.tracks[0].clone()
+        }],
+    };
+    let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
+    let repeat = db.apply(&again, &CancellationToken::default()).unwrap();
+    drop(db);
+    assert_eq!(repeat.usn, None);
+    assert_eq!((repeat.tracks_unchanged, repeat.cues_replaced), (1, 0));
+    // A write based on the old observation is a conflict, never a silent overwrite.
+    let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
+    let stale = db.apply(&plan, &CancellationToken::default()).unwrap_err();
+    assert!(stale.downcast_ref::<ConflictError>().is_some());
+}

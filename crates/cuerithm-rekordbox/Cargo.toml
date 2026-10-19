@@ -15,6 +15,7 @@ sha2.workspace = true
 tempfile.workspace = true
 zeroize = "=1.9.1"
 plist = "=1.10.1"
+uuid = { version = "1", features = ["v4"] }
 roxmltree = "=0.21.1"
 cuerithm-media = {path = "../cuerithm-media"}
 rusqlite = { workspace = true, features = ["bundled-sqlcipher-vendored-openssl", "backup"] }

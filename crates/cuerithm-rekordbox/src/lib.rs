@@ -6,6 +6,7 @@ mod key_provider;
 pub use discovery::*;
 pub use key_provider::*;
 mod records;
+mod writer;
 use anyhow::{Context, Result, ensure};
 pub use collection::*;
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
@@ -19,6 +20,7 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+pub use writer::*;
 use zeroize::Zeroizing;
 
 /// Runtime-only material: never serializable and never included in diagnostics.

@@ -339,3 +339,52 @@ The backend target/link/record APIs expose this durable state. The branded
 Sync workflow, supported native rule/asset mappings, per-field reconciliation,
 coordinated DB/asset writes and recovery, and actual 6/7 desktop round trips
 still require implementation and acceptance. No collection XML fallback is used.
+
+## Writer checkpoint: metadata and cues (2026-10-20)
+
+Re-read installed Lexicon 1.11.15's `Rekordbox6DatabaseWriter` (same ASAR identity as the other
+research notes; static reading, no code copied) and implemented the corresponding protocol in
+`cuerithm_rekordbox::WriteDatabase`, for existing tracks only.
+
+Seen in the shipped writer and reproduced:
+
+- One change number per write: `agentRegistry.localUpdateCount` plus one, stored back at the end;
+  every touched row gets that value in `rb_local_usn`.
+- A changed `djmdContent` row gets `updated_at` (`YYYY-MM-DD HH:mm:ss.SSS Z`),
+  `rb_data_status = 257` and the USN; new rows use status 0, and cue rows 256.
+- Foreign rows (artist, album, genre, label, key; remixer and composer share the artist table) are
+  found by name including soft-deleted rows, which are revived with status 257, or created with the
+  next numeric ID (highest plus one), a UUID and status 0.
+- Cues are replaced as a unit: every `djmdCue` and `contentCue` row for the track is deleted and the
+  new rows inserted with random IDs from 1,000,000,000 to 4,294,967,295, plus one `contentCue` row
+  whose ID is the track UUID and whose `Cues` is the JSON list (key order and ISO timestamps as the
+  reference writes them). Kinds are 0 memory, 1-3 and 5-9 hot cues, 4 the load/loop point; loops carry
+  `65536 × beats + 1` as `BeatLoopSize`.
+- `CueUpdated` and `TrackInfoUpdated` are incremented with `COALESCE(x,0)+1`.
+
+Deliberate differences:
+
+- The reference increments `TrackInfoUpdated` for every matched track. Cuerithm increments a counter
+  only when that track's data actually changed, so repeating a sync is a recorded no-op that takes no
+  change number and leaves the file byte-identical (tested).
+- Writes are refused unless the database's schema fingerprint is in `WRITE_PROFILES`, which holds only
+  the rekordbox 7.2.19.0342 identity. Every track in a plan must still match the fingerprint recorded
+  when it was last read; any difference refuses the whole plan with a conflict list and no change.
+  The reference overwrites without this check.
+- The write is one transaction on an exclusive connection that fails fast if rekordbox or its agent
+  has the file open; cancellation or any error rolls everything back.
+- The reference's random-ID fallback once 32-bit IDs run out is not implemented; the writer stops.
+- Foreign rows are created without `SearchStr`, as the reference does.
+
+Evidence: eight tests on generated encrypted databases that contain only the touched columns, and an
+acceptance test (`tests/real_copy_write.rs`, skipped unless `CUERITHM_REKORDBOX_COPY` is set) that
+snapshots a copy of a real 7.2.19 library, writes to the snapshot with its real tables and indexes,
+and reads the result back through the independent reader: integrity and foreign-key results,
+schema fingerprint and every unrelated track unchanged; the change number advanced by one; metadata
+and cues round-trip; the repeat is a no-op; a stale plan is a conflict.
+
+Not done, and still required before this can be called sync: opening the written copy in the real
+rekordbox 7 application (closed-target and reopen, playback of the written cues), playlists and
+MyTags, new-track insertion and analysis files, ordered playlists, native smart rules, the
+publication of a verified copy over a live library with its WAL/SHM and backup, recovery, rekordbox 6,
+and the desktop flow. Nothing in the app calls the writer yet.
