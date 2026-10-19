@@ -46,6 +46,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const loadedScope=useRef("");
   const request=useRef(0),loadedRows=useRef<Track[]>([]),revision=useRef(-1),playRequest=useRef(0),loadedDetail=useRef<Detail|null>(null);
   const barSeekQueue=useRef<Promise<void>>(Promise.resolve());
+  const loadingTrackRef=useRef(false);
   const selectedRef=useRef(selected);selectedRef.current=selected;
   const searchInput=useRef<HTMLInputElement>(null);
   const alive=useRef(true);
@@ -79,7 +80,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   },[bridge,fetchRows,refreshPlaylists]);
   const addPaths=useCallback(async(paths:string[])=>{if(!paths.length)return;try{await bridge.enqueuePaths(paths);clearScopeRows();setPlaylistId(null);setPlaylistEditor(null);setPlaylistPanel(null);setSort(previous=>previous==="playlist_order"?"title":previous);setView("incoming");setLastView("incoming");await refresh(true);}catch(e){notify(e);}},[bridge,notify,refresh]);
   const load=useCallback(async(row:Track)=>{
-    const generation=++playRequest.current;setLoadingTrack(true);
+    const generation=++playRequest.current;loadingTrackRef.current=true;setLoadingTrack(true);
     try{
       const next=await bridge.playerLoad(row.id);
       if(generation!==playRequest.current)return;
@@ -87,7 +88,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
       void bridge.getWaveform(row.id,16384).then(data=>{if(generation===playRequest.current&&alive.current)setWave(data);}).catch(notify);
       await bridge.playerPlay();
       if(generation===playRequest.current)setPlayback(await bridge.playerStatus());
-    }catch(e){notify(e);}finally{if(generation===playRequest.current)setLoadingTrack(false);}
+    }catch(e){notify(e);}finally{if(generation===playRequest.current){loadingTrackRef.current=false;setLoadingTrack(false);}}
   },[bridge,notify]);
   useEffect(()=>{
     alive.current=true;let lastPlayback=0;
@@ -113,9 +114,9 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
   const seek=useCallback(async(seconds:number)=>{try{await bridge.playerSeek(seconds);setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[bridge,notify]);
   const jumpBar=useCallback((direction:number)=>{
-    const bpm=detail?.analysis?.analysis.tempo?.bpm;
-    if(!detail||loadingTrack||!bpm||!Number.isFinite(bpm)||bpm<=0)return;
-    const generation=playRequest.current,id=detail.track.id;
+    const currentDetail=loadedDetail.current,bpm=currentDetail?.analysis?.analysis.tempo?.bpm;
+    if(!currentDetail||loadingTrackRef.current||!bpm||!Number.isFinite(bpm)||bpm<=0)return;
+    const generation=playRequest.current,id=currentDetail.track.id;
     barSeekQueue.current=barSeekQueue.current.then(async()=>{
       if(generation!==playRequest.current)return;
       const current=await bridge.playerStatus();
@@ -124,7 +125,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
       const next=await bridge.playerStatus();
       if(alive.current&&generation===playRequest.current&&next.track_id===id)setPlayback(next);
     }).catch(notify);
-  },[bridge,detail,loadingTrack,notify]);
+  },[bridge,notify]);
   const selectAll=useCallback(async()=>{
     const q={...query.current};
     try{const ids=await bridge.selectTrackIds(q);if(alive.current&&JSON.stringify(q)===JSON.stringify(query.current))setSelected(new Set(ids));}catch(e){notify(e);}
@@ -136,7 +137,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(view!=="settings"&&view!=="cleanup"&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
-      if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&detail?.analysis?.analysis.tempo){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
+      if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&loadedDetail.current?.analysis?.analysis.tempo){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail&&!(event.target instanceof Element&&event.target.closest("button,a"))){event.preventDefault();void toggle();}
     };
     window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);

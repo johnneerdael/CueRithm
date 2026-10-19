@@ -59,6 +59,30 @@ describe("library workspace",()=>{
     fireEvent.keyDown(window,{key:"ArrowLeft"});
     await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(0));
   });
+  it("uses current playback readiness when an input listener spans the ready transition",async()=>{
+    const listeners=vi.spyOn(window,"addEventListener");
+    try{
+      const bridge=fakeBridge([track("a")]);
+      let playbackEvent:Parameters<typeof bridge.onPlayback>[0]=()=>{};
+      bridge.onPlayback=vi.fn(async handler=>{playbackEvent=handler;return()=>{};});
+      let finish!:()=>void;const pending=new Promise<void>(resolve=>{finish=resolve;});
+      const play=bridge.playerPlay;
+      bridge.playerPlay=vi.fn(async()=>{await play();playbackEvent({sequence:1,status:await bridge.playerStatus()});await pending;});
+      const load=bridge.playerLoad;
+      bridge.playerLoad=vi.fn(async id=>({...await load(id),analysis:{complete:true,source_sample_rate:44100,analysis:{duration_seconds:240,key:null,energy:null,tempo:{bpm:120,beats_seconds:[0,.5,1],downbeats_seconds:null},lexicon_cues:null}}}));
+      render(<App bridge={bridge}/>);await screen.findByText("Track a");
+      fireEvent.doubleClick(screen.getByText("Track a"));
+      await screen.findByRole("button",{name:"Pause"});
+      const listener=listeners.mock.calls.filter(([type])=>type==="keydown").at(-1)?.[1] as EventListener;
+      expect(listener).toBeTypeOf("function");
+      listener(new KeyboardEvent("keydown",{key:"ArrowRight"}));expect(bridge.playerSeek).not.toHaveBeenCalled();
+      finish();await waitFor(()=>expect(screen.getByRole("button",{name:"Pause"})).toBeEnabled());
+      // A browser can deliver input after commit and before passive effects
+      // replace this listener. Its closure must consult current readiness.
+      listener(new KeyboardEvent("keydown",{key:"ArrowRight"}));
+      await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(2));
+    }finally{listeners.mockRestore();}
+  });
   it("retries cover extraction after a transient failure and remount",async()=>{
     const bridge=fakeBridge([track("a")]);
     bridge.getArtwork=vi.fn().mockRejectedValueOnce(new Error("Drive offline")).mockResolvedValue("data:image/png;base64,iVBORw0KGgo=");
