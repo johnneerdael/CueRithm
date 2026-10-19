@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         .context("Choose --discover or --database with --automatic-key/--key-file")?;
     let key = if args.automatic_key {
         use cuerithm_rekordbox::{
-            AgentKeySource, DiscoveryPaths, discover_targets, resolve_database_key,
+            DiscoveryPaths, NativeKeySource, discover_targets, resolve_database_key,
         };
         let cancel = CancellationToken::default();
         let paths = DiscoveryPaths::current()?;
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
             .installations
             .first()
             .context("No installed target is available")?;
-        let source = AgentKeySource::for_installation(target, paths.platform)?;
+        let source = NativeKeySource::for_installation(target, paths.platform)?;
         resolve_database_key(
             &source,
             &paths.agent_options_file()?,

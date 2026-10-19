@@ -1,22 +1,15 @@
-//! Automatic local access using the installed target's isolated agent runtime.
-//! Key material is carried through private pipes and never persisted or logged.
+//! Native, data-only key derivation from the installed target executable.
 use crate::*;
 use serde::de::{IgnoredAny, SeqAccess, Visitor};
 use std::{
     fs::{File, OpenOptions},
-    io::{Read, Write},
-    process::{Child, Command, Stdio},
+    io::Read,
 };
 const MAX_KEY: usize = 16384;
 const MAX_OPTIONS: u64 = 16 * 1024 * 1024;
-const BRIDGE: &str = include_str!("key_bridge.cjs");
-const FUSE: &[u8] = b"dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX";
-
 #[derive(Clone, Debug)]
-pub struct AgentKeySource {
+pub struct NativeKeySource {
     pub executable: PathBuf,
-    pub archive: PathBuf,
-    pub fuse_image: PathBuf,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct KeyProviderOptions {
@@ -29,65 +22,19 @@ impl Default for KeyProviderOptions {
         }
     }
 }
-impl AgentKeySource {
-    /// Locate only the target's installed agent. No reference application is used.
-    /// Source discovery never launches a process or opens a music database.
+impl NativeKeySource {
     pub fn for_installation(
         target: &TargetInstallation,
         platform: DesktopPlatform,
     ) -> Result<Self> {
-        ensure!(matches!(target.major, 6 | 7), "Unsupported target version");
-        let source = match platform {
-            DesktopPlatform::MacOS => {
-                let root = target
-                    .root
-                    .join("Contents/MacOS/rekordboxAgent.app/Contents");
-                Self {
-                    executable: root.join("MacOS/rekordboxAgent"),
-                    archive: root.join("Resources/app.asar"),
-                    fuse_image: root.join(
-                        "Frameworks/Electron Framework.framework/Versions/A/Electron Framework",
-                    ),
-                }
-            }
-            DesktopPlatform::Windows => {
-                let mut roots = Vec::new();
-                for (index, entry) in std::fs::read_dir(&target.root)?.take(4097).enumerate() {
-                    ensure!(index < 4096, "Target agent discovery budget exceeded");
-                    let entry = entry?;
-                    let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-                    if name == "rekordboxagent" || name.starts_with("rekordboxagent-win32-") {
-                        let meta = std::fs::symlink_metadata(entry.path())?;
-                        if meta.is_dir() && !meta.file_type().is_symlink() {
-                            roots.push(entry.path());
-                        }
-                    }
-                }
-                let mut found = roots
-                    .into_iter()
-                    .filter_map(|root| {
-                        let executable = root.join("rekordboxAgent.exe");
-                        let archive = root.join("resources/app.asar");
-                        (open_regular(&executable).is_ok() && open_regular(&archive).is_ok()).then(
-                            || Self {
-                                fuse_image: executable.clone(),
-                                executable,
-                                archive,
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                ensure!(found.len() == 1, "Target agent is unavailable or ambiguous");
-                found.remove(0)
-            }
-            DesktopPlatform::Linux => {
-                anyhow::bail!("Local target agent is unavailable on this platform")
-            }
-        };
-        for path in [&source.executable, &source.archive, &source.fuse_image] {
-            open_regular(path)?;
-        }
-        Ok(source)
+        ensure!(
+            platform != DesktopPlatform::Linux && matches!(target.major, 6 | 7),
+            "Local target version is unsupported"
+        );
+        open_regular(&target.executable)?;
+        Ok(Self {
+            executable: target.executable.clone(),
+        })
     }
 }
 fn open_regular(path: &Path) -> Result<File> {
@@ -125,46 +72,6 @@ fn open_regular(path: &Path) -> Result<File> {
     }
     Ok(file)
 }
-fn require_node_fuse(path: &Path, cancel: &CancellationToken) -> Result<()> {
-    let mut file = open_regular(path)?;
-    ensure!(
-        file.metadata()?.len() <= 1024 * 1024 * 1024,
-        "Agent runtime exceeds inspection budget"
-    );
-    let mut tail: Vec<u8> = Vec::new();
-    let mut found = false;
-    let mut inspected = 0u64;
-    loop {
-        cancel.check()?;
-        let mut buffer = [0u8; 65536];
-        let n = file.read(&mut buffer)?;
-        if n == 0 {
-            break;
-        }
-        inspected += n as u64;
-        ensure!(
-            inspected <= 1024 * 1024 * 1024,
-            "Agent runtime exceeds inspection budget"
-        );
-        tail.extend_from_slice(&buffer[..n]);
-        for at in 0..tail.len().saturating_sub(FUSE.len() + 2) {
-            if &tail[at..at + FUSE.len()] == FUSE {
-                let flags = &tail[at + FUSE.len()..];
-                ensure!(
-                    flags[0] == 1 && flags[1] > 0 && flags[2] == b'1',
-                    "Target runtime does not allow isolated Node execution"
-                );
-                found = true;
-            }
-        }
-        if tail.len() > FUSE.len() + 2 {
-            tail.drain(..tail.len() - FUSE.len() - 2);
-        }
-    }
-    ensure!(found, "Target runtime has no supported Node execution fuse");
-    Ok(())
-}
-
 // Select dp while ignoring account/authentication fields rather than retaining a
 // generic copy of every option. Parse errors are deliberately not propagated.
 struct SelectedDp(Zeroizing<String>);
@@ -248,7 +155,7 @@ impl<'de> Deserialize<'de> for SelectedDp {
 struct AgentOptions {
     options: SelectedDp,
 }
-fn selected_input(path: &Path) -> Result<Zeroizing<Vec<u8>>> {
+fn selected_dp(path: &Path) -> Result<Zeroizing<String>> {
     let file = open_regular(path)?;
     let expected = file.metadata()?.len();
     ensure!(
@@ -263,130 +170,149 @@ fn selected_input(path: &Path) -> Result<Zeroizing<Vec<u8>>> {
     );
     let parsed: AgentOptions = serde_json::from_slice(&bytes)
         .map_err(|_| anyhow::anyhow!("Agent options are missing, ambiguous or unsupported"))?;
-    #[derive(Serialize)]
-    struct Input<'a> {
-        dp: &'a str,
-    }
-    Ok(Zeroizing::new(serde_json::to_vec(&Input {
-        dp: &parsed.options.0,
-    })?))
+    Ok(parsed.options.0)
 }
-struct OwnedChild(Child);
-impl Drop for OwnedChild {
-    fn drop(&mut self) {
-        if self.0.try_wait().ok().flatten().is_none() {
-            let _ = self.0.kill();
-        }
-        let _ = self.0.wait();
-    }
-}
-fn run_bridge(
-    source: &AgentKeySource,
-    input: Zeroizing<Vec<u8>>,
+
+/// Read-only native artifact profile. The public string marker precedes a
+/// sixteen-byte C string in the inspected x86_64/arm64 images. No seed/key value
+/// is compiled in, and ambiguous or unknown layouts are explicitly rejected.
+fn native_seed(
+    source: &NativeKeySource,
     options: KeyProviderOptions,
     cancel: &CancellationToken,
+    started: Instant,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    let mut command = Command::new(&source.executable);
-    command
-        .args(["-e", BRIDGE, "--"])
-        .arg(&source.archive)
-        .env("ELECTRON_RUN_AS_NODE", "1")
-        .env_remove("NODE_OPTIONS")
-        .env_remove("NODE_PATH")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
-    }
-    let mut child = OwnedChild(
-        command
-            .spawn()
-            .context("Could not start isolated target access")?,
+    use zeroize::Zeroize;
+    const MARKER: &[u8] = b"rekordbox_client\0";
+    const RECORD: usize = MARKER.len() + 16 + 1;
+    const LIMIT: u64 = 1024 * 1024 * 1024;
+    let mut file = open_regular(&source.executable)?;
+    let expected = file.metadata()?.len();
+    ensure!(
+        (4..=LIMIT).contains(&expected),
+        "Native target exceeds inspection budget"
     );
-    let mut stdin = child
-        .0
-        .stdin
-        .take()
-        .context("Local access input is unavailable")?;
-    let mut stdout = child
-        .0
-        .stdout
-        .take()
-        .context("Local access output is unavailable")?;
-    let writer = std::thread::spawn(move || stdin.write_all(&input));
-    let reader = std::thread::spawn(move || -> Result<Zeroizing<Vec<u8>>> {
-        // Leave spare capacity beyond the bounded read so plaintext key bytes
-        // never pass through reallocations of the response buffer.
-        let mut data = Zeroizing::new(Vec::with_capacity(MAX_KEY + 10));
-        (&mut stdout)
-            .take((MAX_KEY + 9) as u64)
-            .read_to_end(&mut data)
-            .context("Local access output failed")?;
+    let mut signature = [0u8; 4];
+    file.read_exact(&mut signature)?;
+    ensure!(
+        matches!(
+            signature,
+            [0xca, 0xfe, 0xba, 0xbe]
+                | [0xbe, 0xba, 0xfe, 0xca]
+                | [0xca, 0xfe, 0xba, 0xbf]
+                | [0xbf, 0xba, 0xfe, 0xca]
+                | [0xfe, 0xed, 0xfa, 0xcf]
+                | [0xcf, 0xfa, 0xed, 0xfe]
+        ) || &signature[..2] == b"MZ",
+        "Unsupported native target format"
+    );
+    let mut inspected = 4u64;
+    let mut seeds: Vec<Zeroizing<Vec<u8>>> = Vec::new();
+    let mut buffer = Zeroizing::new([0u8; 65536]);
+    let mut data = Zeroizing::new(Vec::with_capacity(65536 + RECORD));
+    data.extend(signature);
+    loop {
+        cancel.check()?;
         ensure!(
-            data.len() <= MAX_KEY + 8,
-            "Local access output exceeds budget"
+            started.elapsed() < options.timeout,
+            "Native target inspection timed out"
         );
-        Ok(data)
-    });
-    let started = Instant::now();
-    let outcome = (|| -> Result<()> {
-        loop {
-            cancel.check()?;
-            ensure!(
-                started.elapsed() < options.timeout,
-                "Local access helper timed out"
-            );
-            if let Some(status) = child.0.try_wait()? {
-                ensure!(
-                    status.success(),
-                    "Installed target does not support automatic local access"
-                );
-                return Ok(());
-            }
-            std::thread::sleep(Duration::from_millis(10));
+        let n = file.read(&mut *buffer)?;
+        if n == 0 {
+            break;
         }
-    })();
-    drop(child); // Reap before joining either pipe worker, including cancellation.
-    let wrote = writer.join();
-    let read = reader.join();
-    let wrote = wrote.map_err(|_| anyhow::anyhow!("Local access input worker failed"))?;
-    let read = read.map_err(|_| anyhow::anyhow!("Local access output worker failed"))?;
-    outcome?;
-    wrote.context("Local access input failed")?;
-    read
+        inspected += n as u64;
+        ensure!(
+            inspected <= expected && inspected <= LIMIT,
+            "Native target changed during inspection"
+        );
+        data.extend_from_slice(&buffer[..n]);
+        for record in data.windows(RECORD) {
+            if record.starts_with(MARKER) && record[RECORD - 1] == 0 {
+                let seed = &record[MARKER.len()..RECORD - 1];
+                if seed.iter().all(|b| b.is_ascii_graphic() || *b == b' ')
+                    && !seeds.iter().any(|s| s.as_slice() == seed)
+                {
+                    ensure!(
+                        seeds.len() < 64,
+                        "Native target profile exceeds candidate budget"
+                    );
+                    seeds.push(Zeroizing::new(seed.to_vec()));
+                }
+            }
+        }
+        let keep = data.len().min(RECORD - 1);
+        let mut carry = Zeroizing::new([0u8; RECORD - 1]);
+        carry[..keep].copy_from_slice(&data[data.len() - keep..]);
+        data.zeroize();
+        data.extend_from_slice(&carry[..keep]);
+    }
+    ensure!(
+        inspected == expected,
+        "Native target changed during inspection"
+    );
+    ensure!(
+        seeds.len() == 1,
+        "Native target key profile is unavailable or ambiguous"
+    );
+    Ok(seeds.remove(0))
 }
-/// Resolve a runtime-only key from this machine's selected target installation.
-/// No music database is opened here; callers validate access against their copy
-/// or use the separately preflighted direct adapter. The helper never starts the
-/// ordinary agent lifecycle; its filesystem, account and network modules are stubbed.
+/// Derive a runtime-only database key in Rust. This reads local target bytes and
+/// the selected encrypted option; it launches no process and opens no database.
 pub fn resolve_database_key(
-    source: &AgentKeySource,
+    source: &NativeKeySource,
     options_file: &Path,
     options: KeyProviderOptions,
     cancel: &CancellationToken,
 ) -> Result<DatabaseKey> {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use blowfish::{
+        Blowfish,
+        cipher::{BlockDecrypt, KeyInit},
+    };
     cancel.check()?;
     ensure!(
         !options.timeout.is_zero() && options.timeout <= Duration::from_secs(120),
-        "Invalid local access deadline"
+        "Invalid native inspection deadline"
     );
-    open_regular(&source.executable)?;
-    open_regular(&source.archive)?;
-    let input = selected_input(options_file)?;
-    require_node_fuse(&source.fuse_image, cancel)?;
+    let started = Instant::now();
+    let dp = selected_dp(options_file)?;
+    let seed = native_seed(source, options, cancel, started)?;
+    let mut decoded = Zeroizing::new(
+        STANDARD
+            .decode(dp.as_bytes())
+            .map_err(|_| anyhow::anyhow!("Invalid encrypted database option"))?,
+    );
+    ensure!(
+        !decoded.is_empty() && decoded.len().is_multiple_of(8) && decoded.len() <= MAX_KEY,
+        "Invalid encrypted database option size"
+    );
+    let cipher: Blowfish = Blowfish::new_from_slice(&seed)
+        .map_err(|_| anyhow::anyhow!("Unsupported native key profile"))?;
+    for block in decoded.as_chunks_mut::<8>().0 {
+        cipher.decrypt_block(block.into());
+    }
+    let padding = *decoded
+        .last()
+        .context("Invalid encrypted database option")? as usize;
+    // The real option can be block-aligned text without padding. The target's
+    // decoder retains that variant; remove PKCS5 only when it is present.
+    if (1..=8).contains(&padding) {
+        ensure!(
+            padding <= decoded.len()
+                && decoded[decoded.len() - padding..]
+                    .iter()
+                    .all(|b| *b as usize == padding),
+            "Invalid encrypted database option padding"
+        );
+        let length = decoded.len() - padding;
+        decoded.truncate(length);
+    }
+    ensure!(
+        !decoded.is_empty()
+            && std::str::from_utf8(&decoded).is_ok_and(|s| !s.chars().any(char::is_control)),
+        "Unsupported decrypted database key format"
+    );
     cancel.check()?;
-    let output = run_bridge(source, input, options, cancel)?;
-    ensure!(
-        output.len() >= 8 && &output[..4] == b"CRK1",
-        "Invalid local access response"
-    );
-    let length = u32::from_be_bytes(output[4..8].try_into()?) as usize;
-    ensure!(
-        length > 0 && length <= MAX_KEY && output.len() == 8 + length,
-        "Invalid local access response length"
-    );
-    DatabaseKey::new(&output[8..])
+    DatabaseKey::new(decoded.as_slice())
 }

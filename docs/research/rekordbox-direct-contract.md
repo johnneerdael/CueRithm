@@ -240,53 +240,50 @@ round-trip acceptance. This module alone does not enable Sync.
 
 Primary format reference: [DJ Link Ecosystem analysis-file specification](https://djl-analysis.deepsymmetry.org/rekordbox-export-analysis/anlz.html).
 
-## Automatic local key-provider checkpoint
+## Automatic native key-provider checkpoint
 
-The SDK now selects the encrypted `dp` option from the target agent's local
-options file and uses the installed target runtime to derive its database key.
-Unrelated account/authentication values are skipped by the parser. Raw options,
-selected input and returned key bytes have zeroizing Rust ownership; key material
-is neither persisted nor placed in arguments, environment variables or diagnostics.
-The helper returns a bounded binary frame through a private pipe. It has a
-deadline and cancellation, and the parent kills/reaps only its owned helper and
-joins both pipe workers on exit.
+`NativeKeySource` uses the installed main executable and the selected encrypted
+`dp` option from local settings. It scans a bounded stream for the inspected
+`rekordbox_client` C-string profile and requires a unique sixteen-byte seed.
+Identical copies in a universal binary are deduplicated; unknown, missing or
+ambiguous profiles fail explicitly. No seed or key value is compiled in.
 
-Seen in installed 7.2.19.0342: agent 3.3.0 uses Electron 19.0.10 / Node 16.14.2;
-its existing RunAsNode fuse is enabled. Agent archive identity is
-`3c26a89c4fcec100c872c7a3b96ba10b76baf7461543c54fe8ca1c7acc341176`.
-The compiled main module closes over a local `buildBFKey` function. An owned
-bridge loads that module with filesystem, account, network, process-launch and
-logging modules stubbed, records the ready callback without invoking it, and
-locates that single helper through the current process's inspector session.
-No inspector listener is opened. It invokes the helper and decodes the selected
-encrypted option using the target's installed pure Blowfish dependency. The
-normal target lifecycle and authentication functions are not invoked.
+Unwrapping runs in Rust using RustCrypto Blowfish 0.9.1, big-endian ECB, with
+PKCS5 padding when present. The actual stored option was block-aligned without
+padding, which the original decoder also accepts. Authored nonuniform-seed
+vectors cover padded and unpadded variants against unchanged egoroof-blowfish
+2.2.2. Invalid padding and non-text results are rejected explicitly rather than
+being returned as apparently valid keys. The pinned cipher's zeroize feature
+clears its expanded key schedule on drop; the included MIT/Apache notices record
+its provenance.
 
-The bridge reads bounded archive members directly; it does not extract vendor
-code to the installed application's directories. Under Electron it uses
-`original-fs`, because the ordinary filesystem API treats archives as virtual
-directories. This distinction was verified on the actual agent after a first
-normal-filesystem attempt failed. See the official [Electron archive documentation](https://www.electronjs.org/docs/latest/tutorial/asar-archives).
+The provider reads data only: it launches no agent, Node/Python interpreter,
+helper process or inspector session. The earlier agent bridge is removed from
+production code and its generated-cache CI tooling is removed. Its isolated
+research execution of `buildBFKey` supplied a comparison oracle. Both native
+architecture sections contained the same seed immediately after the marker,
+and the native extraction matched that oracle without publishing the value.
 
-The research inspector now accepts `--database <copied-db> --automatic-key`.
-Actual automatic access opened the private copied database and read all 3,417
-tracks, with the same schema and descriptive projection hashes reported above.
-Integrity and foreign-key checks passed. This access path used neither the
-manual key file nor Lexicon. The source database, music and installed bundles
-were not written. No actual key, encrypted option, seed or user row is included
-in the implementation or tests.
+Inspected native executable: version 7.2.19.0342, SHA-256
+`07dcecbaf304f777e435539c83c7dcc02e41de1eaf2e0a75e8a9852e4411a244`. Automatic native access
+opened the private copied database and read all 3,417 tracks, with the same
+schema and descriptive projection hashes reported above. Integrity and foreign-key
+checks passed. The source database, music and installed bundles were not written.
+The access path used no manual key file or reference application.
 
-Generated tests exercise an authored local archive/cache, isolated module calls,
-an encrypted fixture database, malformed/duplicate options, symbolic files,
-disabled execution fuses, corrupt archives, unexpected helper results and
-cancellation/deadlines. Node 22 is development/CI tooling for producing those
-cache fixtures; the installed desktop uses the target's existing agent runtime.
-The bridge is a compatibility boundary for locally installed, trusted target
-artifacts, not a general security boundary for hostile JavaScript.
+The options parser selects only `dp` and skips unrelated account/authentication
+values. Its captured input size is checked against the opened file and changed
+inputs fail. Keys, seeds and work buffers have zeroizing ownership; no actual
+key, encrypted option, seed or user row is included in the implementation,
+fixtures or diagnostics. Cancellation/deadlines are checked during bounded
+native scanning. Symbolic inputs and oversized files are rejected.
 
-Discovery includes macOS and Windows agent layouts and rejects local Linux
-availability. Generated layouts do not prove actual version 6 or Windows agent
-acceptance. Unsupported artifact/helper formats fail with a generic availability
-error; no runtime fuse is modified and no target process is killed. Automatic
+Generated tests cover the independent ciphertext vectors, real encrypted
+fixture access, chunk-boundary scanning, duplicated architecture data, ambiguous
+profiles, unsupported headers, malformed options/ciphertext, budgets and
+cancellation. These fixtures do not prove actual version 6 or Windows binary
+layout acceptance. Local Linux target discovery remains unavailable. Native
 read access alone does not complete Cuerithm import/baseline persistence, the
-desktop Sync workflow or the coordinated native writer/recovery/round-trip gates.
+desktop Sync workflow or the coordinated writer/recovery/round-trip gates.
+
+Primary implementation reference: [RustCrypto Blowfish 0.9.1](https://docs.rs/blowfish/0.9.1/blowfish/).
