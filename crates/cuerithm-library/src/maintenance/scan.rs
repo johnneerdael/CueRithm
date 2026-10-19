@@ -223,7 +223,7 @@ impl Library {
         let mut files = vec![];
         let mut candidates = vec![];
         let mut review_tracks = vec![];
-        let mut fingerprints: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut fingerprints: BTreeMap<(u32, u32, String), Vec<String>> = BTreeMap::new();
         let mut fingerprint_order = vec![];
         let total = inputs.len();
         progress(DuplicateScanProgress {
@@ -313,13 +313,13 @@ impl Library {
             if !input.ignored
                 && let Some(fp) = &row.fingerprint
             {
-                if !fingerprints.contains_key(&fp.digest) {
-                    fingerprint_order.push(fp.digest.clone());
+                // Identical sample bytes can play differently at another native rate
+                // or channel count. Codec/container differences do not affect PCM identity.
+                let key = (fp.sample_rate, fp.channels, fp.digest.clone());
+                if !fingerprints.contains_key(&key) {
+                    fingerprint_order.push(key.clone());
                 }
-                fingerprints
-                    .entry(fp.digest.clone())
-                    .or_default()
-                    .push(input.id.clone());
+                fingerprints.entry(key).or_default().push(input.id.clone());
             }
             let metadata: serde_json::Value = input
                 .metadata

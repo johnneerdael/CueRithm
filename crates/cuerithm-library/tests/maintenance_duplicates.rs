@@ -1784,3 +1784,113 @@ fn coordinated_donor_publication_and_undo_cover_all_fourteen_audio_layouts() {
         assert_eq!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hash);
     }
 }
+
+#[test]
+fn exact_audio_groups_require_equal_native_rate_and_channels_even_with_cached_equal_digests() {
+    let f = Fixture::new();
+    for (index, &(sample_rate, channels)) in [(8000, 1), (8000, 1), (16000, 1), (8000, 2)]
+        .iter()
+        .enumerate()
+    {
+        let mut writer = hound::WavWriter::create(
+            &f.paths[index],
+            hound::WavSpec {
+                channels,
+                sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )
+        .unwrap();
+        // The same interleaved s16le bytes play differently under the changed headers.
+        for sample in 0..320000 {
+            writer
+                .write_sample::<i16>(((sample * 37) % 20001 - 10000) as i16)
+                .unwrap();
+        }
+        writer.finalize().unwrap();
+        let conn = rusqlite::Connection::open(&f.db).unwrap();
+        conn.execute("UPDATE tracks SET archived=0,state='ready',title=?1,duration=?2,source_hash=?3 WHERE id=?4", rusqlite::params![
+            format!("Different recording {index}"),
+            320000. / f64::from(sample_rate) / f64::from(channels),
+            cuerithm_media::file_sha256(&f.paths[index]).unwrap(), &f.ids[index],
+        ]).unwrap();
+    }
+    let token = CancellationToken::default();
+    let first = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    assert!(!first.stale);
+    assert_eq!(first.fingerprints_computed, 4);
+    let fingerprints = first
+        .tracks
+        .iter()
+        .map(|track| track.fingerprint.as_ref().unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        fingerprints
+            .iter()
+            .all(|fp| fp.digest == fingerprints[0].digest)
+    );
+    assert_eq!(
+        fingerprints
+            .iter()
+            .map(|fp| (fp.sample_rate, fp.channels))
+            .collect::<Vec<_>>(),
+        [(8000, 1), (8000, 1), (16000, 1), (8000, 2)]
+    );
+    let expected = vec![
+        [f.ids[0].clone(), f.ids[1].clone()]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+    ];
+    assert_eq!(sets(&first), expected);
+    assert!(matches!(
+        first.groups[0].method,
+        DuplicateMatchMethod::Fingerprint
+    ));
+    let second = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    assert_eq!(second.cache_hits, 4);
+    assert_eq!(second.fingerprints_computed, 0);
+    assert_eq!(sets(&second), expected);
+}
+
+#[test]
+fn duplicate_classifications_from_previous_logic_cannot_be_reviewed_or_applied() {
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    let before = f.content();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    for (id, path) in [
+        (&scan.id, "$.logic"),
+        (&review.id, "$.scan.logic"),
+        (&preview.id, "$.review.scan.logic"),
+    ] {
+        conn.execute("UPDATE maintenance_scans SET payload_json=json_set(payload_json,?1,'previous-digest-only-grouping') WHERE id=?2", rusqlite::params![path, id]).unwrap();
+    }
+    let outdated = f.lib.duplicate_scan(&scan.id).unwrap();
+    assert!(outdated.stale);
+    assert!(outdated.stale_reason.unwrap().contains("logic changed"));
+    assert!(f.lib.begin_duplicate_review(&scan.id, &token).is_err());
+    assert!(f.lib.duplicate_review(&review.id, &token).unwrap().stale);
+    assert!(
+        f.lib
+            .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+            .is_err()
+    );
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
+    assert_eq!(f.content(), before);
+}

@@ -17,6 +17,9 @@ starting another; cancellation acknowledgement does not release the slot.
 - `scanDuplicates(operationId, request)`: full library, selected playlists, or
   full-library groups intersecting selected playlists. Specify all request fields.
   The `method` distinguishes exact decoded audio from artist/title candidates.
+  Exact grouping requires matching native PCM digest, sample rate and channel
+  count. Rescan reports made with an older scanner implementation before review
+  or merge; raw fingerprint caching remains separate from classification.
 - `scanUnused(operationId, request)`: explicit folder with all/include/exclude
   extension filters. Show `complete` and `issues`; partial is not a complete scan.
 - `scanBroken(operationId, {inspect_audio})`: availability or strict decoding.

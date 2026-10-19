@@ -157,6 +157,13 @@ present, and only available copies can be suggested as keepers. Match methods
 remain explicit. Audio fingerprint eligibility keeps the inspected strict
 15-to-1500-second duration bounds; unknown durations skip that pass.
 
+Exact groups require the same native PCM digest, sample rate and channel count.
+Identical signed-16 sample bytes alone do not describe the playback clock or
+channel grouping. This strengthens duplicate classification without changing the
+native MD5 calculation or splitting equivalent PCM by container/codec. Existing
+raw fingerprint caches remain reusable. Scanner implementation identity marks
+older saved scans, reviews and merge previews stale after a logic change.
+
 Cache reuse requires a fresh complete encoded SHA-256, decoder/runtime identity
 and fingerprint implementation identity. A same-size edit with restored mtime
 invalidates the cache. Source content and availability are checked again before
