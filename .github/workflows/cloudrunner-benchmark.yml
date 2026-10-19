@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       source_sha:
-        description: 'Source commit shared by hosted and AWS lanes'
+        description: 'Source commit to validate on AWS'
         required: false
       platform:
-        description: 'Runner platforms to compare'
+        description: 'AWS runner platforms to validate'
         type: choice
         options: [all, windows, linux]
         default: all
@@ -92,12 +92,11 @@ jobs:
           if stage not in ('8', '16'):
               raise SystemExit('Windows benchmark stage must be 8 or 16')
           profiles = []
-          for system, hosted in [('windows', 'windows-2025'), ('linux', 'ubuntu-24.04')]:
+          for system, os_label in [('windows', 'windows-2025'), ('linux', 'ubuntu-24.04')]:
               if platform != 'all' and platform != system:
                   continue
-              for lane in ['hosted', 'aws']:
-                  labels = [hosted] if lane == 'hosted' else ['self-hosted', system, 'x64', 'cloudrunner', 'cuerithm']
-                  profiles.append({'profile': system + '-' + lane, 'os': hosted, 'runner': json.dumps(labels)})
+              labels = ['self-hosted', system, 'x64', 'cloudrunner', 'cuerithm']
+              profiles.append({'profile': system + '-aws', 'os': os_label, 'runner': json.dumps(labels)})
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write('matrix=' + json.dumps({'include': profiles}) + '\n')
               output.write('stage=' + stage + '\n')
