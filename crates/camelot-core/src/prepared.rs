@@ -11,6 +11,9 @@ pub struct PreparedMediaIdentity {
     #[serde(default)]
     pub pcm_sha256: String,
     pub clock: AudioClock,
+    /// Effective track genre supplied to cue detection, after any override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cue_genre: Option<String>,
 }
 pub(crate) fn float_wave(audio: &PreparedAudio) -> Result<tempfile::NamedTempFile> {
     let file = tempfile::Builder::new().suffix(".wav").tempfile()?;

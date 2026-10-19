@@ -427,6 +427,28 @@ impl Engine {
         &mut self,
         audio: &cuerithm_media::PreparedAudio,
     ) -> Result<FileAnalysis> {
+        let configured = self.settings.lexicon_config.clone();
+        if let Some(config) = &mut self.settings.lexicon_config
+            && config.genre.is_none()
+        {
+            config.genre = audio
+                .info
+                .tags
+                .get("genre")
+                .filter(|value| !value.trim().is_empty())
+                .cloned();
+        }
+        // Keep loaded key/beat models, while restoring per-worker settings on
+        // both success and failure before another track uses this engine.
+        let result = self.analyze_prepared_inner(audio);
+        self.settings.lexicon_config = configured;
+        result
+    }
+
+    fn analyze_prepared_inner(
+        &mut self,
+        audio: &cuerithm_media::PreparedAudio,
+    ) -> Result<FileAnalysis> {
         ensure!(
             self.settings.max_seconds.is_none(),
             "Preparation requires complete input"
@@ -459,6 +481,11 @@ impl Engine {
             source_sha256: audio.source_sha256.clone(),
             pcm_sha256: audio.pcm_sha256()?,
             clock: audio.clock.clone(),
+            cue_genre: self
+                .settings
+                .lexicon_config
+                .as_ref()
+                .and_then(|c| c.genre.clone()),
         });
         result.analysis.config_sha256 = format!(
             "{:x}",
@@ -468,7 +495,97 @@ impl Engine {
             )?)
         );
         result.analysis.engine.push_str("+common-media-v1");
+        if self.settings.lexicon_config.is_some() {
+            result.analysis.engine.push_str("+cue-genre-input-v1");
+        }
         Ok(result)
+    }
+
+    /// Reuse verified audio and measured timing when configured catalog/cleanup
+    /// changes the effective genre. Key, BPM and scalar energy are preserved.
+    pub fn refresh_prepared_cues(
+        &self,
+        audio: &cuerithm_media::PreparedAudio,
+        result: &mut FileAnalysis,
+        genre: Option<&str>,
+    ) -> Result<bool> {
+        let Some(mut config) = self.settings.lexicon_config.clone() else {
+            return Ok(false);
+        };
+        if config.genre.is_none() {
+            config.genre = genre.filter(|s| !s.trim().is_empty()).map(str::to_owned);
+        }
+        let media = result
+            .media
+            .as_ref()
+            .context("Missing prepared cue input identity")?;
+        ensure!(
+            result.complete
+                && media.source_sha256 == audio.source_sha256
+                && media.decoder == audio.decoder_identity
+                && media.clock.frames == audio.clock.frames
+                && media.clock.sample_rate == audio.clock.sample_rate
+                && media.pcm_sha256 == audio.pcm_sha256()?
+                && audio.source_is_unchanged()?,
+            "Prepared cue input changed or belongs to another analysis"
+        );
+        if media.cue_genre == config.genre {
+            return Ok(false);
+        }
+        let started = Instant::now();
+        let cues = if let Some(tempo) = &result.analysis.tempo {
+            let mut samples = Vec::with_capacity(audio.frames as usize);
+            let mut position = 0;
+            while position < audio.frames {
+                let chunk = audio.read_frames(position, 65536)?;
+                samples.extend(chunk.chunks_exact(2).map(|frame| {
+                    if self.settings.lexicon_timing {
+                        frame[0]
+                    } else {
+                        (frame[0] + frame[1]) * 0.5
+                    }
+                }));
+                position += chunk.len() as u64 / 2;
+            }
+            let first = tempo
+                .downbeat_time
+                .or_else(|| tempo.beats_seconds.first().copied())
+                .unwrap_or(0.);
+            let generate = if self.settings.lexicon_timing {
+                crate::lexicon_cues::try_generate_renderer_cues
+            } else {
+                crate::lexicon_cues::try_generate_structural_cues
+            };
+            generate(&samples, audio.clock.sample_rate, tempo.bpm, first, &config)?
+        } else {
+            crate::lexicon_cues::StructuralCueResult {
+                cues: vec![],
+                emergency_loop: None,
+            }
+        };
+        ensure!(
+            audio.source_is_unchanged()?,
+            "Source changed while refreshing cues"
+        );
+        result.analysis.config_sha256 = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(
+                &serde_json::json!({"prepared_analysis":result.analysis.config_sha256,"effective_cue_config":config})
+            )?)
+        );
+        result.analysis.cues = Some(
+            cues.cues
+                .iter()
+                .map(|c| crate::Cue {
+                    time_seconds: c.time_seconds,
+                    name: c.name.clone(),
+                })
+                .collect(),
+        );
+        result.analysis.lexicon_cues = Some(cues);
+        result.media.as_mut().unwrap().cue_genre = config.genre;
+        result.elapsed_seconds += started.elapsed().as_secs_f64();
+        Ok(true)
     }
 
     fn analyze_file_inner(
