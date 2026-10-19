@@ -16,6 +16,7 @@ export interface EngineSettings {
   sample_rate:number;max_seconds:number|null;beat_model:string|null;mel_model:string|null;
   key_model:string|null;key_neural_model:string|null;key_openkeyscan_model?:string|null;
   structure_features:boolean;source_profile_timing:boolean;lexicon_config:LexiconConfig|null;energy_model?:string|null;lexicon_energy?:boolean;
+  lexicon_tempo?:{min_tempo:number;max_tempo:number}|null;cue_template?:import("./cue-template").CueTemplate|null;
 }
 export interface TagFrame {id3:string;vorbis:string;mp4:string}
 export interface TaggingOptions {

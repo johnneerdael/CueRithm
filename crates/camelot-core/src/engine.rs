@@ -44,6 +44,14 @@ pub struct EngineSettings {
     /// Built-in whole-track acoustic energy, evaluated on 22050 Hz mono PCM.
     #[serde(default)]
     pub lexicon_energy: bool,
+    /// Candidate tempo range for local timing; `None` keeps the factory 98–195 range.
+    /// Part of the analysis cache identity, so a different range never reuses a cached result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lexicon_tempo: Option<crate::lexicon_timing::LexiconTempoOptions>,
+    /// User cue template for publication. Publication reruns on cache hits, so this is
+    /// deliberately not part of the analysis cache identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cue_template: Option<crate::lexicon_publication::CueTemplate>,
 }
 
 fn is_false(value: &bool) -> bool {
@@ -155,6 +163,8 @@ impl Default for EngineSettings {
             lexicon_config: None,
             energy_model: None,
             lexicon_energy: false,
+            lexicon_tempo: None,
+            cue_template: None,
         }
     }
 }
@@ -194,6 +204,20 @@ impl EngineSettings {
                 self.beat_model.is_none() && self.mel_model.is_none(),
                 "Lexicon timing cannot be combined with learned beat models"
             );
+        }
+        if let Some(tempo) = &self.lexicon_tempo {
+            // The reference application clamps its saved range to 50–300 before analysis.
+            ensure!(
+                tempo.min_tempo.is_finite()
+                    && tempo.max_tempo.is_finite()
+                    && tempo.min_tempo >= 50.
+                    && tempo.max_tempo <= 300.
+                    && tempo.max_tempo - tempo.min_tempo >= 20.,
+                "Tempo range must lie within 50–300 BPM and span at least 20 BPM"
+            );
+        }
+        if let Some(template) = &self.cue_template {
+            template.validate_user_template()?;
         }
         ensure!(
             !self.lexicon_energy || self.energy_model.is_none(),
@@ -688,7 +712,7 @@ impl Engine {
             analysis.tempo = crate::lexicon_timing::analyze(
                 &input.samples,
                 input.sample_rate,
-                &crate::lexicon_timing::LexiconTempoOptions::default(),
+                &self.settings.lexicon_tempo.clone().unwrap_or_default(),
             )?
             .map(|timing| {
                 let period = 60. / timing.bpm;
@@ -776,7 +800,7 @@ impl Engine {
         if let Some(input) = &timing_input {
             config_identity["lexicon_timing"] = serde_json::json!({
                 "method": crate::lexicon_timing::METHOD,
-                "options": crate::lexicon_timing::LexiconTempoOptions::default(),
+                "options": self.settings.lexicon_tempo.clone().unwrap_or_default(),
                 "channel": "first", "sample_rate": input.sample_rate,
             });
         }

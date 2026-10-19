@@ -79,17 +79,79 @@ displayed all five published cues, sought to Breakdown at 1:50.9 and moved one
 bar forward with Right using the saved 130 BPM. Playback was muted. This is a
 native acceptance check for the reported track, not a full-library parity claim.
 
+## Template editor, custom anchors and tempo range (2026-10-20)
+
+Re-read installed Lexicon 1.11.15's renderer (same ASAR identity as the maintenance
+note) to close the caller/settings stages that the publication function alone does not
+cover. Static reading only; no code or assets are copied.
+
+Seen in the shipped renderer:
+
+- The cue generator template is a list of rows (`checked`, `markerType`, `name`, `cueType`,
+  `color`, and for custom rows `anchor`, `position` before/after, `beatsOffset`,
+  `loopDuration`) plus template-level `startCueBehavior`, `enableCustomAnchors`,
+  `breakdownMinBeats`, `dropAtStart`, `overwrite` and position-keeping. The editor's row
+  validation rejects a custom row with a negative or missing offset, a loop type without a
+  positive length, and two checked rows with the same type, marker, position, offset and
+  anchor.
+- Custom anchors are a per-role cue **name** (start, drop, breakdown, second drop, second
+  breakdown, last beat, emergency loop). Extraction, in that order, takes the start time
+  of the first existing cue on the track whose name equals the configured name, or null.
+  Only roles with a non-empty name are saved. The extracted markers replace detector
+  markers for the publication stage.
+- Tempo range is a saved `min_max` string, default `98_195`, clamped to 50–300 when used.
+  The analysis dialog offers `0_300` (Any), 58–115, 68–135, 78–155, 88–175, 98–195,
+  128–255 and 180–300.
+
+Implemented in Cuerithm:
+
+- `EngineSettings.cue_template` (user template) and `EngineSettings.lexicon_tempo`. Both are
+  optional and absent in existing settings, which keep the factory template and 98–195.
+  `CueTemplate::validate_user_template` reproduces the editor validation above and also
+  requires whole-beat offsets. Tempo range is validated to 50–300 with at least a 20 BPM
+  span and is part of the analysis cache identity; spelling out 98–195 yields the same
+  identity as leaving it unset (tested). The cue template is not part of that identity
+  because publication reruns on cache hits.
+- Preparation reads the track's latest saved publication only when the template needs it
+  (custom anchors, or Start at the first existing cue). Existing cues are passed to the
+  publisher as the retained cuepoints, which is what the reference passes for the
+  at-existing-cue start behavior.
+- Settings → Cue generation gains the tempo range (reference presets), the template table,
+  start placement, slot keeping and anchor names. The emergency-loop detector setting still
+  decides whether that row exists; its name, colour and loop length are editable.
+
+Deliberate differences:
+
+- **Anchor fallback.** The reference publishes only the roles whose named cue was found. When
+  none of the configured names is found on a track, which is always true for a first
+  preparation, Cuerithm keeps the detector markers instead of publishing nothing. When at
+  least one is found, only found roles are published, as in the reference.
+- **Overwrite** is fixed on: every preparation replaces cues, as elsewhere in Cuerithm.
+- **Detector fields.** Minimum breakdown length and drop-at-start remain the detector
+  settings and overwrite the same template fields, so the template cannot disagree with the
+  cached detector output.
+- Custom anchors apply during preparation and explicit reanalysis. The reference's separate
+  "apply template to existing cues without reanalysis" action has no Cuerithm equivalent.
+- Colours are limited to the palette names the player already renders.
+
+Evidence: unit tests for template validation (`camelot-core/tests/lexicon_publication.rs`),
+tempo range validation and identity (`lexicon_timing_engine.rs`), publication with custom
+rows, anchors, fallback, out-of-range anchors, emergency row ownership and existing-cue start
+(`cuerithm-library/src/publication.rs`), and desktop editor tests. The factory template
+shown by the editor is a shared fixture checked against the engine default. These are
+synthetic and do not show agreement with Lexicon on a real collection.
+
 ## Remaining gates
 
-The current application path uses factory template rows, with the configured
-emergency-loop detector flag. A complete custom-template/settings editor and
-custom-anchor extraction still need delivery; the pure publication API alone
-does not implement those caller/UI stages. Direct native rekordbox transport
+The application path now accepts a user cue template, custom-anchor extraction
+and a tempo range (see the section above); with none configured it uses the factory
+rows and the configured emergency-loop detector flag. Direct native rekordbox transport
 must consume published cue kinds. Windows/Linux runtime acceptance and broader
 music-corpus GUI agreement remain separate verification gates.
 
-Tempo-bound settings also need equal-input comparison: the factory range is
-98–195, while the observed user GUI selection was78–155. That difference is
-separate from the rounding and template publication demonstrated here. Preserve
+Tempo-bound settings are now selectable, but equal-input comparison against the
+reference at each preset is still open: the factory range is 98–195, while the
+observed user GUI selection was 78–155. That difference is separate from the
+rounding and template publication demonstrated here. Preserve
 the user's unnumbered Settings pages and built-in analysis components when
 adding meaningful preparation options.

@@ -140,3 +140,116 @@ fn emergency_only_invalid_source_position_is_an_error_instead_of_null() {
         .is_err()
     );
 }
+
+fn row(marker: Marker, cue_type: CueType) -> TemplateRow {
+    TemplateRow {
+        checked: true,
+        marker_type: marker,
+        name: "Cue".into(),
+        cue_type,
+        color: "green".into(),
+        label: None,
+        anchor: None,
+        position: None,
+        beats_offset: None,
+        loop_duration: None,
+    }
+}
+fn offset(anchor: Marker, position: OffsetPosition, beats: f64) -> TemplateRow {
+    TemplateRow {
+        anchor: Some(anchor),
+        position: Some(position),
+        beats_offset: Some(beats),
+        ..row(Marker::Normal, CueType::HotCue)
+    }
+}
+fn with_rows(rows: Vec<TemplateRow>) -> CueTemplate {
+    CueTemplate {
+        rows,
+        ..CueTemplate::default()
+    }
+}
+
+#[test]
+fn factory_and_edited_templates_pass_user_validation() {
+    CueTemplate::default().validate_user_template().unwrap();
+    let mut rows = CueTemplate::default().rows;
+    rows.push(offset(Marker::Drop, OffsetPosition::Before, 16.));
+    rows.push(TemplateRow {
+        loop_duration: Some(8.),
+        cue_type: CueType::HotLoop,
+        ..offset(Marker::Drop, OffsetPosition::After, 32.)
+    });
+    // The same position as a hot cue and as a memory cue are distinct cues.
+    rows.push(row(Marker::Drop, CueType::MemoryCue));
+    with_rows(rows).validate_user_template().unwrap();
+}
+
+#[test]
+fn user_validation_rejects_rows_the_publisher_would_misread() {
+    let bad = |rows: Vec<TemplateRow>| {
+        with_rows(rows)
+            .validate_user_template()
+            .unwrap_err()
+            .to_string()
+    };
+    let mut unnamed = row(Marker::Start, CueType::HotCue);
+    unnamed.name = "  ".into();
+    assert!(bad(vec![unnamed]).contains("needs a name"));
+    let mut no_anchor = offset(Marker::Drop, OffsetPosition::Before, 4.);
+    no_anchor.anchor = None;
+    assert!(bad(vec![no_anchor]).contains("anchor"));
+    let mut negative = offset(Marker::Drop, OffsetPosition::Before, -4.);
+    assert!(bad(vec![negative.clone()]).contains("offset"));
+    negative.beats_offset = Some(1.5);
+    assert!(bad(vec![negative]).contains("whole"));
+    let loop_without_length = TemplateRow {
+        cue_type: CueType::ActiveLoop,
+        ..offset(Marker::Drop, OffsetPosition::After, 8.)
+    };
+    assert!(bad(vec![loop_without_length]).contains("loop length"));
+    let structural_with_offset = TemplateRow {
+        beats_offset: Some(4.),
+        ..row(Marker::Drop, CueType::HotCue)
+    };
+    assert!(bad(vec![structural_with_offset]).contains("structural"));
+    let twice = vec![
+        offset(Marker::Drop, OffsetPosition::Before, 16.),
+        offset(Marker::Drop, OffsetPosition::Before, 16.),
+    ];
+    assert!(bad(twice.clone()).contains("same cue"));
+    // An unchecked duplicate is harmless.
+    let mut disabled = twice;
+    disabled[1].checked = false;
+    with_rows(disabled).validate_user_template().unwrap();
+}
+
+#[test]
+fn custom_anchor_settings_are_validated_when_enabled() {
+    let mut template = CueTemplate {
+        enable_custom_anchors: true,
+        custom_anchors: serde_json::json!({"drop": {"name": "My Drop"}}),
+        ..CueTemplate::default()
+    };
+    template.validate_user_template().unwrap();
+    template.custom_anchors = serde_json::json!({"chorus": {"name": "x"}});
+    assert!(template.validate_user_template().is_err());
+    template.custom_anchors = serde_json::json!({"drop": {"name": " "}});
+    assert!(template.validate_user_template().is_err());
+    template.custom_anchors = serde_json::json!({"drop": {}});
+    assert!(template.validate_user_template().is_err());
+}
+
+/// The desktop editor shows the factory template from this shared fixture while no custom
+/// template is saved, so the two must not drift.
+#[test]
+fn desktop_factory_template_fixture_matches_the_engine_default() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../apps/desktop/src/factory-cue-template.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        fixture,
+        serde_json::to_value(CueTemplate::default()).unwrap()
+    );
+}

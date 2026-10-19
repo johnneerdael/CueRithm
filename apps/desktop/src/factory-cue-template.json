@@ -1,0 +1,59 @@
+{
+  "overwrite": true,
+  "startCueBehavior": "atFirstBeat",
+  "breakdownMinBeats": 64,
+  "keepCuePositions": false,
+  "enableCustomAnchors": false,
+  "dropAtStart": "never",
+  "customAnchors": {},
+  "rows": [
+    {
+      "checked": true,
+      "markerType": "start",
+      "name": "Start",
+      "cueType": "hotcue",
+      "color": "yellow",
+      "label": "Start"
+    },
+    {
+      "checked": true,
+      "markerType": "drop",
+      "name": "Drop",
+      "cueType": "hotcue",
+      "color": "red",
+      "label": "Drop"
+    },
+    {
+      "checked": true,
+      "markerType": "breakdown",
+      "name": "Breakdown",
+      "cueType": "hotcue",
+      "color": "blue",
+      "label": "Breakdown"
+    },
+    {
+      "checked": true,
+      "markerType": "second_drop",
+      "name": "Drop #2",
+      "cueType": "hotcue",
+      "color": "red",
+      "label": "Second Drop"
+    },
+    {
+      "checked": true,
+      "markerType": "second_breakdown",
+      "name": "Breakdown #2",
+      "cueType": "hotcue",
+      "color": "blue",
+      "label": "Second Breakdown"
+    },
+    {
+      "checked": true,
+      "markerType": "lastbeat",
+      "name": "End / Fade-out",
+      "cueType": "hotcue",
+      "color": "violet",
+      "label": "End / Fade-out"
+    }
+  ]
+}

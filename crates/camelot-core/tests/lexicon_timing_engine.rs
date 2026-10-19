@@ -219,3 +219,55 @@ fn lexicon_cues_share_the_native_first_channel_with_timing_instead_of_the_key_mi
         expected
     );
 }
+
+#[test]
+fn tempo_range_is_validated_and_changes_the_analysis_identity() {
+    use camelot_core::lexicon_timing::LexiconTempoOptions;
+    let range = |min_tempo, max_tempo| EngineSettings {
+        lexicon_tempo: Some(LexiconTempoOptions {
+            min_tempo,
+            max_tempo,
+        }),
+        ..settings()
+    };
+    for (min, max) in [(78., 155.), (58., 115.), (50., 300.), (180., 300.)] {
+        range(min, max).validate().unwrap();
+    }
+    for (min, max) in [
+        (49., 155.),
+        (78., 301.),
+        (120., 120.),
+        (120., 130.),
+        (f64::NAN, 155.),
+        (78., f64::INFINITY),
+    ] {
+        assert!(range(min, max).validate().is_err(), "{min}-{max}");
+    }
+    // Saved settings that predate the option still load with the factory 98-195 range.
+    let legacy: EngineSettings =
+        serde_json::from_value(serde_json::to_value(settings()).unwrap()).unwrap();
+    assert!(legacy.lexicon_tempo.is_none());
+    let identity = |settings: &EngineSettings| {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tone.wav");
+        let rate = 44100;
+        let recipe: fixture::Recipe = serde_json::from_value(serde_json::json!({
+            "frames": 24 * rate, "bpm": 126.0, "offset_frames": 2000,
+            "quiet_until_frames": 0, "offbeat_hats": false,
+        }))
+        .unwrap();
+        let left = fixture::signal(&recipe, rate);
+        wave(&path, &left, &left, rate);
+        Engine::new(settings)
+            .unwrap()
+            .analyze_file(&path)
+            .unwrap()
+            .analysis
+            .config_sha256
+    };
+    let factory = identity(&settings());
+    assert_eq!(factory, identity(&settings()));
+    assert_ne!(factory, identity(&range(78., 155.)));
+    // Spelling out the factory range is the same configuration as leaving it unset.
+    assert_eq!(factory, identity(&range(98., 195.)));
+}

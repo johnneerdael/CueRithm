@@ -191,6 +191,97 @@ impl CueTemplate {
         Ok(())
     }
 }
+impl CueTemplate {
+    /// Stricter checks for a template a user edited, mirroring the reference editor's row
+    /// validation. `validate` stays permissive so recorded reference templates still publish.
+    pub fn validate_user_template(&self) -> Result<()> {
+        self.validate()?;
+        ensure!(
+            self.rows.len() <= 64,
+            "A cue template can have at most 64 rows"
+        );
+        ensure!(
+            self.breakdown_min_beats <= 4096,
+            "Invalid minimum breakdown length"
+        );
+        for (index, row) in self.rows.iter().enumerate() {
+            let number = index + 1;
+            ensure!(!row.name.trim().is_empty(), "Cue row {number} needs a name");
+            ensure!(
+                row.name.chars().count() <= 128,
+                "Cue row {number} name is too long"
+            );
+            let loop_type = matches!(
+                row.cue_type,
+                CueType::HotLoop | CueType::ActiveLoop | CueType::MemoryLoop
+            );
+            if row.marker_type == Marker::Normal {
+                ensure!(
+                    row.anchor.is_some_and(|anchor| anchor != Marker::Normal),
+                    "Cue row {number} needs a structural anchor"
+                );
+                ensure!(
+                    row.position.is_some(),
+                    "Cue row {number} needs before or after"
+                );
+                ensure!(
+                    row.beats_offset.is_some_and(|v| v >= 0. && v.fract() == 0.),
+                    "Cue row {number} needs a whole, non-negative beat offset"
+                );
+                ensure!(
+                    !loop_type || row.loop_duration.is_some_and(|v| v > 0.),
+                    "Cue row {number} is a loop and needs a positive loop length"
+                );
+            } else {
+                ensure!(
+                    row.anchor.is_none() && row.position.is_none() && row.beats_offset.is_none(),
+                    "Cue row {number} is structural and cannot have an offset"
+                );
+            }
+            for other in &self.rows[..index] {
+                ensure!(
+                    !(row.checked && other.checked && same_slot(row, other)),
+                    "Cue rows {} and {number} would create the same cue",
+                    self.rows
+                        .iter()
+                        .position(|r| std::ptr::eq(r, other))
+                        .unwrap()
+                        + 1
+                );
+            }
+        }
+        if self.enable_custom_anchors {
+            let object = self
+                .custom_anchors
+                .as_object()
+                .context("Custom anchors must be an object")?;
+            for (key, value) in object {
+                ensure!(
+                    [
+                        "start",
+                        "drop",
+                        "breakdown",
+                        "second_drop",
+                        "second_breakdown",
+                        "lastbeat",
+                        "emergency_loop"
+                    ]
+                    .contains(&key.as_str()),
+                    "Unknown custom anchor {key}"
+                );
+                let name = value
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .context("A custom anchor needs a cue name")?;
+                ensure!(
+                    !name.trim().is_empty() && name.chars().count() <= 128,
+                    "Invalid custom anchor name"
+                );
+            }
+        }
+        Ok(())
+    }
+}
 #[derive(Clone)]
 struct Point {
     marker: Marker,

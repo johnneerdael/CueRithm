@@ -544,7 +544,12 @@ impl Worker {
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
                 );
-                crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                crate::publication::apply_for_track(
+                    &self.library,
+                    &job.track_id,
+                    &mut result,
+                    &job.snapshot.settings,
+                )?;
                 stage = "writing_tags";
                 // The journal transaction sets this stage. Once it succeeds,
                 // always enter publication, which settles obsolete attempts too.
@@ -580,7 +585,12 @@ impl Worker {
                     .context("Missing analysis engine")?
                     .1
                     .refresh_prepared_cues(&audio, &mut result, genre)?;
-                crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                crate::publication::apply_for_track(
+                    &self.library,
+                    &job.track_id,
+                    &mut result,
+                    &job.snapshot.settings,
+                )?;
                 self.library.apply_prepared_analysis_for_run(
                     &job,
                     &result,
@@ -593,7 +603,12 @@ impl Worker {
                 stage = "committing";
                 self.library.set_stage_for_run(&job, stage)?;
                 self.emit(&job, stage, "running");
-                crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                crate::publication::apply_for_track(
+                    &self.library,
+                    &job.track_id,
+                    &mut result,
+                    &job.snapshot.settings,
+                )?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
             }
