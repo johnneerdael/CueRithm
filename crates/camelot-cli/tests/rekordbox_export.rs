@@ -29,6 +29,7 @@ fn fixture(dir: &std::path::Path, complete: bool) -> (std::path::PathBuf, std::p
         },
     ]);
     let file = FileAnalysis {
+        publication: None,
         analysis,
         complete,
         verified_integrity: None,

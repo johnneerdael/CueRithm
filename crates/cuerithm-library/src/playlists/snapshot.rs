@@ -137,6 +137,30 @@ fn insert(catalog: &mut FieldCatalog, id: &str, label: &str, kind: FieldKind, ed
     );
 }
 fn cue_data(track: &mut SnapshotTrack, cues: &serde_json::Value) -> Result<()> {
+    if cues.get("schema").and_then(serde_json::Value::as_str) == Some("lexicon-publication-v1") {
+        let publication: camelot_core::lexicon_publication::Publication =
+            serde_json::from_value(cues.clone())?;
+        track.track.cues = publication
+            .cues
+            .into_iter()
+            .map(|c| SmartCue {
+                label: Some(c.name),
+                color: c.color.as_str().map(str::to_owned),
+                kind: if c.kind == camelot_core::lexicon_publication::PublishedType::Loop {
+                    CueKind::Loop
+                } else {
+                    CueKind::Cue
+                },
+                active_loop: c.active_loop == Some(true),
+                memory: c
+                    .data
+                    .as_ref()
+                    .is_some_and(|d| d["rekordbox"]["originalNum"] == -1),
+            })
+            .collect();
+        track.track.tempos = vec![publication.grid.bpm];
+        return Ok(());
+    }
     if let Some(facts) = cues.get("native_facts") {
         let facts: NativePlaylistFacts = serde_json::from_value(facts.clone())?;
         ensure!(

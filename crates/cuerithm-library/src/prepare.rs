@@ -417,7 +417,7 @@ impl Worker {
                 audio.source_sha256 == job.source_sha256,
                 "Source changed before analysis"
             );
-            let result = if let Some(cached) =
+            let mut result = if let Some(cached) =
                 self.library
                     .cached_analysis(&job, &self.engine_identity, &audio)?
             {
@@ -436,8 +436,6 @@ impl Worker {
                     .cache_analysis(&job, &self.engine_identity, &result)?;
                 result
             };
-            #[cfg(feature = "autotag")]
-            let mut result = result;
             ensure!(
                 !self.stop.load(Ordering::Relaxed),
                 "Preparation is stopping"
@@ -507,7 +505,7 @@ impl Worker {
                 let measured = AnalysisTags {
                     camelot_key: key.map(|k| k.camelot.clone()),
                     standard_key: key.map(|k| k.key.name()),
-                    bpm: result.analysis.tempo.as_ref().map(|t| t.bpm),
+                    bpm: crate::publication::tag_bpm(&result, &job.snapshot.settings)?,
                     energy: result.analysis.energy.as_ref().map(|e| e.level),
                 };
                 let mut plan = TagWritePlan::build(input, &matched, config, &measured)?;
@@ -546,6 +544,7 @@ impl Worker {
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
                 );
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 stage = "writing_tags";
                 // The journal transaction sets this stage. Once it succeeds,
                 // always enter publication, which settles obsolete attempts too.
@@ -581,6 +580,7 @@ impl Worker {
                     .context("Missing analysis engine")?
                     .1
                     .refresh_prepared_cues(&audio, &mut result, genre)?;
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 self.library.apply_prepared_analysis_for_run(
                     &job,
                     &result,
@@ -593,6 +593,7 @@ impl Worker {
                 stage = "committing";
                 self.library.set_stage_for_run(&job, stage)?;
                 self.emit(&job, stage, "running");
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
             }

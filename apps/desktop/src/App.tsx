@@ -1,3 +1,4 @@
+import {playbackBpm} from "./published-analysis";
 import {useState,useEffect,useRef,useCallback} from "react";
 import {Search,Plus,SlidersHorizontal,Inbox,Music2,LoaderCircle,RotateCcw,Archive,CheckCircle2,X,Upload} from "lucide-react";
 import {nativeBridge,errorMessage} from "./api";
@@ -114,7 +115,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
   const seek=useCallback(async(seconds:number)=>{try{await bridge.playerSeek(seconds);setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[bridge,notify]);
   const jumpBar=useCallback((direction:number)=>{
-    const currentDetail=loadedDetail.current,bpm=currentDetail?.analysis?.analysis.tempo?.bpm;
+    const currentDetail=loadedDetail.current,bpm=playbackBpm(currentDetail?.analysis);
     if(!currentDetail||loadingTrackRef.current||!bpm||!Number.isFinite(bpm)||bpm<=0)return;
     const generation=playRequest.current,id=currentDetail.track.id;
     barSeekQueue.current=barSeekQueue.current.then(async()=>{
@@ -137,7 +138,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(view!=="settings"&&view!=="cleanup"&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
-      if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&loadedDetail.current?.analysis?.analysis.tempo){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
+      if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&playbackBpm(loadedDetail.current?.analysis)){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail&&!(event.target instanceof Element&&event.target.closest("button,a"))){event.preventDefault();void toggle();}
     };
     window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);

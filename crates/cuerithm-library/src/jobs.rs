@@ -410,21 +410,27 @@ impl Library {
         let tempo = a.tempo.as_ref().context("BPM is unresolved")?;
         let energy = a.energy.as_ref().context("Energy is unresolved")?;
         let cues = a.lexicon_cues.as_ref().context("Cues are unresolved")?;
+        let saved_bpm = result
+            .publication
+            .as_ref()
+            .map(|p| p.grid.bpm)
+            .unwrap_or(tempo.bpm);
+        let cue_json = if let Some(publication) = &result.publication {
+            let mut value = serde_json::to_value(publication)?;
+            value["schema"] = "lexicon-publication-v1".into();
+            serde_json::to_string(&value)?
+        } else {
+            serde_json::to_string(cues)?
+        };
         let json = serde_json::to_string(result)?;
         let _: FileAnalysis =
             serde_json::from_str(&json).context("Analysis contains invalid numeric values")?;
         tx.execute(
             "INSERT INTO cue_revisions VALUES (?1,?2,?3,?4,?5)",
-            params![
-                uuid::Uuid::new_v4().to_string(),
-                track,
-                id,
-                serde_json::to_string(cues)?,
-                now()
-            ],
+            params![uuid::Uuid::new_v4().to_string(), track, id, cue_json, now()],
         )?;
         tx.execute("UPDATE tracks SET native_metadata_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
-            params![json,serde_json::to_string(info)?,key.camelot,tempo.bpm,energy.level,a.duration_seconds,now(),track])?;
+            params![json,serde_json::to_string(info)?,key.camelot,saved_bpm,energy.level,a.duration_seconds,now(),track])?;
         for (field, value) in &info.tags {
             let column = match field.as_str() {
                 "title" => "title",

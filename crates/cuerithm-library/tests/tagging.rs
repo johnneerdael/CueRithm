@@ -135,6 +135,7 @@ impl Fixture {
             emergency_loop: None,
         });
         let result = FileAnalysis {
+            publication: None,
             analysis: a,
             complete: true,
             verified_integrity: None,

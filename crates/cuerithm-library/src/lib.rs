@@ -14,6 +14,7 @@ mod analysis_cache;
 mod jobs;
 mod metadata;
 mod prepare;
+mod publication;
 #[cfg(feature = "autotag")]
 mod publish_files;
 #[cfg(feature = "autotag")]
