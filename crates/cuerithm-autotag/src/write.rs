@@ -525,6 +525,19 @@ impl TagWritePlan {
                             tag.set_raw("LABEL", vec![value.clone()], true);
                         }
                     }
+                    if field == Field::Version
+                        && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
+                    {
+                        let has_legacy = tag.get_native("VERSION").is_some();
+                        if !overwrite(selected)
+                            && (has_legacy || tag.get_field(Field::Version).is_some())
+                        {
+                            continue;
+                        }
+                        if has_legacy {
+                            tag.set_native("VERSION", vec![value.clone()]);
+                        }
+                    }
                     tag.set_field(field, vec![value], overwrite(selected));
                 }
             }

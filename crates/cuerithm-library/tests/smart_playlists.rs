@@ -1320,3 +1320,410 @@ fn published_cue_revisions_supply_names_colors_loop_and_memory_facts() {
     // Beta retains its legacy emergency-loop facts alongside Alpha's publication.
     assert_eq!(f.lib.playlist_members("active").unwrap(), f.ids[..2]);
 }
+
+#[test]
+fn release_dates_from_full_tags_use_the_library_calendar_for_preview_cache_and_refresh() {
+    use cuerithm_smartlists::{DateUnit, calendar_day_epoch};
+    let f = fixture();
+    let preferences = f.lib.get_playlist_preferences().unwrap();
+    f.lib
+        .save_playlist_preferences(
+            PlaylistPreferences {
+                time_zone: Some("America/Los_Angeles".into()),
+                key_mixing_mode: KeyMixingMode::Harmonic,
+            },
+            preferences.revision,
+        )
+        .unwrap();
+    let day = calendar_day_epoch("2026-10-18", "America/Los_Angeles").unwrap();
+    let previous = calendar_day_epoch("2026-10-17", "America/Los_Angeles").unwrap();
+    let next = calendar_day_epoch("2026-10-19", "America/Los_Angeles").unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    for alias in [
+        "releasedate",
+        "release_date",
+        "release date",
+        "tdrl",
+        "date",
+    ] {
+        conn.execute(
+            "UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags',json(?1)) WHERE id=?2",
+            params![
+                serde_json::json!({alias:"2026-10-18"}).to_string(),
+                f.ids[0]
+            ],
+        )
+        .unwrap();
+        for (operator, value) in [
+            (Operator::DateEquals, RuleValue::Date(day)),
+            (
+                Operator::DateBetween,
+                RuleValue::DateRange {
+                    start: previous,
+                    end: day,
+                },
+            ),
+            (
+                Operator::DateRecent,
+                RuleValue::Relative {
+                    count: 1,
+                    unit: DateUnit::Days,
+                },
+            ),
+        ] {
+            let preview = f
+                .lib
+                .preview_smart_list(
+                    definition("releaseDate", operator, value),
+                    SmartPreviewScope::default(),
+                    next - 1,
+                )
+                .unwrap();
+            assert_eq!(preview.track_ids, [f.ids[0].clone()], "release tag {alias}");
+        }
+    }
+    let rules = definition("releaseDate", Operator::DateEquals, RuleValue::Date(day));
+    create(
+        &f.lib,
+        "released",
+        None,
+        PlaylistKind::Smartlist,
+        Some(rules),
+    );
+    f.lib.refresh_smart_lists(next - 1).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("released").unwrap(),
+        [f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib
+            .track_ids(TrackQuery {
+                playlist_id: Some("released".into()),
+                ..Default::default()
+            })
+            .unwrap(),
+        [f.ids[0].clone()]
+    );
+    conn.execute("UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags.date','2026-10-17') WHERE id=?1", [&f.ids[0]]).unwrap();
+    assert_eq!(
+        f.lib
+            .playlist_evaluation_status_at("released", next - 1)
+            .unwrap()
+            .state,
+        SmartState::Stale
+    );
+    f.lib.refresh_smart_lists(next - 1).unwrap();
+    assert!(f.lib.playlist_members("released").unwrap().is_empty());
+}
+
+#[test]
+fn partial_invalid_and_timestamp_release_tags_stay_unknown_without_inventing_days() {
+    use cuerithm_smartlists::calendar_day_epoch;
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    for value in [
+        "2026",
+        "2026-10",
+        "2026-02-30",
+        "2026-10-18T00:00:00Z",
+        "",
+        "not a date",
+    ] {
+        conn.execute(
+            "UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags',json(?1)) WHERE id=?2",
+            params![serde_json::json!({"date":value}).to_string(), f.ids[0]],
+        )
+        .unwrap();
+        let preview = f
+            .lib
+            .preview_smart_list(
+                definition(
+                    "releaseDate",
+                    Operator::DateBetween,
+                    RuleValue::DateRange {
+                        start: calendar_day_epoch("2026-01-01", "UTC").unwrap(),
+                        end: calendar_day_epoch("2026-12-31", "UTC").unwrap(),
+                    },
+                ),
+                SmartPreviewScope::default(),
+                NOW,
+            )
+            .unwrap();
+        assert!(preview.track_ids.is_empty(), "unknown date {value}");
+    }
+    conn.execute(
+        "UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags',json(?1)) WHERE id=?2",
+        params![
+            serde_json::json!({"date":"2026-10", "releasedate":"2026-10-18"}).to_string(),
+            f.ids[0]
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        f.lib
+            .preview_smart_list(
+                definition(
+                    "releaseDate",
+                    Operator::DateEquals,
+                    RuleValue::Date(calendar_day_epoch("2026-10-18", "UTC").unwrap())
+                ),
+                SmartPreviewScope::default(),
+                NOW
+            )
+            .unwrap()
+            .track_ids,
+        [f.ids[0].clone()]
+    );
+}
+
+#[test]
+fn incoming_opt_in_is_consistent_across_preview_memberships_folders_paging_ids_and_lifecycle() {
+    let f = fixture();
+    let incoming = definition("incoming", Operator::BooleanTrue, RuleValue::None);
+    assert_eq!(
+        f.lib
+            .preview_smart_list(incoming.clone(), SmartPreviewScope::default(), NOW)
+            .unwrap()
+            .track_ids,
+        [f.ids[2].clone()]
+    );
+    assert_eq!(
+        f.lib
+            .preview_smart_list(
+                definition("incoming", Operator::BooleanFalse, RuleValue::None),
+                SmartPreviewScope::default(),
+                NOW
+            )
+            .unwrap()
+            .track_ids,
+        f.ids[..2]
+    );
+    create(&f.lib, "folder", None, PlaylistKind::Folder, None);
+    // The manual path contributes no Incoming opt-in; the later smart path must add it.
+    create(
+        &f.lib,
+        "manual",
+        Some("folder"),
+        PlaylistKind::Playlist,
+        None,
+    );
+    create(
+        &f.lib,
+        "incoming",
+        Some("folder"),
+        PlaylistKind::Smartlist,
+        Some(incoming),
+    );
+    create(
+        &f.lib,
+        "default",
+        None,
+        PlaylistKind::Smartlist,
+        Some(definition("title", Operator::Exists, RuleValue::None)),
+    );
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::AddMembers {
+                id: "manual".into(),
+                track_ids: vec![f.ids[0].clone(), f.ids[2].clone()],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("incoming").unwrap(),
+        [f.ids[2].clone()]
+    );
+    assert_eq!(f.lib.playlist_members("default").unwrap(), f.ids[..2]);
+    for scope in ["incoming", "folder"] {
+        let q = TrackQuery {
+            playlist_id: Some(scope.into()),
+            limit: 1,
+            ..Default::default()
+        };
+        let expected = if scope == "incoming" {
+            vec![f.ids[2].clone()]
+        } else {
+            vec![f.ids[0].clone(), f.ids[2].clone()]
+        };
+        assert_eq!(f.lib.track_ids(q.clone()).unwrap(), expected);
+        let first = f.lib.tracks(q.clone()).unwrap();
+        let mut rows = first.rows;
+        if let Some(cursor) = first.next_cursor {
+            rows.extend(
+                f.lib
+                    .tracks(TrackQuery {
+                        cursor: Some(cursor),
+                        ..q.clone()
+                    })
+                    .unwrap()
+                    .rows,
+            );
+        }
+        assert_eq!(rows.into_iter().map(|r| r.id).collect::<Vec<_>>(), expected);
+        let incoming_rows = f
+            .lib
+            .tracks(TrackQuery {
+                view: TrackView::Incoming,
+                ..q
+            })
+            .unwrap();
+        assert_eq!(incoming_rows.rows[0].id, f.ids[2]);
+        assert_eq!(incoming_rows.rows[0].state, "incoming");
+    }
+    assert_eq!(f.lib.track_ids(TrackQuery::default()).unwrap(), f.ids[..2]);
+    assert_eq!(
+        f.lib
+            .track_ids(TrackQuery {
+                playlist_id: Some("manual".into()),
+                ..Default::default()
+            })
+            .unwrap(),
+        [f.ids[0].clone()]
+    );
+    // Explicit smart scope also feeds playlist tools, independently of cached SQL queries.
+    let copied = f
+        .lib
+        .preview_playlist_tool(PlaylistToolRequest::Snapshot {
+            source_id: "incoming".into(),
+            parent_id: None,
+            name: "Incoming snapshot".into(),
+        })
+        .unwrap();
+    let copied = f
+        .lib
+        .apply_playlist_tool(&copied.id, copied.stamp.playlist_revision)
+        .unwrap();
+    assert_eq!(
+        f.lib
+            .manual_playlist_members(&copied.created_ids[0])
+            .unwrap(),
+        [f.ids[2].clone()]
+    );
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute("UPDATE tracks SET state='ready' WHERE id=?1", [&f.ids[2]])
+        .unwrap();
+    assert_eq!(
+        f.lib
+            .playlist_evaluation_status_at("incoming", NOW)
+            .unwrap()
+            .state,
+        SmartState::Stale
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(f.lib.playlist_members("incoming").unwrap().is_empty());
+    assert_eq!(f.lib.playlist_members("default").unwrap(), f.ids);
+}
+
+#[test]
+fn ordinary_generation_and_library_complement_stay_prepared_only_with_incoming_candidates() {
+    let f = fixture();
+    for title in ["Incoming only", "Alpha"] {
+        let conn = Connection::open(f.dir.path().join("db")).unwrap();
+        conn.execute(
+            "UPDATE tracks SET title=?1 WHERE id=?2",
+            params![title, f.ids[2]],
+        )
+        .unwrap();
+        let preview = f
+            .lib
+            .preview_smart_generation(SmartGenerationRequest {
+                target: GenerationTarget::NewFolder {
+                    parent_id: None,
+                    name: "Generated".into(),
+                },
+                dimensions: vec![GenerationDimension::Field {
+                    field: "title".into(),
+                    include_unobserved: false,
+                }],
+                combine: false,
+            })
+            .unwrap();
+        assert_eq!(
+            preview
+                .items
+                .iter()
+                .map(|item| (item.name.as_str(), item.track_count))
+                .collect::<Vec<_>>(),
+            [("Alpha", 1), ("Beta", 1)]
+        );
+    }
+    create(&f.lib, "base", None, PlaylistKind::Playlist, None);
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::AddMembers {
+                id: "base".into(),
+                track_ids: vec![f.ids[0].clone()],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    let preview = f
+        .lib
+        .preview_playlist_tool(PlaylistToolRequest::Combine {
+            source_ids: vec!["base".into()],
+            parent_id: None,
+            name: "Complement".into(),
+            mode: PlaylistCombineMode::AbsentFromAll,
+        })
+        .unwrap();
+    let change = f
+        .lib
+        .apply_playlist_tool(&preview.id, preview.stamp.playlist_revision)
+        .unwrap();
+    assert_eq!(
+        f.lib
+            .manual_playlist_members(&change.created_ids[0])
+            .unwrap(),
+        [f.ids[1].clone()]
+    );
+}
+
+#[test]
+fn archived_incoming_tracks_require_both_opt_ins_in_smart_evaluation_and_tables() {
+    let f = fixture();
+    f.lib.set_archived(&f.ids[2], true).unwrap();
+    for field in ["incoming", "archived"] {
+        assert!(
+            f.lib
+                .preview_smart_list(
+                    definition(field, Operator::BooleanTrue, RuleValue::None),
+                    SmartPreviewScope::default(),
+                    NOW
+                )
+                .unwrap()
+                .track_ids
+                .is_empty()
+        );
+    }
+    let mut both = definition("incoming", Operator::BooleanTrue, RuleValue::None);
+    both.rules.push(SmartRule {
+        id: "archive".into(),
+        field: "archived".into(),
+        operator: Operator::BooleanTrue,
+        value: RuleValue::None,
+        or: false,
+    });
+    assert_eq!(
+        f.lib
+            .preview_smart_list(both.clone(), SmartPreviewScope::default(), NOW)
+            .unwrap()
+            .track_ids,
+        [f.ids[2].clone()]
+    );
+    create(&f.lib, "both", None, PlaylistKind::Smartlist, Some(both));
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let rows = f
+        .lib
+        .tracks(TrackQuery {
+            playlist_id: Some("both".into()),
+            ..Default::default()
+        })
+        .unwrap()
+        .rows;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, f.ids[2]);
+    assert!(rows[0].archived);
+    assert_eq!(rows[0].state, "incoming");
+}

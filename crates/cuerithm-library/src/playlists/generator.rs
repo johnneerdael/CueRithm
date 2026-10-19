@@ -85,7 +85,7 @@ fn observed(snapshot: &snapshot::Snapshot, field: &str) -> Result<Vec<FieldValue
         or: false,
     }]);
     let mut values = BTreeMap::new();
-    for row in snapshot.tracks.iter().filter(|r| !r.track.archived) {
+    for row in snapshot.tracks.iter().filter(|r| r.prepared()) {
         evaluate::blocked(&probe, snapshot, row)?;
         let value = if field == "key" {
             row.track
@@ -190,7 +190,7 @@ fn build(snapshot: &snapshot::Snapshot, dimension: &GenerationDimension) -> Resu
             let observed = snapshot
                 .tracks
                 .iter()
-                .filter(|r| !r.track.archived)
+                .filter(|r| r.prepared())
                 .flat_map(|r| r.track.tags.iter().cloned())
                 .collect::<BTreeSet<_>>();
             let ids = tag_ids
@@ -275,7 +275,7 @@ fn candidates(snapshot: &snapshot::Snapshot, templates: Vec<Template>) -> Result
                 .tracks
                 .iter()
                 .enumerate()
-                .filter(|(_, r)| !r.track.archived)
+                .filter(|(_, r)| r.prepared())
             {
                 evaluate::blocked(&template.definition, snapshot, row)?;
                 if compiled.matches(&row.track, &context)? {

@@ -106,6 +106,12 @@ pub(crate) fn allows_archive(definition: &SmartDefinition) -> bool {
         .iter()
         .any(|r| r.field == "archived" && r.operator == Operator::BooleanTrue)
 }
+pub(crate) fn allows_incoming(definition: &SmartDefinition) -> bool {
+    definition
+        .rules
+        .iter()
+        .any(|r| r.field == "incoming" && r.operator == Operator::BooleanTrue)
+}
 pub(crate) fn ordered_descendants(tree: &Tree, id: &str) -> Vec<String> {
     let mut result = vec![];
     let mut stack = vec![id.to_owned()];
@@ -234,7 +240,9 @@ pub(super) fn compute(
                     !stop.is_some_and(|s| s.load(Ordering::Acquire)),
                     "Smart refresh cancelled"
                 );
-                if row.track.archived && !allows_archive(definition) {
+                if row.track.archived && !allows_archive(definition)
+                    || row.incoming && !allows_incoming(definition)
+                {
                     continue;
                 }
                 if let Some((target, selected)) = selected

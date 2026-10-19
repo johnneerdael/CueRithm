@@ -14,7 +14,13 @@ use std::{
 #[derive(Debug, Clone)]
 pub(crate) struct SnapshotTrack {
     pub track: SmartTrack,
+    pub incoming: bool,
     pub unavailable: BTreeMap<String, String>,
+}
+impl SnapshotTrack {
+    pub(crate) fn prepared(&self) -> bool {
+        !self.incoming && !self.track.archived
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Observation {
@@ -318,6 +324,16 @@ impl Library {
         let _ = cuerithm_smartlists::EvaluationContext::new(now, &zone)?;
         let tree = load(&tx)?;
         let mut catalog = FieldCatalog::standard();
+        // These MediaInfo columns have a schema even when every value is null.
+        for (id, kind) in [
+            ("audio.codec", FieldKind::Text),
+            ("audio.sample_rate", FieldKind::Number),
+            ("audio.channels", FieldKind::Number),
+            ("audio.bits_per_sample", FieldKind::Number),
+        ] {
+            insert(&mut catalog, id, id, kind, false);
+        }
+        let mut dynamic_kinds: BTreeMap<String, Option<FieldKind>> = BTreeMap::new();
         let mut tag_choices = vec![];
         let mut category_choices = vec![];
         for (id, label) in [
@@ -523,14 +539,19 @@ impl Library {
                 "Smart refresh cancelled"
             );
             all_ids.insert(id.clone());
-            if state != "ready" {
+            if !matches!(state.as_str(), "ready" | "incoming") {
                 continue;
             }
+            let incoming = state == "incoming";
             let mut row = SnapshotTrack {
                 track: SmartTrack::new(&id),
+                incoming,
                 unavailable: Default::default(),
             };
             row.track.archived = archived;
+            row.track
+                .fields
+                .insert("incoming".into(), FieldValue::Boolean(incoming));
             row.track.tags = linked.remove(&id).unwrap_or_default();
             for (key, value) in [
                 ("title", title),
@@ -550,20 +571,21 @@ impl Library {
             if let Ok(info) = &media {
                 for (key, value) in info.columns() {
                     let typed = metadata_value(&value);
-                    let kind = match typed {
-                        FieldValue::Number(_) => FieldKind::Number,
-                        FieldValue::Boolean(_) => FieldKind::Boolean,
-                        _ => FieldKind::Text,
-                    };
-                    catalog
-                        .fields
-                        .entry(key.clone())
-                        .or_insert(FieldDescriptor {
-                            label: key.clone(),
-                            kind,
-                            any_text: key.starts_with("tag."),
-                            unavailable_reason: None,
-                        });
+                    if !catalog.fields.contains_key(&key) {
+                        let kind = match typed {
+                            FieldValue::Null => None,
+                            FieldValue::Number(_) => Some(FieldKind::Number),
+                            FieldValue::Boolean(_) => Some(FieldKind::Boolean),
+                            _ => Some(FieldKind::Text),
+                        };
+                        let observed = dynamic_kinds.entry(key.clone()).or_default();
+                        if let Some(kind) = kind {
+                            *observed = Some(match *observed {
+                                Some(previous) if previous != kind => FieldKind::Text,
+                                _ => kind,
+                            });
+                        }
+                    }
                     row.track.fields.insert(key, typed);
                 }
                 row.track
@@ -577,6 +599,23 @@ impl Library {
                     "sampleRate".into(),
                     FieldValue::Number(info.sample_rate as f64),
                 );
+                // Partial dates and timestamps stay unknown; metadata must name a
+                // complete calendar day under the same IANA policy as rule inputs.
+                if let Some(date) = [
+                    "releasedate",
+                    "release_date",
+                    "release date",
+                    "tdrl",
+                    "date",
+                ]
+                .iter()
+                .filter_map(|key| info.tags.get(*key))
+                .find_map(|value| cuerithm_smartlists::calendar_day_epoch(value.trim(), &zone).ok())
+                {
+                    row.track
+                        .fields
+                        .insert("releaseDate".into(), FieldValue::Date(date));
+                }
                 for (key, sources, scale) in [
                     ("bitrate", &["audio.bit_rate"][..], 1000.),
                     ("sizeBytes", &["format.size"][..], 1.),
@@ -618,6 +657,14 @@ impl Library {
                         row.track.fields.insert(field.into(), value);
                     }
                 }
+                if !row.track.fields.contains_key("mix") {
+                    for alias in ["tag.subtitle", "tag.version"] {
+                        if let Some(value) = row.track.fields.get(alias).cloned() {
+                            row.track.fields.insert("mix".into(), value);
+                            break;
+                        }
+                    }
+                }
                 if !row.track.fields.contains_key("albumArtist") {
                     for alias in ["tag.album_artist", "tag.album artist"] {
                         if let Some(value) = row.track.fields.get(alias).cloned() {
@@ -655,7 +702,12 @@ impl Library {
                     }
                     Err(e) => {
                         for field in cuerithm_cleanup::MetadataField::ALL {
-                            let key = serde_json::to_value(field)?.as_str().unwrap().to_owned();
+                            let key = match field {
+                                cuerithm_cleanup::MetadataField::AlbumArtist => {
+                                    "albumArtist".into()
+                                }
+                                _ => serde_json::to_value(field)?.as_str().unwrap().to_owned(),
+                            };
                             row.unavailable.insert(key, e.to_string());
                         }
                     }
@@ -790,6 +842,23 @@ impl Library {
                 }
             }
             tracks.push(row);
+        }
+        // Use every non-null observation, never the first track's sort position.
+        // Mixed primitive types share a text representation while null stays absent.
+        for (id, observed) in dynamic_kinds {
+            let kind = observed.unwrap_or(FieldKind::Text);
+            insert(&mut catalog, &id, &id, kind, id.starts_with("tag."));
+            if kind == FieldKind::Text {
+                for row in &mut tracks {
+                    if let Some(value) = row.track.fields.get_mut(&id) {
+                        match value {
+                            FieldValue::Number(n) => *value = FieldValue::Text(n.to_string()),
+                            FieldValue::Boolean(b) => *value = FieldValue::Text(b.to_string()),
+                            _ => {}
+                        }
+                    }
+                }
+            }
         }
         let playlists = tree
             .values()

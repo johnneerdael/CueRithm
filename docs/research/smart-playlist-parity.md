@@ -67,11 +67,30 @@ Playlist/folder/smart predicates consume complete supplied memberships and error
 if they are unavailable. File availability distinguishes Present, Missing and
 Unavailable. No metadata, file, audio or database access occurs inside matching.
 
+The native adapter keeps fixed MediaInfo columns typed even when every value is
+unknown: codec is text; sample rate, channels and bit depth are numbers. Other
+dynamic properties derive their type from all non-null values in the snapshot,
+independent of track order. Mixed primitive types use text, preserving each
+number/boolean's textual value; null stays absent. A later actual type change
+may make an existing incompatible rule unavailable rather than reinterpret its
+operator. No dynamic field schema is inferred from a missing first value.
+
+Mix resolves canonical Vorbis SUBTITLE and legacy VERSION metadata. Canonical
+SUBTITLE takes precedence if both are present. Catalog writes respect an existing
+legacy value when overwrite is disabled; overwrite and cleanup keep existing
+aliases synchronized, and clearing Mix removes both. The flattened metadata
+fallback also recognizes subtitle/version when no native Mix value is cached.
+Malformed native metadata makes Album artist unavailable under its canonical
+field ID, just like the other native text fields.
+
 Compiled lists own a shared immutable catalog and compiled bounded regexes;
 evaluation receives a fixed clock, zone, mixing mode and membership/protected-
 genre snapshot. All rules are evaluated before returning a combined match so
 an evaluated error cannot be hidden by an earlier Any match. Archived records
-require an explicit Archived=true rule. Source flat Any/All/multiple-OR semantics
+require an explicit Archived=true rule; Incoming records require an explicit
+Incoming=true rule. Each opt-in is independent, so an archived Incoming record
+requires both. Lists without an Incoming opt-in keep the prepared-track scope,
+including Incoming=false lists. Source flat Any/All/multiple-OR semantics
 are preserved rather than replaced with arbitrary Boolean nesting.
 
 Chrono0.4.45 and chrono-tz0.10.4 supply checked dates and compiled IANA zones;
@@ -106,8 +125,21 @@ finite, ordered bins. Failed reads are observed too, so a repaired cache cannot
 publish an obsolete error. Missing files and unavailable reads remain distinct.
 
 Logical BPM/key/energy use measured analysis; raw tags remain separately
-addressable metadata. Common date/year, fractional track-number and album-artist
-tag aliases are normalized without rewriting tags. Native contributor values
+addressable metadata. Release-date rules recognize complete YYYY-MM-DD values
+from the first valid tag in this order: releasedate, release_date, release date,
+tdrl, date. Dates resolve to the start of that calendar day in the captured
+library IANA zone using the same gap/fold policy as rule inputs. Year-only,
+year-month, malformed dates and timestamp strings remain unknown; no month,
+day or timestamp offset is invented. Raw tags and numeric year handling remain
+separate and are not rewritten.
+
+Incoming opt-ins apply to previews, persisted smart memberships and selected
+smart-list/folder tables and IDs. Preparation state changes invalidate cached
+memberships. Ordinary Tracks, ordinary playlist tables, generated playlist
+families and library-complement tools keep their prepared-only default scope.
+Explicit smart playlist sources can still supply Incoming members to playlist
+tools. Common date/year, fractional track-number and album-artist tag aliases
+are normalized without rewriting tags. Native contributor values
 retain their boundaries. Generated structural cues do not invent native memory
 or variable-tempo facts; explicitly imported facts can supply those fields.
 

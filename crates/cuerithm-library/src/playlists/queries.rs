@@ -7,20 +7,20 @@ pub(crate) fn scoped_members(
     conn: &Connection,
     tree: &Tree,
     id: &str,
-) -> Result<Vec<(String, bool)>> {
+) -> Result<Vec<(String, bool, bool)>> {
     let root = tree::active(tree, id)?;
     let ids = if root.node.kind == PlaylistKind::Folder {
         evaluate::ordered_descendants(tree, id)
     } else {
         vec![id.to_owned()]
     };
-    let mut members: Vec<(String, bool)> = vec![];
+    let mut members: Vec<(String, bool, bool)> = vec![];
     let mut index: BTreeMap<String, usize> = BTreeMap::new();
     for id in ids {
         let node = &tree[&id];
-        let (rows, archive) = match node.node.kind {
+        let (rows, archive, incoming) = match node.node.kind {
             PlaylistKind::Folder => continue,
-            PlaylistKind::Playlist => (node.members.clone(), false),
+            PlaylistKind::Playlist => (node.members.clone(), false, false),
             PlaylistKind::Smartlist => {
                 let mut q=conn.prepare("SELECT track_id FROM smart_playlist_members WHERE playlist_id=?1 ORDER BY position")?;
                 let rows = q
@@ -32,15 +32,20 @@ pub(crate) fn scoped_members(
                         .definition
                         .as_ref()
                         .is_some_and(evaluate::allows_archive),
+                    node.node
+                        .definition
+                        .as_ref()
+                        .is_some_and(evaluate::allows_incoming),
                 )
             }
         };
         for track in rows {
             if let Some(position) = index.get(&track).copied() {
                 members[position].1 |= archive;
+                members[position].2 |= incoming;
             } else {
                 index.insert(track.clone(), members.len());
-                members.push((track, archive));
+                members.push((track, archive, incoming));
             }
         }
     }
@@ -51,7 +56,7 @@ impl Library {
         let conn = self.conn()?;
         Ok(scoped_members(&conn, &load(&conn)?, id)?
             .into_iter()
-            .map(|(id, _)| id)
+            .map(|(id, _, _)| id)
             .collect())
     }
 }
@@ -93,15 +98,11 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
     };
     let scoped = query.playlist_id.is_some();
     let scope = if let Some(id) = &query.playlist_id {
-        ensure!(
-            !matches!(query.view, TrackView::Incoming),
-            "Incoming tracks cannot be queried as prepared playlist members"
-        );
         let tree = load(conn)?;
         serde_json::to_string(
             &scoped_members(conn, &tree, id)?
                 .iter()
-                .map(|(id, archive)| serde_json::json!({"id":id,"archive":archive}))
+                .map(|(id, archive, incoming)| serde_json::json!({"id":id,"archive":archive,"incoming":incoming}))
                 .collect::<Vec<_>>(),
         )?
     } else {
@@ -109,7 +110,9 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
     };
     let condition = match (&query.view, scoped) {
         (TrackView::Tracks, false) => "t.state='ready' AND t.archived=0",
-        (TrackView::Tracks, true) => "t.state='ready' AND (t.archived=0 OR s.archive=1)",
+        (TrackView::Tracks, true) => {
+            "(t.state='ready' OR (t.state='incoming' AND s.incoming=1)) AND (t.archived=0 OR s.archive=1)"
+        }
         (TrackView::Incoming, _) => "t.state='incoming' AND t.archived=0",
         (TrackView::Archive, _) => "t.archived=1",
     };
@@ -142,7 +145,7 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
         offset,
     })
 }
-const CTE: &str = "WITH scope AS (SELECT json_extract(value,'$.id') id,CAST(key AS INTEGER) ordinal,json_extract(value,'$.archive') archive FROM json_each(:scope))";
+const CTE: &str = "WITH scope AS (SELECT json_extract(value,'$.id') id,CAST(key AS INTEGER) ordinal,json_extract(value,'$.archive') archive,json_extract(value,'$.incoming') incoming FROM json_each(:scope))";
 pub(crate) fn tracks(lib: &Library, query: TrackQuery) -> Result<TrackPage> {
     let conn = lib.conn()?;
     let sql = build(&conn, &query)?;

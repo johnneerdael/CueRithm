@@ -340,7 +340,7 @@ impl Library {
                             .context("Library snapshot unavailable")?
                             .tracks
                             .iter()
-                            .filter(|r| !r.track.archived && !excluded.contains(&r.track.id))
+                            .filter(|r| r.prepared() && !excluded.contains(&r.track.id))
                             .map(|r| r.track.id.clone())
                             .collect()
                     }

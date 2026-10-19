@@ -22,6 +22,13 @@ No collection XML transport is part of the product. Plays, Last Played and
 Danceability, the remaining OneTagger workflows, and Mixed In Key segment-energy
 or cue imitation are outside the approved scope.
 
+Smart playlists can explicitly include Incoming tracks; ordinary Tracks,
+manual playlist tables and automatic playlist generation keep their prepared
+track defaults. Release Date rules use complete calendar-date tags under the
+library's time zone. Partial dates and timestamp strings remain unknown rather
+than acquiring an invented calendar day. See the
+[smart-rule adapter policies](research/smart-playlist-parity.md).
+
 The library upgrades to schema 11. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains

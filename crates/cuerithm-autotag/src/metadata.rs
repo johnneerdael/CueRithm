@@ -50,7 +50,7 @@ fn binding(field: MetadataField, format: &AudioFileFormat) -> &'static str {
         Grouping => ("TIT1", "GROUPING", "©grp", "WM/ContentGroupDescription"),
         Label => ("TPUB", "LABEL", "LABEL", "WM/Publisher"),
         Remixer => ("TPE4", "REMIXER", "REMIXER", "WM/ModifiedBy"),
-        Mix => ("TIT3", "VERSION", "desc", "WM/SubTitle"),
+        Mix => ("TIT3", "SUBTITLE", "desc", "WM/SubTitle"),
         Producer => ("PRODUCER", "PRODUCER", "PRODUCER", "WM/Producer"),
         Composer => ("TCOM", "COMPOSER", "©wrt", "WM/Composer"),
         Lyricist => ("TEXT", "LYRICIST", "LYRICIST", "WM/Writer"),
@@ -75,6 +75,13 @@ fn effective_binding(
         && tag.get_native("PUBLISHER").is_some()
     {
         return "PUBLISHER";
+    }
+    if field == MetadataField::Mix
+        && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
+        && tag.get_native(key).is_none()
+        && tag.get_native("VERSION").is_some()
+    {
+        return "VERSION";
     }
     if field == MetadataField::Artist
         && *format == AudioFileFormat::WMA
@@ -133,12 +140,17 @@ pub(crate) fn edit(
                     vec![change.after.join("; ")]
                 },
             );
-        } else if change.field == MetadataField::Label
+        } else if matches!(change.field, MetadataField::Label | MetadataField::Mix)
             && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
         {
-            // Both aliases represent the selected Label field. Leaving an old
-            // publisher behind would shadow a clear or disagree in other readers.
-            let keys = ["LABEL", "PUBLISHER"]
+            // Keep existing aliases synchronized so an edit or clear cannot
+            // expose an older value through a different reader.
+            let aliases = if change.field == MetadataField::Label {
+                ["LABEL", "PUBLISHER"]
+            } else {
+                ["SUBTITLE", "VERSION"]
+            };
+            let keys = aliases
                 .into_iter()
                 .filter(|key| tag.get_native(key).is_some())
                 .collect::<Vec<_>>();
