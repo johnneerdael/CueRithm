@@ -404,3 +404,46 @@ playlist restoration. Branded maintenance screens, full live-library acceptance,
 reviewed unused-file removal and the broader remaining objective stay separate
 delivery gates. Current-head Windows/Linux packaging and tests require their own
 CI results.
+
+
+## Reviewed unused-file removal and recovery
+
+Seen in the retained Lexicon1.11.15 renderer at290303–290388: the result action
+uses selected paths and sizes, requests confirmation, then permanently removes
+files with concurrency10 and writes a report. The platform helpers at327414–
+327468 remove the first present known sidecar and attempt parent-folder cleanup.
+Module68292 at313840–313854 prefers the extension-replaced `.1.2.serato-stems`
+path, then the full source path plus `.vdjstems`. This is static shipped-code
+evidence; it is not an observed deletion of the user's collection.
+
+The Rust path retains selection and first-sidecar behavior, with the approved
+recoverable-publication requirement. A persisted preview identifies every file
+and its role/bytes. Apply validates source hashes and filesystem identities,
+complete scan proofs, root containment, current library references and shared
+reservations, then records durable backups and a prepared journal before moving
+sources. Only committed removals clean up captured temporary files. A reverse
+journal restores original bytes to unoccupied paths. This changes no library
+track/analysis/job/cue/playlist data.
+
+Generated regressions cover fresh/partial/stale reports, sidecar priority,
+referenced or hardlinked aliases, source replacement, symlinked parents, SQL
+failure, cancellation, restart at prepared and moved states, interrupted restore,
+changed backups and later user files. A controlled replacement between rollback's
+proof and filesystem action exposed a deletion race; claiming the file by an
+atomic no-replace move before validation/removal preserves the newer version.
+Unresolved operations reserve source paths across maintenance/tag/cleanup writers.
+Unavailable backup storage becomes a visible conflict instead of preventing
+library access. Native API delivery does not establish live-library acceptance.
+
+Schema9 is a reader-version boundary for the new recovery payloads. Empty-folder
+cleanup and explicit backup retention/purge remain unfinished; retained backups
+mean removal from the music folder does not necessarily free device space.
+
+
+A packaged macOS app with a separate identifier and private empty library exercised
+real native scan, preview, removal, history and restore commands. Its generated
+source plus VirtualDJ sibling were listed as two reviewed entries (65 bytes),
+removed, then restored. A fresh native scan confirmed the source hash returned;
+post-quit checks verified all three original hashes including an unselected file,
+zero track/job/cue/playlist rows, valid foreign keys and no pending recovery.
+This validates that isolated native path, not branded views or a live collection.

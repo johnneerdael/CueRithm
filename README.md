@@ -107,10 +107,15 @@ preview selected changes; Apply updates files and library with durable Undo. The
 same saved rules run during Incoming when enabled. See [cleanup](docs/cleanup.md)
 for the workflow and validation boundaries.
 
-Ordinary/smart playlists, duplicate/file maintenance and direct rekordbox 6/7
-sync remain subsequent approved deliveries. No desktop XML fallback exists.
-This is an unsigned test build, not a signed public release or a complete
-product-parity claim.
+The playlist store and smart-rule evaluator have typed native APIs. Maintenance
+now includes duplicate discovery/review, coordinated donor merge with Undo,
+read-only unused/missing-file scans, and reviewed unused-file removal with
+retained recovery backups. See the [maintenance API](docs/development/maintenance-api.md)
+for the user-owned UI handoff, recovery workflow and remaining delivery gates.
+Branded maintenance views, full library acceptance, empty-folder cleanup and
+backup-retention controls remain unfinished. Direct rekordbox 6/7 sync remains a
+required delivery; no desktop XML fallback exists. This is an unsigned test build,
+not a signed public release or a complete product-parity claim.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
 commands, platform prerequisites and artifact verification.

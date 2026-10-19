@@ -280,3 +280,81 @@ pub async fn maintenance_retry_recovery(
     })
     .await
 }
+
+#[tauri::command]
+pub async fn maintenance_preview_unused_removal(
+    host: Managed<'_>,
+    operation_id: String,
+    scan_id: String,
+    selected: Vec<String>,
+) -> Ipc<UnusedRemovalPreview> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library
+            .preview_unused_removal(&scan_id, &selected, cancel)
+    })
+    .await
+}
+fn unused_changed(app: &tauri::AppHandle, result: &UnusedRemovalResult) {
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":result.stamp}),
+    );
+    let _=app.emit("library-change",serde_json::json!({"source_paths":result.files.iter().map(|f|&f.display_path).collect::<Vec<_>>()}));
+}
+#[tauri::command]
+pub async fn maintenance_apply_unused_removal(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<UnusedRemovalResult> {
+    let result = run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library.apply_unused_removal(&id, cancel)
+    })
+    .await?;
+    unused_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_restore_unused_removal(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<UnusedRemovalResult> {
+    let result = run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library.restore_unused_removal(&id, cancel)
+    })
+    .await?;
+    unused_changed(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_unused_removal_history(
+    host: Managed<'_>,
+) -> Ipc<Vec<UnusedRemovalHistory>> {
+    let lib = host.library.clone();
+    work(move || lib.unused_removal_history()).await
+}
+#[tauri::command]
+pub async fn maintenance_retry_unused_recovery(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<Vec<UnusedRemovalHistory>> {
+    let (history, stamp) = run(host.inner().clone(), operation_id, move |host, cancel| {
+        let history = host.library.retry_unused_removal_recovery(&id, cancel)?;
+        Ok((history, host.library.duplicate_ignores()?.stamp))
+    })
+    .await?;
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":stamp}),
+    );
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"sources_changed":true}),
+    );
+    Ok(history)
+}

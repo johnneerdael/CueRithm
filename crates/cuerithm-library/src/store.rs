@@ -54,7 +54,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=8).contains(&version),
+            (0..=9).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -109,6 +109,12 @@ impl Library {
                 include_str!("../migrations/008_maintenance_writes.sql")
             ))?;
         }
+        if version < 9 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/009_unused_removal.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -150,6 +156,7 @@ impl Library {
             lib.recover_cleanup_writes()?;
             lib.recover_duplicate_writes()?;
         }
+        lib.recover_unused_removals()?;
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

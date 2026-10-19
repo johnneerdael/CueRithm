@@ -210,6 +210,46 @@ pub struct UnusedScanReport {
     pub stale: bool,
     pub stale_reason: Option<String>,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnusedRemovalRole {
+    Selected,
+    Sibling,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnusedRemovalFile {
+    pub id: String,
+    pub display_path: String,
+    pub size_bytes: u64,
+    pub source_sha256: String,
+    pub role: UnusedRemovalRole,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedRemovalPreview {
+    pub id: String,
+    pub scan_id: String,
+    pub stamp: MaintenanceStamp,
+    pub files: Vec<UnusedRemovalFile>,
+    pub size_bytes: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedRemovalResult {
+    pub id: String,
+    pub preview_id: String,
+    pub stamp: MaintenanceStamp,
+    pub files: Vec<UnusedRemovalFile>,
+    pub size_bytes: u64,
+    pub restored: bool,
+    pub undo_of: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedRemovalHistory {
+    pub result: UnusedRemovalResult,
+    pub state: String,
+    pub error: Option<String>,
+    pub undone_by: Option<String>,
+    pub cleanup_pending: bool,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileScanProgress {
     pub completed: usize,

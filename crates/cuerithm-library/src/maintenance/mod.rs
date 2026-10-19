@@ -12,4 +12,8 @@ mod scan;
 pub use model::*;
 
 mod broken;
+mod removal;
 mod unused;
+
+#[cfg(feature = "autotag")]
+pub(crate) use removal::ensure_unused_unreserved;

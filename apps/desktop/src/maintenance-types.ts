@@ -32,3 +32,8 @@ export interface DuplicateMergeResult {id:string;preview_id:string;stamp:Mainten
 export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null}
 
 export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null}
+
+export interface UnusedRemovalFile extends UnusedFile {role:"selected"|"sibling"}
+export interface UnusedRemovalPreview {id:string;scan_id:string;stamp:MaintenanceStamp;files:UnusedRemovalFile[];size_bytes:number}
+export interface UnusedRemovalResult {id:string;preview_id:string;stamp:MaintenanceStamp;files:UnusedRemovalFile[];size_bytes:number;restored:boolean;undo_of:string|null}
+export interface UnusedRemovalHistory {result:UnusedRemovalResult;state:string;error:string|null;undone_by:string|null;cleanup_pending:boolean}

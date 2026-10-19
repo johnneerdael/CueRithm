@@ -162,6 +162,7 @@ pub(super) fn insert(
         "Library changed during staging"
     );
     for f in files {
+        crate::maintenance::ensure_unused_unreserved(&tx, &[path_bytes(&f.target)])?;
         let busy:i64=tx.query_row("SELECT (SELECT COUNT(*) FROM tag_write_files f JOIN tag_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')+(SELECT COUNT(*) FROM cleanup_write_files f JOIN cleanup_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared') + (SELECT COUNT(*) FROM maintenance_write_files f JOIN maintenance_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state IN ('prepared','conflict'))",[path_bytes(&f.target)],|r|r.get(0))?;
         ensure!(busy == 0, "Metadata destination is reserved");
     }

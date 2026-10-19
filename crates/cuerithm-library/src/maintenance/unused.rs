@@ -22,10 +22,10 @@ struct DirectoryProof {
     entries: Vec<(Vec<u8>, u8)>,
 }
 #[derive(Serialize, Deserialize)]
-struct SavedUnused {
-    report: UnusedScanReport,
-    root: Vec<u8>,
-    files: Vec<FileProof>,
+pub(super) struct SavedUnused {
+    pub(super) report: UnusedScanReport,
+    pub(super) root: Vec<u8>,
+    pub(super) files: Vec<FileProof>,
     directories: Vec<DirectoryProof>,
     references: Vec<(Vec<u8>, Option<u64>)>,
     logic: String,
@@ -192,7 +192,10 @@ fn excluded(path: &Path, root: &Path, app: &Path, known: &[PathBuf], is_director
     !is_directory
         && path.file_name().is_some_and(|n| {
             let n = n.to_string_lossy();
-            n.ends_with(".DS_Store") || n.starts_with("._")
+            n.ends_with(".DS_Store")
+                || n.starts_with("._")
+                || n.starts_with(".cuerithm-unused-")
+                || n.starts_with(".cuerithm-restore-")
         })
 }
 fn sidecar(path: &Path, all: &[PathBuf]) -> bool {
@@ -550,6 +553,20 @@ impl Library {
         self.refresh_unused(&mut saved, cancel)?;
         Ok(saved.report)
     }
+    pub(super) fn removal_scan(&self, id: &str, cancel: &CancellationToken) -> Result<SavedUnused> {
+        let text: String = self.conn()?.query_row(
+            "SELECT payload_json FROM maintenance_scans WHERE id=?1 AND kind='unused'",
+            [id],
+            |r| r.get(0),
+        )?;
+        let mut saved: SavedUnused = serde_json::from_str(&text)?;
+        self.refresh_unused(&mut saved, cancel)?;
+        ensure!(
+            saved.report.complete && !saved.report.stale,
+            "Unused scan is partial or stale; scan again"
+        );
+        Ok(saved)
+    }
     pub fn unused_scan_export(&self, id: &str) -> Result<String> {
         self.unused_scan_export_cancellable(id, &CancellationToken::default())
     }
@@ -566,6 +583,27 @@ impl Library {
             .collect::<Vec<_>>()
             .join("\n"))
     }
+}
+
+pub(super) fn ensure_unreferenced(conn: &rusqlite::Connection, paths: &[PathBuf]) -> Result<()> {
+    let mut q = conn.prepare("SELECT path FROM tracks")?;
+    let mut references = BTreeSet::new();
+    let mut keys: BTreeMap<u64, Vec<PathBuf>> = BTreeMap::new();
+    for value in q.query_map([], |r| r.get::<_, Vec<u8>>(0))? {
+        let path = bytes_path(&value?)?;
+        let path = path.canonicalize().unwrap_or(path);
+        if let Some(key) = reference_key(&path) {
+            keys.entry(key).or_default().push(path.clone());
+        }
+        references.insert(path);
+    }
+    for path in paths {
+        ensure!(
+            !referenced(path, &references, &keys)?,
+            "Removal file is referenced by the library"
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

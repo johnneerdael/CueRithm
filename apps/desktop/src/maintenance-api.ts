@@ -1,10 +1,15 @@
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
-import type {DuplicateRecovery,DuplicateMergeResult,DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
+import type {UnusedRemovalPreview,UnusedRemovalResult,UnusedRemovalHistory,DuplicateRecovery,DuplicateMergeResult,DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
 
 // Give every long operation a fresh ID (crypto.randomUUID()) and retain it for cancellation.
 // A cancelled operation keeps the slot until its original promise settles.
 export const nativeMaintenance={
+  previewUnusedRemoval:(operationId:string,scanId:string,selected:string[])=>invoke<UnusedRemovalPreview>("maintenance_preview_unused_removal",{operationId,scanId,selected}),
+  applyUnusedRemoval:(operationId:string,id:string)=>invoke<UnusedRemovalResult>("maintenance_apply_unused_removal",{operationId,id}),
+  restoreUnusedRemoval:(operationId:string,id:string)=>invoke<UnusedRemovalResult>("maintenance_restore_unused_removal",{operationId,id}),
+  unusedRemovalHistory:()=>invoke<UnusedRemovalHistory[]>("maintenance_unused_removal_history"),
+  retryUnusedRecovery:(operationId:string,id:string)=>invoke<UnusedRemovalHistory[]>("maintenance_retry_unused_recovery",{operationId,id}),
   applyMerge:(operationId:string,id:string)=>invoke<DuplicateMergeResult>("maintenance_apply_merge",{operationId,id}),
   undoMerge:(operationId:string,id:string)=>invoke<DuplicateMergeResult>("maintenance_undo_merge",{operationId,id}),
   recovery:()=>invoke<DuplicateRecovery[]>("maintenance_recovery"),

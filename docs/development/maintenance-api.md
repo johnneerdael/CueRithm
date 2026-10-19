@@ -120,3 +120,42 @@ playlist replacement/restoration and zero pending recovery on generated WAVs.
 These checks do not establish branded maintenance-screen or full user-library
 acceptance. The user-owned UI can now connect its review/apply/undo controls to
 these commands. Reviewed disk removal remains a separate unfinished feature.
+
+
+## Reviewed unused-file removal
+
+Use `previewUnusedRemoval(operationId, scanId, selectedIds)` with IDs from a
+complete, fresh unused-file report. The persisted preview returns the exact
+selected files, the first present Lexicon-style Serato/VirtualDJ sibling, hashes,
+roles and total bytes. It accepts no arbitrary source paths. Show all preview
+entries, including siblings, before the explicit removal action.
+
+`applyUnusedRemoval(operationId, previewId)` captures and flushes verified
+original backups before recording a prepared operation. It rechecks the scan,
+current references (including archived records and physical aliases), source
+identities, root containment and shared destination reservations. Same-volume,
+no-replace moves precede the final journal/preview-consumption commit. Scanning,
+normal preparation and duplicate merging never call this method automatically.
+The action changes no track metadata, jobs, analysis, cues or playlist membership.
+
+`unusedRemovalHistory()` discovers operations and recoverable backups after
+restart. `restoreUnusedRemoval(operationId, removalId)` stages the original bytes
+and restores only unoccupied original paths. It refuses altered/missing backups
+and newer files at those paths. A successful restore marks the removal undone;
+a repeated restore is rejected. Both operations use the existing native task
+lease/cancellation protocol and emit maintenance/library change events.
+
+Interrupted prepared operations roll back on startup. A later user file stays
+in place and yields a visible conflict with the captured source/backups retained.
+Unresolved recovery reserves its source against another removal, tagging,
+cleanup or donor publication. Missing recovery storage does not prevent library
+access. `retryUnusedRecovery(operationId, journalId)` retries guarded recovery
+after the conflicting source or storage is resolved. Never hide `state`, `error`
+or `cleanup_pending`; a failed action may require history refresh.
+
+Schema9 prevents older readers from opening a library whose new removal journals
+they cannot recover. These operations also recover in builds without catalog
+tagging support. Backups are retained in application storage, so removal from
+the music folder is not a claim of freed device space. Backup-retention/purge
+controls and Lexicon's empty-folder cleanup remain separate delivery work; the
+current action preserves directories. Branded views remain user-owned.
