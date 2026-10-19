@@ -139,6 +139,29 @@ describe("waveform shape",()=>{
     expect(highs).toBeLessThan(bass/5);
     expect(highs).toBeGreaterThan(0);
   });
+  // Top edge of the outermost layer at each column (the layer paths list their top edge first).
+  const silhouette=(layers:{path:string}[])=>{
+    const tops=layers.map(l=>l.path.slice(1,-1).split("L").slice(0,l.path.split("L").length/2).map(p=>Number(p.split(",")[1])));
+    return tops[0].map((_,i)=>Math.min(...tops.map(t=>t[i])));
+  };
+  it("makes the zoomed layers as tall as the bar styles' bars, so a track looks as full in every style",()=>{
+    const w=wave([.1,.2,.3,.4],.9),bars=buildShape(w,"cuerithm",frame(4,4)),layers=buildShape(w,"layers",frame(4,4));
+    if(bars.mode!=="bars"||layers.mode!=="layers")throw new Error("unexpected modes");
+    const barTops=[...bars.path.matchAll(/M[\d.]+,([\d.-]+)V/g)].map(m=>Number(m[1]));
+    silhouette(layers.layers).forEach((y,i)=>expect(y).toBeCloseTo(barTops[i],0));
+  });
+  it("keeps a sidechained track full between kicks instead of collapsing to a sliver",()=>{
+    // Same loudness in both columns; the bass only exists on the kick (first column).
+    const kick:Waveform={...wave([.3,.3],.6),levels:[[.6,.1,.02],[.03,.1,.02]]};
+    const shape=buildShape(kick,"layers",frame(2,2));
+    if(shape.mode!=="layers")throw new Error("expected layers");
+    const [onKick,between]=silhouette(shape.layers);
+    expect(between).toBeCloseTo(onKick,0);
+    expect(20-between).toBeGreaterThan(8);
+    // The colours still say what changed: bass leads on the kick, mids lead between kicks.
+    const bassHeight=shape.layers[0].path.split("L").slice(0,2).map(p=>20-Number(p.split(",")[1].replace("M","")));
+    expect(bassHeight[0]).toBeGreaterThan(bassHeight[1]*1.5);
+  });
   it("stacks the layers up from the bottom edge for overviews: bass, then mids, then highs",()=>{
     const shape=buildShape(wave([.3,.3,.3,.3],.6),"layers-tonal",{...frame(4,4),stacked:true});
     if(shape.mode!=="layers")throw new Error("expected layers");

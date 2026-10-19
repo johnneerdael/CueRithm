@@ -20,9 +20,10 @@ export interface Frame{
 const fill=.92,clamp=(v:number,low:number,high:number)=>Math.min(high,Math.max(low,v));
 // Lexicon's 3-band constants. Overviews stack low, mid and high from the bottom edge with heights of
 // average level x 1.8 (at most half the height), x 1.6 (at most 30%) and x 0.4 after the 3x high boost.
-// Zooms overlay the layers around the centre: peak x 1.1 (clamped 0.8), x 0.6 (0.7) and x 0.2 (0.5).
-const mean=.9,stackLow=1.8*mean,stackMid=1.6*mean,stackHigh=.4*3*mean,peak=1.4;
-const scales=new WeakMap<Waveform,{bars:number;stack:number;overlay:number;refs:Bands}>();
+// Zooms overlay the layers around the centre, weighting bass, mid and high 1.1 : 0.6 : 0.6 (Lexicon's 1.1, 0.6
+// and 0.2 with the 3x high boost folded in).
+const mean=.9,stackLow=1.8*mean,stackMid=1.6*mean,stackHigh=.4*3*mean,zoomWeight=[1.1,.6,.6];
+const scales=new WeakMap<Waveform,{bars:number;stack:number;refs:Bands}>();
 const percentile=(values:number[],p:number)=>{if(!values.length)return 0;const sorted=[...values].sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor(p*sorted.length))];};
 // Scaled per track so quiet and loud tracks both use the height, and every view of one track agrees.
 function scaleOf(wave:Waveform){
@@ -32,7 +33,6 @@ function scaleOf(wave:Waveform){
     known={
       bars:bars>0?fill/bars:1,
       stack:bass>0?clamp(.45/(bass*stackLow),.7,2.5):1,
-      overlay:bass>0?clamp(.7/(bass*peak*1.1),.7,2.5):1,
       // Highs are always far quieter than bass, so each band is judged against its own typical level in this track.
       refs:[0,1,2].map(k=>Math.max(48,percentile((wave.bands??[]).map(b=>b[k]),.9))) as Bands,
     };
@@ -78,13 +78,13 @@ function layersOf(wave:Waveform,style:WaveformStyle,columns:Column[],frame:Frame
       {path:band(columns,edge(high),edge(middle)),fill:fills[2]},
     ]};
   }
-  const g=scale.overlay;
-  const heights=[
-    columns.map(c=>Math.max(.01,Math.min(.8,c.levels[0]*peak*g))*1.1),
-    columns.map(c=>Math.min(.7,c.levels[1]*peak*g)*.6),
-    columns.map(c=>Math.min(.5,c.levels[2]*peak*3*g)*.2),
-  ];
-  return {mode:"layers",layers:heights.map((h,k)=>({path:band(columns,h.map(v=>mid-v*half),h.map(v=>mid+v*half)),fill:fills[k]}))};
+  // Zoom: the outer silhouette is the same loudness height the bar styles draw, so a track looks as full in
+  // every style. The layers show how that height splits between the bands, weighted like Lexicon's zoom.
+  const heights=columns.map(c=>{
+    const total=Math.max(.02,Math.min(1,c.rms*scale.bars)),share=c.levels.map((l,k)=>l*zoomWeight[k]),strongest=Math.max(...share);
+    return share.map(v=>strongest>0?Math.max(.01,total*v/strongest):.01);
+  });
+  return {mode:"layers",layers:[0,1,2].map(k=>{const h=heights.map(column=>column[k]);return {path:band(columns,h.map(v=>mid-v*half),h.map(v=>mid+v*half)),fill:fills[k]};})};
 }
 export function buildShape(wave:Waveform,style:WaveformStyle,frame:Frame):Shape{
   const columns=columnsOf(wave,frame),scale=scaleOf(wave),{mid,half}=frame;
