@@ -447,3 +447,45 @@ removed, then restored. A fresh native scan confirmed the source hash returned;
 post-quit checks verified all three original hashes including an unselected file,
 zero track/job/cue/playlist rows, valid foreign keys and no pending recovery.
 This validates that isolated native path, not branded views or a live collection.
+
+
+## Source-ordered parent cleanup and explicit backup disposal
+
+The installed ASAR hash was rechecked against the retained extraction before this
+extension. The observed source removes a selected primary, checks its direct
+parent while ignoring `.DS_Store`/`Thumbs.db`, then removes the first matching DJ
+sidecar. Cover art is retained by this call's default argument. The independent
+planner simulates that order, exposes housekeeping files and directories in the
+review, and backs up housekeeping contents. It never removes the reviewed root.
+Post-commit directory cleanup is nonrecursive. Nested restoration creates parents
+shallow-first and restores their captured permissions. A new directory entry ends
+that cleanup attempt instead of scheduling a later deletion.
+
+The approved recovery extension retains originals until a separate disposal
+preview/action. It identifies exact backup bytes and which Restore actions will
+be lost. Only application-owned originals qualify. Related restore journals share
+one backup set; changed history or backups invalidate a preview. Prepared disposal
+moves backups within owned storage, then one SQLite commit marks the originals
+unavailable and consumes the preview. Only committed retired copies are deleted.
+Pre-commit recovery returns backups; post-commit recovery finishes disposal.
+Unknown newer backup versions remain visible conflicts and can be resolved before
+a guarded retry. Disposal never mutates music or library-track data.
+
+Generated tests cover metadata files, root/cover/sidecar distinctions, nested
+parents, original permissions, folder restoration interrupted at all three
+publication phases, and new parent contents. Backup tests cover exact-byte
+accounting, shared backup sets, changed histories/backups, SQL failure, cancellation,
+interrupted prepare/exchange/commit, and recovery conflicts/retry. These tests do
+not establish branded UI delivery or acceptance against a live collection.
+Schema10 is the reader boundary; older file-only journals remain supported.
+
+
+A separate packaged macOS native controller exercised scan, the two-file/one-folder
+preview, removal, retained-backup preview, folder/file restoration and final
+history. The generated album parent was absent after removal; restoration returned
+all three file hashes (including an unselected root file) and mode0750. Both
+backup previews reported73 bytes once; the Restore-loss count changed from1 to0
+after restoration. Schema10 had no track/job/cue/member rows changed, no foreign-key
+errors and no pending recovery. The native run previewed disposal only. Actual
+permanent disposal and its failure/restart paths were exercised by generated CLI
+tests. No user music/library or branding worktree was modified.

@@ -49,6 +49,8 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("files.rs").as_slice(),
         include_bytes!("unused.rs").as_slice(),
         include_bytes!("removal.rs").as_slice(),
+        include_bytes!("removal/folders.rs").as_slice(),
+        include_bytes!("removal/retention.rs").as_slice(),
         include_bytes!("broken.rs").as_slice(),
         include_bytes!("review.rs").as_slice(),
         include_bytes!("merge.rs").as_slice(),

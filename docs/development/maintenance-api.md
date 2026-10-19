@@ -153,9 +153,43 @@ access. `retryUnusedRecovery(operationId, journalId)` retries guarded recovery
 after the conflicting source or storage is resolved. Never hide `state`, `error`
 or `cleanup_pending`; a failed action may require history refresh.
 
-Schema9 prevents older readers from opening a library whose new removal journals
-they cannot recover. These operations also recover in builds without catalog
-tagging support. Backups are retained in application storage, so removal from
-the music folder is not a claim of freed device space. Backup-retention/purge
-controls and Lexicon's empty-folder cleanup remain separate delivery work; the
-current action preserves directories. Branded views remain user-owned.
+Schema10 prevents older readers from opening journals that include parent-folder
+restoration or backup disposal. Version1 file-removal journals remain readable.
+These operations also recover in builds without catalog tagging support.
+
+Previews include `directories` and explicit `folder_metadata` entries when parent
+cleanup would remove `.DS_Store` or `Thumbs.db`. Folder planning follows selected
+primary-file/sidecar order. It preserves cover art and the reviewed root. Cleanup
+removes only reviewed empty parents, never recurses, and leaves a parent containing
+new files alone. Restore recreates missing parents shallow-first and restores
+captured permissions; it preserves existing replacement directories. Restart
+rolls back owned folder creation when an interrupted restore has not committed.
+
+### Retained originals and disposal
+
+`unusedRemovalHistory()` supplies `restore_available` as history eligibility;
+actual restore still validates current paths, backup contents and reservations.
+Backups occupy application storage until the user chooses to dispose of them.
+
+`previewBackupDisposal(operationId, removalIds)` returns the exact owned backup
+files, total bytes and `restores_lost` IDs. Select original removal operations,
+including already-restored operations, rather than reverse-journal IDs. Related
+restore rows share one backup set and are counted once. Show the loss of Restore
+before invoking the explicit irreversible `disposeBackups(operationId, previewId)`
+action. A scan, normal preparation, duplicate merge or file removal never invokes
+backup disposal automatically.
+
+Disposal requires unchanged related history and backup identities. A durable
+prepared journal precedes moves within recovery storage; committed disposal marks
+related originals unavailable for Restore before deleting verified retired copies.
+A restore after preview invalidates that preview. Recovery returns backups on a
+pre-commit interruption and finishes cleanup after a committed interruption.
+Later backup versions are preserved as visible conflicts. No music path is
+deleted, restored or rewritten by disposal.
+
+Use `backupDisposalHistory()` and `retryBackupDisposal(operationId, disposalId)`
+for failures or incomplete cleanup. Always surface `state`, `error` and
+`cleanup_pending`. `size_bytes` is the reviewed backup amount; incomplete cleanup
+is not proof those bytes were released. Filesystem snapshots and clones may also
+retain physical storage after logical file removal. Branded views remain
+user-owned; their confirmation and final live-library acceptance remain required.

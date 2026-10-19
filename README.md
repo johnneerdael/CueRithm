@@ -112,8 +112,9 @@ now includes duplicate discovery/review, coordinated donor merge with Undo,
 read-only unused/missing-file scans, and reviewed unused-file removal with
 retained recovery backups. See the [maintenance API](docs/development/maintenance-api.md)
 for the user-owned UI handoff, recovery workflow and remaining delivery gates.
-Branded maintenance views, full library acceptance, empty-folder cleanup and
-backup-retention controls remain unfinished. Direct rekordbox 6/7 sync remains a
+Reviewed parent cleanup and explicit retained-backup disposal are available through
+the native maintenance API. Branded maintenance views and full library acceptance
+remain unfinished. Direct rekordbox 6/7 sync remains a
 required delivery; no desktop XML fallback exists. This is an unsigned test build,
 not a signed public release or a complete product-parity claim.
 

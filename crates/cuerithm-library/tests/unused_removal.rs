@@ -274,3 +274,124 @@ fn symlinked_parents_and_referenced_hardlink_aliases_are_never_removed() {
     assert!(f.lib.apply_unused_removal(&preview.id, &token).is_err());
     assert!(path.exists() && reference.exists());
 }
+
+#[test]
+fn reviewed_empty_parent_and_metadata_are_removed_and_recreated_by_restore() {
+    let mut f = Fixture::new();
+    let audio = f.file("album/loose.flac", b"authored audio");
+    let metadata = f.file("album/.DS_Store", b"authored folder metadata");
+    let keep = f.file("keep.txt", b"keep");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            audio.parent().unwrap(),
+            std::fs::Permissions::from_mode(0o750),
+        )
+        .unwrap();
+    }
+    let scan = f.scan();
+    let token = CancellationToken::default();
+    let plan = f
+        .lib
+        .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+        .unwrap();
+    assert_eq!(
+        plan.files.len(),
+        2,
+        "Folder metadata must be included in the review and backed up"
+    );
+    assert_eq!(plan.directories.len(), 1);
+    assert!(
+        plan.files
+            .iter()
+            .any(|p| p.role == UnusedRemovalRole::FolderMetadata)
+    );
+    assert!(audio.exists() && metadata.exists());
+    let applied = f.lib.apply_unused_removal(&plan.id, &token).unwrap();
+    assert!(!audio.parent().unwrap().exists());
+    assert!(f.music.exists());
+    drop(f.lib);
+    f.lib = Library::open(&f.db).unwrap();
+    f.lib.restore_unused_removal(&applied.id, &token).unwrap();
+    assert_eq!(std::fs::read(&audio).unwrap(), b"authored audio");
+    assert_eq!(
+        std::fs::read(&metadata).unwrap(),
+        b"authored folder metadata"
+    );
+    assert_eq!(std::fs::read(&keep).unwrap(), b"keep");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(audio.parent().unwrap())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o750
+        );
+    }
+}
+#[test]
+fn folder_cleanup_keeps_source_sidecar_order_cover_art_and_the_reviewed_root() {
+    for sidecar in [true, false] {
+        let f = Fixture::new();
+        let path = f.file("album/loose.flac", b"source");
+        let extra = if sidecar {
+            f.file("album/loose.flac.vdjstems", b"stem")
+        } else {
+            f.file("album/cover.jpg", b"art")
+        };
+        let scan = f.scan();
+        let token = CancellationToken::default();
+        let plan = f
+            .lib
+            .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+            .unwrap();
+        assert!(plan.directories.is_empty());
+        f.lib.apply_unused_removal(&plan.id, &token).unwrap();
+        assert!(path.parent().unwrap().is_dir());
+        assert_eq!(extra.exists(), !sidecar);
+    }
+    let f = Fixture::new();
+    f.file("loose.flac", b"root child");
+    let scan = f.scan();
+    let token = CancellationToken::default();
+    let plan = f
+        .lib
+        .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+        .unwrap();
+    assert!(plan.directories.is_empty());
+    f.lib.apply_unused_removal(&plan.id, &token).unwrap();
+    assert!(f.music.is_dir());
+}
+#[test]
+fn selection_order_can_cleanup_nested_parents_and_restore_recreates_them_shallow_first() {
+    let f = Fixture::new();
+    let child = f.file("album/sub/child.flac", b"child");
+    let parent = f.file("album/parent.flac", b"parent");
+    let scan = f.scan();
+    let token = CancellationToken::default();
+    let selected = [&child, &parent]
+        .into_iter()
+        .map(|p| {
+            scan.files
+                .iter()
+                .find(|v| Path::new(&v.display_path).file_name() == p.file_name())
+                .unwrap()
+                .id
+                .clone()
+        })
+        .collect::<Vec<_>>();
+    let plan = f
+        .lib
+        .preview_unused_removal(&scan.id, &selected, &token)
+        .unwrap();
+    assert_eq!(plan.directories.len(), 2);
+    let applied = f.lib.apply_unused_removal(&plan.id, &token).unwrap();
+    assert!(!parent.parent().unwrap().exists());
+    f.lib.restore_unused_removal(&applied.id, &token).unwrap();
+    assert_eq!(std::fs::read(&child).unwrap(), b"child");
+    assert_eq!(std::fs::read(&parent).unwrap(), b"parent");
+}

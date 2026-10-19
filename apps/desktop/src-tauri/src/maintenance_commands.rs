@@ -358,3 +358,58 @@ pub async fn maintenance_retry_unused_recovery(
     );
     Ok(history)
 }
+
+#[tauri::command]
+pub async fn maintenance_preview_backup_disposal(
+    host: Managed<'_>,
+    operation_id: String,
+    ids: Vec<String>,
+) -> Ipc<UnusedBackupPreview> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library.preview_unused_backup_disposal(&ids, cancel)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn maintenance_dispose_backups(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<UnusedBackupDisposal> {
+    let (result, stamp) = run(host.inner().clone(), operation_id, move |host, cancel| {
+        let result = host.library.apply_unused_backup_disposal(&id, cancel)?;
+        Ok((result, host.library.duplicate_ignores()?.stamp))
+    })
+    .await?;
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":stamp}),
+    );
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_backup_disposal_history(
+    host: Managed<'_>,
+) -> Ipc<Vec<UnusedBackupDisposal>> {
+    let lib = host.library.clone();
+    work(move || lib.unused_backup_disposal_history()).await
+}
+#[tauri::command]
+pub async fn maintenance_retry_backup_disposal(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<Vec<UnusedBackupDisposal>> {
+    let (result, stamp) = run(host.inner().clone(), operation_id, move |host, cancel| {
+        let result = host.library.retry_unused_backup_disposal(&id, cancel)?;
+        Ok((result, host.library.duplicate_ignores()?.stamp))
+    })
+    .await?;
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":stamp}),
+    );
+    Ok(result)
+}

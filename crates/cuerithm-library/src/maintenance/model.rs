@@ -215,6 +215,7 @@ pub struct UnusedScanReport {
 pub enum UnusedRemovalRole {
     Selected,
     Sibling,
+    FolderMetadata,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UnusedRemovalFile {
@@ -226,6 +227,8 @@ pub struct UnusedRemovalFile {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnusedRemovalPreview {
+    #[serde(default)]
+    pub directories: Vec<String>,
     pub id: String,
     pub scan_id: String,
     pub stamp: MaintenanceStamp,
@@ -234,6 +237,8 @@ pub struct UnusedRemovalPreview {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnusedRemovalResult {
+    #[serde(default)]
+    pub directories: Vec<String>,
     pub id: String,
     pub preview_id: String,
     pub stamp: MaintenanceStamp,
@@ -244,6 +249,7 @@ pub struct UnusedRemovalResult {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnusedRemovalHistory {
+    pub restore_available: bool,
     pub result: UnusedRemovalResult,
     pub state: String,
     pub error: Option<String>,
@@ -289,5 +295,33 @@ pub struct DuplicateRecovery {
     pub kind: String,
     pub state: String,
     pub created: i64,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedBackupFile {
+    pub operation_id: String,
+    pub file_id: String,
+    pub display_source_path: String,
+    pub size_bytes: u64,
+    pub source_sha256: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedBackupPreview {
+    pub id: String,
+    pub operation_ids: Vec<String>,
+    pub files: Vec<UnusedBackupFile>,
+    pub size_bytes: u64,
+    pub restores_lost: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnusedBackupDisposal {
+    pub id: String,
+    pub preview_id: String,
+    pub operation_ids: Vec<String>,
+    pub file_count: usize,
+    pub size_bytes: u64,
+    pub state: String,
+    pub cleanup_pending: bool,
     pub error: Option<String>,
 }

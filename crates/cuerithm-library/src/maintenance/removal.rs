@@ -1,4 +1,6 @@
 //! Reviewed file removal with owned backups. All input paths originate in a scan.
+mod folders;
+mod retention;
 use super::*;
 use crate::{
     Library,
@@ -19,8 +21,16 @@ struct Identity {
     file: u64,
 }
 fn identity(path: &Path) -> Result<Identity> {
+    identity_kind(path, false)
+}
+fn identity_kind(path: &Path, directory: bool) -> Result<Identity> {
+    let metadata = std::fs::symlink_metadata(path)?;
     ensure!(
-        std::fs::symlink_metadata(path)?.is_file(),
+        if directory {
+            metadata.is_dir()
+        } else {
+            metadata.is_file()
+        },
         "Removal source is not a regular file"
     );
     let mut options = std::fs::OpenOptions::new();
@@ -28,16 +38,27 @@ fn identity(path: &Path) -> Result<Identity> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW);
+        options.custom_flags(libc::O_NOFOLLOW | if directory { libc::O_DIRECTORY } else { 0 });
     }
     #[cfg(windows)]
     {
         use std::os::windows::fs::OpenOptionsExt;
-        options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
+        options.custom_flags(
+            windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT
+                | if directory {
+                    windows_sys::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS
+                } else {
+                    0
+                },
+        );
     }
     let file = options.open(path)?;
     ensure!(
-        file.metadata()?.is_file(),
+        if directory {
+            file.metadata()?.is_dir()
+        } else {
+            file.metadata()?.is_file()
+        },
         "Removal source is not a regular file"
     );
     #[cfg(unix)]
@@ -96,6 +117,8 @@ struct Preview {
     entries: Vec<Entry>,
     logic: String,
     consumed_by: Option<String>,
+    #[serde(default)]
+    directories: Vec<folders::Folder>,
 }
 fn load<T: serde::de::DeserializeOwned>(conn: &Connection, id: &str, kind: &str) -> Result<T> {
     let text: String = conn.query_row(
@@ -173,6 +196,10 @@ struct Operation {
     error: Option<String>,
     undone_by: Option<String>,
     cleanup_complete: bool,
+    #[serde(default)]
+    directories: Vec<folders::Folder>,
+    #[serde(default)]
+    backups_disposed: bool,
 }
 pub(crate) fn ensure_unused_unreserved(conn: &Connection, paths: &[Vec<u8>]) -> Result<()> {
     let paths = paths.iter().collect::<BTreeSet<_>>();
@@ -252,7 +279,10 @@ fn load_operation(lib: &Library, id: &str) -> Result<Operation> {
     let op: Operation = load(&*lib.conn()?, id, "unused_removal_operation")?;
     ensure!(op.result.id == id, "Recovery operation identity mismatch");
     ensure!(
-        op.schema == "unused-removal-v1" && matches!(op.kind.as_str(), "remove" | "restore"),
+        matches!(
+            op.schema.as_str(),
+            "unused-removal-v1" | "unused-removal-v2"
+        ) && matches!(op.kind.as_str(), "remove" | "restore"),
         "Unsupported unused-file journal"
     );
     let root = lib.data_dir().canonicalize()?.join("maintenance/removal");
@@ -326,7 +356,7 @@ fn rollback_remove(f: &MovedFile, root: &Path) -> Result<()> {
 }
 fn rollback_restore(f: &MovedFile, root: &Path) -> Result<()> {
     let path = bytes_path(&f.entry.path)?;
-    guard(&path, root)?;
+    folders::guard_missing(&path, root)?;
     if !missing(&path)? {
         ensure!(
             f.restored_identity.as_ref() == Some(&identity(&path)?)
@@ -352,7 +382,7 @@ fn cleanup(op: &Operation) -> Result<()> {
     let root = bytes_path(&op.root)?;
     for f in &op.files {
         let temp = bytes_path(&f.displaced)?;
-        guard(&temp, &root)?;
+        folders::guard_missing(&temp, &root)?;
         if missing(&temp)? {
             continue;
         }
@@ -369,7 +399,7 @@ fn cleanup(op: &Operation) -> Result<()> {
         std::fs::remove_file(&temp)?;
         crate::publish_files::sync_parent(&temp)?;
     }
-    Ok(())
+    folders::cleanup(op)
 }
 fn finish(lib: &Library, op: &mut Operation, error: Option<&anyhow::Error>) -> Result<()> {
     if let Some(error) = error {
@@ -453,6 +483,7 @@ impl Library {
                 entries.push(entry(&sibling, &root, UnusedRemovalRole::Sibling, cancel)?);
             }
         }
+        let directories = folders::plan(&mut entries, &root, cancel)?;
         let paths = entries
             .iter()
             .map(|e| bytes_path(&e.path))
@@ -464,6 +495,7 @@ impl Library {
         );
         super::unused::ensure_unreferenced(&conn, &paths)?;
         let public = UnusedRemovalPreview {
+            directories: folders::display(&directories)?,
             id: uuid::Uuid::new_v4().to_string(),
             scan_id: scan_id.into(),
             stamp: saved.report.stamp,
@@ -479,6 +511,7 @@ impl Library {
             entries,
             logic: super::scan::logic_identity(),
             consumed_by: None,
+            directories,
         };
         cancel.check()?;
         conn.execute(
@@ -501,6 +534,7 @@ impl Library {
         self.removal_scan(&preview.public.scan_id, cancel)?;
         let root = bytes_path(&preview.root)?;
         validate_entries(&preview.entries, &root, cancel)?;
+        folders::validate(&preview.directories, &root)?;
         let cache = self.data_dir().join("maintenance/removal");
         std::fs::create_dir_all(&cache)?;
         let workspace = tempfile::Builder::new()
@@ -534,7 +568,7 @@ impl Library {
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
         let mut op = Operation {
-            schema: "unused-removal-v1".into(),
+            schema: "unused-removal-v2".into(),
             kind: "remove".into(),
             state: "prepared".into(),
             root: preview.root.clone(),
@@ -545,6 +579,7 @@ impl Library {
                 preview_id: id.into(),
                 stamp: preview.public.stamp.clone(),
                 files: preview.public.files.clone(),
+                directories: preview.public.directories.clone(),
                 size_bytes: preview.public.size_bytes,
                 restored: false,
                 undo_of: None,
@@ -552,6 +587,8 @@ impl Library {
             error: None,
             undone_by: None,
             cleanup_complete: false,
+            directories: preview.directories.clone(),
+            backups_disposed: false,
         };
         let assets = op
             .files
@@ -607,6 +644,7 @@ impl Library {
                 "Removal preview already applied"
             );
             validate_entries(&preview.entries, &root, cancel)?;
+            folders::validate(&preview.directories, &root)?;
             super::unused::ensure_unreferenced(&tx, &entry_paths(&preview.entries)?)?;
             for file in &op.files {
                 cancel.check()?;
@@ -655,6 +693,10 @@ impl Library {
                 && original.undone_by.is_none(),
             "Removal is not available for restore"
         );
+        ensure!(
+            !original.backups_disposed,
+            "Recovery originals were permanently disposed"
+        );
         let root = bytes_path(&original.root)?;
         let op_id = uuid::Uuid::new_v4().to_string();
         let mut op = original.clone();
@@ -662,12 +704,13 @@ impl Library {
         op.state = "prepared".into();
         op.error = None;
         op.cleanup_complete = false;
+        folders::reset(&mut op.directories);
         op.result.id = op_id.clone();
         op.result.restored = true;
         op.result.undo_of = Some(id.into());
         for (i, f) in op.files.iter_mut().enumerate() {
             let path = bytes_path(&f.entry.path)?;
-            guard(&path, &root)?;
+            folders::guard_missing(&path, &root)?;
             ensure!(missing(&path)?, "Restore refuses an occupied original path");
             ensure!(
                 file_sha256_cancellable(&bytes_path(&f.backup)?, cancel)?
@@ -696,6 +739,11 @@ impl Library {
                 current.state == "committed" && current.undone_by.is_none(),
                 "Removal already restored"
             );
+            ensure!(
+                !current.backups_disposed,
+                "Recovery originals were permanently disposed"
+            );
+            retention::ensure_available(&tx, &current.workspace)?;
             ensure_unused_unreserved(
                 &tx,
                 &op.files
@@ -714,6 +762,9 @@ impl Library {
         #[cfg(test)]
         tests::checkpoint("prepared");
         let outcome = (|| -> Result<()> {
+            folders::prepare(self, &mut op, cancel)?;
+            #[cfg(test)]
+            tests::checkpoint("directories");
             // Copy outside the SQLite transaction; the original paths remain absent.
             for i in 0..op.files.len() {
                 cancel.check()?;
@@ -736,6 +787,11 @@ impl Library {
                 current.state == "committed" && current.undone_by.is_none(),
                 "Removal already restored"
             );
+            ensure!(
+                !current.backups_disposed,
+                "Recovery originals were permanently disposed"
+            );
+            retention::ensure_available(&tx, &current.workspace)?;
             for f in &op.files {
                 cancel.check()?;
                 let path = bytes_path(&f.entry.path)?;
@@ -777,6 +833,10 @@ impl Library {
             .map(|row| {
                 let op: Operation = serde_json::from_str(&row?)?;
                 Ok(UnusedRemovalHistory {
+                    restore_available: op.kind == "remove"
+                        && op.state == "committed"
+                        && op.undone_by.is_none()
+                        && !op.backups_disposed,
                     result: op.result,
                     state: op.state,
                     error: op.error,
@@ -940,6 +1000,79 @@ mod tests {
         assert_eq!(
             load_operation(&lib, &applied.id).unwrap().state,
             "committed"
+        );
+    }
+    thread_local! { pub(super) static NOTE_BEFORE_FOLDER_CLEANUP: std::cell::RefCell<bool> = const {std::cell::RefCell::new(false)}; }
+    pub(super) fn before_folder_cleanup(op: &Operation) {
+        NOTE_BEFORE_FOLDER_CLEANUP.with(|flag| {
+            if flag.replace(false) {
+                let path = PathBuf::from(&op.result.directories[0]).join("new-user-note.txt");
+                std::fs::write(path, b"new user contents").unwrap();
+            }
+        });
+    }
+    fn nested_setup() -> (tempfile::TempDir, Library, PathBuf, UnusedRemovalPreview) {
+        let (dir, lib, file, _) = setup();
+        let nested = file.parent().unwrap().join("album");
+        std::fs::create_dir(&nested).unwrap();
+        let path = nested.join("authored.flac");
+        std::fs::rename(file, &path).unwrap();
+        let token = CancellationToken::default();
+        let scan = lib
+            .scan_unused_files(
+                UnusedScanRequest {
+                    root: nested.parent().unwrap().to_owned(),
+                    extension_mode: ExtensionMode::All,
+                    extensions: vec![],
+                },
+                &token,
+            )
+            .unwrap();
+        let plan = lib
+            .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+            .unwrap();
+        (dir, lib, path, plan)
+    }
+    #[test]
+    fn restore_directory_interruptions_return_to_removed_state_and_remain_retryable() {
+        for phase in ["prepared", "directories", "files"] {
+            let (dir, lib, file, plan) = nested_setup();
+            let token = CancellationToken::default();
+            let applied = lib.apply_unused_removal(&plan.id, &token).unwrap();
+            assert!(!file.parent().unwrap().exists());
+            CRASH.with(|slot| *slot.borrow_mut() = Some(phase));
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                    || lib.restore_unused_removal(&applied.id, &token)
+                ))
+                .is_err()
+            );
+            drop(lib);
+            let lib = Library::open(&dir.path().join("app/db")).unwrap();
+            assert!(!file.parent().unwrap().exists());
+            lib.restore_unused_removal(&applied.id, &token).unwrap();
+            assert_eq!(std::fs::read(file).unwrap(), b"authored source");
+        }
+    }
+    #[test]
+    fn new_directory_contents_end_cleanup_without_scheduling_their_future_deletion() {
+        let (_dir, lib, file, plan) = nested_setup();
+        NOTE_BEFORE_FOLDER_CLEANUP.with(|flag| *flag.borrow_mut() = true);
+        let applied = lib
+            .apply_unused_removal(&plan.id, &CancellationToken::default())
+            .unwrap();
+        assert!(!file.exists());
+        assert_eq!(
+            std::fs::read(file.parent().unwrap().join("new-user-note.txt")).unwrap(),
+            b"new user contents"
+        );
+        assert!(
+            !lib.unused_removal_history()
+                .unwrap()
+                .iter()
+                .find(|h| h.result.id == applied.id)
+                .unwrap()
+                .cleanup_pending
         );
     }
     fn setup() -> (tempfile::TempDir, Library, PathBuf, UnusedRemovalPreview) {
