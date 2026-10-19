@@ -457,8 +457,21 @@ never taken over:
 - A folder that already exists is used as a container and not altered; managed folders keep their position.
 - Playlists CueRithm wrote are removed from rekordbox when removed here, unless rekordbox changed them or a
   folder holds anything CueRithm did not write.
-- Smart lists are written as ordinary playlists of their current members; native smart-list rules are not
-  written yet. Members not linked to rekordbox are counted and skipped.
+- Members not linked to rekordbox are counted and skipped.
+
+Smart lists (re-read from Lexicon's exporter; static reading only). rekordbox stores an intelligent playlist as
+attribute 4 with a `SmartList` document `<NODE Id="<the playlist's ID>" AutomaticUpdate="0" LogicalOperator="1|2">`
+holding `<CONDITION Operator PropertyName ValueLeft ValueRight ValueUnit/>` lines; the same shape appears in the
+inspected library's existing intelligent playlists. The mapping reproduces the reference tables: fields
+`name`, `artist`, `album`, `genre`, `comments`, `label`, `remixedBy`, `mixName`, `producer` (composer), `key`,
+`fileName`, `bpm` (hundredths, unit `0`), `duration`, `year`, `rating`, `stockDate` (date added) and `grouping`
+(colour, positions 1-8, "no colour" as equals 0); string operators 1, 2, 8, 9, 10, 11; number operators 1-5;
+date operators 1-7 with relative dates in days or months (weeks become days); colour operators 1 and 2.
+Dates are written as the calendar day in the library's time zone. A list is native only if every rule maps
+exactly: regular expressions, "not starts/ends with", greater-or-equal, tags, playlist, cue, energy, release
+date, play count and OR rules all make it fall back to an ordinary playlist, which the preview marks. (The
+reference accepts exactly one OR rule; CueRithm accepts none.) Changing a managed list between native and
+ordinary is reported as an existing playlist rather than converted.
 
 The end-to-end test (`cuerithm-library/tests/native_sync_real.rs`, skipped unless `CUERITHM_REKORDBOX_COPY` is
 set) runs this on a snapshot of a real 7.2.19 library: previewing, writing, publishing, acknowledging,

@@ -385,6 +385,7 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
                         position: 1,
                         tracks: vec![],
                         expected_members: None,
+                        rules: None,
                     }],
                     ..Default::default()
                 },
@@ -443,4 +444,171 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
         };
         assert_eq!(kept_members(&read(&live.path, &key)), kept_members(&before));
     }
+}
+
+#[test]
+fn smart_lists_are_native_when_every_rule_maps_and_materialized_otherwise() {
+    use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+    let Some(copy) = std::env::var_os("CUERITHM_REKORDBOX_COPY").map(PathBuf::from) else {
+        eprintln!("skipped: CUERITHM_REKORDBOX_COPY is not set");
+        return;
+    };
+    let key = key();
+    let cancel = CancellationToken::default();
+    let scratch = tempfile::tempdir().unwrap();
+    let live = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(scratch.path(), &key, &cancel)
+        .unwrap();
+    let before = read(&live.path, &key);
+    let track = before
+        .tracks
+        .iter()
+        .find(|t| {
+            t.importable_local()
+                && t.source
+                    .resolved_path
+                    .as_ref()
+                    .is_some_and(|p| std::path::Path::new(p).is_file())
+        })
+        .expect("a track whose audio file exists");
+    let content_id = track.identity.content_id.clone();
+    let library_dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&library_dir.path().join("library")).unwrap();
+    let report = lib
+        .import_rekordbox_collection(
+            &before,
+            NativeImportOptions {
+                settings_revision: lib.settings().unwrap().revision,
+                content_ids: Some([content_id.clone()].into()),
+                initial_owners: Default::default(),
+            },
+            &cancel,
+        )
+        .unwrap();
+    assert!(
+        lib.native_track_link(&report.target_id, &content_id)
+            .unwrap()
+            .local_track_id
+            .is_some()
+    );
+    let counter = std::cell::Cell::new(0);
+    let rule = |field: &str, operator, value| {
+        counter.set(counter.get() + 1);
+        SmartRule {
+            id: format!("rule-{}", counter.get()),
+            field: field.into(),
+            operator,
+            value,
+            or: false,
+        }
+    };
+    let native = SmartDefinition {
+        match_all: true,
+        rules: vec![
+            rule(
+                "artist",
+                Operator::StringContains,
+                RuleValue::Text("Cuerithm acceptance".into()),
+            ),
+            rule(
+                "bpm",
+                Operator::NumberBetween,
+                RuleValue::NumberRange {
+                    start: 120.,
+                    end: 130.,
+                },
+            ),
+        ],
+    };
+    let regex = SmartDefinition {
+        match_all: true,
+        rules: vec![rule(
+            "title",
+            Operator::StringRegExpMatch,
+            RuleValue::Text("^A".into()),
+        )],
+    };
+    for (name, definition) in [("Native rules", native), ("Regex rules", regex)] {
+        playlist_edit(
+            &lib,
+            PlaylistEdit::Create {
+                id: None,
+                parent_id: None,
+                kind: PlaylistKind::Smartlist,
+                name: name.into(),
+                definition: Some(definition),
+            },
+        );
+    }
+    let (work, backups) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let prepared = lib
+        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .unwrap();
+    let kind_of = |name: &str| {
+        prepared
+            .playlists
+            .items
+            .iter()
+            .find(|i| i.path == vec![name.to_owned()])
+            .map(|i| (i.kind, i.materialized))
+    };
+    assert_eq!(
+        kind_of("Native rules"),
+        Some((PlaylistType::Smartlist, false))
+    );
+    assert_eq!(kind_of("Regex rules"), Some((PlaylistType::Playlist, true)));
+    let run = lib
+        .native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+        .unwrap();
+    assert_eq!(run.state, "committed");
+    let after = read(&live.path, &key);
+    let native = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Native rules" && p.deleted == Some(false))
+        .unwrap();
+    assert_eq!(native.attribute, 4);
+    let xml = native.smart_rule.clone().unwrap();
+    assert!(
+        xml.starts_with(&format!(
+            "<NODE Id=\"{}\" AutomaticUpdate=\"0\" LogicalOperator=\"1\">",
+            native.id
+        )),
+        "{xml}"
+    );
+    assert!(
+        xml.contains("PropertyName=\"artist\"")
+            && xml.contains("ValueLeft=\"12000\" ValueRight=\"13000\" ValueUnit=\"0\"")
+    );
+    let materialized = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Regex rules" && p.deleted == Some(false))
+        .unwrap();
+    assert_eq!(materialized.attribute, 0);
+    // The existing smart lists in the library were not touched, and repeating writes nothing.
+    let originals: Vec<_> = before
+        .playlists
+        .iter()
+        .filter(|p| p.attribute == 4 && p.deleted == Some(false))
+        .map(|p| (p.id.clone(), p.smart_rule.clone()))
+        .collect();
+    for (id, rule) in &originals {
+        assert_eq!(
+            after
+                .playlists
+                .iter()
+                .find(|p| p.id == *id)
+                .unwrap()
+                .smart_rule,
+            *rule
+        );
+    }
+    assert_eq!(
+        lib.native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+            .unwrap()
+            .state,
+        "nothing_to_write"
+    );
 }

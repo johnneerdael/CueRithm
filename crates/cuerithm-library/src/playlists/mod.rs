@@ -4,6 +4,7 @@ mod generator;
 mod history;
 mod model;
 mod preferences;
+pub(crate) use preferences::zone;
 mod previews;
 pub(crate) mod queries;
 pub(crate) mod scope;

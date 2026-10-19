@@ -15,6 +15,11 @@ pub fn calendar_day_epoch(day: &str, time_zone: &str) -> Result<i64> {
     )?
     .timestamp_millis())
 }
+/// The calendar day (`YYYY-MM-DD`) of an instant in an IANA time zone, the inverse of [`calendar_day_epoch`].
+pub fn epoch_to_calendar_day(time: i64, time_zone: &str) -> Result<String> {
+    let context = EvaluationContext::new(0, time_zone)?;
+    Ok(local(&context, time)?.format("%Y-%m-%d").to_string())
+}
 fn local(context: &EvaluationContext, time: i64) -> Result<DateTime<chrono_tz::Tz>> {
     Ok(DateTime::from_timestamp_millis(time)
         .context("Date outside supported range")?

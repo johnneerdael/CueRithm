@@ -12,7 +12,7 @@ export interface PlannedTrack {content_id:string;local_track_id:string|null;fiel
 export interface SkippedField {content_id:string;field:string;decision:FieldDecision}
 export interface SyncPlanSummary {tracks:PlannedTrack[];skipped:SkippedField[];blocked:[string,string][];pull_available:number}
 export type PlaylistAction="create"|"update"|"unchanged"|"remove"|"skip_existing"|"skip_changed";
-export interface PlaylistPlanItem {path:string[];folder:boolean;action:PlaylistAction;tracks:number;unlinked:number}
+export interface PlaylistPlanItem {path:string[];kind:"folder"|"playlist"|"smartlist";action:PlaylistAction;tracks:number;unlinked:number;materialized:boolean}
 export interface PlaylistPlanSummary {items:PlaylistPlanItem[]}
 export interface NativeSyncPrepared {target_id:string;preview:NativeSyncPreview;plan:SyncPlanSummary;playlists:PlaylistPlanSummary;snapshot_usn:number}
 export interface NativeSyncRun {id:string;created:number;target_id:string;state:"committed"|"nothing_to_write";usn_before:number|null;usn_after:number|null;tracks:PlannedTrack[];playlists:PlaylistPlanSummary;skipped:number;backup:string|null;journal:string|null}

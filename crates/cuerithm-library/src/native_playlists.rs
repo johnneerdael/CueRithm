@@ -2,25 +2,43 @@
 //!
 //! A playlist is managed once CueRithm has written it; the record of that lives beside the sync history. An
 //! existing rekordbox playlist with the same path that CueRithm did not write is never taken over, and a
-//! managed one that was edited in rekordbox since is a conflict, not an overwrite. Smart lists are written as
-//! ordinary playlists holding their current members.
+//! managed one that was edited in rekordbox since is a conflict, not an overwrite. A smart list is written as a
+//! native intelligent playlist when every rule maps exactly, and otherwise as an ordinary playlist holding its
+//! current members.
 use crate::*;
 use anyhow::Result;
 use cuerithm_rekordbox::{
-    PlaylistKind as RbKind, PlaylistRemoval, PlaylistWrite, RekordboxCollection,
-    membership_fingerprint,
+    PlaylistKind as RbKind, PlaylistRemoval, PlaylistWrite, RekordboxCollection, SmartRuleSet,
+    intelligent_playlist_xml, membership_fingerprint,
 };
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaylistType {
+    Folder,
+    Playlist,
+    /// A native intelligent playlist that rekordbox evaluates itself.
+    Smartlist,
+}
+impl PlaylistType {
+    fn attribute(self) -> i64 {
+        match self {
+            Self::Playlist => 0,
+            Self::Folder => 1,
+            Self::Smartlist => 4,
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Managed {
     rb_id: String,
     path: Vec<String>,
-    folder: bool,
-    /// Fingerprint of the membership rekordbox held when CueRithm last wrote or read it.
-    members: Option<String>,
+    kind: PlaylistType,
+    /// What rekordbox held when CueRithm last wrote it: a membership fingerprint, or a hash of the rule document.
+    fingerprint: Option<String>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct State {
@@ -42,11 +60,13 @@ pub enum PlaylistAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaylistPlanItem {
     pub path: Vec<String>,
-    pub folder: bool,
+    pub kind: PlaylistType,
     pub action: PlaylistAction,
     pub tracks: usize,
     /// Members that are not linked to rekordbox and so cannot be written.
     pub unlinked: usize,
+    /// A smart list written as an ordinary playlist because rekordbox cannot express a rule.
+    pub materialized: bool,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlaylistPlanSummary {
@@ -68,17 +88,20 @@ impl PlaylistPlanSummary {
 struct Desired {
     local_id: String,
     path: Vec<String>,
-    folder: bool,
+    kind: PlaylistType,
+    rules: Option<SmartRuleSet>,
+    materialized: bool,
     position: i64,
     content_ids: Vec<String>,
     unlinked: usize,
 }
 
-fn rb_paths(collection: &RekordboxCollection) -> BTreeMap<Vec<String>, (String, bool)> {
+/// Existing rekordbox playlists by name path: `(ID, attribute)`.
+fn rb_paths(collection: &RekordboxCollection) -> BTreeMap<Vec<String>, (String, i64)> {
     let live: BTreeMap<_, _> = collection
         .playlists
         .iter()
-        .filter(|p| p.deleted == Some(false) && matches!(p.attribute, 0 | 1))
+        .filter(|p| p.deleted == Some(false) && matches!(p.attribute, 0 | 1 | 4))
         .map(|p| (p.id.clone(), p))
         .collect();
     let mut paths = BTreeMap::new();
@@ -95,7 +118,7 @@ fn rb_paths(collection: &RekordboxCollection) -> BTreeMap<Vec<String>, (String, 
                 break;
             }
         }
-        paths.insert(path, (playlist.id.clone(), playlist.attribute == 1));
+        paths.insert(path, (playlist.id.clone(), playlist.attribute));
     }
     paths
 }
@@ -107,6 +130,34 @@ fn rb_members(collection: &RekordboxCollection, id: &str) -> Vec<String> {
         .collect();
     links.sort_by_key(|l| l.position);
     links.into_iter().map(|l| l.content_id.clone()).collect()
+}
+fn rb_rules_hash(collection: &RekordboxCollection, id: &str) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    collection.playlists.iter().find(|p| p.id == id).map(|p| {
+        format!(
+            "{:x}",
+            Sha256::digest(p.smart_rule.clone().unwrap_or_default().as_bytes())
+        )
+    })
+}
+/// The fingerprint that tells whether rekordbox changed a playlist since CueRithm last wrote it.
+fn rb_fingerprint(
+    collection: &RekordboxCollection,
+    id: &str,
+    kind: PlaylistType,
+) -> Option<String> {
+    match kind {
+        PlaylistType::Folder => None,
+        PlaylistType::Playlist => Some(membership_fingerprint(&rb_members(collection, id))),
+        PlaylistType::Smartlist => rb_rules_hash(collection, id),
+    }
+}
+fn write_kind(kind: PlaylistType) -> RbKind {
+    match kind {
+        PlaylistType::Folder => RbKind::Folder,
+        PlaylistType::Playlist => RbKind::Playlist,
+        PlaylistType::Smartlist => RbKind::Smartlist,
+    }
 }
 
 impl Library {
@@ -120,8 +171,7 @@ impl Library {
             )
             .ok();
         Ok(text
-            .map(|t| serde_json::from_str(&t))
-            .transpose()?
+            .and_then(|t| serde_json::from_str(&t).ok())
             .unwrap_or_default())
     }
     fn save_native_playlist_state(&self, target: &str, state: &State) -> Result<()> {
@@ -132,8 +182,9 @@ impl Library {
         Ok(())
     }
     /// CueRithm's playlists as rekordbox would hold them: unique names per level, siblings in order, members
-    /// reduced to the tracks linked to this target.
+    /// reduced to the tracks linked to this target, smart lists as native rules where they map exactly.
     fn desired_playlists(&self, target: &str) -> Result<Vec<Desired>> {
+        let zone = crate::playlists::zone(&self.get_playlist_preferences()?.preferences)?;
         let nodes: Vec<_> = self
             .playlist_state()?
             .nodes
@@ -179,9 +230,19 @@ impl Library {
                 let mut path = prefix.clone();
                 path.push(name);
                 let folder = format!("{:?}", node.kind) == "Folder";
-                let (content_ids, unlinked) = if folder {
-                    (vec![], 0)
+                let smart = format!("{:?}", node.kind) == "Smartlist";
+                let rules = match (&node.definition, smart) {
+                    (Some(definition), true) => crate::rekordbox_rules(definition, &zone)?,
+                    _ => None,
+                };
+                let kind = if folder {
+                    PlaylistType::Folder
+                } else if rules.is_some() {
+                    PlaylistType::Smartlist
                 } else {
+                    PlaylistType::Playlist
+                };
+                let (content_ids, unlinked) = if kind == PlaylistType::Playlist {
                     let members = self.playlist_members(&node.id)?;
                     let total = members.len();
                     let ids: Vec<String> = members
@@ -190,11 +251,15 @@ impl Library {
                         .collect();
                     let unlinked = total - ids.len();
                     (ids, unlinked)
+                } else {
+                    (vec![], 0)
                 };
                 out.push(Desired {
                     local_id: node.id.clone(),
                     path: path.clone(),
-                    folder,
+                    kind,
+                    rules,
+                    materialized: smart && kind == PlaylistType::Playlist,
                     position: index as i64 + 1,
                     content_ids,
                     unlinked,
@@ -228,57 +293,67 @@ impl Library {
         for want in &desired {
             let item = |action| PlaylistPlanItem {
                 path: want.path.clone(),
-                folder: want.folder,
+                kind: want.kind,
                 action,
                 tracks: want.content_ids.len(),
                 unlinked: want.unlinked,
+                materialized: want.materialized,
+            };
+            let write = |expected: Option<String>| PlaylistWrite {
+                path: want.path.clone(),
+                kind: write_kind(want.kind),
+                position: want.position,
+                tracks: want.content_ids.clone(),
+                rules: want.rules.clone(),
+                expected_members: expected,
             };
             let managed = state.managed.get(&want.local_id);
-            let found = existing.get(&want.path);
-            match (found, managed) {
+            match (existing.get(&want.path), managed) {
                 (None, _) => {
-                    writes.push(PlaylistWrite {
-                        path: want.path.clone(),
-                        kind: if want.folder {
-                            RbKind::Folder
-                        } else {
-                            RbKind::Playlist
-                        },
-                        position: want.position,
-                        tracks: want.content_ids.clone(),
-                        expected_members: None,
-                    });
+                    writes.push(write(None));
                     summary.items.push(item(PlaylistAction::Create));
                 }
-                (Some((id, _)), Some(m)) if m.rb_id == *id => {
-                    let current = rb_members(collection, id);
-                    let current_hash = membership_fingerprint(&current);
+                (Some((id, attribute)), Some(m))
+                    if m.rb_id == *id && *attribute == want.kind.attribute() =>
+                {
+                    let current = rb_fingerprint(collection, id, want.kind);
+                    let edited = m.fingerprint.is_some() && m.fingerprint != current;
                     let moved = collection
                         .playlists
                         .iter()
                         .find(|p| p.id == *id)
                         .is_some_and(|p| p.sequence != want.position);
-                    if !want.folder && m.members.as_deref().is_some_and(|h| h != current_hash) {
+                    let differs = match want.kind {
+                        PlaylistType::Folder => false,
+                        PlaylistType::Playlist => rb_members(collection, id) != want.content_ids,
+                        PlaylistType::Smartlist => {
+                            let id_number: i64 = id.parse().unwrap_or_default();
+                            let wanted =
+                                intelligent_playlist_xml(id_number, want.rules.as_ref().unwrap());
+                            collection
+                                .playlists
+                                .iter()
+                                .find(|p| p.id == *id)
+                                .and_then(|p| p.smart_rule.as_deref())
+                                != Some(wanted.as_str())
+                        }
+                    };
+                    if edited && want.kind != PlaylistType::Folder {
                         summary.items.push(item(PlaylistAction::SkipChanged));
-                    } else if moved || (!want.folder && current != want.content_ids) {
-                        writes.push(PlaylistWrite {
-                            path: want.path.clone(),
-                            kind: if want.folder {
-                                RbKind::Folder
-                            } else {
-                                RbKind::Playlist
-                            },
-                            position: want.position,
-                            tracks: want.content_ids.clone(),
-                            expected_members: (!want.folder).then_some(current_hash),
-                        });
+                    } else if moved || differs {
+                        writes.push(write(match want.kind {
+                            PlaylistType::Playlist => current,
+                            _ => None,
+                        }));
                         summary.items.push(item(PlaylistAction::Update));
                     } else {
                         summary.items.push(item(PlaylistAction::Unchanged));
                     }
                 }
                 // A folder that already exists simply holds the playlists below it; it is not altered.
-                (Some((_, true)), None) if want.folder => {
+                (Some((_, attribute)), None)
+                    if want.kind == PlaylistType::Folder && *attribute == 1 =>
+                {
                     summary.items.push(item(PlaylistAction::Unchanged))
                 }
                 (Some(_), _) => summary.items.push(item(PlaylistAction::SkipExisting)),
@@ -292,9 +367,11 @@ impl Library {
             let Some((id, _)) = existing.get(&m.path).filter(|(id, _)| *id == m.rb_id) else {
                 continue;
             };
-            let current_hash = membership_fingerprint(&rb_members(collection, id));
-            let changed = !m.folder && m.members.as_deref().is_some_and(|h| h != current_hash);
-            let foreign_children = m.folder
+            let current = rb_fingerprint(collection, id, m.kind);
+            let changed = m.kind != PlaylistType::Folder
+                && m.fingerprint.is_some()
+                && m.fingerprint != current;
+            let foreign_children = m.kind == PlaylistType::Folder
                 && existing
                     .iter()
                     .any(|(path, _)| path.len() > m.path.len() && path.starts_with(&m.path));
@@ -303,22 +380,25 @@ impl Library {
             } else {
                 removals.push(PlaylistRemoval {
                     playlist_id: id.clone(),
-                    expected_members: (!m.folder).then_some(current_hash),
+                    expected_members: (m.kind == PlaylistType::Playlist)
+                        .then_some(current)
+                        .flatten(),
                 });
                 PlaylistAction::Remove
             };
             summary.items.push(PlaylistPlanItem {
                 path: m.path.clone(),
-                folder: m.folder,
+                kind: m.kind,
                 action,
                 tracks: 0,
                 unlinked: 0,
+                materialized: false,
             });
         }
         Ok((writes, removals, summary))
     }
 
-    /// Record what rekordbox holds after a verified write: managed playlists get their IDs and membership,
+    /// Record what rekordbox holds after a verified write: managed playlists get their IDs and fingerprints,
     /// and removed ones are forgotten.
     pub(crate) fn acknowledge_native_playlists(
         &self,
@@ -336,14 +416,14 @@ impl Library {
             .map(|i| &i.path)
             .collect();
         for want in desired.iter().filter(|d| written.contains(&d.path)) {
-            if let Some((id, folder)) = existing.get(&want.path) {
+            if let Some((id, _)) = existing.get(&want.path) {
                 state.managed.insert(
                     want.local_id.clone(),
                     Managed {
                         rb_id: id.clone(),
                         path: want.path.clone(),
-                        folder: *folder,
-                        members: (!*folder).then(|| membership_fingerprint(&rb_members(after, id))),
+                        kind: want.kind,
+                        fingerprint: rb_fingerprint(after, id, want.kind),
                     },
                 );
             }

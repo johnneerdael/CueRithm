@@ -123,6 +123,7 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
                 position: 99,
                 tracks: vec![],
                 expected_members: None,
+                rules: None,
             },
             PlaylistWrite {
                 path: vec!["Cuerithm Acceptance".into(), "Ordered".into()],
@@ -130,6 +131,7 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
                 position: 1,
                 tracks: ids.clone(),
                 expected_members: None,
+                rules: None,
             },
         ],
         ..Default::default()

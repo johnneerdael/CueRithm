@@ -84,6 +84,54 @@ pub struct MyTagRef {
 pub enum PlaylistKind {
     Playlist,
     Folder,
+    /// A native intelligent playlist, defined by [`SmartRuleSet`] rather than by tracks.
+    Smartlist,
+}
+/// One condition of a native intelligent playlist, as rekordbox stores it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SmartCondition {
+    pub operator: String,
+    pub property: String,
+    pub left: String,
+    pub right: String,
+    pub unit: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SmartRuleSet {
+    /// Every condition must hold; otherwise any one may.
+    pub match_all: bool,
+    pub conditions: Vec<SmartCondition>,
+}
+fn escape(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '&' => "&amp;".to_string(),
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            '"' => "&quot;".to_string(),
+            c => c.to_string(),
+        })
+        .collect()
+}
+/// The `SmartList` document of an intelligent playlist; its node ID is the playlist's own ID.
+pub fn intelligent_playlist_xml(playlist_id: i64, rules: &SmartRuleSet) -> String {
+    let mut xml = format!(
+        "<NODE Id=\"{}\" AutomaticUpdate=\"0\" LogicalOperator=\"{}\">\n",
+        playlist_id as i32,
+        if rules.match_all { 1 } else { 2 }
+    );
+    for c in &rules.conditions {
+        xml.push_str(&format!(
+            "  <CONDITION Operator=\"{}\" PropertyName=\"{}\" ValueLeft=\"{}\" ValueRight=\"{}\" ValueUnit=\"{}\"/>\n",
+            escape(&c.operator),
+            escape(&c.property),
+            escape(&c.left),
+            escape(&c.right),
+            escape(&c.unit)
+        ));
+    }
+    xml.push_str("</NODE>");
+    xml
 }
 /// One playlist or folder, addressed by its name path from the root. Only the playlists named in a plan
 /// are touched; nothing else in the library is ever removed to "match".
@@ -96,6 +144,9 @@ pub struct PlaylistWrite {
     pub position: i64,
     /// Ordered `djmdContent.ID`s; empty for a folder. Every track must exist and not be removed.
     pub tracks: Vec<String>,
+    /// Rules for a [`PlaylistKind::Smartlist`]; `None` for every other kind.
+    #[serde(default)]
+    pub rules: Option<SmartRuleSet>,
     /// The membership fingerprint from the last observation of an existing playlist ([`membership_fingerprint`]).
     /// A different current membership means rekordbox changed it since, and the whole plan is refused.
     pub expected_members: Option<String>,
@@ -293,7 +344,15 @@ impl WriteDatabase {
             );
             ensure!(
                 playlist.kind == PlaylistKind::Playlist || playlist.tracks.is_empty(),
-                "A folder cannot hold tracks"
+                "Only an ordinary playlist can hold tracks"
+            );
+            ensure!(
+                (playlist.kind == PlaylistKind::Smartlist) == playlist.rules.is_some()
+                    && playlist
+                        .rules
+                        .as_ref()
+                        .is_none_or(|r| !r.conditions.is_empty() && r.conditions.len() <= 64),
+                "A smart list needs between one and 64 rules, and no other playlist may have any"
             );
             let subject = format!("playlist {}", playlist.path.join("/"));
             let distinct = playlist.tracks.iter().collect::<BTreeSet<_>>().len();
@@ -835,6 +894,7 @@ impl<'a> Session<'a> {
         let attribute = match playlist.kind {
             PlaylistKind::Playlist => 0,
             PlaylistKind::Folder => 1,
+            PlaylistKind::Smartlist => 4,
         };
         let existing = find_playlist_under(self.tx, &parent, name, playlist.kind)?;
         let id = match existing {
@@ -842,9 +902,13 @@ impl<'a> Session<'a> {
             None => {
                 let id = self.allocate("djmdPlaylist", "ID")?.to_string();
                 let usn = self.use_usn();
+                let smart = playlist
+                    .rules
+                    .as_ref()
+                    .map(|rules| intelligent_playlist_xml(id.parse().unwrap_or_default(), rules));
                 self.tx.execute(
-                    "INSERT INTO djmdPlaylist(ID,ParentID,Name,Seq,Attribute,UUID,rb_data_status,rb_local_deleted,rb_local_data_status,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,0,0,0,?8,?9,?9)",
-                    params![id, parent, name, playlist.position, attribute, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+                    "INSERT INTO djmdPlaylist(ID,ParentID,Name,Seq,Attribute,SmartList,UUID,rb_data_status,rb_local_deleted,rb_local_data_status,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,0,0,0,?9,?10,?10)",
+                    params![id, parent, name, playlist.position, attribute, smart, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
                 )?;
                 report.playlists_created += 1;
                 if playlist.kind == PlaylistKind::Folder {
@@ -872,6 +936,22 @@ impl<'a> Session<'a> {
                 params![playlist.position, self.now, status::TAGS_CHANGED, usn, id],
             )?;
             changed = true;
+        }
+        if let Some(rules) = &playlist.rules {
+            let wanted = intelligent_playlist_xml(id.parse().unwrap_or_default(), rules);
+            let current: Option<String> = self.tx.query_row(
+                "SELECT SmartList FROM djmdPlaylist WHERE ID=?1",
+                [&id],
+                |r| r.get(0),
+            )?;
+            if current.as_deref() != Some(wanted.as_str()) {
+                let usn = self.use_usn();
+                self.tx.execute(
+                    "UPDATE djmdPlaylist SET SmartList=?1,updated_at=?2,rb_data_status=?3,rb_local_usn=?4 WHERE ID=?5",
+                    params![wanted, self.now, status::TAGS_CHANGED, usn, id],
+                )?;
+                changed = true;
+            }
         }
         if playlist.kind == PlaylistKind::Playlist && members(self.tx, &id)? != playlist.tracks {
             self.replace_members(&id, &playlist.tracks)?;
@@ -1038,6 +1118,7 @@ fn find_playlist_under(
     let attributes: &[i64] = match kind {
         PlaylistKind::Playlist => &[0, -128],
         PlaylistKind::Folder => &[1],
+        PlaylistKind::Smartlist => &[4],
     };
     let mut q = conn.prepare(
         "SELECT ID,Attribute FROM djmdPlaylist WHERE ParentID=?1 AND Name=?2 AND COALESCE(rb_local_deleted,0)=0 ORDER BY CAST(ID AS INTEGER)",
@@ -1116,6 +1197,7 @@ mod tests {
         INSERT INTO djmdMyTag VALUES('60',1,'Mood',1,'root','uc',256,0,40,'t','t');
         INSERT INTO djmdMyTag VALUES('61',1,'Dark',0,'60','ut',256,0,40,'t','t');
         INSERT INTO djmdSongMyTag VALUES('m1','61','200','um',256,0,40,'t','t');
+        ALTER TABLE djmdPlaylist ADD COLUMN SmartList TEXT;
         INSERT INTO djmdProperty VALUES('db','dev');
         INSERT INTO agentRegistry VALUES('localUpdateCount',41);
         INSERT INTO djmdArtist VALUES('7','Old Artist','ua',256,0,0,0,40,'t','t');
@@ -1482,6 +1564,7 @@ mod tests {
             position: 1,
             tracks: tracks.iter().map(|t| t.to_string()).collect(),
             expected_members: expected,
+            rules: None,
         }
     }
     fn run(path: &Path, profile: &'static [WriteProfile], plan: &WritePlan) -> Result<WriteReport> {
@@ -1501,6 +1584,7 @@ mod tests {
                 position: 1,
                 tracks: vec!["200".into(), "100".into()],
                 expected_members: None,
+                rules: None,
             },
             PlaylistWrite {
                 path: vec!["New Folder".into()],
@@ -1508,6 +1592,7 @@ mod tests {
                 position: 2,
                 tracks: vec![],
                 expected_members: None,
+                rules: None,
             },
             friday(
                 &["200", "100"],
@@ -1950,5 +2035,120 @@ mod tests {
             recover_with(&report.journal, &key, profile).unwrap().state,
             "rolled_back"
         );
+    }
+
+    fn rules(left: &str) -> SmartRuleSet {
+        SmartRuleSet {
+            match_all: false,
+            conditions: vec![
+                SmartCondition {
+                    operator: "8".into(),
+                    property: "artist".into(),
+                    left: left.into(),
+                    right: "".into(),
+                    unit: "".into(),
+                },
+                SmartCondition {
+                    operator: "5".into(),
+                    property: "bpm".into(),
+                    left: "12000".into(),
+                    right: "13000".into(),
+                    unit: "0".into(),
+                },
+            ],
+        }
+    }
+    fn smart(left: &str) -> PlaylistWrite {
+        PlaylistWrite {
+            path: vec!["Sets".into(), "Peak".into()],
+            kind: PlaylistKind::Smartlist,
+            position: 2,
+            tracks: vec![],
+            rules: Some(rules(left)),
+            expected_members: None,
+        }
+    }
+
+    #[test]
+    fn native_smart_lists_carry_their_own_id_in_the_rule_document_and_update_only_when_rules_change()
+     {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.playlists = vec![smart("A & B \"x\"")];
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!(report.playlists_created, 1);
+        let id: String = query(&path, "SELECT ID FROM djmdPlaylist WHERE Name='Peak'");
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT Attribute FROM djmdPlaylist WHERE Name='Peak'"
+            ),
+            4
+        );
+        let xml: String = query(
+            &path,
+            "SELECT SmartList FROM djmdPlaylist WHERE Name='Peak'",
+        );
+        assert_eq!(
+            xml,
+            format!(
+                "<NODE Id=\"{id}\" AutomaticUpdate=\"0\" LogicalOperator=\"2\">\n  <CONDITION Operator=\"8\" PropertyName=\"artist\" ValueLeft=\"A &amp; B &quot;x&quot;\" ValueRight=\"\" ValueUnit=\"\"/>\n  <CONDITION Operator=\"5\" PropertyName=\"bpm\" ValueLeft=\"12000\" ValueRight=\"13000\" ValueUnit=\"0\"/>\n</NODE>"
+            )
+        );
+        // A smart list holds no tracks.
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongPlaylist WHERE PlaylistID=(SELECT ID FROM djmdPlaylist WHERE Name='Peak')"
+            ),
+            0
+        );
+        // Same rules again: nothing written. Different rules: the document is replaced, the ID kept.
+        let before = cuerithm_media::file_sha256(&path).unwrap();
+        let again = run(&path, profile, &plan).unwrap();
+        assert_eq!((again.usn, again.playlists_unchanged), (None, 1));
+        assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), before);
+        plan.playlists = vec![smart("Other")];
+        let changed = run(&path, profile, &plan).unwrap();
+        assert_eq!((changed.playlists_updated, changed.usn), (1, Some(43)));
+        assert_eq!(
+            query::<String>(&path, "SELECT ID FROM djmdPlaylist WHERE Name='Peak'"),
+            id
+        );
+        assert!(
+            query::<String>(
+                &path,
+                "SELECT SmartList FROM djmdPlaylist WHERE Name='Peak'"
+            )
+            .contains("ValueLeft=\"Other\"")
+        );
+    }
+
+    #[test]
+    fn a_smart_list_without_rules_or_a_playlist_with_rules_is_malformed() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        let mut bad = smart("x");
+        bad.rules = None;
+        plan.playlists = vec![bad];
+        assert!(
+            run(&path, profile, &plan)
+                .unwrap_err()
+                .to_string()
+                .contains("smart list needs")
+        );
+        let mut also_bad = friday(&["100"], None);
+        also_bad.rules = Some(rules("x"));
+        plan.playlists = vec![also_bad];
+        assert!(
+            run(&path, profile, &plan)
+                .unwrap_err()
+                .to_string()
+                .contains("smart list needs")
+        );
+        let mut folder_with_tracks = smart("x");
+        folder_with_tracks.tracks = vec!["100".into()];
+        plan.playlists = vec![folder_with_tracks];
+        assert!(run(&path, profile, &plan).is_err());
     }
 }
