@@ -1,3 +1,5 @@
+mod automatic;
+mod credits;
 mod edits;
 mod evaluate;
 mod generator;
@@ -16,16 +18,16 @@ use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
 use cuerithm_smartlists::PlaylistReference;
 pub use evaluate::SmartEvaluation;
-use model::{Delta, StoredNode, Tree};
 pub use model::{
-    GeneratedSmartList, GenerationDimension, GenerationPreview, GenerationTarget,
-    NativePlaylistFacts, PlaylistChange, PlaylistCombineMode, PlaylistEdit, PlaylistKind,
-    PlaylistNode, PlaylistPreferences, PlaylistPreferencesSnapshot, PlaylistPrefix,
-    PlaylistPreviewItem, PlaylistSortOrder, PlaylistState, PlaylistToolPreview,
+    AutomaticBpmRange, AutomaticPlaylistSettings, GeneratedSmartList, GenerationDimension,
+    GenerationPreview, GenerationTarget, NativePlaylistFacts, PlaylistChange, PlaylistCombineMode,
+    PlaylistEdit, PlaylistKind, PlaylistNode, PlaylistPreferences, PlaylistPreferencesSnapshot,
+    PlaylistPrefix, PlaylistPreviewItem, PlaylistSortOrder, PlaylistState, PlaylistToolPreview,
     PlaylistToolRequest, PlaylistWorkspace, SmartCategoryChoice, SmartDefinition,
     SmartFieldCatalog, SmartGenerationRequest, SmartListFailure, SmartListStatus, SmartPreview,
     SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
+use model::{Delta, StoredNode, Tree};
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;
 use std::collections::BTreeSet;

@@ -333,6 +333,13 @@ impl Library {
         ] {
             insert(&mut catalog, id, id, kind, false);
         }
+        for (id, label, kind) in [
+            ("artistCredit", "Artist or remixer credit", FieldKind::Text),
+            ("genreCredit", "Individual genre", FieldKind::Text),
+            ("releaseMonth", "Release month (YYYYMM)", FieldKind::Number),
+        ] {
+            insert(&mut catalog, id, label, kind, true);
+        }
         let mut dynamic_kinds: BTreeMap<String, Option<FieldKind>> = BTreeMap::new();
         let mut tag_choices = vec![];
         let mut category_choices = vec![];
@@ -718,6 +725,33 @@ impl Library {
                 && !genre.is_empty()
             {
                 row.track.genres.push(genre.clone());
+            }
+            let credits = credits::artists(
+                &credits::text(&row.track.fields, "artist"),
+                &credits::text(&row.track.fields, "remixer"),
+                &credits::text(&row.track.fields, "title"),
+            );
+            row.track
+                .fields
+                .insert("artistCredit".into(), FieldValue::Text(credits.join("\n")));
+            row.track.fields.insert(
+                "genreCredit".into(),
+                FieldValue::Text(
+                    credits::unique(
+                        row.track
+                            .genres
+                            .iter()
+                            .flat_map(|s| s.split(';').map(str::to_owned)),
+                    )
+                    .join("\n"),
+                ),
+            );
+            if let Ok(info) = &media {
+                if let Some(month) = credits::release_month(&info.tags) {
+                    row.track
+                        .fields
+                        .insert("releaseMonth".into(), FieldValue::Number(month.into()));
+                }
             }
             let parsed = analysis
                 .as_deref()
