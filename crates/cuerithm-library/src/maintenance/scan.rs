@@ -56,6 +56,7 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/review.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/merge.rs").as_slice(),
+        include_bytes!("../../../cuerithm-maintenance/src/import.rs").as_slice(),
     ] {
         hash.update((bytes.len() as u64).to_le_bytes());
         hash.update(bytes);
