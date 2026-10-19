@@ -107,8 +107,13 @@ dependencies before dependents and atomically publishes complete memberships
 only while input revisions and the prior published-result baseline still match.
 This compare-and-swap also permits a fresh evaluation after a clock correction,
 while rejecting an older concurrently computed result. Failed lists retain
-their last-good membership and expose errors; dependents do not consume partial
-or failed results.
+their last-good membership and expose errors. Status includes
+`has_last_good_results`: a smart list has completed successfully at least once,
+or a folder has at least one active descendant that has. Successful empty
+results count; stored manual membership is independent. Folder status does not
+invent a shared last-good revision from different descendant revisions. Folder
+banners describe cached smart results separately from current manual contents;
+dependents do not consume partial or failed results.
 
 Relative and file-dependent lists have a one-minute deadline propagated through
 smart-list and folder dependencies. The background service checks revisions,

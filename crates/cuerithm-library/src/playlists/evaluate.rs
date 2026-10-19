@@ -315,6 +315,7 @@ pub(super) fn empty_status(id: &str, state: SmartState) -> SmartListStatus {
         evaluated_at: None,
         next_refresh: None,
         last_good_revision: None,
+        has_last_good_results: false,
     }
 }
 pub(super) fn state_priority(state: SmartState) -> u8 {
@@ -374,6 +375,7 @@ pub(super) fn projected_status(
         evaluated_at: cached.at,
         next_refresh: cached.next,
         last_good_revision: cached.good,
+        has_last_good_results: cached.good.is_some(),
     })
 }
 impl Library {
@@ -592,6 +594,7 @@ impl Library {
                 .filter(|n| n.node.kind == PlaylistKind::Smartlist)
             {
                 let child_status = smart_status(&conn, child, &stamp, &prefs, &zone, now_millis)?;
+                result.has_last_good_results |= child_status.has_last_good_results;
                 if state_priority(child_status.state) > state_priority(result.state) {
                     result.state = child_status.state;
                 }

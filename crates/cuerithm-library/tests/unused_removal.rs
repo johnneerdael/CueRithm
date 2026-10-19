@@ -395,3 +395,161 @@ fn selection_order_can_cleanup_nested_parents_and_restore_recreates_them_shallow
     assert_eq!(std::fs::read(&child).unwrap(), b"child");
     assert_eq!(std::fs::read(&parent).unwrap(), b"parent");
 }
+
+#[test]
+fn extension_filters_do_not_make_associated_stems_eligible_for_unused_removal() {
+    for extension_mode in [ExtensionMode::Include, ExtensionMode::Exclude] {
+        let f = Fixture::new();
+        let kept = f.file("album/kept.flac", b"referenced audio");
+        let kept_stems = f.file("album/kept.flac.vdjstems", b"referenced track stem data");
+        let kept_serato = f.file(
+            "album/kept.1.2.serato-stems",
+            b"referenced Serato stem data",
+        );
+        let loose = f.file("album/loose.wav", b"unreferenced base audio");
+        let loose_stems = f.file(
+            "album/loose.wav.vdjstems",
+            b"associated unreferenced stem data",
+        );
+        let orphan = f.file("album/orphan.vdjstems", b"orphan stem data");
+        let orphan_serato = f.file("album/stray.1.2.serato-stems", b"orphan Serato data");
+        f.add(&kept);
+        let before = f.state();
+        let protected = [&kept, &kept_stems, &kept_serato, &loose, &loose_stems];
+        let bytes = protected
+            .iter()
+            .map(|path| std::fs::read(path).unwrap())
+            .collect::<Vec<_>>();
+        let token = CancellationToken::default();
+        let scan = f
+            .lib
+            .scan_unused_files(
+                UnusedScanRequest {
+                    root: f.music.clone(),
+                    extension_mode,
+                    extensions: if extension_mode == ExtensionMode::Include {
+                        vec!["vdjstems".into()]
+                    } else {
+                        vec!["flac".into(), "wav".into()]
+                    },
+                },
+                &token,
+            )
+            .unwrap();
+        assert!(scan.complete && !scan.stale);
+        let mut expected = vec![
+            orphan
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+        ];
+        if extension_mode == ExtensionMode::Exclude {
+            expected.push(
+                orphan_serato
+                    .canonicalize()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+        }
+        expected.sort();
+        assert_eq!(
+            scan.files
+                .iter()
+                .map(|file| file.display_path.clone())
+                .collect::<Vec<_>>(),
+            expected
+        );
+        let preview = f
+            .lib
+            .preview_unused_removal(
+                &scan.id,
+                &scan
+                    .files
+                    .iter()
+                    .map(|file| file.id.clone())
+                    .collect::<Vec<_>>(),
+                &token,
+            )
+            .unwrap();
+        assert_eq!(preview.files.len(), expected.len());
+        let applied = f.lib.apply_unused_removal(&preview.id, &token).unwrap();
+        assert!(!orphan.exists());
+        assert_eq!(
+            orphan_serato.exists(),
+            extension_mode == ExtensionMode::Include
+        );
+        for (path, original) in protected.iter().zip(bytes) {
+            assert_eq!(
+                std::fs::read(path).unwrap(),
+                original,
+                "associated source changed: {}",
+                path.display()
+            );
+        }
+        assert_eq!(f.state(), before);
+        f.lib.restore_unused_removal(&applied.id, &token).unwrap();
+        assert_eq!(std::fs::read(&orphan).unwrap(), b"orphan stem data");
+        assert_eq!(
+            std::fs::read(&orphan_serato).unwrap(),
+            b"orphan Serato data"
+        );
+    }
+}
+
+#[test]
+fn an_excluded_base_added_after_review_blocks_orphan_sidecar_removal() {
+    let f = Fixture::new();
+    let stems = f.file("late.flac.vdjstems", b"previously orphan stems");
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_unused_files(
+            UnusedScanRequest {
+                root: f.music.clone(),
+                extension_mode: ExtensionMode::Include,
+                extensions: vec!["vdjstems".into()],
+            },
+            &token,
+        )
+        .unwrap();
+    assert_eq!(scan.files.len(), 1);
+    let preview = f
+        .lib
+        .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+        .unwrap();
+    let audio = f.file("late.flac", b"newly present excluded base audio");
+    assert!(f.lib.unused_scan(&scan.id).unwrap().stale);
+    assert!(f.lib.apply_unused_removal(&preview.id, &token).is_err());
+    assert_eq!(std::fs::read(&stems).unwrap(), b"previously orphan stems");
+    assert_eq!(
+        std::fs::read(&audio).unwrap(),
+        b"newly present excluded base audio"
+    );
+}
+
+#[test]
+fn saved_unused_scan_and_removal_plan_from_old_scanner_logic_cannot_be_applied() {
+    let f = Fixture::new();
+    let audio = f.file("loose.flac", b"authored audio");
+    let token = CancellationToken::default();
+    let scan = f.scan();
+    let preview = f
+        .lib
+        .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+        .unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    for id in [&scan.id, &preview.id] {
+        conn.execute("UPDATE maintenance_scans SET payload_json=json_set(payload_json,'$.logic','old-filtered-sidecar-inventory') WHERE id=?1", [id]).unwrap();
+    }
+    assert!(f.lib.unused_scan(&scan.id).unwrap().stale);
+    assert!(
+        f.lib
+            .preview_unused_removal(&scan.id, &[scan.files[0].id.clone()], &token)
+            .is_err()
+    );
+    assert!(f.lib.apply_unused_removal(&preview.id, &token).is_err());
+    assert_eq!(std::fs::read(&audio).unwrap(), b"authored audio");
+    assert!(f.lib.unused_removal_history().unwrap().is_empty());
+}

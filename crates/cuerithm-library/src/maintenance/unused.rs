@@ -353,7 +353,7 @@ impl Library {
         };
         let mut directories = vec![];
         let mut stack = vec![root.clone()];
-        let mut paths = vec![];
+        let mut inventory = vec![];
         while let Some(folder) = stack.pop() {
             cancel.check()?;
             if excluded(&folder, &root, &app, &known, true) {
@@ -372,10 +372,8 @@ impl Library {
                         }
                         if kind == 2 {
                             stack.push(path);
-                        } else if kind == 1
-                            && allowed(&path, report.request.extension_mode, &extensions)
-                        {
-                            paths.push(path);
+                        } else if kind == 1 {
+                            inventory.push(path);
                         }
                     }
                 }
@@ -393,16 +391,22 @@ impl Library {
                 current_path: Some(folder.to_string_lossy().into()),
             });
         }
-        paths.sort();
+        // Sidecar association must see base files even when their extensions
+        // are excluded from the removal candidates.
+        inventory.sort();
+        let paths = inventory
+            .iter()
+            .filter(|path| allowed(path, report.request.extension_mode, &extensions))
+            .collect::<Vec<_>>();
         progress(FileScanProgress {
             completed: 0,
             total: Some(paths.len()),
             current_path: None,
         });
         let mut files = vec![];
-        for (i, path) in paths.iter().enumerate() {
+        for (i, &path) in paths.iter().enumerate() {
             cancel.check()?;
-            if sidecar(path, &paths) {
+            if sidecar(path, &inventory) {
                 continue;
             }
             match referenced(path, &references, &reference_keys) {

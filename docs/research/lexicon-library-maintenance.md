@@ -198,6 +198,10 @@ Spotlight and file-event directories are pruned, while file-only metadata names
 do not suppress ordinary music directories. Broad system/home roots require
 a narrower selection. Source stem suffix/prefix rules are reproduced; universal
 case folding of every pathname is intentionally replaced with filesystem checks.
+Sidecar association uses the complete regular-file inventory before extension
+filters select candidates. A stems-only allowlist or an excluded base-audio
+extension therefore cannot make associated stem data eligible on its own;
+orphan sidecars remain candidates when their extension is selected.
 
 Reports retain directory-entry snapshots and complete SHA-256 proofs for their
 candidates. Changed contents, new or removed entries, changed references and

@@ -21,7 +21,9 @@ starting another; cancellation acknowledgement does not release the slot.
   count. Rescan reports made with an older scanner implementation before review
   or merge; raw fingerprint caching remains separate from classification.
 - `scanUnused(operationId, request)`: explicit folder with all/include/exclude
-  extension filters. Show `complete` and `issues`; partial is not a complete scan.
+  extension filters. Filters choose removal candidates; sidecar association uses
+  the complete regular-file inventory, including excluded base audio files.
+  Show `complete` and `issues`; partial is not a complete scan.
 - `scanBroken(operationId, {inspect_audio})`: availability or strict decoding.
   Preserve distinct missing, unavailable, unsupported, timed-out and decode-error
   states. Presence alone does not establish decodability.

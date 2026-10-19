@@ -133,6 +133,10 @@ pub struct SmartListStatus {
     pub evaluated_at: Option<i64>,
     pub next_refresh: Option<i64>,
     pub last_good_revision: Option<u64>,
+    /// This smart list or at least one active descendant has a successful
+    /// evaluation, including an empty result. Folder revisions stay unaggregated.
+    #[serde(default)]
+    pub has_last_good_results: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmartListFailure {

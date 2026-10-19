@@ -64,6 +64,7 @@ impl Library {
             if row.node.kind == PlaylistKind::Folder {
                 for child in children.get(&Some(id.clone())).into_iter().flatten() {
                     let s = &statuses[child];
+                    status.has_last_good_results |= s.has_last_good_results;
                     if evaluate::state_priority(s.state) > evaluate::state_priority(status.state) {
                         status.state = s.state;
                     }
