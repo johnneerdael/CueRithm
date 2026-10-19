@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {ScanLine,Save,Undo2,LoaderCircle} from "lucide-react";
 import type {Bridge,Snapshot,CleanupConfig,CleanupPreview,CleanupBatchResult,CleanupHistory,CleanupCatalog} from "../types";
 import {errorMessage} from "../api";
-import {emptyCleanup,SmartFixEditor,CanonicalEditor} from "./CleanupSettings";
+import {emptyCleanup,SmartFixEditor,CanonicalEditor,cleanupTextValidationError} from "./CleanupSettings";
 
 function HistoryDetails({history,bridge}:{history:CleanupHistory;bridge:Bridge}){
  const [expanded,setExpanded]=useState(false),[titles,setTitles]=useState<Record<string,string>>({});
@@ -31,6 +31,7 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
  const [busy,setBusy]=useState<string|null>(null),[catalogBusy,setCatalogBusy]=useState(false);
  const generation=useRef(0),catalogRequest=useRef(0),alive=useRef(true);
  const dirty=JSON.stringify(config)!==baseline;
+ const validationError=cleanupTextValidationError(config);
  const configRef=useRef(config);configRef.current=config;
  const update=(next:CleanupConfig)=>{generation.current++;setConfig(next);setPreview(null);setResult(null);};
  useEffect(()=>{
@@ -55,10 +56,12 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
   finally{if(alive.current)setBusy(null);}
  };
  const save=()=>run("Saving rules…",async()=>{
+  if(validationError){setError(validationError);return;}
   const saved=await bridge.saveSettings({...settings,cleanup:config});
   if(!alive.current)return;setSettings(saved.settings);setBaseline(JSON.stringify(saved.settings.cleanup??emptyCleanup()));onChanged();
  });
  const scan=()=>run("Scanning tracks…",async()=>{
+  if(validationError){setError(validationError);return;}
   const current=++generation.current;setPreview(null);setResult(null);
   const next=await bridge.previewCleanup(scope==="selected"?{kind:"track_ids",track_ids:selectedIds}:{kind:"all_ready"},config);
   if(!alive.current||current!==generation.current)return;setPreview(next);setChecked(new Set(next.proposals.map(p=>p.id)));
@@ -70,15 +73,16 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
  };
  const failures=result?[...result.conflicted,...result.failed]:preview?.failed??[];
  return <section className="cleanup-view">
-  <div className="view-title"><div><div className="eyebrow">LIBRARY TOOLS</div><h1>Cleanup</h1><p>Review metadata changes. Keep your audio, analysis and cues.</p></div><button className="secondary" disabled={!!busy||!dirty} onClick={()=>void save()}><Save size={14}/>Save cleanup rules</button></div>
+  <div className="view-title"><div><div className="eyebrow">LIBRARY TOOLS</div><h1>Cleanup</h1><p>Review metadata changes. Keep your audio, analysis and cues.</p></div><button className="secondary" disabled={!!busy||!dirty||!!validationError} onClick={()=>void save()}><Save size={14}/>Save cleanup rules</button></div>
   <div className="cleanup-tabs" role="tablist" aria-label="Cleanup tools">{([['fixes','Smart Fixes'],['genres','Genres'],['artists','Artists']] as const).map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{label}</button>)}</div>
   <div className="cleanup-body">
    {error?<div role="alert" className="error-banner">{error}</div>:null}
+   {validationError&&tab!=="fixes"?<div role="alert" className="error-banner">{validationError} Review Smart Fixes.</div>:null}
    {busy?<div role="status" className="cleanup-status"><LoaderCircle className="spin" size={15}/>{busy}</div>:null}
    <fieldset className="cleanup-controls" disabled={!!busy}>
     {tab==="fixes"?<SmartFixEditor config={config} onChange={update}/>:<><CanonicalEditor kind={tab} config={config} onChange={update} catalog={catalog}/>{catalogBusy?<p className="cleanup-note">Reading library values…</p>:<button className="back-link" onClick={()=>void loadCatalog()}>Refresh values</button>}{catalog?.unavailable_tracks.length?<p className="attention">{catalog.unavailable_tracks.length} tracks unavailable for metadata reading.</p>:null}</>}
    </fieldset>
-   <div className="cleanup-scan"><label>Scope<select aria-label="Cleanup scope" disabled={!!busy} value={scope} onChange={e=>{generation.current++;setScope(e.target.value);setPreview(null);}}><option value="all">All ready tracks</option><option value="selected" disabled={!selectedIds.length}>{selectedIds.length} selected tracks</option></select></label><button className="primary" disabled={!!busy||dirty||(scope==="selected"&&!selectedIds.length)} onClick={()=>void scan()}><ScanLine size={15}/>Scan tracks</button>{dirty?<span className="attention">Save rule changes before scanning.</span>:<small>Scanning previews changes without writing file tags.</small>}</div>
+   <div className="cleanup-scan"><label>Scope<select aria-label="Cleanup scope" disabled={!!busy} value={scope} onChange={e=>{generation.current++;setScope(e.target.value);setPreview(null);}}><option value="all">All ready tracks</option><option value="selected" disabled={!selectedIds.length}>{selectedIds.length} selected tracks</option></select></label><button className="primary" disabled={!!busy||dirty||!!validationError||(scope==="selected"&&!selectedIds.length)} onClick={()=>void scan()}><ScanLine size={15}/>Scan tracks</button>{dirty?<span className="attention">Save rule changes before scanning.</span>:<small>Scanning previews changes without writing file tags.</small>}</div>
    {preview?<section className="cleanup-preview" aria-label="Cleanup preview"><div className="cleanup-preview-heading"><h2>{preview.proposals.length} proposed {preview.proposals.length===1?"change":"changes"}</h2><button className="primary" disabled={!!busy||!checked.size} onClick={()=>void run("Applying cleanup…",async()=>afterWrite(await bridge.applyCleanup(preview.id,[...checked])))}>Apply {checked.size} {checked.size===1?"change":"changes"}</button></div>
     <p className="cleanup-note">{preview.unchanged.length} unchanged · {preview.failed.length} unavailable. Apply updates file tags and library metadata with Undo.</p>
     {preview.proposals.length?<label className="cleanup-select-all"><input type="checkbox" checked={checked.size===preview.proposals.length} onChange={e=>setChecked(new Set(e.target.checked?preview.proposals.map(p=>p.id):[]))}/>Select all proposals</label>:<p>No metadata changes needed with these rules.</p>}

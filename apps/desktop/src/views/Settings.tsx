@@ -2,7 +2,7 @@ import {useEffect,useState} from "react";
 import {FolderPlus,FolderOpen,X,Save,ChevronLeft,Check} from "lucide-react";
 import type {Bridge,Snapshot,Settings as SettingsType,EngineSettings} from "../types";
 import TaggingSettings from "./TaggingSettings";
-import CleanupSettings from "./CleanupSettings";
+import CleanupSettings,{cleanupTextValidationError} from "./CleanupSettings";
 import PlaylistPreferences from "./PlaylistPreferences";
 import {errorMessage} from "../api";
 export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
@@ -11,11 +11,13 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
   const pages=["Incoming","Cue generation","Automatic tagging","Cleanup","Library preferences"];
   const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);
   useEffect(()=>{setDraft(snapshot.settings);},[snapshot.revision]);
+  const cleanupError=cleanupTextValidationError(draft.cleanup);
   const engine=(patch:Partial<EngineSettings>)=>{setSaved(false);setDraft(d=>({...d,engine:{...d.engine,...patch}}));};
   return <section className="settings-view">
     <div className="view-title"><div><button className="back-link" onClick={onBack}><ChevronLeft size={15}/>Library</button><h1>Settings</h1><p>Configure preparation once. Incoming tracks take it from here.</p></div>
-    {page!=="Library preferences"?<button className="primary" disabled={busy} onClick={async()=>{setBusy(true);setError(null);try{await bridge.saveSettings(draft);setSaved(true);onSaved();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}}>{saved?<Check size={16}/>:<Save size={16}/>} {busy?"Saving…":saved?"Settings saved":"Save settings"}</button>:null}</div>
+    {page!=="Library preferences"?<button className="primary" disabled={busy||!!cleanupError} onClick={async()=>{if(cleanupError){setError(cleanupError);return;}setBusy(true);setError(null);try{await bridge.saveSettings(draft);setSaved(true);onSaved();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}}>{saved?<Check size={16}/>:<Save size={16}/>} {busy?"Saving…":saved?"Settings saved":"Save settings"}</button>:null}</div>
     {error?<div role="alert" className="error-banner">{error}</div>:null}
+    {cleanupError&&page!=="Cleanup"?<div role="alert" className="error-banner">{cleanupError} Review Cleanup settings.</div>:null}
     <div className="settings-workspace"><nav className="settings-nav" aria-label="Settings pages">{pages.map(name=><button key={name} aria-current={page===name?"page":undefined} disabled={busy} onClick={()=>setPage(name)}>{name}</button>)}</nav><div className="settings-body"><div hidden={page!=="Library preferences"}><PlaylistPreferences bridge={bridge} onSaved={onSaved}/></div><fieldset hidden={page==="Library preferences"} className="settings-fields" disabled={busy}>
       {page==="Incoming"?<section className="setting-section"><div className="setting-heading"><div><h2>Incoming</h2><p>Files added to these folders are prepared automatically.</p></div></div>
         <div className="folder-list">{draft.watch_folders.map(path=><div className="folder-line" key={path}><FolderOpen size={17}/><span title={path}>{path}</span><button aria-label={"Remove watch folder "+path} onClick={()=>{setSaved(false);setDraft(d=>({...d,watch_folders:d.watch_folders.filter(p=>p!==path)}));}}><X size={15}/></button></div>)}</div>

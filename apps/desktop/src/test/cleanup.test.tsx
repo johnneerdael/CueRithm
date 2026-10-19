@@ -117,3 +117,110 @@ it("retains identifiable conflict and failure details in history after reopening
  expect(screen.getByText("newer-edit")).toBeInTheDocument();expect(screen.getByText("Newer metadata preserved")).toBeInTheDocument();
  expect(screen.getByText("offline-file")).toBeInTheDocument();expect(screen.getByText("Source disk unavailable")).toBeInTheDocument();
 });
+
+const textFixes=[
+ {name:"Characters to spaces",label:"Characters",property:"characters"},
+ {name:"Extract artist",label:"Separator",property:"separator"},
+ {name:"Extract remixer",label:"Remixer suffix",property:"word"},
+] as const;
+async function openTextFix(name:string){
+ const bridge=fakeBridge([]);render(<App bridge={bridge}/>);
+ fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+ await screen.findByRole("heading",{name:"Settings"});
+ fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Cleanup"}));
+ fireEvent.change(screen.getByLabelText("New Smart Fix"),{target:{value:name}});
+ fireEvent.click(screen.getByRole("button",{name:"Add Smart Fix"}));
+ return bridge;
+}
+it.each(textFixes.flatMap(fix=>["x","😀"].map(character=>({...fix,character}))))("validates $label by Unicode character count for $character without truncating",async({name,label,property,character})=>{
+ const bridge=await openTextFix(name),input=screen.getByLabelText(label);
+ fireEvent.change(input,{target:{value:character.repeat(65)}});
+ expect(input).toHaveValue(character.repeat(65));
+ expect(input).toHaveAttribute("aria-invalid","true");
+ expect(input).toHaveAccessibleDescription(/65\/64 characters/);
+ expect(screen.getByRole("button",{name:"Save settings"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"Save settings"}));
+ expect(bridge.saveSettings).not.toHaveBeenCalled();
+ fireEvent.change(input,{target:{value:character.repeat(64)}});
+ expect(input).toHaveValue(character.repeat(64));
+ expect(input).not.toHaveAttribute("aria-invalid","true");
+ expect(input).toHaveAccessibleDescription(/64\/64 characters/);
+ fireEvent.click(screen.getByRole("button",{name:"Save settings"}));
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0].rule).toMatchObject({[property]:character.repeat(64)});
+});
+it.each(textFixes)("uses the backend empty-value policy for $label",async({name,label})=>{
+ const bridge=await openTextFix(name),input=screen.getByLabelText(label);
+ fireEvent.change(input,{target:{value:""}});
+ const save=screen.getByRole("button",{name:"Save settings"});
+ if(label==="Characters"){
+  expect(save).toBeEnabled();fireEvent.click(save);await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+ }else{
+  expect(input).toHaveAttribute("aria-invalid","true");expect(save).toBeDisabled();
+  fireEvent.change(input,{target:{value:" "}});
+  if(label==="Separator")expect(save).toBeEnabled();else expect(save).toBeDisabled();
+ }
+});
+it("matches Rust Unicode whitespace semantics for the remixer suffix",async()=>{
+ await openTextFix("Extract remixer");
+ const input=screen.getByLabelText("Remixer suffix"),save=screen.getByRole("button",{name:"Save settings"});
+ // Rust White_Space includes NEXT LINE; JavaScript trim does not.
+ fireEvent.change(input,{target:{value:"\u0085"}});expect(save).toBeDisabled();
+ // BOM is not Unicode White_Space, even though JavaScript trim removes it.
+ fireEvent.change(input,{target:{value:"\ufeff"}});expect(save).toBeEnabled();
+});
+it("keeps invalid Cleanup drafts unsavable after changing Settings pages",async()=>{
+ const bridge=await openTextFix("Characters to spaces");
+ fireEvent.change(screen.getByLabelText("Characters"),{target:{value:"x".repeat(65)}});
+ fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Incoming"}));
+ expect(screen.getByRole("button",{name:"Save settings"})).toBeDisabled();
+ expect(screen.getByText(/Characters.*64 characters/)).toBeInTheDocument();
+ expect(bridge.saveSettings).not.toHaveBeenCalled();
+});
+it("blocks invalid manual cleanup rules until their Unicode text is corrected",async()=>{
+ const bridge=fakeBridge([track("a")]);await openCleanup(bridge);
+ fireEvent.change(screen.getByLabelText("New Smart Fix"),{target:{value:"Extract artist"}});
+ fireEvent.click(screen.getByRole("button",{name:"Add Smart Fix"}));
+ fireEvent.change(screen.getByLabelText("Separator"),{target:{value:"😀".repeat(65)}});
+ expect(screen.getByRole("button",{name:"Save cleanup rules"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"Scan tracks"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"Save cleanup rules"}));expect(bridge.saveSettings).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText("Separator"),{target:{value:"😀".repeat(64)}});
+ expect(screen.getByRole("button",{name:"Save cleanup rules"})).toBeEnabled();
+ fireEvent.click(screen.getByRole("button",{name:"Save cleanup rules"}));
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+});
+
+it.each(textFixes)("rejects invalid Unicode in $label without altering the draft",async({name,label})=>{
+ await openTextFix(name);
+ const input=screen.getByLabelText(label);
+ fireEvent.change(input,{target:{value:"\ud800"}});
+ expect(input).toHaveValue("\ud800");
+ expect(input).toHaveAttribute("aria-invalid","true");
+ expect(screen.getByRole("button",{name:"Save settings"})).toBeDisabled();
+ fireEvent.change(input,{target:{value:"😀"}});
+ expect(screen.getByRole("button",{name:"Save settings"})).toBeEnabled();
+});
+
+it.each(textFixes)("lets disabled $label drafts save and blocks them again when enabled",async({name,label})=>{
+ const bridge=await openTextFix(name),input=screen.getByLabelText(label);
+ fireEvent.change(input,{target:{value:"x".repeat(65)}});
+ const save=screen.getByRole("button",{name:"Save settings"}),enabled=within(screen.getByRole("group",{name:"Smart Fix: "+name})).getByLabelText("Enabled");
+ expect(save).toBeDisabled();
+ fireEvent.click(enabled);expect(save).toBeEnabled();
+ fireEvent.click(enabled);expect(save).toBeDisabled();
+ fireEvent.click(enabled);fireEvent.click(save);
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0]).toMatchObject({enabled:false});
+});
+it("allows manual cleanup to save an invalid disabled rule without truncation",async()=>{
+ const bridge=fakeBridge([track("a")]);await openCleanup(bridge);
+ fireEvent.change(screen.getByLabelText("New Smart Fix"),{target:{value:"Extract artist"}});
+ fireEvent.click(screen.getByRole("button",{name:"Add Smart Fix"}));
+ fireEvent.change(screen.getByLabelText("Separator"),{target:{value:"😀".repeat(65)}});
+ const save=screen.getByRole("button",{name:"Save cleanup rules"}),enabled=within(screen.getByRole("group",{name:"Smart Fix: Extract artist"})).getByLabelText("Enabled");
+ expect(save).toBeDisabled();fireEvent.click(enabled);expect(save).toBeEnabled();
+ fireEvent.click(enabled);expect(save).toBeDisabled();fireEvent.click(enabled);fireEvent.click(save);
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0]).toMatchObject({enabled:false,rule:{separator:"😀".repeat(65)}});
+});
