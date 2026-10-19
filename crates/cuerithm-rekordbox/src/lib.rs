@@ -1,5 +1,10 @@
 //! Native direct-library access. No collection XML transport is provided.
+mod collection;
+mod discovery;
+pub use discovery::*;
+mod records;
 use anyhow::{Context, Result, ensure};
+pub use collection::*;
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
 use rusqlite::{
     Connection, OpenFlags,
@@ -197,28 +202,9 @@ impl ReadOnlyDatabase {
     }
     pub fn schema(&self) -> Result<DatabaseSchema> {
         let tx = self.conn.unchecked_transaction()?;
-        let objects = {
-            let mut q=tx.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY type,name")?;
-            q.query_map([], |r| {
-                Ok(SchemaObject {
-                    kind: r.get(0)?,
-                    name: r.get(1)?,
-                    table: r.get(2)?,
-                    sql: r.get(3)?,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-        };
-        let user_version = tx.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        let application_id = tx.pragma_query_value(None, "application_id", |r| r.get(0))?;
-        let fingerprint = format!("{:x}", Sha256::digest(serde_json::to_vec(&objects)?));
+        let schema = schema_on(&tx)?;
         tx.commit()?;
-        Ok(DatabaseSchema {
-            user_version,
-            application_id,
-            fingerprint,
-            objects,
-        })
+        Ok(schema)
     }
     pub fn checks(&self) -> Result<DatabaseChecks> {
         let tx = self.conn.unchecked_transaction()?;
@@ -252,6 +238,30 @@ impl ReadOnlyDatabase {
     ) -> Result<DatabaseSnapshot> {
         self.capture_with_progress(cache, key, cancel, |_| {})
     }
+}
+
+fn schema_on(conn: &Connection) -> Result<DatabaseSchema> {
+    let objects = {
+        let mut q=conn.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY type,name")?;
+        q.query_map([], |r| {
+            Ok(SchemaObject {
+                kind: r.get(0)?,
+                name: r.get(1)?,
+                table: r.get(2)?,
+                sql: r.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    let user_version = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    let application_id = conn.pragma_query_value(None, "application_id", |r| r.get(0))?;
+    let fingerprint = format!("{:x}", Sha256::digest(serde_json::to_vec(&objects)?));
+    Ok(DatabaseSchema {
+        user_version,
+        application_id,
+        fingerprint,
+        objects,
+    })
 }
 
 #[cfg(test)]

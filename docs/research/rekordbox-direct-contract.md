@@ -139,10 +139,55 @@ app. The private reference bootstrap is not a distributed dependency.
 
 Target discovery/import, structured conflict baselines, IDs/USNs, metadata and
 MyTags, playlists/native smart rules, cues/loops/beatgrid/artwork assets, staged
-write recovery and actual6/7 target-app acceptance remain required. Version 6 is
+write recovery and actual 6/7 target-app acceptance remain required. Version 6 is
 not installed on this host. No schema is allowlisted for live writes yet; a
 read-only schema match is not a completed sync implementation.
 
 Primary implementation references: [SQLCipher API](https://www.zetetic.net/sqlcipher/sqlcipher-api/),
 [SQLite3 Multiple Ciphers legacy modes](https://utelle.github.io/SQLite3MultipleCiphers/docs/ciphers/cipher_legacy_mode/),
 and the pinned [rusqlite 0.39.0 source](https://github.com/rusqlite/rusqlite/tree/v0.39.0).
+
+
+## Typed collection import and target discovery checkpoint
+
+The SDK now reads 14 related tables in one read transaction with schema identity,
+row-budget/cancellation checks and lossless raw cell/hash retention. It scopes
+content IDs by database identity, preserves UUID/master-song IDs and native
+update counters, resolves descriptive foreign metadata and keeps source/analysis/
+artwork references distinct. BPM is hundredths; duration and cue milliseconds
+are converted at their respective boundaries. Actual fractional BitRate values
+are retained despite the target column's declared integer affinity.
+
+Soft-deleted, unresolved and unsupported-service rows remain available as raw
+target data. The explicit active-local view does not invent locations or master
+identities. Playlists/native smart-rule payloads, ordered links, MyTag hierarchy
+and cue kind/slot/memory/loop fields are retained. Unknown cue kinds or missing
+foreign records produce issues. Native color fields and analysis references are
+preserved for later palette/asset handling, not claimed as decoded playback data.
+Unrequested play statistics are not descriptive fields; unrelated agent registry
+rows are not read. The raw selected record keeps unowned columns so later writes
+can preserve them rather than resetting them.
+
+A private component comparison executed the original simple-track method on
+all 3,417 copied rows with controlled location/color/numeric helper callbacks.
+Rust's 12 descriptive text fields plus BPM matched its projection exactly. This
+is the measured component boundary, not complete Lexicon import, cue-color,
+asset or target-app parity. The same copy yielded 3,409 active local rows,
+36,752 cues, 1,033 playlist records, 13,355 playlist links and 100 MyTag records.
+Sixteen missing-foreign-record issues were surfaced; row values, paths and
+per-row answers remain private. The SQLite integrity/foreign-key checks stayed
+separate from these higher-level reference issues.
+
+Read-only discovery finds installed 6/7 bundle versions, Windows version resources
+(or explicitly labelled directory hints) and `masterDbDirectory` in the shared
+settings. It skips directory symlinks, rejects conflicting/malformed settings and
+reports typed location states. The actual host detected 7.2.19.0342 with its
+configured database present and no discovery issues. Linux accurately reports
+that a local target is unavailable. Generated 6 bundle fixtures test discovery
+logic only; they do not establish actual 6 acceptance. Discovery neither launches
+rekordbox nor opens/mutates its live database.
+
+This checkpoint does not persist imported records/baselines into Cuerithm,
+resolve the runtime database key automatically, decode/write binary analysis
+assets, enable a direct writer or provide a desktop Sync workflow. Continue the
+full implementation sequence and actual 6/7 round-trip gates.

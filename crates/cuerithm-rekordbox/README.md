@@ -30,3 +30,42 @@ licenses in `licenses/` and corresponding dependency sources/build materials.
 See the [direct contract](../../docs/research/rekordbox-direct-contract.md) and
 [implementation plan](../../docs/superpowers/plans/2026-10-19-rekordbox-direct.md)
 for the complete remaining import/export, asset, ownership and recovery work.
+
+
+## Discovery and typed collection reads
+
+`DiscoveryPaths::current()` and `discover_targets` inspect installed bundle/PE
+version metadata and the configured `masterDbDirectory`. The shared 6/7 settings
+file is configuration XML, not a collection transport. Discovery never launches
+a target, opens its database or enables writes. Missing/unavailable/nonregular
+databases and invalid settings remain distinct. A Windows directory-version hint
+is explicitly labelled and is not sufficient write acceptance. Linux reports
+local-platform unavailability while copied-database inspection remains usable.
+
+`ReadOnlyDatabase::read_collection` returns a coherent typed collection and raw
+record fingerprints. It preserves database/content/UUID/master-song identity,
+metadata lookup relationships, native BPM/time units, deleted/service states,
+cue/loop fields, ordered playlist links, native smart-rule payloads and MyTags.
+Unowned target fields remain raw for future baseline/preservation work; excluded
+Plays/Last Played/Danceability features are not added to descriptive metadata.
+Only `localUpdateCount` is read from the agent registry. Missing references and
+unresolved locations are reported rather than replaced with invented values.
+
+The reader retains raw cue colors and binary-asset references; it does not yet
+resolve analysis-file grids, native palette configuration or materialize a
+Cuerithm library. Row-budget exhaustion/cancellation fails without returning a
+partial collection. Original path and explicit Dropbox-root options resolve
+supported local storage locations while preserving their raw counterparts.
+
+The inspector's `--discover` mode reports aggregate discovery without a key;
+`--collection` with copied database/key arguments adds aggregate collection
+counts and a descriptive metadata projection digest. No track-row export is
+printed. These remain SDK/research operations; desktop import/apply, automatic
+key discovery, conflict-baseline persistence and direct writes are still pending.
+
+
+Windows source builds need a native Perl installation for vendored OpenSSL.
+The workflows select Strawberry Perl explicitly with `OPENSSL_SRC_PERL`, because
+Git Bash may otherwise pick an incomplete MSYS Perl. This is a build-tool
+requirement, not an end-user runtime dependency. The shared action verifies the
+native interpreter and required configure modules before Cargo starts.
