@@ -77,7 +77,7 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
   <div className="cleanup-tabs" role="tablist" aria-label="Cleanup tools">{([['fixes','Smart Fixes'],['genres','Genres'],['artists','Artists']] as const).map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{label}</button>)}</div>
   <div className="cleanup-body">
    {error?<div role="alert" className="error-banner">{error}</div>:null}
-   {validationError&&tab!=="fixes"?<div role="alert" className="error-banner">{validationError} Review Smart Fixes.</div>:null}
+   {validationError?<div role="alert" className="error-banner">{validationError}</div>:null}
    {busy?<div role="status" className="cleanup-status"><LoaderCircle className="spin" size={15}/>{busy}</div>:null}
    <fieldset className="cleanup-controls" disabled={!!busy}>
     {tab==="fixes"?<SmartFixEditor config={config} onChange={update}/>:<><CanonicalEditor kind={tab} config={config} onChange={update} catalog={catalog}/>{catalogBusy?<p className="cleanup-note">Reading library values…</p>:<button className="back-link" onClick={()=>void loadCatalog()}>Refresh values</button>}{catalog?.unavailable_tracks.length?<p className="attention">{catalog.unavailable_tracks.length} tracks unavailable for metadata reading.</p>:null}</>}

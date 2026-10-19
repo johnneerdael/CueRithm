@@ -23,6 +23,11 @@ Choose the category and source genres; optionally remove the converted values
 from Genre. These categorized tags are stored in Cuerithm's library. Original
 provider metadata remains in preparation provenance.
 
+Settings and manual Cleanup explain invalid configurations before saving. Finish
+new mapping rows, keep at least one role for enabled Artist cleanup, and correct
+the indicated value or limit. Disabled drafts follow the backend's validation
+rules; protected and ignored values are still checked.
+
 ## Review and apply
 
 Open **Cleanup** in the sidebar. Its Genres and Artists tabs list native values
@@ -56,6 +61,12 @@ cleanup. Originals remain until a separate retention action is implemented;
 redundant staged files are cleaned after durable publication.
 
 ## Validation boundary
+
+The frontend and native configuration validators share 99 original synthetic
+cases in `tools/fixtures/cleanup-contract.json`, covering Unicode, byte/scalar
+limits, enabled/disabled settings, exact mappings and cycles. Additional frontend
+tests cover large collection limits and the visible save/error flow. These
+finite checks supplement the backend's authoritative validation.
 
 Source-helper comparisons, intentional data-preserving differences, native
 format checks and concurrency/recovery tests are documented in

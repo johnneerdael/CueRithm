@@ -1,5 +1,7 @@
 import {useEffect,useId,useState} from "react";
 import {ArrowDown,ArrowUp,Plus,X} from "lucide-react";
+import {artistPartMessage,validArtistPart,smartFixTextError,rustTrim} from "../cleanup-validation";
+export {cleanupValidationError} from "../cleanup-validation";
 import type {CleanupConfig,SmartFix,MetadataField,ContributorRole,CanonicalMapping,CleanupCatalog,CleanupCatalogValue,GenreRules,ArtistRules,CommonTextPattern} from "../types";
 
 export const emptyCleanup=():CleanupConfig=>({fixes:[],genres:{enabled:false,mappings:[],protected_values:[],conversion:null},artists:{enabled:false,roles:["artist"],mappings:[],protected_values:[]}});
@@ -22,33 +24,7 @@ export const fixName=(rule:SmartFix)=>templates.find(t=>t.rule.kind===rule.kind)
 export function LineValues({label,values,onChange}:{label:string;values:string[];onChange:(values:string[])=>void}){
  const [text,setText]=useState(values.join("\n"));const signature=JSON.stringify(values);
  useEffect(()=>setText(values.join("\n")),[signature]);
- return <label className="cleanup-lines">{label}<textarea aria-label={label} rows={2} value={text} onChange={e=>{setText(e.target.value);onChange([...new Set(e.target.value.split("\n").filter(v=>v.trim()))]);}}/></label>;
-}
-function smartFixTextError(rule:SmartFix):string|null {
- let value:string,label:string;
- switch(rule.kind){
-  case "replace_characters":value=rule.characters;label="Characters";break;
-  case "extract_artist":value=rule.separator;label="Separator";break;
-  case "extract_remixer":value=rule.word;label="Remixer suffix";break;
-  default:return null;
- }
- const characters=Array.from(value);
- if(characters.some(character=>{const code=character.codePointAt(0)!;return code>=0xd800&&code<=0xdfff;}))return `${label} must contain valid Unicode characters.`;
- if(characters.length>64)return `${label} must contain at most 64 characters.`;
- if(rule.kind==="extract_artist"&&!value.length)return "Separator must contain 1 to 64 characters.";
- // Rust str::trim uses Unicode White_Space, which differs from JavaScript trim.
- if(rule.kind==="extract_remixer"&&!/[^\p{White_Space}]/u.test(value))return "Remixer suffix must contain 1 to 64 characters, including a non-whitespace character.";
- return null;
-}
-const validArtistPart=(part:number,enabled:boolean)=>Number.isInteger(part)&&part>=(enabled?1:0)&&part<=(enabled?256:65535);
-const artistPartMessage="Result number must be a finite whole number from 1 to 256.";
-export function cleanupValidationError(config?:CleanupConfig|null):string|null {
- for(const fix of config?.fixes??[]){
-  // Even disabled rules must fit the native unsigned integer representation.
-  if(fix.rule.kind==="extract_artist"&&!validArtistPart(fix.rule.part,fix.enabled))return artistPartMessage;
-  const error=fix.enabled?smartFixTextError(fix.rule):null;if(error)return error;
- }
- return null;
+ return <label className="cleanup-lines">{label}<textarea aria-label={label} rows={2} value={text} onChange={e=>{setText(e.target.value);onChange([...new Set(e.target.value.split("\n").filter(v=>rustTrim(v)))]);}}/></label>;
 }
 function FixTextInput({label,value,error,onChange}:{label:string;value:string;error:string|null;onChange:(value:string)=>void}){
  const description=useId();

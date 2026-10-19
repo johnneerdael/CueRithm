@@ -265,3 +265,54 @@ it.each(resultEditors)("rejects result numbers that Rust cannot deserialize even
   fireEvent.click(screen.getByRole("button",{name:saveLabel}));expect(bridge.saveSettings).not.toHaveBeenCalled();
  }
 });
+
+async function openCanonicalRules(manual:boolean,kind:"genres"|"artists"){
+ let bridge:ReturnType<typeof fakeBridge>;
+ if(manual){bridge=fakeBridge([track("a")]);await openCleanup(bridge);fireEvent.click(screen.getByRole("tab",{name:kind==="genres"?"Genres":"Artists"}));}
+ else{bridge=fakeBridge([]);render(<App bridge={bridge}/>);fireEvent.click(screen.getByRole("button",{name:"Settings"}));await screen.findByRole("heading",{name:"Settings"});fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Cleanup"}));}
+ const checkbox=await screen.findByLabelText(kind==="genres"?"Enable genre cleanup":"Enable artist cleanup");
+ const editor=within(checkbox.closest(".canonical-editor")!);fireEvent.click(checkbox);
+ return {bridge,editor,save:()=>screen.getByRole("button",{name:manual?"Save cleanup rules":"Save settings"})};
+}
+it.each(resultEditors.flatMap(editor=>["genres","artists"].map(kind=>({...editor,kind:kind as "genres"|"artists"}))))("explains invalid $kind mappings and recovers in $saveLabel",async({manual,kind})=>{
+ const {bridge,editor,save}=await openCanonicalRules(manual,kind);
+ fireEvent.click(editor.getByRole("button",{name:"Add mapping"}));expect(save()).toBeDisabled();
+ expect(screen.getAllByRole("alert").some(alert=>/mapping 1.*source/i.test(alert.textContent??""))).toBe(true);
+ fireEvent.click(save());expect(bridge.saveSettings).not.toHaveBeenCalled();
+ fireEvent.change(editor.getByLabelText("Source value 1"),{target:{value:"Deep House"}});expect(save()).toBeDisabled();
+ fireEvent.change(editor.getByLabelText("Canonical value 1"),{target:{value:"House"}});expect(save()).toBeEnabled();
+ fireEvent.click(editor.getByRole("button",{name:"Add mapping"}));fireEvent.change(editor.getByLabelText("Source value 2"),{target:{value:"House"}});fireEvent.change(editor.getByLabelText("Canonical value 2"),{target:{value:" Deep House "}});
+ expect(save()).toBeDisabled();expect(screen.getAllByRole("alert").some(alert=>/cycle/i.test(alert.textContent??""))).toBe(true);
+ fireEvent.change(editor.getByLabelText("Canonical value 2"),{target:{value:"Tech House"}});expect(save()).toBeEnabled();fireEvent.click(save());
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+});
+it.each(resultEditors)("explains missing artist roles in $saveLabel",async({manual})=>{
+ const {bridge,editor,save}=await openCanonicalRules(manual,"artists");
+ fireEvent.click(editor.getByLabelText("artist"));expect(save()).toBeDisabled();
+ expect(screen.getAllByRole("alert").some(alert=>/contributor role/i.test(alert.textContent??""))).toBe(true);
+ fireEvent.click(save());expect(bridge.saveSettings).not.toHaveBeenCalled();
+ fireEvent.click(editor.getByLabelText("producer"));expect(save()).toBeEnabled();fireEvent.click(save());await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+});
+it.each(resultEditors)("keeps invalid genre conversion errors visible across pages or tabs in $saveLabel",async({manual})=>{
+ const {bridge,editor,save}=await openCanonicalRules(manual,"genres");
+ fireEvent.click(editor.getByLabelText("Convert genres into categorized tags"));fireEvent.change(editor.getByLabelText("Genre tag category"),{target:{value:""}});expect(save()).toBeDisabled();
+ expect(screen.getAllByRole("alert").some(alert=>/genre tag category/i.test(alert.textContent??""))).toBe(true);
+ if(manual)fireEvent.click(screen.getByRole("tab",{name:"Artists"}));else fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Incoming"}));
+ expect(save()).toBeDisabled();expect(screen.getAllByRole("alert").some(alert=>/genre tag category/i.test(alert.textContent??""))).toBe(true);
+ fireEvent.click(save());expect(bridge.saveSettings).not.toHaveBeenCalled();
+});
+
+it.each(resultEditors)("preserves valid BOM values and drops Rust-whitespace lines in $saveLabel",async({manual})=>{
+ const {bridge,editor,save}=await openCanonicalRules(manual,"genres");
+ fireEvent.change(editor.getByLabelText("Protected genres, one per line"),{target:{value:"\ufeff\n\u0085\nHouse"}});
+ expect(save()).toBeEnabled();fireEvent.click(save());await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.genres.protected_values).toEqual(["\ufeff","House"]);
+});
+it.each(resultEditors)("preserves disabled invalid canonical drafts in $saveLabel",async({manual})=>{
+ const {bridge,editor,save}=await openCanonicalRules(manual,"genres");
+ fireEvent.click(editor.getByRole("button",{name:"Add mapping"}));
+ fireEvent.click(editor.getByLabelText("Convert genres into categorized tags"));fireEvent.change(editor.getByLabelText("Genre tag category"),{target:{value:""}});
+ expect(save()).toBeDisabled();fireEvent.click(editor.getByLabelText("Enable genre cleanup"));expect(save()).toBeEnabled();fireEvent.click(save());
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.genres).toMatchObject({enabled:false,mappings:[{from:"",to:""}],conversion:{category:""}});
+});
