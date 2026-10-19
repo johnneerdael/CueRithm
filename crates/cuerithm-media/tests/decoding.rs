@@ -1,4 +1,5 @@
 use cuerithm_media::MediaRuntime;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 fn runtime() -> MediaRuntime {
@@ -164,8 +165,9 @@ fn extracts_embedded_cover_without_decoding_or_modifying_it() {
         .unwrap();
     assert_eq!(art.mime, "image/png");
     assert_eq!(
-        art.bytes,
-        std::fs::read(root.join("../../apps/desktop/src-tauri/icons/128x128.png")).unwrap()
+        // This fixed cover predates app rebranding; compare its own identity.
+        format!("{:x}", Sha256::digest(&art.bytes)),
+        "a77c6afe283922d0a694883257447ab9f0b7e1c64ad51a3b6269ed19120523b4"
     );
     assert!(
         rt.artwork(&root.join("../camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"))
