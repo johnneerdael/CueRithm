@@ -197,6 +197,13 @@ describe("waveform shape",()=>{
 });
 
 describe("waveform styles in the app",()=>{
+  it("loads a row preview again when the track is re-analysed without its audio changing",async()=>{
+    const load=vi.fn(loader(sampleWaveform(40)));
+    const view=render(<RowPreview id="r" identity="same:1" load={load}/>);
+    await waitFor(()=>expect(view.container.querySelector(".row-preview-chart svg")).not.toBeNull(),{timeout:2000});
+    view.rerender(<RowPreview id="r" identity="same:2" load={load}/>);
+    await waitFor(()=>expect(load).toHaveBeenCalledTimes(2),{timeout:2000});
+  });
   it("drops queued preview work for rows that unmount before it starts",async()=>{
     const releases:(()=>void)[]=[];
     const calls:string[]=[];

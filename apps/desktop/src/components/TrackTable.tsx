@@ -70,7 +70,7 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
       case "bpm":return <span className="number">{row.bpm?.toFixed(2)??"—"}</span>;
       case "key":return row.key?<span className="key-chip">{row.key}</span>:<span className="dim">—</span>;
       case "energy":return row.energy!=null?<span className="energy"><span>{row.energy}/10</span><span className="energy-bar" aria-hidden="true"><i style={{width:row.energy*10+"%"}}/></span></span>:<span className="dim">—</span>;
-      case "preview":return <RowPreview id={row.id} identity={row.source_sha256} load={previewLoader}/>;
+      case "preview":return <RowPreview id={row.id} identity={row.source_sha256+":"+String(row.metadata["library.date_modified"]??"")} load={previewLoader}/>;
       case "duration":return <span className="number muted">{time(row.duration)}</span>;
       default:{const value=column==="album"?row.album:column==="display_path"?row.display_path:column==="state"?row.state:column==="filetype"?(row.metadata?.["format.format_name"]??row.display_path.split(".").pop()?.toUpperCase()):row.metadata?.[column];const text=metadataText(column,value);return <span className="ellipsis muted" title={text}>{text}</span>;}
 
