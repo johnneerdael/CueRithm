@@ -1,0 +1,16 @@
+{
+  "crate": "regress",
+  "version": "0.12.0",
+  "source": "https://crates.io/api/v1/crates/regress/0.12.0/download",
+  "archive_sha256": "32eef8b209c3c1c15dbad02c1f30f9539f00dc7253e0cbcdaae442a50a09d7c1",
+  "license": "MIT OR Apache-2.0",
+  "changes": [
+    "Per-execution bounded UTF-16/UCS-2 Boolean match API",
+    "Meter instruction/backtrack/candidate/repeated-character work without changing ordinary API behavior",
+    "Charge captured backreference length and optimized repeat scans",
+    "Legacy uppercase canonicalization for classes/literals/backreferences",
+    "Opt-in legacy_code_units preserves body escape units while identifier names decode Unicode",
+    "Canonicalize UnicodeSets operands and string disjunctions before set algebra/complement",
+    "Checked uppercase lookup; isolated upstream verification workspace"
+  ]
+}

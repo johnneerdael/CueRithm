@@ -1,6 +1,8 @@
 mod builtin;
 mod commands;
 mod host;
+mod maintenance;
+mod maintenance_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -67,6 +69,34 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            maintenance_commands::maintenance_apply_merge,
+            maintenance_commands::maintenance_undo_merge,
+            maintenance_commands::maintenance_recovery,
+            maintenance_commands::maintenance_retry_recovery,
+            maintenance_commands::maintenance_preview_merge,
+            maintenance_commands::maintenance_merge_history,
+            maintenance_commands::maintenance_cancel,
+            maintenance_commands::maintenance_scan_duplicates,
+            maintenance_commands::maintenance_scan_unused,
+            maintenance_commands::maintenance_scan_broken,
+            maintenance_commands::maintenance_duplicate_scan,
+            maintenance_commands::maintenance_unused_scan,
+            maintenance_commands::maintenance_broken_scan,
+            maintenance_commands::maintenance_export_unused,
+            maintenance_commands::maintenance_preview_unused_removal,
+            maintenance_commands::maintenance_apply_unused_removal,
+            maintenance_commands::maintenance_restore_unused_removal,
+            maintenance_commands::maintenance_unused_removal_history,
+            maintenance_commands::maintenance_retry_unused_recovery,
+            maintenance_commands::maintenance_preview_backup_disposal,
+            maintenance_commands::maintenance_dispose_backups,
+            maintenance_commands::maintenance_backup_disposal_history,
+            maintenance_commands::maintenance_retry_backup_disposal,
+            maintenance_commands::maintenance_begin_review,
+            maintenance_commands::maintenance_get_review,
+            maintenance_commands::maintenance_edit_review,
+            maintenance_commands::maintenance_ignores,
+            maintenance_commands::maintenance_set_ignores,
             commands::library_state,
             commands::list_tracks,
             commands::metadata_fields,
@@ -77,6 +107,11 @@ pub fn run() {
             commands::get_settings,
             commands::tagging_catalog,
             commands::tagging_storage,
+            commands::cleanup_catalog,
+            commands::preview_cleanup,
+            commands::cleanup_history,
+            commands::apply_cleanup,
+            commands::undo_cleanup,
             commands::save_settings,
             commands::enqueue_paths,
             commands::retry_job,
@@ -88,7 +123,21 @@ pub fn run() {
             commands::player_pause,
             commands::player_seek,
             commands::player_volume,
-            commands::player_status
+            commands::player_status,
+            commands::playlists_workspace,
+            commands::edit_playlist,
+            commands::undo_playlist,
+            commands::smart_field_catalog,
+            commands::preview_smart_list,
+            commands::save_smart_playlist,
+            commands::preview_playlist_tool,
+            commands::apply_playlist_tool,
+            commands::preview_smart_generation,
+            commands::apply_smart_generation,
+            commands::get_playlist_preferences,
+            commands::resolve_playlist_calendar_day,
+            commands::save_playlist_preferences,
+            commands::playlist_members
         ])
         .build(context())
         .expect("Create Cuerithm desktop")
@@ -100,6 +149,7 @@ pub fn run() {
             {
                 api.prevent_exit();
                 if host.alive.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                    host.maintenance.stop();
                     let host = host.inner().clone();
                     let app = app.clone();
                     std::thread::spawn(move || {
@@ -107,6 +157,8 @@ pub fn run() {
                             let _ = player.pause();
                         }
                         host.preparation.shutdown();
+                        host.smart_playlists.shutdown();
+                        host.maintenance.wait_until_idle();
                         app.exit(0);
                     });
                 }

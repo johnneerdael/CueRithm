@@ -2,6 +2,6 @@
   "version": "9.0.2",
   "source": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
   "source_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
-  "recipe": "cuerithm-swr44100-stereo-f32-v1",
+  "recipe": "cuerithm-swr44100-stereo-f32-native-md5-v2",
   "required_decoders": ["aac","alac","flac","mp3float","opus","vorbis","wmav1","wmav2","wmapro","wmalossless","pcm_s16le","pcm_s16be","pcm_s24le","pcm_f32le"]
 }

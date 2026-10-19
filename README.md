@@ -87,8 +87,10 @@ Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
 
 OpenKeyScan key detection, track energy and structural cue analysis are built
 into the desktop application. No model selection, downloads or extra setup is
-required. Pinned parameters are embedded, checked and cached automatically;
-existing unfinished jobs migrate to the built-in revision on upgrade. The
+required. The key graph is embedded, checked and cached automatically; energy
+uses compiled acoustic DSP without an external model file. Settings has separate
+Incoming, Cue generation, Automatic tagging and Cleanup pages.
+Existing unfinished jobs migrate to the built-in revision on upgrade. The
 standalone CLI retains its explicit-model API. The app never invents results
 to mark an incomplete track ready.
 
@@ -99,9 +101,32 @@ Incoming promotes a track; provider errors remain available for retry. See
 [automatic tagging](docs/automatic-tagging.md) for policies and provider validation.
 Existing offline settings are preserved until tagging is enabled.
 
-Cleanup, ordinary/smart playlists and direct rekordbox 6/7 sync remain subsequent
-approved deliveries; their desktop controls are not yet enabled. No desktop XML fallback exists. This foundation is an unsigned test
-build, not a signed public release or a complete product-parity claim.
+Cleanup includes eleven configurable Smart Fixes, exact genre/artist mappings,
+protected values, counted catalogs and categorized genre tags. Manual scans
+preview selected changes; Apply updates files and library with durable Undo. The
+same saved rules run during Incoming when enabled. See [cleanup](docs/cleanup.md)
+for the workflow and validation boundaries.
+
+The playlist workspace includes ordinary lists/folders, local smart rules,
+automatic membership refresh, tools/generation and guarded Undo through typed
+native APIs and desktop controls. Maintenance
+now includes duplicate discovery/review, coordinated donor merge with Undo,
+read-only unused/missing-file scans, and reviewed unused-file removal with
+retained recovery backups. See the [maintenance API](docs/development/maintenance-api.md)
+for the user-owned UI handoff, recovery workflow and remaining delivery gates.
+Reviewed parent cleanup and explicit retained-backup disposal are available through
+the native maintenance API. Branded maintenance views and full library acceptance
+remain unfinished. Direct rekordbox 6/7 sync remains a
+required delivery; no desktop XML fallback exists. The
+[native encrypted reader/snapshot foundation](crates/cuerithm-rekordbox/README.md)
+validates copied data. Runtime key derivation and durable local import baselines
+are implemented as backend foundations; desktop import, reconciliation and
+target writes remain unfinished and Sync stays disabled.
+
+See [release scope and outstanding gaps](docs/release-readiness.md) for the
+capabilities, validation limits and remaining work for this release. A locally
+built unsigned app is not evidence of a signed public release or complete
+product parity.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
 commands, platform prerequisites and artifact verification.

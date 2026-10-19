@@ -11,6 +11,7 @@ fn wide(path: &Path) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
     path.as_os_str().encode_wide().chain(Some(0)).collect()
 }
+#[cfg(feature = "autotag")]
 pub(crate) fn replace(publish: &Path, target: &Path, displaced: &Path) -> Result<()> {
     #[cfg(target_os = "macos")]
     {
@@ -115,6 +116,7 @@ pub(crate) fn sync_parent(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+#[cfg(feature = "autotag")]
 pub(crate) fn copy_prepared(from: &Path, to: &Path, expected: &str) -> Result<()> {
     ensure!(from != to, "Invalid publication paths");
     std::fs::create_dir_all(to.parent().context("Missing destination folder")?)?;

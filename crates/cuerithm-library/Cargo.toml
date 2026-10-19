@@ -2,14 +2,24 @@
 name = "cuerithm-library"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+rust-version = "1.90"
 license.workspace = true
+
+[build-dependencies]
+sha2.workspace = true
 
 [features]
 default = []
 autotag = ["dep:cuerithm-autotag"]
 
 [dependencies]
+cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
+iana-time-zone = "=0.1.65"
+chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] }
+cuerithm-smartlists = { path = "../cuerithm-smartlists" }
+cuerithm-cleanup = { path = "../cuerithm-cleanup" }
+cuerithm-maintenance = { path = "../cuerithm-maintenance" }
+same-file = "=1.0.6"
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 serde.workspace = true
@@ -18,7 +28,7 @@ sha2.workspace = true
 tempfile.workspace = true
 camelot-core = { path = "../camelot-core", features = ["openkeyscan-key"] }
 cuerithm-media = { path = "../cuerithm-media" }
-rusqlite = { version = "=0.37.0", features = ["bundled"] }
+rusqlite.workspace = true
 uuid = { version = "1", features = ["v4"] }
 fs2 = "0.4"
 notify = "=8.2.0"
@@ -32,6 +42,7 @@ libc = "0.2"
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem","Win32_Foundation"] }
 
 [dev-dependencies]
+hound.workspace = true
 tar = "0.4"
 flate2 = "1"
 

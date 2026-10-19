@@ -3,6 +3,7 @@ import {Play,Pause,SkipBack,Volume2,AudioLines,LoaderCircle,Headphones} from "lu
 import Artwork from "./Artwork";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
 import {time,cueColor,keyStyle} from "../display";
+import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
@@ -29,7 +30,7 @@ function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=fal
       {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line data-cue={c.name} key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
       {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
     </svg>
-    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{String.fromCharCode(65+i)}</span>:null):null}
+    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{String.fromCharCode(65+(c.position??i))}</span>:null):null}
   </div>;
 }
 export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader}:{artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
@@ -39,13 +40,13 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
   const span=zoom||duration;
   const start=zoom?Math.max(0,Math.min(Math.max(0,duration-span),center-span*.35)):0;
   const end=Math.min(duration,start+span);
-  const cues=detail?.analysis?.analysis.lexicon_cues??null;
-  const beats=detail?.analysis?.analysis.tempo?.beats_seconds??[];
+  const cues=useMemo(()=>playbackCues(detail?.analysis),[detail?.analysis]);
+  const beats=useMemo(()=>playbackBeats(detail?.analysis,duration),[detail?.analysis,duration]);
   return <section className="player" aria-label="Music player">
     <div className="player-header">
       <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<AudioLines size={27}/>}/>:<AudioLines size={27}/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
-      {detail?<div className="player-analysis"><span><b>{detail.analysis?.analysis.tempo?.bpm.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip" style={keyStyle(detail.analysis?.analysis.key?.camelot)}>{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      {detail?<div className="player-analysis"><span><b>{playbackBpm(detail.analysis)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip" style={keyStyle(detail.analysis?.analysis.key?.camelot)}>{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
         <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
         <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>
@@ -62,7 +63,7 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}
     </div>
     <div className="cue-strip">
-      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{String.fromCharCode(65+i)}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
+      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{String.fromCharCode(65+(cue.position??i))}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
       {detail&&!cues?<span className="cue-empty">Cues appear here after preparation finishes.</span>:null}
       {status.error?<span className="player-error" role="alert">{status.error}</span>:null}
     </div>

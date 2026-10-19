@@ -4,7 +4,8 @@ export function time(seconds:number|undefined|null,precise=false):string {
   return Math.floor(value/60)+":"+(precise?(value%60).toFixed(1).padStart(4,"0"):Math.floor(value%60).toString().padStart(2,"0"));
 }
 const colors:Record<string,string>={Red:"#f26974",Blue:"#5c9ff2",Orange:"#edb267",Yellow:"#dfce62",Purple:"#b593f6",Green:"#59ceb0",Pink:"#e98ac4"};
-export const cueColor=(color:string)=>colors[color]??"#00d2bf";
+const publishedColors:Record<string,string>={red_dark:"#9e1006",red:"#e60e0e",red_light:"#f2665c",red_orange:"#ef590f",orange:"#e88915",beige:"#ffe194",yellow_dark:"#f5d000",yellow:"#f5f50c",lime:"#bae815",green_light:"#adf55f",green:"#7fe80e",green_dark:"#4b8c06",teal:"#12de78",aqua:"#12deca",aqua_dark:"#099486",blue_light:"#2fa8ed",blue:"#1058de",blue_dark:"#0028ab",blue_violet:"#8400ff",violet:"#aa3bff",violet_light:"#c68cf3",magenta:"#e60ede",magenta_dark:"#aa00bd",magenta_red:"#de105c",grey_light:"#adadad",grey_dark:"#5c5c5c",black:"#303030",white:"#ffffff"};
+export const cueColor=(color:string|null)=>color?(colors[color]??publishedColors[color]??"#00d2bf"):"#899692";
 
 // Number/mode palette from https://dj.studio/blog/camelot-wheel (both rings).
 const camelotColors:Record<string,string>={

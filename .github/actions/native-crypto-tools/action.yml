@@ -1,0 +1,21 @@
+name: Native crypto build tools
+description: Select native Windows Perl for vendored OpenSSL builds, independently of Bash PATH
+runs:
+  using: composite
+  steps:
+    - name: Select and verify native Strawberry Perl
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $perlPath = 'C:\Strawberry\perl\bin\perl.exe'
+        if (-not (Test-Path -LiteralPath $perlPath)) {
+          throw "Native Strawberry Perl was not found at $perlPath"
+        }
+        & $perlPath -MIPC::Cmd -MLocale::Maketext::Simple -e 'exit($^O eq "MSWin32" ? 0 : 1);'
+        if ($LASTEXITCODE -ne 0) {
+          throw 'Native Perl or a required OpenSSL configure module is unavailable'
+        }
+        "OPENSSL_SRC_PERL=$perlPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PERL=$perlPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        & $perlPath -v
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -135,6 +135,7 @@ impl Fixture {
             emergency_loop: None,
         });
         let result = FileAnalysis {
+            publication: None,
             analysis: a,
             complete: true,
             verified_integrity: None,
@@ -145,6 +146,7 @@ impl Fixture {
             source_timing: None,
             elapsed_seconds: 0.,
             media: Some(PreparedMediaIdentity {
+                cue_genre: None,
                 decoder: audio.decoder_identity.clone(),
                 codec: audio.info.codec.clone(),
                 source_sha256: audio.source_sha256.clone(),
@@ -307,14 +309,22 @@ fn archive_and_damaged_backup_reject_publication() {
 }
 #[test]
 fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
-    for old_version in [1, 2] {
+    for old_version in [1, 2, 3, 4] {
         let d = tempfile::tempdir().unwrap();
         let db = d.path().join("legacy.sqlite");
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(include_str!("../migrations/001_initial.sql"))
             .unwrap();
-        if old_version == 2 {
+        if old_version >= 2 {
             conn.execute_batch(include_str!("../migrations/002_tag_writes.sql"))
+                .unwrap();
+        }
+        if old_version >= 3 {
+            conn.execute_batch(include_str!("../migrations/003_preparation_cache.sql"))
+                .unwrap();
+        }
+        if old_version == 4 {
+            conn.execute_batch(include_str!("../migrations/004_cleanup.sql"))
                 .unwrap();
         }
         conn.execute("INSERT INTO tracks(id,path,title,source_hash,created,updated) VALUES('old',?1,'Legacy title','hash',1,1)",[b"unix:/legacy.flac".to_vec()]).unwrap();
@@ -324,7 +334,7 @@ fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, 11);
         let title: String = conn
             .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
             .unwrap();

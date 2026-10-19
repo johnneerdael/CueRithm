@@ -252,6 +252,17 @@ impl TagImpl for FLACTag {
         None
     }
 
+    fn get_native(&self, key: &str) -> Option<Vec<String>> {
+        let values: Vec<_> = self.tag.get_vorbis(key)?.map(str::to_owned).collect();
+        (!values.is_empty()).then_some(values)
+    }
+    fn set_native(&mut self, key: &str, values: Vec<String>) {
+        self.tag.remove_vorbis(key);
+        if !values.is_empty() {
+            self.tag.set_vorbis(key, values);
+        }
+    }
+
     fn remove_raw(&mut self, tag: &str) {
         self.tag.remove_vorbis(tag);
     }

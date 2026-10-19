@@ -1,0 +1,1445 @@
+{
+  "schema": 1,
+  "source": {
+    "application": "Lexicon",
+    "version": "1.11.15.0",
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "browser": "Chrome155.0.8059.80",
+    "sample_rate": 44100,
+    "boundary": "Original worker cue entry with explicitly supplied timing, authored raw PCM and measured Chrome155 seven-stage WebAudio filtered PCM; marker types/colors normalized to the existing Rust cue schema. Not installed renderer128 or file-decode end-to-end parity."
+  },
+  "cases": [
+    {
+      "name": "integer-120",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "integer-120",
+        "bpm": 120,
+        "offset_frames": 13230
+      },
+      "pcm_sha256": "eec1f38274af4b2254c591aaa73dc84079c0c273f238dcb2e0ce638038382e0b",
+      "filtered_sha256": "977dada612b8bd28e0680dba94f5e27f682d5fbf0c7f45f81447b9f5208645fa",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 120,
+            "first_beat_seconds": 0.29597505668934465
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 24.295975056689343,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 8.295975056689345,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 120,
+            "first_beat_seconds": 0.29597505668934465
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 24.295975056689343,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 120,
+            "first_beat_seconds": 0.29597505668934465
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 24.295975056689343,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 8.295975056689345,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 120,
+            "first_beat_seconds": 0.29597505668934465
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.29597505668934465,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 24.295975056689343,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "integer-128",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "integer-128",
+        "bpm": 128,
+        "offset_frames": 5513
+      },
+      "pcm_sha256": "2e80264985d2051b69cfe955cc3ec61258d72453275807fe8f0956a17fdc5645",
+      "filtered_sha256": "7a3d03b7ac470ea0838a737e8b3dc1ff79da6e4caf75ee4b84cc378904a43432",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 18.814013605442177,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 18.814013605442177,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "fast-174",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "fast-174",
+        "bpm": 174,
+        "offset_frames": 3528
+      },
+      "pcm_sha256": "8f0efe0233dea58efa496c39820a6ee873970863cd6610ced74f4755cfc821b3",
+      "filtered_sha256": "110410bb13bdd2e008596b648afdc3f27a4b211f5c37bdb9634e3ad027ca0d1a",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 174,
+            "first_beat_seconds": 0.019002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 22.087967784815085,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 174,
+            "first_beat_seconds": 0.019002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 174,
+            "first_beat_seconds": 0.019002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 22.087967784815085,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 174,
+            "first_beat_seconds": 0.019002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.019002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "fractional-127.5",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "fractional-127.5",
+        "bpm": 127.5,
+        "offset_frames": 5292
+      },
+      "pcm_sha256": "bada40d0380845978968637c89eda621a12119166290ca196ac6d430c1f8049b",
+      "filtered_sha256": "13cd6a0988006c95f4c684f044f8f5a8f4798296916b5bddd106b785c17f3a81",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 127.5,
+            "first_beat_seconds": 0.05900226757369614
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 17.00017873816193,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 127.5,
+            "first_beat_seconds": 0.05900226757369614
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 127.5,
+            "first_beat_seconds": 0.05900226757369614
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 17.00017873816193,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 127.5,
+            "first_beat_seconds": 0.05900226757369614
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.05900226757369614,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "offbeat-hats-128",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": true,
+        "name": "offbeat-hats-128",
+        "bpm": 128,
+        "offset_frames": 5513
+      },
+      "pcm_sha256": "8ffb98ed089686a5e54ab855c38f8df87de05b7ee1e92538daa7c0d625f468f5",
+      "filtered_sha256": "a8edca5e0042786e86ac2ca742360bdb7d04d8a4f6044d120d5ec02162b5ecff",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 18.814013605442177,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 18.814013605442177,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.06401360544217687
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.06401360544217687,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "quiet-intro-128",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 352800,
+        "offbeat_hats": false,
+        "name": "quiet-intro-128",
+        "bpm": 128,
+        "offset_frames": 5513
+      },
+      "pcm_sha256": "d104ddd6dbb2253375d931d795894644aa31b79b98e4f43016f752174728df93",
+      "filtered_sha256": "9d6411b3943c0123c3e27289df1c4612aa28850d6ead00668c6a8414a7e6990f",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12217687074829932
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12217687074829932,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 7.6221768707483,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.122176870748298,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 15.1221768707483,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12217687074829932
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12217687074829932,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 7.6221768707483,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.122176870748298,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12217687074829932
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12217687074829932,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 7.6221768707483,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.122176870748298,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 15.1221768707483,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12217687074829932
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12217687074829932,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 7.6221768707483,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.122176870748298,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "half-time-94",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "half-time-94",
+        "bpm": 94,
+        "offset_frames": 4410
+      },
+      "pcm_sha256": "c9a059c488ffb85c4f3f224199233457ca222c53fa016b920c64107f3ff569a3",
+      "filtered_sha256": "3a6fadc16dcb4926c4105286c845bdfb9c3a746d6068a50fe028059283238b4c",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 188,
+            "first_beat_seconds": 0.039002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 23.017725671829012,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 188,
+            "first_beat_seconds": 0.039002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 188,
+            "first_beat_seconds": 0.039002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 23.017725671829012,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 188,
+            "first_beat_seconds": 0.039002267573696146
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0.039002267573696146,
+                "name": "Drop",
+                "color": "Red"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "zero-anchor-140",
+      "sample_rate": 44100,
+      "recipe": {
+        "frames": 1411200,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "name": "zero-anchor-140",
+        "bpm": 140,
+        "offset_frames": 0
+      },
+      "pcm_sha256": "4b09a0163638cd4e8f9af1e9c53b7a91090c6c551e28166d9b19d92ada65ec2a",
+      "filtered_sha256": "e04b55b6e4ec667e7a623b0f4b39d21f9716e329ce370f9b8f79d60cc7ff634a",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 140,
+            "first_beat_seconds": 0
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 27.428571428571427,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 13.714285714285712,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 140,
+            "first_beat_seconds": 0
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 27.428571428571427,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 140,
+            "first_beat_seconds": 0
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 27.428571428571427,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": {
+              "time_seconds": 13.714285714285712,
+              "loop_beats": 16
+            }
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 140,
+            "first_beat_seconds": 0
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 0,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 27.428571428571427,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "structured-cue",
+      "sample_rate": 44100,
+      "recipe": {
+        "variant": "structured-cue",
+        "bpm": 128,
+        "offset_frames": 5513,
+        "quiet_until_frames": 0,
+        "offbeat_hats": false,
+        "frames": 8467200
+      },
+      "pcm_sha256": "3b4b18c5f316b276aec680711c5c486c092fce10bcaba7df9007e83cbf698be9",
+      "filtered_sha256": "ae48b73f17e5dcd8ee749be96c286c782192eff5ab746154247ee4c75307059d",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 127.62501133786847,
+                "name": "Second Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Second Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 187.62501133786847,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 127.62501133786847,
+                "name": "Second Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Second Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 187.62501133786847,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 127.62501133786847,
+                "name": "Second Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 142.62501133786847,
+                "name": "Second Breakdown",
+                "color": "Blue"
+              },
+              {
+                "time_seconds": 187.62501133786847,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 187.62501133786847,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "quiet-intro16",
+      "sample_rate": 44100,
+      "recipe": {
+        "bpm": 128,
+        "offset_frames": 5513,
+        "quiet_until_frames": 705600,
+        "offbeat_hats": false,
+        "frames": 1411200
+      },
+      "pcm_sha256": "55680ab24bd841efa041920c00376ed14085749ef7b9d0f86763ce8719c20bc8",
+      "filtered_sha256": "f07dd8be06c316bda77ca3c165a05ebc0aa963b5899c10002a264ec6bba01aa4",
+      "rows": [
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.125011337868482,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 64,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.125011337868482,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Never",
+            "min_cue_length_beats": 32,
+            "add_emergency_loop": true
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.125011337868482,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        },
+        {
+          "config": {
+            "genre": null,
+            "drop_at_start": "Auto",
+            "min_cue_length_beats": 128,
+            "add_emergency_loop": false
+          },
+          "timing": {
+            "bpm": 128,
+            "first_beat_seconds": 0.12501133786848073
+          },
+          "expected": {
+            "cues": [
+              {
+                "time_seconds": 0.12501133786848073,
+                "name": "Start",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 15.12501133786848,
+                "name": "Drop",
+                "color": "Red"
+              },
+              {
+                "time_seconds": 30.125011337868482,
+                "name": "Last beat",
+                "color": "Orange"
+              }
+            ],
+            "emergency_loop": null
+          }
+        }
+      ]
+    }
+  ]
+}

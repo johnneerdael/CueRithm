@@ -1,0 +1,1671 @@
+{
+  "schema": 1,
+  "source": {
+    "application": "Lexicon",
+    "version": "1.11.15.0",
+    "asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "helper_sha256": "f6cf4e3aa94a86a3ddfd311571521436435ea3d1303f18283e29ef2bc0569780",
+    "renderer_pretty_sha256": "032bb911711c2ed0da24ce67fad2187fa456faf58ec65f0379c03fb9ef1397e3",
+    "runtime": {
+      "node": "20.18.1",
+      "acorn": "8.12.1",
+      "ada": "2.9.0",
+      "ares": "1.33.1",
+      "base64": "0.5.2",
+      "brotli": "1.0.9",
+      "cjs_module_lexer": "1.4.1",
+      "cldr": "44.1",
+      "icu": "74.2",
+      "llhttp": "8.1.2",
+      "modules": "128",
+      "napi": "9",
+      "nghttp2": "1.61.0",
+      "openssl": "0.0.0",
+      "simdutf": "5.5.0",
+      "tz": "2024a",
+      "undici": "6.20.0",
+      "unicode": "15.1",
+      "uv": "1.46.0",
+      "uvwasi": "0.0.21",
+      "v8": "12.8.374.38-electron.0",
+      "zlib": "1.3.0.1-motley",
+      "electron": "32.3.3",
+      "chrome": "128.0.6613.186"
+    },
+    "boundary": "Unchanged SmartlistGenerator pure static helpers with controlled distinct values, tags and field descriptors. Field/operator IDs normalized to local names. No persistence/app startup, actual library, filesystem or network API exposed. Catalog inputs are declared, not installed-schema validation."
+  },
+  "catalog": {
+    "year": {
+      "type": "number",
+      "label": "year",
+      "min": 0,
+      "max": 10
+    },
+    "bpm": {
+      "type": "number",
+      "label": "bpm",
+      "min": 0,
+      "max": 10
+    },
+    "bitrate": {
+      "type": "number",
+      "label": "bitrate",
+      "min": 0,
+      "max": 10
+    },
+    "sizeBytes": {
+      "type": "number",
+      "label": "sizeBytes",
+      "min": 0,
+      "max": 10
+    },
+    "duration": {
+      "type": "number",
+      "label": "duration",
+      "min": 0,
+      "max": 10
+    },
+    "energy": {
+      "type": "number",
+      "label": "Energy",
+      "min": 0,
+      "max": 10
+    },
+    "rating": {
+      "type": "number",
+      "label": "Rating",
+      "min": 0,
+      "max": 5
+    },
+    "genre": {
+      "type": "text",
+      "label": "genre",
+      "min": 0,
+      "max": 10
+    },
+    "key": {
+      "type": "text",
+      "label": "key",
+      "min": 0,
+      "max": 10
+    },
+    "artist": {
+      "type": "text",
+      "label": "artist",
+      "min": 0,
+      "max": 10
+    },
+    "tags": {
+      "type": "number",
+      "label": "tags",
+      "min": 0,
+      "max": 10
+    },
+    "danceability": {
+      "type": "number",
+      "label": "danceability",
+      "min": 0,
+      "max": 10
+    },
+    "popularity": {
+      "type": "number",
+      "label": "popularity",
+      "min": 0,
+      "max": 10
+    },
+    "happiness": {
+      "type": "number",
+      "label": "happiness",
+      "min": 0,
+      "max": 10
+    }
+  },
+  "tags": {
+    "tag-house": {
+      "label": "House"
+    },
+    "tag-dark": {
+      "label": "Dark"
+    },
+    "tag-unused": {
+      "label": "Unused"
+    }
+  },
+  "cases": [
+    {
+      "name": "decades",
+      "method": "buildDecadeItems",
+      "values": {
+        "year": [
+          -1,
+          0,
+          1969,
+          1970,
+          1989,
+          1990,
+          1999,
+          2000,
+          2024
+        ]
+      },
+      "args": [],
+      "expected": [
+        {
+          "name": "1960s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  1960,
+                  1969
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "1970s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  1970,
+                  1979
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "1980s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  1980,
+                  1989
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "1990s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  1990,
+                  1999
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "2000s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  2000,
+                  2009
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "2020s",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "year",
+                "operator": "NumberBetween",
+                "values": [
+                  2020,
+                  2029
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "bpm_fractional_boundaries",
+      "method": "buildBpmRangeItems",
+      "values": {
+        "bpm": [
+          0,
+          98,
+          119.99,
+          120,
+          128.04,
+          129.99,
+          130.01,
+          139.9,
+          195
+        ]
+      },
+      "args": [],
+      "expected": [
+        {
+          "name": "90 - 99",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bpm",
+                "operator": "NumberBetween",
+                "values": [
+                  90,
+                  99
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "110 - 119",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bpm",
+                "operator": "NumberBetween",
+                "values": [
+                  110,
+                  119
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "120 - 129",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bpm",
+                "operator": "NumberBetween",
+                "values": [
+                  120,
+                  129
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "130 - 139",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bpm",
+                "operator": "NumberBetween",
+                "values": [
+                  130,
+                  139
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "190 - 199",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bpm",
+                "operator": "NumberBetween",
+                "values": [
+                  190,
+                  199
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "bitrate_boundaries",
+      "method": "buildBitrateBucketItems",
+      "values": {
+        "bitrate": [
+          0,
+          127.5,
+          128,
+          191.9,
+          192,
+          255.9,
+          256,
+          319.99,
+          320,
+          1411
+        ]
+      },
+      "args": [],
+      "expected": [
+        {
+          "name": "< 128 kbps",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bitrate",
+                "operator": "NumberGreaterThan",
+                "values": [
+                  0
+                ]
+              },
+              {
+                "field": "bitrate",
+                "operator": "NumberLessThan",
+                "values": [
+                  128
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "128-192 kbps",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bitrate",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  128
+                ]
+              },
+              {
+                "field": "bitrate",
+                "operator": "NumberLessThan",
+                "values": [
+                  192
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "192-256 kbps",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bitrate",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  192
+                ]
+              },
+              {
+                "field": "bitrate",
+                "operator": "NumberLessThan",
+                "values": [
+                  256
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "256-320 kbps",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bitrate",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  256
+                ]
+              },
+              {
+                "field": "bitrate",
+                "operator": "NumberLessThan",
+                "values": [
+                  320
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "320 kbps+",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "bitrate",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  320
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "size_boundaries",
+      "method": "buildSizeBucketItems",
+      "values": {
+        "sizeBytes": [
+          0,
+          1,
+          5242879,
+          5242880,
+          10485760,
+          26214400,
+          52428800,
+          500000000
+        ]
+      },
+      "args": [],
+      "expected": [
+        {
+          "name": "< 5 MB",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "sizeBytes",
+                "operator": "NumberGreaterThan",
+                "values": [
+                  0
+                ]
+              },
+              {
+                "field": "sizeBytes",
+                "operator": "NumberLessThan",
+                "values": [
+                  5242880
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "5-10 MB",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "sizeBytes",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  5242880
+                ]
+              },
+              {
+                "field": "sizeBytes",
+                "operator": "NumberLessThan",
+                "values": [
+                  10485760
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "10-25 MB",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "sizeBytes",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  10485760
+                ]
+              },
+              {
+                "field": "sizeBytes",
+                "operator": "NumberLessThan",
+                "values": [
+                  26214400
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "25-50 MB",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "sizeBytes",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  26214400
+                ]
+              },
+              {
+                "field": "sizeBytes",
+                "operator": "NumberLessThan",
+                "values": [
+                  52428800
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "50 MB+",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "sizeBytes",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  52428800
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "duration_boundaries",
+      "method": "buildDurationBucketItems",
+      "values": {
+        "duration": [
+          0,
+          1,
+          119.999,
+          120,
+          239.999,
+          240,
+          360,
+          480,
+          600,
+          1000
+        ]
+      },
+      "args": [],
+      "expected": [
+        {
+          "name": "< 2 min",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThan",
+                "values": [
+                  0
+                ]
+              },
+              {
+                "field": "duration",
+                "operator": "NumberLessThan",
+                "values": [
+                  120
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "2-4 min",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  120
+                ]
+              },
+              {
+                "field": "duration",
+                "operator": "NumberLessThan",
+                "values": [
+                  240
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "4-6 min",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  240
+                ]
+              },
+              {
+                "field": "duration",
+                "operator": "NumberLessThan",
+                "values": [
+                  360
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "6-8 min",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  360
+                ]
+              },
+              {
+                "field": "duration",
+                "operator": "NumberLessThan",
+                "values": [
+                  480
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "8-10 min",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  480
+                ]
+              },
+              {
+                "field": "duration",
+                "operator": "NumberLessThan",
+                "values": [
+                  600
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "10 min+",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "duration",
+                "operator": "NumberGreaterThanEquals",
+                "values": [
+                  600
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "year_empty",
+      "method": "buildDecadeItems",
+      "values": {
+        "year": []
+      },
+      "args": [],
+      "expected": []
+    },
+    {
+      "name": "bpm_empty",
+      "method": "buildBpmRangeItems",
+      "values": {
+        "bpm": []
+      },
+      "args": [],
+      "expected": []
+    },
+    {
+      "name": "bitrate_empty",
+      "method": "buildBitrateBucketItems",
+      "values": {
+        "bitrate": []
+      },
+      "args": [],
+      "expected": []
+    },
+    {
+      "name": "sizeBytes_empty",
+      "method": "buildSizeBucketItems",
+      "values": {
+        "sizeBytes": []
+      },
+      "args": [],
+      "expected": []
+    },
+    {
+      "name": "duration_empty",
+      "method": "buildDurationBucketItems",
+      "values": {
+        "duration": []
+      },
+      "args": [],
+      "expected": []
+    },
+    {
+      "name": "genre_scalar_values",
+      "method": "buildTrackFieldItems",
+      "values": {
+        "genre": [
+          "House",
+          "Techno",
+          "house",
+          "  House  ",
+          ""
+        ]
+      },
+      "args": [
+        "genre"
+      ],
+      "expected": [
+        {
+          "name": "House",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "House"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "Techno",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "Techno"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "house",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "house"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "  House  ",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "  House  "
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  ""
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "key_values",
+      "method": "buildTrackFieldItems",
+      "values": {
+        "key": [
+          "8A",
+          "8B",
+          "11A"
+        ]
+      },
+      "args": [
+        "key"
+      ],
+      "expected": [
+        {
+          "name": "8A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8A"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "8B",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8B"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "11A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "11A"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "energy_full_domain",
+      "method": "buildTrackFieldItems",
+      "values": {
+        "energy": [
+          4,
+          6
+        ]
+      },
+      "args": [
+        "energy"
+      ],
+      "expected": [
+        {
+          "name": "00 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  0
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "01 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  1
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "02 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  2
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "03 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  3
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "04 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  4
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "05 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  5
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "06 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  6
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "07 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  7
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "08 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  8
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "09 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  9
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "10 Energy",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "energy",
+                "operator": "NumberEquals",
+                "values": [
+                  10
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "rating_full_domain",
+      "method": "buildTrackFieldItems",
+      "values": {
+        "rating": [
+          3
+        ]
+      },
+      "args": [
+        "rating"
+      ],
+      "expected": [
+        {
+          "name": "0",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  0
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "1",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  1
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "2",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  2
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "3",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  3
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "4",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  4
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "5",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "rating",
+                "operator": "NumberEquals",
+                "values": [
+                  5
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "selected_tags_including_deleted",
+      "method": "buildTagItems",
+      "values": {},
+      "args": [
+        [
+          "tag-house",
+          "deleted",
+          "tag-dark"
+        ]
+      ],
+      "expected": [
+        {
+          "name": "House",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "tags",
+                "operator": "TagsAtleastOne",
+                "values": [
+                  [
+                    "tag-house"
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "Dark",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "tags",
+                "operator": "TagsAtleastOne",
+                "values": [
+                  [
+                    "tag-dark"
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "category_tags",
+      "method": "buildTagCategoryItems",
+      "values": {},
+      "args": [
+        {
+          "tags": [
+            "tag-dark",
+            "tag-house"
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "name": "Dark",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "tags",
+                "operator": "TagsAtleastOne",
+                "values": [
+                  [
+                    "tag-dark"
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "House",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "tags",
+                "operator": "TagsAtleastOne",
+                "values": [
+                  [
+                    "tag-house"
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty_category",
+      "method": "buildTagCategoryItems",
+      "values": {},
+      "args": [
+        {}
+      ],
+      "expected": []
+    },
+    {
+      "name": "cartesian_genres_keys",
+      "method": "combineItems",
+      "values": {},
+      "args": [
+        [
+          [
+            {
+              "name": "House",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "genre",
+                    "operator": "StringEquals",
+                    "values": [
+                      "House"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "Techno",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "genre",
+                    "operator": "StringEquals",
+                    "values": [
+                      "Techno"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          [
+            {
+              "name": "8A",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "8A"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "8B",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "8B"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "11A",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "11A"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        ]
+      ],
+      "expected": [
+        {
+          "name": "House 8A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "House"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8A"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "House 8B",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "House"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8B"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "House 11A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "House"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "11A"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "Techno 8A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "Techno"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8A"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "Techno 8B",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "Techno"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8B"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "Techno 11A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "genre",
+                "operator": "StringEquals",
+                "values": [
+                  "Techno"
+                ]
+              },
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "11A"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty_dimension_ignored",
+      "method": "combineItems",
+      "values": {},
+      "args": [
+        [
+          [],
+          [
+            {
+              "name": "8A",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "8A"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "8B",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "8B"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "11A",
+              "smartlist": {
+                "matchAll": true,
+                "rules": [
+                  {
+                    "field": "key",
+                    "operator": "StringEquals",
+                    "values": [
+                      "11A"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        ]
+      ],
+      "expected": [
+        {
+          "name": "8A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8A"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "8B",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "8B"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "11A",
+          "smartlist": {
+            "matchAll": true,
+            "rules": [
+              {
+                "field": "key",
+                "operator": "StringEquals",
+                "values": [
+                  "11A"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "all_dimensions_empty",
+      "method": "combineItems",
+      "values": {},
+      "args": [
+        [
+          [],
+          []
+        ]
+      ],
+      "expected": []
+    }
+  ]
+}

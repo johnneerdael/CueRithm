@@ -1,0 +1,10 @@
+ALTER TABLE tracks ADD COLUMN cleanup_json TEXT;
+CREATE TABLE custom_tag_categories (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE);
+CREATE TABLE custom_tags (id TEXT PRIMARY KEY,category_id TEXT NOT NULL REFERENCES custom_tag_categories(id),name TEXT NOT NULL,UNIQUE(category_id,name));
+CREATE TABLE track_custom_tags (track_id TEXT NOT NULL REFERENCES tracks(id),tag_id TEXT NOT NULL REFERENCES custom_tags(id),PRIMARY KEY(track_id,tag_id));
+CREATE TABLE cleanup_plans (id TEXT PRIMARY KEY,payload_json TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE cleanup_batches (id TEXT PRIMARY KEY,plan_id TEXT REFERENCES cleanup_plans(id),source_batch_id TEXT REFERENCES cleanup_batches(id),kind TEXT NOT NULL,state TEXT NOT NULL,result_json TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE cleanup_writes (id TEXT PRIMARY KEY,batch_id TEXT NOT NULL REFERENCES cleanup_batches(id),track_id TEXT NOT NULL REFERENCES tracks(id),proposal_id TEXT NOT NULL,before_hash TEXT NOT NULL,after_hash TEXT NOT NULL,payload_json TEXT NOT NULL,workspace BLOB NOT NULL,state TEXT NOT NULL DEFAULT 'prepared',error TEXT,created INTEGER NOT NULL,cleanup_complete INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX cleanup_writes_pending ON cleanup_writes(state,created);
+CREATE TABLE cleanup_write_files (write_id TEXT NOT NULL REFERENCES cleanup_writes(id),ordinal INTEGER NOT NULL,target BLOB NOT NULL,staged BLOB NOT NULL,backup BLOB,before_hash TEXT,after_hash TEXT NOT NULL,publish_path BLOB NOT NULL,displaced_path BLOB NOT NULL,PRIMARY KEY(write_id,ordinal));
+PRAGMA user_version=4;

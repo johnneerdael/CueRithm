@@ -1,0 +1,12 @@
+[package]
+name = "cuerithm-regex"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license.workspace = true
+
+[dependencies]
+regress = { path = "../../vendor/regress", default-features = false, features = ["std", "utf16", "prohibit-unsafe", "index-positions"] }
+
+[dev-dependencies]
+serde_json.workspace = true

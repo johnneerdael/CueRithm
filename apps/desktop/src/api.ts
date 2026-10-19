@@ -2,8 +2,28 @@ import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {open} from "@tauri-apps/plugin-dialog";
-import type {Bridge,PreparationEvent,PlaybackEvent} from "./types";
+import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./types";
 export const nativeBridge:Bridge={
+  getPlaylists:()=>invoke("playlists_workspace"),
+  editPlaylist:(edit,expectedRevision)=>invoke("edit_playlist",{edit,expectedRevision}),
+  undoPlaylist:(editId,expectedRevision)=>invoke("undo_playlist",{editId,expectedRevision}),
+  getSmartCatalog:()=>invoke("smart_field_catalog"),
+  resolvePlaylistDate:(day,expectedRevision)=>invoke("resolve_playlist_calendar_day",{day,expectedRevision}),
+  previewSmartList:(definition,scope)=>invoke("preview_smart_list",{definition,scope}),
+  saveSmartPlaylist:(previewId,playlistId,name,parentId,expectedRevision)=>invoke("save_smart_playlist",{previewId,playlistId,name,parentId,expectedRevision}),
+  previewPlaylistTool:request=>invoke("preview_playlist_tool",{request}),
+  applyPlaylistTool:(previewId,expectedRevision)=>invoke("apply_playlist_tool",{previewId,expectedRevision}),
+  previewSmartGeneration:request=>invoke("preview_smart_generation",{request}),
+  applySmartGeneration:(previewId,expectedRevision)=>invoke("apply_smart_generation",{previewId,expectedRevision}),
+  getPlaylistPreferences:()=>invoke("get_playlist_preferences"),
+  savePlaylistPreferences:(preferences,expectedRevision)=>invoke("save_playlist_preferences",{preferences,expectedRevision}),
+  playlistMembers:(playlistId,manual)=>invoke("playlist_members",{playlistId,manual}),
+  cleanupCatalog:config=>invoke("cleanup_catalog",{config}),
+  previewCleanup:(scope,config)=>invoke("preview_cleanup",{scope,config}),
+  applyCleanup:(planId,proposalIds)=>invoke("apply_cleanup",{planId,proposalIds}),
+  cleanupHistory:()=>invoke("cleanup_history"),
+  undoCleanup:batchId=>invoke("undo_cleanup",{batchId}),
+  onLibraryChange:handler=>listen<LibraryChangeEvent>("library-change",event=>handler(event.payload)),
   getState:()=>invoke("library_state"),
   getMetadataFields:()=>invoke("metadata_fields"),
   listTracks:query=>invoke("list_tracks",{query}),

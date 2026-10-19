@@ -25,6 +25,19 @@ impl PreparedAudio {
         }
         Ok(sha256(&self.source_path)? == self.source_sha256)
     }
+    pub fn source_is_unchanged_cancellable(
+        &self,
+        cancel: &crate::CancellationToken,
+    ) -> Result<bool> {
+        cancel.check()?;
+        if !self.source_path.is_file() {
+            return Ok(false);
+        }
+        Ok(crate::file_sha256_cancellable(&self.source_path, cancel)? == self.source_sha256)
+    }
+    pub fn pcm_sha256_cancellable(&self, cancel: &crate::CancellationToken) -> Result<String> {
+        crate::file_sha256_cancellable(&self.pcm_path, cancel)
+    }
     pub fn pcm_sha256(&self) -> Result<String> {
         sha256(&self.pcm_path)
     }
@@ -78,19 +91,44 @@ impl PreparedAudio {
 }
 impl MediaRuntime {
     pub fn decode(&self, path: &Path, cache: &Path) -> Result<PreparedAudio> {
+        self.decode_cancellable(path, cache, &crate::CancellationToken::default())
+    }
+    pub fn decode_cancellable(
+        &self,
+        path: &Path,
+        cache: &Path,
+        cancel: &crate::CancellationToken,
+    ) -> Result<PreparedAudio> {
+        cancel.check()?;
         std::fs::create_dir_all(cache)?;
         let private = tempfile::Builder::new()
             .prefix("cuerithm-")
             .tempdir_in(cache)?;
         let source_path = path.canonicalize().context("Audio file is missing")?;
-        let before = sha256(&source_path)?;
+        let before = crate::file_sha256_cancellable(&source_path, cancel)?;
         let mut snapshot_path = private.path().join("source");
-        std::fs::copy(&source_path, &snapshot_path)?;
+        let mut input = File::open(&source_path)?;
+        let mut output = File::options()
+            .write(true)
+            .create_new(true)
+            .open(&snapshot_path)?;
+        let mut chunk = [0u8; 65536];
+        loop {
+            cancel.check()?;
+            let n = input.read(&mut chunk)?;
+            if n == 0 {
+                break;
+            }
+            std::io::Write::write_all(&mut output, &chunk[..n])?;
+        }
+        drop(output);
+        drop(input);
         ensure!(
-            sha256(&snapshot_path)? == before && sha256(&source_path)? == before,
+            crate::file_sha256_cancellable(&snapshot_path, cancel)? == before
+                && crate::file_sha256_cancellable(&source_path, cancel)? == before,
             "Source changed during capture"
         );
-        let info = self.probe(&snapshot_path)?;
+        let info = self.probe_cancellable(&snapshot_path, cancel)?;
         if info.codec == "flac" {
             let named = private.path().join("source.flac");
             std::fs::rename(&snapshot_path, &named)?;
@@ -139,7 +177,14 @@ impl MediaRuntime {
             .write(true)
             .create_new(true)
             .open(&pcm_path)?;
-        let mut pcm = self.run(&self.ffmpeg, &args, file, 64_000_000 * 8)?;
+        let mut pcm = self.run_controlled(
+            &self.ffmpeg,
+            &args,
+            file,
+            64_000_000 * 8,
+            std::time::Duration::from_secs(300),
+            cancel,
+        )?;
         let bytes = pcm.metadata()?.len();
         ensure!(
             bytes > 0 && bytes.is_multiple_of(8),
@@ -148,6 +193,7 @@ impl MediaRuntime {
         let frames = bytes / 8;
         let mut chunk = [0u8; 65536];
         loop {
+            cancel.check()?;
             let n = pcm.read(&mut chunk)?;
             if n == 0 {
                 break;
@@ -163,7 +209,7 @@ impl MediaRuntime {
             );
         }
         ensure!(
-            sha256(&source_path)? == before,
+            crate::file_sha256_cancellable(&source_path, cancel)? == before,
             "Source changed during decode"
         );
         Ok(PreparedAudio {
@@ -182,5 +228,26 @@ impl MediaRuntime {
             },
             decoder_identity: self.identity.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+    #[test]
+    fn cancelled_decode_does_not_launch_or_allocate_a_snapshot() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let runtime = MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
+        let d = tempfile::tempdir().unwrap();
+        let cache = d.path().join("cancelled-cache");
+        let token = crate::CancellationToken::default();
+        token.cancel();
+        let result = runtime.decode_cancellable(
+            &root.join("crates/cuerithm-media/tests/fixtures/covered.flac"),
+            &cache,
+            &token,
+        );
+        assert!(result.is_err());
+        assert!(!cache.exists());
     }
 }

@@ -1,0 +1,29 @@
+[package]
+name = "cuerithm-rekordbox"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license.workspace = true
+
+[dependencies]
+base64.workspace = true
+blowfish = { version = "=0.9.1", features = ["zeroize"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+zeroize = "=1.9.1"
+plist = "=1.10.1"
+roxmltree = "=0.21.1"
+cuerithm-media = {path = "../cuerithm-media"}
+rusqlite = { workspace = true, features = ["bundled-sqlcipher-vendored-openssl", "backup"] }
+
+[dev-dependencies]
+clap.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = {version="=0.61.2",features=["Win32_Storage_FileSystem","Win32_Foundation"]}
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

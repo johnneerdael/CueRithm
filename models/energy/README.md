@@ -1,9 +1,9 @@
 # Optional single track-energy rating
 
 Pass a local numeric RBF SVC JSON with `--energy-model /path/to/energy-svc.json`.
-The desktop embeds the pinned, locally trained parameters in
-`models/builtin/energy-svc-v1.json`; its user never selects a model file. This
-explicit path remains available for standalone engine/CLI use. Training captures
+The desktop uses the compiled local acoustic meter and no longer uses the SVC
+artifact. The explicit model path remains available for standalone engine/CLI
+research. Training captures
 and labels remain private. Python/sklearn is a training/export tool only;
 inference is implemented in Rust.
 

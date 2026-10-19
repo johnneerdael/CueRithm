@@ -1,0 +1,14 @@
+[package]
+name = "cuerithm-smartlists"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+cuerithm-regex = { path = "../cuerithm-regex" }
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] }

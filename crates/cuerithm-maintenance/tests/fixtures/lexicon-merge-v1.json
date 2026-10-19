@@ -1,0 +1,1027 @@
+{
+  "node": "v20.18.1",
+  "provenance": {
+    "source_asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "execute_sha256": "e48b29ea8aa1c2e65c489e8400c3a7987c998d8499e6b400d35282f6e8ab06e5",
+    "capture_sha256": "d37342e35f59748c443e2a10f56b6a8f24538f64ac69d6254eab26b4fc5158c0",
+    "boundary": "Original execute method with authored local track and persistence recorders; imported tag/cue contents and database I/O are not executed; excluded play statistics ignored"
+  },
+  "cases": [
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": null,
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": null,
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": null,
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": null,
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b",
+          "c"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b",
+              "c"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [
+          "b"
+        ],
+        "unarchives": [
+          "a"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "b"
+            ],
+            "keeper": "a"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": null,
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": null,
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": null,
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": null,
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a",
+          "c"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a",
+              "c"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "unlocked",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "b"
+          }
+        ],
+        "archives": [
+          "a"
+        ],
+        "unarchives": [
+          "b"
+        ],
+        "replacements": [
+          {
+            "removed": [
+              "a"
+            ],
+            "keeper": "b"
+          }
+        ]
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          },
+          {
+            "from": "a",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          },
+          {
+            "from": "a",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          },
+          {
+            "from": "b",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          },
+          {
+            "from": "b",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "a",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          },
+          {
+            "from": "a",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          },
+          {
+            "from": "a",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "a",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "a",
+            "to": "b"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          },
+          {
+            "from": "b",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          },
+          {
+            "from": "b",
+            "to": "c"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": false,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    },
+    {
+      "state": "copy_cues",
+      "keeper": "b",
+      "donor": "b",
+      "ignored": [
+        "c"
+      ],
+      "keeper_archived": true,
+      "expected": {
+        "copies": [
+          {
+            "from": "b",
+            "to": "a"
+          }
+        ],
+        "archives": [],
+        "unarchives": [],
+        "replacements": []
+      }
+    }
+  ]
+}

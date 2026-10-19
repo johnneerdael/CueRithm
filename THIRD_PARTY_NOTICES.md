@@ -65,8 +65,8 @@ React and Tauri declare MIT licensing; Lucide declares ISC; Rodio declares
 MIT OR Apache-2.0. Exact dependency identities are in `Cargo.lock` and
 `apps/desktop/pnpm-lock.yaml`. Build tools and test fixtures do not require
 Python in the shipped application. The desktop embeds the pinned OpenKeyScan
-ONNX conversion under the upstream MIT notice and Cuerithm's locally trained
-energy SVC parameters under the repository license. Training music, captures,
+ONNX conversion under the upstream MIT notice. Track energy is independently
+implemented Rust acoustic DSP; no proprietary code or energy model is embedded. Training music, captures,
 reference labels and licensed reference applications are not bundled.
 
 
@@ -89,3 +89,53 @@ notices and bundled utf8cpp notice. The preparation script and manifest record
 the official release checksum, selected-source checksum and omitted upstream
 test/audio files. Build sources and notices are included in source archives.
 No separate TagLib installation is needed by the desktop user.
+
+
+## regress for bounded smart-list regex predicates
+
+The independent `cuerithm-regex` wrapper uses a documented adaptation of
+regress 0.12.0, copyright 2020 ridiculous_fish, under MIT or Apache-2.0.
+The pinned upstream archive, original licenses and precise modification record
+are under `vendor/regress/`. Adaptations cover per-execution work limits and
+source-verified legacy/UnicodeSets compatibility. No Lexicon code/assets are
+included in this component.
+
+## Smart-playlist calendar calculations
+
+The pure evaluator uses Chrono 0.4.45 and Chrono-TZ 0.10.4 under their declared
+MIT OR Apache-2.0 licenses, with compiled IANA time-zone data. Exact transitive
+dependency identities are recorded in `Cargo.lock`; preserve upstream licenses
+with corresponding source distribution. No external date/JavaScript runtime is
+required by playlist evaluation.
+
+## Duplicate matching normalization
+
+The independent maintenance matcher uses the default character map from
+[slugify 1.6.6](https://github.com/simov/slugify/tree/v1.6.6), copyright
+Simeon Velichkov, under MIT. The formatted map, complete license and provenance
+are in `vendor/slugify/`. The application does not run its JavaScript source.
+
+Pinned ICU4X Collator 2.3.0 supplies deterministic Unicode root collation under
+Unicode-3.0. Cargo resolves the exact data/dependency checksums. Preserve its
+upstream license with corresponding dependency source. Duplicate matching
+includes no proprietary application source or assets.
+
+
+## Native encrypted rekordbox database access
+
+The independent `cuerithm-rekordbox` adapter uses rusqlite 0.39.0 and
+libsqlite3-sys 0.37.0 under MIT. Its encrypted backend bundles the open-source
+SQLCipher 4.10.0 community implementation (SQLite 3.50.4) under its BSD-style
+license, preserved at `crates/cuerithm-rekordbox/licenses/SQLCipher-LICENSE`.
+OpenSSL 3.5.5 is built from openssl-src 300.5.5+3.5.5 through openssl-sys 0.9.117;
+its Apache-2.0 notice is preserved alongside it. Zeroize 1.9.1 declares
+Apache-2.0 OR MIT. Cargo.lock records all registry source checksums. Rebuilds use
+vendored crypto rather than requiring an end-user OpenSSL installation.
+
+The shared rusqlite pin retains cached statements and checked unsigned integer
+conversions used by the existing library. Desktop-only builds still select
+ordinary bundled SQLite unless the encrypted adapter is linked. Tests that
+select the adapter also exercise the library against SQLCipher's SQLite core.
+No proprietary application code, personal database, database key or analysis
+asset is distributed with this adapter. Preserve the pinned dependency sources,
+notices and corresponding build materials when distributing a linked binary.

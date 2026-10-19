@@ -1,0 +1,28 @@
+import {render,screen,fireEvent,within,waitFor} from "@testing-library/react";
+import {it,expect,vi} from "vitest";
+import App from "../App";
+import {fakeBridge} from "./bridge";
+it("has separate unnumbered settings pages, preserves drafts across pages and saves together",async()=>{
+ const bridge=fakeBridge([]);render(<App bridge={bridge}/>);
+ await screen.findByText("Your library starts here");
+ fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+ const navigation=screen.getByRole("navigation",{name:"Settings pages"});
+ expect(within(navigation).getByRole("button",{name:"Incoming"})).toHaveAttribute("aria-current","page");
+ expect(screen.queryByRole("heading",{name:"Analysis"})).not.toBeInTheDocument();
+ expect(screen.queryByLabelText("Minimum breakdown length")).not.toBeInTheDocument();
+ fireEvent.click(within(navigation).getByRole("button",{name:"Cue generation"}));
+ fireEvent.change(screen.getByLabelText("Minimum breakdown length"),{target:{value:"128"}});
+ fireEvent.click(within(navigation).getByRole("button",{name:"Automatic tagging"}));
+ fireEvent.click(await screen.findByLabelText("Automatic tagging"));
+ fireEvent.click(within(navigation).getByRole("button",{name:"Cleanup"}));
+ expect(screen.queryByLabelText("Automatic tagging")).not.toBeInTheDocument();
+ fireEvent.click(screen.getByLabelText("Clean incoming tracks automatically"));
+ fireEvent.click(within(navigation).getByRole("button",{name:"Cue generation"}));
+ expect(screen.getByLabelText("Minimum breakdown length")).toHaveValue(128);
+ expect(document.querySelector(".section-number")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Save settings"}));
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+ const saved=vi.mocked(bridge.saveSettings).mock.calls.at(-1)![0];
+ expect(saved.engine.lexicon_config?.min_cue_length_beats).toBe(128);
+ expect(saved.autotag_enabled).toBe(true);expect(saved.cleanup_enabled).toBe(true);
+});

@@ -16,7 +16,7 @@ case "$(uname -s)" in MINGW*|MSYS*) task_link_flags="-static";; esac
     --enable-demuxer=aac,aiff,asf,flac,mov,mp3,ogg,wav \
     --enable-parser=aac,aac_latm,flac,mpegaudio,opus,vorbis \
     --enable-decoder=aac,alac,flac,mp3float,mp3,opus,vorbis,wmav1,wmav2,wmapro,wmalossless,pcm_s8,pcm_u8,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_f64be,pcm_alaw,pcm_mulaw \
-    --enable-encoder=pcm_f32le --enable-muxer=pcm_f32le,image2pipe \
+    --enable-encoder=pcm_f32le,pcm_s16le --enable-muxer=pcm_f32le,image2pipe,md5 \
     --enable-filter=aresample,aformat,anull --extra-ldflags="$task_link_flags"
 task_ext=""
 case "$(uname -s)" in MINGW*|MSYS*) task_ext=".exe";; esac

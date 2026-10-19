@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "source": {
+    "application": "Lexicon",
+    "version": "1.11.15.0",
+    "worker_sha256": "3687c1689cfa8e9e693c69434924e05bd4e5e1b1356da0304a414ef9bf90a98f",
+    "helper_sha256": "1b276b6e658ccf809e243ecbaa7bdb0c66afbbb99d85de6536aae8aa09a83f06",
+    "boundary": "Unchanged inline transient-qualified energy-threshold helper from K, explicitly authored section energies and transient counts. Numeric component references only; no music data."
+  },
+  "cases": [
+    {
+      "name": "fractional66",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        13,
+        14,
+        66,
+        66
+      ],
+      "expected": 1
+    },
+    {
+      "name": "fractional66later",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        13,
+        13,
+        66,
+        66
+      ],
+      "expected": 2
+    },
+    {
+      "name": "fractional66first",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        14,
+        14,
+        66,
+        66
+      ],
+      "expected": 0
+    },
+    {
+      "name": "fractional26",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        5,
+        6,
+        26,
+        26
+      ],
+      "expected": 1
+    },
+    {
+      "name": "one_maximum",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "expected": 1
+    },
+    {
+      "name": "last_only",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "expected": 3
+    },
+    {
+      "name": "integer_threshold",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        2,
+        3,
+        10,
+        10
+      ],
+      "expected": 0
+    },
+    {
+      "name": "zero_transients",
+      "energies": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "transients": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected": 0
+    },
+    {
+      "name": "empty",
+      "energies": [],
+      "transients": [],
+      "expected": null
+    }
+  ]
+}

@@ -16,30 +16,7 @@ impl TagInput {
             self.duration_seconds.is_finite() && self.duration_seconds >= 0.,
             "Invalid playable duration"
         );
-        let format_name = self
-            .media
-            .properties
-            .get("format.format_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let format = match self.media.codec.as_str() {
-            "flac" => AudioFileFormat::FLAC,
-            "mp3" => AudioFileFormat::MP3,
-            "alac" => AudioFileFormat::MP4,
-            "aac"
-                if format_name
-                    .split(',')
-                    .any(|f| f == "mov" || f == "mp4" || f == "m4a") =>
-            {
-                AudioFileFormat::MP4
-            }
-            "aac" => AudioFileFormat::AAC,
-            "vorbis" | "opus" => AudioFileFormat::OGG,
-            "wmav1" | "wmav2" | "wmapro" | "wmalossless" | "wmavoice" => AudioFileFormat::WMA,
-            _ if format_name == "aiff" => AudioFileFormat::AIFF,
-            _ if format_name == "wav" => AudioFileFormat::WAV,
-            _ => anyhow::bail!("Unsupported tagging container: {}", self.media.codec),
-        };
+        let format = audio_format(&self.media)?;
         let tag = |key: &str| {
             self.media
                 .tags
@@ -103,4 +80,31 @@ impl TagInput {
             tags,
         })
     }
+}
+
+pub(crate) fn audio_format(media: &MediaInfo) -> Result<AudioFileFormat> {
+    let format_name = media
+        .properties
+        .get("format.format_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let format = match media.codec.as_str() {
+        "flac" => AudioFileFormat::FLAC,
+        "mp3" => AudioFileFormat::MP3,
+        "alac" => AudioFileFormat::MP4,
+        "aac"
+            if format_name
+                .split(',')
+                .any(|f| f == "mov" || f == "mp4" || f == "m4a") =>
+        {
+            AudioFileFormat::MP4
+        }
+        "aac" => AudioFileFormat::AAC,
+        "vorbis" | "opus" => AudioFileFormat::OGG,
+        "wmav1" | "wmav2" | "wmapro" | "wmalossless" | "wmavoice" => AudioFileFormat::WMA,
+        _ if format_name == "aiff" => AudioFileFormat::AIFF,
+        _ if format_name == "wav" => AudioFileFormat::WAV,
+        _ => anyhow::bail!("Unsupported tagging container: {}", media.codec),
+    };
+    Ok(format)
 }

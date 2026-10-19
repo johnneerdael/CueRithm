@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/cuerithm-autotag", "crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
-exclude = ["vendor/onetagger/onetagger-tag", "vendor/onetagger/onetagger-tagger", "vendor/onetagger/providers", "vendor/onetagger/template"]
+members = ["crates/cuerithm-rekordbox", "crates/cuerithm-maintenance", "crates/cuerithm-smartlists", "crates/cuerithm-regex", "crates/cuerithm-cleanup", "crates/cuerithm-autotag", "crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
+exclude = ["vendor/regress", "vendor/onetagger/onetagger-tag", "vendor/onetagger/onetagger-tagger", "vendor/onetagger/providers", "vendor/onetagger/template"]
 resolver = "2"
 
 [workspace.package]
@@ -10,6 +10,7 @@ rust-version = "1.89"
 license = "MIT"
 
 [workspace.dependencies]
+rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
