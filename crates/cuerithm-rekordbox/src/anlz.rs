@@ -107,7 +107,7 @@ impl AnlzTag {
         let old_count = u32be(&self.raw, 20)? as usize;
         let old = entries(&self.raw, self.header_len(), old_count, 8, self.limits)?;
         let mut payload = vec![0; checked_size(0, beats.len(), 8)?];
-        for (slot, beat) in payload.chunks_exact_mut(8).zip(beats) {
+        for (slot, beat) in payload.as_chunks_mut::<8>().0.iter_mut().zip(beats) {
             write_beat(slot, beat);
         }
         let mut tag = self.with_payload(self.header_len(), old.len(), &payload)?;
@@ -228,7 +228,12 @@ impl AnlzTag {
         self.expect(b"PQTZ", 24)?;
         let count = u32be(&self.raw, 20)? as usize;
         let range = entries(&self.raw, self.header_len(), count, 8, self.limits)?;
-        range.chunks_exact(8).map(read_beat).collect()
+        range
+            .as_chunks::<8>()
+            .0
+            .iter()
+            .map(|bytes| read_beat(bytes))
+            .collect()
     }
     pub fn extended_grid(&self) -> Result<ExtendedGrid> {
         self.expect(b"PQT2", 56)?;
@@ -246,7 +251,9 @@ impl AnlzTag {
                 None
             },
             words: words
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| u16::from_be_bytes([b[0], b[1]]))
                 .collect(),
             flags: u32be(&self.raw, 16)?,
@@ -370,7 +377,7 @@ impl AnlzTag {
         let mut raw = new_tag(b"PQTZ", 24, checked_size(24, beats.len(), 8)?)?;
         put32(&mut raw, 16, 524288);
         put32(&mut raw, 20, u32::try_from(beats.len())?);
-        for (slot, beat) in raw[24..].chunks_exact_mut(8).zip(beats) {
+        for (slot, beat) in raw[24..].as_chunks_mut::<8>().0.iter_mut().zip(beats) {
             write_beat(slot, beat)
         }
         Self::parse(&raw, ParseLimits::default())
@@ -417,7 +424,7 @@ impl AnlzTag {
                 u32::try_from(downbeat.checked_add(1).context("Downbeat overflow")?)?
             },
         );
-        for (slot, value) in raw[56..].chunks_exact_mut(2).zip(fractions) {
+        for (slot, value) in raw[56..].as_chunks_mut::<2>().0.iter_mut().zip(fractions) {
             slot.copy_from_slice(&value.to_be_bytes())
         }
         Self::parse(&raw, ParseLimits::default())
@@ -435,7 +442,7 @@ impl AnlzTag {
         put32(&mut raw, 12, kind);
         put16(&mut raw, 18, cues.len() as u16);
         put32(&mut raw, 20, u32::MAX);
-        for (slot, cue) in raw[24..].chunks_exact_mut(56).zip(cues) {
+        for (slot, cue) in raw[24..].as_chunks_mut::<56>().0.iter_mut().zip(cues) {
             validate_cue(
                 kind,
                 cue.hot_cue,
@@ -690,7 +697,9 @@ fn utf16(bytes: &[u8]) -> Result<String> {
         "Invalid UTF-16 field length"
     );
     let words: Vec<_> = bytes
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|b| u16::from_be_bytes([b[0], b[1]]))
         .collect();
     ensure!(words.last() == Some(&0), "UTF-16 field lacks terminator");
