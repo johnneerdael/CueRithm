@@ -119,7 +119,8 @@ exercised real invoke Apply/Undo, cue/grid display through track details, histor
 playlist replacement/restoration and zero pending recovery on generated WAVs.
 These checks do not establish branded maintenance-screen or full user-library
 acceptance. The user-owned UI can now connect its review/apply/undo controls to
-these commands. Reviewed disk removal remains a separate unfinished feature.
+these commands. Reviewed disk-removal APIs are described below; their dedicated
+screens remain unfinished.
 
 
 ## Reviewed unused-file removal

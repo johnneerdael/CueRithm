@@ -107,7 +107,9 @@ preview selected changes; Apply updates files and library with durable Undo. The
 same saved rules run during Incoming when enabled. See [cleanup](docs/cleanup.md)
 for the workflow and validation boundaries.
 
-The playlist store and smart-rule evaluator have typed native APIs. Maintenance
+The playlist workspace includes ordinary lists/folders, local smart rules,
+automatic membership refresh, tools/generation and guarded Undo through typed
+native APIs and desktop controls. Maintenance
 now includes duplicate discovery/review, coordinated donor merge with Undo,
 read-only unused/missing-file scans, and reviewed unused-file removal with
 retained recovery backups. See the [maintenance API](docs/development/maintenance-api.md)
@@ -117,9 +119,14 @@ the native maintenance API. Branded maintenance views and full library acceptanc
 remain unfinished. Direct rekordbox 6/7 sync remains a
 required delivery; no desktop XML fallback exists. The
 [native encrypted reader/snapshot foundation](crates/cuerithm-rekordbox/README.md)
-now validates copied data; target import/export and automatic key discovery are
-still being implemented. This is an unsigned test build,
-not a signed public release or a complete product-parity claim.
+validates copied data. Runtime key derivation and durable local import baselines
+are implemented as backend foundations; desktop import, reconciliation and
+target writes remain unfinished and Sync stays disabled.
+
+See [release scope and outstanding gaps](docs/release-readiness.md) for the
+capabilities, validation limits and remaining work for this release. A locally
+built unsigned app is not evidence of a signed public release or complete
+product parity.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
 commands, platform prerequisites and artifact verification.

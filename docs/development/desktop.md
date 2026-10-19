@@ -111,10 +111,12 @@ Cleanup now has a shared Rust rule engine, all-format staged metadata changes,
 automatic Incoming integration and a native preview/apply/Undo workspace. See
 [cleanup](../cleanup.md) and its [behavior evidence](../research/cleanup-behavior.md).
 
-The remaining approved scope includes ordinary/full smart playlists, duplicate
-and file maintenance, and direct rekordbox 6/7 sync.
-See [the early direct contract](../research/rekordbox-direct-contract.md) for
-known identities, static evidence and precise missing target acceptance.
+Ordinary/smart playlists and their desktop controls are integrated. Duplicate
+and file-maintenance backends have a [native API](maintenance-api.md), while
+their dedicated screens remain a user-owned UI handoff. Direct rekordbox 6/7
+sync stays disabled. See [release scope and outstanding gaps](../release-readiness.md)
+for the current delivery boundary and [the direct contract](../research/rekordbox-direct-contract.md)
+for known identities and missing target acceptance.
 
 ## Preview and batch throughput
 
@@ -170,8 +172,10 @@ new incoming files. A build without tagging support refuses pending journals
 rather than skipping recovery. Committed publication workspaces retain recovery
 original backups under application data; allow storage for retained audio backups
 when processing a large library. Settings reports the current original-backup
-count and size. Originals are retained indefinitely; no retention cleanup control
-is implemented. Redundant staged outputs are removed after successful completion
+count and size. Preparation/cleanup originals are retained indefinitely; their
+retention cleanup control remains outstanding. Explicit disposal exists separately
+for reviewed unused-file-removal backups through the maintenance API. Redundant
+staged outputs are removed after successful completion
 or successful rollback. True no-op writes retain no duplicate audio. Persisted
 cleanup completion avoids rereading historical backups on every startup.
 

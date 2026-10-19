@@ -5,6 +5,11 @@ specification. This plan preserves the complete 6/7 requirement. The encrypted
 reader checkpoint is not a completed sync implementation. No collection XML
 transport or fallback is part of this adapter.
 
+Release decision, 2026-10-19: pause feature expansion to stabilize and release
+the integrated application. Existing backend checkpoints remain tested but the
+desktop Sync action stays disabled. The remaining steps below are deferred,
+not completed; see [release scope and outstanding gaps](../../release-readiness.md).
+
 ## Evidence boundary
 
 Use `docs/research/rekordbox-direct-contract.md` and the retained private

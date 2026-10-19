@@ -61,6 +61,7 @@ Source-helper comparisons, intentional data-preserving differences, native
 format checks and concurrency/recovery tests are documented in
 [Cleanup behavior evidence](research/cleanup-behavior.md). These establish
 specific behavior; they do not claim exact Lexicon parity for every input.
-Duplicate merging, unused-file cleanup and missing/corrupt-track tools are a
-separate pending delivery described in
-[Library maintenance discovery](research/lexicon-library-maintenance.md).
+Duplicate merging, unused-file cleanup and missing/corrupt-track tools have a
+separate [native maintenance API](development/maintenance-api.md). Their dedicated
+screens and full-library acceptance remain outstanding; see
+[release scope](release-readiness.md).
