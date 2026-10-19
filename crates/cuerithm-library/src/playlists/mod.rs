@@ -6,6 +6,7 @@ mod model;
 mod preferences;
 mod previews;
 pub(crate) mod queries;
+pub(crate) mod scope;
 mod service;
 mod snapshot;
 mod tools;

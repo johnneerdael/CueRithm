@@ -22,6 +22,14 @@ or download an unverified decoder while preparing music. Python is build/test
 tooling only. The selected built-in parameters are under `models/builtin/`;
 music, training captures/labels and library databases remain outside Git.
 
+The native-MD5 recipe also builds the signed-16 PCM encoder and MD5 muxer used
+by the read-only maintenance fingerprint API. Rebuild the runtime after changing
+its recipe; sealing rejects a cached runtime that lacks those capabilities.
+Fingerprint caches must retain decoder identity alongside source content hashes.
+See `docs/research/lexicon-library-maintenance.md` for reference coverage and the
+observed AAC decoder-version difference. This API does not enable automatic
+duplicate merging or file removal.
+
 ```sh
 pnpm --dir apps/desktop install --frozen-lockfile
 pnpm --dir apps/desktop tauri dev

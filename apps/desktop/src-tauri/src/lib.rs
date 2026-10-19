@@ -1,6 +1,8 @@
 mod builtin;
 mod commands;
 mod host;
+mod maintenance;
+mod maintenance_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -67,6 +69,19 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            maintenance_commands::maintenance_cancel,
+            maintenance_commands::maintenance_scan_duplicates,
+            maintenance_commands::maintenance_scan_unused,
+            maintenance_commands::maintenance_scan_broken,
+            maintenance_commands::maintenance_duplicate_scan,
+            maintenance_commands::maintenance_unused_scan,
+            maintenance_commands::maintenance_broken_scan,
+            maintenance_commands::maintenance_export_unused,
+            maintenance_commands::maintenance_begin_review,
+            maintenance_commands::maintenance_get_review,
+            maintenance_commands::maintenance_edit_review,
+            maintenance_commands::maintenance_ignores,
+            maintenance_commands::maintenance_set_ignores,
             commands::library_state,
             commands::list_tracks,
             commands::metadata_fields,
@@ -119,6 +134,7 @@ pub fn run() {
             {
                 api.prevent_exit();
                 if host.alive.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                    host.maintenance.stop();
                     let host = host.inner().clone();
                     let app = app.clone();
                     std::thread::spawn(move || {
@@ -127,6 +143,7 @@ pub fn run() {
                         }
                         host.preparation.shutdown();
                         host.smart_playlists.shutdown();
+                        host.maintenance.wait_until_idle();
                         app.exit(0);
                     });
                 }

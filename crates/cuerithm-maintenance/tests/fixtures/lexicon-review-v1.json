@@ -1,0 +1,3870 @@
+{
+  "node": "v20.18.1",
+  "provenance": {
+    "source_asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "review_sha256": "fcfdfc44f3fcd975e8905482bc5a99fcc64fcf61fa9fcceb1ad3d73fbfdc38dd",
+    "prefer_sha256": "44e56cc07385ccc7106ec4efe767ba3fa8ad65374ac2ee2ce9365d2b1474f3c9",
+    "capture_sha256": "5fa12bc434feef2c10434b06b61f435c858024f09189526a97f73f5381644861",
+    "boundary": "Original class state methods and prefer generator; authored local tracks; presence, IDs, logging/assertion and normalized POSIX path adapters; no execute, library writes or filesystem scan"
+  },
+  "tracks": [
+    {
+      "id": "a",
+      "title": "Signal",
+      "extra1": "Archive",
+      "bitrate": 128,
+      "cuepoints": [
+        1
+      ],
+      "location": "/authored/old/Signal copy.flac",
+      "locationUnique": "/authored/old/Signal copy.flac",
+      "type": "local",
+      "present": true
+    },
+    {
+      "id": "b",
+      "title": "Signal EXTENDED",
+      "extra1": "DJ pool",
+      "bitrate": 320,
+      "cuepoints": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "location": "/authored/preferred/Signal.flac",
+      "locationUnique": "/authored/preferred/Signal.flac",
+      "type": "local",
+      "present": true
+    },
+    {
+      "id": "c",
+      "title": "Signal remix",
+      "extra1": "Vinyl",
+      "bitrate": 1411,
+      "cuepoints": [
+        1,
+        2
+      ],
+      "location": "/authored/preferred/Signal copy.flac",
+      "locationUnique": "/authored/preferred/Signal copy.flac",
+      "type": "local",
+      "present": true
+    },
+    {
+      "id": "d",
+      "title": "Signal EXTENDED",
+      "extra1": "DJ pool",
+      "bitrate": 2000,
+      "cuepoints": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "location": "/authored/offline/Signal.flac",
+      "locationUnique": "/authored/offline/Signal.flac",
+      "type": "local",
+      "present": false
+    }
+  ],
+  "cases": [
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "lock"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": false
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "a"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "c",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "select",
+          "track_id": "b"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [
+          "c"
+        ],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        },
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "lock"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": false
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "a"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "c",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "select",
+          "track_id": "b"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [
+          "c"
+        ],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        },
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "lock"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": false
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "a"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "c",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "select",
+          "track_id": "b"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [
+          "c"
+        ],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        },
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "lock"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": false
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "a"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "c",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "select",
+          "track_id": "b"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [
+          "c"
+        ],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        },
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "lock"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "locked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": false
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "unlock",
+          "force": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "a"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "use_tags",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "c",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "select",
+          "track_id": "b"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [
+          "c"
+        ],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        },
+        {
+          "kind": "ignore",
+          "track_id": "c"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "EXTENDED"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1ContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": true
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": false,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "copy_cues",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": false,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "copy_cues"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Extra1NotContainsWords",
+          "override_locked": true,
+          "use_best_cues": true,
+          "path": "/authored/preferred",
+          "value": "pool"
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "b",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "MostCuepoints",
+          "override_locked": false,
+          "use_best_cues": true
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "c",
+        "tags": null,
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "HighestBitrate",
+          "override_locked": false,
+          "use_best_cues": true
+        }
+      ],
+      "expected": {
+        "keeper": "c",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "b",
+        "tags": null,
+        "state": "locked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "Folder",
+          "path": "/authored/preferred",
+          "override_locked": true,
+          "use_best_cues": true
+        }
+      ],
+      "expected": {
+        "keeper": "b",
+        "tags_from": null,
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    },
+    {
+      "initial": {
+        "keeper": "a",
+        "tags": "b",
+        "state": "unlocked"
+      },
+      "actions": [
+        {
+          "kind": "prefer",
+          "type": "TitleContainsWord",
+          "value": "NO MATCH",
+          "override_locked": true,
+          "use_best_cues": true
+        }
+      ],
+      "expected": {
+        "keeper": "a",
+        "tags_from": "b",
+        "state": "unlocked",
+        "ignored": [],
+        "changed_selection": false
+      }
+    }
+  ]
+}

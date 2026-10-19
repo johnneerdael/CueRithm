@@ -107,3 +107,15 @@ MIT OR Apache-2.0 licenses, with compiled IANA time-zone data. Exact transitive
 dependency identities are recorded in `Cargo.lock`; preserve upstream licenses
 with corresponding source distribution. No external date/JavaScript runtime is
 required by playlist evaluation.
+
+## Duplicate matching normalization
+
+The independent maintenance matcher uses the default character map from
+[slugify 1.6.6](https://github.com/simov/slugify/tree/v1.6.6), copyright
+Simeon Velichkov, under MIT. The formatted map, complete license and provenance
+are in `vendor/slugify/`. The application does not run its JavaScript source.
+
+Pinned ICU4X Collator 2.3.0 supplies deterministic Unicode root collation under
+Unicode-3.0. Cargo resolves the exact data/dependency checksums. Preserve its
+upstream license with corresponding dependency source. Duplicate matching
+includes no proprietary application source or assets.

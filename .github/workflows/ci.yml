@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: rustup toolchain install 1.89 --profile minimal
       - run: cargo +1.89 check -p camelot-cli --all-features --locked
+      - run: cargo +1.89 test -p cuerithm-maintenance --all-targets --locked
   engine:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:

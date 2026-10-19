@@ -12,7 +12,13 @@ pub struct AppError {
 impl From<anyhow::Error> for AppError {
     fn from(error: anyhow::Error) -> Self {
         let message = format!("{error:#}");
-        let code = if message.contains("Stale cursor") {
+        let code = if error.downcast_ref::<cuerithm_media::MediaTaskError>()
+            == Some(&cuerithm_media::MediaTaskError::Cancelled)
+        {
+            "cancelled"
+        } else if message.contains("Another maintenance operation") {
+            "maintenance_busy"
+        } else if message.contains("Stale cursor") {
             "stale_cursor"
         } else if message.contains("superseded") {
             "superseded"
@@ -201,7 +207,9 @@ pub async fn playlist_members(
     })
     .await
 }
-async fn work<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> Ipc<T> {
+pub(crate) async fn work<T: Send + 'static>(
+    f: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
+) -> Ipc<T> {
     tauri::async_runtime::spawn_blocking(f)
         .await
         .map_err(|e| AppError {

@@ -185,7 +185,7 @@ pub(super) fn blocked(
     }
     Ok(())
 }
-fn compute(
+pub(super) fn compute(
     snapshot: &Snapshot,
     tree: &Tree,
     selected: Option<(&str, &BTreeSet<String>)>,
