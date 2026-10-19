@@ -1,138 +1,119 @@
-# Cuerithm
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/readme-dark.png">
+    <img src="docs/assets/brand/readme-light.png" alt="CueRithm. Know your music. Shape your set." width="100%">
+  </picture>
+</p>
 
-An offline Rust engine for DJ track analysis: musical key, BPM, structural cues
-and one energy rating per track, with a Tauri 2 desktop preparation workspace.
-The canonical repository is
-[johnneerdael/Cuerithm](https://github.com/johnneerdael/Cuerithm).
+<p align="center">
+  <a href="https://github.com/johnneerdael/CueRithm/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/johnneerdael/CueRithm?style=flat-square&color=3658F5&label=release"></a>
+  <a href="https://github.com/johnneerdael/CueRithm/actions/workflows/desktop.yml"><img alt="Desktop checks" src="https://img.shields.io/github/actions/workflow/status/johnneerdael/CueRithm/desktop.yml?branch=main&style=flat-square&label=desktop%20checks"></a>
+  <a href="https://github.com/johnneerdael/CueRithm/actions/workflows/ci.yml"><img alt="Engine checks" src="https://img.shields.io/github/actions/workflow/status/johnneerdael/CueRithm/ci.yml?branch=main&style=flat-square&label=engine%20checks"></a>
+  <a href="https://johnneerdael.github.io/CueRithm/"><img alt="User guide" src="https://img.shields.io/badge/user%20guide-online-FF785E?style=flat-square"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey?style=flat-square">
+</p>
 
-Cues come exclusively from the validated Lexicon-compatible DSP: Start, Drop,
-Breakdown, Second Drop, Second Breakdown, Last beat and an optional emergency
-loop. Names, colors and loop information are retained in `analysis.lexicon_cues`;
-the existing `analysis.cues` channel carries the same cue names/times for exports.
-Mixed In Key cue inference and per-cue/per-segment energy labels are retired.
+**CueRithm** is a desktop library app for DJs. Drop in your tracks and it listens to every one of them, entirely offline: **musical key, BPM and beatgrid, one energy rating, structural cues and a colour waveform**. It then helps you tag, clean and organise the library, with playlists and smart playlists that update themselves.
 
-## Build and analyze
+Your music stays where it is. Nothing is uploaded. There is no account.
+
+<p align="center">
+  <a href="https://github.com/johnneerdael/CueRithm/releases/latest"><b>Download</b></a> &nbsp;·&nbsp;
+  <a href="https://johnneerdael.github.io/CueRithm/get-started/"><b>Get started</b></a> &nbsp;·&nbsp;
+  <a href="https://johnneerdael.github.io/CueRithm/"><b>User guide</b></a> &nbsp;·&nbsp;
+  <a href="https://johnneerdael.github.io/CueRithm/technical/"><b>How it works</b></a>
+</p>
+
+<p align="center">
+  <img src="docs/user-guide/assets/screens/40-player.webp" alt="CueRithm with a track library above a colour waveform with five labelled cues" width="100%">
+</p>
+
+## What you get
+
+| | |
+| --- | --- |
+| **Key** | A neural network that runs inside the app reads the whole track and gives a Camelot key such as `7A`. |
+| **BPM and beatgrid** | One tempo and one first beat per track, shown to two decimals, with beat lines in the player. |
+| **Energy** | One rating from 1 to 10 for the whole track. |
+| **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
+| **Waveform** | Three frequency bands in six colour palettes, with a 16-second zoom for checking the grid. |
+| **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
+| **Tagging** | Optional Beatport and Traxsource lookups, with a staged write that proves your audio is unchanged. |
+| **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
+| **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
+| **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA, with a bundled decoder. Nothing else to install. |
+
+## See it work
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/user-guide/assets/screens/21-incoming-analyzing.webp" alt="Incoming view with tracks being decoded, analysed and queued"><br><sub><b>Incoming.</b> Drop tracks in and watch each one move through decoding and analysis.</sub></td>
+    <td width="50%"><img src="docs/user-guide/assets/screens/55-smart-playlist-editor.webp" alt="Smart playlist editor with a key rule and a BPM rule"><br><sub><b>Smart playlists.</b> Rules over key, BPM, energy and more, previewed before you save.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/user-guide/assets/screens/72-cleanup-preview.webp" alt="Cleanup preview listing proposed metadata changes"><br><sub><b>Cleanup.</b> Review every proposed change before anything is written, and undo it later.</sub></td>
+    <td width="50%"><img src="docs/user-guide/assets/screens/92-light-player.webp" alt="CueRithm in the light theme"><br><sub><b>Light and dark.</b> Follows your system, with labelled data that never relies on colour alone.</sub></td>
+  </tr>
+</table>
+
+## Built to be trusted
+
+- **Offline analysis.** Key, tempo, energy and cues are computed on your computer from the decoded audio. Only the optional catalog tagging uses the network.
+- **Your files are safe.** CueRithm never moves your audio. When tagging or cleanup writes tags, it works on a staged copy, decodes it again to prove the playable audio is identical, keeps the original, and swaps atomically with a journal for crash recovery.
+- **One timeline.** A bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback all agree on where a cue sits.
+- **Honest about gaps.** Analysis agreement is measured against reference tools on the developers' own library, not against musical truth. Read [How accurate is it?](https://johnneerdael.github.io/CueRithm/technical/accuracy/).
+
+## Install
+
+Download the latest build from the [releases page](https://github.com/johnneerdael/CueRithm/releases/latest).
+
+| System | File | Notes |
+| --- | --- | --- |
+| **macOS** (Apple Silicon) | `.dmg` | Signed with a Developer ID and notarized by Apple. There is no Intel Mac build. |
+| **Windows** (x86-64) | `.zip` | Portable app. Keep the `media` folder next to the program. Unsigned, so SmartScreen may warn on first launch. |
+| **Linux** (x86-64) | `.deb` | Unsigned. |
+
+Every release also carries the matching application source, the FFmpeg source and `THIRD_PARTY_NOTICES.md`. Step by step: [Install](https://johnneerdael.github.io/CueRithm/get-started/install/).
+
+You can check an installation at any time:
 
 ```sh
+/Applications/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
+```
+
+## Not available yet
+
+CueRithm is version 0.1. **Direct rekordbox sync** and the **duplicate and file-maintenance screens** are not available in this release, there is no cue editor or template editor yet, and playback uses the system default output. Details in [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
+
+## Documentation
+
+**[johnneerdael.github.io/CueRithm](https://johnneerdael.github.io/CueRithm/)** covers:
+
+- **[Get started](https://johnneerdael.github.io/CueRithm/get-started/):** install, the window, adding music and keyboard shortcuts.
+- **[Learn](https://johnneerdael.github.io/CueRithm/learn/):** nine hands-on tutorials, from your first tracks to smart playlists, cleanup and tagging.
+- **[Guides](https://johnneerdael.github.io/CueRithm/guides/):** every control and setting.
+- **[Under the hood](https://johnneerdael.github.io/CueRithm/technical/):** the analysis pipeline, decoding, key detection, tempo and beatgrid, energy, the cue engine, waveforms, the library database, safe tag writing, catalog matching and the smart playlist engine.
+- **[About](https://johnneerdael.github.io/CueRithm/about/):** credits, provenance and an FAQ.
+
+## Credits
+
+CueRithm builds on a lot of open-source work, notably **[OneTagger](https://github.com/Marekkon5/onetagger)** by Marekkon5 (Beatport and Traxsource tagging, under the GPL v3), **[OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer)** (the key network, MIT), **FFmpeg** (decoding, LGPL), **TagLib**, **libsoxr**, **Tauri** and **React**. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+CueRithm's behaviour was inspired by **Mixed In Key** and **Lexicon DJ**. It was studied through reverse engineering of copies the project's author owns, and CueRithm is an independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://johnneerdael.github.io/CueRithm/about/provenance/).
+
+CueRithm is not affiliated with, endorsed by or sponsored by Mixed In Key, Lexicon, Beatport, Traxsource, rekordbox, OneTagger or any other product named here.
+
+## For developers
+
+The analysis engine is a set of Rust crates (`camelot-core`, `camelot-cli` and others) with a Tauri 2 and React desktop app on top. The engineering reference, with build, test and validation commands, is in [`docs/development/engine-and-cli.md`](docs/development/engine-and-cli.md). Desktop setup and platform prerequisites are in [`docs/development/desktop.md`](docs/development/desktop.md), and the pull request and release workflow is in [`docs/development/pr-workflow.md`](docs/development/pr-workflow.md).
+
+```sh
+cargo test --workspace
 cargo build -p camelot-cli --release
-cargo run --release -p camelot-cli -- analyze "/path/to/track.wav" --lexicon-cues
 ```
 
-The compatibility binary is still named `camelot` (`camelot.exe` on Windows).
-Analysis reads PCM and explicit configuration; existing tags and filenames are
-not prediction inputs. Original audio is never retagged. `--lexicon-genre` is an
-explicit optional hint. CLI defaults use a 64-beat minimum breakdown, Never for
-drop-at-start and no emergency loop; `--emergency-loop` enables a 16-beat loop.
-The library retains the original `LexiconConfig::default()` values.
+Pull requests need a completed `@codex review` and the checks in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). Releases are published automatically from `main`.
 
-The key and BPM backends are preserved. OpenKeyScan is optional and requires
-CMake and a C compiler at build time. Supply model files explicitly; analysis
-does not download models or call an analysis service:
+## Licence
 
-```sh
-cargo run --release -p camelot-cli --features openkeyscan-key -- analyze "/path/to/track.flac" \
-  --key-openkeyscan-model "/path/to/openkeyscan3-logits.onnx" \
-  --source-profile-timing --lexicon-cues \
-  --energy-model "/path/to/energy-svc.json"
-```
-
-`--source-profile-timing` and `--energy-model` currently require a complete
-44100 Hz stereo signed16-bit FLAC within the supported 64000000-frame limit.
-Other enabled codecs remain available through the general key/tempo/cue path.
-Unsupported explicit profiles fail rather than silently changing algorithms.
-`--max-seconds` marks an excerpt partial and cannot request a whole-track rating.
-
-With a supplied energy model, `analysis.energy` contains only `{level, method}`.
-Internal SVC window decisions are aggregated by total duration (highest level
-wins an exact tie). This retains the client-side track-tag rule; it does not
-claim recovery of the separate server OverallEnergy formula. No per-segment
-energy timeline or cue-energy labels are emitted. Without a model, energy is
-omitted. See [energy model setup](models/energy/README.md).
-
-## Validation
-
-```sh
-cargo fmt --all -- --check
-cargo clippy --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-targets --all-features -- -D warnings
-cargo test --workspace --exclude cuerithm-desktop --all-features --release
-```
-
-The upstream 47 cue tests cover DSP primitives, sections, drops, breakdowns,
-outro/loop behavior, configuration and serialization. Integration tests cover
-44100 Hz cue routing, source BPM/anchor reuse, the single energy result and
-invalid/unknown inputs. Cues requested without usable timing produce an empty
-cue result. The original cue calculations remain unchanged behind a checked
-application boundary.
-
-Captured traffic, music, reference labels, installers and private
-research artifacts stay outside Git. Older MiK cue studies are historical;
-they are not an active Cuerithm cue backend. See
-[integration notes](docs/cuerithm-integration.md),
-[OpenKeyScan setup](models/openkeyscan/README.md) and
-[third-party notices](THIRD_PARTY_NOTICES.md).
-
-## Desktop preparation
-
-The desktop workspace adds Tracks, automatic Incoming preparation, Archive,
-persistent Settings and native waveform/cue preview. Watch folders run full key,
-BPM, beatgrid, scalar energy and cue analysis, then promote successful tracks
-automatically. A completed replacement retains the previous cue revision;
-failed analysis keeps the last valid cues. Original audio stays in place.
-
-The bundled decoder supports MP3, AAC/ADTS, AAC/M4A, ALAC/M4A, FLAC, WAV, AIFF,
-Ogg Vorbis, Opus and WMA, including high-depth/float PCM. All share the decoded
-playable timeline. The desktop's prepared-input API generalizes the explicit
-CLI FLAC-profile restriction described above; it does not change that CLI API.
-Protected media is unsupported. Users need no separate FFmpeg or Python runtime.
-
-OpenKeyScan key detection, track energy and structural cue analysis are built
-into the desktop application. No model selection, downloads or extra setup is
-required. The key graph is embedded, checked and cached automatically; energy
-uses compiled acoustic DSP without an external model file. Settings has separate
-Incoming, Cue generation, Automatic tagging and Cleanup pages.
-Existing unfinished jobs migrate to the built-in revision on upgrade. The
-standalone CLI retains its explicit-model API. The app never invents results
-to mark an incomplete track ready.
-
-Automatic tagging reuses selected OneTagger code for Beatport and Traxsource.
-Provider order, matching, selected/overwrite fields, genres/styles, artwork and
-file-tag formats are saved once in Settings. Enabled tagging is required before
-Incoming promotes a track; provider errors remain available for retry. See
-[automatic tagging](docs/automatic-tagging.md) for policies and provider validation.
-Existing offline settings are preserved until tagging is enabled.
-
-Cleanup includes eleven configurable Smart Fixes, exact genre/artist mappings,
-protected values, counted catalogs and categorized genre tags. Manual scans
-preview selected changes; Apply updates files and library with durable Undo. The
-same saved rules run during Incoming when enabled. See [cleanup](docs/cleanup.md)
-for the workflow and validation boundaries.
-
-The playlist workspace includes ordinary lists/folders, local smart rules,
-automatic membership refresh, tools/generation and guarded Undo through typed
-native APIs and desktop controls. Maintenance
-now includes duplicate discovery/review, coordinated donor merge with Undo,
-read-only unused/missing-file scans, and reviewed unused-file removal with
-retained recovery backups. See the [maintenance API](docs/development/maintenance-api.md)
-for the user-owned UI handoff, recovery workflow and remaining delivery gates.
-Reviewed parent cleanup and explicit retained-backup disposal are available through
-the native maintenance API. Branded maintenance views and full library acceptance
-remain unfinished. Direct rekordbox 6/7 sync remains a
-required delivery; no desktop XML fallback exists. The
-[native encrypted reader/snapshot foundation](crates/cuerithm-rekordbox/README.md)
-validates copied data. Runtime key derivation and durable local import baselines
-are implemented as backend foundations; desktop import, reconciliation and
-target writes remain unfinished and Sync stays disabled.
-
-See [release scope and outstanding gaps](docs/release-readiness.md) for the
-capabilities, validation limits and remaining work for this release. A locally
-built unsigned app is not evidence of a signed public release or complete
-product parity.
-
-See [desktop development and acceptance](docs/development/desktop.md) for setup,
-commands, platform prerequisites and artifact verification.
-
-
-The independent analysis engine remains MIT-licensed. The desktop application
-and selected OneTagger integration use GPLv3; see
-[desktop license](apps/desktop/LICENSE) and
-[third-party notices](THIRD_PARTY_NOTICES.md).
+The independent analysis engine is **MIT** licensed ([`LICENSE`](LICENSE)). The desktop application and the OneTagger integration are **GPL-3.0-only** ([`apps/desktop/LICENSE`](apps/desktop/LICENSE)). See [third-party notices](THIRD_PARTY_NOTICES.md).
