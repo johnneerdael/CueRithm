@@ -8,6 +8,7 @@ mod runtime;
 pub use cancel::{CancellationToken, MediaTaskError};
 pub use clock::AudioClock;
 pub use decode::PreparedAudio;
+pub use fingerprint::cancellable_sha256 as file_sha256_cancellable;
 pub use fingerprint::{AudioFingerprint, FingerprintOutcome};
 pub use probe::MediaInfo;
 pub use runtime::MediaRuntime;

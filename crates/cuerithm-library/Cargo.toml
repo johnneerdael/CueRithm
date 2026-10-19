@@ -17,6 +17,7 @@ iana-time-zone = "=0.1.65"
 chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] }
 cuerithm-smartlists = { path = "../cuerithm-smartlists" }
 cuerithm-cleanup = { path = "../cuerithm-cleanup" }
+cuerithm-maintenance = { path = "../cuerithm-maintenance" }
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 serde.workspace = true
@@ -39,6 +40,7 @@ libc = "0.2"
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem","Win32_Foundation"] }
 
 [dev-dependencies]
+hound.workspace = true
 tar = "0.4"
 flate2 = "1"
 

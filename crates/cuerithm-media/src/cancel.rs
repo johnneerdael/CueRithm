@@ -6,6 +6,10 @@ use std::sync::{
 #[derive(Clone, Debug, Default)]
 pub struct CancellationToken(Arc<AtomicBool>);
 impl CancellationToken {
+    /// Share cancellation with synchronous library evaluators using an atomic flag.
+    pub fn as_atomic(&self) -> &AtomicBool {
+        &self.0
+    }
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Release);
     }

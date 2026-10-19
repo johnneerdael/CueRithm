@@ -137,3 +137,43 @@ audio file or library record.
 
 This implements the media boundary. Library scan orchestration, persisted cache,
 scopes, unused/missing/corrupt results, review and merge/undo remain pending.
+
+## Read-only duplicate scan orchestration (2026-10-19)
+
+The library now captures coherent duplicate inputs and evaluates selected smart
+playlist scopes freshly. Full library excludes archived rows; explicit ordinary
+playlist scope retains its archived members; full-library filtering retains
+outside copies in a group that intersects selected playlists. These scans do not
+publish smart membership or change metadata, cues, audio, preparation jobs or
+ordinary playlist references. Owned fingerprint-cache and scan-report persistence
+are separate operational state under schema7.
+
+Source batching uses ascending imported track IDs (renderer322120). Cuerithm
+uses stable SQLite insertion order, preserving this policy across its UUID IDs
+and avoiding title-sort changes affecting greedy matching. Fingerprint groups
+precede metadata candidates; later groups lose members used by earlier groups.
+Metadata candidates retain unavailable copies for review when another member is
+present, and only available copies can be suggested as keepers. Match methods
+remain explicit. Audio fingerprint eligibility keeps the inspected strict
+15-to-1500-second duration bounds; unknown durations skip that pass.
+
+Cache reuse requires a fresh complete encoded SHA-256, decoder/runtime identity
+and fingerprint implementation identity. A same-size edit with restored mtime
+invalidates the cache. Source content and availability are checked again before
+report persistence and when loading a saved report. Relevant library, playlist,
+preference or ignore changes mark reports stale. Cancellation or matcher work
+limit exhaustion cannot publish a complete report.
+
+Ignored folders resolve existing filesystem aliases before component-wise
+comparison. This handles macOS /var aliases and avoids treating a sibling with a
+shared text prefix as an ignored child. It intentionally preserves actual
+filesystem case semantics instead of applying Lexicon's universal lowercasing.
+A missing leaf under an accessible existing parent is reported missing; when its
+parent is absent or inaccessible, availability stays unknown. This conservative
+policy avoids asserting that disconnected music was deleted.
+
+Generated integration fixtures exercise these boundaries, including restart,
+changed file identities and fresh smart rules without cached members. This is
+backend scanner evidence. Review/edit/merge/undo, unused/missing/corrupt tools,
+native commands and their UI acceptance remain incomplete; no user collection
+was scanned or modified by these tests.

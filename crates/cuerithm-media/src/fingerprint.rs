@@ -34,7 +34,7 @@ use std::{
     time::Duration,
 };
 
-pub(crate) fn cancellable_sha256(path: &Path, cancel: &CancellationToken) -> Result<String> {
+pub fn cancellable_sha256(path: &Path, cancel: &CancellationToken) -> Result<String> {
     let mut file = File::open(path)?;
     let mut hash = Sha256::new();
     let mut bytes = [0; 65536];
