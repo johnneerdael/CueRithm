@@ -429,7 +429,8 @@ impl Library {
             "INSERT INTO cue_revisions VALUES (?1,?2,?3,?4,?5)",
             params![uuid::Uuid::new_v4().to_string(), track, id, cue_json, now()],
         )?;
-        tx.execute("UPDATE tracks SET native_metadata_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
+        // Matching status belongs to a tagging run; the tagging commit stores it again after this.
+        tx.execute("UPDATE tracks SET native_metadata_json=NULL,tagging_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
             params![json,serde_json::to_string(info)?,key.camelot,saved_bpm,energy.level,a.duration_seconds,now(),track])?;
         for (field, value) in &info.tags {
             let column = match field.as_str() {
