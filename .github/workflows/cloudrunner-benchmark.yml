@@ -5,6 +5,11 @@ on:
       source_sha:
         description: 'Source commit shared by hosted and AWS lanes'
         required: false
+      platform:
+        description: 'Runner platforms to compare'
+        type: choice
+        options: [all, windows, linux]
+        default: all
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, labeled]
@@ -12,15 +17,16 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cloudrunner-benchmark-${{ github.event.pull_request.number || github.ref }}
+  group: cloudrunner-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'dispatch' }}-${{ inputs.platform || vars.CLOUDRUNNER_BENCHMARK_PLATFORM || 'all' }}-${{ vars.CLOUDRUNNER_WINDOWS_VCPU || '8' }}
   cancel-in-progress: false
 env:
   BENCHMARK_SHA: fc5975b1b183313c63c8f90a84579073f4c84cd2
-  BENCHMARK_STAGE: ${{ vars.CLOUDRUNNER_WINDOWS_VCPU || '8' }}
 jobs:
   smoke:
     if: >-
-      github.event_name == 'pull_request' && github.event.action != 'labeled' &&
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'opened' ||
+       (github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-smoke')) &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login == github.repository_owner
     strategy:
@@ -58,36 +64,74 @@ jobs:
           rustc --version
           cargo --version
 
-  engine:
+  profiles:
     if: >-
       (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
-       contains(github.event.pull_request.labels.*.name, 'cloudrunner-benchmark'))
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      stage: ${{ steps.select.outputs.stage }}
+    steps:
+      - name: Select benchmark profiles
+        id: select
+        env:
+          SELECTED_PLATFORM: ${{ inputs.platform || vars.CLOUDRUNNER_BENCHMARK_PLATFORM || 'all' }}
+          SELECTED_STAGE: ${{ vars.CLOUDRUNNER_WINDOWS_VCPU || '8' }}
+        shell: python {0}
+        run: |
+          import json
+          import os
+          platform = os.environ['SELECTED_PLATFORM']
+          if platform not in ('all', 'windows', 'linux'):
+              raise SystemExit('Select all, windows, or linux')
+          stage = os.environ['SELECTED_STAGE']
+          if stage not in ('8', '16'):
+              raise SystemExit('Windows benchmark stage must be 8 or 16')
+          profiles = []
+          for system, hosted in [('windows', 'windows-2025'), ('linux', 'ubuntu-24.04')]:
+              if platform != 'all' and platform != system:
+                  continue
+              for lane in ['hosted', 'aws']:
+                  labels = [hosted] if lane == 'hosted' else ['self-hosted', system, 'x64', 'cloudrunner', 'cuerithm']
+                  profiles.append({'profile': system + '-' + lane, 'os': hosted, 'runner': json.dumps(labels)})
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('matrix=' + json.dumps({'include': profiles}) + '\n')
+              output.write('stage=' + stage + '\n')
+
+  engine:
+    needs: profiles
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - profile: windows-hosted
-            os: windows-2025
-            runner: '["windows-2025"]'
-          - profile: windows-aws
-            os: windows-2025
-            runner: '["self-hosted","windows","x64","cloudrunner","cuerithm"]'
-          - profile: linux-hosted
-            os: ubuntu-24.04
-            runner: '["ubuntu-24.04"]'
-          - profile: linux-aws
-            os: ubuntu-24.04
-            runner: '["self-hosted","linux","x64","cloudrunner","cuerithm"]'
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
     runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
           persist-credentials: false
+      - name: Record benchmark source and hardware
+        shell: python {0}
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+        run: |
+          import os
+          import platform
+          print('Source:', os.environ['SOURCE_SHA'])
+          print('Platform:', platform.platform())
+          print('Logical CPUs:', os.cpu_count())
       - name: Confirm AWS Windows benchmark size
         if: matrix.profile == 'windows-aws'
         shell: pwsh
@@ -121,37 +165,36 @@ jobs:
         run: cargo +stable build --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked
 
   desktop:
+    needs: profiles
     if: >-
       (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
-       contains(github.event.pull_request.labels.*.name, 'cloudrunner-benchmark'))
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - profile: windows-hosted
-            os: windows-2025
-            runner: '["windows-2025"]'
-          - profile: windows-aws
-            os: windows-2025
-            runner: '["self-hosted","windows","x64","cloudrunner","cuerithm"]'
-          - profile: linux-hosted
-            os: ubuntu-24.04
-            runner: '["ubuntu-24.04"]'
-          - profile: linux-aws
-            os: ubuntu-24.04
-            runner: '["self-hosted","linux","x64","cloudrunner","cuerithm"]'
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
     runs-on: ${{ fromJSON(matrix.runner) }}
     env:
       CARGO_PROFILE_RELEASE_DEBUG: 0
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
           persist-credentials: false
+      - name: Record benchmark source and hardware
+        shell: python {0}
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+        run: |
+          import os
+          import platform
+          print('Source:', os.environ['SOURCE_SHA'])
+          print('Platform:', platform.platform())
+          print('Logical CPUs:', os.cpu_count())
       - name: Confirm AWS Windows benchmark size
         if: matrix.profile == 'windows-aws'
         shell: pwsh
