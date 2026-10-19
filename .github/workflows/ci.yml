@@ -20,6 +20,8 @@ jobs:
       - run: rustup toolchain install 1.89 --profile minimal
       - run: cargo +1.89 check -p camelot-cli --all-features --locked
       - run: cargo +1.89 test -p cuerithm-maintenance --all-targets --locked
+      - run: rustup toolchain install 1.90 --profile minimal
+      - run: cargo +1.90 test -p cuerithm-rekordbox --all-targets --release --locked
   engine:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:

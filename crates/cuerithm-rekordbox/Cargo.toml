@@ -1,0 +1,19 @@
+[package]
+name = "cuerithm-rekordbox"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.90"
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+zeroize = "=1.9.1"
+cuerithm-media = {path = "../cuerithm-media"}
+rusqlite = { workspace = true, features = ["bundled-sqlcipher-vendored-openssl", "backup"] }
+
+[dev-dependencies]
+clap.workspace = true

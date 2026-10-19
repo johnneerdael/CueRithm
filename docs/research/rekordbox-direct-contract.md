@@ -1,6 +1,6 @@
 # Direct rekordbox contract: research revision 1
 
-This is a constraint document for the future Rust writer. The desktop app does
+This is the contract and progress record for the native Rust adapter. The desktop app does
 not yet sync to rekordbox. No collection XML transport or fallback is planned.
 
 ## Evidence and limits
@@ -31,10 +31,12 @@ they do not establish actual rekordbox execution or universal schema support.
 | Analysis assets live under `share/PIONEER/USBANLZ`; artwork has its own directory | `Rekordbox6DatabaseBase`, 270973–270995 |
 | Native intelligent rules use a serialized rule document inside the direct database | 270466–270550 |
 
-No rekordbox 6 installation was found in this probe. Neither version has a
-decrypted schema fingerprint, real cue/beatgrid round trip or verified restored
-backup in this delivery. **No real schema revision is allowlisted for writes.**
-The encrypted copy alone is insufficient to fill those gaps.
+No rekordbox6 installation was found. At the initial checkpoint neither version
+had a decrypted schema identity, real cue/beatgrid round trip or restored-backup
+acceptance. The later native-read checkpoint below supplies an observed rekordbox 7 schema
+identity and coherent database snapshot; target-app round trips remain pending.
+**No real schema revision is allowlisted for writes.** An encrypted file copy
+or read-only schema match alone does not fill those gates.
 
 ## Mapping and ownership requirements
 
@@ -93,3 +95,54 @@ and test actual target-app import, repeated idempotent sync, cue/loop/grid
 playback, playlist hierarchy/order, native smart rules, concurrent edit conflicts,
 failure recovery and restoration. Publish sanitized schema identities and
 acceptance results, without music-library rows, credentials or encryption material.
+
+
+## Native encrypted access checkpoint
+
+`cuerithm-rekordbox` now provides read-only encrypted access, schema/integrity
+inspection and an owned standalone encrypted snapshot using SQLite's online
+backup API. It uses SQLCipher 4 compatibility and bundled OpenSSL. Keys are
+runtime-only zeroizing values with redacted Debug output; the native length-bearing
+key API keeps quotes/NULs and key material out of SQL text. Missing files are not
+created, symbolic database inputs are rejected, and cancellation between native
+page batches discards only the owned output. No collection XML path is provided.
+
+The rusqlite 0.39.0/libsqlite3-sys 0.37.0 pin uses SQLCipher 4.10.0 with SQLite 3.50.4,
+so enabling encryption does not lower the previous library's SQLite 3.50.2 core.
+The initial 0.37.0 SQLCipher feature bundled SQLite 3.46.1; 0.40.1 required compiler
+features outside this project's Rust floor. Checked unsigned conversions and
+statement caching remain enabled explicitly. Current-head platform checks and
+the Rust 1.90 floor must verify this shared dependency boundary.
+
+A fresh private main/WAL/SHM capture from installed 7.2.19.0342 was hash-stable
+across capture and initial inspection. The reference reader reported 48 tables,
+336 schema objects, user_version 0 and no foreign-key issues. Native Rust access
+and a fresh encrypted standalone snapshot produced the same schema fingerprint:
+`6bd02ac0a3f9cadfd3ae9b4c95e1ca0663fd3e7717a74e89a4c153834611d2eb`.
+Both passed integrity and foreign-key checks. Private copied main/WAL hashes
+stayed unchanged, and the owned temporary snapshot was removed after inspection.
+No user rows, actual keys or proprietary schema/trigger bodies are published.
+
+The live WAL changed later while the main program was absent; read-only handle
+inspection identified `rekordboxAgent` holding it. Main-process absence is thus
+insufficient write preflight. No live connection was opened by these probes and
+no process was killed. Database-only snapshot coherence does not establish a
+coherent backup of analysis/artwork assets or target-app playback acceptance.
+
+The research example `cargo run -p cuerithm-rekordbox --example inspect --release --
+--database <copied-db> --key-file <private-file>` prints aggregate diagnostics.
+`--snapshot-cache <private-cache>` also verifies a temporary encrypted snapshot.
+This explicit key-file interface is a research tool, not the intended desktop
+setup flow. Automatic runtime key discovery remains to be implemented; it must
+not require a purchased reference application or a Python runtime in the shipped
+app. The private reference bootstrap is not a distributed dependency.
+
+Target discovery/import, structured conflict baselines, IDs/USNs, metadata and
+MyTags, playlists/native smart rules, cues/loops/beatgrid/artwork assets, staged
+write recovery and actual6/7 target-app acceptance remain required. Version 6 is
+not installed on this host. No schema is allowlisted for live writes yet; a
+read-only schema match is not a completed sync implementation.
+
+Primary implementation references: [SQLCipher API](https://www.zetetic.net/sqlcipher/sqlcipher-api/),
+[SQLite3 Multiple Ciphers legacy modes](https://utelle.github.io/SQLite3MultipleCiphers/docs/ciphers/cipher_legacy_mode/),
+and the pinned [rusqlite 0.39.0 source](https://github.com/rusqlite/rusqlite/tree/v0.39.0).

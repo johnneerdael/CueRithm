@@ -119,3 +119,23 @@ Pinned ICU4X Collator 2.3.0 supplies deterministic Unicode root collation under
 Unicode-3.0. Cargo resolves the exact data/dependency checksums. Preserve its
 upstream license with corresponding dependency source. Duplicate matching
 includes no proprietary application source or assets.
+
+
+## Native encrypted rekordbox database access
+
+The independent `cuerithm-rekordbox` adapter uses rusqlite 0.39.0 and
+libsqlite3-sys 0.37.0 under MIT. Its encrypted backend bundles the open-source
+SQLCipher 4.10.0 community implementation (SQLite 3.50.4) under its BSD-style
+license, preserved at `crates/cuerithm-rekordbox/licenses/SQLCipher-LICENSE`.
+OpenSSL 3.5.5 is built from openssl-src 300.5.5+3.5.5 through openssl-sys 0.9.117;
+its Apache-2.0 notice is preserved alongside it. Zeroize 1.9.1 declares
+Apache-2.0 OR MIT. Cargo.lock records all registry source checksums. Rebuilds use
+vendored crypto rather than requiring an end-user OpenSSL installation.
+
+The shared rusqlite pin retains cached statements and checked unsigned integer
+conversions used by the existing library. Desktop-only builds still select
+ordinary bundled SQLite unless the encrypted adapter is linked. Tests that
+select the adapter also exercise the library against SQLCipher's SQLite core.
+No proprietary application code, personal database, database key or analysis
+asset is distributed with this adapter. Preserve the pinned dependency sources,
+notices and corresponding build materials when distributing a linked binary.

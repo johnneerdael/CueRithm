@@ -115,7 +115,10 @@ for the user-owned UI handoff, recovery workflow and remaining delivery gates.
 Reviewed parent cleanup and explicit retained-backup disposal are available through
 the native maintenance API. Branded maintenance views and full library acceptance
 remain unfinished. Direct rekordbox 6/7 sync remains a
-required delivery; no desktop XML fallback exists. This is an unsigned test build,
+required delivery; no desktop XML fallback exists. The
+[native encrypted reader/snapshot foundation](crates/cuerithm-rekordbox/README.md)
+now validates copied data; target import/export and automatic key discovery are
+still being implemented. This is an unsigned test build,
 not a signed public release or a complete product-parity claim.
 
 See [desktop development and acceptance](docs/development/desktop.md) for setup,
