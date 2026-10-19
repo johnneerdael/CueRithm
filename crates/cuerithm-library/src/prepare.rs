@@ -417,7 +417,7 @@ impl Worker {
                 audio.source_sha256 == job.source_sha256,
                 "Source changed before analysis"
             );
-            let mut result = if let Some(cached) =
+            let result = if let Some(cached) =
                 self.library
                     .cached_analysis(&job, &self.engine_identity, &audio)?
             {
@@ -436,6 +436,8 @@ impl Worker {
                     .cache_analysis(&job, &self.engine_identity, &result)?;
                 result
             };
+            #[cfg(feature = "autotag")]
+            let mut result = result;
             ensure!(
                 !self.stop.load(Ordering::Relaxed),
                 "Preparation is stopping"
