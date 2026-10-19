@@ -1,0 +1,170 @@
+site_name: CueRithm user guide
+site_description: Learn to prepare, analyse, organise and understand your DJ library with CueRithm, the open-source desktop library app.
+site_url: https://johnneerdael.github.io/CueRithm/
+repo_url: https://github.com/johnneerdael/CueRithm
+repo_name: johnneerdael/CueRithm
+edit_uri: edit/main/docs/user-guide/
+docs_dir: docs/user-guide
+site_dir: build/user-guide-site
+# Writer-only material lives beside the pages but is not published.
+exclude_docs: |
+  _snippets/
+
+copyright: CueRithm is independent, open-source software. It is not affiliated with Mixed In Key, Lexicon, Beatport, Traxsource, rekordbox, OneTagger or any other product named in this guide.
+
+theme:
+  name: material
+  language: en
+  logo: assets/brand/cuerithm-mark-on-dark.svg
+  favicon: assets/brand/favicon.png
+  font: false
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil-outline
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Follow the system setting
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+
+extra_css:
+  - stylesheets/cuerithm.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/johnneerdael/CueRithm
+      name: CueRithm on GitHub
+
+plugins:
+  - search:
+      separator: '[\s\-$%,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path: docs/user-guide/_snippets
+      auto_append:
+        - abbreviations.md
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Get started:
+      - get-started/index.md
+      - Install: get-started/install.md
+      - The main window: get-started/main-window.md
+      - Add your music: get-started/add-music.md
+      - Keyboard shortcuts: get-started/shortcuts.md
+  - Learn:
+      - learn/index.md
+      - Prepare your first tracks: learn/first-tracks.md
+      - Read key, BPM and energy: learn/read-analysis.md
+      - Navigate a track with cues: learn/navigate-with-cues.md
+      - Build playlists and folders: learn/playlists.md
+      - Build a smart playlist: learn/smart-playlist.md
+      - Clean up messy titles: learn/cleanup.md
+      - Tag from Beatport and Traxsource: learn/auto-tagging.md
+      - Choose a theme and waveform style: learn/appearance.md
+  - Guides:
+      - guides/index.md
+      - The track table: guides/track-table.md
+      - Player, waveform and cues: guides/player.md
+      - Incoming and Archive: guides/incoming-archive.md
+      - Playlists, folders and favourites: guides/playlists.md
+      - Smart playlist rules: guides/smart-rules.md
+      - Playlist tools and generator: guides/playlist-tools.md
+      - Cleanup rules: guides/cleanup-rules.md
+      - Automatic tagging settings: guides/tagging-settings.md
+      - Settings reference: guides/settings.md
+  - Under the hood:
+      - technical/index.md
+      - The analysis pipeline: technical/pipeline.md
+      - Decoding and the media runtime: technical/decoding.md
+      - Key detection: technical/key.md
+      - Tempo and beatgrid: technical/tempo.md
+      - Track energy: technical/energy.md
+      - The cue engine: technical/cues.md
+      - Waveforms: technical/waveform.md
+      - The library database: technical/library.md
+      - Safe tag writing: technical/tag-writing.md
+      - Catalog matching: technical/matching.md
+      - Cleanup engine: technical/cleanup-engine.md
+      - Smart playlist engine: technical/smart-engine.md
+      - How accurate is it?: technical/accuracy.md
+  - About:
+      - about/index.md
+      - Credits and open source: about/credits.md
+      - How CueRithm was made: about/provenance.md
+      - Not available yet: about/roadmap.md
+      - FAQ and troubleshooting: about/faq.md
