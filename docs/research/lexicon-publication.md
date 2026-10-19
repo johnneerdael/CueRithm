@@ -72,8 +72,12 @@ rule regressions cover the published data rather than reconstructing it from
 raw cue names. A private reanalysis of a copy of the user-reported track agrees
 with the captured fresh Lexicon GUI on BPM, anchor and all five cue timestamps,
 names, colors, types and positions. Original-source SHA-256 was unchanged.
-A browser preview of that backend result verifies the visible five-cue strip
-and breakdown navigation; it is separate from packaged/native app acceptance.
+A browser preview verifies the visible five-cue strip and breakdown navigation.
+The packaged macOS app was also tested with a separate application identity and
+private one-track library containing the copied audio. It decoded the waveform,
+displayed all five published cues, sought to Breakdown at 1:50.9 and moved one
+bar forward with Right using the saved 130 BPM. Playback was muted. This is a
+native acceptance check for the reported track, not a full-library parity claim.
 
 ## Remaining gates
 
@@ -81,7 +85,7 @@ The current application path uses factory template rows, with the configured
 emergency-loop detector flag. A complete custom-template/settings editor and
 custom-anchor extraction still need delivery; the pure publication API alone
 does not implement those caller/UI stages. Direct native rekordbox transport
-must consume published cue kinds. Cross-platform/native delivery and broader
+must consume published cue kinds. Windows/Linux runtime acceptance and broader
 music-corpus GUI agreement remain separate verification gates.
 
 Tempo-bound settings also need equal-input comparison: the factory range is
