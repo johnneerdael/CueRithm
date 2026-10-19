@@ -197,6 +197,19 @@ describe("waveform shape",()=>{
 });
 
 describe("waveform styles in the app",()=>{
+  it("drops queued preview work for rows that unmount before it starts",async()=>{
+    const releases:(()=>void)[]=[];
+    const calls:string[]=[];
+    const blocked=async(id:string)=>{calls.push(id);await new Promise<void>(done=>releases.push(done));return {wave:sampleWaveform(40),detail:{} as unknown as Detail};};
+    const rows=["a","b","c","d"].map(id=>render(<RowPreview id={id} identity="q" load={blocked}/>));
+    await waitFor(()=>expect(calls).toEqual(["a","b"]),{timeout:2000});
+    await new Promise(done=>setTimeout(done,250));
+    rows[2].unmount();rows[3].unmount();
+    releases.splice(0).forEach(done=>done());
+    await new Promise(done=>setTimeout(done,50));
+    expect(calls).toEqual(["a","b"]);
+    rows[0].unmount();rows[1].unmount();
+  });
   it("strokes a row preview with the chosen palette and switches live, including to a layered style",async()=>{
     const {container}=render(<RowPreview id="t" identity="a" load={loader(sampleWaveform(120))}/>);
     await waitFor(()=>expect(container.querySelector("linearGradient")).not.toBeNull(),{timeout:2000});
