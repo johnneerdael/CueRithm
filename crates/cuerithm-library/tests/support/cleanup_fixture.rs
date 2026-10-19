@@ -40,6 +40,7 @@ pub fn result() -> FileAnalysis {
         emergency_loop: None,
     });
     FileAnalysis {
+        publication: None,
         analysis: a,
         complete: true,
         verified_integrity: None,

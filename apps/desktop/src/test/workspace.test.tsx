@@ -83,6 +83,13 @@ describe("library workspace",()=>{
       await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(2));
     }finally{listeners.mockRestore();}
   });
+  it("uses the saved publication tempo for bar jumps",async()=>{
+    const bridge=fakeBridge([track("a")]),load=bridge.playerLoad;
+    bridge.playerLoad=vi.fn(async id=>({...await load(id),analysis:{complete:true,source_sample_rate:44100,analysis:{duration_seconds:240,key:null,energy:null,tempo:{bpm:128.345,beats_seconds:[.125,.5,1],downbeats_seconds:null},lexicon_cues:null},publication:{grid:{bpm:128.35,startTime:.125},cues:[],implementation_sha256:"fixture",inputs_sha256:"fixture"}}}));
+    render(<App bridge={bridge}/>);await screen.findByText("Track a");fireEvent.doubleClick(screen.getByText("Track a"));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Pause"})).toBeEnabled());
+    fireEvent.keyDown(window,{key:"ArrowRight"});await waitFor(()=>expect(bridge.playerSeek).toHaveBeenCalledWith(240/128.35));
+  });
   it("retries cover extraction after a transient failure and remount",async()=>{
     const bridge=fakeBridge([track("a")]);
     bridge.getArtwork=vi.fn().mockRejectedValueOnce(new Error("Drive offline")).mockResolvedValue("data:image/png;base64,iVBORw0KGgo=");

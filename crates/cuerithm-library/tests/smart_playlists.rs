@@ -1260,3 +1260,43 @@ fn previews_reject_cycles_and_selection_does_not_restrict_dependency_evaluation(
         .unwrap();
     assert!(preview.track_ids.is_empty());
 }
+
+#[test]
+fn published_cue_revisions_supply_names_colors_loop_and_memory_facts() {
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    let job = f
+        .lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.track_id == f.ids[0])
+        .unwrap()
+        .id;
+    let json = serde_json::json!({"schema":"lexicon-publication-v1","grid":{"bpm":128.35,"startTime":0.125},"cues":[{"name":"S.O.S.","startTime":128.,"type":"5","position":7,"color":"magenta","endTime":136.,"activeLoop":true,"data":{"rekordbox":{"originalNum":-1}}}],"implementation_sha256":"fixture","inputs_sha256":"fixture"});
+    conn.execute(
+        "INSERT INTO cue_revisions VALUES('published',?1,?2,?3,3)",
+        params![f.ids[0], job, json.to_string()],
+    )
+    .unwrap();
+    drop(conn);
+    for (name, op) in [
+        ("memory", Operator::CuepointHasMemoryCue),
+        ("active", Operator::CuepointHasActiveLoop),
+    ] {
+        create(
+            &f.lib,
+            name,
+            None,
+            PlaylistKind::Smartlist,
+            Some(definition("cuepoints", op, RuleValue::None)),
+        );
+    }
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("memory").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    // Beta retains its legacy emergency-loop facts alongside Alpha's publication.
+    assert_eq!(f.lib.playlist_members("active").unwrap(), f.ids[..2]);
+}

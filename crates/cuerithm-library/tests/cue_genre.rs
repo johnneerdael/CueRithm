@@ -66,5 +66,39 @@ fn background_preparation_uses_the_genre_after_configured_cleanup() {
     let row = lib.track(id).unwrap();
     assert_eq!(row.genre, "Techno");
     let result = lib.analysis(id).unwrap().unwrap();
-    assert_eq!(result.media.unwrap().cue_genre.as_deref(), Some("Techno"));
+    assert_eq!(
+        result.media.as_ref().unwrap().cue_genre.as_deref(),
+        Some("Techno")
+    );
+    let value = serde_json::to_value(&result).unwrap();
+    let publication = &value["publication"];
+    assert!(
+        publication.is_object(),
+        "Prepared analysis must contain published grid/cues"
+    );
+    assert_eq!(
+        publication["grid"]["bpm"].as_f64().unwrap(),
+        camelot_core::lexicon_publication::round_bpm(result.analysis.tempo.as_ref().unwrap().bpm)
+            .unwrap()
+    );
+    let cues = publication["cues"].as_array().unwrap();
+    assert_eq!(cues[0]["name"], "Start");
+    assert_eq!(cues[0]["color"], "yellow");
+    assert!(cues.iter().all(|c| c["type"] == "1"));
+    assert!(
+        cues.iter()
+            .any(|c| c["name"] == "End / Fade-out" && c["color"] == "violet")
+    );
+    assert_eq!(row.bpm, publication["grid"]["bpm"].as_f64());
+    let conn = rusqlite::Connection::open(d.path().join("app/db")).unwrap();
+    let text: String = conn
+        .query_row(
+            "SELECT json FROM cue_revisions WHERE track_id=?1 ORDER BY rowid DESC LIMIT 1",
+            [id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let snapshot: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(snapshot["schema"], "lexicon-publication-v1");
+    assert_eq!(snapshot["cues"], publication["cues"]);
 }

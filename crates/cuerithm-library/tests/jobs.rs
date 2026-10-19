@@ -38,6 +38,7 @@ fn result() -> FileAnalysis {
         emergency_loop: None,
     });
     FileAnalysis {
+        publication: None,
         analysis: a,
         complete: true,
         verified_integrity: None,
@@ -519,4 +520,44 @@ fn legacy_metadata_refresh_is_source_guarded_and_preserves_cues_and_analysis() {
         before
     );
     assert!(lib.metadata_refresh_candidates().unwrap().is_empty());
+}
+
+#[test]
+fn published_fractional_grid_is_saved_without_replacing_raw_detector_output() {
+    use camelot_core::lexicon_publication::{
+        CueTemplate, Marker, StructuralMarker, publish_measured,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("db")).unwrap();
+    let path = dir.path().join("original.flac");
+    std::fs::write(&path, b"synthetic publication boundary").unwrap();
+    lib.enqueue(&[path], lib.settings().unwrap().revision)
+        .unwrap();
+    let run = lib.claim_next().unwrap().unwrap();
+    let mut result = result();
+    result.analysis.duration_seconds = 160.;
+    let tempo = result.analysis.tempo.as_mut().unwrap();
+    tempo.bpm = 128.345;
+    tempo.downbeat_time = Some(0.125);
+    tempo.beats_seconds = vec![0.125];
+    result.analysis.lexicon_cues.as_mut().unwrap().cues[0].time_seconds = 0.125;
+    result.publication = Some(
+        publish_measured(
+            &[StructuralMarker {
+                marker_type: Marker::Start,
+                start_time_seconds: Some(0.125),
+            }],
+            128.345,
+            0.125,
+            160.,
+            &CueTemplate::default(),
+            &[],
+        )
+        .unwrap(),
+    );
+    lib.apply_analysis_for_run(&run, &result, &info()).unwrap();
+    assert_eq!(lib.track(&run.track_id).unwrap().bpm, Some(128.35));
+    let saved = lib.analysis(&run.track_id).unwrap().unwrap();
+    assert_eq!(saved.analysis.tempo.unwrap().bpm, 128.345);
+    assert_eq!(saved.publication.unwrap().grid.bpm, 128.35);
 }

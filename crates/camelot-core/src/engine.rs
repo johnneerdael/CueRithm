@@ -265,6 +265,9 @@ pub struct SourceTimingMetadata {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileAnalysis {
+    /// App publication is derived after DSP; older results retain their raw data.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication: Option<crate::lexicon_publication::Publication>,
     pub analysis: Analysis,
     pub complete: bool,
     pub verified_integrity: Option<bool>,
@@ -863,6 +866,7 @@ impl Engine {
             );
         }
         Ok(FileAnalysis {
+            publication: None,
             analysis,
             complete: audio.complete,
             verified_integrity: audio.verified_integrity,
