@@ -32,7 +32,8 @@ export function TaskStatus({task}:{task:MaintenanceTask}){
 }
 
 export function StaleNotice({stale,reason,what}:{stale:boolean;reason:string|null;what:string}){
-  return stale?<div role="alert" className="maint-stale"><strong>This {what} is out of date.</strong> {reason??"The library or files changed since it was made."} Scan again before relying on it.</div>:null;
+  const why=reason??"The library or files changed since it was made.";
+  return stale?<div role="alert" className="maint-stale"><strong>This {what} is out of date.</strong> {/[.!?]$/.test(why.trim())?why:why+"."} Scan again before relying on it.</div>:null;
 }
 
 /**
