@@ -8,6 +8,7 @@ pub mod evaluation;
 pub mod key;
 mod lexicon_cue_frontend;
 pub mod lexicon_energy;
+pub mod lexicon_publication;
 pub mod lexicon_timing;
 // Keep the cue decisions together; source-derived corrections have explicit
 // numerical and worker-reference regressions alongside the original cases.
