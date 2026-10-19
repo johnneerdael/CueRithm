@@ -54,6 +54,11 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
         .unwrap()
         .capture(cache.path(), &key, &CancellationToken::default())
         .unwrap();
+    // A second snapshot stands in for the live library that the written copy will be published over.
+    let stand_in = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(cache.path(), &key, &CancellationToken::default())
+        .unwrap();
     let (before, checks_before, schema) = collection(&snapshot.path, &key);
     assert!(checks_before.integrity_ok);
     assert!(
@@ -258,4 +263,69 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
     let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
     let stale = db.apply(&plan, &CancellationToken::default()).unwrap_err();
     assert!(stale.downcast_ref::<ConflictError>().is_some());
+    drop(db);
+
+    // Publish the written copy over the stand-in: backup first, then verified, then identical in content.
+    let backups = tempfile::tempdir().unwrap();
+    let published = publish_verified_copy(
+        &PublishRequest {
+            live: &stand_in.path,
+            work: &snapshot.path,
+            key: &key,
+            backup_dir: backups.path(),
+            base_usn: usn(&before),
+        },
+        &CancellationToken::default(),
+    )
+    .unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(
+        (published.usn_before, published.usn_after),
+        (usn(&before), usn(&before) + 1)
+    );
+    let (live_after, live_checks, live_schema) = collection(&stand_in.path, &key);
+    assert!(live_checks.integrity_ok);
+    assert_eq!(
+        live_checks.foreign_key_issues,
+        checks_before.foreign_key_issues
+    );
+    assert_eq!(live_schema, schema);
+    let (work_final, _, _) = collection(&snapshot.path, &key);
+    let hashes = |c: &RekordboxCollection| {
+        let mut all: Vec<_> = c
+            .tracks
+            .iter()
+            .map(|t| (t.identity.content_id.clone(), t.raw_hash.clone()))
+            .collect();
+        all.sort();
+        all
+    };
+    assert_eq!(hashes(&live_after), hashes(&work_final));
+    assert_eq!(live_after.playlists.len(), work_final.playlists.len());
+    assert_eq!(
+        live_after.playlist_links.len(),
+        work_final.playlist_links.len()
+    );
+    // The backup is the library as it was before the write.
+    let (backed_up, backup_checks, _) = collection(&published.backup, &key);
+    assert!(backup_checks.integrity_ok);
+    assert_eq!(hashes(&backed_up), hashes(&before));
+    let journal = recover_publication(&published.journal, &key).unwrap();
+    assert_eq!(journal.state, "committed");
+    // Publishing the same copy again is refused: the library has moved past the copy's starting point.
+    let again = publish_verified_copy(
+        &PublishRequest {
+            live: &stand_in.path,
+            work: &snapshot.path,
+            key: &key,
+            backup_dir: backups.path(),
+            base_usn: usn(&before),
+        },
+        &CancellationToken::default(),
+    );
+    assert!(
+        again
+            .unwrap_err()
+            .to_string()
+            .contains("changed the library")
+    );
 }

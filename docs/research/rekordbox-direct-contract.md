@@ -404,3 +404,36 @@ rekordbox 7 application (closed-target and reopen, playback of the written cues,
 new-track insertion and analysis files (beat grids), native smart rules, the publication of a verified
 copy over a live library with its WAL/SHM and backup, recovery, rekordbox 6, and the desktop flow.
 Nothing in the app calls the writer yet.
+
+
+## Publication checkpoint: verified copy to live library (2026-10-20)
+
+`cuerithm_rekordbox::publish_verified_copy` applies a write copy to a live `master.db`:
+
+1. The copy must pass integrity, be a verified write profile and contain a change (its change number is
+   above the base the caller recorded when it took the snapshot).
+2. The live database is opened with the writer's exclusive, fail-fast lock. rekordbox or its agent holding
+   it stops the publication before anything is created. Its change number must still equal the base,
+   otherwise the library changed after the copy was made and nothing is published.
+3. A backup of exactly what is live is made with the online backup API, integrity-checked and hashed, and
+   a journal (`prepared`) is written, both synced.
+4. The copy's pages are written into the live connection in one destination transaction, so the live file
+   keeps its identity and journal mode (a WAL-mode library stays WAL) and no file is renamed over it. No
+   WAL or SHM file is deleted.
+5. The result must pass integrity, carry the copy's change number and schema fingerprint, and pass any
+   caller check; otherwise the backup is verified against its hash and restored, and the journal records
+   `rolled_back` with the reason. Success marks the journal `committed`.
+
+`recover_publication` settles a journal left `prepared` by looking at the live library: unchanged is
+`rolled_back`, fully copied and intact is `committed`, anything else is restored from the hash-verified
+backup.
+
+Evidence: generated-database tests for success, WAL preservation, refusal when the library moved or is in
+use (and that no backup folder is created), automatic restoration after a failed verification, and all
+three recovery outcomes; and the real-copy acceptance, which publishes a written snapshot over a second
+snapshot of a real 7.2.19 library, reads both back with the independent reader (same tracks, playlists
+and links, unchanged schema, backup equal to the library before the write) and refuses a replay.
+
+Still not established: the same sequence against a library that rekordbox itself has opened and closed,
+opening the published library in rekordbox 7 and playing the cues, a backup of analysis files and
+artwork alongside the database, and any app flow that calls this. Nothing in the app calls it yet.

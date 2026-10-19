@@ -16,7 +16,7 @@ claim complete Lexicon or OneTagger parity.
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Desktop Maintenance screens (sidebar → Maintenance) for duplicate review, donor merge/Undo and recovery, missing/broken-file scans, reviewed unused-file removal/Restore with parent cleanup, and explicit backup disposal, over the native APIs. Confirmations gate removal, merge and irreversible disposal. |
-| Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Sync action remains disabled. |
+| Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. A native writer for track metadata, cues, playlists/folders and MyTags on copied databases, with conflict guards and a verified publish-with-backup step, is verified on generated databases and on a copy of a real 7.2.19 library ([contract](research/rekordbox-direct-contract.md)). It has not been run against the real rekordbox application, and the desktop Sync action remains disabled. |
 
 No collection XML transport is part of the product. Plays, Last Played and
 Danceability, the remaining OneTagger workflows, and Mixed In Key segment-energy

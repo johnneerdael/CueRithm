@@ -5,11 +5,13 @@ mod discovery;
 mod key_provider;
 pub use discovery::*;
 pub use key_provider::*;
+mod publish;
 mod records;
 mod writer;
 use anyhow::{Context, Result, ensure};
 pub use collection::*;
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
+pub use publish::*;
 use rusqlite::{
     Connection, OpenFlags,
     backup::{Backup, StepResult},

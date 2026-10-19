@@ -228,6 +228,12 @@ impl WriteDatabase {
             .map_err(|_| anyhow::anyhow!(IN_USE))?;
         Ok(Self { conn, profile })
     }
+    pub(crate) fn connection(&self) -> &Connection {
+        &self.conn
+    }
+    pub(crate) fn connection_mut(&mut self) -> &mut Connection {
+        &mut self.conn
+    }
     pub fn profile(&self) -> &'static str {
         self.profile.name
     }
@@ -1719,6 +1725,230 @@ mod tests {
                 "SELECT COUNT(*) FROM djmdSongMyTag WHERE ContentID='200' AND rb_local_deleted=0"
             ),
             1
+        );
+    }
+
+    // ---- publication of a verified copy over a live library ----
+    use crate::publish::{PublishRequest, publish_with, recover_with};
+
+    /// A live library and a write copy made from it, with the plan applied to the copy.
+    fn live_and_work() -> (tempfile::TempDir, PathBuf, PathBuf, &'static [WriteProfile]) {
+        let (dir, live, profile) = database();
+        let work = dir.path().join("work.db");
+        std::fs::copy(&live, &work).unwrap();
+        let plan = plan(&work);
+        let mut db = WriteDatabase::open_with_profiles(&work, &key(), profile).unwrap();
+        db.apply(&plan, &CancellationToken::default()).unwrap();
+        drop(db);
+        (dir, live, work, profile)
+    }
+    fn request<'a>(
+        live: &'a Path,
+        work: &'a Path,
+        backups: &'a Path,
+        base_usn: i64,
+        key: &'a DatabaseKey,
+    ) -> PublishRequest<'a> {
+        PublishRequest {
+            live,
+            work,
+            key,
+            backup_dir: backups,
+            base_usn,
+        }
+    }
+    fn publish(
+        live: &Path,
+        work: &Path,
+        backups: &Path,
+        profile: &'static [WriteProfile],
+        check: &dyn Fn(&Connection) -> Result<()>,
+    ) -> Result<crate::PublishReport> {
+        let key = key();
+        publish_with(
+            &request(live, work, backups, 41, &key),
+            &CancellationToken::default(),
+            check,
+            profile,
+        )
+    }
+
+    #[test]
+    fn publishing_replaces_the_live_library_after_a_verified_backup() {
+        let (dir, live, work, profile) = live_and_work();
+        let backups = dir.path().join("backups");
+        let report = publish(&live, &work, &backups, profile, &|_| Ok(())).unwrap();
+        assert_eq!((report.usn_before, report.usn_after), (41, 42));
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "New Title"
+        );
+        assert_eq!(query::<i64>(&live, "SELECT int_1 FROM agentRegistry"), 42);
+        // The backup is the library as it was, and the journal describes it.
+        assert_eq!(
+            query::<String>(
+                &report.backup,
+                "SELECT Title FROM djmdContent WHERE ID='100'"
+            ),
+            "Old Title"
+        );
+        let journal: crate::PublishJournal =
+            serde_json::from_slice(&std::fs::read(&report.journal).unwrap()).unwrap();
+        assert_eq!(journal.state, "committed");
+        assert_eq!(
+            journal.backup_sha256,
+            cuerithm_media::file_sha256(&report.backup).unwrap()
+        );
+    }
+
+    #[test]
+    fn publishing_keeps_a_wal_mode_library_in_wal_mode() {
+        let (dir, live, work, profile) = live_and_work();
+        let conn = Connection::open(&live).unwrap();
+        set_key(&conn, &key()).unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        drop(conn);
+        publish(&live, &work, &dir.path().join("backups"), profile, &|_| {
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            query::<String>(&live, "PRAGMA journal_mode").to_lowercase(),
+            "wal"
+        );
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "New Title"
+        );
+    }
+
+    #[test]
+    fn a_library_that_changed_or_is_in_use_is_never_touched() {
+        let (dir, live, work, profile) = live_and_work();
+        let backups = dir.path().join("backups");
+        // rekordbox advanced the change number after the copy was made.
+        let conn = Connection::open(&live).unwrap();
+        set_key(&conn, &key()).unwrap();
+        conn.execute("UPDATE agentRegistry SET int_1=45", [])
+            .unwrap();
+        drop(conn);
+        let error = publish(&live, &work, &backups, profile, &|_| Ok(())).unwrap_err();
+        assert!(
+            error.to_string().contains("changed the library"),
+            "{error:#}"
+        );
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "Old Title"
+        );
+        // Held open elsewhere, as the agent would hold it.
+        let conn = Connection::open(&live).unwrap();
+        set_key(&conn, &key()).unwrap();
+        conn.execute("UPDATE agentRegistry SET int_1=41", [])
+            .unwrap();
+        drop(conn);
+        let held = WriteDatabase::open_with_profiles(&live, &key(), profile).unwrap();
+        let error = publish(&live, &work, &backups, profile, &|_| Ok(())).unwrap_err();
+        assert!(error.to_string().contains("in use"), "{error:#}");
+        drop(held);
+        assert!(
+            !backups.exists(),
+            "no backup is made for a publication that cannot start"
+        );
+        // A copy with no write in it, or without a verified schema, is refused too.
+        let empty = dir.path().join("empty.db");
+        std::fs::copy(&live, &empty).unwrap();
+        assert!(
+            publish(&live, &empty, &backups, profile, &|_| Ok(()))
+                .unwrap_err()
+                .to_string()
+                .contains("no changes")
+        );
+        assert!(publish(&live, &work, &backups, &[], &|_| Ok(())).is_err());
+    }
+
+    #[test]
+    fn a_publication_that_does_not_verify_restores_the_original_library() {
+        let (dir, live, work, profile) = live_and_work();
+        let backups = dir.path().join("backups");
+        let error = publish(&live, &work, &backups, profile, &|_| {
+            anyhow::bail!("simulated verification failure")
+        })
+        .unwrap_err();
+        assert!(
+            format!("{error:#}").contains("original library was restored"),
+            "{error:#}"
+        );
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "Old Title"
+        );
+        assert_eq!(query::<i64>(&live, "SELECT int_1 FROM agentRegistry"), 41);
+        let journal_path = std::fs::read_dir(&backups)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path()
+            .join("journal.json");
+        let journal: crate::PublishJournal =
+            serde_json::from_slice(&std::fs::read(journal_path).unwrap()).unwrap();
+        assert_eq!(journal.state, "rolled_back");
+        assert!(journal.error.unwrap().contains("simulated"));
+    }
+
+    #[test]
+    fn an_interrupted_publication_is_settled_from_what_is_actually_in_the_live_library() {
+        let key = key();
+        let prepared = |journal_path: &Path| {
+            let mut journal: crate::PublishJournal =
+                serde_json::from_slice(&std::fs::read(journal_path).unwrap()).unwrap();
+            journal.state = "prepared".into();
+            std::fs::write(journal_path, serde_json::to_vec(&journal).unwrap()).unwrap();
+        };
+        // Fully copied but never marked committed: keep it.
+        let (dir, live, work, profile) = live_and_work();
+        let report = publish(&live, &work, &dir.path().join("b1"), profile, &|_| Ok(())).unwrap();
+        prepared(&report.journal);
+        let settled = recover_with(&report.journal, &key, profile).unwrap();
+        assert_eq!(settled.state, "committed");
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "New Title"
+        );
+        // Never started: nothing to undo.
+        let (dir, live, work, profile) = live_and_work();
+        let report = publish(&live, &work, &dir.path().join("b2"), profile, &|_| Ok(())).unwrap();
+        // Put the original back by hand, as if the copy never happened.
+        let backup = report.backup.clone();
+        std::fs::copy(&backup, &live).unwrap();
+        prepared(&report.journal);
+        let settled = recover_with(&report.journal, &key, profile).unwrap();
+        assert_eq!(settled.state, "rolled_back");
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "Old Title"
+        );
+        // A partial or foreign state is replaced by the verified backup.
+        let (dir, live, work, profile) = live_and_work();
+        let report = publish(&live, &work, &dir.path().join("b3"), profile, &|_| Ok(())).unwrap();
+        let conn = Connection::open(&live).unwrap();
+        set_key(&conn, &key).unwrap();
+        conn.execute("UPDATE agentRegistry SET int_1=7", [])
+            .unwrap();
+        drop(conn);
+        prepared(&report.journal);
+        let settled = recover_with(&report.journal, &key, profile).unwrap();
+        assert_eq!(settled.state, "rolled_back");
+        assert_eq!(query::<i64>(&live, "SELECT int_1 FROM agentRegistry"), 41);
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='100'"),
+            "Old Title"
+        );
+        // An already settled journal is left alone.
+        assert_eq!(
+            recover_with(&report.journal, &key, profile).unwrap().state,
+            "rolled_back"
         );
     }
 }
