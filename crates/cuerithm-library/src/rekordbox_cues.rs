@@ -60,18 +60,19 @@ fn hot_table_index(color: &str, nearest: bool) -> Option<i64> {
         "black" => 63,
         "white" => 64,
         _ => {
-            return nearest
-                .then(|| match color {
-                    "blue_dark" => Some(1),
-                    "magenta_dark" => Some(52),
-                    "red_dark" | "red_light" | "red_orange" => Some(41),
-                    "beige" => Some(36),
-                    "green_light" | "green_dark" => Some(21),
-                    "grey_light" => Some(64),
-                    "grey_dark" => Some(63),
-                    _ => None,
-                })
-                .flatten();
+            if !nearest {
+                return None;
+            }
+            return match color {
+                "blue_dark" => Some(1),
+                "magenta_dark" => Some(52),
+                "red_dark" | "red_light" | "red_orange" => Some(41),
+                "beige" => Some(36),
+                "green_light" | "green_dark" => Some(21),
+                "grey_light" => Some(64),
+                "grey_dark" => Some(63),
+                _ => None,
+            };
         }
     };
     Some(exact)
@@ -87,18 +88,19 @@ fn memory_color(color: &str, nearest: bool) -> Option<i64> {
         "blue" => 6,
         "violet" => 7,
         _ => {
-            return nearest
-                .then(|| match color {
-                    "magenta_dark" | "magenta_red" => Some(0),
-                    "red_dark" | "red_light" | "red_orange" => Some(1),
-                    "beige" => Some(2),
-                    "yellow_dark" => Some(3),
-                    "lime" | "green_light" | "green_dark" | "teal" => Some(4),
-                    "aqua_dark" | "blue_light" | "blue_dark" | "blue_violet" => Some(5),
-                    "violet_light" => Some(7),
-                    _ => None,
-                })
-                .flatten();
+            if !nearest {
+                return None;
+            }
+            return match color {
+                "magenta_dark" | "magenta_red" => Some(0),
+                "red_dark" | "red_light" | "red_orange" => Some(1),
+                "beige" => Some(2),
+                "yellow_dark" => Some(3),
+                "lime" | "green_light" | "green_dark" | "teal" => Some(4),
+                "aqua_dark" | "blue_light" | "blue_dark" | "blue_violet" => Some(5),
+                "violet_light" => Some(7),
+                _ => None,
+            };
         }
     };
     Some(exact)

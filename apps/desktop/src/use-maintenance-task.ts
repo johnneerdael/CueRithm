@@ -13,7 +13,7 @@ function cancelled(error:unknown){return typeof error==="object"&&error!==null&&
  * Runs one maintenance operation at a time with a fresh operation ID. A cancelled operation keeps the slot
  * until its original promise settles, so `busy` only clears after the native task has released it.
  */
-export function useMaintenanceTask(bridge:MaintenanceBridge){
+export function useMaintenanceTask(bridge:Pick<MaintenanceBridge,"onProgress"|"cancel">){
   const [busy,setBusy]=useState<string|null>(null),[progress,setProgress]=useState<TaskProgress|null>(null),[error,setError]=useState<string|null>(null);
   const current=useRef<{id:string;kind:Kind|null}|null>(null),alive=useRef(true);
   useEffect(()=>{

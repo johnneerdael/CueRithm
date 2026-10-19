@@ -10,6 +10,8 @@ import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
 import Maintenance from "./views/Maintenance";
+import Rekordbox from "./views/Rekordbox";
+import {nativeRekordbox,type RekordboxBridge} from "./rekordbox-api";
 import {nativeMaintenance,type MaintenanceBridge} from "./maintenance-api";
 import type {PlaylistWorkspace,PlaylistNode,PlaylistChange,PlaylistEdit} from "./playlist-types";
 import PlaylistEditor from "./views/PlaylistEditor";
@@ -23,10 +25,10 @@ import {descendantIds} from "./playlist-tree";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 // Settings, Cleanup and Maintenance replace the library table rather than filter it.
-function toolView(view:WorkspaceView):view is "settings"|"cleanup"|"maintenance"{return view==="settings"||view==="cleanup"||view==="maintenance";}
+function toolView(view:WorkspaceView):view is "settings"|"cleanup"|"maintenance"|"rekordbox"{return view==="settings"||view==="cleanup"||view==="maintenance"||view==="rekordbox";}
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
-export default function App({bridge=nativeBridge,maintenance=nativeMaintenance}:{bridge?:Bridge;maintenance?:MaintenanceBridge}){
+export default function App({bridge=nativeBridge,maintenance=nativeMaintenance,rekordbox=nativeRekordbox}:{bridge?:Bridge;maintenance?:MaintenanceBridge;rekordbox?:RekordboxBridge}){
   const [view,setView]=useState<WorkspaceView>("tracks");
   const [lastView,setLastView]=useState<View>("tracks");
   const [playlists,setPlaylists]=useState<PlaylistWorkspace|null>(null);
@@ -243,7 +245,7 @@ export default function App({bridge=nativeBridge,maintenance=nativeMaintenance}:
       </header>
       <main>
         {bootError?<div role="alert" className="error-banner">{bootError}<button onClick={()=>void refresh(true)}>Try again</button></div>:null}
-        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="maintenance"?<Maintenance bridge={bridge} maintenance={maintenance} onLibraryChanged={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
+        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="rekordbox"?<Rekordbox rekordbox={rekordbox} maintenance={maintenance} onLibraryChanged={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="maintenance"?<Maintenance bridge={bridge} maintenance={maintenance} onLibraryChanged={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
           <div className="view-title library-heading"><div><div className="eyebrow">LIBRARY</div><h1>{activePlaylist?activePlaylist.name:view==="incoming"?"Incoming":view==="archive"?"Archive":"Tracks"}<span className="heading-count">{activePlaylist?total:view==="incoming"?state?.counts.incoming:view==="archive"?state?.counts.archive:state?.counts.tracks}</span></h1><p>{view==="incoming"?"Automatic preparation. Ready tracks move into your library.":view==="archive"?"Archived tracks keep their analysis and cues.":"Key, BPM, energy and structural cues."}</p></div>
             <div className="view-actions">{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
           </div>

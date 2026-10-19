@@ -1001,6 +1001,7 @@ dependencies = [
  "cuerithm-cleanup",
  "cuerithm-library",
  "cuerithm-media",
+ "cuerithm-rekordbox",
  "serde",
  "serde_json",
  "sha2",

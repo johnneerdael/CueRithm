@@ -3,6 +3,7 @@ mod commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
+mod rekordbox_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -96,6 +97,12 @@ pub fn run() {
             maintenance_commands::maintenance_dispose_retained_originals,
             maintenance_commands::maintenance_retained_disposal_history,
             maintenance_commands::maintenance_retry_retained_disposal,
+            rekordbox_commands::rekordbox_preflight,
+            rekordbox_commands::rekordbox_playlists,
+            rekordbox_commands::rekordbox_import,
+            rekordbox_commands::rekordbox_prepare,
+            rekordbox_commands::rekordbox_apply,
+            rekordbox_commands::rekordbox_history,
             maintenance_commands::maintenance_begin_review,
             maintenance_commands::maintenance_get_review,
             maintenance_commands::maintenance_edit_review,

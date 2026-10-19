@@ -560,3 +560,8 @@ textarea:focus-visible{outline:2px solid var(--cr-accent);outline-offset:2px}
 .cue-colour{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .cue-swatch{flex:none;margin-right:0}
 .cue-placement{white-space:nowrap}
+
+/* rekordbox synchronization */
+.rb-checks li small{color:var(--cr-muted)}
+.rb-tracks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.rb-tracks>li{border:1px solid var(--cr-divider);border-radius:var(--cr-radius-panel);padding:12px 14px;background:var(--cr-surface)}

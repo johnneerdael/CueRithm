@@ -68,6 +68,25 @@ pub struct NativeSyncPreview {
     pub write_blocker: String,
 }
 
+/// Every field a synchronization can write, for assigning initial ownership.
+pub fn native_writable_fields() -> Vec<&'static str> {
+    let mut fields: Vec<&'static str> = TEXT_FIELDS
+        .iter()
+        .copied()
+        .filter(|f| writable(f))
+        .collect();
+    fields.extend([
+        "key",
+        "bpm",
+        "release_year",
+        "release_date",
+        "track_number",
+        "disc_number",
+        "rating",
+        "cues",
+    ]);
+    fields
+}
 /// Fields a synchronization can write. Everything else (duration, paths, tag IDs) is observation only.
 pub(crate) fn writable(field: &str) -> bool {
     (TEXT_FIELDS.contains(&field) && field != "album_artist")

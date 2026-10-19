@@ -25,6 +25,7 @@ cuerithm-library = { path = "../../../crates/cuerithm-library", features = ["aut
 cuerithm-autotag = { path = "../../../crates/cuerithm-autotag" }
 cuerithm-cleanup = { path = "../../../crates/cuerithm-cleanup" }
 cuerithm-media = { path = "../../../crates/cuerithm-media" }
+cuerithm-rekordbox = { path = "../../../crates/cuerithm-rekordbox" }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

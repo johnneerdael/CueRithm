@@ -1,5 +1,5 @@
 export type View="tracks"|"incoming"|"archive";
-export type WorkspaceView=View|"settings"|"cleanup"|"maintenance";
+export type WorkspaceView=View|"settings"|"cleanup"|"maintenance"|"rekordbox";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;archived:boolean;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null}
