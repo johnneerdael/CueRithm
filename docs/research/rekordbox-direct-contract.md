@@ -287,3 +287,55 @@ read access alone does not complete Cuerithm import/baseline persistence, the
 desktop Sync workflow or the coordinated writer/recovery/round-trip gates.
 
 Primary implementation reference: [RustCrypto Blowfish 0.9.1](https://docs.rs/blowfish/0.9.1/blowfish/).
+
+## Durable collection import and initial baselines
+
+The library now consumes the native SDK collection in a single local SQLite
+transaction. Schema 11 adds database/device-scoped targets, normalized latest
+raw records and content-to-local-track links. Multiple native content IDs can
+reference one local track; IDs from different database/device scopes remain
+separate. Existing unscoped `sync_links` and their baselines are preserved.
+Raw records update only when their serialized contents change, rather than
+rewriting the full collection for one changed record. The SDK dependency now
+also enables its bundled SQLCipher core for library/desktop builds.
+
+New, selected, available files enter the existing preparation queue using the
+captured selected-settings revision. The import seeds their primary display
+metadata without creating measured key, BPM, duration or analysis results.
+Existing local metadata, analysis, archive state and jobs are retained. Missing,
+deleted, unselected and unsupported references remain inspectable. Reused native
+IDs with conflicting UUID/master-song identity are retained as explicit identity
+conflicts, and target-side removals never delete local music or library rows.
+
+Each linked track stores separate initial local/remote field values, explicit
+ownership choices and the captured native identity. Remote observations advance
+without resetting those initial values. Local mapped paths and raw native paths
+remain distinct. Initial fields are **not acknowledged as synchronized**, even
+when their values happen to match: first reconciliation, destination value
+conversion and confirmed publication belong to the later sync stages. This
+checkpoint does not apply remote edits over existing local work, acknowledge
+field ownership changes, merge all metadata into existing ready tracks or enable
+native writes. Native playlist/tag/rule records are preserved; materializing their
+local equivalents remains part of the dedicated adapter work.
+
+Tests cover restart/idempotence, duplicate paths and cross-database IDs, local
+edits, field-baseline retention, selection changes, missing/deleted/reused IDs,
+opaque blobs/nulls, incomplete snapshots, scoped registry reads, cancellation,
+schema 10 migration, legacy links, foreign keys and injected SQL rollback. The
+older schema-upgrade tests now expect schema 11. No file metadata is written by
+this import transaction; subsequent preparation follows its configured settings.
+
+A private capture import retained all 3,417 native track observations and 62,208
+raw records. Every stored raw cell and native fingerprint matched the input.
+Its default resolved paths found 9 existing WAV files; 3,400 missing references
+and 8 target-deleted records remained explicit. Those nine files were queued
+without starting preparation, and their hashes stayed unchanged. Separately,
+an explicit test mapping to a copied user-supplied FLAC exercised complete
+preparation, preserved the initial baselines and left the original audio
+unchanged. That mapping tests the workflow; it does not prove automatic matching
+between the capture's unavailable files and the current music library.
+
+The backend target/link/record APIs expose this durable state. The branded
+Sync workflow, supported native rule/asset mappings, per-field reconciliation,
+coordinated DB/asset writes and recovery, and actual 6/7 desktop round trips
+still require implementation and acceptance. No collection XML fallback is used.

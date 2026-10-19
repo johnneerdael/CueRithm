@@ -54,7 +54,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=10).contains(&version),
+            (0..=11).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -119,6 +119,12 @@ impl Library {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
                 include_str!("../migrations/010_unused_retention.sql")
+            ))?;
+        }
+        if version < 11 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/011_native_import.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]

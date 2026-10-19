@@ -13,6 +13,8 @@ mod album_context;
 mod analysis_cache;
 mod jobs;
 mod metadata;
+mod native_sync;
+pub use native_sync::*;
 mod prepare;
 mod publication;
 mod publish_files;

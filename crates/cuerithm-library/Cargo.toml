@@ -13,6 +13,7 @@ default = []
 autotag = ["dep:cuerithm-autotag"]
 
 [dependencies]
+cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
 iana-time-zone = "=0.1.65"
 chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] }
 cuerithm-smartlists = { path = "../cuerithm-smartlists" }

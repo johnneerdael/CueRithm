@@ -1021,6 +1021,7 @@ dependencies = [
  "cuerithm-cleanup",
  "cuerithm-maintenance",
  "cuerithm-media",
+ "cuerithm-rekordbox",
  "cuerithm-smartlists",
  "flate2",
  "fs2",

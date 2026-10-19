@@ -20,8 +20,9 @@ cargo run -p cuerithm-rekordbox --example inspect --release -- \
 ```
 
 Output contains aggregate schema/integrity information, not track rows or keys.
-The key-file interface is for research; automatic runtime key discovery for the
-desktop remains required. Installed7.2.19.0342 was inspected on a copy. No rekordbox 6 target
+The key-file interface is for research. A separate Rust runtime key provider now
+derives access from installed target resources without Node/Python or Lexicon;
+it is not yet exposed through desktop Sync. Installed7.2.19.0342 was inspected on a copy. No rekordbox 6 target
 or actual target-app write/playback round trip has been accepted yet.
 
 SQLCipher 4.10.0/OpenSSL 3.5.5 are built natively from pinned Cargo sources; no
@@ -60,8 +61,10 @@ supported local storage locations while preserving their raw counterparts.
 The inspector's `--discover` mode reports aggregate discovery without a key;
 `--collection` with copied database/key arguments adds aggregate collection
 counts and a descriptive metadata projection digest. No track-row export is
-printed. These remain SDK/research operations; desktop import/apply, automatic
-key discovery, conflict-baseline persistence and direct writes are still pending.
+printed. These remain SDK/research operations. The library now persists imported
+observations and initial unacknowledged per-field baselines. Desktop import/apply,
+field reconciliation and direct writes are still pending. See the
+[release scope and gaps](../../docs/release-readiness.md).
 
 
 Windows source builds need a native Perl installation for vendored OpenSSL.
