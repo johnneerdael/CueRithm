@@ -129,11 +129,12 @@ fn directory(path: &Path) -> Result<Vec<(PathBuf, u8)>> {
     rows.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(rows)
 }
-fn excluded(path: &Path, app: &Path, known: &[PathBuf], is_directory: bool) -> bool {
+fn excluded(path: &Path, root: &Path, app: &Path, known: &[PathBuf], is_directory: bool) -> bool {
     if is_directory
         && path.file_name().is_some_and(|n| {
             let n = n.to_string_lossy();
             n.starts_with(".Spotlight")
+                || (cfg!(target_os = "macos") && n == "Application Support")
                 || matches!(
                     n.as_ref(),
                     ".AppleDouble"
@@ -169,10 +170,23 @@ fn excluded(path: &Path, app: &Path, known: &[PathBuf], is_directory: bool) -> b
     if ancestors.iter().any(|p| p == "_Serato_") {
         return true;
     }
-    if cfg!(target_os = "macos") && ancestors.iter().any(|p| p == "Application Support") {
+    // A selected narrow music folder may live under Windows AppData/Temp or
+    // macOS Application Support. Prune reserved names inside that chosen tree;
+    // absolute app/system storage and Serato ancestry remain protected above.
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    let parts = relative
+        .components()
+        .map(|p| p.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>();
+    let scoped = if is_directory {
+        parts.as_slice()
+    } else {
+        &parts[..parts.len().saturating_sub(1)]
+    };
+    if cfg!(target_os = "macos") && scoped.iter().any(|p| p == "Application Support") {
         return true;
     }
-    if cfg!(windows) && ancestors.iter().any(|p| p.eq_ignore_ascii_case("AppData")) {
+    if cfg!(windows) && scoped.iter().any(|p| p.eq_ignore_ascii_case("AppData")) {
         return true;
     }
     !is_directory
@@ -292,6 +306,10 @@ impl Library {
                 }
             }
         }
+        ensure!(
+            !excluded(&root, &root, &app, &known, true),
+            "Selected folder is protected application or DJ storage; choose a music folder"
+        );
         let (stamp, paths) = {
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
@@ -335,7 +353,7 @@ impl Library {
         let mut paths = vec![];
         while let Some(folder) = stack.pop() {
             cancel.check()?;
-            if excluded(&folder, &app, &known, true) {
+            if excluded(&folder, &root, &app, &known, true) {
                 continue;
             }
             match directory(&folder) {
@@ -346,7 +364,7 @@ impl Library {
                     });
                     for (path, kind) in rows {
                         cancel.check()?;
-                        if excluded(&path, &app, &known, kind == 2) {
+                        if excluded(&path, &root, &app, &known, kind == 2) {
                             continue;
                         }
                         if kind == 2 {

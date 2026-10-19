@@ -453,3 +453,38 @@ fn file_metadata_names_do_not_hide_ordinary_directories() {
         .unwrap();
     assert_eq!(r.files.len(), 2);
 }
+
+#[test]
+fn explicit_music_root_under_an_application_data_ancestor_is_scanned_with_reserved_children_pruned()
+{
+    let mut f = Fixture::new();
+    let reserved = if cfg!(target_os = "macos") {
+        "Application Support"
+    } else {
+        "AppData"
+    };
+    f.music = f._dir.path().join(reserved).join("chosen music");
+    std::fs::create_dir_all(&f.music).unwrap();
+    f.file("loose.mp3", b"music");
+    f.file(&format!("{reserved}/cache.mp3"), b"cache");
+    f.file("_Serato_/database V2", b"database");
+    let before = f.content();
+    let scan = f
+        .lib
+        .scan_unused_files(f.request(), &CancellationToken::default())
+        .unwrap();
+    assert!(scan.complete && !scan.stale);
+    assert_eq!(names(&scan), vec!["loose.mp3"]);
+    assert_eq!(f.content(), before);
+    assert!(
+        f.lib
+            .scan_unused_files(
+                UnusedScanRequest {
+                    root: f.music.join(reserved),
+                    ..f.request()
+                },
+                &CancellationToken::default()
+            )
+            .is_err()
+    );
+}
