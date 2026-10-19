@@ -417,7 +417,7 @@ impl Worker {
                 audio.source_sha256 == job.source_sha256,
                 "Source changed before analysis"
             );
-            let result = if let Some(cached) =
+            let mut result = if let Some(cached) =
                 self.library
                     .cached_analysis(&job, &self.engine_identity, &audio)?
             {
@@ -529,6 +529,17 @@ impl Worker {
                     &audio,
                     &self.library.data_dir().join("tagging"),
                 )?;
+                self.engine
+                    .as_ref()
+                    .context("Missing analysis engine")?
+                    .1
+                    .refresh_prepared_cues(
+                        &audio,
+                        &mut result,
+                        staged
+                            .native_metadata
+                            .first(cuerithm_cleanup::MetadataField::Genre),
+                    )?;
                 ensure!(
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
@@ -559,6 +570,15 @@ impl Worker {
                 self.emit(&job, stage, "running");
                 let native =
                     cuerithm_autotag::read_metadata(&audio.snapshot_path, &audio.info).ok();
+                let genre = native
+                    .as_ref()
+                    .map(|metadata| metadata.first(cuerithm_cleanup::MetadataField::Genre))
+                    .unwrap_or_else(|| audio.info.tags.get("genre").map(String::as_str));
+                self.engine
+                    .as_ref()
+                    .context("Missing analysis engine")?
+                    .1
+                    .refresh_prepared_cues(&audio, &mut result, genre)?;
                 self.library.apply_prepared_analysis_for_run(
                     &job,
                     &result,

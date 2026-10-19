@@ -8,6 +8,8 @@ pub(crate) fn implementation_sha256() -> String {
         include_bytes!("lexicon_cues.rs").as_slice(),
         include_bytes!("structural_cues.rs").as_slice(),
         include_bytes!("lexicon_cue_frontend.rs").as_slice(),
+        include_bytes!("engine.rs").as_slice(),
+        include_bytes!("prepared.rs").as_slice(),
     ] {
         hash.update((source.len() as u64).to_le_bytes());
         hash.update(source);
