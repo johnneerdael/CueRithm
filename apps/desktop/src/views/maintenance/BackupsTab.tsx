@@ -1,6 +1,8 @@
 import {useCallback,useEffect,useState} from "react";
 import {HardDrive,RefreshCw} from "lucide-react";
 import {errorMessage} from "../../api";
+import type {Bridge} from "../../types";
+import RetainedOriginals from "./RetainedOriginals";
 import type {MaintenanceBridge} from "../../maintenance-api";
 import type {UnusedBackupDisposal,UnusedBackupPreview,UnusedRemovalHistory} from "../../maintenance-types";
 import type {MaintenanceTask} from "../../use-maintenance-task";
@@ -10,7 +12,7 @@ import {ConfirmDialog,RecoveryNote,TaskStatus,bytes,needsRecovery,stateLabel} fr
  * Retained originals from reviewed file removals occupy application storage until disposed.
  * Disposal is irreversible: it removes Restore for the selected removals.
  */
-export default function BackupsTab({bridge,task,changeTick}:{bridge:MaintenanceBridge;task:MaintenanceTask;changeTick:number}){
+export default function BackupsTab({library,bridge,task,changeTick}:{library:Bridge;bridge:MaintenanceBridge;task:MaintenanceTask;changeTick:number}){
   const [removals,setRemovals]=useState<UnusedRemovalHistory[]>([]),[disposals,setDisposals]=useState<UnusedBackupDisposal[]>([]);
   const [selected,setSelected]=useState(new Set<string>()),[preview,setPreview]=useState<UnusedBackupPreview|null>(null),[confirming,setConfirming]=useState(false),[notice,setNotice]=useState<string|null>(null);
   const load=useCallback(async()=>{
@@ -29,17 +31,17 @@ export default function BackupsTab({bridge,task,changeTick}:{bridge:MaintenanceB
     await load();
   }).then(()=>setConfirming(false));
   const retry=(entry:UnusedBackupDisposal)=>void task.run("Retrying disposal…",null,async id=>{setDisposals(await bridge.retryBackupDisposal(id,entry.id));});
-  return <section className="maint-panel" aria-label="Retained backups">
+  return <><section className="maint-panel" aria-label="Retained backups">
     <p className="cleanup-note">Files you remove are kept in application storage so Restore can bring them back. Disposing of those backups frees space but permanently removes Restore. Music files are never deleted here, and nothing is disposed of automatically.</p>
     <TaskStatus task={task}/>
     {notice?<div role="status" className="maint-notice">{notice}</div>:null}
-    <h2>Retained originals</h2>
+    <h2>Removed files</h2>
     {!originals.length?<p className="cleanup-note">No removal backups are being retained.</p>:<table className="maint-table"><thead><tr><th/><th>Removal</th><th>Files</th><th>Size</th><th>Restore</th></tr></thead><tbody>
       {originals.map(h=><tr key={h.result.id}><td><input type="checkbox" aria-label={`Select removal ${h.result.id.slice(0,8)}`} disabled={!!task.busy} checked={selected.has(h.result.id)} onChange={()=>toggle(h.result.id)}/></td>
         <td>Removal <small>{h.result.id.slice(0,8)}</small></td><td>{h.result.files.length.toLocaleString()}</td><td>{bytes(h.result.size_bytes)}</td>
         <td>{h.undone_by?"Restored":h.restore_available?"Available":"Unavailable"}</td></tr>)}
     </tbody></table>}
-    <div className="maint-controls"><button className="primary maint-danger" disabled={!!task.busy||!selected.size} onClick={review}><HardDrive size={14}/>Review disposal…</button></div>
+    <div className="maint-controls"><button className="primary maint-danger" disabled={!!task.busy||!selected.size} onClick={review}><HardDrive size={14}/>Review disposal of backups…</button></div>
     {preview?<section className="maint-preview" aria-label="Disposal preview">
       <h2>Review disposal</h2>
       <p>{preview.files.length.toLocaleString()} backup files ({bytes(preview.size_bytes)}) will be deleted from application storage.
@@ -56,5 +58,6 @@ export default function BackupsTab({bridge,task,changeTick}:{bridge:MaintenanceB
         <div><strong>{d.file_count.toLocaleString()} backup files · {bytes(d.size_bytes)} reviewed</strong><small>{stateLabel(d.state)}</small><RecoveryNote state={d.state} error={d.error} cleanupPending={d.cleanup_pending}/></div>
         <div className="maint-row-actions">{needsRecovery(d.state,d.cleanup_pending)?<button className="secondary" disabled={!!task.busy} onClick={()=>retry(d)}><RefreshCw size={13}/>Retry</button>:null}</div></article>)}
     </section>
-  </section>;
+  </section>
+  <RetainedOriginals library={library} bridge={bridge} task={task} changeTick={changeTick}/></>;
 }

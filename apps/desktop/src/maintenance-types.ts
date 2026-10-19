@@ -41,3 +41,7 @@ export interface UnusedRemovalHistory {restore_available:boolean;result:UnusedRe
 export interface UnusedBackupFile {operation_id:string;file_id:string;display_source_path:string;size_bytes:number;source_sha256:string}
 export interface UnusedBackupPreview {id:string;operation_ids:string[];files:UnusedBackupFile[];size_bytes:number;restores_lost:string[]}
 export interface UnusedBackupDisposal {id:string;preview_id:string;operation_ids:string[];file_count:number;size_bytes:number;state:string;cleanup_pending:boolean;error:string|null}
+
+export interface RetainedOriginal {source:"tagging"|"cleanup";write_id:string;display_path:string;size_bytes:number;undo_lost:boolean}
+export interface RetainedPreview {id:string;include_undoable:boolean;files:RetainedOriginal[];size_bytes:number;undo_lost_writes:number}
+export interface RetainedDisposal {id:string;preview_id:string;file_count:number;size_bytes:number;undo_lost_writes:number;created:number;state:string;cleanup_pending:boolean;error:string|null}

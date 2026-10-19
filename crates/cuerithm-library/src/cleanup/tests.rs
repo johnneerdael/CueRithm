@@ -497,3 +497,164 @@ fn damaged_backup_rejects_undo_and_invalid_selections_do_not_write() {
     assert!(undo.applied.is_empty());
     assert_eq!(file_sha256(&f.paths[0]).unwrap(), after);
 }
+
+fn applied_batch(f: &Fixture) -> (CleanupService, String) {
+    let service = f.service();
+    let preview = service
+        .preview_cleanup(CleanupScope::AllReady, config())
+        .unwrap();
+    let batch = service
+        .apply_cleanup(&preview.id, &[preview.proposals[0].id.clone()])
+        .unwrap();
+    (service, batch.id)
+}
+fn token() -> cuerithm_media::CancellationToken {
+    cuerithm_media::CancellationToken::default()
+}
+
+#[test]
+fn originals_that_back_undo_are_offered_only_when_losing_undo_is_chosen() {
+    let f = Fixture::new(1);
+    let (service, batch) = applied_batch(&f);
+    assert!(
+        f.lib
+            .preview_retained_originals(false, &token())
+            .unwrap_err()
+            .to_string()
+            .contains("No retained originals")
+    );
+    let preview = f.lib.preview_retained_originals(true, &token()).unwrap();
+    assert_eq!(preview.files.len(), 1);
+    assert_eq!(preview.undo_lost_writes, 1);
+    assert!(preview.files[0].undo_lost && preview.files[0].source == "cleanup");
+    let disposal = f
+        .lib
+        .dispose_retained_originals(&preview.id, &token())
+        .unwrap();
+    assert!(!disposal.cleanup_pending && disposal.error.is_none());
+    assert_eq!(disposal.file_count, 1);
+    let storage = f.lib.tagging_storage().unwrap();
+    assert_eq!((storage.original_files, storage.original_bytes), (0, 0));
+    // Undo now says why it cannot run, and the applied file and library stay as they were.
+    let undone = service.undo_cleanup(&batch).unwrap();
+    assert!(undone.applied.is_empty());
+    assert!(
+        undone
+            .failed
+            .iter()
+            .chain(&undone.conflicted)
+            .any(|e| e.message.contains("no longer available")),
+        "{undone:?}"
+    );
+    assert_eq!(f.lib.retained_disposal_history().unwrap().len(), 1);
+}
+
+#[test]
+fn undone_cleanup_originals_are_free_to_dispose_without_losing_anything() {
+    let f = Fixture::new(1);
+    let (service, batch) = applied_batch(&f);
+    service.undo_cleanup(&batch).unwrap();
+    let preview = f.lib.preview_retained_originals(false, &token()).unwrap();
+    // The undone apply's original plus the undo's own copy of the pre-undo file.
+    assert_eq!(preview.files.len(), 2);
+    assert_eq!(preview.undo_lost_writes, 0);
+    assert!(preview.files.iter().all(|file| !file.undo_lost));
+    let paths: Vec<_> = {
+        let conn = f.lib.conn().unwrap();
+        let mut q = conn
+            .prepare("SELECT backup FROM cleanup_write_files WHERE backup IS NOT NULL")
+            .unwrap();
+        q.query_map([], |r| r.get::<_, Vec<u8>>(0))
+            .unwrap()
+            .map(|b| crate::model::bytes_path(&b.unwrap()).unwrap())
+            .collect()
+    };
+    assert_eq!(paths.len(), 2);
+    f.lib
+        .dispose_retained_originals(&preview.id, &token())
+        .unwrap();
+    assert!(paths.iter().all(|p| !p.exists()));
+    assert_eq!(f.lib.tagging_storage().unwrap().original_files, 0);
+    // The reviewed preview cannot be replayed.
+    assert!(
+        f.lib
+            .dispose_retained_originals(&preview.id, &token())
+            .unwrap_err()
+            .to_string()
+            .contains("already used")
+    );
+}
+
+#[test]
+fn a_changed_original_blocks_disposal_and_keeps_every_reference() {
+    let f = Fixture::new(1);
+    let _ = applied_batch(&f);
+    let preview = f.lib.preview_retained_originals(true, &token()).unwrap();
+    let backup: Vec<u8> = f
+        .lib
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT backup FROM cleanup_write_files WHERE backup IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let backup = crate::model::bytes_path(&backup).unwrap();
+    std::fs::write(&backup, b"someone edited the recovery copy").unwrap();
+    assert!(
+        f.lib
+            .dispose_retained_originals(&preview.id, &token())
+            .unwrap_err()
+            .to_string()
+            .contains("changed")
+    );
+    assert!(backup.exists());
+    let referenced: i64 = f
+        .lib
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM cleanup_write_files WHERE backup IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(referenced, 1);
+    assert!(f.lib.retained_disposal_history().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn interrupted_deletion_is_visible_and_a_retry_finishes_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new(1);
+    let _ = applied_batch(&f);
+    let preview = f.lib.preview_retained_originals(true, &token()).unwrap();
+    let backup: Vec<u8> = f
+        .lib
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT backup FROM cleanup_write_files WHERE backup IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let backup = crate::model::bytes_path(&backup).unwrap();
+    let workspace = backup.parent().unwrap().to_path_buf();
+    std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let outcome = f.lib.dispose_retained_originals(&preview.id, &token());
+    std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let disposal = outcome.unwrap();
+    // The database already forgot the file; only the deletion is pending.
+    assert!(disposal.cleanup_pending && disposal.error.is_some());
+    assert!(backup.exists());
+    assert_eq!(f.lib.tagging_storage().unwrap().original_files, 0);
+    let history = f
+        .lib
+        .retry_retained_disposal(&disposal.id, &token())
+        .unwrap();
+    assert!(!history[0].cleanup_pending && history[0].error.is_none());
+    assert!(!backup.exists());
+}

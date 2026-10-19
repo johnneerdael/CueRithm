@@ -170,6 +170,7 @@ impl Library {
         }
         lib.recover_unused_disposals()?;
         lib.recover_unused_removals()?;
+        lib.recover_retained_disposals()?;
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

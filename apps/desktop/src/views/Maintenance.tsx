@@ -33,7 +33,7 @@ export default function Maintenance({bridge,maintenance,onLibraryChanged,onBack}
       <div hidden={tab!=="duplicates"}><DuplicatesTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("duplicates")} onLibraryChanged={onLibraryChanged}/></div>
       <div hidden={tab!=="broken"}><BrokenTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("broken")} onLibraryChanged={onLibraryChanged}/></div>
       <div hidden={tab!=="unused"}><UnusedTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("unused")} onLibraryChanged={onLibraryChanged}/></div>
-      <div hidden={tab!=="backups"}><BackupsTab bridge={maintenance} task={task} changeTick={tickFor("backups")}/></div>
+      <div hidden={tab!=="backups"}><BackupsTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("backups")}/></div>
     </div>
   </section>;
 }

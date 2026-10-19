@@ -1,10 +1,14 @@
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
-import type {UnusedBackupPreview,UnusedBackupDisposal,UnusedRemovalPreview,UnusedRemovalResult,UnusedRemovalHistory,DuplicateRecovery,DuplicateMergeResult,DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
+import type {RetainedPreview,RetainedDisposal,UnusedBackupPreview,UnusedBackupDisposal,UnusedRemovalPreview,UnusedRemovalResult,UnusedRemovalHistory,DuplicateRecovery,DuplicateMergeResult,DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
 
 // Give every long operation a fresh ID (crypto.randomUUID()) and retain it for cancellation.
 // A cancelled operation keeps the slot until its original promise settles.
 export const nativeMaintenance={
+  previewRetainedOriginals:(operationId:string,includeUndoable:boolean)=>invoke<RetainedPreview>("maintenance_preview_retained_originals",{operationId,includeUndoable}),
+  disposeRetainedOriginals:(operationId:string,id:string)=>invoke<RetainedDisposal>("maintenance_dispose_retained_originals",{operationId,id}),
+  retainedDisposalHistory:()=>invoke<RetainedDisposal[]>("maintenance_retained_disposal_history"),
+  retryRetainedDisposal:(operationId:string,id:string)=>invoke<RetainedDisposal[]>("maintenance_retry_retained_disposal",{operationId,id}),
   previewBackupDisposal:(operationId:string,ids:string[])=>invoke<UnusedBackupPreview>("maintenance_preview_backup_disposal",{operationId,ids}),
   disposeBackups:(operationId:string,id:string)=>invoke<UnusedBackupDisposal>("maintenance_dispose_backups",{operationId,id}),
   backupDisposalHistory:()=>invoke<UnusedBackupDisposal[]>("maintenance_backup_disposal_history"),

@@ -319,7 +319,10 @@ impl CleanupService {
             source.clone()
         } else {
             let f = original.files.first().context("Missing cleanup artifact")?;
-            let backup = f.backup.as_ref().context("Missing original backup")?;
+            let backup = f
+                .backup
+                .as_ref()
+                .context("Undo is no longer available: the retained original was disposed of")?;
             crate::artifacts::owned_file(
                 backup,
                 &original.workspace,

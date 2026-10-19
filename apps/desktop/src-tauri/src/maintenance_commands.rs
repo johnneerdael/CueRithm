@@ -426,6 +426,55 @@ pub async fn maintenance_retry_backup_disposal(
     Ok(result)
 }
 
+#[tauri::command]
+pub async fn maintenance_preview_retained_originals(
+    host: Managed<'_>,
+    operation_id: String,
+    include_undoable: bool,
+) -> Ipc<RetainedPreview> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library
+            .preview_retained_originals(include_undoable, cancel)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn maintenance_dispose_retained_originals(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<RetainedDisposal> {
+    let (result, stamp) = run(host.inner().clone(), operation_id, move |host, cancel| {
+        let result = host.library.dispose_retained_originals(&id, cancel)?;
+        Ok((result, host.library.duplicate_ignores()?.stamp))
+    })
+    .await?;
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":stamp}),
+    );
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_retained_disposal_history(
+    host: Managed<'_>,
+) -> Ipc<Vec<RetainedDisposal>> {
+    let lib = host.library.clone();
+    work(move || lib.retained_disposal_history()).await
+}
+#[tauri::command]
+pub async fn maintenance_retry_retained_disposal(
+    host: Managed<'_>,
+    operation_id: String,
+    id: String,
+) -> Ipc<Vec<RetainedDisposal>> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library.retry_retained_disposal(&id, cancel)
+    })
+    .await
+}
+
 #[cfg(test)]
 mod event_tests {
     use super::source_change_payload;

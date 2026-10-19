@@ -19,6 +19,10 @@ export function duplicateScan(groups=1):DuplicateScanReport{
 export function fakeMaintenance(){
   let progress:((e:MaintenanceProgress)=>void)|null=null,change:((e:MaintenanceChange)=>void)|null=null;
   const bridge={
+    previewRetainedOriginals:vi.fn<MaintenanceBridge["previewRetainedOriginals"]>(async(_,includeUndoable)=>({id:"retained-preview",include_undoable:includeUndoable,files:[],size_bytes:0,undo_lost_writes:0})),
+    disposeRetainedOriginals:vi.fn<MaintenanceBridge["disposeRetainedOriginals"]>(async()=>({id:"retained",preview_id:"retained-preview",file_count:0,size_bytes:0,undo_lost_writes:0,created:1,state:"committed",cleanup_pending:false,error:null})),
+    retainedDisposalHistory:vi.fn<MaintenanceBridge["retainedDisposalHistory"]>(async()=>[]),
+    retryRetainedDisposal:vi.fn<MaintenanceBridge["retryRetainedDisposal"]>(async()=>[]),
     previewBackupDisposal:vi.fn<MaintenanceBridge["previewBackupDisposal"]>(async()=>({id:"disposal-preview",operation_ids:[],files:[],size_bytes:0,restores_lost:[]})),
     disposeBackups:vi.fn(async()=>({id:"disposal",preview_id:"disposal-preview",operation_ids:[],file_count:0,size_bytes:0,state:"committed",cleanup_pending:false,error:null})),
     backupDisposalHistory:vi.fn<MaintenanceBridge["backupDisposalHistory"]>(async()=>[]),retryBackupDisposal:vi.fn<MaintenanceBridge["retryBackupDisposal"]>(async()=>[]),

@@ -17,6 +17,8 @@ mod native_sync;
 pub use native_sync::*;
 mod prepare;
 mod publication;
+mod retained;
+pub use retained::{RetainedDisposal, RetainedOriginal, RetainedPreview};
 mod publish_files;
 #[cfg(feature = "autotag")]
 mod tagging;

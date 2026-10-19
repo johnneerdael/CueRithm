@@ -48,10 +48,11 @@ unchanged until explicit reanalysis.
 | Scale acceptance | Full user-library maintenance, provider throughput, CPU/memory use and retained recovery-storage growth need larger-library measurement. Workers use 75% of available logical CPUs; that policy is not a proven optimum or utilization cap. | Reproducible large-library benchmarks and operation/recovery checks using copies. |
 | Optional future work | All-In-One structural/deep analysis remains research, not an integrated optional desktop add-on. | Native model/frontend/separation/postprocessing integration and a separately accepted optional workflow. |
 
-Preparation and manual cleanup retain original recovery backups. Explicit
-disposal currently covers reviewed unused-file-removal backups; general
-preparation/cleanup backup retention management remains outstanding. Disk-space
-claims must distinguish logical backup deletion from filesystem snapshot storage.
+Preparation and manual cleanup retain original recovery backups until the user disposes of
+them from Maintenance → Retained backups. Disposal is explicit and previewed, refuses changed
+files, and offers originals that still back a cleanup Undo only when the user chooses to give
+that Undo up ([details](development/maintenance-api.md)). Disk-space claims must distinguish
+logical backup deletion from filesystem snapshot storage.
 
 The separate brand-kit UI worktree remains user-owned. This integration does not
 replace that work or claim to include its unmerged branding.

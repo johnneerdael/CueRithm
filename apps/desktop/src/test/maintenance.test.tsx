@@ -121,7 +121,7 @@ it("requires an irreversible-disposal acknowledgement and shows the Restore loss
   maintenance.previewBackupDisposal.mockResolvedValue({id:"dp",operation_ids:["r1"],size_bytes:2048,restores_lost:["r1"],files:[{operation_id:"r1",file_id:"f",display_source_path:"/m/a.mp3",size_bytes:2048,source_sha256:"h"}]});
   await open(maintenance);tab("Retained backups");
   fireEvent.click(await screen.findByLabelText(/Select removal r1/));
-  fireEvent.click(screen.getByRole("button",{name:/Review disposal/}));
+  fireEvent.click(screen.getByRole("button",{name:/Review disposal of backups/}));
   const preview=await screen.findByRole("region",{name:"Disposal preview"});
   expect(preview).toHaveTextContent("Restore will be lost for 1 removal");expect(preview).toHaveTextContent("2.0 KB");
   fireEvent.click(within(preview).getByRole("button",{name:/Dispose of backups/}));
@@ -233,4 +233,43 @@ it("states the outcome of each duplicate group in plain language",async()=>{
   expect(screen.getByText("Track #1, #3 will not be archived. Tags and cues of track #2 will be used. 1 track will be archived.")).toBeInTheDocument();
   expect(screen.getByText("Locked. No tracks will be archived.")).toBeInTheDocument();
   expect(screen.getByText("Tags and cues of track #1 will be copied to the other track. No tracks will be archived.")).toBeInTheDocument();
+});
+
+it("reviews retained tagging and cleanup originals, and says when Undo would be lost",async()=>{
+  const maintenance=fakeMaintenance(),library=fakeBridge([track("a")]);
+  vi.mocked(library.getTaggingStorage).mockResolvedValue({original_files:3,original_bytes:3*1048576,pending_cleanup:0});
+  maintenance.previewRetainedOriginals.mockResolvedValue({id:"rp",include_undoable:true,size_bytes:3145728,undo_lost_writes:2,files:[
+    {source:"tagging",write_id:"w1",display_path:"/music/a.flac",size_bytes:1048576,undo_lost:false},
+    {source:"cleanup",write_id:"w2",display_path:"/music/b.flac",size_bytes:1048576,undo_lost:true},
+    {source:"cleanup",write_id:"w3",display_path:"/music/c.flac",size_bytes:1048576,undo_lost:true}]});
+  await open(maintenance,library);tab("Retained backups");
+  expect(await screen.findByText(/3 originals · 3.0 MB/)).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText(/Also include originals that let me Undo/));
+  fireEvent.click(screen.getByRole("button",{name:/Review disposal of originals/}));
+  const preview=await screen.findByRole("region",{name:"Originals disposal preview"});
+  expect(maintenance.previewRetainedOriginals).toHaveBeenCalledWith(expect.any(String),true);
+  expect(preview).toHaveTextContent("Undo will stop working for 2 cleanup writes");
+  expect(within(preview).getByText("/music/b.flac").closest("li")).toHaveTextContent("backs Undo");
+  fireEvent.click(within(preview).getByRole("button",{name:/Dispose of originals/}));
+  const dialog=await screen.findByRole("alertdialog");
+  const confirm=within(dialog).getByRole("button",{name:"Dispose of originals"});
+  expect(confirm).toBeDisabled();
+  expect(dialog).toHaveTextContent("cleanup Undo will stop working");
+  fireEvent.click(within(dialog).getByRole("checkbox"));
+  fireEvent.click(confirm);
+  await waitFor(()=>expect(maintenance.disposeRetainedOriginals).toHaveBeenCalledWith(expect.any(String),"rp"));
+});
+
+it("does not offer retained-original disposal when none are kept, and finishes an unfinished one",async()=>{
+  const maintenance=fakeMaintenance();
+  maintenance.retainedDisposalHistory.mockResolvedValue([{id:"d1",preview_id:"p",file_count:2,size_bytes:2048,undo_lost_writes:0,created:1000,state:"committed",cleanup_pending:true,error:"Deleting originals is unfinished: permission denied"}]);
+  const finished=[{id:"d1",preview_id:"p",file_count:2,size_bytes:2048,undo_lost_writes:0,created:1000,state:"committed",cleanup_pending:false,error:null}];
+  maintenance.retryRetainedDisposal.mockImplementation(async()=>{maintenance.retainedDisposalHistory.mockResolvedValue(finished);return finished;});
+  await open(maintenance);tab("Retained backups");
+  const section=within(await screen.findByRole("region",{name:"Preparation and cleanup originals"}));
+  expect(section.getByRole("button",{name:/Review disposal of originals/})).toBeDisabled();
+  expect(await section.findByText(/permission denied/)).toBeInTheDocument();
+  fireEvent.click(section.getByRole("button",{name:/Retry/}));
+  await waitFor(()=>expect(maintenance.retryRetainedDisposal).toHaveBeenCalledWith(expect.any(String),"d1"));
+  await waitFor(()=>expect(section.queryByText(/permission denied/)).toBeNull());
 });

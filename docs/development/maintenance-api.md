@@ -203,3 +203,37 @@ for failures or incomplete cleanup. Always surface `state`, `error` and
 is not proof those bytes were released. Filesystem snapshots and clones may also
 retain physical storage after logical file removal. Branded views remain
 user-owned; their confirmation and final live-library acceptance remain required.
+
+
+## Retained preparation and cleanup originals
+
+Tagging and metadata cleanup keep a copy of each file they rewrite. These stay in
+application storage until the user disposes of them. Use `previewRetainedOriginals(
+operationId, includeUndoable)`, `disposeRetainedOriginals(operationId, previewId)`,
+`retainedDisposalHistory()` and `retryRetainedDisposal(operationId, id)`.
+`getTaggingStorage()` reports the current count and bytes.
+
+- **Eligible originals.** A preparation tag write's original is offered once the write is
+  committed or rolled back and its own cleanup finished. A cleanup write's original is
+  offered when the write was undone or rolled back, and for the undo record's own copy.
+  A committed, not-yet-undone cleanup original is what Undo restores from; it is offered
+  only when `includeUndoable` is true, and `undo_lost_writes` / each file's `undo_lost`
+  say so. Writes that are prepared, in conflict or still cleaning up are never offered.
+- **Preview and apply.** The preview is persisted and consumed by one apply. Apply rechecks
+  that the eligible set is identical, that each file is a regular file inside its own write
+  workspace under application data, and that its SHA-256 still matches the recorded
+  original. Any difference refuses the whole disposal.
+- **Order of effects.** One transaction clears the database's references to the files and
+  records the journal. File deletion follows. An interruption can therefore leave only
+  unreferenced files; the history shows `cleanup_pending` and a retry (or the next
+  startup) finishes it. A file whose bytes no longer match is kept and reported, never
+  deleted. An emptied workspace folder is removed; a non-empty one is left alone.
+- **Undo afterwards.** Cleanup Undo reports "Undo is no longer available: the retained
+  original was disposed of" instead of guessing. The applied file and library rows stay as
+  they were. No music file in a user folder is touched by disposal.
+- **Space.** Counts are logical file sizes. Filesystem snapshots or clones can keep the
+  physical space in use after deletion.
+
+The cleanup source is covered by library tests (offer rules, Undo loss, replay refusal,
+changed-original refusal, interrupted deletion and retry). The tagging source shares the
+same code path but is not exercised by a dedicated end-to-end test here.
