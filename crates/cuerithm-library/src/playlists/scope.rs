@@ -15,7 +15,6 @@ pub(crate) fn stamp(conn: &Connection) -> Result<SmartStamp> {
     preferences::stamp(conn)
 }
 impl ScopeGuard {
-    #[cfg(feature = "autotag")]
     pub(crate) fn time_current(&self, now: i64) -> bool {
         now >= self.created && self.expires.is_none_or(|end| now < end)
     }

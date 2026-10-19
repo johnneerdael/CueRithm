@@ -294,12 +294,27 @@ pub async fn maintenance_preview_unused_removal(
     })
     .await
 }
+fn source_change_payload(source_paths: Option<Vec<String>>) -> serde_json::Value {
+    match source_paths {
+        Some(paths) => serde_json::json!({"track_ids":[],"playlist_ids":[],"source_paths":paths}),
+        None => serde_json::json!({"track_ids":[],"playlist_ids":[],"sources_changed":true}),
+    }
+}
 fn unused_changed(app: &tauri::AppHandle, result: &UnusedRemovalResult) {
     let _ = app.emit(
         "maintenance-change",
         serde_json::json!({"review_id":null,"stamp":result.stamp}),
     );
-    let _=app.emit("library-change",serde_json::json!({"source_paths":result.files.iter().map(|f|&f.display_path).collect::<Vec<_>>()}));
+    let _ = app.emit(
+        "library-change",
+        source_change_payload(Some(
+            result
+                .files
+                .iter()
+                .map(|f| f.display_path.clone())
+                .collect(),
+        )),
+    );
 }
 #[tauri::command]
 pub async fn maintenance_apply_unused_removal(
@@ -352,10 +367,7 @@ pub async fn maintenance_retry_unused_recovery(
         "maintenance-change",
         serde_json::json!({"review_id":null,"stamp":stamp}),
     );
-    let _ = app.emit(
-        "library-change",
-        serde_json::json!({"sources_changed":true}),
-    );
+    let _ = app.emit("library-change", source_change_payload(None));
     Ok(history)
 }
 
@@ -412,4 +424,24 @@ pub async fn maintenance_retry_backup_disposal(
         serde_json::json!({"review_id":null,"stamp":stamp}),
     );
     Ok(result)
+}
+
+#[cfg(test)]
+mod event_tests {
+    use super::source_change_payload;
+    use serde_json::json;
+
+    #[test]
+    fn source_notifications_preserve_the_library_listener_contract() {
+        for paths in [Some(vec!["/test/removed.wav".to_owned()]), None] {
+            let payload = source_change_payload(paths.clone());
+            assert_eq!(payload["track_ids"], json!([]));
+            assert_eq!(payload["playlist_ids"], json!([]));
+            if let Some(paths) = paths {
+                assert_eq!(payload["source_paths"], json!(paths));
+            } else {
+                assert_eq!(payload["sources_changed"], true);
+            }
+        }
+    }
 }

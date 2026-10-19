@@ -283,6 +283,10 @@ impl Library {
             stamp(&tx)? == saved.public.stamp,
             "Library changed; scan again"
         );
+        ensure!(
+            saved.review.scan.scope.time_current(crate::now()),
+            "Smart scope expired; scan again"
+        );
         check_review(&tx, &saved.public)?;
         let mut current: SavedPreview = load(&tx, id, "duplicate_merge_plan")?;
         ensure!(
