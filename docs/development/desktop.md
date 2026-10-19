@@ -220,3 +220,15 @@ This acceptance used generated audio only. It did not normalize the user's
 music library or establish live Windows/Linux UI behavior, power-loss hardware
 behavior or full Lexicon application parity. Native CI packages and tests provide
 their own exact-head evidence.
+
+## Building the media runtime locally
+
+The bundled `ffmpeg`/`ffprobe` are build artifacts (`tools/media-runtime/bin`, not in git). A
+fresh checkout or worktree has none, so library and desktop tests fail with "Bundled decoder
+folder is missing" until you run `bash tools/media-runtime/build.sh` (CI does this through
+`.github/actions/media-runtime`). The recipe must match `tools/media-runtime/manifest.json`; a
+runtime from an older branch lacks the MD5 muxer and fails the duplicate-fingerprint tests.
+
+On macOS with Homebrew `binutils` first in `PATH`, FFmpeg's archives are written by GNU `ar` and the
+link fails with "archive member invalid control bits". Put Apple's tools first for the build:
+`PATH=/usr/bin:/bin:/usr/sbin:/sbin:$PATH bash tools/media-runtime/build.sh`.
