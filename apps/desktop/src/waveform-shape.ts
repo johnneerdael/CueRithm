@@ -1,6 +1,6 @@
 import type {Waveform} from "./types";
 import {bandColour,isThreeBand,layerFills} from "./waveform-colour";
-import type {Bands,Stop,WaveformStyle} from "./waveform-colour";
+import type {Bands,Stop,Theme,WaveformStyle} from "./waveform-colour";
 export interface Layer{path:string;fill:string}
 export type Shape={mode:"bars";path:string;stops:Stop[]}|{mode:"layers";layers:Layer[]};
 export interface Frame{
@@ -14,6 +14,8 @@ export interface Frame{
   mid:number;half:number;
   /** 3-band styles: stack the layers up from the bottom edge (overviews) instead of overlaying them around the centre (zoom). */
   stacked?:boolean;
+  /** Makes colours legible on this theme; omitted, the raw Lexicon colours are used. */
+  theme?:Theme;
 }
 const fill=.92,clamp=(v:number,low:number,high:number)=>Math.min(high,Math.max(low,v));
 // Lexicon's 3-band constants. Overviews stack low, mid and high from the bottom edge with heights of
@@ -60,7 +62,7 @@ const f=(v:number)=>v.toFixed(1);
 // A filled band between two edges that share the columns' x positions.
 const band=(columns:Column[],upper:number[],lower:number[])=>"M"+columns.map((c,i)=>f(c.x)+","+f(upper[i])).join("L")+"L"+columns.map((c,i)=>f(c.x)+","+f(lower[i])).reverse().join("L")+"Z";
 function layersOf(wave:Waveform,style:WaveformStyle,columns:Column[],frame:Frame):Shape{
-  const fills=layerFills[style as keyof typeof layerFills],scale=scaleOf(wave),{mid,half}=frame;
+  const fills=layerFills(style as "3band-blueyellow"|"3band-bluered",frame.theme),scale=scaleOf(wave),{mid,half}=frame;
   if(frame.stacked){
     // Heights are fractions of the full frame height, stacked upwards from the bottom edge.
     const bottom=mid+half,height=2*half,g=scale.stack;
@@ -91,7 +93,7 @@ export function buildShape(wave:Waveform,style:WaveformStyle,frame:Frame):Shape{
     // Without level data (a waveform from before it was measured) fall back to the peak envelope.
     const up=average?Math.max(.02,Math.min(1,c.rms*scale.bars)):Math.min(1,c.max),down=average?up:Math.min(1,-c.min);
     pieces.push("M"+f(c.x)+","+f(mid-up*half)+"V"+f(mid+down*half));
-    if(wave.bands?.length)stops.push({offset:Math.min(1,Math.max(0,c.x/frame.width)),color:bandColour(colourStyle,c.bands)});
+    if(wave.bands?.length)stops.push({offset:Math.min(1,Math.max(0,c.x/frame.width)),color:bandColour(colourStyle,c.bands,frame.theme)});
   }
   return {mode:"bars",path:pieces.join(""),stops};
 }

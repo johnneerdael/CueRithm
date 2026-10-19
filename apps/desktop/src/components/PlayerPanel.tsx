@@ -7,18 +7,20 @@ import {time,cueColor} from "../display";
 import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
+import {useAppliedTheme} from "../theme";
 import WaveformArt from "./WaveformArt";
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
   // The same shape builder and style choice as the row previews, so playback shows the same waveform.
   const [style]=useWaveformStyle();
+  const theme=useAppliedTheme();
   const gradient="wave-"+useId().replace(/[^a-zA-Z0-9_-]/g,"");
   const shape=useMemo(()=>{
     if(!data||!data.bins.length)return null;
     const bins=data.bins.length,first=Math.max(0,Math.floor(start/data.duration_seconds*bins)),last=Math.min(bins,Math.ceil(end/data.duration_seconds*bins));
-    return buildShape(data,style,{first,last,columns:900,x:bin=>(bin/bins*data.duration_seconds-start)/span*1000,width:1000,mid:40,half:35,stacked:small});
-  },[data,style,small,start,end,span]);
+    return buildShape(data,style,{first,last,columns:900,x:bin=>(bin/bins*data.duration_seconds-start)/span*1000,width:1000,mid:40,half:35,stacked:small,theme});
+  },[data,style,theme,small,start,end,span]);
   const ticks=beats.filter(t=>t>=start&&t<=end);
   return <div className={small?"wave overview":"wave detail-wave"} data-wave-style={style} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"16 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
     title={small?"Click to seek · ← / → jump one bar":"Click to show "+(zoomed?"entire track":"16 seconds")+" · ← / → jump one bar"}

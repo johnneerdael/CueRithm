@@ -5,6 +5,7 @@ import {waveformStyles} from "../waveform-colour";
 import type {WaveformStyle} from "../waveform-colour";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
+import {useAppliedTheme} from "../theme";
 // A made-up track (intro, drop, breakdown, drop) so every style shows how it reads, not just its palette.
 const sections:{until:number;rms:number;low:number;mid:number;high:number}[]=[
   {until:.14,rms:.16,low:.05,mid:.14,high:.06},
@@ -27,7 +28,8 @@ export function sampleWaveform(count=160):Waveform{
 }
 function Sample({style,wave}:{style:WaveformStyle;wave:Waveform}){
   const id="sample-"+useId().replace(/[^a-zA-Z0-9_-]/g,""),width=240,height=44;
-  const shape=useMemo(()=>buildShape(wave,style,{first:0,last:wave.bins.length,columns:120,x:bin=>(bin+.5)/wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true}),[wave,style]);
+  const theme=useAppliedTheme();
+  const shape=useMemo(()=>buildShape(wave,style,{first:0,last:wave.bins.length,columns:120,x:bin=>(bin+.5)/wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true,theme}),[wave,style,theme]);
   return <svg viewBox={"0 0 "+width+" "+height} preserveAspectRatio="none" aria-hidden="true" data-wave-style={style}><WaveformArt shape={shape} id={id} width={width} barClass="preview-wave"/></svg>;
 }
 export default function WaveformSettings(){

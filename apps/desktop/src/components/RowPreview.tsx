@@ -3,6 +3,7 @@ import type {Cue,Detail,Waveform} from "../types";
 import {cueColor} from "../display";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
+import {useAppliedTheme} from "../theme";
 import WaveformArt from "./WaveformArt";
 export type PreviewLoader=(id:string)=>Promise<{wave:Waveform;detail:Detail}>;
 interface Preview{duration:number;wave:Waveform;grid:number[];cues:Cue[]}
@@ -34,6 +35,7 @@ function fetchPreview(load:PreviewLoader,id:string,identity:string){
 export default function RowPreview({id,identity,load}:{id:string;identity:string;load?:PreviewLoader}){
   const [data,setData]=useState<Preview|null>(null),[failed,setFailed]=useState(false);
   const [style]=useWaveformStyle();
+  const theme=useAppliedTheme();
   const gradient="wave-"+useId().replace(/[^a-zA-Z0-9_-]/g,"");
   useEffect(()=>{
     setData(null);setFailed(false);
@@ -42,7 +44,7 @@ export default function RowPreview({id,identity,load}:{id:string;identity:string
     const timer=setTimeout(()=>{fetchPreview(load,id,identity).then(value=>{if(current)setData(value);}).catch(()=>{if(current)setFailed(true);});},settle);
     return()=>{current=false;clearTimeout(timer);};
   },[id,identity,load]);
-  const shape=useMemo(()=>data?buildShape(data.wave,style,{first:0,last:data.wave.bins.length,columns,x:bin=>(bin+.5)/data.wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true}):null,[data,style]);
+  const shape=useMemo(()=>data?buildShape(data.wave,style,{first:0,last:data.wave.bins.length,columns,x:bin=>(bin+.5)/data.wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true,theme}):null,[data,style,theme]);
   if(!load||failed||(data&&!data.wave.bins.length))return <span className="dim">—</span>;
   if(!data||!shape)return <span className="row-preview-chart loading" aria-hidden="true"/>;
   const x=(t:number)=>Math.max(0,Math.min(width,t/Math.max(.001,data.duration)*width));

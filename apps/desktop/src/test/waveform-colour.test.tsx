@@ -5,7 +5,8 @@ import RowPreview from "../components/RowPreview";
 import type {Detail,Playback,Waveform} from "../types";
 import Settings from "../views/Settings";
 import WaveformSettings,{sampleWaveform} from "../views/WaveformSettings";
-import {bandColour,layerFills} from "../waveform-colour";
+import {bandColour,contrastRatio,layerFills,legible,waveformStyles} from "../waveform-colour";
+import type {Theme} from "../waveform-colour";
 import {buildShape} from "../waveform-shape";
 import type {Frame} from "../waveform-shape";
 import {setWaveformStyle} from "../waveform-style";
@@ -28,6 +29,58 @@ describe("waveform colour",()=>{
   });
   it("leaves silence on the neutral text colour",()=>{
     expect(bandColour("rgb",[0,0,0])).toBe("var(--cr-muted)");
+  });
+});
+
+describe("waveform legibility",()=>{
+  const background:Record<Theme,number[]>={light:[240,241,247],dark:[34,38,53]};
+  const rgbOf=(css:string)=>css.match(/\d+/g)!.map(Number);
+  const hueOf=([r,g,b]:number[])=>{const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(d<25)return null;const h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360;};
+  const hueGap=(a:number,b:number)=>Math.min(Math.abs(a-b),360-Math.abs(a-b));
+  const grid=[0,85,170,255],blends=waveformStyles.filter(s=>!s.id.startsWith("3band")).map(s=>s.id);
+  const triples=grid.flatMap(r=>grid.flatMap(g=>grid.map(b=>[r,g,b] as [number,number,number]))).filter(t=>t[0]+t[1]+t[2]>0);
+  it("keeps every blended colour at 3:1 contrast or better on both themes",()=>{
+    for(const theme of ["light","dark"] as const)for(const style of blends)for(const t of triples){
+      const colour=rgbOf(bandColour(style,t,theme));
+      expect(contrastRatio(colour,background[theme]),`${style} ${theme} ${t}`).toBeGreaterThanOrEqual(2.95);
+    }
+  });
+  it("darkens pale colours on the light theme without changing their hue",()=>{
+    let adjusted=0;
+    for(const style of blends)for(const t of triples){
+      const raw=rgbOf(bandColour(style,t)),shown=rgbOf(bandColour(style,t,"light"));
+      if(raw.join()===shown.join())continue;
+      adjusted++;
+      const [before,after]=[hueOf(raw),hueOf(shown)];
+      if(before!==null&&after!==null)expect(hueGap(before,after),`${style} ${t}`).toBeLessThan(25);
+      expect(contrastRatio(shown,background.light)).toBeGreaterThan(contrastRatio(raw,background.light));
+    }
+    expect(adjusted).toBeGreaterThan(0);
+  });
+  it("leaves colours that are already legible exactly as Lexicon draws them",()=>{
+    expect(bandColour("rgb",[255,0,0],"dark")).toBe(bandColour("rgb",[255,0,0]));
+    expect(legible([7,73,184],"light")).toEqual([7,73,184]);
+  });
+  it("lifts dark colours on the dark theme instead of darkening them",()=>{
+    const raw=rgbOf(bandColour("blue-green",[255,0,0])),shown=rgbOf(bandColour("blue-green",[255,0,0],"dark"));
+    expect(contrastRatio(raw,background.dark)).toBeLessThan(3);
+    expect(contrastRatio(shown,background.dark)).toBeGreaterThanOrEqual(2.95);
+    expect(shown[1]).toBeGreaterThan(raw[1]);
+  });
+  it("makes the 3-band layer colours legible on the light theme and leaves the high layer to its token",()=>{
+    for(const style of ["3band-blueyellow","3band-bluered"] as const){
+      const [low,mid,high]=layerFills(style,"light");
+      expect(contrastRatio(rgbOf(low),background.light)).toBeGreaterThanOrEqual(2.95);
+      expect(contrastRatio(rgbOf(mid),background.light)).toBeGreaterThanOrEqual(2.95);
+      expect(high).toMatch(/^var\(--cr-wave-high/);
+    }
+  });
+  it("applies the theme through buildShape",()=>{
+    const w:Waveform={duration_seconds:60,bins:[{min:-.5,max:.5},{min:-.5,max:.5}],rms:[.3,.3],bands:[[255,255,0],[255,255,0]],levels:[[.3,.1,.02],[.3,.1,.02]]};
+    const light=buildShape(w,"rgb",{...frame(2,2),theme:"light"}),raw=buildShape(w,"rgb",frame(2,2));
+    if(light.mode!=="bars"||raw.mode!=="bars")throw new Error("expected bars");
+    expect(light.stops[0].color).toBe(bandColour("rgb",[255,255,0],"light"));
+    expect(raw.stops[0].color).toBe(bandColour("rgb",[255,255,0]));
   });
 });
 
@@ -74,7 +127,7 @@ describe("waveform shape",()=>{
   it("overlays the 3-band layers around the centre for zoomed views, bass widest and the high layer a thin core",()=>{
     const shape=buildShape(wave([.3,.3,.3,.3],.6),"3band-blueyellow",frame(4,4));
     if(shape.mode!=="layers")throw new Error("expected layers");
-    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills["3band-blueyellow"]);
+    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("3band-blueyellow"));
     // Smaller y is further above the centre line (20): bass reaches furthest, then mids, then highs.
     const [bass,mids,highs]=shape.layers.map(l=>20-top(l.path));
     expect(bass).toBeGreaterThan(mids);expect(mids).toBeGreaterThan(highs);
@@ -84,7 +137,7 @@ describe("waveform shape",()=>{
   it("stacks the 3-band layers up from the bottom edge for overviews: bass, then mids, then highs",()=>{
     const shape=buildShape(wave([.3,.3,.3,.3],.6),"3band-bluered",{...frame(4,4),stacked:true});
     if(shape.mode!=="layers")throw new Error("expected layers");
-    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills["3band-bluered"]);
+    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("3band-bluered"));
     // The base layer sits on the bottom edge (mid 20 + half 15) and each layer starts where the last ended.
     expect(lowest(shape.layers[0].path)).toBeCloseTo(35);
     const [bass,mids,highs]=shape.layers.map(l=>top(l.path));
