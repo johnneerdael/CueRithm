@@ -18,6 +18,7 @@ chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] 
 cuerithm-smartlists = { path = "../cuerithm-smartlists" }
 cuerithm-cleanup = { path = "../cuerithm-cleanup" }
 cuerithm-maintenance = { path = "../cuerithm-maintenance" }
+same-file = "=1.0.6"
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 serde.workspace = true

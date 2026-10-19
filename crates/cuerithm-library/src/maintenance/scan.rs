@@ -1,3 +1,4 @@
+use super::files::{FileProof, file_state, proofs_current, resolved_prefix};
 use super::*;
 use crate::{
     Library,
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 struct Input {
@@ -29,12 +30,6 @@ struct Input {
     cues: Option<String>,
     ignored: bool,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct FileProof {
-    path: Vec<u8>,
-    state: MaintenanceFileState,
-    hash: Option<String>,
-}
 #[derive(Serialize, Deserialize)]
 struct SavedScan {
     report: DuplicateScanReport,
@@ -44,11 +39,14 @@ struct SavedScan {
     logic: String,
 }
 
-fn logic_identity() -> String {
+pub(super) fn logic_identity() -> String {
     let mut hash = Sha256::new();
     for bytes in [
         include_bytes!("scan.rs").as_slice(),
         include_bytes!("model.rs").as_slice(),
+        include_bytes!("files.rs").as_slice(),
+        include_bytes!("unused.rs").as_slice(),
+        include_bytes!("broken.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/lib.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),
@@ -70,7 +68,7 @@ fn engine_identity(runtime: &MediaRuntime) -> String {
         ))
     )
 }
-fn stamp(conn: &Connection) -> Result<MaintenanceStamp> {
+pub(super) fn stamp(conn: &Connection) -> Result<MaintenanceStamp> {
     Ok(MaintenanceStamp {
         inputs: scope::stamp(conn)?,
         maintenance_revision: conn.query_row(
@@ -79,71 +77,6 @@ fn stamp(conn: &Connection) -> Result<MaintenanceStamp> {
             |r| r.get(0),
         )?,
     })
-}
-// Missing parent locations cannot distinguish disconnected storage from removed
-// directories. Keep those unavailable instead of asserting that music is lost.
-fn resolved_prefix(path: &Path) -> Result<PathBuf> {
-    for ancestor in path.ancestors() {
-        match ancestor.canonicalize() {
-            Ok(mut base) => {
-                for part in path.strip_prefix(ancestor)?.components() {
-                    match part {
-                        std::path::Component::Normal(name) => base.push(name),
-                        std::path::Component::ParentDir => {
-                            base.pop();
-                        }
-                        std::path::Component::CurDir => {}
-                        _ => anyhow::bail!("Invalid ignored-folder suffix"),
-                    }
-                }
-                return Ok(base);
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(e) => return Err(e).context("Cannot resolve ignored folder"),
-        }
-    }
-    anyhow::bail!("Cannot resolve ignored folder root")
-}
-fn file_state(path: &Path) -> MaintenanceFileState {
-    match std::fs::symlink_metadata(path) {
-        Ok(m) if m.file_type().is_symlink() => MaintenanceFileState::Symlink,
-        Ok(m) if m.is_file() => MaintenanceFileState::Present,
-        Ok(_) => MaintenanceFileState::NotRegular,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            if path
-                .parent()
-                .is_some_and(|p| std::fs::metadata(p).is_ok_and(|m| m.is_dir()))
-            {
-                MaintenanceFileState::Missing
-            } else {
-                MaintenanceFileState::Unavailable
-            }
-        }
-        Err(_) => MaintenanceFileState::Unavailable,
-    }
-}
-fn proofs_current(files: &[FileProof], cancel: &CancellationToken) -> Result<bool> {
-    for proof in files {
-        cancel.check()?;
-        let path = bytes_path(&proof.path)?;
-        if file_state(&path) != proof.state {
-            return Ok(false);
-        }
-        if proof.state == MaintenanceFileState::Present
-            && proof.hash.is_none()
-            && std::fs::File::open(&path).is_ok()
-        {
-            return Ok(false);
-        }
-        if let Some(hash) = &proof.hash {
-            let observed = file_sha256_cancellable(&path, cancel);
-            cancel.check()?;
-            if observed.as_ref().ok() != Some(hash) {
-                return Ok(false);
-            }
-        }
-    }
-    Ok(true)
 }
 fn cache_valid(f: &AudioFingerprint, hash: &str, runtime: &MediaRuntime) -> bool {
     f.source_sha256 == hash
@@ -345,7 +278,7 @@ impl Library {
                                     }
                                     Err(error) => {
                                         cancel.check()?;
-                                        row.state = MaintenanceFileState::DecodeError;
+                                        row.state = super::files::decode_error_state(&error, &hash);
                                         row.detail = Some(error.to_string());
                                     }
                                 }

@@ -3,11 +3,13 @@ use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeSet,
     ffi::OsString,
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
+    sync::{Arc, OnceLock},
     thread,
     time::{Duration, Instant},
 };
@@ -27,6 +29,7 @@ pub struct MediaRuntime {
     pub(crate) ffmpeg: PathBuf,
     pub(crate) ffprobe: PathBuf,
     pub identity: String,
+    audio_codecs: Arc<OnceLock<BTreeSet<String>>>,
 }
 #[derive(Deserialize)]
 struct Manifest {
@@ -77,7 +80,48 @@ impl MediaRuntime {
             ffmpeg,
             ffprobe,
             identity,
+            audio_codecs: Arc::new(OnceLock::new()),
         })
+    }
+    pub(crate) fn supports_audio_codec(
+        &self,
+        codec: &str,
+        cancel: &CancellationToken,
+    ) -> Result<bool> {
+        cancel.check()?;
+        if self.audio_codecs.get().is_none() {
+            let args: Vec<OsString> = ["-hide_banner", "-codecs"]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+            let mut output = self.run_controlled(
+                &self.ffmpeg,
+                &args,
+                tempfile::tempfile()?,
+                1_048_576,
+                Duration::from_secs(30),
+                cancel,
+            )?;
+            let mut text = String::new();
+            output.read_to_string(&mut text)?;
+            let codecs = text
+                .lines()
+                .filter_map(|line| {
+                    let mut words = line.split_whitespace();
+                    let flags = words.next()?;
+                    let name = words.next()?;
+                    (flags.len() == 6 && flags.as_bytes()[0] == b'D' && flags.as_bytes()[2] == b'A')
+                        .then(|| name.to_owned())
+                })
+                .collect::<BTreeSet<_>>();
+            ensure!(
+                !codecs.is_empty(),
+                "Bundled decoder returned no audio codec capabilities"
+            );
+            cancel.check()?;
+            let _ = self.audio_codecs.set(codecs);
+        }
+        Ok(self.audio_codecs.get().unwrap().contains(codec))
     }
     pub(crate) fn run(
         &self,

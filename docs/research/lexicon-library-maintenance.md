@@ -177,3 +177,41 @@ changed file identities and fresh smart rules without cached members. This is
 backend scanner evidence. Review/edit/merge/undo, unused/missing/corrupt tools,
 native commands and their UI acceptance remain incomplete; no user collection
 was scanned or modified by these tests.
+
+## Unused-file and missing/audio-validation backends (2026-10-19)
+
+The library now provides persistent, read-only unused-file reports for an
+explicit folder, with all/include/exclude extension modes, sizes and path-list
+export. Active and archived library references are protected. Native filesystem
+identity checks handle case aliases and hard links while retaining distinct files
+on case-sensitive volumes. Directory symlinks are skipped, including symlink
+roots, and own application storage, inspected DJ directories, Apple metadata and
+associated Serato/VirtualDJ stems are excluded. Trash, recycle-bin, AppleDouble,
+Spotlight and file-event directories are pruned, while file-only metadata names
+do not suppress ordinary music directories. Broad system/home roots require
+a narrower selection. Source stem suffix/prefix rules are reproduced; universal
+case folding of every pathname is intentionally replaced with filesystem checks.
+
+Reports retain directory-entry snapshots and complete SHA-256 proofs for their
+candidates. Changed contents, new or removed entries, changed references and
+library edits invalidate the reviewed snapshot. Discovery/read errors produce
+explicit partial reports and issues. Cancellation does not persist a completed
+report. Physical reference checks open only short-lived handles, keeping the
+scan from exhausting descriptors on larger libraries. No files are removed.
+
+The separate missing-track scan checks non-archived local records. Optional full
+audio validation uses strict native fingerprint decoding and records the decoder
+identity. Availability-only results mean present, not proven decodable. Missing,
+unavailable, symlink, nonregular, changed, video, no-audio, unsupported codec/layout,
+timeout and decode failure remain distinct outcomes. Supported audio failures
+are reported as decode errors rather than asserting a particular cause of
+corruption. Capabilities come from the actual bundled FFmpeg codec registry,
+shared lazily across runtime clones; cancelled capability probes do not populate
+the cache. Unsupported results also verify the captured source identity.
+
+Generated fixtures cover archived references, recursive filters, stem sidecars,
+symlinks, physical aliases, own-storage exclusion, same-size/restored-mtime edits,
+disappearing candidates, cancellation, missing/reappearing records and valid,
+malformed and unsupported audio. Native UI wiring, reviewed file removal,
+duplicate review/merge, playlist replacement and durable undo remain unfinished.
+These backends have not been accepted against the user's live music collection.

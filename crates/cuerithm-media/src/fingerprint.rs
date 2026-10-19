@@ -24,6 +24,18 @@ pub enum FingerprintOutcome {
     NoAudio,
     Symlink,
 }
+#[derive(Debug, Clone)]
+pub struct UnsupportedAudio {
+    pub codec: String,
+    pub source_sha256: String,
+    pub reason: String,
+}
+impl std::fmt::Display for UnsupportedAudio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.reason)
+    }
+}
+impl std::error::Error for UnsupportedAudio {}
 
 use anyhow::{Context, ensure};
 use sha2::{Digest, Sha256};
@@ -152,15 +164,34 @@ impl MediaRuntime {
                 }
             }
             if let Some((index, stream)) = selected {
+                let codec = stream["codec_name"]
+                    .as_str()
+                    .context("Missing audio codec")?;
+                if !self.supports_audio_codec(codec, cancel)? {
+                    verify_source(path, &source, &snapshot, &before, cancel)?;
+                    return Err(UnsupportedAudio {
+                        codec: codec.into(),
+                        source_sha256: before.clone(),
+                        reason: format!("Bundled decoder does not support {codec}"),
+                    }
+                    .into());
+                }
                 let sample_rate: u32 = stream["sample_rate"]
                     .as_str()
                     .context("Missing audio sample rate")?
                     .parse()?;
                 let channels = u32::try_from(stream["channels"].as_u64().unwrap_or(0))?;
-                ensure!(
-                    (8000..=384000).contains(&sample_rate) && (1..=32).contains(&channels),
-                    "Unsupported fingerprint sample rate/channel layout"
-                );
+                if !(8000..=384000).contains(&sample_rate) || !(1..=32).contains(&channels) {
+                    verify_source(path, &source, &snapshot, &before, cancel)?;
+                    return Err(UnsupportedAudio {
+                        codec: codec.into(),
+                        source_sha256: before.clone(),
+                        reason: format!(
+                            "Unsupported audio layout: {sample_rate} Hz, {channels} channels"
+                        ),
+                    }
+                    .into());
+                }
                 if stream["codec_name"] == "flac" {
                     let named = private.path().join("source.flac");
                     std::fs::rename(&snapshot, &named)?;
