@@ -18,6 +18,18 @@ const label=(t:ReviewTrack)=>`${t.candidate.artist||"Unknown artist"} – ${t.ca
 const canKeep=(group:ReviewGroup,t:ReviewTrack)=>t.candidate.present&&!group.ignored.includes(t.candidate.id);
 const mergeable=(g:ReviewGroup)=>g.keeper!==null&&!g.ignored.includes(g.keeper)&&g.tracks.some(t=>t.candidate.id===g.keeper&&t.candidate.present);
 
+/** Plain-language outcome of the current choices, so nothing is archived without being stated. */
+function outcome(group:ReviewGroup){
+  const number=(id:string)=>group.tracks.findIndex(t=>t.candidate.id===id)+1;
+  if(group.state==="locked")return "Locked. No tracks will be archived.";
+  const donor=group.tags_from?number(group.tags_from):0;
+  if(group.state==="copy_cues")return `Tags and cues of track #${donor} will be copied ${group.tracks.length===2?"to the other track":"to all tracks"}. No tracks will be archived.`;
+  if(!group.keeper)return "No track has been selected. Nothing will change.";
+  const kept=[group.keeper,...group.ignored.filter(id=>id!==group.keeper)].map(number).sort((a,b)=>a-b);
+  const archived=group.tracks.filter(t=>!group.ignored.includes(t.candidate.id)&&t.candidate.id!==group.keeper).length;
+  return `Track #${kept.join(", #")} will not be archived.${donor?` Tags and cues of track #${donor} will be used.`:""} ${archived} ${archived===1?"track":"tracks"} will be archived.`;
+}
+
 function GroupCard({group,disabled,selected,onSelect,onEdit}:{group:ReviewGroup;disabled:boolean;selected:boolean;onSelect:(on:boolean)=>void;onEdit:(edit:GroupEdit)=>void}){
   const names=`${group.tracks[0]?label(group.tracks[0]):"Group"}`;
   return <article className="maint-group" aria-label={"Duplicate group "+names}>
@@ -30,10 +42,11 @@ function GroupCard({group,disabled,selected,onSelect,onEdit}:{group:ReviewGroup;
           :<button className="secondary" disabled={disabled} onClick={()=>onEdit({kind:"lock"})}><Lock size={13}/>Lock</button>}
         {group.state==="locked"&&group.tags_from?<button className="secondary" disabled={disabled} onClick={()=>onEdit({kind:"unlock",force:true})}>Force unlock</button>:null}
       </div></header>
-    <table className="maint-table"><thead><tr><th>Keep</th><th>Track</th><th>Location</th><th>Length</th><th>Bitrate</th><th>Cues</th><th>Tags and cues from</th><th/></tr></thead><tbody>
-      {group.tracks.map(t=>{const c=t.candidate,ignored=group.ignored.includes(c.id);
+    <p className="maint-outcome">{outcome(group)}</p>
+    <table className="maint-table"><thead><tr><th>#</th><th>Keep</th><th>Track</th><th>Location</th><th>Length</th><th>Bitrate</th><th>Cues</th><th>Tags and cues from</th><th/></tr></thead><tbody>
+      {group.tracks.map((t,index)=>{const c=t.candidate,ignored=group.ignored.includes(c.id);
         return <tr key={c.id} className={ignored?"ignored":undefined}>
-          <td><input type="radio" name={"keeper-"+group.id} aria-label={"Keep "+label(t)} disabled={disabled||!canKeep(group,t)||group.state==="locked"} checked={group.keeper===c.id} onChange={()=>onEdit({kind:"select",track_id:c.id})}/></td>
+          <td>{index+1}</td><td><input type="radio" name={"keeper-"+group.id} aria-label={"Keep "+label(t)} disabled={disabled||!canKeep(group,t)||group.state==="locked"} checked={group.keeper===c.id} onChange={()=>onEdit({kind:"select",track_id:c.id})}/></td>
           <td><strong>{label(t)}</strong>{!c.present?<span className="maint-state bad">Missing</span>:null}{ignored?<span className="maint-state warn">Ignored</span>:null}</td>
           <td title={c.location}>{c.location}</td><td>{clock(c.duration)}</td><td>{c.bitrate?Math.round(c.bitrate/1000)+" kbps":"—"}</td><td>{c.cue_count}</td>
           <td><input type="radio" name={"donor-"+group.id} aria-label={"Take tags and cues from "+label(t)} disabled={disabled||!c.present||ignored||group.state==="locked"||group.keeper===c.id} checked={group.tags_from===c.id} onChange={()=>onEdit({kind:"use_tags",track_id:c.id})}/>

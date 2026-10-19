@@ -539,3 +539,4 @@ textarea:focus-visible{outline:2px solid var(--cr-accent);outline-offset:2px}
 .primary.maint-danger:hover:not(:disabled){background:var(--cr-danger);color:#fff;filter:brightness(1.08)}
 .primary:disabled,.secondary:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:900px){.maint-controls{align-items:stretch}.maint-history-row{flex-direction:column}}
+.maint-outcome{margin:0 0 8px;font-size:13px;color:var(--cr-muted)}

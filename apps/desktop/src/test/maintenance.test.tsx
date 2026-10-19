@@ -203,3 +203,34 @@ it("rechecks only the visible tab when another view changes the library",async()
   await waitFor(()=>expect(maintenance.brokenScan).toHaveBeenCalledWith(expect.any(String),"broken"));
   expect(await screen.findByRole("alert")).toHaveTextContent("Tracks changed");
 });
+
+it("archives only definite broken tracks after confirmation and never offers unavailable ones",async()=>{
+  const maintenance=fakeMaintenance(),library=fakeBridge([track("a")]);
+  maintenance.scanBroken.mockResolvedValue({id:"broken",created:1,stamp,stale:false,stale_reason:null,request:{inspect_audio:false},decoder_identity:null,tracks:[
+    {id:"1",display_path:"/music/gone.mp3",state:"missing",detail:null,observed_sha256:null,source_changed:false},
+    {id:"2",display_path:"/Volumes/Away/x.flac",state:"unavailable",detail:null,observed_sha256:null,source_changed:false}]});
+  await open(maintenance,library);tab("Missing files");
+  fireEvent.click(screen.getByRole("button",{name:"Scan library"}));
+  await screen.findByText(/2 problems/);
+  expect(screen.getByLabelText("Select /Volumes/Away/x.flac")).toBeDisabled();
+  expect(screen.getByRole("button",{name:/Archive\s*selected/})).toBeDisabled();
+  fireEvent.click(screen.getByLabelText("Select /music/gone.mp3"));
+  fireEvent.click(screen.getByRole("button",{name:/Archive 1 selected/}));
+  const dialog=await screen.findByRole("alertdialog");
+  expect(library.archiveTrack).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button",{name:"Archive 1 track"}));
+  await waitFor(()=>expect(library.archiveTrack).toHaveBeenCalledWith("1",true));
+  await screen.findByText(/Archived 1 track/);
+});
+
+it("states the outcome of each duplicate group in plain language",async()=>{
+  const maintenance=fakeMaintenance();
+  maintenance.beginReview.mockResolvedValue(review([group("g1",["a","b","c"],{keeper:"a",tags_from:"b",ignored:["c"]}),group("g2",["d","e"],{state:"locked"}),group("g3",["f","g"],{state:"copy_cues",tags_from:"f",keeper:null})]));
+  await open(maintenance);
+  fireEvent.click(screen.getByRole("button",{name:"Scan for duplicates"}));
+  fireEvent.click(await screen.findByRole("button",{name:/Review 1 group/}));
+  await screen.findAllByRole("article",{name:/Duplicate group/});
+  expect(screen.getByText("Track #1, #3 will not be archived. Tags and cues of track #2 will be used. 1 track will be archived.")).toBeInTheDocument();
+  expect(screen.getByText("Locked. No tracks will be archived.")).toBeInTheDocument();
+  expect(screen.getByText("Tags and cues of track #1 will be copied to the other track. No tracks will be archived.")).toBeInTheDocument();
+});

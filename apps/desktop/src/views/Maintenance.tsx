@@ -31,7 +31,7 @@ export default function Maintenance({bridge,maintenance,onLibraryChanged,onBack}
     <div className="cleanup-tabs" role="tablist" aria-label="Maintenance tools">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} disabled={!!task.busy&&tab!==id} onClick={()=>setTab(id)}>{name}</button>)}</div>
     <div className="cleanup-body maint-body">
       <div hidden={tab!=="duplicates"}><DuplicatesTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("duplicates")} onLibraryChanged={onLibraryChanged}/></div>
-      <div hidden={tab!=="broken"}><BrokenTab bridge={maintenance} task={task} changeTick={tickFor("broken")}/></div>
+      <div hidden={tab!=="broken"}><BrokenTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("broken")} onLibraryChanged={onLibraryChanged}/></div>
       <div hidden={tab!=="unused"}><UnusedTab library={bridge} bridge={maintenance} task={task} changeTick={tickFor("unused")} onLibraryChanged={onLibraryChanged}/></div>
       <div hidden={tab!=="backups"}><BackupsTab bridge={maintenance} task={task} changeTick={tickFor("backups")}/></div>
     </div>

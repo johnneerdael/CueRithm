@@ -500,3 +500,20 @@ after restoration. Schema10 had no track/job/cue/member rows changed, no foreign
 errors and no pending recovery. The native run previewed disposal only. Actual
 permanent disposal and its failure/restart paths were exercised by generated CLI
 tests. No user music/library or branding worktree was modified.
+
+## Screen-level comparison (2026-10-20)
+
+Re-inspected installed Lexicon 1.11.15 (same ASAR identity as above) against the
+new desktop Maintenance screens. Static reading only; no scan was executed and no
+code or assets are copied.
+
+| Behavior | Lexicon (seen) | Cuerithm screen |
+| --- | --- | --- |
+| Broken-track scope | `BrokenTrackScanner` reads the non-archived view and drops streaming rows. | Native scan reads `archived=0`; the screen says archived tracks are not checked (an earlier draft of this screen wrongly said they were). |
+| Broken-track actions | Path-list export, and a Delete that permanently removes the files and library records after a count confirmation, exporting playlist membership first. | Path-list copy, and Archive for tracks with a definite problem (missing, decode error, unsupported, no audio, video, not regular). Archive is recoverable and keeps analysis and cues. Unavailable and timed-out rows cannot be selected because a disconnected drive is not evidence of a broken file. Permanent deletion is a deliberate difference. |
+| Unused-file deletion | Confirmation states file count and total bytes and warns it cannot be undone. | Preview lists every file, sibling and folder; confirmation precedes a move to recovery storage with Restore; irreversible disposal is a separate acknowledged step. |
+| Duplicate group states | Unlocked, Locked, Copy-cues, with a per-group explanation sentence ("Locked. No tracks will be archived.", which tracks are kept, whose tags and cues are used, how many are archived). | Same three states and an equivalent sentence generated from the review (`outcome` in `DuplicatesTab.tsx`). |
+| Highlighting the best copy per field | Marks the most valuable cue count, year, size and duration in a group. | Not implemented. |
+
+These comparisons cover wording and workflow, not scanner output. Matching and
+fingerprint parity remain as recorded above.
