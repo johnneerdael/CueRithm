@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows, linux]
+        os: [linux]
     runs-on: ${{ fromJSON(format('["self-hosted","{0}","x64","cloudrunner","cuerithm"]', matrix.os)) }}
     timeout-minutes: 20
     steps:
