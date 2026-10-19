@@ -1,5 +1,5 @@
 import type {Waveform} from "./types";
-import {bandColour,isThreeBand,layerFills} from "./waveform-colour";
+import {bandColour,isLayered,layerFills} from "./waveform-colour";
 import type {Bands,Stop,Theme,WaveformStyle} from "./waveform-colour";
 export interface Layer{path:string;fill:string}
 export type Shape={mode:"bars";path:string;stops:Stop[]}|{mode:"layers";layers:Layer[]};
@@ -22,7 +22,7 @@ const fill=.92,clamp=(v:number,low:number,high:number)=>Math.min(high,Math.max(l
 // average level x 1.8 (at most half the height), x 1.6 (at most 30%) and x 0.4 after the 3x high boost.
 // Zooms overlay the layers around the centre: peak x 1.1 (clamped 0.8), x 0.6 (0.7) and x 0.2 (0.5).
 const mean=.9,stackLow=1.8*mean,stackMid=1.6*mean,stackHigh=.4*3*mean,peak=1.4;
-const scales=new WeakMap<Waveform,{bars:number;stack:number;overlay:number}>();
+const scales=new WeakMap<Waveform,{bars:number;stack:number;overlay:number;refs:Bands}>();
 const percentile=(values:number[],p:number)=>{if(!values.length)return 0;const sorted=[...values].sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor(p*sorted.length))];};
 // Scaled per track so quiet and loud tracks both use the height, and every view of one track agrees.
 function scaleOf(wave:Waveform){
@@ -33,6 +33,8 @@ function scaleOf(wave:Waveform){
       bars:bars>0?fill/bars:1,
       stack:bass>0?clamp(.45/(bass*stackLow),.7,2.5):1,
       overlay:bass>0?clamp(.7/(bass*peak*1.1),.7,2.5):1,
+      // Highs are always far quieter than bass, so each band is judged against its own typical level in this track.
+      refs:[0,1,2].map(k=>Math.max(48,percentile((wave.bands??[]).map(b=>b[k]),.9))) as Bands,
     };
     scales.set(wave,known);
   }
@@ -62,7 +64,7 @@ const f=(v:number)=>v.toFixed(1);
 // A filled band between two edges that share the columns' x positions.
 const band=(columns:Column[],upper:number[],lower:number[])=>"M"+columns.map((c,i)=>f(c.x)+","+f(upper[i])).join("L")+"L"+columns.map((c,i)=>f(c.x)+","+f(lower[i])).reverse().join("L")+"Z";
 function layersOf(wave:Waveform,style:WaveformStyle,columns:Column[],frame:Frame):Shape{
-  const fills=layerFills(style as "3band-blueyellow"|"3band-bluered",frame.theme),scale=scaleOf(wave),{mid,half}=frame;
+  const fills=layerFills(style,frame.theme),scale=scaleOf(wave),{mid,half}=frame;
   if(frame.stacked){
     // Heights are fractions of the full frame height, stacked upwards from the bottom edge.
     const bottom=mid+half,height=2*half,g=scale.stack;
@@ -86,14 +88,14 @@ function layersOf(wave:Waveform,style:WaveformStyle,columns:Column[],frame:Frame
 }
 export function buildShape(wave:Waveform,style:WaveformStyle,frame:Frame):Shape{
   const columns=columnsOf(wave,frame),scale=scaleOf(wave),{mid,half}=frame;
-  if(isThreeBand(style)&&wave.levels?.length&&columns.length)return layersOf(wave,style,columns,frame);
+  if(isLayered(style)&&wave.levels?.length&&columns.length)return layersOf(wave,style,columns,frame);
   const average=!!wave.rms?.length,pieces:string[]=[],stops:Stop[]=[];
-  const colourStyle=isThreeBand(style)?"rgb":style;
+  const colourStyle=isLayered(style)?(style==="layers-tonal"?"tonal":"cuerithm"):style;
   for(const c of columns){
     // Without level data (a waveform from before it was measured) fall back to the peak envelope.
     const up=average?Math.max(.02,Math.min(1,c.rms*scale.bars)):Math.min(1,c.max),down=average?up:Math.min(1,-c.min);
     pieces.push("M"+f(c.x)+","+f(mid-up*half)+"V"+f(mid+down*half));
-    if(wave.bands?.length)stops.push({offset:Math.min(1,Math.max(0,c.x/frame.width)),color:bandColour(colourStyle,c.bands,frame.theme)});
+    if(wave.bands?.length)stops.push({offset:Math.min(1,Math.max(0,c.x/frame.width)),color:bandColour(colourStyle,c.bands.map((v,k)=>Math.min(255,v/scale.refs[k]*255)) as Bands,frame.theme)});
   }
   return {mode:"bars",path:pieces.join(""),stops};
 }

@@ -463,9 +463,6 @@ textarea:focus-visible{outline:2px solid var(--cr-accent);outline-offset:2px}
 .brand-art{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
 .file-mark .brand-art img,.now-playing-art .brand-art img{width:58%;height:58%;object-fit:contain;border-radius:0}
 
-/* Waveform styles: the 3-band high layer is dark on the light theme and pale on the dark theme. */
-:root,[data-theme="light"]{--cr-wave-high-warm:#494949;--cr-wave-high-cool:#494949}
-[data-theme="dark"]{--cr-wave-high-warm:rgb(220,220,220);--cr-wave-high-cool:#fff}
 .wave-layer{opacity:.92}
 .wave-style-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:6px 0 0 29px}
 .wave-style-option{display:grid;gap:6px;text-align:left;padding:10px 12px;border:1px solid var(--cr-divider);border-radius:8px;background:var(--cr-surface);color:var(--cr-text);cursor:pointer}

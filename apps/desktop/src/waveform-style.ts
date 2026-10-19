@@ -1,8 +1,8 @@
 import {useSyncExternalStore} from "react";
-import {waveformStyles} from "./waveform-colour";
+import {defaultStyle,waveformStyles} from "./waveform-colour";
 import type {WaveformStyle} from "./waveform-colour";
 const key="cuerithm-waveform-style";
-const fallback:WaveformStyle="rgb";
+const fallback:WaveformStyle=defaultStyle;
 const valid=(value:unknown):value is WaveformStyle=>waveformStyles.some(s=>s.id===value);
 function stored():WaveformStyle{try{const v=localStorage.getItem(key);return valid(v)?v:fallback;}catch{return fallback;}}
 let current=stored();

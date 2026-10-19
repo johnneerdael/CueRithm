@@ -5,97 +5,92 @@ import RowPreview from "../components/RowPreview";
 import type {Detail,Playback,Waveform} from "../types";
 import Settings from "../views/Settings";
 import WaveformSettings,{sampleWaveform} from "../views/WaveformSettings";
-import {bandColour,contrastRatio,layerFills,legible,waveformStyles} from "../waveform-colour";
-import type {Theme} from "../waveform-colour";
+import {bandColour,contrastRatio,layerFills,legible,palettes,toOklab} from "../waveform-colour";
+import type {Theme,WaveformStyle} from "../waveform-colour";
 import {buildShape} from "../waveform-shape";
 import type {Frame} from "../waveform-shape";
 import {setWaveformStyle} from "../waveform-style";
 import {fakeBridge,track} from "./bridge";
 
-afterEach(()=>{act(()=>setWaveformStyle("rgb"));localStorage.clear();});
+afterEach(()=>{act(()=>setWaveformStyle("cuerithm"));localStorage.clear();});
 const frame=(columns:number,count:number):Frame=>({first:0,last:count,columns,x:bin=>(bin+.5)/count*100,width:100,mid:20,half:15});
 // Vertical extent of each "M x,top V bottom" bar.
 const heights=(path:string)=>[...path.matchAll(/M[\d.]+,([\d.-]+)V([\d.-]+)/g)].map(m=>Number(m[2])-Number(m[1]));
 const stopColours=(root:Element)=>[...root.querySelector("linearGradient")!.querySelectorAll("stop")].map(s=>s.getAttribute("style")!.replace(/\s/g,""));
 const loader=(wave:Waveform)=>async()=>({wave,detail:{} as unknown as Detail});
+const rgbOf=(css:string)=>css.match(/\d+/g)!.map(Number);
+const hex=(h:string)=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const close=(a:number[],b:number[],by=4)=>a.every((v,i)=>Math.abs(v-b[i])<=by);
+const background:Record<Theme,number[]>={light:[240,241,247],dark:[34,38,53]};
+const blends=palettes.filter(p=>p.mode==="blend"),layered=palettes.filter(p=>p.mode==="layers");
 
-describe("waveform colour",()=>{
-  it("applies each style's colour filter to the bass, mid and high blend",()=>{
-    expect(bandColour("rgb",[255,0,0])).toBe("rgb(255,0,50)");
-    expect(bandColour("pink-blue",[255,0,0])).toBe("rgb(0,75,221)");
-    const green=bandColour("rgb",[0,255,0]).match(/\d+/g)!.map(Number);
-    expect(green[1]).toBeGreaterThan(200);expect(green[0]).toBeLessThan(80);expect(green[2]).toBeLessThan(40);
-    expect(bandColour("blue-green",[255,0,0])).not.toBe(bandColour("rgb",[255,0,0]));
+describe("waveform palettes",()=>{
+  it("maps a band that clearly leads to its anchor colour",()=>{
+    const [bass,mid,high]=palettes[0].anchors.map(hex);
+    expect(close(rgbOf(bandColour("cuerithm",[255,0,0])),bass)).toBe(true);
+    expect(close(rgbOf(bandColour("cuerithm",[0,255,0])),mid)).toBe(true);
+    expect(close(rgbOf(bandColour("cuerithm",[0,0,255])),high)).toBe(true);
+  });
+  it("is built on the brand's cobalt and coral",()=>{
+    expect(palettes[0].id).toBe("cuerithm");
+    expect(palettes[0].anchors.slice(0,2)).toEqual(["#3658F5","#FF785E"]);
   });
   it("leaves silence on the neutral text colour",()=>{
-    expect(bandColour("rgb",[0,0,0])).toBe("var(--cr-muted)");
+    expect(bandColour("cuerithm",[0,0,0])).toBe("var(--cr-muted)");
   });
-});
-
-describe("waveform legibility",()=>{
-  const background:Record<Theme,number[]>={light:[240,241,247],dark:[34,38,53]};
-  const rgbOf=(css:string)=>css.match(/\d+/g)!.map(Number);
-  const hueOf=([r,g,b]:number[])=>{const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(d<25)return null;const h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360;};
-  const hueGap=(a:number,b:number)=>Math.min(Math.abs(a-b),360-Math.abs(a-b));
-  const grid=[0,85,170,255],blends=waveformStyles.filter(s=>!s.id.startsWith("3band")).map(s=>s.id);
-  const triples=grid.flatMap(r=>grid.flatMap(g=>grid.map(b=>[r,g,b] as [number,number,number]))).filter(t=>t[0]+t[1]+t[2]>0);
+  it("steps every palette from dark bass to light highs so bands differ by lightness alone",()=>{
+    for(const p of palettes){
+      const [bass,mid,high]=p.anchors.map(a=>toOklab(hex(a))[0]);
+      expect(mid-bass,p.id).toBeGreaterThanOrEqual(.1);
+      expect(high-mid,p.id).toBeGreaterThanOrEqual(.1);
+    }
+  });
+  it("blends between anchors in lightness and keeps the blend saturated instead of greying out",()=>{
+    const [bass,mid]=palettes[0].anchors.map(a=>toOklab(hex(a)));
+    const mixed=toOklab(rgbOf(bandColour("cuerithm",[255,255,0])));
+    expect(mixed[0]).toBeGreaterThan(bass[0]);expect(mixed[0]).toBeLessThan(mid[0]);
+    const chroma=(l:number[])=>Math.hypot(l[1],l[2]);
+    // Cobalt and coral are near-opposite hues, so a plain average would sit close to grey.
+    expect(chroma(mixed)).toBeGreaterThan(Math.min(chroma(bass),chroma(mid))*.7);
+  });
   it("keeps every blended colour at 3:1 contrast or better on both themes",()=>{
-    for(const theme of ["light","dark"] as const)for(const style of blends)for(const t of triples){
-      const colour=rgbOf(bandColour(style,t,theme));
-      expect(contrastRatio(colour,background[theme]),`${style} ${theme} ${t}`).toBeGreaterThanOrEqual(2.95);
+    const grid=[0,85,170,255],triples=grid.flatMap(r=>grid.flatMap(g=>grid.map(b=>[r,g,b] as [number,number,number]))).filter(t=>t[0]+t[1]+t[2]>0);
+    for(const theme of ["light","dark"] as const)for(const p of blends)for(const t of triples){
+      expect(contrastRatio(rgbOf(bandColour(p.id,t,theme)),background[theme]),`${p.id} ${theme} ${t}`).toBeGreaterThanOrEqual(2.95);
     }
   });
-  it("darkens pale colours on the light theme without changing their hue",()=>{
-    let adjusted=0;
-    for(const style of blends)for(const t of triples){
-      const raw=rgbOf(bandColour(style,t)),shown=rgbOf(bandColour(style,t,"light"));
-      if(raw.join()===shown.join())continue;
-      adjusted++;
-      const [before,after]=[hueOf(raw),hueOf(shown)];
-      if(before!==null&&after!==null)expect(hueGap(before,after),`${style} ${t}`).toBeLessThan(25);
-      expect(contrastRatio(shown,background.light)).toBeGreaterThan(contrastRatio(raw,background.light));
-    }
-    expect(adjusted).toBeGreaterThan(0);
-  });
-  it("leaves colours that are already legible exactly as Lexicon draws them",()=>{
-    expect(bandColour("rgb",[255,0,0],"dark")).toBe(bandColour("rgb",[255,0,0]));
-    expect(legible([7,73,184],"light")).toEqual([7,73,184]);
-  });
-  it("lifts dark colours on the dark theme instead of darkening them",()=>{
-    const raw=rgbOf(bandColour("blue-green",[255,0,0])),shown=rgbOf(bandColour("blue-green",[255,0,0],"dark"));
-    expect(contrastRatio(raw,background.dark)).toBeLessThan(3);
-    expect(contrastRatio(shown,background.dark)).toBeGreaterThanOrEqual(2.95);
-    expect(shown[1]).toBeGreaterThan(raw[1]);
-  });
-  it("makes the 3-band layer colours legible on the light theme and leaves the high layer to its token",()=>{
-    for(const style of ["3band-blueyellow","3band-bluered"] as const){
-      const [low,mid,high]=layerFills(style,"light");
-      expect(contrastRatio(rgbOf(low),background.light)).toBeGreaterThanOrEqual(2.95);
-      expect(contrastRatio(rgbOf(mid),background.light)).toBeGreaterThanOrEqual(2.95);
-      expect(high).toMatch(/^var\(--cr-wave-high/);
+  it("keeps the layer colours legible on both themes",()=>{
+    for(const theme of ["light","dark"] as const)for(const p of layered)for(const fill of layerFills(p.id,theme)){
+      expect(contrastRatio(rgbOf(fill),background[theme]),`${p.id} ${theme}`).toBeGreaterThanOrEqual(2.95);
     }
   });
-  it("applies the theme through buildShape",()=>{
-    const w:Waveform={duration_seconds:60,bins:[{min:-.5,max:.5},{min:-.5,max:.5}],rms:[.3,.3],bands:[[255,255,0],[255,255,0]],levels:[[.3,.1,.02],[.3,.1,.02]]};
-    const light=buildShape(w,"rgb",{...frame(2,2),theme:"light"}),raw=buildShape(w,"rgb",frame(2,2));
-    if(light.mode!=="bars"||raw.mode!=="bars")throw new Error("expected bars");
-    expect(light.stops[0].color).toBe(bandColour("rgb",[255,255,0],"light"));
-    expect(raw.stops[0].color).toBe(bandColour("rgb",[255,255,0]));
+  it("lifts a colour that is too dark for the dark theme and darkens one that is too pale for the light theme",()=>{
+    const cobalt=hex("#3658F5"),ice=hex("#9AF0DC");
+    expect(contrastRatio(cobalt,background.dark)).toBeLessThan(3);
+    expect(toOklab(legible(cobalt,"dark"))[0]).toBeGreaterThan(toOklab(cobalt)[0]);
+    expect(contrastRatio(ice,background.light)).toBeLessThan(3);
+    const darker=legible(ice,"light");
+    expect(toOklab(darker)[0]).toBeLessThan(toOklab(ice)[0]);
+    expect(contrastRatio(darker,background.light)).toBeGreaterThanOrEqual(2.95);
+  });
+  it("leaves colours that are already legible exactly as designed",()=>{
+    expect(legible([255,120,94],"dark")).toEqual([255,120,94]);
+    expect(legible([41,70,216],"light")).toEqual([41,70,216]);
   });
 });
 
 describe("waveform shape",()=>{
-  const wave=(rms:number[],peak:number):Waveform=>({duration_seconds:60,bins:rms.map(()=>({min:-peak,max:peak})),rms,bands:rms.map(()=>[255,0,0]),levels:rms.map(r=>[r,r/2,r/8])});
+  const wave=(rms:number[],peak:number,bands:[number,number,number]=[255,0,0]):Waveform=>({duration_seconds:60,bins:rms.map(()=>({min:-peak,max:peak})),rms,bands:rms.map(()=>bands),levels:rms.map(r=>[r,r/2,r/8])});
   it("sizes bars by average level, not by peak",()=>{
     // Identical peaks, different loudness: only the average level may change the bar.
-    const shape=buildShape(wave([.1,.1,.4,.4],.9),"rgb",frame(4,4));
+    const shape=buildShape(wave([.1,.1,.4,.4],.9),"cuerithm",frame(4,4));
     if(shape.mode!=="bars")throw new Error("expected bars");
     const [a,b,c,d]=heights(shape.path);
     expect(a).toBeCloseTo(b);expect(c).toBeCloseTo(d);
     expect(c).toBeGreaterThan(a*2);
   });
   it("scales each track so a quiet one still fills the height",()=>{
-    const quiet=buildShape(wave([.02,.04,.08,.1],.9),"rgb",frame(4,4)),loud=buildShape(wave([.2,.4,.8,1],.9),"rgb",frame(4,4));
+    const quiet=buildShape(wave([.02,.04,.08,.1],.9),"cuerithm",frame(4,4)),loud=buildShape(wave([.2,.4,.8,1],.9),"cuerithm",frame(4,4));
     if(quiet.mode!=="bars"||loud.mode!=="bars")throw new Error("expected bars");
     const q=heights(quiet.path),l=heights(loud.path);
     expect(Math.max(...q)).toBeCloseTo(Math.max(...l),1);
@@ -103,41 +98,51 @@ describe("waveform shape",()=>{
   });
   it("falls back to the peak envelope when a waveform has no level data",()=>{
     const old:Waveform={duration_seconds:60,bins:[{min:-.2,max:.2},{min:-.8,max:.8}]};
-    const shape=buildShape(old,"rgb",frame(2,2));
+    const shape=buildShape(old,"cuerithm",frame(2,2));
     if(shape.mode!=="bars")throw new Error("expected bars");
     const [small,large]=heights(shape.path);
     expect(large).toBeGreaterThan(small*3);
     expect(shape.stops).toEqual([]);
   });
-  it("gives one gradient stop per column, coloured by the chosen style",()=>{
-    const w=wave([.2,.2,.2,.2],.5),rgb=buildShape(w,"rgb",frame(4,4)),pink=buildShape(w,"pink-blue",frame(4,4));
-    if(rgb.mode!=="bars"||pink.mode!=="bars")throw new Error("expected bars");
-    expect(rgb.stops).toHaveLength(4);
-    expect(rgb.stops[0].color).toBe(bandColour("rgb",[255,0,0]));
-    expect(pink.stops[0].color).toBe(bandColour("pink-blue",[255,0,0]));
-    expect(rgb.stops.map(s=>s.offset)).toEqual([...rgb.stops.map(s=>s.offset)].sort((x,y)=>x-y));
+  it("gives one gradient stop per column, coloured by the chosen palette",()=>{
+    const w=wave([.2,.2,.2,.2],.5),a=buildShape(w,"cuerithm",frame(4,4)),b=buildShape(w,"dusk",frame(4,4));
+    if(a.mode!=="bars"||b.mode!=="bars")throw new Error("expected bars");
+    expect(a.stops).toHaveLength(4);
+    expect(a.stops[0].color).toBe(bandColour("cuerithm",[255,0,0]));
+    expect(b.stops[0].color).toBe(bandColour("dusk",[255,0,0]));
+    expect(a.stops.map(s=>s.offset)).toEqual([...a.stops.map(s=>s.offset)].sort((x,y)=>x-y));
+  });
+  it("judges each band against its own typical level in the track, so quiet highs still show",()=>{
+    // Highs never exceed 100/255 here; relative to this track they are at full strength.
+    const shape=buildShape(wave([.2,.2,.2,.2],.5,[255,0,100]),"cuerithm",frame(4,4));
+    if(shape.mode!=="bars")throw new Error("expected bars");
+    expect(shape.stops[0].color).toBe(bandColour("cuerithm",[255,0,255]));
+    // A floor stops a band that is essentially absent from being boosted into view.
+    const absent=buildShape(wave([.2,.2,.2,.2],.5,[255,0,3]),"cuerithm",frame(4,4));
+    if(absent.mode!=="bars")throw new Error("expected bars");
+    expect(absent.stops[0].color).toBe(bandColour("cuerithm",[255,0,16]));
   });
   it("groups bins into at most the requested columns",()=>{
-    const shape=buildShape(wave(Array(1000).fill(.3),.5),"rgb",frame(50,1000));
+    const shape=buildShape(wave(Array(1000).fill(.3),.5),"cuerithm",frame(50,1000));
     if(shape.mode!=="bars")throw new Error("expected bars");
     expect(heights(shape.path)).toHaveLength(50);expect(shape.stops).toHaveLength(50);
   });
   const top=(path:string)=>Number(path.match(/^M[\d.]+,([\d.-]+)/)![1]);
   const lowest=(path:string)=>Math.max(...[...path.matchAll(/,([\d.-]+)/g)].map(m=>Number(m[1])));
-  it("overlays the 3-band layers around the centre for zoomed views, bass widest and the high layer a thin core",()=>{
-    const shape=buildShape(wave([.3,.3,.3,.3],.6),"3band-blueyellow",frame(4,4));
+  it("overlays the layers around the centre for zoomed views, bass widest and the high layer a thin core",()=>{
+    const shape=buildShape(wave([.3,.3,.3,.3],.6),"layers",frame(4,4));
     if(shape.mode!=="layers")throw new Error("expected layers");
-    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("3band-blueyellow"));
+    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("layers"));
     // Smaller y is further above the centre line (20): bass reaches furthest, then mids, then highs.
     const [bass,mids,highs]=shape.layers.map(l=>20-top(l.path));
     expect(bass).toBeGreaterThan(mids);expect(mids).toBeGreaterThan(highs);
     expect(highs).toBeLessThan(bass/5);
     expect(highs).toBeGreaterThan(0);
   });
-  it("stacks the 3-band layers up from the bottom edge for overviews: bass, then mids, then highs",()=>{
-    const shape=buildShape(wave([.3,.3,.3,.3],.6),"3band-bluered",{...frame(4,4),stacked:true});
+  it("stacks the layers up from the bottom edge for overviews: bass, then mids, then highs",()=>{
+    const shape=buildShape(wave([.3,.3,.3,.3],.6),"layers-tonal",{...frame(4,4),stacked:true});
     if(shape.mode!=="layers")throw new Error("expected layers");
-    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("3band-bluered"));
+    expect(shape.layers.map(l=>l.fill)).toEqual(layerFills("layers-tonal"));
     // The base layer sits on the bottom edge (mid 20 + half 15) and each layer starts where the last ended.
     expect(lowest(shape.layers[0].path)).toBeCloseTo(35);
     const [bass,mids,highs]=shape.layers.map(l=>top(l.path));
@@ -148,24 +153,36 @@ describe("waveform shape",()=>{
   });
   it("caps the stacked bass at half the height and the mids at 30% so a loud track cannot swallow the highs",()=>{
     const loud:Waveform={...wave([.9,.9],.9),levels:[[.9,.9,.1],[.9,.9,.1]]};
-    const shape=buildShape(loud,"3band-blueyellow",{...frame(2,2),stacked:true});
+    const shape=buildShape(loud,"layers",{...frame(2,2),stacked:true});
     if(shape.mode!=="layers")throw new Error("expected layers");
     const height=30,[bass,mids]=shape.layers.map(l=>top(l.path));
     expect((35-bass)/height).toBeCloseTo(.5,1);
     expect((bass-mids)/height).toBeCloseTo(.3,1);
   });
+  it("applies the theme through buildShape and leaves colours as designed without one",()=>{
+    const w=wave([.3,.3],.5,[255,255,0]);
+    const light=buildShape(w,"cuerithm",{...frame(2,2),theme:"light"}),plain=buildShape(w,"cuerithm",frame(2,2));
+    if(light.mode!=="bars"||plain.mode!=="bars")throw new Error("expected bars");
+    expect(light.stops[0].color).toBe(bandColour("cuerithm",[255,255,0],"light"));
+    expect(plain.stops[0].color).toBe(bandColour("cuerithm",[255,255,0]));
+  });
+  it("draws a layered style as bars with that palette's colours when levels are missing",()=>{
+    const old:Waveform={duration_seconds:60,bins:[{min:-.5,max:.5},{min:-.5,max:.5}],rms:[.3,.3],bands:[[0,255,0],[0,255,0]]};
+    const shape=buildShape(old,"layers",frame(2,2));
+    expect(shape.mode).toBe("bars");
+  });
 });
 
 describe("waveform styles in the app",()=>{
-  it("strokes a row preview with the colours of the chosen style and switches live",async()=>{
+  it("strokes a row preview with the chosen palette and switches live, including to a layered style",async()=>{
     const {container}=render(<RowPreview id="t" identity="a" load={loader(sampleWaveform(120))}/>);
     await waitFor(()=>expect(container.querySelector("linearGradient")).not.toBeNull(),{timeout:2000});
-    const rgb=stopColours(container);
+    const first=stopColours(container);
     expect(container.querySelector(".preview-wave")!.getAttribute("style")).toContain("url(#"+container.querySelector("linearGradient")!.id+")");
-    act(()=>setWaveformStyle("pink-blue"));
-    expect(container.querySelector(".row-preview-chart")).toHaveAttribute("data-wave-style","pink-blue");
-    expect(stopColours(container)).not.toEqual(rgb);
-    act(()=>setWaveformStyle("3band-bluered"));
+    act(()=>setWaveformStyle("dusk"));
+    expect(container.querySelector(".row-preview-chart")).toHaveAttribute("data-wave-style","dusk");
+    expect(stopColours(container)).not.toEqual(first);
+    act(()=>setWaveformStyle("layers"));
     expect(container.querySelector("linearGradient")).toBeNull();
     expect(container.querySelectorAll(".wave-layer")).toHaveLength(3);
   });
@@ -175,35 +192,48 @@ describe("waveform styles in the app",()=>{
     expect(container.querySelector("linearGradient")).toBeNull();
     expect(container.querySelector(".preview-wave")!.getAttribute("style")).toBeNull();
   });
-  it("draws the player with the same colours as the row preview for the same track",async()=>{
+  it("draws the player with the same colours as the row preview for the same track, in every style and theme",async()=>{
     const wave=sampleWaveform(120);
     const detail={track:track("a"),source_sha256:"h",pcm_sha256:"p",analysis:null} as unknown as Detail;
     const status:Playback={track_id:"a",duration_seconds:300,position_seconds:10,playing:true,volume:.5,error:null};
-    for(const style of ["rgb","blue-green","pink-blue","3band-blueyellow","3band-bluered"] as const){
-      act(()=>setWaveformStyle(style));
-      const preview=render(<RowPreview id={"t"+style} identity="a" load={loader(wave)}/>);
-      await waitFor(()=>expect(preview.container.querySelector("svg")).not.toBeNull(),{timeout:2000});
-      const player=render(<PlayerPanel status={status} detail={detail} data={wave} busy={false} onToggle={vi.fn()} onPause={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}/>);
-      const overview=player.container.querySelector(".wave.overview")!;
-      expect(overview).toHaveAttribute("data-wave-style",style);
-      expect(preview.container.querySelector(".row-preview-chart")).toHaveAttribute("data-wave-style",style);
-      if(style.startsWith("3band")){
-        const fills=(root:Element)=>[...root.querySelectorAll(".wave-layer")].map(p=>p.getAttribute("style"));
-        expect(fills(overview)).toHaveLength(3);expect(fills(overview)).toEqual(fills(preview.container));
-      }else{
-        expect(stopColours(overview)).toEqual(stopColours(preview.container));
+    for(const theme of ["dark","light"] as const){
+      document.documentElement.dataset.theme=theme;
+      for(const {id:style} of palettes){
+        act(()=>setWaveformStyle(style));
+        const preview=render(<RowPreview id={"t"+style+theme} identity="a" load={loader(wave)}/>);
+        await waitFor(()=>expect(preview.container.querySelector("svg")).not.toBeNull(),{timeout:2000});
+        const player=render(<PlayerPanel status={status} detail={detail} data={wave} busy={false} onToggle={vi.fn()} onPause={vi.fn()} onSeek={vi.fn()} onVolume={vi.fn()}/>);
+        const overview=player.container.querySelector(".wave.overview")!;
+        expect(overview).toHaveAttribute("data-wave-style",style);
+        expect(preview.container.querySelector(".row-preview-chart")).toHaveAttribute("data-wave-style",style);
+        if(style.startsWith("layers")){
+          const fills=(root:Element)=>[...root.querySelectorAll(".wave-layer")].map(p=>p.getAttribute("style"));
+          expect(fills(overview)).toHaveLength(3);expect(fills(overview)).toEqual(fills(preview.container));
+        }else{
+          expect(stopColours(overview),`${style} ${theme}`).toEqual(stopColours(preview.container));
+        }
+        preview.unmount();player.unmount();
       }
-      preview.unmount();player.unmount();
     }
+    delete document.documentElement.dataset.theme;
+  });
+  it("recolours for the active theme when the theme changes",async()=>{
+    const wave=sampleWaveform(120);
+    document.documentElement.dataset.theme="dark";
+    const {container}=render(<RowPreview id="t" identity="theme" load={loader(wave)}/>);
+    await waitFor(()=>expect(container.querySelector("linearGradient")).not.toBeNull(),{timeout:2000});
+    const dark=stopColours(container);
+    act(()=>{document.documentElement.dataset.theme="light";});
+    await waitFor(()=>expect(stopColours(container)).not.toEqual(dark));
+    delete document.documentElement.dataset.theme;
   });
   it("lets the Appearance page choose the style, remembers it, and shows every option",()=>{
     render(<WaveformSettings/>);
-    const options=screen.getAllByRole("radio");
-    expect(options).toHaveLength(5);
-    expect(screen.getByRole("radio",{name:/^RGB/})).toHaveAttribute("aria-checked","true");
-    fireEvent.click(screen.getByRole("radio",{name:/3-band blue and red/}));
-    expect(screen.getByRole("radio",{name:/3-band blue and red/})).toHaveAttribute("aria-checked","true");
-    expect(localStorage.getItem("cuerithm-waveform-style")).toBe("3band-bluered");
+    expect(screen.getAllByRole("radio")).toHaveLength(palettes.length);
+    expect(screen.getByRole("radio",{name:/^CueRithm/})).toHaveAttribute("aria-checked","true");
+    fireEvent.click(screen.getByRole("radio",{name:/^Layers, tonal/}));
+    expect(screen.getByRole("radio",{name:/^Layers, tonal/})).toHaveAttribute("aria-checked","true");
+    expect(localStorage.getItem("cuerithm-waveform-style")).toBe("layers-tonal" satisfies WaveformStyle);
   });
   it("offers Appearance as a settings page without a save button",async()=>{
     const bridge=fakeBridge([]);
