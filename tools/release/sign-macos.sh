@@ -8,7 +8,7 @@ dmg=$2
 work=$(cd "$(mktemp -d)" && pwd -P)  # the app rejects symlinked paths such as /var
 trap 'rm -rf "$work"' EXIT
 tar -xzf "$archive" -C "$work"
-app="$work/Cuerithm.app"
+app="$work/CueRithm.app"
 media="$app/Contents/Resources/media"
 
 sign() { codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$@"; }
@@ -40,9 +40,9 @@ codesign --verify --deep --strict --verbose=2 "$app"
 # DMG, signed and notarized as a whole so the stapled ticket travels with it.
 stage="$work/dmg"
 mkdir "$stage"
-ditto "$app" "$stage/Cuerithm.app"
+ditto "$app" "$stage/CueRithm.app"
 ln -s /Applications "$stage/Applications"
-hdiutil create -quiet -volname Cuerithm -srcfolder "$stage" -format UDZO "$dmg"
+hdiutil create -quiet -volname CueRithm -srcfolder "$stage" -format UDZO "$dmg"
 sign "$dmg"
 xcrun notarytool submit "$dmg" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" \
   --issuer "$NOTARY_ISSUER_ID" --wait | tee "$work/notary.txt"

@@ -1032,6 +1032,7 @@ dependencies = [
  "onetagger-tag",
  "rodio",
  "rusqlite",
+ "rustfft",
  "same-file",
  "serde",
  "serde_json",

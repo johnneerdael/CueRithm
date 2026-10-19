@@ -183,22 +183,33 @@ fn reopening_waits_for_a_briefly_inherited_child_lease() {
     let library = cuerithm_library::Library::open(&db).unwrap();
     // A concurrent decoder spawn can briefly inherit flock's open description.
     // The child performs only async-signal-safe operations and never uses SQLite.
+    // It exits when the parent says so, so the lease is held for a fixed 25 ms
+    // however long the scheduler takes to start the child.
+    let mut pipe = [0; 2];
+    assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
     let child = unsafe { libc::fork() };
     assert!(child >= 0);
     if child == 0 {
-        let delay = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 100_000_000,
-        };
+        let mut byte = 0u8;
         unsafe {
-            libc::nanosleep(&delay, std::ptr::null_mut());
+            libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1);
             libc::_exit(0);
         }
     }
+    let release = pipe[1];
+    let releaser = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(25));
+        unsafe {
+            libc::write(release, [0u8].as_ptr().cast(), 1);
+        }
+    });
     drop(library);
     let reopened = cuerithm_library::Library::open(&db);
+    releaser.join().unwrap();
     unsafe {
         libc::waitpid(child, std::ptr::null_mut(), 0);
+        libc::close(pipe[0]);
+        libc::close(pipe[1]);
     }
     assert!(
         reopened.is_ok(),

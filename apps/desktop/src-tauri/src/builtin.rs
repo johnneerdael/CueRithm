@@ -16,7 +16,7 @@ impl BuiltinModels {
     pub fn verify() -> Result<()> {
         ensure!(
             format!("{:x}", Sha256::digest(KEY)) == KEY_SHA,
-            "Built-in analysis component failed verification; reinstall Cuerithm"
+            "Built-in analysis component failed verification; reinstall CueRithm"
         );
         Ok(())
     }

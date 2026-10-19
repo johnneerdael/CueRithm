@@ -22,6 +22,7 @@ cuerithm-maintenance = { path = "../cuerithm-maintenance" }
 same-file = "=1.0.6"
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
+rustfft.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

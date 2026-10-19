@@ -1,0 +1,1 @@
+(function(){try{var m=localStorage.getItem("cuerithm-theme");var d=m==="dark"||(m!=="light"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){document.documentElement.dataset.theme="dark";}})();

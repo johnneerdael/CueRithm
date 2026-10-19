@@ -4,18 +4,19 @@ import type {Bridge,Snapshot,Settings as SettingsType,EngineSettings} from "../t
 import TaggingSettings from "./TaggingSettings";
 import CleanupSettings,{cleanupValidationError} from "./CleanupSettings";
 import PlaylistPreferences from "./PlaylistPreferences";
+import WaveformSettings from "./WaveformSettings";
 import {errorMessage} from "../api";
 export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
   const [draft,setDraft]=useState<SettingsType>(snapshot.settings);
   const [page,setPage]=useState("Incoming");
-  const pages=["Incoming","Cue generation","Automatic tagging","Cleanup","Library preferences"];
+  const pages=["Incoming","Cue generation","Automatic tagging","Cleanup","Library preferences","Appearance"];
   const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);
   useEffect(()=>{setDraft(snapshot.settings);},[snapshot.revision]);
   const cleanupError=cleanupValidationError(draft.cleanup);
   const engine=(patch:Partial<EngineSettings>)=>{setSaved(false);setDraft(d=>({...d,engine:{...d.engine,...patch}}));};
   return <section className="settings-view">
     <div className="view-title"><div><button className="back-link" onClick={onBack}><ChevronLeft size={15}/>Library</button><h1>Settings</h1><p>Configure preparation once. Incoming tracks take it from here.</p></div>
-    {page!=="Library preferences"?<button className="primary" disabled={busy||!!cleanupError} onClick={async()=>{if(cleanupError){setError(cleanupError);return;}setBusy(true);setError(null);try{await bridge.saveSettings(draft);setSaved(true);onSaved();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}}>{saved?<Check size={16}/>:<Save size={16}/>} {busy?"Saving…":saved?"Settings saved":"Save settings"}</button>:null}</div>
+    {page!=="Library preferences"&&page!=="Appearance"?<button className="primary" disabled={busy||!!cleanupError} onClick={async()=>{if(cleanupError){setError(cleanupError);return;}setBusy(true);setError(null);try{await bridge.saveSettings(draft);setSaved(true);onSaved();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}}}>{saved?<Check size={16}/>:<Save size={16}/>} {busy?"Saving…":saved?"Settings saved":"Save settings"}</button>:null}</div>
     {error?<div role="alert" className="error-banner">{error}</div>:null}
     {cleanupError?<div role="alert" className="error-banner">{cleanupError} Review Cleanup settings.</div>:null}
     <div className="settings-workspace"><nav className="settings-nav" aria-label="Settings pages">{pages.map(name=><button key={name} aria-current={page===name?"page":undefined} disabled={busy} onClick={()=>setPage(name)}>{name}</button>)}</nav><div className="settings-body"><div hidden={page!=="Library preferences"}><PlaylistPreferences bridge={bridge} onSaved={onSaved}/></div><fieldset hidden={page==="Library preferences"} className="settings-fields" disabled={busy}>
@@ -32,6 +33,7 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
       </section>:null}
       {page==="Automatic tagging"?<TaggingSettings bridge={bridge} config={draft.tagging} enabled={draft.autotag_enabled} onChange={(tagging,enabled)=>{setSaved(false);setDraft(d=>({...d,tagging,autotag_enabled:enabled}));}}/>:null}
       {page==="Cleanup"?<CleanupSettings config={draft.cleanup} enabled={draft.cleanup_enabled} onChange={(cleanup,enabled)=>{setSaved(false);setDraft(d=>({...d,cleanup,cleanup_enabled:enabled}));}}/>:null}
+      {page==="Appearance"?<WaveformSettings/>:null}
     </fieldset></div></div>
   </section>;
 }
