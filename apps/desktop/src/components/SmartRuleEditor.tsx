@@ -7,14 +7,20 @@ import type {SmartOperator} from "../smart-rules";
 import {errorMessage} from "../api";
 
 function DateInput({label,value,catalog,bridge,onValue,onPending,onError}:{label:string;value:number;catalog:SmartCatalog;bridge:Bridge;onValue:(v:number)=>void;onPending:(delta:number)=>void;onError:(message:string)=>void}){
-  const [text,setText]=useState(()=>calendarDay(value,catalog.time_zone));const request=useRef(0);
-  useEffect(()=>{setText(calendarDay(value,catalog.time_zone));},[value,catalog.time_zone]);
-  useEffect(()=>()=>{request.current++;},[]);
+  const [text,setText]=useState(()=>Number.isFinite(value)?calendarDay(value,catalog.time_zone):"");
+  const request=useRef(0),releasePending=useRef<(()=>void)|null>(null);
+  useEffect(()=>{if(Number.isFinite(value))setText(calendarDay(value,catalog.time_zone));},[value,catalog.time_zone]);
+  useEffect(()=>()=>{request.current++;releasePending.current?.();},[bridge,catalog.time_zone,catalog.stamp.preference_revision]);
   return <input type="date" aria-label={label} value={text} onChange={event=>{
     const day=event.target.value;setText(day);const generation=++request.current;
+    releasePending.current?.();
+    // Keep the definition invalid until this exact calendar input resolves.
+    onValue(NaN);
     if(!day){onError("Choose a calendar date");return;}
     onPending(1);
-    void bridge.resolvePlaylistDate(day,catalog.stamp.preference_revision).then(next=>{if(generation===request.current)onValue(next);}).catch(error=>{if(generation===request.current)onError(errorMessage(error));}).finally(()=>onPending(-1));
+    const finish=()=>{if(releasePending.current===finish){releasePending.current=null;onPending(-1);}};
+    releasePending.current=finish;
+    void bridge.resolvePlaylistDate(day,catalog.stamp.preference_revision).then(next=>{if(generation===request.current)onValue(next);}).catch(error=>{if(generation===request.current)onError(errorMessage(error));}).finally(finish);
   }}/>;
 }
 function path(node:PlaylistNode,nodes:PlaylistNode[]):string {
@@ -63,7 +69,7 @@ export default function SmartRuleEditor({bridge,catalog,value,onChange,onPending
           <button type="button" aria-label={`Move condition ${index+1} up`} disabled={index===0} onClick={()=>move(index,-1)}><ArrowUp size={13}/></button><button type="button" aria-label={`Move condition ${index+1} down`} disabled={index===value.rules.length-1} onClick={()=>move(index,1)}><ArrowDown size={13}/></button><button type="button" aria-label={`Remove condition ${index+1}`} onClick={()=>onChange({...value,rules:value.rules.filter(r=>r.id!==rule.id)})}><X size={14}/></button>
         </div>
         {field?.unavailable_reason?<p className="attention">{field.unavailable_reason}</p>:null}
-        <div className="smart-condition-value"><ValueInput rule={rule} index={index} catalog={catalog} bridge={bridge} onChange={next=>updateValue(rule.id,next)} onPending={onPending} onError={onError}/></div>
+        <div className="smart-condition-value"><ValueInput key={`${rule.field}:${rule.operator}`} rule={rule} index={index} catalog={catalog} bridge={bridge} onChange={next=>updateValue(rule.id,next)} onPending={onPending} onError={onError}/></div>
         <label className="rule-or"><input type="checkbox" checked={rule.or} onChange={e=>update(rule.id,{or:e.target.checked})} aria-label={`OR group for condition ${index+1}`}/>OR group</label>
       </fieldset>;
     })}
