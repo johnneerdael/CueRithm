@@ -44,19 +44,39 @@ fn every_format_shares_waveform_seek_and_analysis_clock() {
         assert_eq!(peaks.bins.len(), 1024);
         assert_eq!(peaks.bands.len(), 1024);
         assert!(peaks.bands.iter().any(|b| b.contains(&255)));
-        // A cache written before colour existed has no bands and must be rebuilt, not served.
-        for entry in std::fs::read_dir(d.path().join("wave-cache")).unwrap() {
-            let path = entry.unwrap().path();
-            let mut value: serde_json::Value =
-                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-            value.as_object_mut().unwrap().remove("bands");
-            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
-        }
-        let rebuilt = cached_waveform(&audio, 1024, &d.path().join("wave-cache")).unwrap();
-        assert_eq!(
-            serde_json::to_value(&peaks).unwrap(),
-            serde_json::to_value(rebuilt).unwrap()
+        assert_eq!(peaks.rms.len(), 1024);
+        assert_eq!(peaks.levels.len(), 1024);
+        assert!(peaks.rms.iter().any(|r| *r > 0.));
+        // Average level can never exceed the peak in the same bin.
+        assert!(
+            peaks
+                .rms
+                .iter()
+                .zip(&peaks.bins)
+                .all(|(r, b)| *r <= b.max.abs().max(b.min.abs()) + 1e-3)
         );
+        assert!(
+            peaks
+                .levels
+                .iter()
+                .all(|l| l.iter().all(|v| v.is_finite() && *v >= 0.))
+        );
+        // A cache written before colour or levels existed must be rebuilt, not served.
+        for missing in ["bands", "rms", "levels"] {
+            for entry in std::fs::read_dir(d.path().join("wave-cache")).unwrap() {
+                let path = entry.unwrap().path();
+                let mut value: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+                value.as_object_mut().unwrap().remove(missing);
+                std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+            }
+            let rebuilt = cached_waveform(&audio, 1024, &d.path().join("wave-cache")).unwrap();
+            assert_eq!(
+                serde_json::to_value(&peaks).unwrap(),
+                serde_json::to_value(rebuilt).unwrap(),
+                "cache without {missing} was served"
+            );
+        }
         assert_eq!(peaks.duration_seconds, audio.clock.duration_seconds());
         assert!(
             peaks

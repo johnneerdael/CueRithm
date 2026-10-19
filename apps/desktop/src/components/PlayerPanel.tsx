@@ -5,38 +5,29 @@ import BrandMark from "./BrandMark";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
 import {time,cueColor} from "../display";
 import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
-import {gradientStops} from "../waveform-colour";
-import WaveGradient from "./WaveGradient";
+import {buildShape} from "../waveform-shape";
+import {useWaveformStyle} from "../waveform-style";
+import WaveformArt from "./WaveformArt";
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
-  const path=useMemo(()=>{
-    if(!data||!data.bins.length)return "";
-    const pieces:string[]=[];
-    const first=Math.max(0,Math.floor(start/data.duration_seconds*data.bins.length));
-    const last=Math.min(data.bins.length,Math.ceil(end/data.duration_seconds*data.bins.length));
-    for(let i=first;i<last;i++){
-      const bin=data.bins[i],x=(i/data.bins.length*data.duration_seconds-start)/span*1000;
-      pieces.push("M"+x.toFixed(2)+","+(40-Math.min(1,bin.max)*35).toFixed(2)+"V"+(40-Math.max(-1,bin.min)*35).toFixed(2));
-    }
-    return pieces.join("");
-  },[data,start,end,span]);
+  // The same shape builder and style choice as the row previews, so playback shows the same waveform.
+  const [style]=useWaveformStyle();
   const gradient="wave-"+useId().replace(/[^a-zA-Z0-9_-]/g,"");
-  const stops=useMemo(()=>{
-    if(!data||!data.bins.length)return [];
-    const first=Math.max(0,Math.floor(start/data.duration_seconds*data.bins.length)),last=Math.min(data.bins.length,Math.ceil(end/data.duration_seconds*data.bins.length));
-    return gradientStops(data,first,last,i=>(i/data.bins.length*data.duration_seconds-start)/span);
-  },[data,start,end,span]);
+  const shape=useMemo(()=>{
+    if(!data||!data.bins.length)return null;
+    const bins=data.bins.length,first=Math.max(0,Math.floor(start/data.duration_seconds*bins)),last=Math.min(bins,Math.ceil(end/data.duration_seconds*bins));
+    return buildShape(data,style,{first,last,columns:900,x:bin=>(bin/bins*data.duration_seconds-start)/span*1000,width:1000,mid:40,half:35,stacked:small});
+  },[data,style,small,start,end,span]);
   const ticks=beats.filter(t=>t>=start&&t<=end);
-  return <div className={small?"wave overview":"wave detail-wave"} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"16 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
+  return <div className={small?"wave overview":"wave detail-wave"} data-wave-style={style} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"16 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
     title={small?"Click to seek · ← / → jump one bar":"Click to show "+(zoomed?"entire track":"16 seconds")+" · ← / → jump one bar"}
     onPointerDown={event=>{if(!data||!small)return;const rect=event.currentTarget.getBoundingClientRect();onSeek(Math.max(0,Math.min(data.duration_seconds,start+(event.clientX-rect.left)/rect.width*span)));}}
     onClick={()=>{if(data&&!small)onToggleZoom?.();}}
     onKeyDown={event=>{if(!small&&(event.key==="Enter"||event.key===" ")){event.preventDefault();event.stopPropagation();if(data)onToggleZoom?.();}}}>
     <svg viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
       {!small?ticks.map((beat,i)=><line key={i} x1={(beat-start)/span*1000} x2={(beat-start)/span*1000} y1="0" y2="80" className="beat-line"/>):null}
-      {stops.length?<WaveGradient id={gradient} x2={1000} stops={stops}/>:null}
-      <path d={path} className="wave-path" vectorEffect="non-scaling-stroke" style={stops.length?{stroke:"url(#"+gradient+")"}:undefined}/>
+      {shape?<WaveformArt shape={shape} id={gradient} width={1000} barClass="wave-path" vectorEffect="non-scaling-stroke"/>:null}
       {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line data-cue={c.name} key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
       {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
     </svg>

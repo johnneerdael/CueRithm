@@ -4,10 +4,15 @@ use rustfft::{Fft, FftPlanner, num_complex::Complex};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-const WINDOW: usize = 2048;
+const WINDOW: usize = 4096;
 const SAMPLE_RATE: f32 = 44100.;
 // Band edges and weights follow Lexicon's RGB waveform: bass, mids and highs map to red, green and blue.
 const BANDS: [(f32, f32, f32); 3] = [(0., 150., 1.2), (150., 1500., 1.), (1500., 6000., 1.)];
+// Lexicon's three-band waveform draws these ranges as stacked shapes: low, mid and high. Each is
+// a band-pass centred on the geometric mean (Q = centre / width) followed by a low-pass at the
+// upper edge, both second order, so neighbouring bands leak into each other and nest.
+const LEVEL_BANDS: [(f32, f32); 3] = [(60., 120.), (120., 500.), (900., 1500.)];
+const LOW_PASS_Q: f32 = 1.122; // 1 dB resonance, the Web Audio default
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaveBin {
@@ -23,6 +28,20 @@ pub struct Waveform {
     /// Empty in caches written before colour was added.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bands: Vec<[u8; 3]>,
+    /// Per-bin average (RMS) level over every frame in the bin, 0 to 1.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rms: Vec<f32>,
+    /// Per-bin RMS level inside the low (60-120 Hz), mid (120-500 Hz) and high (900-1500 Hz) ranges.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub levels: Vec<[f32; 3]>,
+}
+
+struct Analysis {
+    colour: [u8; 3],
+    levels: [f32; 3],
+}
+fn round4(value: f32) -> f32 {
+    (value * 10_000.).round() / 10_000.
 }
 
 struct BandAnalyzer {
@@ -30,6 +49,7 @@ struct BandAnalyzer {
     taper: Vec<f32>,
     buffer: Vec<Complex<f32>>,
     ranges: [(usize, usize); 3],
+    level_weights: [Vec<f32>; 3],
 }
 impl BandAnalyzer {
     fn new() -> Self {
@@ -43,9 +63,23 @@ impl BandAnalyzer {
                 .collect(),
             buffer: vec![Complex::new(0., 0.); WINDOW],
             ranges: BANDS.map(|(low, high, _)| (edge(low), edge(high))),
+            level_weights: LEVEL_BANDS.map(|(low, high)| {
+                let centre = (low * high).sqrt();
+                let q = centre / (high - low);
+                (0..=last)
+                    .map(|k| {
+                        let f = k as f32 * hz;
+                        let x = f / centre;
+                        let band_pass = 1. / (1. + q * q * (x - 1. / x).powi(2));
+                        let y = f / high;
+                        let low_pass = 1. / ((1. - y * y).powi(2) + (y / LOW_PASS_Q).powi(2));
+                        if k == 0 { 0. } else { band_pass * low_pass }
+                    })
+                    .collect()
+            }),
         }
     }
-    fn colour(&mut self, mono: &[f32]) -> [u8; 3] {
+    fn analyze(&mut self, mono: &[f32]) -> Analysis {
         for (i, slot) in self.buffer.iter_mut().enumerate() {
             *slot = Complex::new(mono.get(i).map_or(0., |v| v * self.taper[i]), 0.);
         }
@@ -59,10 +93,29 @@ impl BandAnalyzer {
             level[band] = (power / (last - first + 1) as f32).sqrt() * BANDS[band].2;
         }
         let strongest = level.iter().cloned().fold(0., f32::max);
-        if strongest <= f32::EPSILON {
-            return [0; 3];
-        }
-        level.map(|v| (v / strongest * 255.).round() as u8)
+        let colour = if strongest <= f32::EPSILON {
+            [0; 3]
+        } else {
+            level.map(|v| (v / strongest * 255.).round() as u8)
+        };
+        // Parseval: mean square of the windowed signal is 2 * sum |X|^2 / (N * sum w^2) per band.
+        let window_power: f32 = self.taper[..mono.len().min(WINDOW)]
+            .iter()
+            .map(|w| w * w)
+            .sum();
+        let levels = self.level_weights.each_ref().map(|weights| {
+            let power: f32 = weights
+                .iter()
+                .zip(&self.buffer)
+                .map(|(weight, c)| weight * c.norm_sqr())
+                .sum();
+            if window_power <= f32::EPSILON {
+                0.
+            } else {
+                round4((2. * power / (WINDOW as f32 * window_power)).sqrt())
+            }
+        });
+        Analysis { colour, levels }
     }
 }
 
@@ -70,6 +123,8 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
     ensure!((1..=16384).contains(&bins), "Invalid waveform resolution");
     let mut output = vec![WaveBin { min: 0., max: 0. }; bins];
     let mut bands = vec![[0u8; 3]; bins];
+    let mut levels = vec![[0f32; 3]; bins];
+    let mut energy = vec![(0f64, 0u64); bins];
     let mut analyzer = BandAnalyzer::new();
     // Mono samples from the first frame still needed by an unanalysed bin.
     let (mut mono, mut base, mut next) = (Vec::<f32>::new(), 0u64, 0usize);
@@ -81,6 +136,8 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
             let bin = ((pos + i as u64) * bins as u64 / audio.frames) as usize;
             output[bin].min = output[bin].min.min(pair[0]).min(pair[1]);
             output[bin].max = output[bin].max.max(pair[0]).max(pair[1]);
+            energy[bin].0 += f64::from(pair[0] * pair[0] + pair[1] * pair[1]) / 2.;
+            energy[bin].1 += 1;
             if pos + i as u64 >= base + mono.len() as u64 {
                 mono.push((pair[0] + pair[1]) / 2.);
             }
@@ -93,7 +150,9 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
                 break;
             }
             let at = (from - base) as usize;
-            bands[next] = analyzer.colour(&mono[at..(at + WINDOW).min(mono.len())]);
+            let analysis = analyzer.analyze(&mono[at..(at + WINDOW).min(mono.len())]);
+            bands[next] = analysis.colour;
+            levels[next] = analysis.levels;
             next += 1;
         }
         let keep = if next < bins { start_of(next) } else { end };
@@ -109,6 +168,11 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
         clock: audio.clock.clone(),
         bins: output,
         bands,
+        rms: energy
+            .iter()
+            .map(|(sum, count)| round4((sum / (*count).max(1) as f64).sqrt() as f32))
+            .collect(),
+        levels,
     })
 }
 
@@ -136,6 +200,8 @@ pub fn cached_waveform(
         && value.duration_seconds == audio.clock.duration_seconds()
         && value.bins.len() == bins
         && value.bands.len() == bins
+        && value.rms.len() == bins
+        && value.levels.len() == bins
         && value
             .bins
             .iter()
@@ -163,7 +229,7 @@ mod tests {
     fn bass_mids_and_highs_map_to_red_green_and_blue() {
         let mut analyzer = BandAnalyzer::new();
         for (hz, channel) in [(60., 0), (700., 1), (3500., 2)] {
-            let colour = analyzer.colour(&tone(hz));
+            let colour = analyzer.analyze(&tone(hz)).colour;
             assert_eq!(
                 colour[channel], 255,
                 "{hz} Hz should peak channel {channel}"
@@ -177,7 +243,29 @@ mod tests {
         }
     }
     #[test]
+    fn band_levels_follow_the_filtered_band_and_nest_through_leakage() {
+        let mut analyzer = BandAnalyzer::new();
+        // A unit sine has RMS 0.71. Inside its own band it reads close to that; the neighbours see
+        // only filter skirts, so the right band must clearly lead.
+        for (hz, band) in [(90., 0), (250., 1), (1200., 2)] {
+            let levels = analyzer.analyze(&tone(hz)).levels;
+            assert!(
+                (0.5..1.1).contains(&levels[band]),
+                "{hz} Hz read {levels:?}"
+            );
+            for other in (0..3).filter(|b| *b != band) {
+                assert!(
+                    levels[other] * 1.8 < levels[band],
+                    "{hz} Hz did not lead: {levels:?}"
+                );
+            }
+        }
+    }
+    #[test]
     fn silence_has_no_colour() {
-        assert_eq!(BandAnalyzer::new().colour(&vec![0.; WINDOW]), [0; 3]);
+        assert_eq!(
+            BandAnalyzer::new().analyze(&vec![0.; WINDOW]).colour,
+            [0; 3]
+        );
     }
 }
