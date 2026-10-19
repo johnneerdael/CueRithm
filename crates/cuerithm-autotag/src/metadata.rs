@@ -133,6 +133,22 @@ pub(crate) fn edit(
                     vec![change.after.join("; ")]
                 },
             );
+        } else if change.field == MetadataField::Label
+            && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
+        {
+            // Both aliases represent the selected Label field. Leaving an old
+            // publisher behind would shadow a clear or disagree in other readers.
+            let keys = ["LABEL", "PUBLISHER"]
+                .into_iter()
+                .filter(|key| tag.get_native(key).is_some())
+                .collect::<Vec<_>>();
+            if keys.is_empty() {
+                tag.set_native(binding(change.field, format), change.after.clone());
+            } else {
+                for key in keys {
+                    tag.set_native(key, change.after.clone());
+                }
+            }
         } else {
             let key = effective_binding(change.field, format, tag);
             tag.set_native(key, change.after.clone());

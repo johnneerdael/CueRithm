@@ -66,3 +66,12 @@ text-value accessors beside the existing configurable separator APIs. ID3 cleanu
 manages only the unqualified comment, retaining other comment identities. Ogg
 reads inspect the header even when the filename suffix is misleading. Existing
 catalog matching and separator settings retain their original path.
+
+
+Reviewed donor-transfer corrections (2026-10-19) fix the rust-id3 comment-removal
+filter: its second argument is text, not language. Logical unqualified comments
+are replaced/cleared together while named DJ comments remain intact. WAV metadata
+rewrites synchronize known ID3/INFO mirrors, recognize legacy comments/date/track
+numbers, preserve unrelated INFO and non-INFO LIST chunks, and propagate flush
+errors. The supported writer rejects unsupported/truncated/trailing-data WAVE
+containers before rewriting rather than discarding bytes it did not parse.

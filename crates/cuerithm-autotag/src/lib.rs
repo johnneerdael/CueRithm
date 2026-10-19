@@ -2,9 +2,13 @@
 mod asf;
 mod config;
 mod metadata;
+mod transfer;
 mod write;
 pub use cuerithm_cleanup::{FieldChange, Metadata, MetadataField};
 pub use metadata::{has_embedded_artwork, read_metadata, read_star_rating};
+pub use transfer::{
+    TransferDate, TransferPatch, TransferSnapshot, TransferText, read_transfer_metadata,
+};
 pub use write::{AnalysisTags, StagedTagWrite, TagWritePlan};
 mod image;
 mod sidecar;

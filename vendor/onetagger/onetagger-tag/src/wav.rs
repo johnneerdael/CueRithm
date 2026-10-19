@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use riff::{Chunk, ChunkContents, ChunkId, LIST_ID, RIFF_ID};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Cursor, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Cursor, Seek, SeekFrom, Write};
 use std::path::Path;
 
 /// RIFF `id3 ` chunk
@@ -31,168 +31,155 @@ static ID3_RIFF: Lazy<HashMap<&'static str, ChunkId>> = Lazy::new(|| {
     m.insert("COMM", ChunkId::new("ICMT").unwrap());
     m.insert("TCON", ChunkId::new("IGNR").unwrap());
     m.insert("TSRC", ChunkId::new("ISRC").unwrap());
+    m.insert("TDRC", ChunkId::new("ICRD").unwrap());
+    m.insert("TRCK", ChunkId::new("ITRK").unwrap());
     m
 });
 
-/// Write wav to path
-/// Will copy ID3 meta into RIFF INFO chunk
+/// Resolve only the top-level WAVE container and its INFO lists. Other LIST
+/// types (for example adtl cue labels) stay opaque and retain their type/data.
+fn chunks(file: &mut BufReader<File>) -> Result<(Vec<Chunk>, Vec<Chunk>), Error> {
+    let root = Chunk::read(file, 0)?;
+    anyhow::ensure!(
+        root.id() == RIFF_ID && root.read_type(file)? == WAVE_ID,
+        "Unsupported WAV metadata container"
+    );
+    anyhow::ensure!(
+        root.len() as u64 + 8 == file.get_ref().metadata()?.len(),
+        "WAV contains truncated or trailing data; refusing metadata rewrite"
+    );
+    let children = root.iter(file).collect::<Result<Vec<_>, _>>()?;
+    let mut data = vec![];
+    let mut info = vec![];
+    for child in children {
+        if child.id() == LIST_ID && child.read_type(file)? == INFO_ID {
+            info.extend(child.iter(file).collect::<Result<Vec<_>, _>>()?);
+        } else {
+            data.push(child);
+        }
+    }
+    Ok((data, info))
+}
+
+/// Synchronize mirrored INFO fields with the ID3 tag, preserving every other
+/// top-level chunk and all unrecognized INFO fields.
 pub(crate) fn write_wav(path: impl AsRef<Path>, tag: Tag, version: Version) -> Result<(), Error> {
     let mut file = BufReader::new(File::open(&path)?);
-    let mut offset = 0;
-    // Read all the chunks
-    let mut riff_chunks = vec![];
-    let mut list_chunks = vec![];
-    loop {
-        let chunk = match Chunk::read(&mut file, offset) {
-            Ok(chunk) => chunk,
-            Err(_) => break,
-        };
-        // Search for parent chunks
-        if chunk.id() != LIST_ID && chunk.id() != RIFF_ID {
-            offset += 4;
-            continue;
-        }
-        // Save chunks
-        for child in chunk.iter(&mut file) {
-            let child = child?;
-            if chunk.id() == LIST_ID {
-                list_chunks.push(child);
-            } else {
-                riff_chunks.push(child);
-            }
-        }
-
-        offset += chunk.len() as u64;
-    }
-
-    // Get all the RIFF chunks
-    let mut resolved_riff_chunks = vec![];
-    for chunk in riff_chunks {
-        // Resolve LIST chunks
-        if chunk.id() == LIST_ID {
-            for child in chunk.iter(&mut file) {
-                let child = child?;
-                if child.id() != RIFF_ID && child.id() != LIST_ID {
-                    list_chunks.push(child);
-                }
-            }
-            continue;
-        }
-        // Resolve nested (because of SOME apps)
-        if chunk.id() == RIFF_ID {
-            for child in chunk.iter(&mut file) {
-                let child = child?;
-                if child.id() != RIFF_ID && child.id() != LIST_ID {
-                    resolved_riff_chunks.push(child);
-                }
-            }
-            continue;
-        }
-        resolved_riff_chunks.push(chunk);
-    }
-    let riff_chunks = resolved_riff_chunks;
-
-    // Generate the RIFF chunk
+    let (data, info) = chunks(&mut file)?;
     let mut riff_data = vec![];
-    for chunk in riff_chunks {
-        // skip old ID3 chunk
+    for chunk in data {
         if chunk.id() == ID3_ID_1 || chunk.id() == ID3_ID_2 {
             continue;
         }
-        // Passthru
-        let data = ChunkContents::Data(chunk.id(), chunk.read_contents(&mut file)?);
-        riff_data.push(data);
+        riff_data.push(ChunkContents::Data(
+            chunk.id(),
+            chunk.read_contents(&mut file)?,
+        ));
     }
-    // Add ID3 chunk
-    let mut out = vec![];
-    tag.write_to(Cursor::new(&mut out), version)?;
-    riff_data.push(ChunkContents::Data(ID3_ID_1.clone(), out));
-
-    // Generate LIST chunk
+    let mut bytes = vec![];
+    tag.write_to(Cursor::new(&mut bytes), version)?;
+    riff_data.push(ChunkContents::Data(ID3_ID_1.clone(), bytes));
     let mut list_data = vec![];
+    // ID3v2.3 splits its date between TYER and TDAT. INFO has one date field.
+    let date = tag.date_recorded().map(|d| d.to_string()).or_else(|| {
+        let year = tag.get("TYER")?.content().text()?.parse::<i32>().ok()?;
+        let md = tag
+            .get("TDAT")
+            .and_then(|f| f.content().text())
+            .filter(|s| s.len() == 4 && s.bytes().all(|c| c.is_ascii_digit()))
+            .and_then(|s| {
+                let day = s[..2].parse::<u32>().ok()?;
+                let month = s[2..].parse::<u32>().ok()?;
+                chrono::NaiveDate::from_ymd_opt(year, month, day)
+            });
+        Some(
+            md.map(|d| d.to_string())
+                .unwrap_or_else(|| format!("{year:04}")),
+        )
+    });
+    if let Some(date) = date {
+        list_data.push(ChunkContents::Data(
+            ID3_RIFF["TDRC"].clone(),
+            date.into_bytes(),
+        ));
+    }
     for frame in tag.frames() {
         if let Some(chunk_id) = ID3_RIFF.get(frame.id()) {
-            if let Some(text) = frame.content().text() {
-                let data =
-                    ChunkContents::Data(chunk_id.clone(), format!("{text}").as_bytes().to_owned());
-                list_data.push(data);
+            if list_data
+                .iter()
+                .any(|c| matches!(c,ChunkContents::Data(id,_) if id==chunk_id))
+            {
+                continue;
+            }
+            let text = if frame.id() == "COMM" {
+                frame
+                    .content()
+                    .comment()
+                    .filter(|c| c.description.is_empty())
+                    .map(|c| c.text.as_str())
+            } else {
+                frame.content().text()
+            };
+            if let Some(text) = text {
+                list_data.push(ChunkContents::Data(
+                    chunk_id.clone(),
+                    text.as_bytes().to_vec(),
+                ));
             }
         }
     }
-
-    // Add original LIST chunks
-    for chunk in list_chunks {
+    for chunk in info {
+        // A missing mirrored ID3 field means it was cleared. Retaining its old
+        // INFO value would resurrect it on the next metadata read.
+        if ID3_RIFF.values().any(|id| id == &chunk.id()) {
+            continue;
+        }
         if list_data
             .iter()
-            .any(|c| matches!(c, ChunkContents::Data(id, _) if id == &chunk.id()))
+            .any(|c| matches!(c,ChunkContents::Data(id,_) if id==&chunk.id()))
         {
             continue;
         }
-        let data = ChunkContents::Data(chunk.id(), chunk.read_contents(&mut file)?);
-        list_data.push(data);
+        list_data.push(ChunkContents::Data(
+            chunk.id(),
+            chunk.read_contents(&mut file)?,
+        ));
     }
-    let list_chunk = ChunkContents::Children(LIST_ID.clone(), INFO_ID.clone(), list_data);
-    riff_data.push(list_chunk);
-    let riff_chunk = ChunkContents::Children(RIFF_ID.clone(), WAVE_ID.clone(), riff_data);
-
-    // Write to file
-    let mut file = BufWriter::new(File::create(path)?);
-    riff_chunk.write(&mut file)?;
-
+    riff_data.push(ChunkContents::Children(
+        LIST_ID.clone(),
+        INFO_ID.clone(),
+        list_data,
+    ));
+    let root = ChunkContents::Children(RIFF_ID.clone(), WAVE_ID.clone(), riff_data);
+    let mut output = BufWriter::new(File::create(path)?);
+    root.write(&mut output)?;
+    output.flush()?;
     Ok(())
 }
 
-/// Read WAV from file, will copy missing tags from RIFF to ID3
+/// Read INFO fallbacks only when their corresponding ID3 field is absent.
 pub(crate) fn read_wav(path: impl AsRef<Path>) -> Result<Tag, Error> {
     let mut file = BufReader::new(File::open(path)?);
-    let mut offset = 0;
-    // Read all the chunks
-    let mut chunks = vec![];
-    loop {
-        let chunk = match Chunk::read(&mut file, offset) {
-            Ok(chunk) => chunk,
-            Err(_) => break,
-        };
-        // Search for parent chunks
-        if chunk.id() != LIST_ID && chunk.id() != RIFF_ID {
-            offset += 4;
-            continue;
-        }
-        for child in chunk.iter(&mut file) {
-            chunks.push(child?);
-        }
-        offset += chunk.len() as u64;
-    }
-
-    // Resolve nested chunks because SOME apps do that
-    let mut new_chunks = vec![];
-    for chunk in chunks {
-        // Resolve nested
-        if chunk.id() == RIFF_ID || chunk.id() == LIST_ID {
-            for c in chunk.iter(&mut file) {
-                new_chunks.push(c?);
-            }
-            continue;
-        }
-        new_chunks.push(chunk);
-    }
-    let chunks = new_chunks;
-
-    // Read ID3 using the new ID3 reader
+    let (_, info) = chunks(&mut file)?;
     file.seek(SeekFrom::Start(0))?;
-    let mut id3 = Tag::read_from2(&mut file).unwrap_or(Tag::new());
-
-    // Copy tags from RIFF to ID3 if missing
-    for (frame_name, chunk_id) in ID3_RIFF.iter() {
-        if id3.get(frame_name).is_none() {
-            if let Some(chunk) = chunks.iter().find(|c| &c.id() == chunk_id) {
-                let data = chunk.read_contents(&mut file)?;
-                if let Ok(data) = String::from_utf8(data) {
-                    id3.add_frame(Frame::text(frame_name, data.replace("\0", "")));
+    let mut tag = Tag::read_from2(&mut file).unwrap_or(Tag::new());
+    for (field, id) in ID3_RIFF.iter() {
+        if tag.get(field).is_none() {
+            if let Some(chunk) = info.iter().find(|c| &c.id() == id) {
+                if let Ok(text) = String::from_utf8(chunk.read_contents(&mut file)?) {
+                    let text = text.replace("\0", "");
+                    if *field == "COMM" {
+                        tag.add_frame(id3::frame::Comment {
+                            lang: "eng".into(),
+                            description: String::new(),
+                            text,
+                        });
+                    } else {
+                        tag.add_frame(Frame::text(field, text));
+                    }
                 }
             }
         }
     }
-
-    Ok(id3)
+    Ok(tag)
 }

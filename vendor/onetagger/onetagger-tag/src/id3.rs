@@ -612,7 +612,9 @@ impl TagImpl for ID3Tag {
                 .find(|c| c.description.is_empty())
                 .cloned();
             if let Some(c) = &existing {
-                self.tag.remove_comment(Some(&c.description), Some(&c.lang));
+                // rust-id3's second filter is comment text, not language. The
+                // logical Comment field includes every empty-description value.
+                self.tag.remove_comment(Some(&c.description), None);
             }
             if !values.is_empty() {
                 let mut c = existing.unwrap_or(Comment {

@@ -27,6 +27,7 @@ pub struct TagWritePlan {
     cleanup: Option<cuerithm_cleanup::CleanupConfig>,
     metadata_edits: Vec<cuerithm_cleanup::FieldChange>,
     custom_tags: Vec<cuerithm_cleanup::CustomTag>,
+    transfer: Option<crate::TransferPatch>,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -92,6 +93,7 @@ impl TagWritePlan {
             cleanup: None,
             metadata_edits: vec![],
             custom_tags: vec![],
+            transfer: None,
         })
     }
     pub fn with_custom_tags(mut self, tags: Vec<cuerithm_cleanup::CustomTag>) -> Result<Self> {
@@ -101,6 +103,12 @@ impl TagWritePlan {
         }
         .validate()?;
         self.custom_tags = tags;
+        Ok(self)
+    }
+    pub fn with_transfer(mut self, patch: crate::TransferPatch) -> Result<Self> {
+        patch.validate()?;
+        self.provenance["transfer"] = serde_json::to_value(&patch)?;
+        self.transfer = Some(patch);
         Ok(self)
     }
     pub fn with_cleanup(mut self, config: cuerithm_cleanup::CleanupConfig) -> Result<Self> {
@@ -158,7 +166,10 @@ impl TagWritePlan {
         Ok(self)
     }
     pub fn is_noop(&self) -> bool {
-        self.tags_are_noop() && self.cleanup.is_none() && self.metadata_edits.is_empty()
+        self.tags_are_noop()
+            && self.cleanup.is_none()
+            && self.metadata_edits.is_empty()
+            && self.transfer.as_ref().is_none_or(|p| p.before == p.after)
     }
     fn tags_are_noop(&self) -> bool {
         let measured = self.config.analysis_tag_source == AnalysisTagSource::Measured
@@ -189,6 +200,16 @@ impl TagWritePlan {
             audio.decoder_identity == runtime.identity,
             "Different decoder for tag verification"
         );
+        if let Some(patch) = &self.transfer {
+            ensure!(
+                self.tags_are_noop() && self.cleanup.is_none() && self.metadata_edits.is_empty(),
+                "Native transfer cannot be mixed with catalog or cleanup edits"
+            );
+            ensure!(
+                crate::read_transfer_metadata(&audio.snapshot_path, &audio.info)? == patch.before,
+                "Native transfer preview is stale"
+            );
+        }
         std::fs::create_dir_all(cache)?;
         let private = tempfile::Builder::new()
             .prefix("cuerithm-tags-")
@@ -253,11 +274,15 @@ impl TagWritePlan {
                     );
                     let request = self.apply(&mut tag, &format)?;
                     let (report, expected) = self.apply_cleanup(&mut tag, &format)?;
+                    if let Some(patch) = &self.transfer {
+                        patch.apply(&mut tag, &format)?;
+                    }
                     cleanup = report;
                     expected_metadata = Some(expected);
                     if !self.tags_are_noop()
                         || self.metadata_edits.iter().any(|e| e.before != e.after)
                         || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
+                        || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
                     {
                         tag.save_file(&path)?;
                     }
@@ -285,11 +310,15 @@ impl TagWritePlan {
                         let tag = wrapper.tag_mut();
                         let request = self.apply(&mut **tag, &format)?;
                         let (report, expected) = self.apply_cleanup(&mut **tag, &format)?;
+                        if let Some(patch) = &self.transfer {
+                            patch.apply(&mut **tag, &format)?;
+                        }
                         cleanup = report;
                         expected_metadata = Some(expected);
                         if !self.tags_are_noop()
                             || self.metadata_edits.iter().any(|e| e.before != e.after)
                             || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
+                            || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
                         {
                             tag.save_file(&path)?;
                         }
@@ -308,6 +337,9 @@ impl TagWritePlan {
             .decode(&path, cache)
             .context("Verify tagged audio")?;
         let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
+        if let Some(patch) = &self.transfer {
+            patch.verify(&path, &after.info)?;
+        }
         if (self.cleanup.is_some() || !self.metadata_edits.is_empty())
             && let Some(expected) = expected_metadata
         {

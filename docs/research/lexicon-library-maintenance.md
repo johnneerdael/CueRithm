@@ -327,3 +327,43 @@ own-storage/system exclusions and Serato ancestor protection. A protected select
 root returns an error. A native macOS reproduction of the same ancestor pattern
 failed before the fix and passed afterward; all fourteen file-maintenance tests
 pass locally. Current-head Windows verification is still required.
+
+
+## Donor import semantics and native staging (2026-10-19)
+
+The pure import helper now copies the approved metadata projection while retaining
+recipient technical identity. Empty donor cue, tempo and custom-tag collections
+retain the recipient collections; populated collections replace them. Cue-save
+normalization moves negative positions, keeps the first duplicate slot and turns
+invalid loops into cues. Copying tempo markers sets final BPM from the first
+marker, even when the donor's separate BPM field differs.
+
+Twenty-four authored cases execute the shipped import loop, update wrapper and
+collection-save methods with controlled validation/persistence callbacks. The
+fixture records method/capture/source hashes and its projection boundary. It does
+not establish real SQL, sanitization, opaque Lexicon state or file-writing parity.
+Cuerithm's projection excludes play statistics, unrequested audio-feature values
+and private application state. Malformed/oversized imports fail before mutation;
+recipient and donor inputs remain unchanged.
+
+A separate codec-aware native transfer snapshot covers structured text fields,
+key, energy, color, Extra1/2, fractional BPM, calendar date, normalized rating and
+track number. Staged writing checks the complete native before snapshot, applies
+only the requested differences, reopens the result, verifies selected values and
+proves identical decoded frames/PCM before returning a staged artifact. It cannot
+be mixed with catalog/cleanup edits in the same plan. Identical transfers preserve
+exact file bytes. M4A stores an integer tempo atom with an exact fractional text
+value, retaining Cuerithm's existing convention.
+
+Generated acceptance spans all fourteen common audio layouts. It checks populated
+and cleared values, contributor boundaries, opaque tags, embedded artwork and
+independent track totals. Readback exposed and now covers three alias issues:
+unqualified ID3 comment clearing used the wrong API filter; WAV INFO could
+resurrect cleared values and flatten unrelated LIST types; LABEL/PUBLISHER aliases
+could disagree or shadow a clear. Original source files remain unchanged during
+staging. Unsupported value/layout combinations fail before publication.
+
+These components are not yet the complete merge workflow. Donor staging still
+needs the durable parent journal, reservations, recovery, relevant-entity undo
+policy, cue/grid persistence and native Apply/Undo acceptance. The archive-only
+backend guard remains active; donor plans cannot silently publish partial changes.
