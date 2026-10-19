@@ -133,9 +133,9 @@ The research example `cargo run -p cuerithm-rekordbox --example inspect --releas
 --database <copied-db> --key-file <private-file>` prints aggregate diagnostics.
 `--snapshot-cache <private-cache>` also verifies a temporary encrypted snapshot.
 This explicit key-file interface is a research tool, not the intended desktop
-setup flow. Automatic runtime key discovery remains to be implemented; it must
-not require a purchased reference application or a Python runtime in the shipped
-app. The private reference bootstrap is not a distributed dependency.
+setup flow. The automatic provider described below replaces that private bootstrap
+for the inspected target version. No purchased reference application or Python
+runtime is a distributed dependency.
 
 Target discovery/import, structured conflict baselines, IDs/USNs, metadata and
 MyTags, playlists/native smart rules, cues/loops/beatgrid/artwork assets, staged
@@ -234,8 +234,59 @@ No source asset was written. Individual captures were stable during copying;
 this is not an all-assets coherent backup while the background agent is active.
 
 The remaining integration includes asset-path containment, sibling-file planning,
-per-field/record ownership baselines, runtime key resolution, Cuerithm persistence,
+per-field/record ownership baselines, supported-version key-provider acceptance, Cuerithm persistence,
 database/asset staging and interrupted-write recovery, followed by real 6/7
 round-trip acceptance. This module alone does not enable Sync.
 
 Primary format reference: [DJ Link Ecosystem analysis-file specification](https://djl-analysis.deepsymmetry.org/rekordbox-export-analysis/anlz.html).
+
+## Automatic local key-provider checkpoint
+
+The SDK now selects the encrypted `dp` option from the target agent's local
+options file and uses the installed target runtime to derive its database key.
+Unrelated account/authentication values are skipped by the parser. Raw options,
+selected input and returned key bytes have zeroizing Rust ownership; key material
+is neither persisted nor placed in arguments, environment variables or diagnostics.
+The helper returns a bounded binary frame through a private pipe. It has a
+deadline and cancellation, and the parent kills/reaps only its owned helper and
+joins both pipe workers on exit.
+
+Seen in installed 7.2.19.0342: agent 3.3.0 uses Electron 19.0.10 / Node 16.14.2;
+its existing RunAsNode fuse is enabled. Agent archive identity is
+`3c26a89c4fcec100c872c7a3b96ba10b76baf7461543c54fe8ca1c7acc341176`.
+The compiled main module closes over a local `buildBFKey` function. An owned
+bridge loads that module with filesystem, account, network, process-launch and
+logging modules stubbed, records the ready callback without invoking it, and
+locates that single helper through the current process's inspector session.
+No inspector listener is opened. It invokes the helper and decodes the selected
+encrypted option using the target's installed pure Blowfish dependency. The
+normal target lifecycle and authentication functions are not invoked.
+
+The bridge reads bounded archive members directly; it does not extract vendor
+code to the installed application's directories. Under Electron it uses
+`original-fs`, because the ordinary filesystem API treats archives as virtual
+directories. This distinction was verified on the actual agent after a first
+normal-filesystem attempt failed. See the official [Electron archive documentation](https://www.electronjs.org/docs/latest/tutorial/asar-archives).
+
+The research inspector now accepts `--database <copied-db> --automatic-key`.
+Actual automatic access opened the private copied database and read all 3,417
+tracks, with the same schema and descriptive projection hashes reported above.
+Integrity and foreign-key checks passed. This access path used neither the
+manual key file nor Lexicon. The source database, music and installed bundles
+were not written. No actual key, encrypted option, seed or user row is included
+in the implementation or tests.
+
+Generated tests exercise an authored local archive/cache, isolated module calls,
+an encrypted fixture database, malformed/duplicate options, symbolic files,
+disabled execution fuses, corrupt archives, unexpected helper results and
+cancellation/deadlines. Node 22 is development/CI tooling for producing those
+cache fixtures; the installed desktop uses the target's existing agent runtime.
+The bridge is a compatibility boundary for locally installed, trusted target
+artifacts, not a general security boundary for hostile JavaScript.
+
+Discovery includes macOS and Windows agent layouts and rejects local Linux
+availability. Generated layouts do not prove actual version 6 or Windows agent
+acceptance. Unsupported artifact/helper formats fail with a generic availability
+error; no runtime fuse is modified and no target process is killed. Automatic
+read access alone does not complete Cuerithm import/baseline persistence, the
+desktop Sync workflow or the coordinated native writer/recovery/round-trip gates.

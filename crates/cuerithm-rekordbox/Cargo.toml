@@ -22,3 +22,6 @@ clap.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = {version="=0.61.2",features=["Win32_Storage_FileSystem","Win32_Foundation"]}
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

@@ -2,7 +2,9 @@
 pub mod anlz;
 mod collection;
 mod discovery;
+mod key_provider;
 pub use discovery::*;
+pub use key_provider::*;
 mod records;
 use anyhow::{Context, Result, ensure};
 pub use collection::*;

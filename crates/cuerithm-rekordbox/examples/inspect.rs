@@ -5,11 +5,14 @@ use cuerithm_media::CancellationToken;
 use cuerithm_rekordbox::{DatabaseKey, ReadOnlyDatabase};
 use std::path::PathBuf;
 #[derive(Parser)]
+#[command(group(clap::ArgGroup::new("key_source").args(["key_file", "automatic_key"])))]
 struct Args {
-    #[arg(long, requires = "key_file")]
+    #[arg(long, requires = "key_source")]
     database: Option<PathBuf>,
     #[arg(long, requires = "database")]
     key_file: Option<PathBuf>,
+    #[arg(long, requires = "database")]
+    automatic_key: bool,
     #[arg(long, conflicts_with = "database")]
     discover: bool,
     #[arg(long, requires = "database")]
@@ -30,12 +33,32 @@ fn main() -> Result<()> {
     }
     let database = args
         .database
-        .context("Choose --discover or --database with --key-file")?;
-    let bytes = zeroize::Zeroizing::new(
-        std::fs::read(args.key_file.context("A private key file is required")?)
-            .context("Read private database key file")?,
-    );
-    let key = DatabaseKey::new(bytes.as_slice())?;
+        .context("Choose --discover or --database with --automatic-key/--key-file")?;
+    let key = if args.automatic_key {
+        use cuerithm_rekordbox::{
+            AgentKeySource, DiscoveryPaths, discover_targets, resolve_database_key,
+        };
+        let cancel = CancellationToken::default();
+        let paths = DiscoveryPaths::current()?;
+        let found = discover_targets(&paths, &cancel)?;
+        let target = found
+            .installations
+            .first()
+            .context("No installed target is available")?;
+        let source = AgentKeySource::for_installation(target, paths.platform)?;
+        resolve_database_key(
+            &source,
+            &paths.agent_options_file()?,
+            Default::default(),
+            &cancel,
+        )?
+    } else {
+        let bytes = zeroize::Zeroizing::new(
+            std::fs::read(args.key_file.context("A private key source is required")?)
+                .context("Read private database key file")?,
+        );
+        DatabaseKey::new(bytes.as_slice())?
+    };
     let db = ReadOnlyDatabase::open(&database, &key)?;
     let schema = db.schema()?;
     let checks = db.checks()?;

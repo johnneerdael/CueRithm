@@ -46,6 +46,18 @@ pub struct TargetDiscovery {
     pub issues: Vec<DiscoveryIssue>,
 }
 impl DiscoveryPaths {
+    pub fn agent_options_file(&self) -> Result<PathBuf> {
+        ensure!(
+            self.platform != DesktopPlatform::Linux,
+            "Local target agent is unavailable on this platform"
+        );
+        let pioneer = self
+            .settings_file
+            .parent()
+            .and_then(Path::parent)
+            .context("Agent settings location is unavailable")?;
+        Ok(pioneer.join("rekordboxAgent/storage/options.json"))
+    }
     pub fn current() -> Result<Self> {
         #[cfg(target_os = "macos")]
         {
