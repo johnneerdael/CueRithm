@@ -266,3 +266,64 @@ cancellation. It returned the expected states and retained all generated audio.
 This is isolated native command acceptance, not branded maintenance-screen or
 live-library acceptance. Windows/Linux validation of these new commands remains
 separate from earlier desktop builds.
+
+
+## Merge planning and archive/reference transaction stage (2026-10-19)
+
+The independent planner now expands selected unlocked/copy-only groups into
+keeper, archive, unarchive and donor-copy actions. It preserves ignored members,
+keeps copy-only groups free of explicit archive actions, and rejects locked,
+unavailable, unknown or overlapping selections. Forty authored cases execute the
+original `DuplicateTrack.execute` method with persistence recorders and agree on
+those actions. The fixture records the actual method/capture/source hashes.
+It does not execute the original metadata import or file writer.
+
+An additional 485 authored cases execute the shipped `replaceTrackIds` method
+(renderer320164 onward) with a controlled query/persistence adapter. In an
+affected playlist the old keeper entry is removed and the first removed-copy
+slot becomes the keeper; other removed-copy entries disappear. Unaffected
+playlists keep their keeper position. The adapter supplies rows in playlist
+position order. The original query has no explicit row order, so these references
+do not establish its real SQLite index-dependent ordering in every library.
+Cuerithm explicitly uses playlist position and compacts the resulting positions.
+
+The library can persist a merge preview showing all donor-copy tasks and ordinary
+playlist changes. Its archive/reference-only transaction stage commits reference
+replacement, archive transitions, preview consumption and a durable undo record
+in one SQLite transaction. Generated tests inject failures during apply and undo,
+verify rollback/retry and preserve all source hashes, metadata, analysis and cues.
+Archived selected-playlist keepers can be restored while ignored copies retain
+their records and memberships. Smart definitions stay unchanged, cached results
+become stale, and refresh evaluates the new archive state after apply and undo.
+
+Undo history is discoverable after restart. A supported versioned journal retains
+its implementation identity for provenance without requiring an identical newer
+executable. Unsupported journal versions are rejected. Current undo guards use
+the complete captured input stamp and file proofs; later changes, including an
+archive A/B/A cycle, prevent restoration. This is conservative: unrelated library
+input changes also prevent undo and need a narrower relevant-entity policy before
+claiming the complete concurrent-ingestion workflow accepted.
+
+Donor-copy plans remain blocked before any mutation until coordinated native-file
+publication is connected. They never silently degrade to library-only tag/cue
+copies. No native apply/undo command is registered at this checkpoint; the new
+native endpoints expose preview and history only. This stage is a prerequisite
+for the complete merge/copy workflow, not its delivery claim.
+
+Static `Track.importTags` inspection (renderer311581 onward) also shows separate
+nonempty-list gates for cues, tempo markers and custom tags. Empty donor lists
+retain the destination lists. BaseTrack import exclusions preserve identity,
+location and technical stream properties. The storage whitelist includes additional
+application state, so the full persisted import policy and native field mapping
+must be validated before connecting donor publication. Play statistics and other
+user-excluded audio-feature fields remain outside Cuerithm's scope.
+
+
+The earlier desktop run exposed a Windows unused-scan failure: an absolute
+`AppData` ancestor excluded the entire selected temporary folder and yielded an
+apparently complete empty report. The scanner now applies AppData/Application
+Support name pruning within the explicitly chosen tree, while retaining absolute
+own-storage/system exclusions and Serato ancestor protection. A protected selected
+root returns an error. A native macOS reproduction of the same ancestor pattern
+failed before the fix and passed afterward; all fourteen file-maintenance tests
+pass locally. Current-head Windows verification is still required.

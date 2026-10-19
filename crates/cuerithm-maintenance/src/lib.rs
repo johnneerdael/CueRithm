@@ -3,6 +3,8 @@
 mod normalize;
 mod review;
 pub use review::*;
+mod merge;
+pub use merge::*;
 
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};

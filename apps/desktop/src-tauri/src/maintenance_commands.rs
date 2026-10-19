@@ -198,3 +198,23 @@ pub async fn maintenance_set_ignores(
     );
     Ok(snapshot)
 }
+
+#[tauri::command]
+pub async fn maintenance_preview_merge(
+    host: Managed<'_>,
+    operation_id: String,
+    review_id: String,
+    expected_revision: u64,
+    groups: Vec<String>,
+) -> Ipc<DuplicateMergePreview> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library
+            .preview_duplicate_merge(&review_id, expected_revision, groups, cancel)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn maintenance_merge_history(host: Managed<'_>) -> Ipc<Vec<DuplicateMergeHistory>> {
+    let lib = host.library.clone();
+    work(move || lib.duplicate_merge_history()).await
+}

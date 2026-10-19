@@ -60,6 +60,23 @@ their earlier inputs and become stale. `onChange` lets other open views reload.
 when their original review is stale. All IDs must still exist; unknown IDs or a
 stale stamp reject the entire edit. Reload the list after a conflict.
 
+## Merge preview and history
+
+`previewMerge(operationId, reviewId, expectedRevision, groups)` persists a concrete
+plan for the selected group IDs. It checks current review, library, source and
+scope identities. Its groups retain the mode and exact-audio/candidate distinction,
+keeper, archive/unarchive actions and explicit donor-to-target copy tasks. Playlist
+changes include ordered before/after membership arrays.
+
+`mergeHistory()` returns committed archive/reference transaction records and
+`undone_by` markers, ordered newest first. These are history records; they do not
+promise that undo remains available after later source or library changes.
+
+The Rust library currently implements the archive/reference transaction and its
+versioned undo stage. Plans with donor transfers are blocked before any mutation
+until the coordinated file journal is implemented. The native bridge deliberately
+exposes preview/history only while that full workflow is incomplete.
+
 ## Publication boundary
 
 There is no apply/merge/delete/undo command in this checkpoint. Do not add an

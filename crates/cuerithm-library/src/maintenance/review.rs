@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Serialize, Deserialize)]
-struct SavedReview {
-    review: DuplicateReview,
-    scan: SavedScan,
+pub(super) struct SavedReview {
+    pub(super) review: DuplicateReview,
+    pub(super) scan: SavedScan,
 }
 
-fn read_review(lib: &Library, id: &str) -> Result<(SavedReview, String)> {
+pub(super) fn read_review(lib: &Library, id: &str) -> Result<(SavedReview, String)> {
     let text: String = lib
         .conn()?
         .query_row(
@@ -26,7 +26,11 @@ fn read_review(lib: &Library, id: &str) -> Result<(SavedReview, String)> {
     Ok((serde_json::from_str(&text)?, text))
 }
 
-fn refresh(lib: &Library, saved: &mut SavedReview, cancel: &CancellationToken) -> Result<()> {
+pub(super) fn refresh(
+    lib: &Library,
+    saved: &mut SavedReview,
+    cancel: &CancellationToken,
+) -> Result<()> {
     lib.refresh_duplicate_staleness(&mut saved.scan, cancel)?;
     saved.review.stale = saved.scan.report.stale;
     saved.review.stale_reason = saved.scan.report.stale_reason.clone();

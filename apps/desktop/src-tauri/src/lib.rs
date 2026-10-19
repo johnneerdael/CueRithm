@@ -69,6 +69,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            maintenance_commands::maintenance_preview_merge,
+            maintenance_commands::maintenance_merge_history,
             maintenance_commands::maintenance_cancel,
             maintenance_commands::maintenance_scan_duplicates,
             maintenance_commands::maintenance_scan_unused,

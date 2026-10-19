@@ -24,3 +24,9 @@ export interface BrokenScanRequest {inspect_audio:boolean}
 export interface BrokenScanReport extends Report {request:BrokenScanRequest;decoder_identity:string|null;tracks:{id:string;display_path:string;state:MaintenanceFileState;detail:string|null;observed_sha256:string|null;source_changed:boolean}[]}
 export type MaintenanceProgress={operation_id:string;kind:"duplicates";progress:{completed:number;total:number;track_id:string|null;cached:boolean}}|{operation_id:string;kind:"unused"|"broken";progress:{completed:number;total:number|null;current_path:string|null}};
 export interface MaintenanceChange {review_id:string|null;stamp:MaintenanceStamp}
+
+export interface GroupMerge {group_id:string;mode:ReviewState;exact_audio:boolean;keeper:string;archive_ids:string[];unarchive_keeper:boolean;copies:{from:string;to:string}[]}
+export interface DuplicatePlaylistChange {id:string;before:string[];after:string[]}
+export interface DuplicateMergePreview {id:string;review_id:string;review_revision:number;created:number;stamp:MaintenanceStamp;plan:{groups:GroupMerge[]};playlists:DuplicatePlaylistChange[]}
+export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null}
+export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null}

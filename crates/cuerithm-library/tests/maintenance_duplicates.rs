@@ -930,3 +930,466 @@ fn cancelling_saved_report_reload_and_export_uses_the_requested_token() {
     ];
     assert!(errors.iter().all(|e| e.to_string().contains("cancelled")));
 }
+
+#[test]
+fn duplicate_merge_replaces_playlists_archives_records_and_undo_survives_restart() {
+    let mut f = Fixture::new();
+    f.playlist(
+        "affected",
+        vec![f.ids[0].clone(), f.ids[2].clone(), f.ids[1].clone()],
+    );
+    f.playlist("unaffected", vec![f.ids[2].clone(), f.ids[0].clone()]);
+    let token = CancellationToken::default();
+    let before = f.content();
+    let hashes = f
+        .paths
+        .iter()
+        .map(|p| cuerithm_media::file_sha256(p).unwrap())
+        .collect::<Vec<_>>();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            &token,
+        )
+        .unwrap();
+    assert_eq!(preview.playlists.len(), 1);
+    assert_eq!(
+        preview.playlists[0].after,
+        vec![f.ids[2].clone(), f.ids[0].clone()]
+    );
+    let applied = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    assert_eq!(applied.archived_ids, vec![f.ids[1].clone()]);
+    assert_eq!(
+        f.lib.duplicate_merge_history().unwrap()[0].result.id,
+        applied.id
+    );
+    assert_eq!(
+        f.lib.manual_playlist_members("affected").unwrap(),
+        vec![f.ids[2].clone(), f.ids[0].clone()]
+    );
+    assert_eq!(
+        f.lib.manual_playlist_members("unaffected").unwrap(),
+        vec![f.ids[2].clone(), f.ids[0].clone()]
+    );
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
+    drop(f.lib);
+    f.lib = Library::open(&f.db).unwrap();
+    let undone = f.lib.undo_duplicate_merge(&applied.id, &token).unwrap();
+    assert_eq!(undone.undo_of.as_deref(), Some(applied.id.as_str()));
+    assert_eq!(
+        f.lib.duplicate_merge_history().unwrap()[0]
+            .undone_by
+            .as_deref(),
+        Some(undone.id.as_str())
+    );
+    assert_eq!(f.content(), before);
+    assert_eq!(
+        f.lib.manual_playlist_members("affected").unwrap(),
+        vec![f.ids[0].clone(), f.ids[2].clone(), f.ids[1].clone()]
+    );
+    assert!(f.lib.undo_duplicate_merge(&applied.id, &token).is_err());
+    assert_eq!(
+        hashes,
+        f.paths
+            .iter()
+            .map(|p| cuerithm_media::file_sha256(p).unwrap())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn duplicate_merge_preview_and_undo_reject_later_review_playlist_source_and_aba_changes() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    f.lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::Lock,
+            },
+            &token,
+        )
+        .unwrap();
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
+    assert!(
+        !rusqlite::Connection::open(&f.db)
+            .unwrap()
+            .query_row(
+                "SELECT archived FROM tracks WHERE id=?1",
+                [&f.ids[1]],
+                |r| r.get::<_, bool>(0)
+            )
+            .unwrap()
+    );
+    let f = Fixture::new();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    wav(&f.paths[1], 79);
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
+    let f = Fixture::new();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    let applied = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    f.lib.set_archived(&f.ids[0], true).unwrap();
+    f.lib.set_archived(&f.ids[0], false).unwrap();
+    assert!(f.lib.undo_duplicate_merge(&applied.id, &token).is_err());
+}
+
+#[test]
+fn duplicate_merge_cancellation_and_pending_file_transfers_never_partially_archive() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::UseTags {
+                    track_id: Some(f.ids[1].clone()),
+                },
+            },
+            &token,
+        )
+        .unwrap();
+    let before = f.content();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            &token,
+        )
+        .unwrap();
+    assert_eq!(preview.plan.groups[0].copies.len(), 1);
+    assert!(
+        f.lib
+            .apply_duplicate_merge(&preview.id, &token)
+            .unwrap_err()
+            .to_string()
+            .contains("file publication")
+    );
+    let cancel = CancellationToken::default();
+    cancel.cancel();
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &cancel).is_err());
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn duplicate_merge_and_undo_transaction_failures_leave_no_partial_changes_or_consumed_token() {
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    f.playlist("affected", vec![f.ids[0].clone(), f.ids[1].clone()]);
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    let before = f.content();
+    let stamp = f.lib.duplicate_ignores().unwrap().stamp;
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute_batch("CREATE TRIGGER fail_merge_insert BEFORE INSERT ON playlist_members BEGIN SELECT RAISE(ABORT,'injected membership failure'); END;").unwrap();
+    assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
+    assert_eq!(f.content(), before);
+    assert_eq!(f.lib.duplicate_ignores().unwrap().stamp, stamp);
+    assert_eq!(
+        f.lib.manual_playlist_members("affected").unwrap(),
+        vec![f.ids[0].clone(), f.ids[1].clone()]
+    );
+    conn.execute_batch("DROP TRIGGER fail_merge_insert;")
+        .unwrap();
+    let applied = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    let after = f.content();
+    let after_stamp = f.lib.duplicate_ignores().unwrap().stamp;
+    conn.execute_batch("CREATE TRIGGER fail_undo_delete BEFORE DELETE ON playlist_members BEGIN SELECT RAISE(ABORT,'injected undo failure'); END;").unwrap();
+    assert!(f.lib.undo_duplicate_merge(&applied.id, &token).is_err());
+    assert_eq!(f.content(), after);
+    assert_eq!(f.lib.duplicate_ignores().unwrap().stamp, after_stamp);
+    conn.execute_batch("DROP TRIGGER fail_undo_delete;")
+        .unwrap();
+    f.lib.undo_duplicate_merge(&applied.id, &token).unwrap();
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn duplicate_merge_can_keep_an_archived_playlist_member_without_archiving_ignored_members() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    f.playlist(
+        "picked",
+        vec![f.ids[3].clone(), f.ids[0].clone(), f.ids[1].clone()],
+    );
+    let request = DuplicateScanRequest {
+        scope: DuplicateScanScope::SelectedPlaylists,
+        playlist_ids: vec!["picked".into()],
+        ..Default::default()
+    };
+    let scan = f.lib.scan_duplicates(request, &f.runtime, &token).unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let edit = |edit| DuplicateReviewEdit::Group {
+        group_id: review.groups[0].id.clone(),
+        edit,
+    };
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            edit(GroupEdit::Select {
+                track_id: f.ids[3].clone(),
+            }),
+            &token,
+        )
+        .unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            1,
+            edit(GroupEdit::ToggleIgnore {
+                track_id: f.ids[1].clone(),
+            }),
+            &token,
+        )
+        .unwrap();
+    let before = f.content();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            &token,
+        )
+        .unwrap();
+    let applied = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    assert_eq!(applied.archived_ids, vec![f.ids[0].clone()]);
+    assert_eq!(applied.restored_ids, vec![f.ids[3].clone()]);
+    assert_eq!(
+        f.lib.manual_playlist_members("picked").unwrap(),
+        vec![f.ids[3].clone(), f.ids[1].clone()]
+    );
+    f.lib.undo_duplicate_merge(&applied.id, &token).unwrap();
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn duplicate_merge_preserves_smart_definitions_and_rebuilds_members_after_apply_and_undo() {
+    use cuerithm_library::SmartDefinition;
+    use cuerithm_smartlists::{Operator, RuleValue, SmartRule};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::Create {
+                id: Some("smart".into()),
+                parent_id: None,
+                kind: PlaylistKind::Smartlist,
+                name: "Smart".into(),
+                definition: Some(SmartDefinition {
+                    match_all: true,
+                    rules: vec![SmartRule {
+                        id: "r".into(),
+                        field: "title".into(),
+                        operator: Operator::StringEquals,
+                        value: RuleValue::Text("Signal".into()),
+                        or: false,
+                    }],
+                }),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    let now = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    };
+    f.lib.refresh_smart_lists(now()).unwrap();
+    assert_eq!(f.lib.playlist_members("smart").unwrap().len(), 2);
+    let tree = f.lib.playlist_state().unwrap().nodes;
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    assert!(preview.playlists.is_empty());
+    let applied = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    assert_eq!(f.lib.playlist_state().unwrap().nodes, tree);
+    assert_eq!(
+        rusqlite::Connection::open(&f.db)
+            .unwrap()
+            .query_row(
+                "SELECT state FROM smart_playlist_status WHERE playlist_id='smart'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "stale"
+    );
+    f.lib.refresh_smart_lists(now()).unwrap();
+    assert_eq!(
+        f.lib.playlist_members("smart").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    f.lib.undo_duplicate_merge(&applied.id, &token).unwrap();
+    f.lib.refresh_smart_lists(now()).unwrap();
+    assert_eq!(f.lib.playlist_members("smart").unwrap().len(), 2);
+    assert_eq!(f.lib.playlist_state().unwrap().nodes, tree);
+}
+
+#[test]
+fn duplicate_merge_undo_uses_a_supported_journal_version_across_implementation_updates() {
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(&review.id, 0, vec![review.groups[0].id.clone()], &token)
+        .unwrap();
+    let before = f.content();
+    let result = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute("UPDATE maintenance_scans SET payload_json=json_set(payload_json,'$.schema','future-v2') WHERE id=?1",[&result.id]).unwrap();
+    assert!(
+        f.lib
+            .undo_duplicate_merge(&result.id, &token)
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported")
+    );
+    conn.execute("UPDATE maintenance_scans SET payload_json=json_set(payload_json,'$.schema','duplicate-library-merge-v1','$.logic','older-compatible-build') WHERE id=?1",[&result.id]).unwrap();
+    f.lib.undo_duplicate_merge(&result.id, &token).unwrap();
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn duplicate_merge_batches_disjoint_groups_with_interleaved_playlist_references() {
+    let mut f = Fixture::new();
+    let token = CancellationToken::default();
+    for index in 4..6 {
+        let path = f.dir.path().join(format!("track-{index}.wav"));
+        wav(&path, 71);
+        let job = f
+            .lib
+            .enqueue(
+                std::slice::from_ref(&path),
+                f.lib.settings().unwrap().revision,
+            )
+            .unwrap()[0]
+            .clone();
+        let id = f
+            .lib
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|j| j.id == job)
+            .unwrap()
+            .track_id;
+        rusqlite::Connection::open(&f.db).unwrap().execute("UPDATE tracks SET title='Parallel',artist='South',duration=20,state='ready' WHERE id=?1",[&id]).unwrap();
+        f.ids.push(id);
+        f.paths.push(path);
+    }
+    f.playlist(
+        "interleaved",
+        vec![
+            f.ids[0].clone(),
+            f.ids[4].clone(),
+            f.ids[2].clone(),
+            f.ids[1].clone(),
+            f.ids[5].clone(),
+        ],
+    );
+    let before = f.content();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    assert_eq!(scan.groups.len(), 2);
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(
+            &review.id,
+            0,
+            review.groups.iter().rev().map(|g| g.id.clone()).collect(),
+            &token,
+        )
+        .unwrap();
+    assert_eq!(
+        preview.playlists[0].after,
+        vec![f.ids[2].clone(), f.ids[0].clone(), f.ids[4].clone()]
+    );
+    let result = f.lib.apply_duplicate_merge(&preview.id, &token).unwrap();
+    assert_eq!(
+        result
+            .archived_ids
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+        [f.ids[1].clone(), f.ids[5].clone()]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>()
+    );
+    assert_eq!(
+        f.lib.manual_playlist_members("interleaved").unwrap(),
+        preview.playlists[0].after
+    );
+    f.lib.undo_duplicate_merge(&result.id, &token).unwrap();
+    assert_eq!(f.content(), before);
+}

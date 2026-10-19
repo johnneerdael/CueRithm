@@ -41,6 +41,38 @@ pub struct DuplicateIgnores {
     pub stamp: MaintenanceStamp,
     pub tracks: Vec<IgnoredDuplicateTrack>,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicatePlaylistChange {
+    pub id: String,
+    pub before: Vec<String>,
+    pub after: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateMergePreview {
+    pub id: String,
+    pub review_id: String,
+    pub review_revision: u64,
+    pub created: i64,
+    pub stamp: MaintenanceStamp,
+    pub plan: cuerithm_maintenance::MergePlan,
+    pub playlists: Vec<DuplicatePlaylistChange>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateMergeResult {
+    pub id: String,
+    pub preview_id: String,
+    pub stamp: MaintenanceStamp,
+    pub archived_ids: Vec<String>,
+    pub restored_ids: Vec<String>,
+    pub affected_playlists: Vec<String>,
+    pub undo_of: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateMergeHistory {
+    pub result: DuplicateMergeResult,
+    pub created: i64,
+    pub undone_by: Option<String>,
+}
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

@@ -36,7 +36,7 @@ pub(super) struct SavedScan {
     #[serde(default)]
     pub(super) candidates: Vec<ReviewTrack>,
     scope: scope::ScopeGuard,
-    files: Vec<FileProof>,
+    pub(super) files: Vec<FileProof>,
     engine: String,
     logic: String,
 }
@@ -50,10 +50,12 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("unused.rs").as_slice(),
         include_bytes!("broken.rs").as_slice(),
         include_bytes!("review.rs").as_slice(),
+        include_bytes!("merge.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/lib.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/review.rs").as_slice(),
+        include_bytes!("../../../cuerithm-maintenance/src/merge.rs").as_slice(),
     ] {
         hash.update((bytes.len() as u64).to_le_bytes());
         hash.update(bytes);

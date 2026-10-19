@@ -1,4 +1,5 @@
 mod files;
+mod merge;
 mod model;
 mod review;
 mod scan;
