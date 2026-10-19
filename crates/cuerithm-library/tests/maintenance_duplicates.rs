@@ -618,3 +618,315 @@ fn duplicate_candidate_order_follows_import_order_even_after_title_sort_changes(
         f.ids[..3]
     );
 }
+
+#[test]
+fn duplicate_review_survives_restart_and_guards_revision_and_ignores() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let mut f = Fixture::new();
+    let before = f.content();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    assert_eq!(review.revision, 0);
+    assert_eq!(review.groups.len(), 1);
+    let group = review.groups[0].id.clone();
+    let chosen = f.ids[1].clone();
+    let edit = |edit| DuplicateReviewEdit::Group {
+        group_id: group.clone(),
+        edit,
+    };
+    let selected = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            edit(GroupEdit::Select {
+                track_id: chosen.clone(),
+            }),
+            &token,
+        )
+        .unwrap();
+    assert_eq!(selected.groups[0].keeper.as_deref(), Some(chosen.as_str()));
+    assert!(
+        f.lib
+            .edit_duplicate_review(&review.id, 0, edit(GroupEdit::Lock), &token)
+            .is_err()
+    );
+    drop(f.lib);
+    f.lib = Library::open(&f.db).unwrap();
+    let reopened = f.lib.clone();
+    let loaded = reopened.duplicate_review(&review.id, &token).unwrap();
+    assert!(!loaded.stale);
+    assert_eq!(loaded.revision, 1);
+    assert_eq!(loaded.groups[0].keeper, selected.groups[0].keeper);
+    let ignored = reopened
+        .edit_duplicate_review(
+            &review.id,
+            1,
+            edit(GroupEdit::ToggleIgnore {
+                track_id: chosen.clone(),
+            }),
+            &token,
+        )
+        .unwrap();
+    assert!(!ignored.stale);
+    assert!(!ignored.groups[0].ready());
+    assert!(f.lib.duplicate_scan(&scan.id).unwrap().stale);
+    assert_eq!(f.content(), before);
+    let fresh = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    assert!(fresh.groups.is_empty());
+    let restored = reopened
+        .edit_duplicate_review(
+            &review.id,
+            2,
+            edit(GroupEdit::ToggleIgnore { track_id: chosen }),
+            &token,
+        )
+        .unwrap();
+    assert!(restored.groups[0].ready());
+    assert!(!restored.stale);
+    assert!(
+        !f.lib
+            .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+            .unwrap()
+            .groups
+            .is_empty()
+    );
+}
+
+#[test]
+fn duplicate_reviews_reject_source_library_and_concurrent_review_changes() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let token = CancellationToken::default();
+    let f = Fixture::new();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let one = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let two = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let edit = DuplicateReviewEdit::Group {
+        group_id: one.groups[0].id.clone(),
+        edit: GroupEdit::ToggleIgnore {
+            track_id: f.ids[1].clone(),
+        },
+    };
+    f.lib
+        .edit_duplicate_review(&one.id, 0, edit, &token)
+        .unwrap();
+    assert!(f.lib.duplicate_review(&two.id, &token).unwrap().stale);
+    let bad = DuplicateReviewEdit::Group {
+        group_id: one.groups[0].id.clone(),
+        edit: GroupEdit::Select {
+            track_id: f.ids[2].clone(),
+        },
+    };
+    assert!(
+        f.lib
+            .edit_duplicate_review(&one.id, 1, bad, &token)
+            .is_err()
+    );
+    assert_eq!(f.lib.duplicate_review(&one.id, &token).unwrap().revision, 1);
+    wav(&f.paths[0], 59);
+    assert!(f.lib.duplicate_review(&one.id, &token).unwrap().stale);
+    assert!(
+        f.lib
+            .edit_duplicate_review(
+                &one.id,
+                1,
+                DuplicateReviewEdit::Group {
+                    group_id: one.groups[0].id.clone(),
+                    edit: GroupEdit::Lock
+                },
+                &token
+            )
+            .is_err()
+    );
+    let f = Fixture::new();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    f.lib.set_archived(&f.ids[0], true).unwrap();
+    assert!(f.lib.duplicate_review(&review.id, &token).unwrap().stale);
+    assert!(f.lib.begin_duplicate_review(&scan.id, &token).is_err());
+}
+
+#[test]
+fn duplicate_review_preferences_locks_copy_only_and_cancellation_are_read_only() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit, Preference, ReviewState};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let before = f.content();
+    let edit = |edit| DuplicateReviewEdit::Group {
+        group_id: review.groups[0].id.clone(),
+        edit,
+    };
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            edit(GroupEdit::UseTags {
+                track_id: Some(f.ids[1].clone()),
+            }),
+            &token,
+        )
+        .unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(&review.id, 1, edit(GroupEdit::Lock), &token)
+        .unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            2,
+            edit(GroupEdit::Unlock { force: false }),
+            &token,
+        )
+        .unwrap();
+    assert_eq!(review.groups[0].state, ReviewState::CopyCues);
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            3,
+            DuplicateReviewEdit::Prefer {
+                preference: Preference::TitleContains {
+                    value: "Signal".into(),
+                },
+                override_locked: false,
+                use_best_cues: true,
+            },
+            &token,
+        )
+        .unwrap();
+    assert_eq!(review.revision, 4);
+    assert_eq!(f.content(), before);
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    assert!(
+        f.lib
+            .edit_duplicate_review(&review.id, 4, edit(GroupEdit::Lock), &cancelled)
+            .is_err()
+    );
+    assert_eq!(
+        f.lib.duplicate_review(&review.id, &token).unwrap().revision,
+        4
+    );
+}
+
+#[test]
+fn persistent_duplicate_ignores_can_be_removed_after_the_original_review_is_stale() {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let ignored_id = f.ids[1].clone();
+    f.lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::ToggleIgnore {
+                    track_id: ignored_id.clone(),
+                },
+            },
+            &token,
+        )
+        .unwrap();
+    f.lib.set_archived(&f.ids[2], true).unwrap();
+    assert!(f.lib.duplicate_review(&review.id, &token).unwrap().stale);
+    let ignored = f.lib.duplicate_ignores().unwrap();
+    assert_eq!(ignored.tracks.len(), 1);
+    assert_eq!(ignored.tracks[0].id, ignored_id);
+    let before = f.content();
+    assert!(
+        f.lib
+            .set_duplicate_ignores(
+                vec![ignored_id.clone(), "outside".into()],
+                false,
+                ignored.stamp.clone()
+            )
+            .is_err()
+    );
+    assert_eq!(f.lib.duplicate_ignores().unwrap().tracks.len(), 1);
+    let cleared = f
+        .lib
+        .set_duplicate_ignores(vec![ignored_id.clone()], false, ignored.stamp.clone())
+        .unwrap();
+    assert!(cleared.tracks.is_empty());
+    assert!(
+        f.lib
+            .set_duplicate_ignores(vec![ignored_id], true, ignored.stamp)
+            .is_err()
+    );
+    assert_eq!(f.content(), before);
+    assert!(
+        !f.lib
+            .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+            .unwrap()
+            .groups
+            .is_empty()
+    );
+}
+
+#[test]
+fn cancelling_saved_report_reload_and_export_uses_the_requested_token() {
+    use cuerithm_library::{BrokenScanRequest, ExtensionMode, UnusedScanRequest};
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let duplicate = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let unused = f
+        .lib
+        .scan_unused_files(
+            UnusedScanRequest {
+                root: f.dir.path().to_path_buf(),
+                extension_mode: ExtensionMode::All,
+                extensions: vec![],
+            },
+            &token,
+        )
+        .unwrap();
+    let broken = f
+        .lib
+        .scan_broken_tracks(BrokenScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    token.cancel();
+    let errors = [
+        f.lib
+            .duplicate_scan_cancellable(&duplicate.id, &token)
+            .unwrap_err(),
+        f.lib
+            .unused_scan_cancellable(&unused.id, &token)
+            .unwrap_err(),
+        f.lib
+            .broken_scan_cancellable(&broken.id, &token)
+            .unwrap_err(),
+        f.lib
+            .unused_scan_export_cancellable(&unused.id, &token)
+            .unwrap_err(),
+    ];
+    assert!(errors.iter().all(|e| e.to_string().contains("cancelled")));
+}

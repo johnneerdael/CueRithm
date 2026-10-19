@@ -21,6 +21,7 @@ pub struct Detail {
 }
 
 pub struct Host {
+    pub maintenance: Arc<crate::maintenance::MaintenanceTasks>,
     pub builtin: crate::builtin::BuiltinModels,
     pub library: Library,
     pub runtime: MediaRuntime,
@@ -67,6 +68,7 @@ impl Host {
         let preparation = PreparationService::start(library.clone(), runtime.clone())?;
         let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
         Ok(Self {
+            maintenance: Arc::new(crate::maintenance::MaintenanceTasks::default()),
             builtin,
             library,
             runtime,

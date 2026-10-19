@@ -1,6 +1,8 @@
 //! Read-only duplicate matching and review suggestions for local music libraries.
 //! Metadata groups are candidates, not proof that decoded audio is identical.
 mod normalize;
+mod review;
+pub use review::*;
 
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
@@ -26,7 +28,7 @@ impl Tolerance {
         )
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Candidate {
     pub id: String,
     pub artist: String,

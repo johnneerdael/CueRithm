@@ -1,8 +1,46 @@
 use crate::SmartStamp;
 pub use cuerithm_maintenance::Tolerance as DuplicateTolerance;
+pub use cuerithm_maintenance::{GroupEdit, Preference, ReviewGroup, ReviewState};
 use cuerithm_media::AudioFingerprint;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateReview {
+    pub id: String,
+    pub scan_id: String,
+    pub created: i64,
+    pub revision: u64,
+    pub stamp: MaintenanceStamp,
+    pub groups: Vec<ReviewGroup>,
+    pub stale: bool,
+    pub stale_reason: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DuplicateReviewEdit {
+    Group {
+        group_id: String,
+        edit: GroupEdit,
+    },
+    Prefer {
+        preference: Preference,
+        override_locked: bool,
+        use_best_cues: bool,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IgnoredDuplicateTrack {
+    pub id: String,
+    pub display_path: String,
+    pub title: String,
+    pub artist: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateIgnores {
+    pub stamp: MaintenanceStamp,
+    pub tracks: Vec<IgnoredDuplicateTrack>,
+}
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

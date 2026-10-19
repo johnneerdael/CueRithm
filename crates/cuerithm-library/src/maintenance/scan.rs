@@ -6,7 +6,7 @@ use crate::{
     playlists::scope,
 };
 use anyhow::{Context, Result, ensure};
-use cuerithm_maintenance::{Candidate, Matcher};
+use cuerithm_maintenance::{Candidate, Matcher, ReviewTrack};
 use cuerithm_media::{
     AudioFingerprint, CancellationToken, FingerprintOutcome, MediaRuntime, file_sha256_cancellable,
 };
@@ -31,8 +31,10 @@ struct Input {
     ignored: bool,
 }
 #[derive(Serialize, Deserialize)]
-struct SavedScan {
-    report: DuplicateScanReport,
+pub(super) struct SavedScan {
+    pub(super) report: DuplicateScanReport,
+    #[serde(default)]
+    pub(super) candidates: Vec<ReviewTrack>,
     scope: scope::ScopeGuard,
     files: Vec<FileProof>,
     engine: String,
@@ -47,9 +49,11 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("files.rs").as_slice(),
         include_bytes!("unused.rs").as_slice(),
         include_bytes!("broken.rs").as_slice(),
+        include_bytes!("review.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/lib.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),
+        include_bytes!("../../../cuerithm-maintenance/src/review.rs").as_slice(),
     ] {
         hash.update((bytes.len() as u64).to_le_bytes());
         hash.update(bytes);
@@ -210,6 +214,7 @@ impl Library {
         };
         let mut files = vec![];
         let mut candidates = vec![];
+        let mut review_tracks = vec![];
         let mut fingerprints: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut fingerprint_order = vec![];
         let total = inputs.len();
@@ -324,7 +329,7 @@ impl Library {
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
                 .and_then(|v| v["cues"].as_array().map(Vec::len))
                 .unwrap_or(0);
-            candidates.push(Candidate {
+            let candidate = Candidate {
                 id: input.id,
                 artist: input.artist,
                 title: input.title,
@@ -338,7 +343,12 @@ impl Library {
                     MaintenanceFileState::Present | MaintenanceFileState::DurationSkipped
                 ),
                 ignored: input.ignored,
+            };
+            review_tracks.push(ReviewTrack {
+                candidate: candidate.clone(),
+                extra1: metadata["tags"]["extra1"].as_str().unwrap_or("").into(),
             });
+            candidates.push(candidate);
             progress(DuplicateScanProgress {
                 completed: report.tracks.len() + 1,
                 total,
@@ -410,6 +420,7 @@ impl Library {
         }
         let mut saved = SavedScan {
             report,
+            candidates: review_tracks,
             scope,
             files,
             engine,
@@ -439,7 +450,7 @@ impl Library {
         tx.commit()?;
         Ok(saved.report)
     }
-    fn refresh_duplicate_staleness(
+    pub(super) fn refresh_duplicate_staleness(
         &self,
         saved: &mut SavedScan,
         cancel: &CancellationToken,
@@ -460,6 +471,23 @@ impl Library {
         Ok(())
     }
     pub fn duplicate_scan(&self, id: &str) -> Result<DuplicateScanReport> {
+        Ok(self
+            .load_duplicate_scan(id, &CancellationToken::default())?
+            .report)
+    }
+    pub fn duplicate_scan_cancellable(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<DuplicateScanReport> {
+        Ok(self.load_duplicate_scan(id, cancel)?.report)
+    }
+    pub(super) fn load_duplicate_scan(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<SavedScan> {
+        cancel.check()?;
         let text: String = self
             .conn()?
             .query_row(
@@ -470,8 +498,8 @@ impl Library {
             .optional()?
             .context("Duplicate scan not found")?;
         let mut saved: SavedScan = serde_json::from_str(&text)?;
-        self.refresh_duplicate_staleness(&mut saved, &CancellationToken::default())?;
-        Ok(saved.report)
+        self.refresh_duplicate_staleness(&mut saved, cancel)?;
+        Ok(saved)
     }
 }
 fn mark_stale(report: &mut DuplicateScanReport, reason: &str) {

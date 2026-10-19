@@ -511,6 +511,14 @@ impl Library {
         Ok(())
     }
     pub fn unused_scan(&self, id: &str) -> Result<UnusedScanReport> {
+        self.unused_scan_cancellable(id, &CancellationToken::default())
+    }
+    pub fn unused_scan_cancellable(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<UnusedScanReport> {
+        cancel.check()?;
         let text: String = self
             .conn()?
             .query_row(
@@ -521,12 +529,19 @@ impl Library {
             .optional()?
             .context("Unused scan not found")?;
         let mut saved: SavedUnused = serde_json::from_str(&text)?;
-        self.refresh_unused(&mut saved, &CancellationToken::default())?;
+        self.refresh_unused(&mut saved, cancel)?;
         Ok(saved.report)
     }
     pub fn unused_scan_export(&self, id: &str) -> Result<String> {
+        self.unused_scan_export_cancellable(id, &CancellationToken::default())
+    }
+    pub fn unused_scan_export_cancellable(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String> {
         Ok(self
-            .unused_scan(id)?
+            .unused_scan_cancellable(id, cancel)?
             .files
             .iter()
             .map(|f| f.display_path.clone())

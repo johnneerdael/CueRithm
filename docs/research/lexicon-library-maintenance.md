@@ -215,3 +215,54 @@ disappearing candidates, cancellation, missing/reappearing records and valid,
 malformed and unsupported audio. Native UI wiring, reviewed file removal,
 duplicate review/merge, playlist replacement and durable undo remain unfinished.
 These backends have not been accepted against the user's live music collection.
+
+
+## Durable review and native command checkpoint (2026-10-19)
+
+The independent review engine now implements separate keeper/tag-source choices,
+lock/unlock/copy-only transitions, track ignores, and folder, most-cues, highest-
+bitrate, title and Extra1 preferences. Optional best-cue donor selection runs only
+when the chosen keeper changes, following the inspected generator. Overrides
+can unlock a matching locked group even when it already has the chosen keeper.
+No play-count or streaming preference was added.
+
+An additional 164 authored cases were executed against the shipped
+`DuplicateTrack` methods (renderer323969 onward) and scanner `prefer` generator
+(renderer324308 onward), using installed Electron Node20.18.1. Their complete
+selection/state outputs match Rust. `lexicon-review-v1.json` records the source,
+function and capture hashes and the controlled presence, ID and normalized-POSIX-
+path adapters. These fixtures do not exercise the original execute/mutation path.
+
+Library reviews persist the captured group inputs, source/scope proofs and an
+independent edit revision. Restart retains choices. Stale scans, source changes,
+library/scope edits and concurrent review edits are rejected. Explicit ignore
+changes update the persistent ignore set atomically with that review; its own
+ignore revision is adopted while other reviews become stale. Ignored or
+unavailable manual keepers/donors are rejected. If an existing selection becomes
+ignored, it stays visible but is not actionable. A separate stamped ignore list
+allows restoring ignored tracks after the original review becomes stale.
+
+Native commands and a typed TypeScript bridge now expose duplicate/unused/broken
+scans, report reload/export, duplicate review and persistent ignore management.
+Long operations run on blocking workers with one maintenance slot, progress,
+operation-specific cancellation and source-proof rechecking. Cancellation retains
+the slot until the worker exits. Shutdown cancels active work and waits for it to
+finish so owned decoder children can be reaped. Saved-report reads and unused
+exports accept the caller's cancellation token as well as initial scans.
+See `docs/development/maintenance-api.md` for the UI handoff contract.
+
+This checkpoint does not expose duplicate apply, file removal or undo. Review
+choices and ignores do not change audio tags, cues, archives or playlist members.
+Generated library tests cover persistence, stale/concurrent edits, cancellation,
+ignore restoration and unchanged content. Branded maintenance screens, merge/
+copy publication, playlist-reference replacement, durable undo, reviewed disk
+removal and native end-to-end acceptance remain required deliveries.
+
+A packaged macOS test app with a separate identity, generated four-track library
+and unreferenced WAV exercised the real Tauri invoke/event path: exact duplicate
+scan, persisted keeper/donor edits, lock/copy-only transition, ignore/restore,
+stale-review reload, unused scan/export, strict validation and acknowledged
+cancellation. It returned the expected states and retained all generated audio.
+This is isolated native command acceptance, not branded maintenance-screen or
+live-library acceptance. Windows/Linux validation of these new commands remains
+separate from earlier desktop builds.

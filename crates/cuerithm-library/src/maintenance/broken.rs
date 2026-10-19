@@ -179,6 +179,14 @@ impl Library {
         Ok(())
     }
     pub fn broken_scan(&self, id: &str) -> Result<BrokenScanReport> {
+        self.broken_scan_cancellable(id, &CancellationToken::default())
+    }
+    pub fn broken_scan_cancellable(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<BrokenScanReport> {
+        cancel.check()?;
         let text: String = self
             .conn()?
             .query_row(
@@ -189,7 +197,7 @@ impl Library {
             .optional()?
             .context("Broken scan not found")?;
         let mut saved: SavedBroken = serde_json::from_str(&text)?;
-        self.refresh_broken(&mut saved, &CancellationToken::default())?;
+        self.refresh_broken(&mut saved, cancel)?;
         Ok(saved.report)
     }
 }
