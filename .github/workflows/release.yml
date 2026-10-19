@@ -1,6 +1,8 @@
 name: Release
 
-# Publishes a release (signed, notarized macOS; unsigned Linux and Windows) for a main commit once both post-merge build workflows pass for it.
+# After both post-merge check workflows pass for a main commit with user-facing release notes, builds the
+# desktop packages and publishes a release (signed, notarized macOS; unsigned Linux and Windows).
+# Internal-only changes never release by themselves; run this workflow manually to force one.
 on:
   workflow_run:
     workflows: [Engine checks, Desktop checks]
@@ -9,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: 'main commit to release (both build workflows must have passed)'
+        description: 'main commit to release (both check workflows must have passed)'
         required: true
 
 permissions:
@@ -21,10 +23,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  gate:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["push","workflow_dispatch"]'), github.event.workflow_run.event))
-    runs-on: macos-15
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      ok: ${{ steps.ready.outputs.ok }}
+      sha: ${{ env.SHA }}
+      target: ${{ steps.ready.outputs.target }}
     env:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
@@ -34,38 +40,60 @@ jobs:
           ref: ${{ env.SHA }}
           fetch-depth: 0
           persist-credentials: false
-      # Release tooling always comes from main, so signing fixes apply to older green commits too.
+      # Release tooling always comes from main, so fixes apply to older green commits too.
       - name: Use release tooling from main
         run: |
           git fetch --no-tags origin main
           git checkout origin/main -- tools/release .github/scripts
-      - name: Require both build workflows to have passed for this commit
+      - name: Decide whether to release
         id: ready
         run: |
           ok=true
           for wf in ci.yml desktop.yml; do
             run=$(gh run list --workflow "$wf" --commit "$SHA" --status success --json databaseId,event --jq '[.[] | select(.event=="push" or .event=="workflow_dispatch")][0].databaseId')
             if [ -z "$run" ] || [ "$run" = null ]; then ok=false; fi
-            if [ "$wf" = desktop.yml ]; then echo "desktop_run=$run" >> "$GITHUB_OUTPUT"; fi
           done
           # Skip when this commit is already released or an equal/newer main commit was.
           if [ -n "$(git tag --points-at "$SHA")" ]; then ok=false; fi
           latest=$(git tag --list 'v*' --sort=-v:refname | head -1)
           if [ -n "$latest" ] && ! git merge-base --is-ancestor "$latest" "$SHA"; then ok=false; fi
           # GITHUB_TOKEN may only tag the tip of main (older commits can differ in workflow files).
-          # Tag the tip when everything after the built commit is release-only (the builds' paths-ignore set).
-          git fetch --no-tags origin main
+          # Tag the tip when everything after the checked commit is release-only (the checks' paths-ignore set).
           target=$(git rev-parse origin/main)
           if ! git merge-base --is-ancestor "$SHA" "$target"; then ok=false; fi
           if git diff --name-only "$SHA" "$target" | grep -qvE '^(docs/|README\.md$|\.github/PULL_REQUEST_TEMPLATE\.md$|\.github/scripts/|\.github/workflows/(pr-gate|release)\.yml$|tools/release/)'; then ok=false; fi
           if [ -n "$(git tag --points-at "$target")" ]; then ok=false; fi
+          # Automatic releases need at least one user-facing release note since the last release.
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ "$ok" = true ]; then
+            [ "$(python3 .github/scripts/release_notes.py has-public --head "$target" --repo "$GITHUB_REPOSITORY")" = true ] || ok=false
+          fi
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: gate
+    if: needs.gate.outputs.ok == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/package.yml
+    with:
+      sha: ${{ needs.gate.outputs.sha }}
+
+  publish:
+    needs: [gate, package]
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.gate.outputs.target }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Download desktop builds
-        if: steps.ready.outputs.ok == 'true'
-        run: gh run download "${{ steps.ready.outputs.desktop_run }}" --pattern 'Cuerithm-test-*' --dir dist
+        run: gh run download "$GITHUB_RUN_ID" --pattern 'Cuerithm-test-*' --dir dist
       - name: Import Developer ID certificate
-        if: steps.ready.outputs.ok == 'true'
         env:
           CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -84,7 +112,6 @@ jobs:
           [ -n "$identity" ] || { echo 'Developer ID identity not found' >&2; exit 1; }
           echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
       - name: Sign and notarize
-        if: steps.ready.outputs.ok == 'true'
         env:
           NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
@@ -104,9 +131,8 @@ jobs:
           cp "$(find dist/Cuerithm-test-macos-15 -name cuerithm-source.tar.gz)" release/
           cp "$(find dist/Cuerithm-test-macos-15 -name 'ffmpeg-*.tar.xz')" release/
       - name: Publish release
-        if: steps.ready.outputs.ok == 'true'
         env:
-          TARGET: ${{ steps.ready.outputs.target }}
+          TARGET: ${{ needs.gate.outputs.target }}
         run: |
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
           version=$(python3 .github/scripts/release_notes.py version --base "$base")

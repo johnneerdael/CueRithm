@@ -23,6 +23,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: desktop-${{ matrix.os }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux'
         run: |
@@ -30,14 +34,17 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential cmake libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libasound2-dev
       - uses: ./.github/actions/native-crypto-tools
       - uses: ./.github/actions/media-runtime
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@12.14.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
       - name: Locked frontend dependencies
         shell: bash
-        run: |
-          npm install --global pnpm@12.14.0
-          pnpm --dir apps/desktop install --frozen-lockfile
+        run: pnpm --dir apps/desktop install --frozen-lockfile
       - name: Rust checks
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
       - name: Frontend tests and production build
@@ -57,55 +64,3 @@ jobs:
         run: |
           python -m unittest discover -s tools/fixtures/rekordbox -v
           python -m unittest discover -s tools/media-runtime -v
-      - name: Package macOS app
-        if: runner.os == 'macOS'
-        run: pnpm --dir apps/desktop tauri build --bundles app
-      - name: Verify macOS bundled resources
-        if: runner.os == 'macOS'
-        run: target/release/bundle/macos/Cuerithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
-      - name: Package Linux app
-        if: runner.os == 'Linux'
-        run: pnpm --dir apps/desktop tauri build --bundles deb
-      - name: Verify extracted Linux resources
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p .superpowers/linux-package
-          dpkg-deb -x target/release/bundle/deb/*.deb .superpowers/linux-package
-          .superpowers/linux-package/usr/bin/cuerithm-desktop --diagnostics
-      - name: Build Windows portable app
-        if: runner.os == 'Windows'
-        run: pnpm --dir apps/desktop tauri build --no-bundle
-      - name: Stage and verify Windows portable resources
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force target/release/bundle/portable | Out-Null
-          Copy-Item target/release/cuerithm-desktop.exe target/release/bundle/portable/
-          Copy-Item -Recurse tools/media-runtime/bin target/release/bundle/portable/media
-          & target/release/bundle/portable/cuerithm-desktop.exe --diagnostics
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Package Mac artifact without losing executable modes
-        if: runner.os == 'macOS'
-        run: tar -czf target/release/bundle/Cuerithm-${{ runner.arch }}.app.tar.gz -C target/release/bundle/macos Cuerithm.app
-      - name: Include matching application source
-        shell: bash
-        run: git archive --format=tar.gz -o target/release/bundle/cuerithm-source.tar.gz HEAD
-      - name: Upload unsigned test artifacts and decoder source
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: Cuerithm-test-${{ matrix.os }}
-          if-no-files-found: error
-          retention-days: 14
-          path: |
-            target/release/bundle/*.app.tar.gz
-            target/release/bundle/cuerithm-source.tar.gz
-            target/release/bundle/deb/*.deb
-            target/release/bundle/portable/**
-            .superpowers/media-build/ffmpeg-9.0.2.tar.xz
-            tools/media-runtime/
-            THIRD_PARTY_NOTICES.md
-            crates/camelot-core/vendor/soxr/LICENCE
-            crates/camelot-core/vendor/soxr/COPYING.LGPL
-            vendor/onetagger/LICENSE
-            vendor/onetagger/UPSTREAM.json
-            vendor/taglib/
