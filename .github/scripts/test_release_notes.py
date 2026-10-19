@@ -16,6 +16,11 @@ class Release(unittest.TestCase):
         self.assertEqual(internal, ["tidy CI"])
         self.assertEqual(other, ["hotfix without pr"])
 
+    def test_wrapped_bullets_stay_whole(self):
+        body = "## Release notes\n- First line\n  continues here\n- Second\n"
+        public, _, _ = rn.entries([("1", "x (#9)")], {9: body})
+        self.assertEqual(public, ["First line continues here", "Second"])
+
     def test_merge_commit_subjects_resolve_the_pr(self):
         public, _, _ = rn.entries([("1", "Merge pull request #7 from x/y")], {7: "## Release notes\n- Z"})
         self.assertEqual(public, ["Z"])

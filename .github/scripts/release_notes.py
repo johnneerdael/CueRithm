@@ -20,8 +20,15 @@ def entries(commits, bodies):
     for _, subject in commits:
         pr = re.search(r"\(#(\d+)\)$", subject) or re.match(r"Merge pull request #(\d+)", subject)
         notes = sections(bodies.get(int(pr[1]), "")).get("release notes", "") if pr else ""
-        lines = [re.sub(r"^[-*]\s*", "", l).strip() for l in notes.splitlines()]
-        lines = [l for l in lines if l]
+        lines = []
+        for raw in notes.splitlines():
+            text = raw.strip()
+            if not text:
+                continue
+            if re.match(r"[-*]\s", text) or not lines:
+                lines.append(re.sub(r"^[-*]\s*", "", text))
+            else:  # wrapped continuation of the previous bullet
+                lines[-1] += " " + text
         if not pr:
             other.append(subject)
         elif lines and all(l.lower().startswith("internal:") for l in lines):
