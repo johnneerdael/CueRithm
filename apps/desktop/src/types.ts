@@ -61,7 +61,7 @@ export interface LibraryState {counts:{tracks:number;incoming:number;archive:num
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}
 export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
-export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[]}
+export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][]}
 export interface Bridge {
   getPlaylists():Promise<import("./playlist-types").PlaylistWorkspace>;
   editPlaylist(edit:import("./playlist-types").PlaylistEdit,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;

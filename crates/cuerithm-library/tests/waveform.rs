@@ -42,6 +42,21 @@ fn every_format_shares_waveform_seek_and_analysis_clock() {
             serde_json::to_value(cached).unwrap()
         );
         assert_eq!(peaks.bins.len(), 1024);
+        assert_eq!(peaks.bands.len(), 1024);
+        assert!(peaks.bands.iter().any(|b| b.contains(&255)));
+        // A cache written before colour existed has no bands and must be rebuilt, not served.
+        for entry in std::fs::read_dir(d.path().join("wave-cache")).unwrap() {
+            let path = entry.unwrap().path();
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            value.as_object_mut().unwrap().remove("bands");
+            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        }
+        let rebuilt = cached_waveform(&audio, 1024, &d.path().join("wave-cache")).unwrap();
+        assert_eq!(
+            serde_json::to_value(&peaks).unwrap(),
+            serde_json::to_value(rebuilt).unwrap()
+        );
         assert_eq!(peaks.duration_seconds, audio.clock.duration_seconds());
         assert!(
             peaks
