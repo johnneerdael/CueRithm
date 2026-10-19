@@ -4,10 +4,10 @@ use cuerithm_library::{
 use cuerithm_media::{CancellationToken, MediaRuntime};
 use std::path::{Path, PathBuf};
 struct Fixture {
-    dir: tempfile::TempDir,
     lib: Library,
     db: PathBuf,
     music: PathBuf,
+    _dir: tempfile::TempDir,
 }
 impl Fixture {
     fn new() -> Self {
@@ -17,7 +17,7 @@ impl Fixture {
         let db = dir.path().join("app/library.sqlite");
         let lib = Library::open(&db).unwrap();
         Self {
-            dir,
+            _dir: dir,
             lib,
             db,
             music,
@@ -179,7 +179,7 @@ fn file_and_directory_changes_and_new_library_references_invalidate_saved_unused
 #[test]
 fn traversal_does_not_follow_directory_or_file_symlinks() {
     let f = Fixture::new();
-    let outside = f.dir.path().join("outside");
+    let outside = f._dir.path().join("outside");
     std::fs::create_dir(&outside).unwrap();
     std::fs::write(outside.join("keep.flac"), b"private").unwrap();
     std::os::unix::fs::symlink(&outside, f.music.join("linked-dir")).unwrap();
