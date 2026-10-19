@@ -538,7 +538,7 @@ impl Engine {
             let mut position = 0;
             while position < audio.frames {
                 let chunk = audio.read_frames(position, 65536)?;
-                samples.extend(chunk.chunks_exact(2).map(|frame| {
+                samples.extend(chunk.as_chunks::<2>().0.iter().map(|frame| {
                     if self.settings.lexicon_timing {
                         frame[0]
                     } else {
