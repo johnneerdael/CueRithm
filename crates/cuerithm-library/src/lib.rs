@@ -17,6 +17,8 @@ mod native_apply;
 pub use native_apply::*;
 mod native_plan;
 pub use native_plan::*;
+mod native_playlists;
+pub use native_playlists::*;
 mod native_reconcile;
 pub use native_reconcile::*;
 mod native_sync;

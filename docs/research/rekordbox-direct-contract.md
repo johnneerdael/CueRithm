@@ -437,3 +437,30 @@ and links, unchanged schema, backup equal to the library before the write) and r
 Still not established: the same sequence against a library that rekordbox itself has opened and closed,
 opening the published library in rekordbox 7 and playing the cues, a backup of analysis files and
 artwork alongside the database, and any app flow that calls this. Nothing in the app calls it yet.
+
+
+## Playlist mirroring and the desktop flow (2026-10-20)
+
+`Library::native_sync_prepare` and `native_sync_apply` drive the writer and publication from the desktop
+**rekordbox** screen (preflight, link, preview, apply, history). Fields are compared in one canonical form
+(Camelot keys, BPM in hundredths, joined text, and cues as the exact rows that would be written), so equal
+content in different notations is unchanged. A field is written only when CueRithm owns it, changed it since
+the baseline, and rekordbox did not; empty CueRithm values, conflicts and unowned fields are listed, never
+written. After a verified write the written fields become an agreed baseline.
+
+Playlists follow the reference writer's name-path matching with these differences, chosen so a library is
+never taken over:
+
+- A playlist is managed once CueRithm has written it. One that already exists in rekordbox under the same
+  path and was not written by CueRithm is left alone and reported.
+- A managed playlist whose membership changed in rekordbox since the last write is reported and left alone.
+- A folder that already exists is used as a container and not altered; managed folders keep their position.
+- Playlists CueRithm wrote are removed from rekordbox when removed here, unless rekordbox changed them or a
+  folder holds anything CueRithm did not write.
+- Smart lists are written as ordinary playlists of their current members; native smart-list rules are not
+  written yet. Members not linked to rekordbox are counted and skipped.
+
+The end-to-end test (`cuerithm-library/tests/native_sync_real.rs`, skipped unless `CUERITHM_REKORDBOX_COPY` is
+set) runs this on a snapshot of a real 7.2.19 library: previewing, writing, publishing, acknowledging,
+repeating as a no-op, reporting an edit made in rekordbox as a conflict, mirroring and removing playlists,
+and refusing to take over an existing playlist.

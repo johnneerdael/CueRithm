@@ -6,6 +6,7 @@
 use cuerithm_library::*;
 use cuerithm_media::CancellationToken;
 use cuerithm_rekordbox::*;
+use cuerithm_smartlists::PlaylistKind;
 use std::{collections::BTreeMap, path::PathBuf};
 
 fn key() -> DatabaseKey {
@@ -210,4 +211,236 @@ fn read_row_fingerprint(path: &std::path::Path, key: &DatabaseKey, content_id: &
         .unwrap()
         .raw_hash
         .clone()
+}
+
+fn playlist_edit(lib: &Library, edit: PlaylistEdit) -> PlaylistChange {
+    let revision = lib.playlist_state().unwrap().revision;
+    lib.apply_playlist_edit(edit, revision).unwrap()
+}
+fn create(kind: PlaylistKind, name: &str, parent: Option<&str>) -> PlaylistEdit {
+    PlaylistEdit::Create {
+        id: None,
+        parent_id: parent.map(str::to_owned),
+        kind,
+        name: name.into(),
+        definition: None,
+    }
+}
+
+#[test]
+fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
+    let Some(copy) = std::env::var_os("CUERITHM_REKORDBOX_COPY").map(PathBuf::from) else {
+        eprintln!("skipped: CUERITHM_REKORDBOX_COPY is not set");
+        return;
+    };
+    let key = key();
+    let cancel = CancellationToken::default();
+    let scratch = tempfile::tempdir().unwrap();
+    let live = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(scratch.path(), &key, &cancel)
+        .unwrap();
+    let before = read(&live.path, &key);
+    let track = before
+        .tracks
+        .iter()
+        .find(|t| {
+            t.importable_local()
+                && t.source
+                    .resolved_path
+                    .as_ref()
+                    .is_some_and(|p| std::path::Path::new(p).is_file())
+        })
+        .expect("a track whose audio file exists");
+    let content_id = track.identity.content_id.clone();
+    let library_dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&library_dir.path().join("library")).unwrap();
+    let report = lib
+        .import_rekordbox_collection(
+            &before,
+            NativeImportOptions {
+                settings_revision: lib.settings().unwrap().revision,
+                content_ids: Some([content_id.clone()].into()),
+                initial_owners: Default::default(),
+            },
+            &cancel,
+        )
+        .unwrap();
+    let local_track = lib
+        .native_track_link(&report.target_id, &content_id)
+        .unwrap()
+        .local_track_id
+        .unwrap();
+    let (work, backups) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let sync = || {
+        lib.native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+            .unwrap()
+    };
+    // A folder with a playlist holding the linked track, plus a playlist whose name already exists in rekordbox.
+    let existing_name = before
+        .playlists
+        .iter()
+        .find(|p| {
+            p.deleted == Some(false) && p.attribute == 0 && p.parent_id.as_deref() == Some("root")
+        })
+        .map(|p| p.name.clone());
+    let folder = playlist_edit(
+        &lib,
+        create(PlaylistKind::Folder, "Cuerithm Acceptance", None),
+    )
+    .created_ids[0]
+        .clone();
+    let playlist = playlist_edit(
+        &lib,
+        create(PlaylistKind::Playlist, "Linked", Some(&folder)),
+    )
+    .created_ids[0]
+        .clone();
+    playlist_edit(
+        &lib,
+        PlaylistEdit::AddMembers {
+            id: playlist.clone(),
+            track_ids: vec![local_track.clone()],
+        },
+    );
+    let prepared = lib
+        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .unwrap();
+    assert_eq!(prepared.playlists.writes(), 2, "{:?}", prepared.playlists);
+    let run = sync();
+    assert_eq!(run.state, "committed");
+    let after = read(&live.path, &key);
+    let rb_folder = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Cuerithm Acceptance" && p.attribute == 1)
+        .unwrap();
+    let rb_playlist = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Linked" && p.attribute == 0)
+        .unwrap();
+    assert_eq!(
+        rb_playlist.parent_id.as_deref(),
+        Some(rb_folder.id.as_str())
+    );
+    assert_eq!(
+        after.playlist_local_track_ids(&rb_playlist.id),
+        vec![content_id.clone()]
+    );
+    assert_eq!(after.playlists.len(), before.playlists.len() + 2);
+    // Repeating changes nothing.
+    assert_eq!(sync().state, "nothing_to_write");
+    // A playlist CueRithm wrote is removed from rekordbox when it is removed here.
+    let temp = playlist_edit(
+        &lib,
+        create(PlaylistKind::Playlist, "Temporary", Some(&folder)),
+    )
+    .created_ids[0]
+        .clone();
+    playlist_edit(
+        &lib,
+        PlaylistEdit::AddMembers {
+            id: temp.clone(),
+            track_ids: vec![local_track.clone()],
+        },
+    );
+    assert_eq!(sync().state, "committed");
+    let rb_temp = |c: &RekordboxCollection| {
+        c.playlists
+            .iter()
+            .find(|p| p.name == "Temporary" && p.deleted == Some(false))
+            .map(|p| p.id.clone())
+    };
+    assert!(rb_temp(&read(&live.path, &key)).is_some());
+    playlist_edit(&lib, PlaylistEdit::Remove { id: temp });
+    let removal = lib
+        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .unwrap();
+    assert!(
+        removal
+            .playlists
+            .items
+            .iter()
+            .any(|i| i.action == PlaylistAction::Remove
+                && i.path.last().map(String::as_str) == Some("Temporary"))
+    );
+    assert_eq!(sync().state, "committed");
+    assert!(rb_temp(&read(&live.path, &key)).is_none());
+    assert!(
+        read(&live.path, &key)
+            .playlists
+            .iter()
+            .any(|p| p.name == "Linked" && p.deleted == Some(false))
+    );
+    // A playlist edited in rekordbox is reported as changed, not overwritten.
+    {
+        let mut writer = WriteDatabase::open(&live.path, &key).unwrap();
+        writer
+            .apply(
+                &WritePlan {
+                    playlists: vec![PlaylistWrite {
+                        path: vec!["Cuerithm Acceptance".into(), "Linked".into()],
+                        kind: cuerithm_rekordbox::PlaylistKind::Playlist,
+                        position: 1,
+                        tracks: vec![],
+                        expected_members: None,
+                    }],
+                    ..Default::default()
+                },
+                &cancel,
+            )
+            .unwrap();
+    }
+    let changed = lib
+        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .unwrap();
+    assert!(
+        changed
+            .playlists
+            .items
+            .iter()
+            .any(|i| i.path.last().map(String::as_str) == Some("Linked")
+                && i.action == PlaylistAction::SkipChanged)
+    );
+    assert_eq!(sync().state, "nothing_to_write");
+    assert!(
+        read(&live.path, &key)
+            .playlist_local_track_ids(&rb_playlist.id)
+            .is_empty()
+    );
+    // A playlist that already exists in rekordbox under the same name is not taken over.
+    if let Some(name) = existing_name {
+        let clash =
+            playlist_edit(&lib, create(PlaylistKind::Playlist, &name, None)).created_ids[0].clone();
+        playlist_edit(
+            &lib,
+            PlaylistEdit::AddMembers {
+                id: clash,
+                track_ids: vec![local_track.clone()],
+            },
+        );
+        let prepared = lib
+            .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+            .unwrap();
+        assert!(
+            prepared
+                .playlists
+                .items
+                .iter()
+                .any(|i| i.path == vec![name.clone()] && i.action == PlaylistAction::SkipExisting)
+        );
+        sync();
+        let kept_members = |c: &RekordboxCollection| {
+            let p = c
+                .playlists
+                .iter()
+                .find(|p| {
+                    p.name == name && p.attribute == 0 && p.parent_id.as_deref() == Some("root")
+                })
+                .unwrap();
+            c.playlist_local_track_ids(&p.id)
+        };
+        assert_eq!(kept_members(&read(&live.path, &key)), kept_members(&before));
+    }
 }

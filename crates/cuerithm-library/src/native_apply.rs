@@ -2,6 +2,7 @@
 //! then write to a copy and publish it with a backup. Every step reads or writes a snapshot or a copy; the
 //! live database changes only at the final, verified publication.
 use crate::native_plan::{PlannedTrack, SyncPlanSummary, plan_from_preview};
+use crate::native_playlists::PlaylistPlanSummary;
 use crate::native_reconcile::NativeSyncPreview;
 use crate::*;
 use anyhow::{Context, Result, ensure};
@@ -21,6 +22,8 @@ pub struct NativeSyncPrepared {
     pub target_id: String,
     pub preview: NativeSyncPreview,
     pub plan: SyncPlanSummary,
+    /// What mirroring CueRithm's playlists would do.
+    pub playlists: PlaylistPlanSummary,
     /// The library's change number when the snapshot was taken.
     pub snapshot_usn: i64,
 }
@@ -34,6 +37,7 @@ pub struct NativeSyncRun {
     pub usn_before: Option<i64>,
     pub usn_after: Option<i64>,
     pub tracks: Vec<PlannedTrack>,
+    pub playlists: PlaylistPlanSummary,
     pub skipped: usize,
     pub backup: Option<PathBuf>,
     pub journal: Option<PathBuf>,
@@ -56,7 +60,8 @@ impl Library {
         work_dir: &Path,
         cancel: &CancellationToken,
     ) -> Result<NativeSyncPrepared> {
-        let (prepared, _snapshot) = self.prepare_with_snapshot(live, key, work_dir, cancel)?;
+        let (prepared, _snapshot, _collection) =
+            self.prepare_with_snapshot(live, key, work_dir, cancel)?;
         Ok(prepared)
     }
 
@@ -66,7 +71,11 @@ impl Library {
         key: &DatabaseKey,
         work_dir: &Path,
         cancel: &CancellationToken,
-    ) -> Result<(NativeSyncPrepared, cuerithm_rekordbox::DatabaseSnapshot)> {
+    ) -> Result<(
+        NativeSyncPrepared,
+        cuerithm_rekordbox::DatabaseSnapshot,
+        cuerithm_rekordbox::RekordboxCollection,
+    )> {
         let snapshot = ReadOnlyDatabase::open(live, key)?.capture(work_dir, key, cancel)?;
         let collection = ReadOnlyDatabase::open(&snapshot.path, key)?
             .read_collection(CollectionReadOptions::default(), cancel)?;
@@ -103,14 +112,17 @@ impl Library {
         )?;
         let preview = self.native_sync_preview(&target)?;
         let (_, plan) = plan_from_preview(&preview)?;
+        let (_, _, playlists) = self.plan_native_playlists(&target, &collection)?;
         Ok((
             NativeSyncPrepared {
                 target_id: target,
                 preview,
                 plan,
+                playlists,
                 snapshot_usn: usn,
             },
             snapshot,
+            collection,
         ))
     }
 
@@ -124,8 +136,13 @@ impl Library {
         backup_dir: &Path,
         cancel: &CancellationToken,
     ) -> Result<NativeSyncRun> {
-        let (prepared, snapshot) = self.prepare_with_snapshot(live, key, work_dir, cancel)?;
-        let (plan, summary) = plan_from_preview(&prepared.preview)?;
+        let (prepared, snapshot, collection) =
+            self.prepare_with_snapshot(live, key, work_dir, cancel)?;
+        let (mut plan, summary) = plan_from_preview(&prepared.preview)?;
+        let (playlist_writes, playlist_removals, playlist_summary) =
+            self.plan_native_playlists(&prepared.target_id, &collection)?;
+        plan.playlists = playlist_writes;
+        plan.remove_playlists = playlist_removals;
         let id = uuid::Uuid::new_v4().to_string();
         let mut run = NativeSyncRun {
             id: id.clone(),
@@ -135,11 +152,12 @@ impl Library {
             usn_before: None,
             usn_after: None,
             tracks: summary.tracks.clone(),
+            playlists: playlist_summary.clone(),
             skipped: summary.skipped.len(),
             backup: None,
             journal: None,
         };
-        if plan.tracks.is_empty() {
+        if plan.tracks.is_empty() && plan.playlists.is_empty() && plan.remove_playlists.is_empty() {
             self.record_native_run(&run)?;
             return Ok(run);
         }
@@ -163,13 +181,19 @@ impl Library {
         run.backup = Some(published.backup);
         run.journal = Some(published.journal);
         // Read the published library back, and only then treat the written fields as agreed.
-        let (_after, _snap) = self.prepare_with_snapshot(live, key, work_dir, cancel)?;
+        let (_after, _snapshot, after_collection) =
+            self.prepare_with_snapshot(live, key, work_dir, cancel)?;
         let written: Vec<(String, Vec<String>)> = summary
             .tracks
             .iter()
             .map(|t| (t.content_id.clone(), t.fields.clone()))
             .collect();
         self.native_acknowledge(&prepared.target_id, &written)?;
+        self.acknowledge_native_playlists(
+            &prepared.target_id,
+            &playlist_summary,
+            &after_collection,
+        )?;
         self.record_native_run(&run)?;
         Ok(run)
     }

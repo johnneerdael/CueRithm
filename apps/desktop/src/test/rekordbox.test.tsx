@@ -15,8 +15,9 @@ const prepared=(over:Partial<NativeSyncPrepared>={}):NativeSyncPrepared=>({targe
   preview:{target_id:"t1",revision:2,writes_enabled:false,write_blocker:"",summary:{},tracks:[
     {content_id:"101",local_track_id:"l1",status:"linked",expected_fingerprint:"fp",blocked:null,fields:[diff("title","push_local","New title","Old title"),diff("genre","pull_remote","House","Tech House"),diff("key","empty_local",null,"8A")]},
     {content_id:"102",local_track_id:"l2",status:"identity_changed",expected_fingerprint:null,blocked:"identity_changed",fields:[]}]},
-  plan:{tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],skipped:[{content_id:"101",field:"key",decision:"empty_local"}],blocked:[["102","identity_changed"]],pull_available:1},...over});
-const run:NativeSyncRun={id:"r1",created:1700000000000,target_id:"t1",state:"committed",usn_before:10,usn_after:11,tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],skipped:1,backup:"/data/backups/r1/master.backup.db",journal:"/data/backups/r1/journal.json"};
+  plan:{tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],skipped:[{content_id:"101",field:"key",decision:"empty_local"}],blocked:[["102","identity_changed"]],pull_available:1},
+  playlists:{items:[{path:["Sets","Friday"],folder:false,action:"create",tracks:12,unlinked:2},{path:["Warmup"],folder:false,action:"skip_existing",tracks:5,unlinked:0},{path:["Old"],folder:false,action:"unchanged",tracks:1,unlinked:0}]},...over});
+const run:NativeSyncRun={id:"r1",created:1700000000000,target_id:"t1",state:"committed",usn_before:10,usn_after:11,tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],playlists:{items:[]},skipped:1,backup:"/data/backups/r1/master.backup.db",journal:"/data/backups/r1/journal.json"};
 function fakeRekordbox(){
   return {
     preflight:vi.fn<RekordboxBridge["preflight"]>(async()=>preflight()),
@@ -70,10 +71,15 @@ it("previews each field with who is newer and applies only after an explicit ack
   expect(tracks.getByText("rekordbox is newer")).toBeInTheDocument();
   expect(tracks.getByText("Cuerithm has no value")).toBeInTheDocument();
   expect(tracks.getByText(/Blocked: identity changed/)).toBeInTheDocument();
+  const playlists=within(screen.getByRole("list",{name:"Playlists to review"}));
+  expect(playlists.getByText("Sets / Friday")).toBeInTheDocument();
+  expect(playlists.getByText(/Create · 12 tracks · 2 not linked to rekordbox/)).toBeInTheDocument();
+  expect(playlists.getByText(/Left alone — already in rekordbox/)).toBeInTheDocument();
+  expect(playlists.queryByText("Old")).toBeNull();
   expect(rekordbox.apply).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button",{name:/Apply 1 change/}));
+  fireEvent.click(screen.getByRole("button",{name:/Apply 2 changes/}));
   const dialog=await screen.findByRole("alertdialog");
-  const confirm=within(dialog).getByRole("button",{name:/Write 1 change/});
+  const confirm=within(dialog).getByRole("button",{name:/Write 2 changes/});
   expect(confirm).toBeDisabled();
   expect(dialog).toHaveTextContent("backup");
   expect(rekordbox.apply).not.toHaveBeenCalled();
@@ -98,10 +104,10 @@ it("shows conflicts when rekordbox changed after reading, and that nothing was w
   rekordbox.apply.mockResolvedValue({run:null,conflicts:[{subject:"101",reason:"The track changed in rekordbox after it was last read"}]});
   await open(rekordbox);
   fireEvent.click(await screen.findByRole("button",{name:/Preview changes/}));
-  fireEvent.click(await screen.findByRole("button",{name:/Apply 1 change/}));
+  fireEvent.click(await screen.findByRole("button",{name:/Apply 2 changes/}));
   const dialog=await screen.findByRole("alertdialog");
   fireEvent.click(within(dialog).getByRole("checkbox"));
-  fireEvent.click(within(dialog).getByRole("button",{name:/Write 1 change/}));
+  fireEvent.click(within(dialog).getByRole("button",{name:/Write 2 changes/}));
   const alert=await screen.findByText(/Nothing was written/);
   expect(alert.closest("div")).toHaveTextContent("changed in rekordbox after it was last read");
   await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());

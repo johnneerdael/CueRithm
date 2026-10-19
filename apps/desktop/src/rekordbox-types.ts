@@ -11,7 +11,10 @@ export interface NativeSyncPreview {target_id:string;revision:number;tracks:Trac
 export interface PlannedTrack {content_id:string;local_track_id:string|null;fields:string[]}
 export interface SkippedField {content_id:string;field:string;decision:FieldDecision}
 export interface SyncPlanSummary {tracks:PlannedTrack[];skipped:SkippedField[];blocked:[string,string][];pull_available:number}
-export interface NativeSyncPrepared {target_id:string;preview:NativeSyncPreview;plan:SyncPlanSummary;snapshot_usn:number}
-export interface NativeSyncRun {id:string;created:number;target_id:string;state:"committed"|"nothing_to_write";usn_before:number|null;usn_after:number|null;tracks:PlannedTrack[];skipped:number;backup:string|null;journal:string|null}
+export type PlaylistAction="create"|"update"|"unchanged"|"remove"|"skip_existing"|"skip_changed";
+export interface PlaylistPlanItem {path:string[];folder:boolean;action:PlaylistAction;tracks:number;unlinked:number}
+export interface PlaylistPlanSummary {items:PlaylistPlanItem[]}
+export interface NativeSyncPrepared {target_id:string;preview:NativeSyncPreview;plan:SyncPlanSummary;playlists:PlaylistPlanSummary;snapshot_usn:number}
+export interface NativeSyncRun {id:string;created:number;target_id:string;state:"committed"|"nothing_to_write";usn_before:number|null;usn_after:number|null;tracks:PlannedTrack[];playlists:PlaylistPlanSummary;skipped:number;backup:string|null;journal:string|null}
 export interface NativeSyncConflict {subject:string;reason:string}
 export interface ApplyOutcome {run:NativeSyncRun|null;conflicts:NativeSyncConflict[]}
