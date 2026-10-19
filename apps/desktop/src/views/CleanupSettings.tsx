@@ -40,17 +40,30 @@ function smartFixTextError(rule:SmartFix):string|null {
  if(rule.kind==="extract_remixer"&&!/[^\p{White_Space}]/u.test(value))return "Remixer suffix must contain 1 to 64 characters, including a non-whitespace character.";
  return null;
 }
-export const cleanupTextValidationError=(config?:CleanupConfig|null):string|null=>config?.fixes.filter(fix=>fix.enabled).map(fix=>smartFixTextError(fix.rule)).find(error=>error!==null)??null;
+const validArtistPart=(part:number,enabled:boolean)=>Number.isInteger(part)&&part>=(enabled?1:0)&&part<=(enabled?256:65535);
+const artistPartMessage="Result number must be a finite whole number from 1 to 256.";
+export function cleanupValidationError(config?:CleanupConfig|null):string|null {
+ for(const fix of config?.fixes??[]){
+  // Even disabled rules must fit the native unsigned integer representation.
+  if(fix.rule.kind==="extract_artist"&&!validArtistPart(fix.rule.part,fix.enabled))return artistPartMessage;
+  const error=fix.enabled?smartFixTextError(fix.rule):null;if(error)return error;
+ }
+ return null;
+}
 function FixTextInput({label,value,error,onChange}:{label:string;value:string;error:string|null;onChange:(value:string)=>void}){
  const description=useId();
  return <label>{label}<input aria-label={label} aria-invalid={error?true:undefined} aria-describedby={description} value={value} onChange={e=>onChange(e.target.value)}/><small id={description} role={error?"alert":undefined}>{Array.from(value).length}/64 characters{error?`. ${error}`:""}</small></label>;
+}
+function ArtistResultInput({part,onChange}:{part:number;onChange:(part:number)=>void}){
+ const description=useId(),invalid=!validArtistPart(part,true);
+ return <label>Result number<input aria-label="Result number" type="number" min={1} max={256} step={1} aria-invalid={invalid?true:undefined} aria-describedby={description} value={Number.isFinite(part)?part:""} onChange={e=>onChange(e.target.valueAsNumber)}/><small id={description} role={invalid?"alert":undefined}>{invalid?artistPartMessage:"Whole number from 1 to 256."}</small></label>;
 }
 function FixOptions({rule,onChange}:{rule:SmartFix;onChange:(rule:SmartFix)=>void}){
  return <div className="cleanup-options">
   {"field" in rule?<label>Field<select aria-label="Field" value={rule.field} onChange={e=>onChange({...rule,field:e.target.value as MetadataField})}>{fields.map(f=><option key={f} value={f}>{f.replaceAll("_"," ")}</option>)}</select></label>:null}
   {rule.kind==="title_case"?<><label><input type="checkbox" checked={rule.uppercase} onChange={e=>onChange({...rule,uppercase:e.target.checked})}/>Uppercase values</label><label><input type="checkbox" checked={rule.lowercase} onChange={e=>onChange({...rule,lowercase:e.target.checked})}/>Lowercase values</label></>:null}
   {rule.kind==="replace_characters"?<FixTextInput label="Characters" value={rule.characters} error={smartFixTextError(rule)} onChange={characters=>onChange({...rule,characters})}/>:null}
-  {rule.kind==="extract_artist"?<><FixTextInput label="Separator" value={rule.separator} error={smartFixTextError(rule)} onChange={separator=>onChange({...rule,separator})}/><label>Result number<input aria-label="Result number" type="number" min={1} max={256} value={rule.part} onChange={e=>onChange({...rule,part:Number(e.target.value)})}/></label></>:null}
+  {rule.kind==="extract_artist"?<><FixTextInput label="Separator" value={rule.separator} error={smartFixTextError(rule)} onChange={separator=>onChange({...rule,separator})}/><ArtistResultInput part={rule.part} onChange={part=>onChange({...rule,part})}/></>:null}
   {rule.kind==="extract_remixer"?<><FixTextInput label="Remixer suffix" value={rule.word} error={smartFixTextError(rule)} onChange={word=>onChange({...rule,word})}/><label><input type="checkbox" checked={rule.remove_title} onChange={e=>onChange({...rule,remove_title:e.target.checked})}/>Remove remixer from title</label></>:null}
   {rule.kind==="remove_urls"?<label><input type="checkbox" checked={rule.clear_field} onChange={e=>onChange({...rule,clear_field:e.target.checked})}/>Clear entire matching field</label>:null}
   {rule.kind==="remove_common_text"?<label>Pattern<select aria-label="Pattern" value={rule.pattern} onChange={e=>onChange({...rule,pattern:e.target.value as CommonTextPattern})}><option value="OriginalMixFromTitle">Original Mix suffix</option><option value="CamelotKeyFromTitle">Camelot key</option><option value="CamelotKeyEnergyFromTitle">Camelot key and energy</option><option value="BpmFromTitle">BPM suffix</option></select></label>:null}

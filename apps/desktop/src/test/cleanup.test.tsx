@@ -224,3 +224,44 @@ it("allows manual cleanup to save an invalid disabled rule without truncation",a
  await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
  expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0]).toMatchObject({enabled:false,rule:{separator:"😀".repeat(65)}});
 });
+
+async function openResultNumber(manual:boolean){
+ if(!manual)return openTextFix("Extract artist");
+ const bridge=fakeBridge([track("a")]);await openCleanup(bridge);
+ fireEvent.change(screen.getByLabelText("New Smart Fix"),{target:{value:"Extract artist"}});
+ fireEvent.click(screen.getByRole("button",{name:"Add Smart Fix"}));return bridge;
+}
+const resultEditors=[{manual:false,saveLabel:"Save settings"},{manual:true,saveLabel:"Save cleanup rules"}];
+it.each(resultEditors.flatMap(editor=>["","0","-1","257","1.5"].map(value=>({...editor,value}))))("blocks result number '$value' in $saveLabel",async({manual,saveLabel,value})=>{
+ const bridge=await openResultNumber(manual),input=screen.getByLabelText("Result number");
+ fireEvent.change(input,{target:{value}});
+ expect(input).toHaveAttribute("aria-invalid","true");
+ expect(input).toHaveAccessibleDescription(/whole number from 1 to 256/);
+ const save=screen.getByRole("button",{name:saveLabel});expect(save).toBeDisabled();fireEvent.click(save);
+ expect(bridge.saveSettings).not.toHaveBeenCalled();
+ if(manual)expect(screen.getByRole("button",{name:"Scan tracks"})).toBeDisabled();
+});
+it.each(resultEditors.flatMap(editor=>[1,256].map(part=>({...editor,part}))))("saves result number boundary $part in $saveLabel",async({manual,saveLabel,part})=>{
+ const bridge=await openResultNumber(manual);
+ fireEvent.change(screen.getByLabelText("Result number"),{target:{value:String(part)}});
+ expect(screen.getByRole("button",{name:saveLabel})).toBeEnabled();fireEvent.click(screen.getByRole("button",{name:saveLabel}));
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0].rule).toMatchObject({part});
+});
+it.each(resultEditors.flatMap(editor=>[0,257].map(part=>({...editor,part}))))("saves disabled result number $part but blocks re-enabling it in $saveLabel",async({manual,saveLabel,part})=>{
+ const bridge=await openResultNumber(manual),input=screen.getByLabelText("Result number"),enabled=within(screen.getByRole("group",{name:"Smart Fix: Extract artist"})).getByLabelText("Enabled");
+ fireEvent.change(input,{target:{value:String(part)}});const save=screen.getByRole("button",{name:saveLabel});expect(save).toBeDisabled();
+ fireEvent.click(enabled);expect(save).toBeEnabled();fireEvent.click(enabled);expect(save).toBeDisabled();
+ fireEvent.click(enabled);fireEvent.click(save);await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(bridge.saveSettings).mock.calls[0][0].cleanup!.fixes[0]).toMatchObject({enabled:false,rule:{part}});
+});
+it.each(resultEditors)("rejects result numbers that Rust cannot deserialize even when disabled in $saveLabel",async({manual,saveLabel})=>{
+ const bridge=await openResultNumber(manual),input=screen.getByLabelText("Result number"),enabled=within(screen.getByRole("group",{name:"Smart Fix: Extract artist"})).getByLabelText("Enabled");
+ fireEvent.click(enabled);
+ for(const value of ["-1","1.5","65536","1e309"]){
+  fireEvent.change(input,{target:{value}});
+  expect(screen.getByRole("button",{name:saveLabel})).toBeDisabled();
+  expect(input).toHaveAttribute("aria-invalid","true");
+  fireEvent.click(screen.getByRole("button",{name:saveLabel}));expect(bridge.saveSettings).not.toHaveBeenCalled();
+ }
+});

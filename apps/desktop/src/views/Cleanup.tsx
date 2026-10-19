@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {ScanLine,Save,Undo2,LoaderCircle} from "lucide-react";
 import type {Bridge,Snapshot,CleanupConfig,CleanupPreview,CleanupBatchResult,CleanupHistory,CleanupCatalog} from "../types";
 import {errorMessage} from "../api";
-import {emptyCleanup,SmartFixEditor,CanonicalEditor,cleanupTextValidationError} from "./CleanupSettings";
+import {emptyCleanup,SmartFixEditor,CanonicalEditor,cleanupValidationError} from "./CleanupSettings";
 
 function HistoryDetails({history,bridge}:{history:CleanupHistory;bridge:Bridge}){
  const [expanded,setExpanded]=useState(false),[titles,setTitles]=useState<Record<string,string>>({});
@@ -31,7 +31,7 @@ export default function Cleanup({bridge,snapshot,selectedIds,onChanged}:{bridge:
  const [busy,setBusy]=useState<string|null>(null),[catalogBusy,setCatalogBusy]=useState(false);
  const generation=useRef(0),catalogRequest=useRef(0),alive=useRef(true);
  const dirty=JSON.stringify(config)!==baseline;
- const validationError=cleanupTextValidationError(config);
+ const validationError=cleanupValidationError(config);
  const configRef=useRef(config);configRef.current=config;
  const update=(next:CleanupConfig)=>{generation.current++;setConfig(next);setPreview(null);setResult(null);};
  useEffect(()=>{

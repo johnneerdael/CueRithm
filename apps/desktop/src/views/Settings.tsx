@@ -2,7 +2,7 @@ import {useEffect,useState} from "react";
 import {FolderPlus,FolderOpen,X,Save,ChevronLeft,Check} from "lucide-react";
 import type {Bridge,Snapshot,Settings as SettingsType,EngineSettings} from "../types";
 import TaggingSettings from "./TaggingSettings";
-import CleanupSettings,{cleanupTextValidationError} from "./CleanupSettings";
+import CleanupSettings,{cleanupValidationError} from "./CleanupSettings";
 import PlaylistPreferences from "./PlaylistPreferences";
 import {errorMessage} from "../api";
 export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
@@ -11,7 +11,7 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
   const pages=["Incoming","Cue generation","Automatic tagging","Cleanup","Library preferences"];
   const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);
   useEffect(()=>{setDraft(snapshot.settings);},[snapshot.revision]);
-  const cleanupError=cleanupTextValidationError(draft.cleanup);
+  const cleanupError=cleanupValidationError(draft.cleanup);
   const engine=(patch:Partial<EngineSettings>)=>{setSaved(false);setDraft(d=>({...d,engine:{...d.engine,...patch}}));};
   return <section className="settings-view">
     <div className="view-title"><div><button className="back-link" onClick={onBack}><ChevronLeft size={15}/>Library</button><h1>Settings</h1><p>Configure preparation once. Incoming tracks take it from here.</p></div>
