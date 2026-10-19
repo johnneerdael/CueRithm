@@ -24,7 +24,12 @@ Default columns, left to right:
 
 A missing value is shown as an em dash.
 
-The **Choose and order columns** button at the right end of the header opens a *Table columns* dialog with a *Find metadata* search, a checkbox per column and arrows to reorder. Beyond the defaults you can show album, location, status, album art, file type, date added, date modified, codec, sample rate, channels, bit depth, bitrate, size, encoded duration, container, and any embedded tag field CueRithm finds, such as album artist, comment, rating, year, track and disc number, label, ISRC and catalogue number. Your choices are saved on this computer.
+The **Choose and order columns** button at the right end of the header opens a *Table columns* dialog with a *Find metadata* search, a checkbox per column and arrows to reorder. <figure markdown>
+  ![The Table columns dialog with a Find metadata box, checkboxes for Title, Genre, BPM, Key, Energy, Duration and Preview, and more columns such as Artist, Album art, Album, Location and Status](../assets/screens/34-columns-dialog.webp){ .screen loading=lazy }
+  <figcaption>The Table columns dialog. Tick a column to show it and use the arrows to reorder.</figcaption>
+</figure>
+
+Beyond the defaults you can show album, location, status, album art, file type, date added, date modified, codec, sample rate, channels, bit depth, bitrate, size, encoded duration, container, and any embedded tag field CueRithm finds, such as album artist, comment, rating, year, track and disc number, label, ISRC and catalogue number. Your choices are saved on this computer.
 
 ## Sorting
 
@@ -32,7 +37,12 @@ Click **TRACK**, **ARTIST**, **BPM** or **ENERGY** to sort. Click again to rever
 
 ## Searching and filtering
 
-The header search filters the current view by **title, artist and genre** with a case-insensitive "contains" match. There are no per-column filters. For anything richer, make a [smart playlist](smart-rules.md).
+The header search filters the current view by **title, artist and genre** with a case-insensitive "contains" match. Press ++cmd+f++ to jump to it. The list updates as you type, the toolbar label changes to *Search results*, and the footer counts the matches. There are no per-column filters.
+
+<figure markdown>
+  ![Search results for Kyle showing a single matching track](../assets/screens/33-search.webp){ .screen loading=lazy }
+  <figcaption>Searching "Kyle" matches the artist name. The grey hint text disappears as soon as you type.</figcaption>
+</figure> For anything richer, make a [smart playlist](smart-rules.md).
 
 ## Selecting
 

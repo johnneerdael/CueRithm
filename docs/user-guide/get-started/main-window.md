@@ -49,6 +49,11 @@ The table lists tracks with artwork, title, artist, genre, BPM, key, energy, dur
   <figcaption>Key appears as a labelled chip such as 7A, energy as a number out of 10 with a bar, BPM with two decimals.</figcaption>
 </figure>
 
+<figure markdown>
+  ![Search results for a single artist](../assets/screens/33-search.webp){ .screen loading=lazy }
+  <figcaption>Type in the search box to filter the view. Press the columns button at the end of the table header to choose which columns to show.</figcaption>
+</figure>
+
 Read more in [The track table](../guides/track-table.md).
 
 ## The player
