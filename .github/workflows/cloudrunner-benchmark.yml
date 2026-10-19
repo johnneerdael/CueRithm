@@ -10,6 +10,11 @@ on:
         type: choice
         options: [all, windows, linux]
         default: all
+      check:
+        description: 'Build/tests or a restore-only cache check'
+        type: choice
+        options: [workload, cache]
+        default: workload
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, labeled]
@@ -32,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [linux]
+        os: [windows, linux]
     runs-on: ${{ fromJSON(format('["self-hosted","{0}","x64","cloudrunner","cuerithm"]', matrix.os)) }}
     timeout-minutes: 20
     steps:
@@ -70,7 +75,7 @@ jobs:
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
-       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
+       github.event.action == 'labeled' && contains(fromJSON('["cloudrunner-benchmark","cloudrunner-cache-check"]'), github.event.label.name))
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
@@ -101,10 +106,45 @@ jobs:
               output.write('matrix=' + json.dumps({'include': profiles}) + '\n')
               output.write('stage=' + stage + '\n')
 
+  cache-check:
+    needs: profiles
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'cache') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-cache-check')
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        id: restore
+        with:
+          shared-key: cloudrunner-benchmark-engine-${{ matrix.profile }}-${{ env.BENCHMARK_STAGE }}
+          save-if: false
+      - name: Verify saved engine cache restores
+        shell: python {0}
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        run: |
+          import os
+          if os.environ['CACHE_HIT'].lower() != 'true':
+              raise SystemExit('No exact cache entry restored; inspect cache keys and the prior successful engine job')
+          print('Saved Rust cache restored successfully')
+
   engine:
     needs: profiles
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check != 'cache') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
@@ -166,7 +206,7 @@ jobs:
   desktop:
     needs: profiles
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check != 'cache') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
