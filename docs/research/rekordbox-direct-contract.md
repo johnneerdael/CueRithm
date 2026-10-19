@@ -187,7 +187,55 @@ that a local target is unavailable. Generated 6 bundle fixtures test discovery
 logic only; they do not establish actual 6 acceptance. Discovery neither launches
 rekordbox nor opens/mutates its live database.
 
-This checkpoint does not persist imported records/baselines into Cuerithm,
+This collection/discovery layer does not persist imported records/baselines into Cuerithm,
 resolve the runtime database key automatically, decode/write binary analysis
 assets, enable a direct writer or provide a desktop Sync workflow. Continue the
 full implementation sequence and actual 6/7 round-trip gates.
+
+## Native analysis-file checkpoint
+
+`cuerithm_rekordbox::anlz` reads PMAI envelopes and retains each tag's original
+bytes, including unknown sections, waveform data, header extensions and trailers.
+Typed readers cover PQTZ beats, raw PQT2 extended-grid words, PCOB/PCO2 cue lists
+and UTF-16BE paths. Bounds and byte/tag/entry/string budgets are checked before
+decoding; unknown nested cue types remain available as raw records and produce
+an explicit error from the typed cue reader. Short extended cues can lack comment
+and color fields without being discarded. Comment length uses all four bytes,
+including synthetic Unicode comments longer than 255 bytes.
+
+The staging API can replace a selected section, edit grid/path payloads while
+retaining unowned header/trailer bytes, and assemble a merged cue-record list
+without rebuilding retained entries. It returns bytes only. It neither touches
+live files nor substitutes for the database/assets recovery transaction. Original
+native units remain explicit; no negative anchor is silently clamped into an
+unsigned millisecond field. Color-table codes and LED RGB values stay distinct.
+
+Seen in Lexicon 1.11.15: modules 190/38737 provide the native cue, path and grid
+builders; its direct writer also constructs PQTZ with the header value 524288.
+Thirty authored synthetic cases were executed through the unchanged shipped
+builders in Electron's Node 20.18.1. Our output bytes match all 30, including
+Unicode/long comments, hot/memory lists, loops, empty lists and the extended-grid
+microsecond dialect. The fixture records source identity and this isolation
+boundary. It contains no extracted source, music, real paths or library labels.
+
+PQT2 body words cannot universally be interpreted as microsecond fractions:
+producers also encode beat positions there. The reader retains these words and
+header fields without guessing; the microsecond builder explicitly implements
+the inspected Lexicon dialect. Cross-file dialect selection and precision-aware
+beatgrid reconstruction remain adapter work.
+
+Private copied assets were also checked: one sample of 52 DAT/EXT/2EX files
+round-tripped exactly and decoded 15,016 PQTZ entries. A second, more recent
+sample of 128 DAT files round-tripped exactly and decoded 96,208 entries. These
+samples were not deduplicated; their counts must not be added as unique files. Their cue
+lists were empty and they contained no PQT2 sections; populated cue and extended
+grid evidence is synthetic component evidence, not native target acceptance.
+No source asset was written. Individual captures were stable during copying;
+this is not an all-assets coherent backup while the background agent is active.
+
+The remaining integration includes asset-path containment, sibling-file planning,
+per-field/record ownership baselines, runtime key resolution, Cuerithm persistence,
+database/asset staging and interrupted-write recovery, followed by real 6/7
+round-trip acceptance. This module alone does not enable Sync.
+
+Primary format reference: [DJ Link Ecosystem analysis-file specification](https://djl-analysis.deepsymmetry.org/rekordbox-export-analysis/anlz.html).

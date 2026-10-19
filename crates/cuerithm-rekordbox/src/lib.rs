@@ -1,4 +1,5 @@
 //! Native direct-library access. No collection XML transport is provided.
+pub mod anlz;
 mod collection;
 mod discovery;
 pub use discovery::*;
