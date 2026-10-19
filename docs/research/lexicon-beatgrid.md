@@ -19,6 +19,32 @@ agreement was checked on five captured cases. See
 [source timing](source-timing-engine.md). Neither result proves the grid agrees
 with Lexicon or with human musical annotation.
 
+## Desktop cue input regression, 2026-10-19
+
+A user-reported missing breakdown exposed an application input bug: background
+preparation did not pass the track genre into the cue generator, although the
+original renderer does. The earlier 282-group cue benchmark supplied `genre:
+null` to both worker implementations. Its agreement therefore did not validate
+the desktop metadata path or genre-dependent cue selection.
+
+Prepared analysis now uses each track's native genre unless an explicit engine
+override is present. After configured catalog tagging or cleanup, it refreshes
+cues with the final genre using verified prepared PCM and the existing timing;
+key, BPM and scalar energy are preserved. Effective genre enters analysis
+provenance and cache identity. Regression tests cover worker reuse, failure
+recovery, explicit overrides and background cleanup publication.
+
+For the reported track, fresh analysis through the installed Lexicon GUI,
+followed by its default Cue Point Generator, agrees exactly with Cuerithm's
+background preparation on BPM, first-beat anchor and all five cue timestamps.
+The user reports that the earlier screenshot also followed beatgrid and cue
+reanalysis. Its saved grid differs from the fresh GUI result in this diagnostic;
+the cause of that earlier difference remains unproven. This single-track
+diagnostic does not establish library-wide desktop parity, independent musical
+accuracy, template appearance parity or Windows/Linux runtime parity. Identifying data and the original worker remain private.
+Existing completed Cuerithm results require explicit reanalysis to replace their
+old cues; upgrading does not rewrite the user's completed collection.
+
 ## Seen: installed source path
 
 Lexicon 1.11.15.0 has ASAR SHA-256
