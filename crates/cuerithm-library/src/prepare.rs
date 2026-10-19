@@ -417,7 +417,7 @@ impl Worker {
                 audio.source_sha256 == job.source_sha256,
                 "Source changed before analysis"
             );
-            let result = if let Some(cached) =
+            let mut result = if let Some(cached) =
                 self.library
                     .cached_analysis(&job, &self.engine_identity, &audio)?
             {
@@ -441,16 +441,24 @@ impl Worker {
                 "Preparation is stopping"
             );
             #[cfg(feature = "autotag")]
-            if job.snapshot.settings.autotag_enabled {
-                let config = job
-                    .snapshot
-                    .settings
-                    .tagging
-                    .as_ref()
-                    .context("Missing tagging settings")?;
-                stage = "matching";
-                self.library.set_stage_for_run(&job, stage)?;
-                self.emit(&job, stage, "running");
+            if job.snapshot.settings.autotag_enabled || job.snapshot.settings.cleanup_enabled {
+                let mut offline_config = cuerithm_autotag::AutotagConfig::default();
+                offline_config.options.tags.clear();
+                offline_config.write_energy = false;
+                let config = if job.snapshot.settings.autotag_enabled {
+                    job.snapshot
+                        .settings
+                        .tagging
+                        .as_ref()
+                        .context("Missing tagging settings")?
+                } else {
+                    &offline_config
+                };
+                if job.snapshot.settings.autotag_enabled {
+                    stage = "matching";
+                    self.library.set_stage_for_run(&job, stage)?;
+                    self.emit(&job, stage, "running");
+                }
                 let input = TagInput {
                     path: job.path.clone(),
                     source_sha256: audio.source_sha256.clone(),
@@ -458,7 +466,8 @@ impl Worker {
                     duration_seconds: audio.clock.duration_seconds(),
                 };
                 let folder = job.path.parent().context("Missing track folder")?;
-                let hint = if config.options.album_tagging {
+                let hint = if job.snapshot.settings.autotag_enabled && config.options.album_tagging
+                {
                     let members = self
                         .library
                         .incoming_album_members(folder, &job.settings_revision)?;
@@ -472,43 +481,77 @@ impl Worker {
                 } else {
                     None
                 };
-                let matched = self.tagger.match_track_with_album(
-                    &input,
-                    config,
-                    &self.stop,
-                    hint.as_ref(),
-                )?;
+                let matched = if job.snapshot.settings.autotag_enabled {
+                    self.tagger
+                        .match_track_with_album(&input, config, &self.stop, hint.as_ref())?
+                } else {
+                    cuerithm_autotag::TagMatchOutcome {
+                        status: cuerithm_autotag::MatchStatus::NoMatch,
+                        matches: vec![],
+                        attempted: vec![],
+                        warnings: vec![],
+                    }
+                };
                 ensure!(
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
                 );
-                stage = "tagging";
-                self.library.set_stage_for_run(&job, stage)?;
-                self.emit(&job, stage, "running");
+                if job.snapshot.settings.autotag_enabled {
+                    stage = "tagging";
+                    self.library.set_stage_for_run(&job, stage)?;
+                    self.emit(&job, stage, "running");
+                }
                 let key = result.analysis.key.as_ref();
                 let measured = AnalysisTags {
                     camelot_key: key.map(|k| k.camelot.clone()),
                     standard_key: key.map(|k| k.key.name()),
-                    bpm: result.analysis.tempo.as_ref().map(|t| t.bpm),
+                    bpm: crate::publication::tag_bpm(&result, &job.snapshot.settings)?,
                     energy: result.analysis.energy.as_ref().map(|e| e.level),
                 };
-                let plan = TagWritePlan::build(input, &matched, config, &measured)?;
+                let mut plan = TagWritePlan::build(input, &matched, config, &measured)?;
+                if job.snapshot.settings.cleanup_enabled {
+                    stage = "cleanup";
+                    self.library.set_stage_for_run(&job, stage)?;
+                    self.emit(&job, stage, "running");
+                    plan = plan
+                        .with_custom_tags(self.library.track_custom_tags(&job.track_id)?)?
+                        .with_cleanup(
+                            job.snapshot
+                                .settings
+                                .cleanup
+                                .as_ref()
+                                .context("Missing cleanup settings")?
+                                .clone(),
+                        )?;
+                }
                 let mut staged = plan.stage_prepared(
                     &self.runtime,
                     &audio,
                     &self.library.data_dir().join("tagging"),
                 )?;
+                self.engine
+                    .as_ref()
+                    .context("Missing analysis engine")?
+                    .1
+                    .refresh_prepared_cues(
+                        &audio,
+                        &mut result,
+                        staged
+                            .native_metadata
+                            .first(cuerithm_cleanup::MetadataField::Genre),
+                    )?;
                 ensure!(
                     !self.stop.load(Ordering::Relaxed),
                     "Preparation is stopping"
                 );
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 stage = "writing_tags";
                 // The journal transaction sets this stage. Once it succeeds,
                 // always enter publication, which settles obsolete attempts too.
                 let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
                 self.emit(&job, stage, "running");
                 self.library.publish_preparation(&job, &journal)?;
-                if config.options.album_tagging {
+                if job.snapshot.settings.autotag_enabled && config.options.album_tagging {
                     let release = matched
                         .matches
                         .iter()
@@ -526,14 +569,31 @@ impl Worker {
                 stage = "committing";
                 self.library.set_stage_for_run(&job, stage)?;
                 self.emit(&job, stage, "running");
-                self.library
-                    .apply_analysis_for_run(&job, &result, &audio.info)?;
+                let native =
+                    cuerithm_autotag::read_metadata(&audio.snapshot_path, &audio.info).ok();
+                let genre = native
+                    .as_ref()
+                    .map(|metadata| metadata.first(cuerithm_cleanup::MetadataField::Genre))
+                    .unwrap_or_else(|| audio.info.tags.get("genre").map(String::as_str));
+                self.engine
+                    .as_ref()
+                    .context("Missing analysis engine")?
+                    .1
+                    .refresh_prepared_cues(&audio, &mut result, genre)?;
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                self.library.apply_prepared_analysis_for_run(
+                    &job,
+                    &result,
+                    &audio.info,
+                    native.as_ref(),
+                )?;
             }
             #[cfg(not(feature = "autotag"))]
             {
                 stage = "committing";
                 self.library.set_stage_for_run(&job, stage)?;
                 self.emit(&job, stage, "running");
+                crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
             }

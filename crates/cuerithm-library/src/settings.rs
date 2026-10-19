@@ -20,6 +20,7 @@ pub struct PreparationSettings {
     #[cfg(not(feature = "autotag"))]
     pub tagging: Option<serde_json::Value>,
     pub cleanup_enabled: bool,
+    pub cleanup: Option<cuerithm_cleanup::CleanupConfig>,
 }
 impl Default for PreparationSettings {
     fn default() -> Self {
@@ -38,6 +39,7 @@ impl Default for PreparationSettings {
             autotag_enabled: false,
             tagging: None,
             cleanup_enabled: false,
+            cleanup: None,
         }
     }
 }
@@ -59,6 +61,9 @@ impl PreparationSettings {
     }
     pub fn validate(&self) -> Result<()> {
         self.engine.validate()?;
+        if let Some(config) = &self.cleanup {
+            config.validate()?;
+        }
         #[cfg(feature = "autotag")]
         if let Some(config) = &self.tagging {
             config.validate()?;
@@ -87,13 +92,18 @@ impl PreparationSettings {
                 .context("Configure automatic tagging in Settings")?
                 .validate()?;
         }
+        if self.cleanup_enabled {
+            #[cfg(not(feature = "autotag"))]
+            anyhow::bail!("Automatic cleanup is not available in this build");
+            #[cfg(feature = "autotag")]
+            self.cleanup
+                .as_ref()
+                .context("Configure automatic cleanup in Settings")?
+                .validate()?;
+        }
         ensure!(
-            !self.cleanup_enabled,
-            "Automatic cleanup is not available in this build"
-        );
-        ensure!(
-            self.engine.energy_model.is_some(),
-            "Choose an energy model in Settings"
+            self.engine.lexicon_energy || self.engine.energy_model.is_some(),
+            "Track energy is not configured"
         );
         Ok(())
     }

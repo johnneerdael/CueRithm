@@ -26,3 +26,14 @@ it("keeps the entire track and every cue visible while playback moves",()=>{
   expect(screen.getByRole("button",{name:"Waveform zoom: 16 seconds"})).toBeInTheDocument();
   expect(props.onToggle).not.toHaveBeenCalled();
 });
+
+it("uses published cue names, colors, positions and grid while retaining raw analysis",()=>{
+  const detail:Detail={track:track("a"),source_sha256:"hash",pcm_sha256:"pcm",analysis:{complete:true,source_sample_rate:44100,analysis:{duration_seconds:160,key:null,energy:null,tempo:{bpm:128.345,beats_seconds:[0,.5,1],downbeats_seconds:null},lexicon_cues:{cues:[{time_seconds:0,name:"Raw marker",color:"Red"}],emergency_loop:null}}}};
+  Object.assign(detail.analysis!,{publication:{grid:{bpm:128.35,startTime:.125},cues:[{name:"Start",startTime:.125,type:"1",position:0,color:"yellow"},{name:"End / Fade-out",startTime:159.75,type:"1",position:5,color:"violet"}],implementation_sha256:"fixture",inputs_sha256:"fixture"}});
+  const onSeek=vi.fn();render(<PlayerPanel detail={detail} status={{track_id:"a",duration_seconds:160,position_seconds:0,playing:true,volume:.1,error:null}} data={{duration_seconds:160,bins:[]}} busy={false} onToggle={vi.fn()} onPause={vi.fn()} onSeek={onSeek} onVolume={vi.fn()}/>);
+  expect(screen.queryByRole("button",{name:/Raw marker/})).not.toBeInTheDocument();
+  const end=screen.getByRole("button",{name:"F End / Fade-out 2:39.8"});expect(end).toHaveStyle({"--cue":"#aa3bff"});
+  fireEvent.click(end);expect(onSeek).toHaveBeenCalledWith(159.75);
+  const wave=screen.getByRole("button",{name:"Waveform zoom: Entire track"});expect(wave.querySelectorAll(".beat-line").length).toBeGreaterThan(300);
+  expect(detail.analysis!.analysis.tempo!.bpm).toBe(128.345);
+});

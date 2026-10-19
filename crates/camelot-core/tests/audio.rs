@@ -1,4 +1,4 @@
-use camelot_core::audio::{decode, decode_at_rates};
+use camelot_core::audio::{decode, decode_at_rates, decode_at_rates_with_first_channel};
 
 fn write_wav(path: &std::path::Path, rate: u32, channels: u16, frames: usize) {
     let spec = hound::WavSpec {
@@ -142,4 +142,57 @@ fn large_rational_resampler_blocks_flush_valid_audio_without_a_false_stall() {
         assert_eq!(audio.samples.len(), 11025);
         assert!(audio.complete);
     }
+}
+
+#[test]
+fn optional_timing_input_retains_exact_native_first_channel_without_changing_downmix() {
+    let temp = tempfile::tempdir().unwrap();
+    for rate in [8000, 32000, 44100, 48000, 192000] {
+        let path = temp.path().join(format!("asymmetric-{rate}.wav"));
+        let mut writer = hound::WavWriter::create(
+            &path,
+            hound::WavSpec {
+                channels: 2,
+                sample_rate: rate,
+                bits_per_sample: 32,
+                sample_format: hound::SampleFormat::Float,
+            },
+        )
+        .unwrap();
+        let expected: Vec<f32> = (0..rate + 17)
+            .map(|i| if i % 128 < 64 { 0.125 } else { -0.25 })
+            .collect();
+        for &left in &expected {
+            writer.write_sample(left).unwrap();
+            writer.write_sample(0.75_f32).unwrap();
+        }
+        writer.finalize().unwrap();
+        for limit in [None, Some(0.713)] {
+            let (mixed, timing) =
+                decode_at_rates_with_first_channel(&path, &[11025, 22050], limit).unwrap();
+            let ordinary = decode_at_rates(&path, &[11025, 22050], limit).unwrap();
+            assert_eq!(timing.sample_rate, rate);
+            assert_eq!(timing.source_sample_rate, rate);
+            let length = limit
+                .map(|seconds| (seconds * rate as f64).round() as usize)
+                .unwrap_or(expected.len());
+            assert_eq!(timing.samples, expected[..length]);
+            assert_eq!(timing.complete, limit.is_none());
+            for (actual, old) in mixed.iter().zip(ordinary) {
+                assert_eq!(actual.samples, old.samples);
+                assert_eq!(actual.sample_rate, old.sample_rate);
+                assert_eq!(actual.complete, timing.complete);
+                assert_eq!(actual.verified_integrity, timing.verified_integrity);
+            }
+        }
+    }
+}
+
+#[test]
+fn native_timing_channel_does_not_silently_resample_an_unsupported_rate() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("high.wav");
+    write_wav(&path, 384000, 1, 384000);
+    assert!(decode_at_rates(&path, &[11025], None).is_ok());
+    assert!(decode_at_rates_with_first_channel(&path, &[11025], None).is_err());
 }

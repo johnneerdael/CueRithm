@@ -35,7 +35,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
   const setList=(key:"tags"|"overwriteTags",field:string,value:boolean)=>opt({[key]:value?[...options[key],field]:options[key].filter(f=>f!==field)});
   const frame=(value:TagFrame|null,onFrame:(value:TagFrame)=>void)=>["id3","vorbis","mp4"].map(format=><Row key={format} label={"Style field · "+format.toUpperCase()}><input aria-label={"Style field · "+format.toUpperCase()} value={value?.[format as keyof TagFrame]??""} onChange={e=>onFrame({...value??{id3:"STYLE",vorbis:"STYLE",mp4:"STYLE"},[format]:e.target.value})}/></Row>);
   return <section className="setting-section tagging-settings">
-    <div className="setting-heading"><span className="section-number">04</span><div><h2>Automatic tagging</h2><p>Apply these settings to every incoming track after analysis.</p></div></div>
+    <div className="setting-heading"><div><h2>Automatic tagging</h2><p>Apply these settings to every incoming track after analysis.</p></div></div>
     <Toggle label="Automatic tagging" value={enabled} onChange={value=>onChange(current,value)} note="Catalog lookups use an internet connection. Analysis and cue generation work offline."/>
     <div className="setting-row"><div><strong>Recovery backups</strong><p>Original file backups are retained in application data. Temporary stage files are cleaned automatically.</p></div><span className="fixed-setting">{storage?`${(storage.original_bytes/1048576).toFixed(1)} MB · ${storage.original_files} files`:"Storage unavailable"}</span></div>
     <div className="provider-order" aria-label="Catalog providers">{ordered.map(id=>{

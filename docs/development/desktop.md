@@ -22,6 +22,14 @@ or download an unverified decoder while preparing music. Python is build/test
 tooling only. The selected built-in parameters are under `models/builtin/`;
 music, training captures/labels and library databases remain outside Git.
 
+The native-MD5 recipe also builds the signed-16 PCM encoder and MD5 muxer used
+by the read-only maintenance fingerprint API. Rebuild the runtime after changing
+its recipe; sealing rejects a cached runtime that lacks those capabilities.
+Fingerprint caches must retain decoder identity alongside source content hashes.
+See `docs/research/lexicon-library-maintenance.md` for reference coverage and the
+observed AAC decoder-version difference. This API does not enable automatic
+duplicate merging or file removal.
+
 ```sh
 pnpm --dir apps/desktop install --frozen-lockfile
 pnpm --dir apps/desktop tauri dev
@@ -99,10 +107,16 @@ Tests and diagnostics establish what each run reports; CI configuration alone
 does not establish a green build, live Windows/Linux UI behavior, signing,
 notarization or target DJ-app round trips. Signing/public release is a later gate.
 
-The approved scope after automatic tagging remains cleanup, ordinary/full smart
-playlists and direct rekordbox 6/7 sync.
-See [the early direct contract](../research/rekordbox-direct-contract.md) for
-known identities, static evidence and precise missing target acceptance.
+Cleanup now has a shared Rust rule engine, all-format staged metadata changes,
+automatic Incoming integration and a native preview/apply/Undo workspace. See
+[cleanup](../cleanup.md) and its [behavior evidence](../research/cleanup-behavior.md).
+
+Ordinary/smart playlists and their desktop controls are integrated. Duplicate
+and file-maintenance backends have a [native API](maintenance-api.md), while
+their dedicated screens remain a user-owned UI handoff. Direct rekordbox 6/7
+sync stays disabled. See [release scope and outstanding gaps](../release-readiness.md)
+for the current delivery boundary and [the direct contract](../research/rekordbox-direct-contract.md)
+for known identities and missing target acceptance.
 
 ## Preview and batch throughput
 
@@ -158,8 +172,10 @@ new incoming files. A build without tagging support refuses pending journals
 rather than skipping recovery. Committed publication workspaces retain recovery
 original backups under application data; allow storage for retained audio backups
 when processing a large library. Settings reports the current original-backup
-count and size. Originals are retained indefinitely; no retention cleanup control
-is implemented. Redundant staged outputs are removed after successful completion
+count and size. Preparation/cleanup originals are retained indefinitely; their
+retention cleanup control remains outstanding. Explicit disposal exists separately
+for reviewed unused-file-removal backups through the maintenance API. Redundant
+staged outputs are removed after successful completion
 or successful rollback. True no-op writes retain no duplicate audio. Persisted
 cleanup completion avoids rereading historical backups on every startup.
 
@@ -187,3 +203,20 @@ TagLib remains a statically linked library. On MSVC, its CMake runtime property
 and the C++ bridge follow Rust's `crt-static` target feature, so both select the
 same CRT mode. TagLib's legacy `/MD` string replacement alone does not cover
 modern CMake's [CMP0091 runtime property](https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html).
+
+
+## Cleanup native acceptance
+
+On macOS arm64, the packaged 88.03 MiB app passed resource/built-in diagnostics.
+An isolated library prepared one generated 64-second FLAC. A native preview left
+file bytes unchanged; Apply updated its title; after restart, Undo restored the
+original file SHA-256. Complete analysis JSON and existing cue history were
+identical throughout. While loaded and playing, the title refreshed after Undo
+and the playback clock continued from its current position. Counted native genre
+and contributor views preserved a comma-containing artist as one name. Settings
+and preview scrolling were inspected in the native window.
+
+This acceptance used generated audio only. It did not normalize the user's
+music library or establish live Windows/Linux UI behavior, power-loss hardware
+behavior or full Lexicon application parity. Native CI packages and tests provide
+their own exact-head evidence.

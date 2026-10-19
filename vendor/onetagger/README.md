@@ -11,6 +11,10 @@ post-command behavior. Provider icons are omitted; Cuerithm supplies its own UI.
 
 Local adaptations:
 
+- Ogg Vorbis/Opus `has_art` checks for a nonempty picture list; upstream inverted
+  this result. Present/absent detection is verified alongside staged artwork
+  writing across all 14 supported audio layouts.
+
 - Standalone workspace/package metadata and Rust formatting.
 - Explicit AAC and WMA input types, with distinct ID3/ASF field identities;
   this alone is not a claim of completed physical format writing.
@@ -56,3 +60,18 @@ and public catalog endpoints remain unchanged.
 ID3v2.3-to-v2.4 upgrades preserve literal slashes in known human-readable text values,
 including contributor names such as AC/DC. rust-id3 internal list separators are
 normalized before configured catalog writes, retaining frame flags and encoding.
+
+Structured cleanup access (2026-10-18) adds container-directed loading and native
+text-value accessors beside the existing configurable separator APIs. ID3 cleanup
+manages only the unqualified comment, retaining other comment identities. Ogg
+reads inspect the header even when the filename suffix is misleading. Existing
+catalog matching and separator settings retain their original path.
+
+
+Reviewed donor-transfer corrections (2026-10-19) fix the rust-id3 comment-removal
+filter: its second argument is text, not language. Logical unqualified comments
+are replaced/cleared together while named DJ comments remain intact. WAV metadata
+rewrites synchronize known ID3/INFO mirrors, recognize legacy comments/date/track
+numbers, preserve unrelated INFO and non-INFO LIST chunks, and propagate flush
+errors. The supported writer rejects unsupported/truncated/trailing-data WAVE
+containers before rewriting rather than discarding bytes it did not parse.

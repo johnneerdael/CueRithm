@@ -24,6 +24,10 @@ pub struct TagWritePlan {
     analysis: AnalysisTags,
     artwork: Option<crate::image::Artwork>,
     provenance: serde_json::Value,
+    cleanup: Option<cuerithm_cleanup::CleanupConfig>,
+    metadata_edits: Vec<cuerithm_cleanup::FieldChange>,
+    custom_tags: Vec<cuerithm_cleanup::CustomTag>,
+    transfer: Option<crate::TransferPatch>,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -37,6 +41,8 @@ pub struct StagedTagWrite {
     pub metadata: MediaInfo,
     pub sidecars: Vec<crate::StagedSidecar>,
     pub provenance: serde_json::Value,
+    pub cleanup: Option<cuerithm_cleanup::CleanupReport>,
+    pub native_metadata: cuerithm_cleanup::Metadata,
     workspace: PathBuf,
     private: Option<tempfile::TempDir>,
 }
@@ -84,7 +90,72 @@ impl TagWritePlan {
             analysis: analysis.clone(),
             artwork: None,
             provenance: serde_json::to_value(outcome)?,
+            cleanup: None,
+            metadata_edits: vec![],
+            custom_tags: vec![],
+            transfer: None,
         })
+    }
+    pub fn with_custom_tags(mut self, tags: Vec<cuerithm_cleanup::CustomTag>) -> Result<Self> {
+        cuerithm_cleanup::Metadata {
+            custom_tags: tags.clone(),
+            ..Default::default()
+        }
+        .validate()?;
+        self.custom_tags = tags;
+        Ok(self)
+    }
+    pub fn with_transfer(mut self, patch: crate::TransferPatch) -> Result<Self> {
+        patch.validate()?;
+        self.provenance["transfer"] = serde_json::to_value(&patch)?;
+        self.transfer = Some(patch);
+        Ok(self)
+    }
+    pub fn with_cleanup(mut self, config: cuerithm_cleanup::CleanupConfig) -> Result<Self> {
+        config.validate()?;
+        self.cleanup = Some(config);
+        Ok(self)
+    }
+    pub fn with_metadata_edits(
+        mut self,
+        edits: Vec<cuerithm_cleanup::FieldChange>,
+    ) -> Result<Self> {
+        let mut metadata = cuerithm_cleanup::Metadata::default();
+        let mut fields = std::collections::BTreeSet::new();
+        for edit in &edits {
+            ensure!(fields.insert(edit.field), "Duplicate metadata edit");
+            metadata.set(edit.field, edit.before.clone());
+        }
+        metadata.validate()?;
+        for edit in &edits {
+            metadata.set(edit.field, edit.after.clone());
+        }
+        metadata.validate()?;
+        self.metadata_edits = edits;
+        Ok(self)
+    }
+    fn apply_cleanup(
+        &self,
+        tag: &mut dyn TagImpl,
+        format: &AudioFileFormat,
+    ) -> Result<(
+        Option<cuerithm_cleanup::CleanupReport>,
+        cuerithm_cleanup::Metadata,
+    )> {
+        let mut expected = crate::metadata::read(tag, format)?;
+        expected.custom_tags = self.custom_tags.clone();
+        crate::metadata::edit(tag, format, &self.metadata_edits)?;
+        for edit in &self.metadata_edits {
+            expected.set(edit.field, edit.after.clone());
+        }
+        if let Some(config) = &self.cleanup {
+            let report = cuerithm_cleanup::apply(config, &expected)?;
+            crate::metadata::edit(tag, format, &report.changes)?;
+            let expected = report.metadata.clone();
+            Ok((Some(report), expected))
+        } else {
+            Ok((None, expected))
+        }
     }
     pub fn with_artwork(mut self, bytes: Vec<u8>) -> Result<Self> {
         ensure!(
@@ -95,6 +166,12 @@ impl TagWritePlan {
         Ok(self)
     }
     pub fn is_noop(&self) -> bool {
+        self.tags_are_noop()
+            && self.cleanup.is_none()
+            && self.metadata_edits.is_empty()
+            && self.transfer.as_ref().is_none_or(|p| p.before == p.after)
+    }
+    fn tags_are_noop(&self) -> bool {
         let measured = self.config.analysis_tag_source == AnalysisTagSource::Measured
             && ((self.config.options.tag_enabled(SupportedTag::Key)
                 && (self.analysis.camelot_key.is_some() || self.analysis.standard_key.is_some()))
@@ -115,14 +192,40 @@ impl TagWritePlan {
         audio: &PreparedAudio,
         cache: &Path,
     ) -> Result<StagedTagWrite> {
+        self.stage_prepared_cancellable(
+            runtime,
+            audio,
+            cache,
+            &cuerithm_media::CancellationToken::default(),
+        )
+    }
+    pub fn stage_prepared_cancellable(
+        &self,
+        runtime: &MediaRuntime,
+        audio: &PreparedAudio,
+        cache: &Path,
+        cancel: &cuerithm_media::CancellationToken,
+    ) -> Result<StagedTagWrite> {
+        cancel.check()?;
         ensure!(
-            audio.source_sha256 == self.input.source_sha256 && audio.source_is_unchanged()?,
+            audio.source_sha256 == self.input.source_sha256
+                && audio.source_is_unchanged_cancellable(cancel)?,
             "Source changed before tagging"
         );
         ensure!(
             audio.decoder_identity == runtime.identity,
             "Different decoder for tag verification"
         );
+        if let Some(patch) = &self.transfer {
+            ensure!(
+                self.tags_are_noop() && self.cleanup.is_none() && self.metadata_edits.is_empty(),
+                "Native transfer cannot be mixed with catalog or cleanup edits"
+            );
+            ensure!(
+                crate::read_transfer_metadata(&audio.snapshot_path, &audio.info)? == patch.before,
+                "Native transfer preview is stale"
+            );
+        }
         std::fs::create_dir_all(cache)?;
         let private = tempfile::Builder::new()
             .prefix("cuerithm-tags-")
@@ -147,7 +250,9 @@ impl TagWritePlan {
         let backup = private.path().join(format!("original.{extension}"));
         let path = private.path().join(format!("staged.{extension}"));
         std::fs::copy(&audio.snapshot_path, &backup)?;
+        cancel.check()?;
         std::fs::copy(&backup, &path)?;
+        cancel.check()?;
         ensure!(
             file_sha256(&backup)? == self.input.source_sha256,
             "Snapshot changed before tagging"
@@ -171,6 +276,8 @@ impl TagWritePlan {
             std::fs::set_permissions(&path, p)?;
         }
         let mut sidecars = Vec::new();
+        let mut cleanup = None;
+        let mut expected_metadata = None;
         if !self.is_noop() {
             match format {
                 AudioFileFormat::WMA => {
@@ -184,7 +291,19 @@ impl TagWritePlan {
                             .unwrap_or("; "),
                     );
                     let request = self.apply(&mut tag, &format)?;
-                    tag.save_file(&path)?;
+                    let (report, expected) = self.apply_cleanup(&mut tag, &format)?;
+                    if let Some(patch) = &self.transfer {
+                        patch.apply(&mut tag, &format)?;
+                    }
+                    cleanup = report;
+                    expected_metadata = Some(expected);
+                    if !self.tags_are_noop()
+                        || self.metadata_edits.iter().any(|e| e.before != e.after)
+                        || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
+                        || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
+                    {
+                        tag.save_file(&path)?;
+                    }
                     if let Some(request) = request {
                         sidecars.push(crate::sidecar::stage(
                             request,
@@ -197,7 +316,9 @@ impl TagWritePlan {
                     let mut wrapper = Tag::load_file(&path, true)
                         .context("Read existing metadata; refusing to discard an unreadable tag")?;
                     wrapper.set_separators(&self.config.options.separators);
-                    if let Tag::ID3(tag) = &mut wrapper {
+                    if !self.tags_are_noop()
+                        && let Tag::ID3(tag) = &mut wrapper
+                    {
                         tag.set_id3v24(self.config.options.id3v24);
                         if let Some(lang) = &self.config.options.id3_comm_lang {
                             tag.set_comm_lang(lang.clone());
@@ -206,7 +327,19 @@ impl TagWritePlan {
                     {
                         let tag = wrapper.tag_mut();
                         let request = self.apply(&mut **tag, &format)?;
-                        tag.save_file(&path)?;
+                        let (report, expected) = self.apply_cleanup(&mut **tag, &format)?;
+                        if let Some(patch) = &self.transfer {
+                            patch.apply(&mut **tag, &format)?;
+                        }
+                        cleanup = report;
+                        expected_metadata = Some(expected);
+                        if !self.tags_are_noop()
+                            || self.metadata_edits.iter().any(|e| e.before != e.after)
+                            || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
+                            || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
+                        {
+                            tag.save_file(&path)?;
+                        }
                         if let Some(request) = request {
                             sidecars.push(crate::sidecar::stage(
                                 request,
@@ -219,15 +352,27 @@ impl TagWritePlan {
             }
         }
         let after = runtime
-            .decode(&path, cache)
+            .decode_cancellable(&path, cache, cancel)
             .context("Verify tagged audio")?;
-        let pcm = audio.pcm_sha256()?;
+        let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
+        if let Some(patch) = &self.transfer {
+            patch.verify(&path, &after.info)?;
+        }
+        if (self.cleanup.is_some() || !self.metadata_edits.is_empty())
+            && let Some(expected) = expected_metadata
+        {
+            ensure!(
+                native_metadata.fields == expected.fields,
+                "Metadata cannot be represented exactly in this tag format"
+            );
+        }
+        let pcm = audio.pcm_sha256_cancellable(cancel)?;
         ensure!(
-            after.frames == audio.frames && after.pcm_sha256()? == pcm,
+            after.frames == audio.frames && after.pcm_sha256_cancellable(cancel)? == pcm,
             "Tagging changed playable audio or timeline"
         );
         ensure!(
-            audio.source_is_unchanged()?,
+            audio.source_is_unchanged_cancellable(cancel)?,
             "Source changed during tagging"
         );
         std::fs::File::options()
@@ -239,7 +384,7 @@ impl TagWritePlan {
         Ok(StagedTagWrite {
             source_path: audio.source_path.clone(),
             source_before_sha256: audio.source_sha256.clone(),
-            source_after_sha256: file_sha256(&path)?,
+            source_after_sha256: cuerithm_media::file_sha256_cancellable(&path, cancel)?,
             metadata: after.info,
             sidecars,
             path,
@@ -248,6 +393,8 @@ impl TagWritePlan {
             frames: audio.frames,
             decoder_identity: runtime.identity.clone(),
             provenance: self.provenance.clone(),
+            cleanup,
+            native_metadata,
             workspace: private.path().to_owned(),
             private: Some(private),
         })
@@ -376,6 +523,19 @@ impl TagWritePlan {
                         }
                         if has_label {
                             tag.set_raw("LABEL", vec![value.clone()], true);
+                        }
+                    }
+                    if field == Field::Version
+                        && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
+                    {
+                        let has_legacy = tag.get_native("VERSION").is_some();
+                        if !overwrite(selected)
+                            && (has_legacy || tag.get_field(Field::Version).is_some())
+                        {
+                            continue;
+                        }
+                        if has_legacy {
+                            tag.set_native("VERSION", vec![value.clone()]);
                         }
                     }
                     tag.set_field(field, vec![value], overwrite(selected));

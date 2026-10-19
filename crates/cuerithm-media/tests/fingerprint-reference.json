@@ -1,0 +1,56 @@
+{
+  "provenance": {
+    "ffmpeg_sha256": "12080d04c43be6696fe6f7accc5a3be53fdbb5390a893367c7af14b2ab3a7940",
+    "arguments": [
+      "-i",
+      "AUTHORED_WAV",
+      "-vn",
+      "-f",
+      "md5",
+      "-"
+    ],
+    "samples": "signed 16 bit, ((frame * 37 + channel * 13) % 20001) - 10000; one second"
+  },
+  "cases": [
+    {
+      "sample_rate": 8000,
+      "channels": 1,
+      "digest": "6d08005950bc60f34cd7a8434cd7526b"
+    },
+    {
+      "sample_rate": 44100,
+      "channels": 2,
+      "digest": "4bda4a1902a514eab92809a4fad6e80e"
+    },
+    {
+      "sample_rate": 48000,
+      "channels": 1,
+      "digest": "498cdd3226521e18b73ea784e2767b69"
+    },
+    {
+      "sample_rate": 96000,
+      "channels": 2,
+      "digest": "dbc8aa3b5ce1036318778aa26e21a414"
+    }
+  ],
+  "multi_stream": {
+    "fixture": "authored-multistream.mov",
+    "source_sha256": "74cb2dd9a6f6c9645a14d1a368f80014810c51103b56e92f04aa978c269677d3",
+    "expected_digest": "c4f8204a156298b62e9eb85255953c61",
+    "expected_rate": 44100,
+    "expected_channels": 1,
+    "default_stream": 0,
+    "streams": [
+      {
+        "rate": 44100,
+        "channels": 1,
+        "default": true
+      },
+      {
+        "rate": 48000,
+        "channels": 2,
+        "default": false
+      }
+    ]
+  }
+}

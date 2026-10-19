@@ -166,6 +166,38 @@ impl ID3Tag {
         }
     }
 
+    pub fn load_format(
+        path: &Path,
+        format: ID3AudioFormat,
+        allow_new: bool,
+    ) -> Result<ID3Tag, Error> {
+        let read = if format == ID3AudioFormat::WAV {
+            crate::wav::read_wav(path)
+        } else {
+            Tag::read_from_path(path).map_err(Into::into)
+        };
+        let tag = match read {
+            Ok(tag) => tag,
+            Err(error)
+                if allow_new
+                    && error
+                        .downcast_ref::<id3::Error>()
+                        .is_some_and(|e| matches!(e.kind, id3::ErrorKind::NoTag)) =>
+            {
+                Tag::new()
+            }
+            Err(error) => return Err(error),
+        };
+        let id3v24 = tag.version() == Version::Id3v24;
+        Ok(ID3Tag {
+            tag,
+            format,
+            id3_separator: ", ".into(),
+            id3v24,
+            comm_lang: "eng".into(),
+        })
+    }
+
     // ID3 Settings
     pub fn set_id3v24(&mut self, id3v24: bool) {
         if id3v24 && !self.id3v24 {
@@ -549,6 +581,64 @@ impl TagImpl for ID3Tag {
                 return;
             }
             self.tag.set_text(tag, value.join(&self.id3_separator));
+        }
+    }
+
+    fn get_native(&self, key: &str) -> Option<Vec<String>> {
+        let text = if key == "COMM" {
+            self.tag
+                .comments()
+                .find(|c| c.description.is_empty())
+                .map(|c| c.text.clone())
+        } else if key.len() != 4 {
+            self.tag
+                .extended_texts()
+                .find(|t| t.description == key)
+                .map(|t| t.value.clone())
+        } else {
+            self.tag.get(key)?.content().text().map(str::to_owned)
+        }?;
+        Some(if self.tag.version() == Version::Id3v24 && key != "COMM" {
+            text.split('\0').map(str::to_owned).collect()
+        } else {
+            vec![text.replace('\0', "/")]
+        })
+    }
+    fn set_native(&mut self, key: &str, values: Vec<String>) {
+        if key == "COMM" {
+            let existing = self
+                .tag
+                .comments()
+                .find(|c| c.description.is_empty())
+                .cloned();
+            if let Some(c) = &existing {
+                // rust-id3's second filter is comment text, not language. The
+                // logical Comment field includes every empty-description value.
+                self.tag.remove_comment(Some(&c.description), None);
+            }
+            if !values.is_empty() {
+                let mut c = existing.unwrap_or(Comment {
+                    lang: self.comm_lang.clone(),
+                    description: String::new(),
+                    text: String::new(),
+                });
+                c.text = values.join("; ");
+                self.tag.add_frame(c);
+            }
+        } else if key.len() != 4 {
+            self.tag.remove_extended_text(Some(key), None);
+            if !values.is_empty() {
+                self.tag.add_frame(ExtendedText {
+                    description: key.into(),
+                    value: values.join(if self.id3v24 { "\0" } else { "/" }),
+                });
+            }
+        } else {
+            self.tag.remove(key);
+            if !values.is_empty() {
+                self.tag
+                    .set_text(key, values.join(if self.id3v24 { "\0" } else { "/" }));
+            }
         }
     }
 

@@ -29,6 +29,7 @@ pub enum TrackSort {
     Bpm,
     Energy,
     Added,
+    PlaylistOrder,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -39,6 +40,7 @@ pub struct TrackQuery {
     pub descending: bool,
     pub limit: u32,
     pub cursor: Option<String>,
+    pub playlist_id: Option<String>,
 }
 impl Default for TrackQuery {
     fn default() -> Self {
@@ -49,6 +51,7 @@ impl Default for TrackQuery {
             descending: false,
             limit: 100,
             cursor: None,
+            playlist_id: None,
         }
     }
 }
@@ -65,6 +68,8 @@ pub struct TrackSummary {
     pub album: String,
     pub genre: String,
     pub state: String,
+    #[serde(default)]
+    pub archived: bool,
     pub key: Option<String>,
     pub bpm: Option<f64>,
     pub energy: Option<u8>,

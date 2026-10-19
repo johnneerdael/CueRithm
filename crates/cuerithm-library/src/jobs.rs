@@ -53,18 +53,36 @@ impl Library {
         revision: SettingsRevision,
         discovered: bool,
     ) -> Result<Vec<JobId>> {
+        self.enqueue_sources_with(paths, revision, discovered, file_sha256)
+    }
+    pub(crate) fn enqueue_sources_with(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+        discovered: bool,
+        hash_source: impl Fn(&std::path::Path) -> Result<String>,
+    ) -> Result<Vec<JobId>> {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();
         for path in paths {
             let path = path.canonicalize().context("Incoming file is missing")?;
             ensure!(path.is_file(), "Only audio files can be queued");
-            let hash = file_sha256(&path)?;
+            // Keep the hash and its enqueue decision on the same side of any
+            // metadata replacement/commit. An old hash must not requeue a file
+            // after a successful manual cleanup or catalog publication.
+            #[cfg(feature = "autotag")]
+            let _gate = self
+                .inner
+                .tag_gate
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+            let hash = hash_source(&path)?;
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             if discovered {
                 #[cfg(feature = "autotag")]
                 {
-                    let owned:Option<String>=tx.query_row("SELECT w.job_id FROM tag_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.current_job=w.job_id AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) LIMIT 1",params![path_bytes(&path),hash],|r|r.get(0)).optional()?;
+                    let owned:Option<String>=tx.query_row("SELECT w.job_id FROM tag_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.current_job=w.job_id AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) UNION ALL SELECT t.current_job FROM cleanup_writes w JOIN tracks t ON t.id=w.track_id WHERE t.path=?1 AND t.state='ready' AND t.archived=0 AND t.current_job=json_extract(w.payload_json,'$.before.row.row.current_job') AND w.state='prepared' AND (?2=w.before_hash OR ?2=w.after_hash) LIMIT 1",params![path_bytes(&path),hash],|r|r.get(0)).optional()?;
                     if let Some(id) = owned {
                         ids.push(id);
                         tx.commit()?;
@@ -202,6 +220,7 @@ impl Library {
                     | "analysis"
                     | "matching"
                     | "tagging"
+                    | "cleanup"
                     | "writing_tags"
                     | "committing"
             ),
@@ -277,7 +296,7 @@ impl Library {
         info: &MediaInfo,
         source_sha: &str,
     ) -> Result<()> {
-        self.apply_analysis_checked(id, None, result, info, source_sha)
+        self.apply_analysis_checked(id, None, result, info, source_sha, None)
     }
     pub fn apply_analysis_for_run(
         &self,
@@ -285,7 +304,31 @@ impl Library {
         result: &FileAnalysis,
         info: &MediaInfo,
     ) -> Result<()> {
-        self.apply_analysis_checked(&job.id, Some(job.attempt), result, info, &job.source_sha256)
+        self.apply_analysis_checked(
+            &job.id,
+            Some(job.attempt),
+            result,
+            info,
+            &job.source_sha256,
+            None,
+        )
+    }
+    #[cfg(feature = "autotag")]
+    pub(crate) fn apply_prepared_analysis_for_run(
+        &self,
+        job: &JobRun,
+        result: &FileAnalysis,
+        info: &MediaInfo,
+        native: Option<&cuerithm_cleanup::Metadata>,
+    ) -> Result<()> {
+        self.apply_analysis_checked(
+            &job.id,
+            Some(job.attempt),
+            result,
+            info,
+            &job.source_sha256,
+            native,
+        )
     }
     fn apply_analysis_checked(
         &self,
@@ -294,6 +337,7 @@ impl Library {
         result: &FileAnalysis,
         info: &MediaInfo,
         source_sha: &str,
+        native: Option<&cuerithm_cleanup::Metadata>,
     ) -> Result<()> {
         Self::validate_analysis(result)?;
         let mut conn = self.conn()?;
@@ -315,6 +359,12 @@ impl Library {
             "Required metadata stages have not completed"
         );
         Self::store_analysis_tx(&tx, id, &track, result, info)?;
+        #[cfg(feature = "autotag")]
+        if let Some(native) = native {
+            crate::cleanup::store::store_native(&tx, &track, native)?;
+        }
+        #[cfg(not(feature = "autotag"))]
+        let _ = native;
         tx.commit()?;
         Ok(())
     }
@@ -360,21 +410,27 @@ impl Library {
         let tempo = a.tempo.as_ref().context("BPM is unresolved")?;
         let energy = a.energy.as_ref().context("Energy is unresolved")?;
         let cues = a.lexicon_cues.as_ref().context("Cues are unresolved")?;
+        let saved_bpm = result
+            .publication
+            .as_ref()
+            .map(|p| p.grid.bpm)
+            .unwrap_or(tempo.bpm);
+        let cue_json = if let Some(publication) = &result.publication {
+            let mut value = serde_json::to_value(publication)?;
+            value["schema"] = "lexicon-publication-v1".into();
+            serde_json::to_string(&value)?
+        } else {
+            serde_json::to_string(cues)?
+        };
         let json = serde_json::to_string(result)?;
         let _: FileAnalysis =
             serde_json::from_str(&json).context("Analysis contains invalid numeric values")?;
         tx.execute(
             "INSERT INTO cue_revisions VALUES (?1,?2,?3,?4,?5)",
-            params![
-                uuid::Uuid::new_v4().to_string(),
-                track,
-                id,
-                serde_json::to_string(cues)?,
-                now()
-            ],
+            params![uuid::Uuid::new_v4().to_string(), track, id, cue_json, now()],
         )?;
-        tx.execute("UPDATE tracks SET state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
-            params![json,serde_json::to_string(info)?,key.camelot,tempo.bpm,energy.level,a.duration_seconds,now(),track])?;
+        tx.execute("UPDATE tracks SET native_metadata_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
+            params![json,serde_json::to_string(info)?,key.camelot,saved_bpm,energy.level,a.duration_seconds,now(),track])?;
         for (field, value) in &info.tags {
             let column = match field.as_str() {
                 "title" => "title",

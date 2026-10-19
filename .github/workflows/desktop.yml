@@ -28,6 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential cmake libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libasound2-dev
+      - uses: ./.github/actions/native-crypto-tools
       - uses: ./.github/actions/media-runtime
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -48,9 +49,9 @@ jobs:
         shell: bash
         run: |
           cargo +stable fmt --all -- --check
-          cargo +stable clippy -p cuerithm-desktop -p cuerithm-library --all-targets --locked -- -D warnings
+          cargo +stable clippy -p cuerithm-desktop -p cuerithm-library -p cuerithm-rekordbox --all-targets --locked -- -D warnings
       - name: Tagging, decoder, worker, recovery and playback tests
-        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop --release --locked -- --test-threads=2
+        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop -p cuerithm-rekordbox --release --locked -- --test-threads=2
       - name: Synthetic sync and linkage invariants
         shell: bash
         run: |

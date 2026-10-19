@@ -42,7 +42,7 @@ pub struct VorbisTag {
 impl VorbisTag {
     /// Load from path
     pub fn load_file(path: impl AsRef<Path>) -> Result<VorbisTag, Error> {
-        let file = lofty::read_from_path(path)?;
+        let file = lofty::probe::Probe::open(path)?.guess_file_type()?.read()?;
         let tag = file
             .tag(TagType::VorbisComments)
             .ok_or(anyhow!("Missing vorbis tag"))?;
@@ -89,7 +89,7 @@ impl VorbisTag {
 
 impl TagImpl for VorbisTag {
     fn save_file(&mut self, path: &Path) -> Result<(), Error> {
-        let mut file = lofty::read_from_path(path)?;
+        let mut file = lofty::probe::Probe::open(path)?.guess_file_type()?.read()?;
         file.remove(TagType::VorbisComments);
         file.insert_tag(self.tag.clone().into());
         file.save_to_path(path, WriteOptions::default())?;
@@ -196,7 +196,7 @@ impl TagImpl for VorbisTag {
     }
 
     fn has_art(&self) -> bool {
-        self.tag.pictures().is_empty()
+        !self.tag.pictures().is_empty()
     }
 
     fn get_art(&self) -> Vec<Picture> {
@@ -252,6 +252,17 @@ impl TagImpl for VorbisTag {
         }
 
         Some(values.into_iter().map(|v| v.to_string()).collect())
+    }
+
+    fn get_native(&self, key: &str) -> Option<Vec<String>> {
+        let values: Vec<_> = self.tag.get_all(key).map(str::to_owned).collect();
+        (!values.is_empty()).then_some(values)
+    }
+    fn set_native(&mut self, key: &str, values: Vec<String>) {
+        self.tag.remove(key).for_each(drop);
+        for value in values {
+            self.tag.push(key.to_owned(), value);
+        }
     }
 
     fn remove_raw(&mut self, tag: &str) {

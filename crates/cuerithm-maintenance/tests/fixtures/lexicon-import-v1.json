@@ -1,0 +1,3649 @@
+{
+  "node": "v20.18.1",
+  "provenance": {
+    "source_asar_sha256": "85fdbba4af97886ff1a626e6a4c96b4f9866dca3624fb2348a0332d7d6b63860",
+    "import_sha256": "2bf4357322d80b5444539e5aa07cca619925cd8cc3358c41b1fe9284a6adcee1",
+    "update_sha256": "6f5586ca8ba1bc6d1d80a6c671586a241ea998562afa3ab55f67ad058766a212",
+    "cue_save_sha256": "96365cd57d59e97f7fd90de8fa0c437b7496e3f0fd49ca4d68f7762b4754f2ec",
+    "tempo_save_sha256": "922fe8ec7eba53a924cea432fa494f89ecb335e87635a1fc0fa300b378e7216a",
+    "capture_sha256": "1347c5488e5842607339166de94535323bc4b3a88a80ad5ff40902155e3642e3",
+    "boundary": "Original importTags, updateMany wrapper and collection-save methods with controlled validation and persistence adapters, projected onto approved Cuerithm metadata/collection content and technical identity; not a reference of real SQL, field sanitization, file tags, private application state or excluded play/audio-feature statistics"
+  },
+  "cases": [
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 128.75,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 128.75,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 128.75,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 128.75,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [],
+        "tempo_markers": [],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 128.75,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 128.75,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 128.75,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 0,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "",
+          "title": "",
+          "albumTitle": "",
+          "genre": "",
+          "comment": "",
+          "key": "",
+          "rating": 0,
+          "bpm": 128.75,
+          "color": null,
+          "remixer": "",
+          "mix": "",
+          "label": "",
+          "composer": "",
+          "producer": "",
+          "grouping": "",
+          "lyricist": "",
+          "year": 0,
+          "releaseDate": null,
+          "trackNumber": 0,
+          "energy": 0,
+          "extra1": "",
+          "extra2": ""
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": -1,
+            "name": "Negative",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 5,
+            "name": "Keep",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": -2,
+            "name": "Another negative",
+            "type": "1",
+            "startTime": 10
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 6,
+            "name": "Negative",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 5,
+            "name": "Keep",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 7,
+            "name": "Another negative",
+            "type": "1",
+            "startTime": 10
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 1,
+            "name": "First",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 1,
+            "name": "Repeated",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 2,
+            "name": "Other",
+            "type": "1",
+            "startTime": 10
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 1,
+            "name": "First",
+            "type": "1",
+            "startTime": 10
+          },
+          {
+            "position": 2,
+            "name": "Other",
+            "type": "1",
+            "startTime": 10
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Invalid loop",
+            "type": "5",
+            "startTime": 10,
+            "endTime": 5,
+            "activeLoop": true
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Invalid loop",
+            "type": "1",
+            "startTime": 10,
+            "endTime": null,
+            "activeLoop": true
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Zero loop",
+            "type": "5",
+            "startTime": 10,
+            "endTime": 0
+          },
+          {
+            "position": 1,
+            "name": "Valid loop",
+            "type": "5",
+            "startTime": 10,
+            "endTime": 20
+          }
+        ],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Zero loop",
+            "type": "1",
+            "startTime": 10,
+            "endTime": null
+          },
+          {
+            "position": 1,
+            "name": "Valid loop",
+            "type": "5",
+            "startTime": 10,
+            "endTime": 20
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 122.5
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 122.5,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 122.5,
+            "startTime": 0
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [
+          {
+            "bpm": 125,
+            "startTime": 0
+          },
+          {
+            "bpm": 130,
+            "startTime": 60
+          }
+        ],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": "Donor title",
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 125,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 125,
+            "startTime": 0
+          },
+          {
+            "bpm": 130,
+            "startTime": 60
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": null,
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": null,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [],
+        "tempo_markers": [],
+        "tags": [],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": null,
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": "Donor comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": null,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    },
+    {
+      "target": {
+        "fields": {
+          "artist": "Target artist",
+          "title": "Target title",
+          "albumTitle": "Target albumTitle",
+          "genre": "Target genre",
+          "comment": "Target comment",
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "red",
+          "remixer": "Target remixer",
+          "mix": "Target mix",
+          "label": "Target label",
+          "composer": "Target composer",
+          "producer": "Target producer",
+          "grouping": "Target grouping",
+          "lyricist": "Target lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Target extra1",
+          "extra2": "Target extra2"
+        },
+        "cues": [
+          {
+            "position": 2,
+            "name": "Target cue",
+            "startTime": 1,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 120,
+            "startTime": 0.1
+          }
+        ],
+        "tags": [
+          9
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      },
+      "donor": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": null,
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": null,
+          "key": "Am",
+          "rating": 4,
+          "bpm": 136.25,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 2,
+          "location": "/authored/donor.wav",
+          "bitrate": 1411,
+          "duration": 240,
+          "sampleRate": 48000,
+          "fingerprint": "donor-fingerprint"
+        }
+      },
+      "expected": {
+        "fields": {
+          "artist": "Donor artist",
+          "title": null,
+          "albumTitle": "Donor albumTitle",
+          "genre": "Donor genre",
+          "comment": null,
+          "key": "Am",
+          "rating": 4,
+          "bpm": 128.75,
+          "color": "blue",
+          "remixer": "Donor remixer",
+          "mix": "Donor mix",
+          "label": "Donor label",
+          "composer": "Donor composer",
+          "producer": "Donor producer",
+          "grouping": "Donor grouping",
+          "lyricist": "Donor lyricist",
+          "year": 2021,
+          "releaseDate": "2021-05-06T00:00:00.000Z",
+          "trackNumber": 7,
+          "energy": 8,
+          "extra1": "Donor extra1",
+          "extra2": "Donor extra2"
+        },
+        "cues": [
+          {
+            "position": 0,
+            "name": "Donor cue",
+            "startTime": 12,
+            "type": "1"
+          }
+        ],
+        "tempo_markers": [
+          {
+            "bpm": 128.75,
+            "startTime": 0.25
+          }
+        ],
+        "tags": [
+          3,
+          7
+        ],
+        "identity": {
+          "id": 1,
+          "location": "/authored/target.flac",
+          "bitrate": 320,
+          "duration": 180,
+          "sampleRate": 44100,
+          "fingerprint": "target-fingerprint"
+        }
+      }
+    }
+  ]
+}

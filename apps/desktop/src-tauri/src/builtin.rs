@@ -7,22 +7,17 @@ use std::{
 };
 
 const KEY_SHA: &str = "262ac22bce23d371fe045d478e90d200f71b5be16046792a8b55432ae5c9f952";
-const ENERGY_SHA: &str = "bf7079a52240d04d8d3d5c6a7db537a47673c19655dcde45bcc10cb210272d96";
 const KEY: &[u8] = include_bytes!("../../../../models/builtin/openkeyscan3-logits.onnx");
-const ENERGY: &[u8] = include_bytes!("../../../../models/builtin/energy-svc-v1.json");
 
 pub struct BuiltinModels {
     pub key: PathBuf,
-    pub energy: PathBuf,
 }
 impl BuiltinModels {
     pub fn verify() -> Result<()> {
-        for (bytes, expected) in [(KEY, KEY_SHA), (ENERGY, ENERGY_SHA)] {
-            ensure!(
-                format!("{:x}", Sha256::digest(bytes)) == expected,
-                "Built-in analysis component failed verification; reinstall Cuerithm"
-            );
-        }
+        ensure!(
+            format!("{:x}", Sha256::digest(KEY)) == KEY_SHA,
+            "Built-in analysis component failed verification; reinstall Cuerithm"
+        );
         Ok(())
     }
     pub fn install(root: &Path) -> Result<Self> {
@@ -43,21 +38,32 @@ impl BuiltinModels {
         }
         Ok(Self {
             key: install(&folder, KEY, KEY_SHA, "onnx")?,
-            energy: install(&folder, ENERGY, ENERGY_SHA, "json")?,
         })
     }
     pub fn apply(&self, settings: &mut PreparationSettings) -> bool {
         let e = &mut settings.engine;
         let changed = e.key_openkeyscan_model.as_ref() != Some(&self.key)
-            || e.energy_model.as_ref() != Some(&self.energy)
+            || e.energy_model.is_some()
+            || !e.lexicon_energy
             || e.key_model.is_some()
             || e.key_neural_model.is_some()
-            || !e.source_profile_timing;
+            || e.source_profile_timing
+            || !e.lexicon_timing
+            || e.beat_model.is_some()
+            || e.mel_model.is_some()
+            || e.max_seconds.is_some()
+            || e.cue_config.is_some();
         e.key_openkeyscan_model = Some(self.key.clone());
-        e.energy_model = Some(self.energy.clone());
+        e.energy_model = None;
+        e.lexicon_energy = true;
         e.key_model = None;
         e.key_neural_model = None;
-        e.source_profile_timing = true;
+        e.source_profile_timing = false;
+        e.lexicon_timing = true;
+        e.beat_model = None;
+        e.mel_model = None;
+        e.max_seconds = None;
+        e.cue_config = None;
         changed
     }
     pub fn configure_library(&self, library: &Library) -> Result<bool> {
@@ -91,6 +97,48 @@ impl BuiltinModels {
 mod tests {
     use super::*;
     use cuerithm_library::{Library, PreparationSettings};
+    #[test]
+    fn desktop_selects_complete_local_timing_and_clears_obsolete_backends() {
+        let d = tempfile::tempdir().unwrap();
+        let models = BuiltinModels::install(d.path()).unwrap();
+        let mut settings = PreparationSettings::default();
+        settings.engine.source_profile_timing = true;
+        settings.engine.beat_model = Some(d.path().join("missing-beat.onnx"));
+        settings.engine.mel_model = Some(d.path().join("missing-mel.onnx"));
+        settings.engine.max_seconds = Some(30.0);
+        settings.engine.cue_config = Some(serde_json::json!({"enabled": true}));
+        assert!(models.apply(&mut settings));
+        assert!(settings.engine.lexicon_timing);
+        assert!(!settings.engine.source_profile_timing);
+        assert!(settings.engine.beat_model.is_none());
+        assert!(settings.engine.mel_model.is_none());
+        assert!(settings.engine.max_seconds.is_none());
+        assert!(settings.engine.cue_config.is_none());
+        settings.ready().unwrap();
+        let engine = camelot_core::Engine::new(&settings.engine).unwrap();
+        assert!(engine.model_identity().contains_key("lexicon-timing-dsp"));
+        assert!(!models.apply(&mut settings));
+    }
+    #[test]
+    fn energy_is_compiled_and_migrates_legacy_svc_settings_without_a_model_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let builtin = BuiltinModels::install(dir.path()).unwrap();
+        let files: Vec<_> = std::fs::read_dir(dir.path().join("analysis-components"))
+            .unwrap()
+            .collect();
+        assert_eq!(
+            files.len(),
+            1,
+            "Only the key graph requires a parameter cache"
+        );
+        let mut settings = PreparationSettings::default();
+        settings.engine.energy_model = Some(dir.path().join("missing-svc.json"));
+        assert!(builtin.apply(&mut settings));
+        assert!(settings.engine.energy_model.is_none());
+        assert!(settings.engine.lexicon_energy);
+        settings.ready().unwrap();
+        assert!(camelot_core::Engine::new(&settings.engine).is_ok());
+    }
     #[test]
     fn first_run_is_ready_and_migration_preserves_user_preferences() {
         let d = tempfile::tempdir().unwrap();
@@ -129,13 +177,10 @@ mod tests {
     fn cached_parameters_are_repaired_from_embedded_bytes() {
         let d = tempfile::tempdir().unwrap();
         let models = BuiltinModels::install(d.path()).unwrap();
-        std::fs::write(&models.energy, b"broken").unwrap();
+        std::fs::write(&models.key, b"broken").unwrap();
         let repaired = BuiltinModels::install(d.path()).unwrap();
-        assert_eq!(models.energy, repaired.energy);
-        assert_eq!(
-            cuerithm_media::file_sha256(&repaired.energy).unwrap(),
-            ENERGY_SHA
-        );
+        assert_eq!(models.key, repaired.key);
+        assert_eq!(cuerithm_media::file_sha256(&repaired.key).unwrap(), KEY_SHA);
     }
 
     #[test]
@@ -160,7 +205,9 @@ mod tests {
         }
         let lib = Library::open(&db).unwrap();
         assert!(models.configure_library(&lib).unwrap());
-        assert!(lib.claim_next().unwrap().is_some());
+        let job = lib.claim_next().unwrap().unwrap();
+        assert!(job.snapshot.settings.engine.lexicon_timing);
+        assert!(!job.snapshot.settings.engine.source_profile_timing);
     }
     #[test]
     fn changed_implementation_identity_requires_migration_with_same_paths() {

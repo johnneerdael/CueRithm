@@ -17,7 +17,10 @@ available = {line.split()[1] for line in decoders.splitlines() if len(line.split
 assert set(config["required_decoders"]) <= available, "missing required decoders"
 muxers = subprocess.check_output([str(ffmpeg), "-hide_banner", "-muxers"], text=True)
 available_muxers = {line.split()[1] for line in muxers.splitlines() if len(line.split()) > 2}
-assert {"f32le", "image2pipe"} <= available_muxers, "missing PCM/artwork muxers"
+assert {"f32le", "image2pipe", "md5"} <= available_muxers, "missing PCM/artwork/fingerprint muxers"
+encoders = subprocess.check_output([str(ffmpeg), "-hide_banner", "-encoders"], text=True)
+available_encoders = {line.split()[1] for line in encoders.splitlines() if len(line.split()) > 2}
+assert {"pcm_f32le", "pcm_s16le"} <= available_encoders, "missing playback/fingerprint encoders"
 for name in ["ffmpeg", "ffprobe"]:
     path = dest / (name + ext)
     if platform.system() == "Darwin":
