@@ -247,7 +247,7 @@ fn vector(value: &str) -> Value {
         json!([value])
     }
 }
-fn remote_fields(track: &ImportedTrack) -> Result<BTreeMap<String, Value>> {
+pub(crate) fn remote_fields(track: &ImportedTrack) -> Result<BTreeMap<String, Value>> {
     let mut values = serde_json::to_value(&track.metadata)?
         .as_object()
         .unwrap()
@@ -281,7 +281,7 @@ type LocalValues = (
     Option<String>,
     Option<String>,
 );
-fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> {
+pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> {
     let (path,title,artist,album,genre,key,bpm,duration,info,native,latest): LocalValues=conn.query_row(
         "SELECT path,title,artist,album,genre,musical_key,bpm,duration,metadata_json,native_metadata_json,(SELECT json FROM cue_revisions WHERE track_id=tracks.id ORDER BY created DESC,rowid DESC LIMIT 1) FROM tracks WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?)))?;
     let mut result = TEXT_FIELDS
@@ -345,14 +345,14 @@ fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> 
     Ok(result)
 }
 #[derive(Clone)]
-struct StoredLink {
-    local: Option<String>,
-    identity: TrackIdentity,
-    fields: Fields,
-    status: String,
-    observation_hash: Option<String>,
+pub(crate) struct StoredLink {
+    pub(crate) local: Option<String>,
+    pub(crate) identity: TrackIdentity,
+    pub(crate) fields: Fields,
+    pub(crate) status: String,
+    pub(crate) observation_hash: Option<String>,
 }
-fn links(conn: &Connection, target: &str) -> Result<BTreeMap<String, StoredLink>> {
+pub(crate) fn links(conn: &Connection, target: &str) -> Result<BTreeMap<String, StoredLink>> {
     let mut stmt=conn.prepare("SELECT content_id,local_track_id,identity_json,baseline_json,status,observation_hash FROM native_track_links WHERE target_id=?1")?;
     let rows = stmt
         .query_map([target], |r| {

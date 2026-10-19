@@ -472,3 +472,51 @@ fn mapped_local_paths_do_not_replace_the_native_remote_path_in_a_field_baseline(
         json!(path.canonicalize().unwrap().to_string_lossy())
     );
 }
+
+#[test]
+fn sync_preview_reports_what_a_sync_would_do_without_changing_anything() {
+    let d = tempfile::tempdir().unwrap();
+    let path = source(d.path(), "song.flac");
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let opts = options(&lib);
+    let first = lib
+        .import_rekordbox_collection(
+            &collection("db-1", vec![track("db-1", "1", &path)]),
+            opts.clone(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    let before = lib.native_track_link(&first.target_id, "1").unwrap();
+    let preview = lib.native_sync_preview(&first.target_id).unwrap();
+    assert!(!preview.writes_enabled && !preview.write_blocker.is_empty());
+    // Titles match, so only the locally owned BPM (not analysed yet) needs attention, and it must
+    // not be allowed to blank rekordbox's value.
+    assert_eq!(preview.tracks.len(), 1);
+    let fields = &preview.tracks[0].fields;
+    let bpm = fields.iter().find(|f| f.field == "bpm").unwrap();
+    assert_eq!(bpm.decision, FieldDecision::EmptyLocal);
+    assert!(fields.iter().all(|f| f.field != "title"));
+    assert_eq!(preview.summary["empty_local"], 1);
+    // A later edit made in rekordbox to a shared, never-acknowledged field is a conflict, not a pull.
+    let mut edited = track("db-1", "1", &path);
+    edited.metadata.title = "Edited in rekordbox".into();
+    lib.import_rekordbox_collection(
+        &collection("db-1", vec![edited]),
+        opts,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let preview = lib.native_sync_preview(&first.target_id).unwrap();
+    let title = preview.tracks[0]
+        .fields
+        .iter()
+        .find(|f| f.field == "title")
+        .unwrap();
+    assert_eq!(title.decision, FieldDecision::Conflict);
+    assert_eq!(title.remote, json!(["Edited in rekordbox"]));
+    assert_eq!(title.local, json!(["Target 1"]));
+    // Previewing recorded no acknowledgement and wrote nothing to the baselines.
+    let after = lib.native_track_link(&first.target_id, "1").unwrap();
+    assert_eq!(after.fields, before.fields);
+    assert!(after.fields.values().all(|f| !f.acknowledged));
+}
