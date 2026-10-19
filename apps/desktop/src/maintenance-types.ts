@@ -28,5 +28,7 @@ export interface MaintenanceChange {review_id:string|null;stamp:MaintenanceStamp
 export interface GroupMerge {group_id:string;mode:ReviewState;exact_audio:boolean;keeper:string;archive_ids:string[];unarchive_keeper:boolean;copies:{from:string;to:string}[]}
 export interface DuplicatePlaylistChange {id:string;before:string[];after:string[]}
 export interface DuplicateMergePreview {id:string;review_id:string;review_revision:number;created:number;stamp:MaintenanceStamp;plan:{groups:GroupMerge[]};playlists:DuplicatePlaylistChange[]}
-export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null}
+export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[]}
 export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null}
+
+export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null}

@@ -66,6 +66,8 @@ pub struct DuplicateMergeResult {
     pub restored_ids: Vec<String>,
     pub affected_playlists: Vec<String>,
     pub undo_of: Option<String>,
+    #[serde(default)]
+    pub updated_ids: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateMergeHistory {
@@ -239,4 +241,13 @@ pub struct BrokenScanReport {
     pub tracks: Vec<BrokenScanTrack>,
     pub stale: bool,
     pub stale_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateRecovery {
+    pub id: String,
+    pub kind: String,
+    pub state: String,
+    pub created: i64,
+    pub error: Option<String>,
 }

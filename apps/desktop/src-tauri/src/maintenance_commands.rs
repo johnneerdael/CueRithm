@@ -218,3 +218,65 @@ pub async fn maintenance_merge_history(host: Managed<'_>) -> Ipc<Vec<DuplicateMe
     let lib = host.library.clone();
     work(move || lib.duplicate_merge_history()).await
 }
+
+fn merged(app: &tauri::AppHandle, result: &DuplicateMergeResult) {
+    let ids = result
+        .updated_ids
+        .iter()
+        .chain(&result.archived_ids)
+        .chain(&result.restored_ids)
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    let _ = app.emit(
+        "library-change",
+        serde_json::json!({"track_ids":ids,"playlist_ids":result.affected_playlists}),
+    );
+    let _ = app.emit(
+        "maintenance-change",
+        serde_json::json!({"review_id":null,"stamp":result.stamp}),
+    );
+}
+#[tauri::command]
+pub async fn maintenance_apply_merge(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<DuplicateMergeResult> {
+    let result = run(host.inner().clone(), operation_id, move |host, cancel| {
+        DuplicateMergeService::new(host.library.clone(), host.runtime.clone()).apply(&id, cancel)
+    })
+    .await?;
+    merged(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_undo_merge(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<DuplicateMergeResult> {
+    let result = run(host.inner().clone(), operation_id, move |host, cancel| {
+        DuplicateMergeService::new(host.library.clone(), host.runtime.clone()).undo(&id, cancel)
+    })
+    .await?;
+    merged(&app, &result);
+    Ok(result)
+}
+#[tauri::command]
+pub async fn maintenance_recovery(host: Managed<'_>) -> Ipc<Vec<DuplicateRecovery>> {
+    let lib = host.library.clone();
+    work(move || lib.duplicate_recovery()).await
+}
+#[tauri::command]
+pub async fn maintenance_retry_recovery(
+    host: Managed<'_>,
+    operation_id: String,
+    id: String,
+) -> Ipc<Vec<DuplicateRecovery>> {
+    run(host.inner().clone(), operation_id, move |host, cancel| {
+        host.library.retry_duplicate_recovery(&id, cancel)
+    })
+    .await
+}

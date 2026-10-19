@@ -54,7 +54,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=7).contains(&version),
+            (0..=8).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -103,10 +103,16 @@ impl Library {
                 include_str!("../migrations/007_maintenance.sql")
             ))?;
         }
+        if version < 8 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/008_maintenance_writes.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
-                "SELECT (SELECT COUNT(*) FROM tag_writes WHERE state='prepared') + (SELECT COUNT(*) FROM cleanup_writes WHERE state='prepared')",
+                "SELECT (SELECT COUNT(*) FROM tag_writes WHERE state='prepared') + (SELECT COUNT(*) FROM cleanup_writes WHERE state='prepared') + (SELECT COUNT(*) FROM maintenance_writes WHERE state='prepared')",
                 [],
                 |r| r.get(0),
             )?;
@@ -142,6 +148,7 @@ impl Library {
         {
             lib.recover_tag_writes()?;
             lib.recover_cleanup_writes()?;
+            lib.recover_duplicate_writes()?;
         }
         Ok(lib)
     }

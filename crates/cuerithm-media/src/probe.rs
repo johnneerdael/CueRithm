@@ -53,6 +53,14 @@ fn properties(
 }
 impl MediaRuntime {
     pub fn probe(&self, path: &Path) -> Result<MediaInfo> {
+        self.probe_cancellable(path, &crate::CancellationToken::default())
+    }
+    pub fn probe_cancellable(
+        &self,
+        path: &Path,
+        cancel: &crate::CancellationToken,
+    ) -> Result<MediaInfo> {
+        cancel.check()?;
         ensure!(path.is_file(), "Audio source must be a local file");
         let path = path.canonicalize()?;
         let args: Vec<OsString> = [
@@ -71,9 +79,17 @@ impl MediaRuntime {
         .map(Into::into)
         .chain([path.as_os_str().to_owned()])
         .collect();
-        let mut out = self.run(&self.ffprobe, &args, tempfile::tempfile()?, 1_048_576)?;
+        let mut out = self.run_controlled(
+            &self.ffprobe,
+            &args,
+            tempfile::tempfile()?,
+            1_048_576,
+            std::time::Duration::from_secs(300),
+            cancel,
+        )?;
         let mut bytes = Vec::new();
         out.read_to_end(&mut bytes)?;
+        cancel.check()?;
         let doc: serde_json::Value = serde_json::from_slice(&bytes)?;
         let stream = doc["streams"]
             .as_array()

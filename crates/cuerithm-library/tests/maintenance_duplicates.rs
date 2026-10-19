@@ -570,7 +570,7 @@ fn migration_from_v6_preserves_tracks_and_initializes_empty_maintenance() {
     assert_eq!(
         conn.query_row("pragma user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         conn.query_row(
@@ -1392,4 +1392,395 @@ fn duplicate_merge_batches_disjoint_groups_with_interleaved_playlist_references(
     );
     f.lib.undo_duplicate_merge(&result.id, &token).unwrap();
     assert_eq!(f.content(), before);
+}
+
+#[cfg(feature = "autotag")]
+fn donor_preview(f: &Fixture) -> cuerithm_library::DuplicateMergePreview {
+    use cuerithm_library::{DuplicateReviewEdit, GroupEdit};
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let publication = serde_json::json!({"grid":{"bpm":128.75,"startTime":0.125},"cues":[{"position":0,"name":"Donor breakdown","startTime":8.,"type":"1","color":"blue"}],"implementation_sha256":"a".repeat(64),"inputs_sha256":"b".repeat(64)});
+    conn.execute("UPDATE tracks SET title='Donor title',genre='House',bpm=136.25,musical_key='8A',energy=8,analysis_json=?1 WHERE id=?2",rusqlite::params![serde_json::json!({"raw_donor":true,"publication":publication}).to_string(),f.ids[1]]).unwrap();
+    conn.execute_batch("INSERT INTO custom_tag_categories VALUES('category','Mood'); INSERT INTO custom_tags VALUES('old-tag','category','Old'),('donor-tag','category','Warmup');").unwrap();
+    conn.execute(
+        "INSERT INTO track_custom_tags VALUES(?1,'old-tag')",
+        [&f.ids[0]],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO track_custom_tags VALUES(?1,'donor-tag')",
+        [&f.ids[1]],
+    )
+    .unwrap();
+    drop(conn);
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::UseTags {
+                    track_id: Some(f.ids[1].clone()),
+                },
+            },
+            &token,
+        )
+        .unwrap();
+    f.lib
+        .preview_duplicate_merge(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            &token,
+        )
+        .unwrap()
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn coordinated_donor_merge_publishes_file_and_library_cues_grid_tags_and_reversible_archives() {
+    use cuerithm_library::DuplicateMergeService;
+    let mut f = Fixture::new();
+    f.playlist(
+        "set",
+        vec![f.ids[0].clone(), f.ids[2].clone(), f.ids[1].clone()],
+    );
+    let preview = donor_preview(&f);
+    let before = f.content();
+    let hashes = f
+        .paths
+        .iter()
+        .map(|p| cuerithm_media::file_sha256(p).unwrap())
+        .collect::<Vec<_>>();
+    let token = CancellationToken::default();
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    let result = service.apply(&preview.id, &token).unwrap();
+    assert!(
+        f.lib
+            .duplicate_merge_history()
+            .unwrap()
+            .iter()
+            .any(|h| h.result.id == result.id)
+    );
+    assert!(service.apply(&preview.id, &token).is_err());
+    assert_eq!(f.lib.track(&f.ids[0]).unwrap().title, "Donor title");
+    assert_eq!(f.lib.track(&f.ids[0]).unwrap().bpm, Some(128.75));
+    let info = f.runtime.probe(&f.paths[0]).unwrap();
+    let native = cuerithm_autotag::read_transfer_metadata(&f.paths[0], &info).unwrap();
+    assert_eq!(native.bpm, Some(128.75));
+    assert_eq!(
+        native.extra.get(&cuerithm_autotag::TransferText::Energy),
+        Some(&vec!["8".to_owned()])
+    );
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let analysis: serde_json::Value = serde_json::from_str(
+        &conn
+            .query_row(
+                "SELECT analysis_json FROM tracks WHERE id=?1",
+                [&f.ids[0]],
+                |r| r.get::<_, String>(0),
+            )
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(analysis["untouched"], true);
+    assert_eq!(
+        analysis["publication"]["cues"][0]["name"],
+        "Donor breakdown"
+    );
+    let links: Vec<String> = conn
+        .prepare("SELECT tag_id FROM track_custom_tags WHERE track_id=?1")
+        .unwrap()
+        .query_map([&f.ids[0]], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert_eq!(links, vec!["donor-tag"]);
+    let cuejob: Option<String> = conn
+        .query_row(
+            "SELECT job_id FROM cue_revisions WHERE track_id=?1 ORDER BY rowid DESC LIMIT 1",
+            [&f.ids[0]],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(cuejob.is_none());
+    drop(conn);
+    assert_ne!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hashes[0]);
+    assert_eq!(cuerithm_media::file_sha256(&f.paths[1]).unwrap(), hashes[1]);
+    drop(service);
+    drop(f.lib);
+    f.lib = Library::open(&f.db).unwrap();
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    service.undo(&result.id, &token).unwrap();
+    assert_eq!(f.lib.track(&f.ids[0]).unwrap().title, "Signal");
+    assert_eq!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hashes[0]);
+    assert_eq!(f.content(), before);
+    assert!(service.undo(&result.id, &token).is_err());
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn coordinated_merge_rolls_back_exchanged_files_when_sql_publication_fails() {
+    use cuerithm_library::DuplicateMergeService;
+    let f = Fixture::new();
+    let preview = donor_preview(&f);
+    let before = f.content();
+    let hash = cuerithm_media::file_sha256(&f.paths[0]).unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute_batch("CREATE TRIGGER fail_donor_publish BEFORE UPDATE OF source_hash ON tracks WHEN NEW.source_hash IS NOT OLD.source_hash BEGIN SELECT RAISE(ABORT,'injected publication failure'); END;").unwrap();
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    assert!(
+        service
+            .apply(&preview.id, &CancellationToken::default())
+            .is_err()
+    );
+    assert_eq!(f.content(), before);
+    assert_eq!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hash);
+    conn.execute_batch("DROP TRIGGER fail_donor_publish;")
+        .unwrap();
+    let applied = service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap();
+    service
+        .undo(&applied.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(f.content(), before);
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn coordinated_copy_only_and_unrelated_incoming_edits_preserve_durable_undo() {
+    use cuerithm_library::{DuplicateMergeService, DuplicateReviewEdit, GroupEdit};
+    let f = Fixture::new();
+    let preview = donor_preview(&f);
+    let token = CancellationToken::default();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &preview.review_id,
+            preview.review_revision,
+            DuplicateReviewEdit::Group {
+                group_id: preview.plan.groups[0].group_id.clone(),
+                edit: GroupEdit::Lock,
+            },
+            &token,
+        )
+        .unwrap();
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            review.revision,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::Unlock { force: false },
+            },
+            &token,
+        )
+        .unwrap();
+    let preview = f
+        .lib
+        .preview_duplicate_merge(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            &token,
+        )
+        .unwrap();
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    let applied = service.apply(&preview.id, &token).unwrap();
+    assert!(applied.archived_ids.is_empty());
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute(
+        "UPDATE tracks SET title='Unrelated incoming result' WHERE id=?1",
+        [&f.ids[2]],
+    )
+    .unwrap();
+    service.undo(&applied.id, &token).unwrap();
+    assert_eq!(f.lib.track(&f.ids[0]).unwrap().title, "Signal");
+    assert_eq!(
+        f.lib.track(&f.ids[2]).unwrap().title,
+        "Unrelated incoming result"
+    );
+    assert!(
+        !conn
+            .query_row(
+                "SELECT archived FROM tracks WHERE id=?1",
+                [&f.ids[1]],
+                |r| r.get::<_, bool>(0)
+            )
+            .unwrap()
+    );
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn coordinated_undo_rejects_relevant_entity_aba_and_preserves_external_file_edits() {
+    use cuerithm_library::DuplicateMergeService;
+    let f = Fixture::new();
+    let preview = donor_preview(&f);
+    let token = CancellationToken::default();
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    let applied = service.apply(&preview.id, &token).unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let title = f.lib.track(&f.ids[0]).unwrap().title;
+    conn.execute(
+        "UPDATE tracks SET title='Later edit' WHERE id=?1",
+        [&f.ids[0]],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE tracks SET title=?1 WHERE id=?2",
+        rusqlite::params![title, f.ids[0]],
+    )
+    .unwrap();
+    assert!(service.undo(&applied.id, &token).is_err());
+    let f = Fixture::new();
+    let preview = donor_preview(&f);
+    let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+    let applied = service.apply(&preview.id, &token).unwrap();
+    wav(&f.paths[0], 83);
+    let hash = cuerithm_media::file_sha256(&f.paths[0]).unwrap();
+    assert!(service.undo(&applied.id, &token).is_err());
+    assert_eq!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hash);
+}
+
+#[test]
+fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_cues() {
+    let f = Fixture::new();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let job = f
+        .lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.track_id == f.ids[0])
+        .unwrap()
+        .id;
+    conn.execute(
+        "INSERT INTO cue_revisions VALUES('legacy-cue',?1,?2,'{\"cues\":[]}',1)",
+        rusqlite::params![f.ids[0], job],
+    )
+    .unwrap();
+    drop(conn);
+    let path = f.dir.path().join("legacy/library.sqlite");
+    std::fs::create_dir(path.parent().unwrap()).unwrap();
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    for text in [
+        include_str!("../migrations/001_initial.sql"),
+        include_str!("../migrations/002_tag_writes.sql"),
+        include_str!("../migrations/003_preparation_cache.sql"),
+        include_str!("../migrations/004_cleanup.sql"),
+        include_str!("../migrations/005_cleanup_preparation.sql"),
+        include_str!("../migrations/006_playlists.sql"),
+        include_str!("../migrations/007_maintenance.sql"),
+    ] {
+        conn.execute_batch(text).unwrap();
+    }
+    conn.execute(
+        "ATTACH DATABASE ?1 AS seed",
+        [f.db.to_string_lossy().to_string()],
+    )
+    .unwrap();
+    for table in [
+        "settings",
+        "selected_settings",
+        "tracks",
+        "jobs",
+        "cue_revisions",
+    ] {
+        conn.execute(
+            &format!("INSERT INTO {table} SELECT * FROM seed.{table}"),
+            [],
+        )
+        .unwrap();
+    }
+    conn.execute_batch("DETACH DATABASE seed;").unwrap();
+    drop(conn);
+    let lib = Library::open(&path).unwrap();
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+            .unwrap(),
+        8
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT job_id FROM cue_revisions WHERE id='legacy-cue'",
+            [],
+            |r| r.get::<_, String>(0)
+        )
+        .unwrap(),
+        job
+    );
+    conn.execute(
+        "INSERT INTO cue_revisions VALUES('manual-cue',?1,NULL,'{\"cues\":[]}',2)",
+        [&f.ids[0]],
+    )
+    .unwrap();
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r
+            .get::<_, u32>(
+            0
+        ))
+        .unwrap(),
+        0
+    );
+    drop(lib);
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn coordinated_donor_publication_and_undo_cover_all_fourteen_audio_layouts() {
+    use cuerithm_library::DuplicateMergeService;
+    let data = tempfile::tempdir().unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    tar::Archive::new(flate2::read::GzDecoder::new(
+        std::fs::File::open(root.join("tools/fixtures/media.tar.gz")).unwrap(),
+    ))
+    .unpack(data.path())
+    .unwrap();
+    let cases: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(data.path().join("cases.json")).unwrap()).unwrap();
+    assert_eq!(cases.as_array().unwrap().len(), 14);
+    for case in cases.as_array().unwrap() {
+        let f = Fixture::new();
+        let source = data.path().join(case["file"].as_str().unwrap());
+        for index in 0..2 {
+            std::fs::copy(&source, &f.paths[index]).unwrap();
+            let hash = cuerithm_media::file_sha256(&f.paths[index]).unwrap();
+            rusqlite::Connection::open(&f.db)
+                .unwrap()
+                .execute(
+                    "UPDATE tracks SET source_hash=?1 WHERE id=?2",
+                    rusqlite::params![hash, f.ids[index]],
+                )
+                .unwrap();
+        }
+        let preview = donor_preview(&f);
+        let before = f.content();
+        let hash = cuerithm_media::file_sha256(&f.paths[0]).unwrap();
+        let donor_hash = cuerithm_media::file_sha256(&f.paths[1]).unwrap();
+        let token = CancellationToken::default();
+        let service = DuplicateMergeService::new(f.lib.clone(), f.runtime.clone());
+        let applied = service
+            .apply(&preview.id, &token)
+            .unwrap_or_else(|e| panic!("apply {}: {e:#}", case["file"]));
+        assert_eq!(f.lib.track(&f.ids[0]).unwrap().bpm, Some(128.75));
+        assert_eq!(
+            cuerithm_media::file_sha256(&f.paths[1]).unwrap(),
+            donor_hash
+        );
+        service
+            .undo(&applied.id, &token)
+            .unwrap_or_else(|e| panic!("undo {}: {e:#}", case["file"]));
+        assert_eq!(f.content(), before);
+        assert_eq!(cuerithm_media::file_sha256(&f.paths[0]).unwrap(), hash);
+    }
 }

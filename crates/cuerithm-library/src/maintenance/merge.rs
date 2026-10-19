@@ -13,19 +13,19 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Serialize, Deserialize)]
-struct ArchiveChange {
-    id: String,
-    before: bool,
-    after: bool,
-    before_updated: i64,
-    after_updated: i64,
+pub(super) struct ArchiveChange {
+    pub(super) id: String,
+    pub(super) before: bool,
+    pub(super) after: bool,
+    pub(super) before_updated: i64,
+    pub(super) after_updated: i64,
 }
 #[derive(Serialize, Deserialize)]
-struct SavedPreview {
-    public: DuplicateMergePreview,
-    review: SavedReview,
-    archives: Vec<ArchiveChange>,
-    consumed_by: Option<String>,
+pub(super) struct SavedPreview {
+    pub(super) public: DuplicateMergePreview,
+    pub(super) review: SavedReview,
+    pub(super) archives: Vec<ArchiveChange>,
+    pub(super) consumed_by: Option<String>,
 }
 #[derive(Serialize, Deserialize)]
 struct Operation {
@@ -37,7 +37,7 @@ struct Operation {
     logic: String,
     undone_by: Option<String>,
 }
-fn load<T: DeserializeOwned>(conn: &Connection, id: &str, kind: &str) -> Result<T> {
+pub(super) fn load<T: DeserializeOwned>(conn: &Connection, id: &str, kind: &str) -> Result<T> {
     let text: String = conn
         .query_row(
             "SELECT payload_json FROM maintenance_scans WHERE id=?1 AND kind=?2",
@@ -55,7 +55,10 @@ fn members(conn: &Connection, id: &str) -> Result<Vec<String>> {
         .query_map([id], |r| r.get(0))?
         .collect::<rusqlite::Result<_>>()?)
 }
-fn playlist_changes(conn: &Connection, plan: &MergePlan) -> Result<Vec<DuplicatePlaylistChange>> {
+pub(super) fn playlist_changes(
+    conn: &Connection,
+    plan: &MergePlan,
+) -> Result<Vec<DuplicatePlaylistChange>> {
     let mut stmt = conn.prepare("SELECT id FROM playlists WHERE kind='playlist' ORDER BY id")?;
     let ids = stmt
         .query_map([], |r| r.get::<_, String>(0))?
@@ -94,7 +97,11 @@ fn playlist_changes(conn: &Connection, plan: &MergePlan) -> Result<Vec<Duplicate
     }
     Ok(result)
 }
-fn write_members(conn: &Connection, changes: &[DuplicatePlaylistChange], undo: bool) -> Result<()> {
+pub(super) fn write_members(
+    conn: &Connection,
+    changes: &[DuplicatePlaylistChange],
+    undo: bool,
+) -> Result<()> {
     for change in changes {
         conn.execute(
             "DELETE FROM playlist_members WHERE playlist_id=?1",
@@ -149,7 +156,7 @@ fn archives(conn: &Connection, plan: &MergePlan) -> Result<Vec<ArchiveChange>> {
     }
     Ok(changes)
 }
-fn check_review(conn: &Connection, preview: &DuplicateMergePreview) -> Result<()> {
+pub(super) fn check_review(conn: &Connection, preview: &DuplicateMergePreview) -> Result<()> {
     let revision:u64=conn.query_row("SELECT json_extract(payload_json,'$.review.revision') FROM maintenance_scans WHERE id=?1 AND kind='duplicate_review'",[&preview.review_id],|r|r.get(0))?;
     ensure!(
         revision == preview.review_revision,
@@ -157,7 +164,7 @@ fn check_review(conn: &Connection, preview: &DuplicateMergePreview) -> Result<()
     );
     Ok(())
 }
-fn advance(conn: &Connection) -> Result<MaintenanceStamp> {
+pub(super) fn advance(conn: &Connection) -> Result<MaintenanceStamp> {
     conn.execute(
         "UPDATE meta SET value=value+1 WHERE key='maintenance_revision'",
         [],
@@ -168,7 +175,7 @@ fn advance(conn: &Connection) -> Result<MaintenanceStamp> {
 impl Library {
     pub fn duplicate_merge_history(&self) -> Result<Vec<DuplicateMergeHistory>> {
         let conn = self.conn()?;
-        let mut q=conn.prepare("SELECT json_extract(payload_json,'$.result'),created,json_extract(payload_json,'$.undone_by') FROM maintenance_scans WHERE kind='duplicate_merge' ORDER BY created DESC,rowid DESC")?;
+        let mut q=conn.prepare("SELECT result,created,undone FROM (SELECT json_extract(payload_json,'$.result') AS result,created,json_extract(payload_json,'$.undone_by') AS undone,id FROM maintenance_scans WHERE kind='duplicate_merge' UNION ALL SELECT json_extract(payload_json,'$.result'),created,json_extract(payload_json,'$.undone_by'),id FROM maintenance_writes WHERE kind='apply' AND state IN ('committed','undone')) ORDER BY created DESC,id DESC")?;
         let rows = q
             .query_map([], |r| {
                 Ok((
@@ -327,6 +334,7 @@ impl Library {
                 .map(|p| p.id.clone())
                 .collect(),
             undo_of: None,
+            updated_ids: vec![],
         };
         current.consumed_by = Some(result.id.clone());
         let operation = Operation {
@@ -425,6 +433,7 @@ impl Library {
                 .collect(),
             affected_playlists: operation.playlists.iter().map(|p| p.id.clone()).collect(),
             undo_of: Some(id.into()),
+            updated_ids: vec![],
         };
         operation.undone_by = Some(result.id.clone());
         cancel.check()?;

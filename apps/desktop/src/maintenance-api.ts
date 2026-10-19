@@ -1,10 +1,14 @@
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
-import type {DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
+import type {DuplicateRecovery,DuplicateMergeResult,DuplicateMergePreview,DuplicateMergeHistory,DuplicateScanRequest,DuplicateScanReport,DuplicateReview,DuplicateReviewEdit,DuplicateIgnores,MaintenanceStamp,UnusedScanRequest,UnusedScanReport,BrokenScanRequest,BrokenScanReport,MaintenanceProgress,MaintenanceChange} from "./maintenance-types";
 
 // Give every long operation a fresh ID (crypto.randomUUID()) and retain it for cancellation.
 // A cancelled operation keeps the slot until its original promise settles.
 export const nativeMaintenance={
+  applyMerge:(operationId:string,id:string)=>invoke<DuplicateMergeResult>("maintenance_apply_merge",{operationId,id}),
+  undoMerge:(operationId:string,id:string)=>invoke<DuplicateMergeResult>("maintenance_undo_merge",{operationId,id}),
+  recovery:()=>invoke<DuplicateRecovery[]>("maintenance_recovery"),
+  retryRecovery:(operationId:string,id:string)=>invoke<DuplicateRecovery[]>("maintenance_retry_recovery",{operationId,id}),
   previewMerge:(operationId:string,reviewId:string,expectedRevision:number,groups:string[])=>invoke<DuplicateMergePreview>("maintenance_preview_merge",{operationId,reviewId,expectedRevision,groups}),
   mergeHistory:()=>invoke<DuplicateMergeHistory[]>("maintenance_merge_history"),
   scanDuplicates:(operationId:string,request:DuplicateScanRequest)=>invoke<DuplicateScanReport>("maintenance_scan_duplicates",{operationId,request}),

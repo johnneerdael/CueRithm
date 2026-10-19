@@ -72,15 +72,51 @@ changes include ordered before/after membership arrays.
 `undone_by` markers, ordered newest first. These are history records; they do not
 promise that undo remains available after later source or library changes.
 
-The Rust library currently implements the archive/reference transaction and its
-versioned undo stage. Plans with donor transfers are blocked before any mutation
-until the coordinated file journal is implemented. The native bridge deliberately
-exposes preview/history only while that full workflow is incomplete.
+## Coordinated publication and undo
 
-## Publication boundary
+`applyMerge(operationId, previewId)` runs the complete donor/archive/reference
+coordinator. It stages all selected recipient files and validates their native
+metadata, decoded PCM and source identities before reserving publication targets.
+Durable backups and a prepared journal precede any exchange. Metadata, custom tags,
+manual cue revisions, grid publication, archives, playlist membership, consumed
+preview token and committed journal share one SQLite commit. The raw recipient
+analysis remains intact; its presentation publication can reflect the imported
+cues/grid with manual-import provenance. Duplicate merging removes no music files.
 
-There is no apply/merge/delete/undo command in this checkpoint. Do not add an
-active Apply or Remove button for these reports yet. Copying tags/cues, archive
-changes, ordinary-playlist replacement, durable undo and separately reviewed file
-removal still need their guarded publication implementation and native acceptance.
-No user collection has been modified by these generated-fixture tests.
+`undoMerge(operationId, operationIdToUndo)` uses a new reverse file journal and
+restores the exact original file bytes plus the captured library/cue/tag/member
+state. Use `mergeHistory()` to discover operations after restart. Track/playlist
+entity epochs reject relevant edits and A/B/A cycles. Unrelated Incoming results
+and derived smart-list refreshes do not invalidate a version2 undo. Older version1
+archive-only history retains its original conservative undo contract.
+
+Both operations emit `library-change` and `maintenance-change` after success.
+`updated_ids`, `archived_ids`, `restored_ids` and `affected_playlists` identify what
+to refresh. Reload tracks and playlist state after the event; do not infer
+publication from a staging/progress event. Copy-only mode imports selected tags,
+cues and grid without archive/reference actions.
+
+App startup rolls back interrupted prepared operations. An interrupted undo
+returns to the previously committed after-state and remains retryable. Later user
+file edits are preserved and recorded as recovery conflicts with backups retained.
+`recovery()` lists pending/conflicted operations and incomplete recovery cleanup;
+`retryRecovery(operationId, journalId)` retries guarded rollback/cleanup after the
+user resolves the conflicting source/location. It cannot overwrite an unknown
+later file version. Show these errors rather than presenting a partial merge as
+successful. Cancellation propagates through hashing, decoding and tag staging;
+once exchanges have started, rollback finishes before the operation settles.
+
+Schema8 permits manual cue revisions with a null `job_id`; it preserves older
+analysis-job cue ownership. A no-tagging build refuses pending file journals so
+it cannot skip required recovery. Native tag, cleanup and duplicate writes share
+target reservations and the publication gate. Source/scope/review/epoch checks
+remain server-side.
+
+Generated tests exercise all fourteen audio layouts, SQL failure, restart at
+prepared/exchanged points, interrupted undo, subsequent file edits, relevant ABA,
+unrelated Incoming changes and migration. A separate packaged macOS test app
+exercised real invoke Apply/Undo, cue/grid display through track details, history,
+playlist replacement/restoration and zero pending recovery on generated WAVs.
+These checks do not establish branded maintenance-screen or full user-library
+acceptance. The user-owned UI can now connect its review/apply/undo controls to
+these commands. Reviewed disk removal remains a separate unfinished feature.

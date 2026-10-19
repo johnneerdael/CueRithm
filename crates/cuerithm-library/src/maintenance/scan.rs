@@ -35,7 +35,7 @@ pub(super) struct SavedScan {
     pub(super) report: DuplicateScanReport,
     #[serde(default)]
     pub(super) candidates: Vec<ReviewTrack>,
-    scope: scope::ScopeGuard,
+    pub(super) scope: scope::ScopeGuard,
     pub(super) files: Vec<FileProof>,
     engine: String,
     logic: String,
@@ -51,6 +51,8 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("broken.rs").as_slice(),
         include_bytes!("review.rs").as_slice(),
         include_bytes!("merge.rs").as_slice(),
+        include_bytes!("donors.rs").as_slice(),
+        include_bytes!("donor_state.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/lib.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),

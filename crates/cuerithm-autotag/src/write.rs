@@ -192,8 +192,24 @@ impl TagWritePlan {
         audio: &PreparedAudio,
         cache: &Path,
     ) -> Result<StagedTagWrite> {
+        self.stage_prepared_cancellable(
+            runtime,
+            audio,
+            cache,
+            &cuerithm_media::CancellationToken::default(),
+        )
+    }
+    pub fn stage_prepared_cancellable(
+        &self,
+        runtime: &MediaRuntime,
+        audio: &PreparedAudio,
+        cache: &Path,
+        cancel: &cuerithm_media::CancellationToken,
+    ) -> Result<StagedTagWrite> {
+        cancel.check()?;
         ensure!(
-            audio.source_sha256 == self.input.source_sha256 && audio.source_is_unchanged()?,
+            audio.source_sha256 == self.input.source_sha256
+                && audio.source_is_unchanged_cancellable(cancel)?,
             "Source changed before tagging"
         );
         ensure!(
@@ -234,7 +250,9 @@ impl TagWritePlan {
         let backup = private.path().join(format!("original.{extension}"));
         let path = private.path().join(format!("staged.{extension}"));
         std::fs::copy(&audio.snapshot_path, &backup)?;
+        cancel.check()?;
         std::fs::copy(&backup, &path)?;
+        cancel.check()?;
         ensure!(
             file_sha256(&backup)? == self.input.source_sha256,
             "Snapshot changed before tagging"
@@ -334,7 +352,7 @@ impl TagWritePlan {
             }
         }
         let after = runtime
-            .decode(&path, cache)
+            .decode_cancellable(&path, cache, cancel)
             .context("Verify tagged audio")?;
         let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
         if let Some(patch) = &self.transfer {
@@ -348,13 +366,13 @@ impl TagWritePlan {
                 "Metadata cannot be represented exactly in this tag format"
             );
         }
-        let pcm = audio.pcm_sha256()?;
+        let pcm = audio.pcm_sha256_cancellable(cancel)?;
         ensure!(
-            after.frames == audio.frames && after.pcm_sha256()? == pcm,
+            after.frames == audio.frames && after.pcm_sha256_cancellable(cancel)? == pcm,
             "Tagging changed playable audio or timeline"
         );
         ensure!(
-            audio.source_is_unchanged()?,
+            audio.source_is_unchanged_cancellable(cancel)?,
             "Source changed during tagging"
         );
         std::fs::File::options()
@@ -366,7 +384,7 @@ impl TagWritePlan {
         Ok(StagedTagWrite {
             source_path: audio.source_path.clone(),
             source_before_sha256: audio.source_sha256.clone(),
-            source_after_sha256: file_sha256(&path)?,
+            source_after_sha256: cuerithm_media::file_sha256_cancellable(&path, cancel)?,
             metadata: after.info,
             sidecars,
             path,

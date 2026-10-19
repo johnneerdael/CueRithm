@@ -367,3 +367,40 @@ These components are not yet the complete merge workflow. Donor staging still
 needs the durable parent journal, reservations, recovery, relevant-entity undo
 policy, cue/grid persistence and native Apply/Undo acceptance. The archive-only
 backend guard remains active; donor plans cannot silently publish partial changes.
+
+
+## Coordinated donor publication and recovery (2026-10-19)
+
+`DuplicateMergeService` now connects the donor import helper and native staging to
+one parent file/SQLite journal. Durable before backups and target reservations
+precede atomic same-volume exchanges. The final transaction includes recipient
+metadata/source identity, categorized tags, published cue/grid data, archive and
+ordinary-playlist changes, preview consumption and committed history. Raw recipient
+analysis is retained. Manual cue revisions use nullable analysis-job ownership,
+with explicit donor-import publication provenance. No music files are removed.
+
+Undo uses a reverse journal, restores original encoded bytes and captured library
+state, and rejects relevant subsequent edits through persistent track/playlist
+epochs. Link/cue changes and deletion/reuse retain an ownership history, so an
+A/B/A cycle cannot pass merely because final values match. Unrelated Incoming
+results can coexist with undo. Smart definitions are preserved and derived state
+is invalidated for refresh. The older archive-only journal remains readable.
+
+Prepared journals recover on startup. Tests interrupt apply after durable prepare
+and after exchanges, and interrupt undo before SQL commit. Recovery restores the
+matching file/library side, or retains later user bytes and backups as a visible
+conflict. Recovery path checks resolve filesystem aliases and bind targets to
+captured track paths/application-owned assets. Tag, cleanup and maintenance
+publication entries honor shared reservations. Cancellation now reaches decode
+children and staged verification; rollback completes before returning cancellation.
+
+The complete coordinator has generated apply/undo acceptance for all fourteen
+common audio layouts, including metadata source files with misleading suffixes.
+Injected SQL failure restores exchanged files, and restart preserves discoverable
+undo. A separate packaged macOS app exercised real Tauri review/preview/apply,
+metadata/cue/grid retrieval, playlist replacement, history, undo and recovery status
+with generated WAVs. It confirmed unchanged raw analysis and exact file/analysis/
+playlist restoration. Branded maintenance screens, full live-library acceptance,
+reviewed unused-file removal and the broader remaining objective stay separate
+delivery gates. Current-head Windows/Linux packaging and tests require their own
+CI results.
