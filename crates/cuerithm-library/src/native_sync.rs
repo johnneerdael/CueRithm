@@ -708,6 +708,58 @@ impl Library {
         };
         ids.iter().map(|id| self.native_target(id)).collect()
     }
+
+    /// Content IDs of tracks that are linked to a local track and observed in rekordbox.
+    pub fn native_linked_content_ids(&self, target: &str) -> Result<BTreeSet<String>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare("SELECT content_id FROM native_track_links WHERE target_id=?1 AND local_track_id IS NOT NULL AND status='linked' AND observation_json IS NOT NULL")?;
+        Ok(stmt
+            .query_map([target], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+    /// Record that the named fields were written to rekordbox and read back: both sides' current values
+    /// become the agreed baseline. Fields not named keep their baseline and ownership untouched.
+    pub fn native_acknowledge(
+        &self,
+        target: &str,
+        written: &[(String, Vec<String>)],
+    ) -> Result<()> {
+        let mut conn = self.conn()?;
+        let tx = conn.transaction()?;
+        let stored = links(&tx, target)?;
+        for (content_id, fields) in written {
+            let link = stored
+                .get(content_id)
+                .with_context(|| format!("Unknown native track {content_id}"))?;
+            let local_id = link
+                .local
+                .as_ref()
+                .context("The track has no local counterpart")?;
+            let observation: String = tx.query_row(
+                "SELECT observation_json FROM native_track_links WHERE target_id=?1 AND content_id=?2 AND observation_json IS NOT NULL",
+                params![target, content_id],
+                |r| r.get(0),
+            )?;
+            let observation: ImportedTrack = serde_json::from_str(&observation)?;
+            let local = local_fields(&tx, local_id)?;
+            let remote = remote_fields(&observation)?;
+            let mut baseline = link.fields.clone();
+            for field in fields {
+                let entry = baseline
+                    .get_mut(field)
+                    .with_context(|| format!("The {field} field has no baseline"))?;
+                entry.local = local.get(field).cloned().unwrap_or(Value::Null);
+                entry.remote = remote.get(field).cloned().unwrap_or(Value::Null);
+                entry.acknowledged = true;
+            }
+            tx.execute(
+                "UPDATE native_track_links SET baseline_json=?1 WHERE target_id=?2 AND content_id=?3",
+                params![serde_json::to_string(&baseline)?, target, content_id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
     pub fn native_target(&self, target: &str) -> Result<NativeTargetState> {
         let conn = self.conn()?;
         let (identity, schema, revision): (String, String, u64) = conn.query_row(

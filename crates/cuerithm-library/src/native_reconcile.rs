@@ -49,6 +49,8 @@ pub struct TrackPreview {
     pub content_id: String,
     pub local_track_id: Option<String>,
     pub status: String,
+    /// The fingerprint of rekordbox's row when it was last observed; a write is refused if the row differs.
+    pub expected_fingerprint: Option<String>,
     /// Why this track cannot be reconciled, such as a changed identity or missing local track.
     pub blocked: Option<String>,
     /// Only fields that need attention; unchanged fields are counted in the summary.
@@ -68,7 +70,7 @@ pub struct NativeSyncPreview {
 
 /// Fields a synchronization can write. Everything else (duration, paths, tag IDs) is observation only.
 pub(crate) fn writable(field: &str) -> bool {
-    TEXT_FIELDS.contains(&field)
+    (TEXT_FIELDS.contains(&field) && field != "album_artist")
         || matches!(
             field,
             "key"
@@ -306,6 +308,7 @@ impl Library {
                 content_id,
                 local_track_id: link.local.clone(),
                 status: link.status.clone(),
+                expected_fingerprint: observation.as_ref().map(|o| o.raw_hash.clone()),
                 blocked,
                 fields: vec![],
             };
