@@ -340,7 +340,7 @@ Sync workflow, supported native rule/asset mappings, per-field reconciliation,
 coordinated DB/asset writes and recovery, and actual 6/7 desktop round trips
 still require implementation and acceptance. No collection XML fallback is used.
 
-## Writer checkpoint: metadata and cues (2026-10-20)
+## Writer checkpoint: metadata, cues, playlists and MyTags (2026-10-20)
 
 Re-read installed Lexicon 1.11.15's `Rekordbox6DatabaseWriter` (same ASAR identity as the other
 research notes; static reading, no code copied) and implemented the corresponding protocol in
@@ -361,6 +361,12 @@ Seen in the shipped writer and reproduced:
   reference writes them). Kinds are 0 memory, 1-3 and 5-9 hot cues, 4 the load/loop point; loops carry
   `65536 × beats + 1` as `BeatLoopSize`.
 - `CueUpdated` and `TrackInfoUpdated` are incremented with `COALESCE(x,0)+1`.
+- Playlists are matched by their name path and type (playlist 0, folder 1, smart list 4). A new one gets the
+  next ID, its parent's ID or `root`, its position as `Seq`, a UUID and status 0. Membership is replaced
+  by marking the existing links as removed (status 258, the USN, `rb_local_deleted = 1`) and inserting
+  new links numbered from one with fresh UUID IDs.
+- MyTags are a category row (attribute 1, parent `root`) containing tag rows (attribute 0); a track's
+  assignments are replaced the same way as playlist links.
 
 Deliberate differences:
 
@@ -373,6 +379,12 @@ Deliberate differences:
   The reference overwrites without this check.
 - The write is one transaction on an exclusive connection that fails fast if rekordbox or its agent
   has the file open; cancellation or any error rolls everything back.
+- The reference purges every soft-deleted playlist, tag and link row in the database before writing and
+  soft-deletes playlists, tags and tracks that its source no longer lists. Cuerithm purges only the
+  removal records of the playlists, tracks and tags a plan rewrites, and removes only playlists a plan
+  names (a folder takes its contents). A plan never mirror-deletes the rest of the library.
+- A plan naming a playlist that rekordbox changed since it was last read (membership fingerprint), a
+  missing or removed track, or a track listed twice is refused before anything is written.
 - The reference's random-ID fallback once 32-bit IDs run out is not implemented; the writer stops.
 - Foreign rows are created without `SearchStr`, as the reference does.
 
@@ -383,8 +395,12 @@ and reads the result back through the independent reader: integrity and foreign-
 schema fingerprint and every unrelated track unchanged; the change number advanced by one; metadata
 and cues round-trip; the repeat is a no-op; a stale plan is a conflict.
 
+The acceptance test also creates a folder, an ordered playlist inside it and a MyTag category, tag and
+assignment on the snapshot, and the independent reader returns them with the planned parents, order and
+links; repeating the plan creates nothing.
+
 Not done, and still required before this can be called sync: opening the written copy in the real
-rekordbox 7 application (closed-target and reopen, playback of the written cues), playlists and
-MyTags, new-track insertion and analysis files, ordered playlists, native smart rules, the
-publication of a verified copy over a live library with its WAL/SHM and backup, recovery, rekordbox 6,
-and the desktop flow. Nothing in the app calls the writer yet.
+rekordbox 7 application (closed-target and reopen, playback of the written cues, playlist order),
+new-track insertion and analysis files (beat grids), native smart rules, the publication of a verified
+copy over a live library with its WAL/SHM and backup, recovery, rekordbox 6, and the desktop flow.
+Nothing in the app calls the writer yet.

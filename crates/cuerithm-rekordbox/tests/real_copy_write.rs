@@ -90,19 +90,51 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
         ..Default::default()
     };
     let cues = vec![cue(2000, -1, 1, "Start"), cue(90_000, -1, 2, "Drop")];
+    let second = before
+        .tracks
+        .iter()
+        .find(|t| t.importable_local() && t.identity.content_id != track.identity.content_id)
+        .expect("a second track");
+    let ids = vec![
+        second.identity.content_id.clone(),
+        track.identity.content_id.clone(),
+    ];
+    let tag = MyTagRef {
+        category: "Cuerithm Acceptance".into(),
+        tag: "Written".into(),
+    };
     let plan = WritePlan {
         tracks: vec![TrackWrite {
             content_id: track.identity.content_id.clone(),
             expected_fingerprint: track.raw_hash.clone(),
             fields: fields.clone(),
             cues: Some(cues.clone()),
+            tags: Some(vec![tag.clone()]),
         }],
+        playlists: vec![
+            PlaylistWrite {
+                path: vec!["Cuerithm Acceptance".into()],
+                kind: PlaylistKind::Folder,
+                position: 99,
+                tracks: vec![],
+                expected_members: None,
+            },
+            PlaylistWrite {
+                path: vec!["Cuerithm Acceptance".into(), "Ordered".into()],
+                kind: PlaylistKind::Playlist,
+                position: 1,
+                tracks: ids.clone(),
+                expected_members: None,
+            },
+        ],
+        ..Default::default()
     };
     let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
     let report = db.apply(&plan, &CancellationToken::default()).unwrap();
     drop(db);
     assert_eq!(report.usn, Some(usn(&before) + 1));
     assert_eq!((report.tracks_updated, report.cues_replaced), (1, 1));
+    assert_eq!((report.playlists_created, report.tags_replaced), (2, 1));
 
     // The result must read back through the independent reader with the schema and integrity unchanged.
     let (after, checks_after, schema_after) = collection(&snapshot.path, &key);
@@ -145,6 +177,52 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
             (Some(90.0), 2, "Drop".to_string())
         ]
     );
+    // The folder, the ordered playlist and the MyTag assignment read back through the independent reader.
+    let folder = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Cuerithm Acceptance" && p.attribute == 1)
+        .expect("the new folder");
+    assert_eq!(folder.parent_id.as_deref(), Some("root"));
+    assert_eq!(folder.deleted, Some(false));
+    let ordered = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Ordered" && p.attribute == 0)
+        .expect("the new playlist");
+    assert_eq!(ordered.parent_id.as_deref(), Some(folder.id.as_str()));
+    let mut links: Vec<_> = after
+        .playlist_links
+        .iter()
+        .filter(|l| l.playlist_id == ordered.id && l.deleted == Some(false))
+        .collect();
+    links.sort_by_key(|l| l.position);
+    assert_eq!(
+        links
+            .iter()
+            .map(|l| (l.position, l.content_id.clone()))
+            .collect::<Vec<_>>(),
+        ids.iter()
+            .cloned()
+            .enumerate()
+            .map(|(i, id)| (i as i64 + 1, id))
+            .collect::<Vec<_>>()
+    );
+    let tag_row = after
+        .tags
+        .iter()
+        .find(|t| t.name == "Written" && t.attribute == 0)
+        .expect("the new tag");
+    let category = after
+        .tags
+        .iter()
+        .find(|t| t.id == *tag_row.parent_id.as_ref().unwrap())
+        .unwrap();
+    assert_eq!(category.name, "Cuerithm Acceptance");
+    assert!(after.tag_links.iter().any(|l| l.tag_id == tag_row.id
+        && l.content_id == track.identity.content_id
+        && l.deleted == Some(false)));
+    assert_eq!(after.playlists.len(), before.playlists.len() + 2);
     // Every other track is byte-for-byte what it was.
     for (id, hash) in others_before {
         let now = after
@@ -160,12 +238,22 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
             expected_fingerprint: written.raw_hash.clone(),
             ..plan.tracks[0].clone()
         }],
+        playlists: plan.playlists.clone(),
+        ..Default::default()
     };
     let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
     let repeat = db.apply(&again, &CancellationToken::default()).unwrap();
     drop(db);
     assert_eq!(repeat.usn, None);
     assert_eq!((repeat.tracks_unchanged, repeat.cues_replaced), (1, 0));
+    assert_eq!(
+        (
+            repeat.playlists_unchanged,
+            repeat.playlists_created,
+            repeat.tags_replaced
+        ),
+        (2, 0, 0)
+    );
     // A write based on the old observation is a conflict, never a silent overwrite.
     let mut db = WriteDatabase::open(&snapshot.path, &key).unwrap();
     let stale = db.apply(&plan, &CancellationToken::default()).unwrap_err();

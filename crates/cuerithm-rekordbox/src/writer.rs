@@ -31,6 +31,7 @@ mod status {
     pub const ADDED_NOT_YET_SENT: i64 = 0;
     pub const AVAILABLE: i64 = 256;
     pub const TAGS_CHANGED: i64 = 257;
+    pub const DELETED_NOT_YET_SENT: i64 = 258;
 }
 const MAX_ID: i64 = 4_294_967_295;
 const IN_USE: &str =
@@ -73,6 +74,46 @@ pub struct CueRow {
     pub color_table_index: Option<i64>,
     pub comment: Option<String>,
 }
+/// A MyTag assignment: a tag inside a category, both found or created by name.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MyTagRef {
+    pub category: String,
+    pub tag: String,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlaylistKind {
+    Playlist,
+    Folder,
+}
+/// One playlist or folder, addressed by its name path from the root. Only the playlists named in a plan
+/// are touched; nothing else in the library is ever removed to "match".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistWrite {
+    /// Names from the root down to this playlist, such as `["Sets", "Friday"]`.
+    pub path: Vec<String>,
+    pub kind: PlaylistKind,
+    /// Position among its siblings.
+    pub position: i64,
+    /// Ordered `djmdContent.ID`s; empty for a folder. Every track must exist and not be removed.
+    pub tracks: Vec<String>,
+    /// The membership fingerprint from the last observation of an existing playlist ([`membership_fingerprint`]).
+    /// A different current membership means rekordbox changed it since, and the whole plan is refused.
+    pub expected_members: Option<String>,
+}
+/// Fingerprint of an ordered track list, the value to record when a playlist is read.
+pub fn membership_fingerprint(tracks: &[String]) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(tracks).unwrap_or_default())
+    )
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistRemoval {
+    /// `djmdPlaylist.ID`; the playlist and its links are soft-deleted the way rekordbox records a removal.
+    pub playlist_id: String,
+    pub expected_members: Option<String>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackWrite {
     /// `djmdContent.ID` of the existing track.
@@ -83,10 +124,14 @@ pub struct TrackWrite {
     pub fields: ContentFields,
     /// Replace every cue of the track when set and different from what is stored.
     pub cues: Option<Vec<CueRow>>,
+    /// Replace the track's MyTag assignments when set and different from what is stored.
+    pub tags: Option<Vec<MyTagRef>>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WritePlan {
     pub tracks: Vec<TrackWrite>,
+    pub playlists: Vec<PlaylistWrite>,
+    pub remove_playlists: Vec<PlaylistRemoval>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct WriteReport {
@@ -95,12 +140,18 @@ pub struct WriteReport {
     pub tracks_updated: usize,
     pub tracks_unchanged: usize,
     pub cues_replaced: usize,
+    pub tags_replaced: usize,
+    pub playlists_created: usize,
+    pub playlists_updated: usize,
+    pub playlists_unchanged: usize,
+    pub playlists_removed: usize,
     pub foreign_created: BTreeMap<String, usize>,
     pub foreign_revived: BTreeMap<String, usize>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TrackConflict {
-    pub content_id: String,
+    /// The track's content ID, or `playlist <path or id>` for a playlist.
+    pub subject: String,
     pub reason: String,
 }
 /// Returned, with no change made, when any row differs from its last observation.
@@ -203,7 +254,7 @@ impl WriteDatabase {
             cancel.check()?;
             match row_fingerprint(&tx, "djmdContent", "ID", &track.content_id)? {
                 None => conflicts.push(TrackConflict {
-                    content_id: track.content_id.clone(),
+                    subject: track.content_id.clone(),
                     reason: "The track no longer exists in rekordbox".into(),
                 }),
                 Some((fingerprint, values)) => {
@@ -212,16 +263,90 @@ impl WriteDatabase {
                         Some(TargetValue::Integer(1))
                     ) {
                         conflicts.push(TrackConflict {
-                            content_id: track.content_id.clone(),
+                            subject: track.content_id.clone(),
                             reason: "The track was removed in rekordbox".into(),
                         });
                     } else if fingerprint != track.expected_fingerprint {
                         conflicts.push(TrackConflict {
-                            content_id: track.content_id.clone(),
+                            subject: track.content_id.clone(),
                             reason: "The track changed in rekordbox after it was last read".into(),
                         });
                     }
                 }
+            }
+        }
+        for playlist in &plan.playlists {
+            cancel.check()?;
+            ensure!(
+                !playlist.path.is_empty()
+                    && playlist
+                        .path
+                        .iter()
+                        .all(|n| !n.trim().is_empty() && n.len() <= 255),
+                "A playlist needs a name"
+            );
+            ensure!(
+                playlist.kind == PlaylistKind::Playlist || playlist.tracks.is_empty(),
+                "A folder cannot hold tracks"
+            );
+            let subject = format!("playlist {}", playlist.path.join("/"));
+            let distinct = playlist.tracks.iter().collect::<BTreeSet<_>>().len();
+            ensure!(
+                distinct == playlist.tracks.len(),
+                "{subject} lists a track twice"
+            );
+            for track in &playlist.tracks {
+                let live: Option<i64> = tx
+                    .query_row(
+                        "SELECT COALESCE(rb_local_deleted,0) FROM djmdContent WHERE ID=?1",
+                        [track],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if live != Some(0) {
+                    conflicts.push(TrackConflict {
+                        subject: subject.clone(),
+                        reason: format!("Track {track} is missing or removed in rekordbox"),
+                    });
+                }
+            }
+            if let (Some(expected), Some(id)) = (
+                &playlist.expected_members,
+                find_playlist(&tx, &playlist.path, playlist.kind)?,
+            ) && &membership_fingerprint(&members(&tx, &id)?) != expected
+            {
+                conflicts.push(TrackConflict {
+                    subject,
+                    reason: "The playlist changed in rekordbox after it was last read".into(),
+                });
+            }
+        }
+        for removal in &plan.remove_playlists {
+            cancel.check()?;
+            let subject = format!("playlist {}", removal.playlist_id);
+            let row: Option<i64> = tx
+                .query_row(
+                    "SELECT COALESCE(rb_local_deleted,0) FROM djmdPlaylist WHERE ID=?1",
+                    [&removal.playlist_id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            match row {
+                Some(0) => {
+                    if let Some(expected) = &removal.expected_members
+                        && &membership_fingerprint(&members(&tx, &removal.playlist_id)?) != expected
+                    {
+                        conflicts.push(TrackConflict {
+                            subject,
+                            reason: "The playlist changed in rekordbox after it was last read"
+                                .into(),
+                        });
+                    }
+                }
+                _ => conflicts.push(TrackConflict {
+                    subject,
+                    reason: "The playlist no longer exists in rekordbox".into(),
+                }),
             }
         }
         if !conflicts.is_empty() {
@@ -237,6 +362,18 @@ impl WriteDatabase {
             } else {
                 report.tracks_unchanged += 1;
             }
+        }
+        let mut playlists: Vec<&PlaylistWrite> = plan.playlists.iter().collect();
+        // Parents before children, so a new folder exists when its contents are written.
+        playlists.sort_by_key(|p| p.path.len());
+        for playlist in playlists {
+            cancel.check()?;
+            session.write_playlist(playlist, &mut report)?;
+        }
+        for removal in &plan.remove_playlists {
+            cancel.check()?;
+            session.remove_playlist(&removal.playlist_id)?;
+            report.playlists_removed += 1;
         }
         if session.used_usn {
             session.save_usn()?;
@@ -257,6 +394,7 @@ struct Session<'a> {
     now_iso: String,
     next: BTreeMap<(&'static str, &'static str), i64>,
     cue_ids: Option<BTreeSet<i64>>,
+    created_folders: BTreeMap<Vec<String>, String>,
 }
 
 /// `YYYY-MM-DD HH:mm:ss.SSS +00:00`, the reference writer's row timestamp (UTC).
@@ -311,6 +449,7 @@ impl<'a> Session<'a> {
             now_iso,
             next: BTreeMap::new(),
             cue_ids: None,
+            created_folders: BTreeMap::new(),
         })
     }
     fn use_usn(&mut self) -> i64 {
@@ -528,6 +667,12 @@ impl<'a> Session<'a> {
             touched = true;
             bumps.0 = true;
         }
+        if let Some(tags) = &track.tags
+            && self.replace_tags(&track.content_id, tags)?
+        {
+            report.tags_replaced += 1;
+            touched = true;
+        }
         if bumps.0 || bumps.1 {
             // Counters other tools watch to notice that cues or track info changed.
             self.tx.execute(
@@ -656,6 +801,266 @@ impl<'a> Session<'a> {
         }
         Ok(true)
     }
+
+    /// Resolve a path of folder names to a playlist row ID, creating nothing.
+    fn parent_of(
+        &self,
+        path: &[String],
+        created: &BTreeMap<Vec<String>, String>,
+    ) -> Result<String> {
+        let mut parent = "root".to_string();
+        for depth in 1..path.len() {
+            let prefix = &path[..depth];
+            parent = match created.get(prefix) {
+                Some(id) => id.clone(),
+                None => {
+                    find_playlist_under(self.tx, &parent, &path[depth - 1], PlaylistKind::Folder)?
+                        .with_context(|| format!("Folder {} does not exist", prefix.join("/")))?
+                }
+            };
+        }
+        Ok(parent)
+    }
+
+    fn write_playlist(&mut self, playlist: &PlaylistWrite, report: &mut WriteReport) -> Result<()> {
+        // Folders created earlier in this write are remembered by path.
+        let parent = self.parent_of(&playlist.path, &self.created_folders.clone())?;
+        let name = playlist.path.last().unwrap();
+        let attribute = match playlist.kind {
+            PlaylistKind::Playlist => 0,
+            PlaylistKind::Folder => 1,
+        };
+        let existing = find_playlist_under(self.tx, &parent, name, playlist.kind)?;
+        let id = match existing {
+            Some(id) => id,
+            None => {
+                let id = self.allocate("djmdPlaylist", "ID")?.to_string();
+                let usn = self.use_usn();
+                self.tx.execute(
+                    "INSERT INTO djmdPlaylist(ID,ParentID,Name,Seq,Attribute,UUID,rb_data_status,rb_local_deleted,rb_local_data_status,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,0,0,0,?8,?9,?9)",
+                    params![id, parent, name, playlist.position, attribute, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+                )?;
+                report.playlists_created += 1;
+                if playlist.kind == PlaylistKind::Folder {
+                    self.created_folders
+                        .insert(playlist.path.clone(), id.clone());
+                }
+                self.replace_members(&id, &playlist.tracks)?;
+                return Ok(());
+            }
+        };
+        if playlist.kind == PlaylistKind::Folder {
+            self.created_folders
+                .insert(playlist.path.clone(), id.clone());
+        }
+        let mut changed = false;
+        let position: Option<i64> =
+            self.tx
+                .query_row("SELECT Seq FROM djmdPlaylist WHERE ID=?1", [&id], |r| {
+                    r.get(0)
+                })?;
+        if position != Some(playlist.position) {
+            let usn = self.use_usn();
+            self.tx.execute(
+                "UPDATE djmdPlaylist SET Seq=?1,updated_at=?2,rb_data_status=?3,rb_local_usn=?4 WHERE ID=?5",
+                params![playlist.position, self.now, status::TAGS_CHANGED, usn, id],
+            )?;
+            changed = true;
+        }
+        if playlist.kind == PlaylistKind::Playlist && members(self.tx, &id)? != playlist.tracks {
+            self.replace_members(&id, &playlist.tracks)?;
+            changed = true;
+        }
+        if changed {
+            report.playlists_updated += 1;
+        } else {
+            report.playlists_unchanged += 1;
+        }
+        Ok(())
+    }
+
+    /// Replace a playlist's tracks. The previous links are kept as removals, the way rekordbox records them.
+    fn replace_members(&mut self, playlist_id: &str, tracks: &[String]) -> Result<()> {
+        let usn = self.use_usn();
+        self.tx.execute(
+            "DELETE FROM djmdSongPlaylist WHERE PlaylistID=?1 AND COALESCE(rb_local_deleted,0)=1",
+            [playlist_id],
+        )?;
+        self.tx.execute(
+            "UPDATE djmdSongPlaylist SET rb_data_status=?1,rb_local_usn=?2,rb_local_deleted=1,updated_at=?3 WHERE PlaylistID=?4",
+            params![status::DELETED_NOT_YET_SENT, usn, self.now, playlist_id],
+        )?;
+        for (index, track) in tracks.iter().enumerate() {
+            self.tx.execute(
+                "INSERT INTO djmdSongPlaylist(ID,PlaylistID,ContentID,TrackNo,UUID,rb_data_status,rb_local_data_status,rb_local_deleted,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,0,0,0,?7,?8,?8)",
+                params![uuid::Uuid::new_v4().to_string(), playlist_id, track, index as i64 + 1, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn remove_playlist(&mut self, id: &str) -> Result<()> {
+        let usn = self.use_usn();
+        // A folder takes its contents with it, as removing it in rekordbox does.
+        let mut doomed = vec![id.to_string()];
+        let mut next = 0;
+        while next < doomed.len() {
+            let mut q = self.tx.prepare(
+                "SELECT ID FROM djmdPlaylist WHERE ParentID=?1 AND COALESCE(rb_local_deleted,0)=0",
+            )?;
+            let children = q
+                .query_map([&doomed[next]], |r| r.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            doomed.extend(children);
+            next += 1;
+        }
+        for id in doomed {
+            self.tx.execute(
+                "UPDATE djmdPlaylist SET rb_data_status=?1,rb_local_usn=?2,rb_local_deleted=1,updated_at=?3 WHERE ID=?4",
+                params![status::DELETED_NOT_YET_SENT, usn, self.now, id],
+            )?;
+            self.tx.execute(
+                "UPDATE djmdSongPlaylist SET rb_data_status=?1,rb_local_usn=?2,rb_local_deleted=1,updated_at=?3 WHERE PlaylistID=?4 AND COALESCE(rb_local_deleted,0)=0",
+                params![status::DELETED_NOT_YET_SENT, usn, self.now, id],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Replace a track's MyTag assignments when they differ. Returns whether anything was written.
+    fn replace_tags(&mut self, content_id: &str, tags: &[MyTagRef]) -> Result<bool> {
+        let current = {
+            let mut q = self.tx.prepare(
+                "SELECT c.Name,t.Name FROM djmdSongMyTag l JOIN djmdMyTag t ON t.ID=l.MyTagID JOIN djmdMyTag c ON c.ID=t.ParentID WHERE l.ContentID=?1 AND COALESCE(l.rb_local_deleted,0)=0 AND COALESCE(t.rb_local_deleted,0)=0",
+            )?;
+            q.query_map([content_id], |r| {
+                Ok(MyTagRef {
+                    category: r.get(0)?,
+                    tag: r.get(1)?,
+                })
+            })?
+            .collect::<rusqlite::Result<BTreeSet<_>>>()?
+        };
+        let wanted: BTreeSet<_> = tags.iter().cloned().collect();
+        if current == wanted {
+            return Ok(false);
+        }
+        let usn = self.use_usn();
+        self.tx.execute(
+            "DELETE FROM djmdSongMyTag WHERE ContentID=?1 AND COALESCE(rb_local_deleted,0)=1",
+            [content_id],
+        )?;
+        self.tx.execute(
+            "UPDATE djmdSongMyTag SET rb_data_status=?1,rb_local_usn=?2,rb_local_deleted=1,updated_at=?3 WHERE ContentID=?4",
+            params![status::DELETED_NOT_YET_SENT, usn, self.now, content_id],
+        )?;
+        for tag in &wanted {
+            ensure!(
+                !tag.category.trim().is_empty() && !tag.tag.trim().is_empty(),
+                "A MyTag needs a category and a name"
+            );
+            let tag_id = self.my_tag(tag)?;
+            self.tx.execute(
+                "INSERT INTO djmdSongMyTag(ID,MyTagID,ContentID,UUID,rb_data_status,rb_local_deleted,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,0,?6,?7,?7)",
+                params![uuid::Uuid::new_v4().to_string(), tag_id, content_id, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+            )?;
+        }
+        Ok(true)
+    }
+
+    /// Find or create a MyTag category and tag, returning the tag's row ID.
+    fn my_tag(&mut self, tag: &MyTagRef) -> Result<String> {
+        let category: Option<String> = self.tx.query_row(
+            "SELECT ID FROM djmdMyTag WHERE Attribute=1 AND Name=?1 AND COALESCE(rb_local_deleted,0)=0 ORDER BY CAST(ID AS INTEGER) LIMIT 1",
+            [&tag.category],
+            |r| r.get(0),
+        ).optional()?;
+        let category = match category {
+            Some(id) => id,
+            None => {
+                let id = self.allocate("djmdMyTag", "ID")?.to_string();
+                let usn = self.use_usn();
+                let seq: i64 = self.tx.query_row(
+                    "SELECT COALESCE(MAX(Seq),0)+1 FROM djmdMyTag WHERE Attribute=1",
+                    [],
+                    |r| r.get(0),
+                )?;
+                self.tx.execute(
+                    "INSERT INTO djmdMyTag(ID,Name,Seq,Attribute,ParentID,UUID,rb_data_status,rb_local_deleted,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,1,'root',?4,?5,0,?6,?7,?7)",
+                    params![id, tag.category, seq, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+                )?;
+                id
+            }
+        };
+        let found: Option<String> = self.tx.query_row(
+            "SELECT ID FROM djmdMyTag WHERE Attribute=0 AND ParentID=?1 AND Name=?2 AND COALESCE(rb_local_deleted,0)=0 ORDER BY CAST(ID AS INTEGER) LIMIT 1",
+            params![category, tag.tag],
+            |r| r.get(0),
+        ).optional()?;
+        if let Some(id) = found {
+            return Ok(id);
+        }
+        let id = self.allocate("djmdMyTag", "ID")?.to_string();
+        let usn = self.use_usn();
+        let seq: i64 = self.tx.query_row(
+            "SELECT COALESCE(MAX(Seq),0)+1 FROM djmdMyTag WHERE Attribute=0 AND ParentID=?1",
+            [&category],
+            |r| r.get(0),
+        )?;
+        self.tx.execute(
+            "INSERT INTO djmdMyTag(ID,Name,Seq,Attribute,ParentID,UUID,rb_data_status,rb_local_deleted,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,0,?4,?5,?6,0,?7,?8,?8)",
+            params![id, tag.tag, seq, category, uuid::Uuid::new_v4().to_string(), status::ADDED_NOT_YET_SENT, usn, self.now],
+        )?;
+        Ok(id)
+    }
+}
+
+/// Ordered, live track IDs of a playlist.
+fn members(conn: &Connection, playlist_id: &str) -> Result<Vec<String>> {
+    let mut q = conn.prepare(
+        "SELECT ContentID FROM djmdSongPlaylist WHERE PlaylistID=?1 AND COALESCE(rb_local_deleted,0)=0 ORDER BY TrackNo,rowid",
+    )?;
+    Ok(q.query_map([playlist_id], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?)
+}
+fn find_playlist_under(
+    conn: &Connection,
+    parent: &str,
+    name: &str,
+    kind: PlaylistKind,
+) -> Result<Option<String>> {
+    let attributes: &[i64] = match kind {
+        PlaylistKind::Playlist => &[0, -128],
+        PlaylistKind::Folder => &[1],
+    };
+    let mut q = conn.prepare(
+        "SELECT ID,Attribute FROM djmdPlaylist WHERE ParentID=?1 AND Name=?2 AND COALESCE(rb_local_deleted,0)=0 ORDER BY CAST(ID AS INTEGER)",
+    )?;
+    let rows = q
+        .query_map(params![parent, name], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows
+        .into_iter()
+        .find(|(_, a)| attributes.contains(a))
+        .map(|(id, _)| id))
+}
+/// A playlist by its name path, or `None` when any part of the path does not exist.
+fn find_playlist(conn: &Connection, path: &[String], kind: PlaylistKind) -> Result<Option<String>> {
+    let mut parent = "root".to_string();
+    for (depth, name) in path.iter().enumerate() {
+        let wanted = if depth + 1 == path.len() {
+            kind
+        } else {
+            PlaylistKind::Folder
+        };
+        match find_playlist_under(conn, &parent, name, wanted)? {
+            Some(id) => parent = id,
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(parent))
 }
 
 fn cue_key(cue: &CueRow) -> (i64, i64, i64, Option<String>) {
@@ -693,6 +1098,18 @@ mod tests {
         CREATE TABLE djmdKey(ID TEXT PRIMARY KEY,ScaleName TEXT,UUID TEXT,rb_data_status INTEGER,rb_local_data_status INTEGER,rb_local_deleted INTEGER,rb_local_synced INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
         CREATE TABLE djmdCue(ID TEXT PRIMARY KEY,ContentID TEXT,InMsec INTEGER,InFrame INTEGER,InMpegFrame INTEGER,InMpegAbs INTEGER,OutMsec INTEGER,OutFrame INTEGER,OutMpegFrame INTEGER,OutMpegAbs INTEGER,Kind INTEGER,Color INTEGER,ColorTableIndex INTEGER,ActiveLoop INTEGER,Comment TEXT,BeatLoopSize INTEGER,ContentUUID TEXT,UUID TEXT,rb_data_status INTEGER,rb_local_data_status INTEGER,rb_local_deleted INTEGER,rb_local_synced INTEGER,created_at TEXT,updated_at TEXT);
         CREATE TABLE contentCue(ID TEXT PRIMARY KEY,ContentID TEXT,Cues TEXT,rb_cue_count INTEGER,UUID TEXT,rb_data_status INTEGER,rb_local_data_status INTEGER,rb_local_deleted INTEGER,rb_local_synced INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
+        CREATE TABLE djmdPlaylist(ID TEXT PRIMARY KEY,Seq INTEGER,Name TEXT,Attribute INTEGER,ParentID TEXT,UUID TEXT,rb_data_status INTEGER,rb_local_deleted INTEGER,rb_local_data_status INTEGER,rb_local_synced INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
+        CREATE TABLE djmdSongPlaylist(ID TEXT PRIMARY KEY,PlaylistID TEXT,ContentID TEXT,TrackNo INTEGER,UUID TEXT,rb_data_status INTEGER,rb_local_data_status INTEGER,rb_local_deleted INTEGER,rb_local_synced INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
+        CREATE TABLE djmdMyTag(ID TEXT PRIMARY KEY,Seq INTEGER,Name TEXT,Attribute INTEGER,ParentID TEXT,UUID TEXT,rb_data_status INTEGER,rb_local_deleted INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
+        CREATE TABLE djmdSongMyTag(ID TEXT PRIMARY KEY,MyTagID TEXT,ContentID TEXT,UUID TEXT,rb_data_status INTEGER,rb_local_deleted INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
+        INSERT INTO djmdPlaylist VALUES('50',1,'Sets',1,'root','pf',256,0,0,0,40,'t','t');
+        INSERT INTO djmdPlaylist VALUES('51',1,'Friday',0,'50','pp',256,0,0,0,40,'t','t');
+        INSERT INTO djmdSongPlaylist VALUES('l1','51','100',1,'u1',256,0,0,0,40,'t','t');
+        INSERT INTO djmdSongPlaylist VALUES('l2','51','200',2,'u2',256,0,0,0,40,'t','t');
+        INSERT INTO djmdSongPlaylist VALUES('l0','51','100',9,'u0',258,0,1,0,39,'t','t');
+        INSERT INTO djmdMyTag VALUES('60',1,'Mood',1,'root','uc',256,0,40,'t','t');
+        INSERT INTO djmdMyTag VALUES('61',1,'Dark',0,'60','ut',256,0,40,'t','t');
+        INSERT INTO djmdSongMyTag VALUES('m1','61','200','um',256,0,40,'t','t');
         INSERT INTO djmdProperty VALUES('db','dev');
         INSERT INTO agentRegistry VALUES('localUpdateCount',41);
         INSERT INTO djmdArtist VALUES('7','Old Artist','ua',256,0,0,0,40,'t','t');
@@ -771,7 +1188,9 @@ mod tests {
                         comment: Some("S.O.S.".into()),
                     },
                 ]),
+                tags: None,
             }],
+            ..Default::default()
         }
     }
 
@@ -911,6 +1330,7 @@ mod tests {
                 expected_fingerprint: fingerprint(&path, "100"),
                 ..plan(&path).tracks.remove(0)
             }],
+            ..Default::default()
         };
         let before = cuerithm_media::file_sha256(&path).unwrap();
         let mut db = WriteDatabase::open_with_profiles(&path, &key(), profile).unwrap();
@@ -942,6 +1362,7 @@ mod tests {
                 ..Default::default()
             },
             cues: None,
+            tags: None,
         });
         let conn = Connection::open(&path).unwrap();
         set_key(&conn, &key()).unwrap();
@@ -957,7 +1378,7 @@ mod tests {
         drop(db);
         let conflict = error.downcast_ref::<ConflictError>().unwrap();
         assert_eq!(conflict.0.len(), 1);
-        assert_eq!(conflict.0[0].content_id, "100");
+        assert_eq!(conflict.0[0].subject, "100");
         // Not even the unaffected second track was written.
         assert_eq!(
             query::<String>(&path, "SELECT Title FROM djmdContent WHERE ID='200'"),
@@ -984,14 +1405,17 @@ mod tests {
                     expected_fingerprint: fingerprint(&path, "200"),
                     fields: ContentFields::default(),
                     cues: None,
+                    tags: None,
                 },
                 TrackWrite {
                     content_id: "999".into(),
                     expected_fingerprint: "x".into(),
                     fields: ContentFields::default(),
                     cues: None,
+                    tags: None,
                 },
             ],
+            ..Default::default()
         };
         // An invalid cue fails midway through the plan; the earlier field changes must not persist.
         let mut bad = plan(&path);
@@ -1040,5 +1464,261 @@ mod tests {
         // Once the first writer is gone the database is available again.
         drop(first);
         assert!(WriteDatabase::open_with_profiles(&path, &key(), profile).is_ok());
+    }
+
+    fn base_plan() -> WritePlan {
+        WritePlan::default()
+    }
+    fn friday(tracks: &[&str], expected: Option<String>) -> PlaylistWrite {
+        PlaylistWrite {
+            path: vec!["Sets".into(), "Friday".into()],
+            kind: PlaylistKind::Playlist,
+            position: 1,
+            tracks: tracks.iter().map(|t| t.to_string()).collect(),
+            expected_members: expected,
+        }
+    }
+    fn run(path: &Path, profile: &'static [WriteProfile], plan: &WritePlan) -> Result<WriteReport> {
+        let mut db = WriteDatabase::open_with_profiles(path, &key(), profile).unwrap();
+        db.apply(plan, &CancellationToken::default())
+    }
+
+    #[test]
+    fn playlists_are_created_ordered_and_reordered_with_removals_recorded() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.playlists = vec![
+            // A child listed before its new parent folder is still written parent-first.
+            PlaylistWrite {
+                path: vec!["New Folder".into(), "Warmup".into()],
+                kind: PlaylistKind::Playlist,
+                position: 1,
+                tracks: vec!["200".into(), "100".into()],
+                expected_members: None,
+            },
+            PlaylistWrite {
+                path: vec!["New Folder".into()],
+                kind: PlaylistKind::Folder,
+                position: 2,
+                tracks: vec![],
+                expected_members: None,
+            },
+            friday(
+                &["200", "100"],
+                Some(membership_fingerprint(&["100".into(), "200".into()])),
+            ),
+        ];
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!(
+            (
+                report.playlists_created,
+                report.playlists_updated,
+                report.playlists_unchanged
+            ),
+            (2, 1, 0)
+        );
+        assert_eq!(report.usn, Some(42));
+        let folder: String = query(&path, "SELECT ID FROM djmdPlaylist WHERE Name='New Folder'");
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT Attribute FROM djmdPlaylist WHERE Name='New Folder'"
+            ),
+            1
+        );
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT ParentID FROM djmdPlaylist WHERE Name='New Folder'"
+            ),
+            "root"
+        );
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT ParentID FROM djmdPlaylist WHERE Name='Warmup'"
+            ),
+            folder
+        );
+        // New playlist: tracks numbered from one, in the planned order.
+        let order: String = query(
+            &path,
+            "SELECT group_concat(ContentID||':'||TrackNo,',') FROM (SELECT ContentID,TrackNo FROM djmdSongPlaylist WHERE PlaylistID=(SELECT ID FROM djmdPlaylist WHERE Name='Warmup') ORDER BY TrackNo)",
+        );
+        assert_eq!(order, "200:1,100:2");
+        // Reordered playlist: old links remain only as recorded removals; the stale removal was dropped.
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT group_concat(ContentID,',') FROM (SELECT ContentID FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=0 ORDER BY TrackNo)"
+            ),
+            "200,100"
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=1"
+            ),
+            2
+        );
+        assert_eq!(
+            query::<i64>(&path, "SELECT COUNT(*) FROM djmdSongPlaylist WHERE ID='l0'"),
+            0
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT MIN(rb_data_status) FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=1"
+            ),
+            258
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT rb_local_usn FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=0 LIMIT 1"
+            ),
+            42
+        );
+    }
+
+    #[test]
+    fn repeating_a_playlist_plan_changes_nothing() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.playlists = vec![friday(&["200", "100"], None)];
+        run(&path, profile, &plan).unwrap();
+        let before = cuerithm_media::file_sha256(&path).unwrap();
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!(
+            (
+                report.usn,
+                report.playlists_unchanged,
+                report.playlists_updated
+            ),
+            (None, 1, 0)
+        );
+        assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), before);
+    }
+
+    #[test]
+    fn a_playlist_edited_in_rekordbox_or_naming_a_missing_track_refuses_the_plan() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.playlists = vec![friday(
+            &["100"],
+            Some(membership_fingerprint(&["200".into()])),
+        )];
+        let error = run(&path, profile, &plan).unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<ConflictError>().unwrap().0[0].subject,
+            "playlist Sets/Friday"
+        );
+        plan.playlists = vec![friday(&["100", "999"], None)];
+        let error = run(&path, profile, &plan).unwrap_err();
+        assert!(
+            error.downcast_ref::<ConflictError>().unwrap().0[0]
+                .reason
+                .contains("999")
+        );
+        // A track listed twice or a folder with tracks is a malformed plan, not a conflict.
+        plan.playlists = vec![friday(&["100", "100"], None)];
+        assert!(
+            run(&path, profile, &plan)
+                .unwrap_err()
+                .to_string()
+                .contains("twice")
+        );
+        assert_eq!(query::<i64>(&path, "SELECT int_1 FROM agentRegistry"), 41);
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongPlaylist WHERE rb_local_deleted=0"
+            ),
+            2
+        );
+    }
+
+    #[test]
+    fn removing_a_folder_takes_its_playlists_and_links_as_recorded_removals() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.remove_playlists = vec![PlaylistRemoval {
+            playlist_id: "50".into(),
+            expected_members: None,
+        }];
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!(report.playlists_removed, 1);
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdPlaylist WHERE rb_local_deleted=1"
+            ),
+            2
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=0"
+            ),
+            0
+        );
+        // Removing it again is a conflict: it is already gone.
+        let error = run(&path, profile, &plan).unwrap_err();
+        assert!(error.downcast_ref::<ConflictError>().is_some());
+    }
+
+    #[test]
+    fn tags_reuse_existing_rows_create_missing_ones_and_replace_assignments() {
+        let (_dir, path, profile) = database();
+        let tag = |category: &str, tag: &str| MyTagRef {
+            category: category.into(),
+            tag: tag.into(),
+        };
+        let mut plan = base_plan();
+        plan.tracks = vec![TrackWrite {
+            content_id: "200".into(),
+            expected_fingerprint: fingerprint(&path, "200"),
+            fields: ContentFields::default(),
+            cues: None,
+            tags: Some(vec![tag("Mood", "Dark"), tag("Energy", "Peak")]),
+        }];
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!((report.tags_replaced, report.tracks_updated), (1, 1));
+        // The existing category and tag were reused; one category and one tag were created.
+        assert_eq!(
+            query::<i64>(&path, "SELECT COUNT(*) FROM djmdMyTag WHERE Attribute=1"),
+            2
+        );
+        assert_eq!(
+            query::<i64>(&path, "SELECT COUNT(*) FROM djmdMyTag WHERE Attribute=0"),
+            2
+        );
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT group_concat(Name,',') FROM (SELECT t.Name FROM djmdSongMyTag l JOIN djmdMyTag t ON t.ID=l.MyTagID WHERE l.ContentID='200' AND l.rb_local_deleted=0 ORDER BY t.Name)"
+            ),
+            "Dark,Peak"
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT rb_local_deleted FROM djmdSongMyTag WHERE ID='m1'"
+            ),
+            1
+        );
+        // The same assignment again writes nothing; fewer tags remove the rest as recorded removals.
+        plan.tracks[0].expected_fingerprint = fingerprint(&path, "200");
+        let repeat = run(&path, profile, &plan).unwrap();
+        assert_eq!((repeat.usn, repeat.tags_replaced), (None, 0));
+        plan.tracks[0].tags = Some(vec![tag("Energy", "Peak")]);
+        run(&path, profile, &plan).unwrap();
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongMyTag WHERE ContentID='200' AND rb_local_deleted=0"
+            ),
+            1
+        );
     }
 }
