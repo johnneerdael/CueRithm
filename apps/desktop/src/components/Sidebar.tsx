@@ -58,6 +58,7 @@ export default function Sidebar({view,onView,state,playlists,activePlaylistId,on
     <div className="sidebar-section">TOOLS</div>
     <button className={playlistPanel?"nav active":"nav"} title="Playlist tools" disabled={!playlists} onClick={onTools}><ListMusic size={18}/><span className="nav-label">Playlist tools</span></button>
     <button className={view==="cleanup"?"nav active":"nav"} title="Cleanup" onClick={()=>onView("cleanup")}><Glyph name="cleanup"/><span className="nav-label">Cleanup</span></button>
+    <button className={view==="maintenance"?"nav active":"nav"} title="Maintenance" onClick={()=>onView("maintenance")}><Glyph name="warning"/><span className="nav-label">Maintenance</span></button>
     <button className="nav unavailable" disabled title="Direct rekordbox sync is not available in this build"><Glyph name="sync"/><span className="nav-label">Rekordbox</span></button>
     <div className="sidebar-bottom"><div className="offline-label"><i/><span>LOCAL LIBRARY</span></div><button className={view==="settings"?"nav active":"nav"} title="Settings" onClick={()=>onView("settings")}><Glyph name="settings"/><span className="nav-label">Settings</span></button><div className="build-label">CUERITHM <span>0.1</span></div></div>
     {menu&&menuNode&&!menuNode.deleted?<PlaylistMenu node={menuNode} nodes={nodes} x={menu.x} y={menu.y} onClose={closeMenu} onEdit={()=>onEdit(menuNode)} onMove={()=>setMoving(menuNode)} onAction={edit=>void onAction(edit,menu.revision)}/>:null}

@@ -1,9 +1,13 @@
 # Maintenance native API
 
-This is the backend handoff for the user-owned UI. Import `nativeMaintenance`
-from `apps/desktop/src/maintenance-api.ts`; its `MaintenanceBridge` type and
-`maintenance-types.ts` define the requests and results. No styling or navigation
-changes are included in this checkpoint.
+This is the native contract behind the desktop Maintenance screens
+(`apps/desktop/src/views/Maintenance.tsx` and `views/maintenance/`). Import
+`nativeMaintenance` from `apps/desktop/src/maintenance-api.ts`; its
+`MaintenanceBridge` type and `maintenance-types.ts` define the requests and
+results. `use-maintenance-task.ts` owns the operation-ID, progress and
+cancellation protocol described below: one task slot shared by every tab, a
+fresh `crypto.randomUUID()` per operation, progress filtered by ID and kind, and
+the slot held until the cancelled promise settles.
 
 ## Scanning and cancellation
 

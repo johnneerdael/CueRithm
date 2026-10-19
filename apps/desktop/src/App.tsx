@@ -9,6 +9,8 @@ import TrackTable from "./components/TrackTable";
 import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
+import Maintenance from "./views/Maintenance";
+import {nativeMaintenance,type MaintenanceBridge} from "./maintenance-api";
 import type {PlaylistWorkspace,PlaylistNode,PlaylistChange,PlaylistEdit} from "./playlist-types";
 import PlaylistEditor from "./views/PlaylistEditor";
 import PlaylistTools from "./views/PlaylistTools";
@@ -20,9 +22,11 @@ import {usePlaylistDrag} from "./use-playlist-drag";
 import {descendantIds} from "./playlist-tree";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
+// Settings, Cleanup and Maintenance replace the library table rather than filter it.
+function toolView(view:WorkspaceView):view is "settings"|"cleanup"|"maintenance"{return view==="settings"||view==="cleanup"||view==="maintenance";}
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
-export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
+export default function App({bridge=nativeBridge,maintenance=nativeMaintenance}:{bridge?:Bridge;maintenance?:MaintenanceBridge}){
   const [view,setView]=useState<WorkspaceView>("tracks");
   const [lastView,setLastView]=useState<View>("tracks");
   const [playlists,setPlaylists]=useState<PlaylistWorkspace|null>(null);
@@ -58,7 +62,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const searchInput=useRef<HTMLInputElement>(null);
   const alive=useRef(true);
   const internalDrag=usePlaylistDrag({canDrop:(payload,target)=>canDropInternal(payload,target),onStart:payload=>{if(payload.kind==="tracks")setSelected(new Set(payload.ids));},onDrop:(payload,target)=>dropInternal(payload,target)});
-  query.current={view:view==="settings"||view==="cleanup"?lastView:view,search,sort,descending,limit:200,cursor:null,playlist_id:playlistId};
+  query.current={view:toolView(view)?lastView:view,search,sort,descending,limit:200,cursor:null,playlist_id:playlistId};
   const notify=useCallback((error:unknown)=>{const message=errorMessage(error);if(!message.includes("superseded"))setToast(message);},[]);
 
   const fetchRows=useCallback(async(reset=false)=>{
@@ -115,7 +119,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     const timer=setInterval(()=>void refresh(false),1500);
     return()=>{alive.current=false;clearInterval(timer);void prep.then(unlisten=>unlisten());void library.then(unlisten=>unlisten());void player.then(unlisten=>unlisten());void drop.then(unlisten=>unlisten());};
   },[bridge,refresh,addPaths,notify]);
-  useEffect(()=>{if(view==="settings"||view==="cleanup")return;void fetchRows(true);},[view,playlistId,search,sort,descending,fetchRows]);
+  useEffect(()=>{if(toolView(view))return;void fetchRows(true);},[view,playlistId,search,sort,descending,fetchRows]);
   useEffect(()=>{setSelected(new Set());},[view,playlistId,search]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),8000);return()=>clearTimeout(timer);},[toast]);
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
@@ -140,11 +144,11 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current)return;
-      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(view==="settings"||view==="cleanup")setView(lastView);searchInput.current?.focus();}
+      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(toolView(view))setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
-      if(view!=="settings"&&view!=="cleanup"&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
+      if(!toolView(view)&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
       if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&playbackBpm(loadedDetail.current?.analysis)){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail&&!(event.target instanceof Element&&event.target.closest("button,a"))){event.preventDefault();void toggle();}
     };
@@ -203,7 +207,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const applyPlaylistPreview=async(operation:()=>Promise<PlaylistChange>)=>{if(playlistMutation.current)throw Error("Another playlist change is still being applied.");playlistMutation.current=true;setPlaylistBusy(true);try{return await operation();}finally{playlistMutation.current=false;if(alive.current)setPlaylistBusy(false);}};
   const playlistToolApplied=async(_change:PlaylistChange)=>{const next=await bridge.getPlaylists();if(!alive.current)return;publishPlaylists(next);void refresh(true);};
   const openPlaylistPanel=(panel:"tools"|"generator")=>{setPlaylistEditor(null);setPlaylistPanel(panel);setView("tracks");setLastView("tracks");};
-  const onView=(next:WorkspaceView)=>{setPlaylistEditor(null);setPlaylistPanel(null);if(next==="tracks"||next==="incoming"||next==="archive"){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}if(next==="cleanup")setCleanupSelection([...selectedRef.current]);if(next!=="settings"&&next!=="cleanup")setLastView(next);setView(next);};
+  const onView=(next:WorkspaceView)=>{setPlaylistEditor(null);setPlaylistPanel(null);if(next==="tracks"||next==="incoming"||next==="archive"){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}if(next==="cleanup")setCleanupSelection([...selectedRef.current]);if(!toolView(next))setLastView(next as View);setView(next);};
   useEffect(()=>{if(playlistId&&playlists&&!playlists.tree.nodes.some(n=>n.id===playlistId&&!n.deleted)){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}},[playlistId,playlists,sort]);
   const onSelect=(row:Track,event:React.MouseEvent)=>{
     if(loadedScope.current!==JSON.stringify(query.current))return;
@@ -225,21 +229,21 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const attention=state?.jobs.filter(j=>j.state==="attention")??[];
   const activePlaylist=playlists?.tree.nodes.find(n=>n.id===playlistId&&!n.deleted)??null;
   const activePlaylistStatus=playlists?.statuses.find(status=>status.playlist_id===playlistId);
-  const libraryView=view==="settings"||view==="cleanup"?lastView:view;
+  const libraryView=toolView(view)?lastView:view;
   const dragPayload=internalDrag.drag,dragLabel=dragPayload?.kind==="tracks"?`${dragPayload.ids.length} tracks`:dragPayload?playlists?.tree.nodes.find(n=>n.id===dragPayload.id)?.name??"Playlist":"";
   return <div className="app" data-collapsed={collapsed} data-internal-dragging={!!internalDrag.drag||undefined} onClickCapture={internalDrag.suppressClick} onDoubleClickCapture={internalDrag.suppressClick} style={{"--sidebar-width":sideWidth+"px","--player-height":playerHeight+"px"} as React.CSSProperties}>
     <Sidebar view={view} onView={onView} state={state} playlists={playlists} activePlaylistId={playlistId} onPlaylist={onPlaylist} onCreate={()=>{setPlaylistPanel(null);setPlaylistEditor({node:null,parentId:activePlaylist?.kind==="folder"?activePlaylist.id:null});}} onEdit={node=>{setPlaylistPanel(null);setPlaylistEditor({node,parentId:node.parent_id});}} onAction={playlistAction} onUndo={undoPlaylist} busy={playlistBusy||!!playlistEditor} playlistPanel={playlistPanel} onTools={()=>openPlaylistPanel("tools")} drag={internalDrag.drag} onPlaylistDragStart={startPlaylistDrag} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(v=>!v)}/>
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column">
       <header className="app-header" data-tauri-drag-region>
-        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(view==="settings"||view==="cleanup")onView(lastView);}}/><kbd>⌘ F</kbd></div>
+        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(toolView(view))onView(lastView);}}/><kbd>⌘ F</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
         <button className="icon-button theme-toggle" aria-label={"Colour theme: "+mode} title={"Colour theme: "+mode+" (click to change)"} onClick={cycle}>{mode==="light"?<Sun size={17}/>:mode==="dark"?<Moon size={17}/>:<SunMoon size={17}/>}</button>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>
       </header>
       <main>
         {bootError?<div role="alert" className="error-banner">{bootError}<button onClick={()=>void refresh(true)}>Try again</button></div>:null}
-        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
+        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="settings"&&state?<Settings snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="maintenance"?<Maintenance bridge={bridge} maintenance={maintenance} onLibraryChanged={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
           <div className="view-title library-heading"><div><div className="eyebrow">LIBRARY</div><h1>{activePlaylist?activePlaylist.name:view==="incoming"?"Incoming":view==="archive"?"Archive":"Tracks"}<span className="heading-count">{activePlaylist?total:view==="incoming"?state?.counts.incoming:view==="archive"?state?.counts.archive:state?.counts.tracks}</span></h1><p>{view==="incoming"?"Automatic preparation. Ready tracks move into your library.":view==="archive"?"Archived tracks keep their analysis and cues.":"Key, BPM, energy and structural cues."}</p></div>
             <div className="view-actions">{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
           </div>
