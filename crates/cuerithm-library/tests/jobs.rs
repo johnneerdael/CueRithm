@@ -561,3 +561,34 @@ fn published_fractional_grid_is_saved_without_replacing_raw_detector_output() {
     assert_eq!(saved.analysis.tempo.unwrap().bpm, 128.345);
     assert_eq!(saved.publication.unwrap().grid.bpm, 128.35);
 }
+
+#[test]
+fn repeated_archive_state_is_a_noop_for_jobs_analysis_and_revision() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let path = d.path().join("same-state.flac");
+    std::fs::write(&path, b"A").unwrap();
+    let job_id = lib
+        .enqueue(
+            std::slice::from_ref(&path),
+            lib.settings().unwrap().revision,
+        )
+        .unwrap()[0]
+        .clone();
+    let job = lib.claim_next().unwrap().unwrap();
+    lib.apply_analysis(&job_id, &result(), &info(), &job.source_sha256)
+        .unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let revision = lib.revision().unwrap();
+    lib.set_archived(&job.track_id, false).unwrap();
+    assert_eq!(lib.revision().unwrap(), revision);
+    assert_eq!(lib.track(&job.track_id).unwrap().state, "ready");
+    assert_eq!(lib.jobs().unwrap()[0].state, "completed");
+    assert_eq!(lib.cue_revision_count(&job.track_id).unwrap(), 1);
+    lib.set_archived(&job.track_id, true).unwrap();
+    let revision = lib.revision().unwrap();
+    lib.set_archived(&job.track_id, true).unwrap();
+    assert_eq!(lib.revision().unwrap(), revision);
+    assert_eq!(lib.jobs().unwrap()[0].state, "completed");
+    assert_eq!(lib.cue_revision_count(&job.track_id).unwrap(), 1);
+}

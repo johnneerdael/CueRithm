@@ -11,7 +11,7 @@ const defaults:Column[]=["title","artist","genre","bpm","key","energy","duration
 const widths:Record<string,string>={title:"minmax(150px,1.6fr)",artist:"minmax(110px,1fr)",genre:"minmax(85px,.8fr)",bpm:"74px",key:"58px",energy:"70px",duration:"60px",artwork:"66px"};
 const stages:Record<string,string>={queued:"Queued",waiting:"Waiting for file",decoding:"Decoding",analysis:"Analyzing",matching:"Matching catalog",tagging:"Preparing tags",writing_tags:"Writing tags",committing:"Applying cues",setup:"Setup"};
 function preferences():{order:Column[];hidden:Column[]}{try{const v=JSON.parse(localStorage.getItem("track-columns")??"null");if(v&&Array.isArray(v.order)&&v.order.length&&v.order.every((c:unknown)=>typeof c==="string"))return {order:[...new Set<string>(v.order)],hidden:Array.isArray(v.hidden)?v.hidden.filter((c:unknown)=>typeof c==="string"):[]};}catch{}return {order:defaults,hidden:[]};}
-export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading,artworkLoader,metadataLoader,onTrackDragStart}:{onTrackDragStart?:(row:Track,event:React.PointerEvent)=>void;metadataLoader?:()=>Promise<string[]>;artworkLoader?:Bridge["getArtwork"];rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(id:string)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
+export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading,artworkLoader,metadataLoader,onTrackDragStart}:{onTrackDragStart?:(row:Track,event:React.PointerEvent)=>void;metadataLoader?:()=>Promise<string[]>;artworkLoader?:Bridge["getArtwork"];rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(row:Track)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
   const viewport=useRef<HTMLDivElement>(null),header=useRef<HTMLDivElement>(null);
   const [top,setTop]=useState(0),[prefs,setPrefs]=useState(preferences);
   const [menu,setMenu]=useState<{id:string;x:number;y:number}|null>(null);
@@ -37,6 +37,7 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
     if(previous.current!==rows&&anchor.current&&viewport.current){const index=rows.findIndex(r=>r.id===anchor.current!.id);if(index>=0){viewport.current.scrollTop=index*height+anchor.current.offset;setTop(viewport.current.scrollTop);}}
     previous.current=rows;
   },[rows]);
+  const menuTrack=menu?rows.find(row=>row.id===menu.id):undefined;
   const visibleColumns=prefs.order.filter(c=>!prefs.hidden.includes(c));
   const grid=["27px","29px",...visibleColumns.map(c=>widths[c]??"160px"),"38px"].join(" ");
   const first=Math.max(0,Math.floor(top/height)-8),visible=rows.slice(first,first+48);
@@ -72,6 +73,6 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
         </div>;})}
       </div>{loading&&rows.length>0?<div className="loading-more">Loading tracks…</div>:null}
     </div>
-    {menu?createPortal(<div className="context-menu" role="menu" style={{position:"fixed",left:menu.x,top:menu.y}}><button role="menuitem" onClick={()=>{onReprepare(menu.id);setMenu(null);}}><RotateCcw size={14}/>Analyze again</button><button role="menuitem" onClick={()=>{onArchive(menu.id);setMenu(null);}}><Archive size={14}/>{view==="archive"?"Restore to library":"Archive track"}</button></div>,document.body):null}
+    {menu&&menuTrack?createPortal(<div className="context-menu" role="menu" style={{position:"fixed",left:menu.x,top:menu.y}}><button role="menuitem" onClick={()=>{onReprepare(menu.id);setMenu(null);}}><RotateCcw size={14}/>Analyze again</button><button role="menuitem" onClick={()=>{onArchive(menuTrack);setMenu(null);}}><Archive size={14}/>{menuTrack.archived?"Restore to library":"Archive track"}</button></div>,document.body):null}
   </div>;
 }

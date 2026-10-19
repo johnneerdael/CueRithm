@@ -1200,7 +1200,27 @@ fn archive_rules_and_folder_queries_preserve_archived_manual_intent() {
         )),
     );
     f.lib.refresh_smart_lists(NOW).unwrap();
-    assert_eq!(f.lib.tracks(q).unwrap().total, 1);
+    let folder_rows = f.lib.tracks(q).unwrap();
+    assert_eq!(folder_rows.total, 1);
+    assert!(folder_rows.rows[0].archived);
+    let smart_rows = f
+        .lib
+        .tracks(TrackQuery {
+            playlist_id: Some("archived".into()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(smart_rows.rows.len(), 1);
+    assert!(smart_rows.rows[0].archived);
+    assert!(f.lib.track(&f.ids[0]).unwrap().archived);
+    assert!(
+        f.lib
+            .tracks(TrackQuery::default())
+            .unwrap()
+            .rows
+            .iter()
+            .all(|row| !row.archived)
+    );
 }
 #[test]
 fn previews_reject_cycles_and_selection_does_not_restrict_dependency_evaluation() {

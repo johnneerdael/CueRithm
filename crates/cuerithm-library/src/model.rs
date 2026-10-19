@@ -68,6 +68,8 @@ pub struct TrackSummary {
     pub album: String,
     pub genre: String,
     pub state: String,
+    #[serde(default)]
+    pub archived: bool,
     pub key: Option<String>,
     pub bpm: Option<f64>,
     pub energy: Option<u8>,

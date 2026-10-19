@@ -257,7 +257,7 @@ impl Library {
         crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated FROM tracks WHERE id=?1",[id],summary_row)?)
+        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived FROM tracks WHERE id=?1",[id],summary_row)?)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
         Ok(self
@@ -295,6 +295,14 @@ impl Library {
     }
 
     pub fn set_archived(&self, id: &str, archived: bool) -> Result<()> {
+        let current: bool =
+            self.conn()?
+                .query_row("SELECT archived FROM tracks WHERE id=?1", [id], |r| {
+                    r.get(0)
+                })?;
+        if current == archived {
+            return Ok(());
+        }
         let restore = if archived {
             None
         } else {
@@ -304,6 +312,13 @@ impl Library {
         };
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
+        // A concurrent archive/restore may have completed while hashing the source.
+        let current: bool = tx.query_row("SELECT archived FROM tracks WHERE id=?1", [id], |r| {
+            r.get(0)
+        })?;
+        if current == archived {
+            return Ok(());
+        }
         ensure!(
             tx.execute(
                 "UPDATE tracks SET archived=?1,updated=?2 WHERE id=?3",
@@ -364,6 +379,7 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
         album: r.get(4)?,
         genre: r.get(5)?,
         state: r.get(6)?,
+        archived: r.get(15)?,
         key: r.get(7)?,
         bpm: r.get(8)?,
         energy: r.get(9)?,
