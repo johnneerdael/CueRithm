@@ -41,6 +41,11 @@ fn every_format_shares_waveform_seek_and_analysis_clock() {
             serde_json::to_value(&peaks).unwrap(),
             serde_json::to_value(cached).unwrap()
         );
+        // The largest resolution reuses analysed points instead of one FFT per bin.
+        let fine = waveform(&audio, 16384).unwrap();
+        assert_eq!(fine.bands.len(), 16384);
+        assert_eq!(fine.levels.len(), 16384);
+        assert!(fine.bands.iter().any(|b| b.contains(&255)));
         assert_eq!(peaks.bins.len(), 1024);
         assert_eq!(peaks.bands.len(), 1024);
         assert!(peaks.bands.iter().any(|b| b.contains(&255)));

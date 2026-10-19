@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 const WINDOW: usize = 4096;
+// Spectral analysis cadence; finer waveforms reuse the nearest analysed point instead of one FFT per bin.
+const MAX_ANALYSIS_POINTS: usize = 4096;
 const SAMPLE_RATE: f32 = 44100.;
 // Band edges and weights follow Lexicon's RGB waveform: bass, mids and highs map to red, green and blue.
 const BANDS: [(f32, f32, f32); 3] = [(0., 150., 1.2), (150., 1500., 1.), (1500., 6000., 1.)];
@@ -122,13 +124,14 @@ impl BandAnalyzer {
 pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
     ensure!((1..=16384).contains(&bins), "Invalid waveform resolution");
     let mut output = vec![WaveBin { min: 0., max: 0. }; bins];
-    let mut bands = vec![[0u8; 3]; bins];
-    let mut levels = vec![[0f32; 3]; bins];
+    let points = bins.min(MAX_ANALYSIS_POINTS);
+    let mut point_bands = vec![[0u8; 3]; points];
+    let mut point_levels = vec![[0f32; 3]; points];
     let mut energy = vec![(0f64, 0u64); bins];
     let mut analyzer = BandAnalyzer::new();
     // Mono samples from the first frame still needed by an unanalysed bin.
     let (mut mono, mut base, mut next) = (Vec::<f32>::new(), 0u64, 0usize);
-    let start_of = |bin: usize| (bin as u64 * audio.frames).div_ceil(bins as u64);
+    let start_of = |point: usize| (point as u64 * audio.frames).div_ceil(points as u64);
     let mut pos = 0;
     while pos < audio.frames {
         let samples = audio.read_frames(pos, 65536)?;
@@ -144,18 +147,18 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
         }
         pos += samples.len() as u64 / 2;
         let end = base + mono.len() as u64;
-        while next < bins {
+        while next < points {
             let from = start_of(next);
             if from + WINDOW as u64 > end && end < audio.frames {
                 break;
             }
             let at = (from - base) as usize;
             let analysis = analyzer.analyze(&mono[at..(at + WINDOW).min(mono.len())]);
-            bands[next] = analysis.colour;
-            levels[next] = analysis.levels;
+            point_bands[next] = analysis.colour;
+            point_levels[next] = analysis.levels;
             next += 1;
         }
-        let keep = if next < bins { start_of(next) } else { end };
+        let keep = if next < points { start_of(next) } else { end };
         if keep >= end {
             mono.clear();
         } else {
@@ -163,6 +166,10 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
         }
         base = keep;
     }
+    // Each bin takes the analysed point at its centre.
+    let nearest = |bin: usize| (2 * bin + 1) * points / (2 * bins);
+    let bands = (0..bins).map(|bin| point_bands[nearest(bin)]).collect();
+    let levels = (0..bins).map(|bin| point_levels[nearest(bin)]).collect();
     Ok(Waveform {
         duration_seconds: audio.clock.duration_seconds(),
         clock: audio.clock.clone(),
