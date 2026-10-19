@@ -20,8 +20,15 @@ def entries(commits, bodies):
     for _, subject in commits:
         pr = re.search(r"\(#(\d+)\)$", subject) or re.match(r"Merge pull request #(\d+)", subject)
         notes = sections(bodies.get(int(pr[1]), "")).get("release notes", "") if pr else ""
-        lines = [re.sub(r"^[-*]\s*", "", l).strip() for l in notes.splitlines()]
-        lines = [l for l in lines if l]
+        lines = []
+        for raw in notes.splitlines():
+            text = raw.strip()
+            if not text:
+                continue
+            if re.match(r"[-*]\s", text) or not lines:
+                lines.append(re.sub(r"^[-*]\s*", "", text))
+            else:  # wrapped continuation of the previous bullet
+                lines[-1] += " " + text
         if not pr:
             other.append(subject)
         elif lines and all(l.lower().startswith("internal:") for l in lines):
@@ -47,7 +54,7 @@ def run(*args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["version", "notes"])
+    parser.add_argument("command", choices=["version", "notes", "has-public"])
     parser.add_argument("--base", help="Cargo workspace version")
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--repo")
@@ -66,7 +73,11 @@ def main():
         pr = re.search(r"\(#(\d+)\)$", subject) or re.match(r"Merge pull request #(\d+)", subject)
         if pr:
             bodies[int(pr[1])] = json.loads(run("gh", "api", f"repos/{args.repo}/pulls/{pr[1]}")).get("body") or ""
-    print(render(*entries(commits, bodies)))
+    result = entries(commits, bodies)
+    if args.command == "has-public":
+        print("true" if result[0] else "false")
+        return
+    print(render(*result))
 
 
 if __name__ == "__main__":
