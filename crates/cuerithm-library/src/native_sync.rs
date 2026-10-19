@@ -86,7 +86,7 @@ const TABLES: &[&str] = &[
     "djmdMyTag",
     "djmdSongMyTag",
 ];
-const TEXT_FIELDS: &[&str] = &[
+pub(crate) const TEXT_FIELDS: &[&str] = &[
     "title",
     "artist",
     "album",

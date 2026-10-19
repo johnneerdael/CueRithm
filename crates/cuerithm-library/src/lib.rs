@@ -19,6 +19,8 @@ mod native_sync;
 pub use native_sync::*;
 mod prepare;
 mod publication;
+mod rekordbox_cues;
+pub use rekordbox_cues::*;
 mod retained;
 pub use retained::{RetainedDisposal, RetainedOriginal, RetainedPreview};
 mod publish_files;

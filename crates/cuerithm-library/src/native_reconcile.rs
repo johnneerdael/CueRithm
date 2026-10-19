@@ -2,9 +2,14 @@
 //!
 //! This decides, per field, what a future synchronization would have to do. It performs no write
 //! to a target database or to the library, and a preview is never an acknowledgement.
-use crate::native_sync::{NativeFieldBaseline, NativeFieldOwner, local_fields, remote_fields};
+use crate::native_sync::{
+    NativeFieldBaseline, NativeFieldOwner, TEXT_FIELDS, local_fields, remote_fields,
+};
 use crate::*;
+use crate::{CueExportOptions, rekordbox_cue_rows};
 use anyhow::Result;
+use camelot_core::lexicon_publication::PublishedCue;
+use cuerithm_rekordbox::ImportedCue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -59,6 +64,168 @@ pub struct NativeSyncPreview {
     /// Direct writes stay off until a schema is verified against the real target application.
     pub writes_enabled: bool,
     pub write_blocker: String,
+}
+
+/// Fields a synchronization can write. Everything else (duration, paths, tag IDs) is observation only.
+pub(crate) fn writable(field: &str) -> bool {
+    TEXT_FIELDS.contains(&field)
+        || matches!(
+            field,
+            "key"
+                | "bpm"
+                | "release_year"
+                | "release_date"
+                | "track_number"
+                | "disc_number"
+                | "rating"
+                | "cues"
+        )
+}
+/// A key as Camelot notation: `8A`, `8B` or a classic name such as `Am`, `C#m` or `Gb`. Anything else is
+/// kept as written, upper-cased, so an unfamiliar spelling still compares equal to itself.
+pub(crate) fn camelot_key(text: &str) -> Option<String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let upper = text.to_uppercase();
+    let digits = upper.trim_end_matches(['A', 'B']);
+    if !digits.is_empty()
+        && digits.len() <= 2
+        && digits.bytes().all(|c| c.is_ascii_digit())
+        && upper.len() == digits.len() + 1
+        && camelot_core::MusicalKey::from_camelot(&upper).is_ok()
+    {
+        return Some(upper);
+    }
+    let mut chars = text.chars();
+    let tonic: i32 = match chars.next()?.to_ascii_uppercase() {
+        'C' => 0,
+        'D' => 2,
+        'E' => 4,
+        'F' => 5,
+        'G' => 7,
+        'A' => 9,
+        'B' => 11,
+        _ => return Some(upper),
+    };
+    let rest: String = chars.collect();
+    let (shift, rest): (i32, &str) = match rest.chars().next() {
+        Some('#') => (1, &rest[1..]),
+        Some('b') | Some('\u{266d}') => (-1, &rest[rest.chars().next().unwrap().len_utf8()..]),
+        _ => (0, rest.as_str()),
+    };
+    let minor = match rest.trim().to_lowercase().as_str() {
+        "" | "maj" | "major" => false,
+        "m" | "min" | "minor" => true,
+        _ => return Some(upper),
+    };
+    let tonic = (tonic + shift).rem_euclid(12) as u8;
+    camelot_core::MusicalKey::new(
+        tonic,
+        if minor {
+            camelot_core::Mode::Minor
+        } else {
+            camelot_core::Mode::Major
+        },
+    )
+    .ok()
+    .map(|k| k.camelot())
+}
+fn text_of(value: &Value) -> Value {
+    let joined = match value {
+        Value::Array(items) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("; "),
+        Value::String(s) => s.trim().to_owned(),
+        _ => String::new(),
+    };
+    if joined.is_empty() {
+        Value::Null
+    } else {
+        Value::String(joined)
+    }
+}
+fn number_of(value: &Value) -> Value {
+    let number = match value {
+        Value::Number(n) => n.as_f64(),
+        Value::String(s) => s.trim().parse::<f64>().ok(),
+        _ => None,
+    };
+    match number.filter(|n| n.is_finite() && *n != 0.) {
+        Some(n) => serde_json::json!(n.round() as i64),
+        None => Value::Null,
+    }
+}
+fn sorted_rows(mut rows: Vec<cuerithm_rekordbox::CueRow>) -> Value {
+    rows.sort_by(|a, b| {
+        (a.in_msec, a.out_msec, a.kind, &a.comment)
+            .cmp(&(b.in_msec, b.out_msec, b.kind, &b.comment))
+    });
+    if rows.is_empty() {
+        Value::Null
+    } else {
+        serde_json::to_value(rows).unwrap_or(Value::Null)
+    }
+}
+/// Writable fields in one comparable form. `local` is the Cuerithm side (published cues, Camelot keys, tags
+/// as strings); the other side is rekordbox's observation. Cues become the exact rows that would be written.
+pub(crate) fn canonical_fields(
+    map: &BTreeMap<String, Value>,
+    local: bool,
+) -> BTreeMap<String, Value> {
+    let get = |name: &str| map.get(name).cloned().unwrap_or(Value::Null);
+    let mut out = BTreeMap::new();
+    for field in map.keys().filter(|f| writable(f)) {
+        let value = get(field);
+        let canonical = match field.as_str() {
+            f if TEXT_FIELDS.contains(&f) => text_of(&value),
+            "release_date" => text_of(&value),
+            "key" => value
+                .as_str()
+                .and_then(camelot_key)
+                .map_or(Value::Null, Value::String),
+            "bpm" => match value.as_f64().filter(|b| b.is_finite() && *b > 0.) {
+                Some(bpm) => serde_json::json!((bpm * 100.).round() as i64),
+                None => Value::Null,
+            },
+            "cues" if local => {
+                let bpm = get("bpm").as_f64().unwrap_or(0.);
+                serde_json::from_value::<Vec<PublishedCue>>(value)
+                    .map(|cues| {
+                        sorted_rows(
+                            rekordbox_cue_rows(&cues, bpm, CueExportOptions::default()).rows,
+                        )
+                    })
+                    .unwrap_or(Value::Null)
+            }
+            "cues" => serde_json::from_value::<Vec<ImportedCue>>(value)
+                .map(|cues| {
+                    sorted_rows(
+                        cues.iter()
+                            .map(|c| cuerithm_rekordbox::CueRow {
+                                in_msec: (c.start_seconds.unwrap_or(0.) * 1000.).round() as i64,
+                                out_msec: c.end_seconds.map_or(-1, |e| (e * 1000.).round() as i64),
+                                kind: c.kind,
+                                active_loop: c.active_loop,
+                                beat_loop_size: c.beat_loop_size,
+                                color: c.color,
+                                color_table_index: c.color_table_index,
+                                comment: Some(c.comment.clone()).filter(|t| !t.is_empty()),
+                            })
+                            .collect(),
+                    )
+                })
+                .unwrap_or(Value::Null),
+            _ => number_of(&value),
+        };
+        out.insert(field.clone(), canonical);
+    }
+    out
 }
 
 fn empty(value: &Value) -> bool {
@@ -145,12 +312,34 @@ impl Library {
             if preview.blocked.is_some() {
                 *summary.entry("blocked_tracks".into()).or_default() += 1;
             } else if let (Some(local_id), Some(observation)) = (&link.local, &observation) {
-                let local = local_fields(&conn, local_id)?;
-                let remote = remote_fields(observation)?;
-                for (field, base) in &link.fields {
+                let local = canonical_fields(&local_fields(&conn, local_id)?, true);
+                let remote = canonical_fields(&remote_fields(observation)?, false);
+                let base_local = canonical_fields(
+                    &link
+                        .fields
+                        .iter()
+                        .map(|(k, f)| (k.clone(), f.local.clone()))
+                        .collect(),
+                    true,
+                );
+                let base_remote = canonical_fields(
+                    &link
+                        .fields
+                        .iter()
+                        .map(|(k, f)| (k.clone(), f.remote.clone()))
+                        .collect(),
+                    false,
+                );
+                for (field, base) in link.fields.iter().filter(|(f, _)| writable(f)) {
                     let l = local.get(field).cloned().unwrap_or(Value::Null);
                     let r = remote.get(field).cloned().unwrap_or(Value::Null);
-                    let decision = decide(base, &l, &r);
+                    let comparable = NativeFieldBaseline {
+                        local: base_local.get(field).cloned().unwrap_or(Value::Null),
+                        remote: base_remote.get(field).cloned().unwrap_or(Value::Null),
+                        owner: base.owner,
+                        acknowledged: base.acknowledged,
+                    };
+                    let decision = decide(&comparable, &l, &r);
                     let name = serde_json::to_value(decision)?
                         .as_str()
                         .unwrap_or_default()
@@ -162,8 +351,8 @@ impl Library {
                             decision,
                             local: l,
                             remote: r,
-                            baseline_local: base.local.clone(),
-                            baseline_remote: base.remote.clone(),
+                            baseline_local: comparable.local,
+                            baseline_remote: comparable.remote,
                             owner: base.owner,
                             acknowledged: base.acknowledged,
                         });
@@ -265,5 +454,97 @@ mod tests {
         // Missing and empty text are the same absence.
         let text = base(json!([]), json!([]), Local, true);
         assert_eq!(decide(&text, &json!([""]), &json!([])), Unchanged);
+    }
+
+    #[test]
+    fn keys_compare_as_camelot_whatever_notation_each_side_uses() {
+        for (text, camelot) in [
+            ("8A", Some("8A")),
+            ("8a", Some("8A")),
+            ("12B", Some("12B")),
+            ("Am", Some("8A")),
+            ("A minor", Some("8A")),
+            ("C", Some("8B")),
+            ("C#m", Some("12A")),
+            ("Dbm", Some("12A")),
+            ("Gb", Some("2B")),
+            ("F#", Some("2B")),
+            ("Ebm", Some("2A")),
+            ("", None),
+            ("  ", None),
+        ] {
+            assert_eq!(camelot_key(text).as_deref(), camelot, "{text:?}");
+        }
+        // Unfamiliar spellings stay comparable to themselves instead of being guessed at.
+        assert_eq!(camelot_key("10M").as_deref(), Some("10M"));
+        assert_eq!(camelot_key("13A").as_deref(), Some("13A"));
+    }
+    #[test]
+    fn both_sides_reduce_to_the_same_form_for_equal_content() {
+        let local: BTreeMap<String, Value> = [
+            ("title", json!(["Song"])),
+            ("artist", json!(["A", "B"])),
+            ("key", json!("8A")),
+            ("bpm", json!(128.5)),
+            ("rating", json!("3")),
+            ("duration_seconds", json!(200.0)),
+            ("comment", json!([])),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v))
+        .collect();
+        let remote: BTreeMap<String, Value> = [
+            ("title", json!(["Song"])),
+            ("artist", json!(["A; B"])),
+            ("key", json!("Am")),
+            ("bpm", json!(128.5)),
+            ("rating", json!(3)),
+            ("duration_seconds", json!(199.0)),
+            ("comment", json!([""])),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v))
+        .collect();
+        let (l, r) = (
+            canonical_fields(&local, true),
+            canonical_fields(&remote, false),
+        );
+        assert_eq!(l, r);
+        assert_eq!(l["bpm"], json!(12850));
+        assert_eq!(l["artist"], json!("A; B"));
+        assert_eq!(l["comment"], Value::Null);
+        assert!(!l.contains_key("duration_seconds"));
+    }
+    #[test]
+    fn published_cues_and_observed_cues_meet_in_the_rows_that_would_be_written() {
+        use camelot_core::lexicon_publication::{PublishedCue, PublishedType};
+        let published = vec![PublishedCue {
+            name: "Drop".into(),
+            start_time: 40.25,
+            kind: PublishedType::Cue,
+            position: 1,
+            color: json!("red"),
+            end_time: None,
+            active_loop: None,
+            data: None,
+        }];
+        let observed = json!([{
+            "id": "9", "uuid": null, "content_uuid": null, "kind": 2, "slot": 1, "memory": false,
+            "start_seconds": 40.25, "end_seconds": null, "active_loop": false, "comment": "Drop",
+            "color": -1, "color_table_index": 41, "beat_loop_size": null, "raw_hash": "x"
+        }]);
+        let local = BTreeMap::from([
+            ("cues".to_owned(), serde_json::to_value(&published).unwrap()),
+            ("bpm".to_owned(), json!(128.0)),
+        ]);
+        let remote = BTreeMap::from([("cues".to_owned(), observed)]);
+        assert_eq!(
+            canonical_fields(&local, true)["cues"],
+            canonical_fields(&remote, false)["cues"]
+        );
+        assert_ne!(canonical_fields(&local, true)["cues"], Value::Null);
+        // A cue list in some other shape is treated as having no comparable cues rather than a mismatch.
+        let odd = BTreeMap::from([("cues".to_owned(), json!({"native": true}))]);
+        assert_eq!(canonical_fields(&odd, true)["cues"], Value::Null);
     }
 }

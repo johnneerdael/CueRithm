@@ -513,8 +513,8 @@ fn sync_preview_reports_what_a_sync_would_do_without_changing_anything() {
         .find(|f| f.field == "title")
         .unwrap();
     assert_eq!(title.decision, FieldDecision::Conflict);
-    assert_eq!(title.remote, json!(["Edited in rekordbox"]));
-    assert_eq!(title.local, json!(["Target 1"]));
+    assert_eq!(title.remote, json!("Edited in rekordbox"));
+    assert_eq!(title.local, json!("Target 1"));
     // Previewing recorded no acknowledgement and wrote nothing to the baselines.
     let after = lib.native_track_link(&first.target_id, "1").unwrap();
     assert_eq!(after.fields, before.fields);
