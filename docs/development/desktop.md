@@ -85,7 +85,7 @@ mocks and successful device initialization alone are insufficient evidence.
 ```sh
 # macOS
 pnpm --dir apps/desktop tauri build --bundles app
-target/release/bundle/macos/Cuerithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
+target/release/bundle/macos/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
 
 # Linux
 pnpm --dir apps/desktop tauri build --bundles deb

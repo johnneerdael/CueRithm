@@ -612,3 +612,39 @@ fn lexicon_timing_cache_survives_restart_but_a_backend_change_recomputes() {
         "switching timing backends must invalidate the cached analysis"
     );
 }
+
+#[test]
+fn reanalysis_with_tagging_disabled_clears_the_previous_tag_status() {
+    let (_d, lib, source, rt, settings) = setup();
+    lib.save_settings(settings.clone()).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        rt,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog]).unwrap()),
+    )
+    .unwrap();
+    service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap();
+    until(&lib, || ready(&lib));
+    let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
+    assert!(row.metadata.contains_key("library.tag_status"));
+    let mut off = settings;
+    off.autotag_enabled = false;
+    lib.save_settings(off).unwrap();
+    service.reprepare(row.id.clone()).unwrap();
+    until(&lib, || lib.cue_revision_count(&row.id).unwrap() == 2);
+    service.shutdown();
+    assert!(
+        !lib.track(&row.id)
+            .unwrap()
+            .metadata
+            .contains_key("library.tag_status")
+    );
+}

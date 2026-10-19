@@ -183,6 +183,33 @@ fn publication_commits_current_identity_metadata_and_one_cue_revision() {
     assert!(f.lib.claim_next().unwrap().is_none());
 }
 #[test]
+fn committed_publication_reports_the_catalog_outcome_on_the_track_summary() {
+    let f = Fixture::new();
+    let (run, mut staged, result) = f.prepare("New title");
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    assert!(
+        !f.lib
+            .track(&run.track_id)
+            .unwrap()
+            .metadata
+            .contains_key("library.tag_status")
+    );
+    f.lib.publish_preparation(&run, &journal).unwrap();
+    let listed = f
+        .lib
+        .tracks(Default::default())
+        .unwrap()
+        .rows
+        .into_iter()
+        .find(|t| t.id == run.track_id)
+        .unwrap();
+    assert_eq!(listed.metadata["library.tag_status"], "matched");
+    assert_eq!(
+        f.lib.track(&run.track_id).unwrap().metadata["library.tag_status"],
+        "matched"
+    );
+}
+#[test]
 fn obsolete_attempt_and_user_edits_cannot_be_overwritten() {
     let f = Fixture::new();
     let (run, mut staged, result) = f.prepare("New title");

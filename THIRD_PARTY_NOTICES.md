@@ -59,8 +59,10 @@ the source offer with a bare binary checksum.
 
 ## Desktop UI and playback
 
-The Dosis font is distributed under SIL Open Font License 1.1; its full notice
-is `apps/desktop/src/assets/Dosis-OFL.txt`. Cuerithm's icon is original SVG.
+The Space Grotesk, Inter and IBM Plex Mono fonts are distributed under SIL Open
+Font License 1.1; their full notices are the `*-OFL.txt` files in
+`apps/desktop/src/brand/fonts/`. The CueRithm mark and UI glyphs come from the
+CueRithm brand kit.
 React and Tauri declare MIT licensing; Lucide declares ISC; Rodio declares
 MIT OR Apache-2.0. Exact dependency identities are in `Cargo.lock` and
 `apps/desktop/pnpm-lock.yaml`. Build tools and test fixtures do not require

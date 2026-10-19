@@ -1,6 +1,6 @@
 {
   "$schema":"https://schema.tauri.app/config/2",
-  "productName":"Cuerithm",
+  "productName":"CueRithm",
   "version":"0.1.0",
   "identifier":"com.cuerithm.app",
   "build":{
@@ -10,7 +10,7 @@
     "frontendDist":"../dist"
   },
   "app":{
-    "windows":[{"label":"main","title":"Cuerithm","width":1440,"height":940,"minWidth":980,"minHeight":680,"backgroundColor":"#181818","titleBarStyle":"Overlay","hiddenTitle":true}],
+    "windows":[{"label":"main","title":"CueRithm","width":1440,"height":940,"minWidth":980,"minHeight":680,"backgroundColor":"#10121B","titleBarStyle":"Overlay","hiddenTitle":true}],
     "security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src ipc: http://ipc.localhost 'self'","devCsp":null}
   },
   "bundle":{
