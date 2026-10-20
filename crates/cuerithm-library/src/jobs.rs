@@ -23,7 +23,7 @@ impl Library {
             return Ok(0);
         }
         let rows: Vec<(Vec<u8>, String, String)> = {
-            let mut stmt = tx.prepare("SELECT t.path,t.source_hash,j.settings_revision FROM tracks t JOIN jobs j ON j.id=t.current_job WHERE t.state='incoming' AND t.archived=0")?;
+            let mut stmt = tx.prepare("SELECT t.path,t.source_hash,j.settings_revision FROM tracks t JOIN jobs j ON j.id=t.current_job WHERE t.state='incoming' AND t.archived=0 AND NOT EXISTS(SELECT 1 FROM preparation_checkpoints p WHERE p.job_id=j.id AND p.state!='complete')")?;
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
                 .collect::<rusqlite::Result<_>>()?
         };
@@ -151,6 +151,10 @@ impl Library {
         revision: &str,
     ) -> Result<JobId> {
         let encoded = path_bytes(path);
+        let checkpoint: Option<String> = tx.query_row("SELECT p.job_id FROM preparation_checkpoints p JOIN tracks t ON t.id=p.track_id WHERE t.path=?1 AND t.current_job=p.job_id AND p.state!='complete'", [path_bytes(path)], |r| r.get(0)).optional()?;
+        if let Some(job) = checkpoint {
+            return Ok(job);
+        }
         let existing_track: Option<(String, Option<String>, bool, String)> = tx
             .query_row(
                 "SELECT id,current_job,archived,source_hash FROM tracks WHERE path=?1",
@@ -259,6 +263,7 @@ impl Library {
                     | "cleanup"
                     | "writing_tags"
                     | "committing"
+                    | "organizing"
             ),
             "Unknown preparation stage"
         );
@@ -284,6 +289,9 @@ impl Library {
         Ok(())
     }
     pub fn retry(&self, id: &str, revision: Option<SettingsRevision>) -> Result<JobId> {
+        if self.retry_preparation_checkpoint(id, revision.as_deref())? {
+            return Ok(id.to_owned());
+        }
         let (track, old_revision): (String, String) = self.conn()?.query_row(
             "SELECT track_id,settings_revision FROM jobs WHERE id=?1",
             [id],
@@ -312,6 +320,10 @@ impl Library {
         Ok(next)
     }
     pub fn retry_for_run(&self, job: &JobRun) -> Result<JobId> {
+        ensure!(
+            !self.has_preparation_checkpoint(&job.id)?,
+            "Prepared output must be recovered through its original preparation checkpoint"
+        );
         let hash = file_sha256(&job.path)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
@@ -376,6 +388,15 @@ impl Library {
         native: Option<&cuerithm_cleanup::Metadata>,
     ) -> Result<()> {
         Self::validate_analysis(result)?;
+        let (checkpoint_path,checkpoint_settings):(Vec<u8>,String)=self.conn()?.query_row("SELECT t.path,s.json FROM jobs j JOIN tracks t ON t.id=j.track_id JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?)))?;
+        let checkpoint_settings: SettingsSnapshot = serde_json::from_str(&checkpoint_settings)?;
+        let checkpoint_path = bytes_path(&checkpoint_path)?;
+        let checkpoint_source = checkpoint_settings
+            .settings
+            .organization
+            .enabled()
+            .then(|| Self::preparation_source_checkpoint(&checkpoint_path, &checkpoint_path))
+            .transpose()?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         let (track,expected,state,settings,current,path,actual_attempt):(String,String,String,String,String,Vec<u8>,u32)=tx.query_row(
@@ -401,6 +422,19 @@ impl Library {
         }
         #[cfg(not(feature = "autotag"))]
         let _ = native;
+        if snapshot.settings.organization.enabled() {
+            Self::insert_preparation_checkpoint_tx(
+                &tx,
+                id,
+                &track,
+                &expected,
+                &expected,
+                actual_attempt,
+                None,
+                "prepared",
+                checkpoint_source,
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -441,6 +475,9 @@ impl Library {
         result: &FileAnalysis,
         info: &MediaInfo,
     ) -> Result<()> {
+        let snapshot:String=tx.query_row("SELECT s.json FROM jobs j JOIN settings s ON s.revision=j.settings_revision WHERE j.id=?1",[id],|r|r.get(0))?;
+        let snapshot: SettingsSnapshot = serde_json::from_str(&snapshot)?;
+        let deferred = snapshot.settings.organization.enabled();
         let a = &result.analysis;
         let key = a.key.as_ref().context("Key is unresolved")?;
         let tempo = a.tempo.as_ref().context("BPM is unresolved")?;
@@ -499,6 +536,13 @@ impl Library {
             "UPDATE jobs SET state='completed',stage='completed',error=NULL,updated=?1 WHERE id=?2",
             params![now(), id],
         )?;
+        if deferred {
+            tx.execute("UPDATE tracks SET state='incoming' WHERE id=?1", [track])?;
+            tx.execute(
+                "UPDATE jobs SET state='running',stage='organizing' WHERE id=?1",
+                [id],
+            )?;
+        }
         Self::bump(tx)?;
         Ok(())
     }

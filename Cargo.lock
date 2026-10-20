@@ -1052,6 +1052,7 @@ dependencies = [
  "cuerithm-dj-sync",
  "cuerithm-maintenance",
  "cuerithm-media",
+ "cuerithm-organize",
  "cuerithm-rekordbox",
  "cuerithm-smartlists",
  "flate2",

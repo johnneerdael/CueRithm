@@ -18,12 +18,25 @@ impl Library {
             .organization_gate
             .lock()
             .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
-        self.plan_organization_inner(request, None)
+        self.plan_organization_inner(request, None, None)
+    }
+    pub(crate) fn plan_organization_for_row(
+        &self,
+        request: OrganizationRequest,
+        row_id: &str,
+    ) -> Result<String> {
+        let _gate = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
+        self.plan_organization_inner(request, None, Some(row_id.into()))
     }
     fn plan_organization_inner(
         &self,
         request: OrganizationRequest,
         undo_of: Option<String>,
+        batch_row_id: Option<String>,
     ) -> Result<String> {
         ensure!(
             !request.files.is_empty() && request.files.len() <= 256,
@@ -149,6 +162,7 @@ impl Library {
             created_directories: Vec::new(),
             error: None,
             undo_of,
+            batch_row_id,
         };
         self.insert_organization(&record)?;
         Ok(id)
@@ -168,6 +182,10 @@ impl Library {
                 }
             }
         }
+        if let Some(row) = &record.batch_row_id {
+            ensure!(tx.execute("UPDATE organization_batch_rows SET operation_id=?1 WHERE id=?2 AND track_id=?3 AND operation_id IS NULL",params![record.id,row,record.track_id])?==1,"Batch row already owns an organization operation");
+            self.organization_validate_operation_tx(&tx, record)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -179,6 +197,29 @@ impl Library {
     pub(crate) fn execute_organization_with(
         &self,
         id: &str,
+        boundary: impl FnMut(Boundary) -> Result<()>,
+    ) -> Result<OrganizationRecord> {
+        self.execute_organization_with_guard(id, None, boundary)
+    }
+    pub fn execute_organization_checked(
+        &self,
+        id: &str,
+        guard: &crate::OrganizationReferenceGuard,
+    ) -> Result<OrganizationRecord> {
+        self.execute_organization_with_guard(id, Some(guard), |_| Ok(()))
+    }
+    pub(crate) fn execute_organization_with_checked(
+        &self,
+        id: &str,
+        guard: &crate::OrganizationReferenceGuard,
+        boundary: impl FnMut(Boundary) -> Result<()>,
+    ) -> Result<OrganizationRecord> {
+        self.execute_organization_with_guard(id, Some(guard), boundary)
+    }
+    fn execute_organization_with_guard(
+        &self,
+        id: &str,
+        guard: Option<&crate::OrganizationReferenceGuard>,
         boundary: impl FnMut(Boundary) -> Result<()>,
     ) -> Result<OrganizationRecord> {
         let _gate = self
@@ -193,6 +234,35 @@ impl Library {
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
         let mut record = self.organization_record(id)?;
+        if matches!(
+            record.phase,
+            OrganizationPhase::Planned
+                | OrganizationPhase::Publishing
+                | OrganizationPhase::AwaitingReferences
+                | OrganizationPhase::Cleanup
+        ) {
+            let mut conn = self.conn()?;
+            let tx = conn.transaction()?;
+            self.organization_validate_operation_tx(&tx, &record)?;
+            tx.commit()?;
+        }
+        if let Some(guard) = guard {
+            ensure!(
+                guard.operation_id() == id,
+                "Reference guard belongs to another organization operation"
+            );
+        }
+        if record.phase == OrganizationPhase::Cleanup {
+            let owned = self.organization_service_owned(id)?
+                || self.organization_has_required_references(id)?;
+            ensure!(
+                !owned || guard.is_some(),
+                "Verified current reference receipts are required before source cleanup"
+            );
+            if let Some(guard) = guard {
+                self.validate_live_organization_reference_guard(&record, guard)?;
+            }
+        }
         record.error = None;
         let result = self.publish_organization(&mut record, boundary);
         if let Err(error) = result {
@@ -205,6 +275,20 @@ impl Library {
     /// Commit the library path only AFTER required native-reference repair.
     /// PR2 owns that caller contract. This transaction never sets a track Ready.
     pub fn acknowledge_organization_references(&self, id: &str) -> Result<OrganizationRecord> {
+        self.acknowledge_organization_references_inner(id, None)
+    }
+    pub fn acknowledge_organization_references_checked(
+        &self,
+        id: &str,
+        guard: &crate::OrganizationReferenceGuard,
+    ) -> Result<OrganizationRecord> {
+        self.acknowledge_organization_references_inner(id, Some(guard))
+    }
+    fn acknowledge_organization_references_inner(
+        &self,
+        id: &str,
+        guard: Option<&crate::OrganizationReferenceGuard>,
+    ) -> Result<OrganizationRecord> {
         let _gate = self
             .inner
             .organization_gate
@@ -224,9 +308,23 @@ impl Library {
         for file in &record.files {
             verify_destination(file)?;
         }
+        ensure!(
+            guard.is_some()
+                || (!self.organization_service_owned(id)?
+                    && !self.organization_has_required_references(id)?),
+            "Service-owned organization requires a checked reference acknowledgement"
+        );
+        if let Some(guard) = guard {
+            self.validate_organization_reference_source_proof(&record, &guard.source_proof)?;
+            self.validate_live_organization_reference_guard(&record, guard)?;
+        }
         let main = &record.files[0];
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
+        self.organization_validate_operation_tx(&tx, &record)?;
+        if let Some(guard) = guard {
+            self.organization_references_ack_tx(&tx, &record, guard)?;
+        }
         let changed = tx.execute(
             "UPDATE tracks SET path=?1,updated=?2 WHERE id=?3 AND path=?4 AND source_hash=?5",
             params![
@@ -241,20 +339,51 @@ impl Library {
             changed == 1,
             "Track changed before organization path commit"
         );
-        if record.mode == OrganizationMode::Copy {
-            tx.execute("INSERT INTO organization_alternates(operation_id,track_id,path,source_hash,state) VALUES(?1,?2,?3,?4,'active')",params![record.id,record.track_id,main.source.0,main.original.sha256])?;
-        }
+        self.complete_organization_copy_conflict_tx(&tx, &record, guard.map(|g| &g.source_proof))?;
         if let Some(previous) = &record.undo_of {
             tx.execute(
                 "UPDATE organization_alternates SET state='retired' WHERE operation_id=?1",
                 [previous],
             )?;
         }
+        for file in record.files.iter().skip(1) {
+            tx.execute("UPDATE organization_owned_sidecars SET path=?1 WHERE track_id=?2 AND path=?3 AND source_hash=?4",params![file.destination.0,record.track_id,file.source.0,file.original.sha256])?;
+        }
         record.phase = OrganizationPhase::Cleanup;
         tx.execute("UPDATE organization_operations SET state='cleanup',payload_json=?1,error=NULL,updated=?2 WHERE id=?3",params![serde_json::to_string(&record)?,crate::model::now(),id])?;
         Self::bump(&tx)?;
         tx.commit()?;
         Ok(record)
+    }
+    pub(crate) fn verify_organization_publication(&self, id: &str) -> Result<OrganizationRecord> {
+        let _gate = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
+        #[cfg(feature = "autotag")]
+        let _tag_gate = self
+            .inner
+            .tag_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        let record = self.organization_record(id)?;
+        ensure!(
+            record.phase == OrganizationPhase::AwaitingReferences && record.error.is_none(),
+            "Organization publication is not ready for reference repair"
+        );
+        for file in &record.files {
+            verify_destination(file)?;
+        }
+        Ok(record)
+    }
+    pub(crate) fn verify_organization_reference_destinations(
+        record: &OrganizationRecord,
+    ) -> Result<()> {
+        for file in &record.files {
+            verify_destination(file)?;
+        }
+        Ok(())
     }
     pub(crate) fn finish_organization(&self, record: &OrganizationRecord) -> Result<()> {
         let mut conn = self.conn()?;
@@ -326,6 +455,16 @@ impl Library {
     /// Produce a new guarded reverse operation; references still require the
     /// normal acknowledgement before the current managed file is quarantined.
     pub fn plan_organization_undo(&self, id: &str) -> Result<String> {
+        self.plan_organization_undo_inner(id, None)
+    }
+    pub(crate) fn plan_organization_undo_for_row(&self, id: &str, row_id: &str) -> Result<String> {
+        self.plan_organization_undo_inner(id, Some(row_id.into()))
+    }
+    fn plan_organization_undo_inner(
+        &self,
+        id: &str,
+        batch_row_id: Option<String>,
+    ) -> Result<String> {
         let _gate = self
             .inner
             .organization_gate
@@ -359,6 +498,7 @@ impl Library {
                     files,
                 },
                 Some(id.into()),
+                batch_row_id,
             )?;
             return Ok(inverse_id);
         }
@@ -401,6 +541,7 @@ impl Library {
             created_directories: Vec::new(),
             error: None,
             undo_of: Some(id.into()),
+            batch_row_id,
         })?;
         Ok(inverse_id)
     }
