@@ -83,7 +83,7 @@ Read `docs/research/mixed-in-key-patents.md`. Tested so far:
 
 ## Genre: what the data says so far
 
-The new 4,000-track set is 98% melodic house and techno (65 songs of 16 other genre strings), so it cannot settle the question. The clean test is `genre_experiment.py`: identical audio scanned with different genre tags (84 duplicate recordings with different file names already returned identical outputs, but all had the same genre). Plan and package format: `GENRE-EXPERIMENT.md`.
+**Result of the controlled test (2026-10-20):** 24 tracks, each scanned as 12 copies with byte-identical audio: ten different genre tags, no genre, and the original genre with neutral title and artist. All 288 requests were identical outside the tags and all 288 responses were identical in every field except the three timing values, the key confidence bit for bit (tracks spanned key confidence 0.28 to 0.998). The genre tag, title and artist do not influence the key, energy or cues; the decisions are a function of the numeric request fields (`GENRE-EXPERIMENT.md`, `genre_experiment.py`). Pool all genres when fitting; a genre input would add nothing. What the audio itself says about genre is a separate question the request cannot answer.
 
 On 272 tuning songs (227 melodic house and techno, 45 other; one song, one vote):
 
@@ -97,8 +97,8 @@ On 272 tuning songs (227 melodic house and techno, 45 other; one song, one vote)
 Most mismatches are inside melodic house and techno (9 of 14 key mismatches, almost all energy mismatches), so genre
 alone does not explain them. Key mismatches concentrate where the server is itself unsure: agreement is 100% when its
 confidence is at least 0.97, 98% from 0.9, 91% from 0.7 and 58% below 0.7; the confusions are neighbours on the wheel and
-parallel major/minor (the corpus has only 11 major keys). Nothing here proves or rules out genre-chosen weights: the
-other genres have 8 songs or fewer each. **A set with many songs per genre is exactly what can settle it.**
+parallel major/minor (the corpus has only 11 major keys). The genre-chosen-weights idea from the cue patent is ruled out for the
+tag the application sends by the controlled test above.
 
 ## Data
 
@@ -111,8 +111,7 @@ other genres have 8 songs or fewer each. **A set with many songs per genre is ex
   `tags.jsonl`, `inventory.jsonl`, the whole database backup and a manifest. Run `build_handback.py --verify` on receipt, then
   drop the sealed songs of the first corpus (the library probably overlaps it). Genres other than melodic house and techno are
   included; the response `EliteData.Genre` is the tag the application sent.
-- Treat the non-melodic-house-and-techno songs as the genre test set: fit on everything, then compare per-genre agreement, and
-  fit per-genre weights or an added genre input only if it beats the genre-blind model on songs held out within each genre.
+- Genre is not an input (controlled test above): fit all songs together. Per-genre agreement is still worth reporting as a check on the data, but there is nothing to tune per genre.
 - Learning curve for the window classifier on the first corpus: 21 songs 71.1%, 54 songs 77.3%, 108 songs 81.4%,
   162 songs 83.3%, 217 songs 84.4%: still rising by about 3 points per doubling. Sixteen times more songs is the largest
   lever there is.

@@ -93,6 +93,8 @@ def make(args):
             copy = FLAC(destination)
             copy.delete()
             copy.clear_pictures()
+            if code == 'g00':
+                genre = original_genre  # the control keeps the track's own genre
             if code == 'meta':
                 copy['title'], copy['artist'] = f'Test track {number}', 'Test artist'
                 genre = original_genre

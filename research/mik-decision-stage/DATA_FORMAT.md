@@ -36,14 +36,11 @@ It keeps only the analysis calls, redacts credential-looking values, keeps every
 requests: keep it private, never commit it, and never replay it. A large capture is better streamed to a file with `-w`
 than left in the web interface's memory.
 
-## Strongly wanted: the genre of every song
+## Genre
 
-What would settle the genre question: at least 50 songs, ideally 100, in each genre that should be tested separately, with
-different artists and tracks (no copies of the same recording). Priority order: trance, techno (peak time, raw and
-hypnotic), hardstyle, tech house, house and progressive house, drum and bass, and anything else dance music, next to
-the melodic house and techno songs already there. Fewer than about 30 songs in a genre can only show a trend.
-`EliteData.Genre` is the tag the application sent. The patents say weights may be chosen by genre, and the corpus so far
-is 87% "Melodic House & Techno", so the other genres are where a genre effect would show. Keep the genre tag exactly as sent.
+The genre tag the application sends (`EliteData.Genre`) does not change the service's response: a controlled test with 24 tracks in 12 tag
+variants each gave identical responses (see AGENT_TASK.md). Keep the tag as sent anyway, but there is no need to collect songs per genre for
+that reason. Variety of audio (keys, tempo, structure, major keys in particular) is still what makes the fits better.
 
 ## Optional: the stored analysis, tags and file inventory (`gather_mik_data.py`)
 
