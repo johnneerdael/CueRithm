@@ -2,7 +2,7 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import {Save,RefreshCw,LoaderCircle} from "lucide-react";
 import type {Bridge} from "../types";
 import type {PlaylistPreferenceSnapshot,PlaylistPreferences as Preferences} from "../playlist-types";
-import AutomaticPlaylistOptions,{automaticDefaults,automaticError} from "./AutomaticPlaylistOptions";
+import AutomaticPlaylistOptions,{automaticDefaults,automaticError,automaticForSave} from "./AutomaticPlaylistOptions";
 import {errorMessage} from "../api";
 export default function PlaylistPreferences({bridge,onSaved,automatic=false}:{bridge:Bridge;onSaved:()=>void;automatic?:boolean}){
  const [stored,setStored]=useState<PlaylistPreferenceSnapshot|null>(null),[draft,setDraft]=useState<Preferences>({time_zone:null,key_mixing_mode:"harmonic"});
@@ -13,7 +13,7 @@ export default function PlaylistPreferences({bridge,onSaved,automatic=false}:{br
  const validation=automaticError(draft.automatic??automaticDefaults);
  const dirty=stored&&JSON.stringify(draft)!==JSON.stringify(stored.preferences);
  const update=(next:Preferences)=>{setDraft(next);setSaved(false);};
- const save=async()=>{if(!stored||!dirty||writing.current||validation)return;writing.current=true;setBusy(true);setError(null);setSaved(false);try{const next=await bridge.savePlaylistPreferences({...draft,time_zone:draft.time_zone?.trim()||null},stored.revision);if(alive.current){setStored(next);setDraft(next.preferences);setSaved(true);onSaved();}}catch(e){if(alive.current)setError(errorMessage(e));}finally{writing.current=false;if(alive.current)setBusy(false);}};
+ const save=async()=>{if(!stored||!dirty||writing.current||validation)return;writing.current=true;setBusy(true);setError(null);setSaved(false);try{const next=await bridge.savePlaylistPreferences({...draft,...(draft.automatic?{automatic:automaticForSave(draft.automatic)}:{}),time_zone:draft.time_zone?.trim()||null},stored.revision);if(alive.current){setStored(next);setDraft(next.preferences);setSaved(true);onSaved();}}catch(e){if(alive.current)setError(errorMessage(e));}finally{writing.current=false;if(alive.current)setBusy(false);}};
  return <section className="setting-section" aria-label="Library preferences"><div className="setting-heading"><div><h2>{automatic?"Smart Playlists":"Library preferences"}</h2><p>{automatic?"Automatically build and maintain lists from your library.":"Calendar and key-matching rules for smart playlists."}</p></div></div>
   {error?<div role="alert" className="error-banner">{error}</div>:null}
   {!stored&&busy?<p role="status"><LoaderCircle className="spin" size={14}/>Loading library preferences…</p>:null}

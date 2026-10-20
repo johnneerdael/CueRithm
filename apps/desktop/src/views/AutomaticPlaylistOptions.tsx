@@ -1,7 +1,12 @@
 import {Plus,X} from "lucide-react";
 import type {AutomaticPlaylistSettings} from "../playlist-types";
 export const automaticDefaults:AutomaticPlaylistSettings={artists:false,bpm:false,bpm_ranges:[],release_dates:false,genres:false,keys:false};
+export function automaticForSave(value:AutomaticPlaylistSettings):AutomaticPlaylistSettings {
+ if(value.bpm)return value;
+ return {...value,bpm_ranges:value.bpm_ranges.filter(r=>Number.isFinite(r.start)&&Number.isFinite(r.end)&&r.start>0&&r.start<=r.end&&r.end<=999).filter((r,i,ranges)=>ranges.findIndex(other=>other.start===r.start&&other.end===r.end)===i).slice(0,10)};
+}
 export function automaticError(value:AutomaticPlaylistSettings):string|null {
+ if(!value.bpm)return null;
  if(value.bpm_ranges.length>10)return "Configure at most 10 BPM ranges.";
  for(const [index,range] of value.bpm_ranges.entries()){
   if(!Number.isFinite(range.start)||!Number.isFinite(range.end)||range.start<=0||range.end>999||range.start>range.end)return `Range ${index+1}: enter a minimum and maximum above 0 and up to 999 BPM, with minimum no greater than maximum.`;

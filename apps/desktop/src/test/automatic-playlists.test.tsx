@@ -28,4 +28,18 @@ describe("automatic smart playlists",()=>{
   expect(bridge.savePlaylistPreferences).toHaveBeenCalledWith(expect.objectContaining({automatic:expect.objectContaining({bpm:true,bpm_ranges:[{start:150,end:150}]})}),expect.any(Number));
   fireEvent.click(screen.getByRole("button",{name:"Reload library preferences"}));await waitFor(()=>expect(screen.getByRole("checkbox",{name:"By BPM"})).not.toBeChecked());
  });
+ it("can turn BPM off with an incomplete range and save unrelated preferences",async()=>{
+  const bridge=fakeBridge([]);render(<App bridge={bridge}/>);await open();
+  fireEvent.click(screen.getByRole("checkbox",{name:"By BPM"}));fireEvent.click(screen.getByRole("button",{name:"Add BPM range"}));
+  fireEvent.change(screen.getByRole("spinbutton",{name:"Range 1 minimum BPM"}),{target:{value:""}});
+  expect(screen.getByRole("button",{name:"Save Smart Playlist settings"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox",{name:"By BPM"}));
+  expect(screen.getByRole("button",{name:"Save Smart Playlist settings"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"Save Smart Playlist settings"}));await screen.findByText("Smart Playlist settings saved.");
+  expect(bridge.savePlaylistPreferences).toHaveBeenCalledWith(expect.objectContaining({automatic:expect.objectContaining({bpm:false,bpm_ranges:[]})}),expect.any(Number));
+  fireEvent.click(within(screen.getByRole("navigation",{name:"Settings pages"})).getByRole("button",{name:"Library preferences"}));
+  fireEvent.change(screen.getByLabelText("Library time zone"),{target:{value:"UTC"}});
+  expect(screen.getByRole("button",{name:"Save library preferences"})).toBeEnabled();
+ });
+
 });

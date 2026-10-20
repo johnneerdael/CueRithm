@@ -356,6 +356,9 @@ pub struct AutomaticBpmRange {
 }
 impl AutomaticPlaylistSettings {
     pub(super) fn validate(&self) -> anyhow::Result<()> {
+        if !self.bpm {
+            return Ok(());
+        }
         anyhow::ensure!(
             self.bpm_ranges.len() <= 10,
             "Configure at most 10 BPM ranges"

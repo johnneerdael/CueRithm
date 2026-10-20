@@ -2,7 +2,7 @@
 
 User authorization: design and implement in a new worktree through reviewed PR merge without approval checkpoints.
 
-Add Settings → Smart Playlists with independent Artist, BPM, Release date, Genre and Key switches, disabled by default. Keep time zone and key preferences on Library preferences. Save automatic settings with the same revision-checked preference API. BPM supports zero to ten configured inclusive finite ranges, positive and at most 999 BPM; reject reversed ranges and duplicate ranges. Overlaps are allowed and tracks may belong to both.
+Add Settings → Smart Playlists with independent Artist, BPM, Release date, Genre and Key switches, disabled by default. Keep time zone and key preferences on Library preferences. Save automatic settings with the same revision-checked preference API. BPM supports zero to ten configured inclusive finite ranges, positive and at most 999 BPM; reject reversed ranges and duplicate ranges. Overlaps are allowed and tracks may belong to both. Inactive BPM ranges never block disabling the option or saving unrelated preferences; omit incomplete or invalid range drafts from the UI save payload when BPM is off.
 
 Use managed ordinary smart-list definitions under Automatic Smart Playlists / Artists, BPM, Release dates and Genres. Release dates contain year / month folders and four smartlists named Month, Year; Warm-Up Month, Year (energy 1–5); Dancefloor Month, Year (6–7); Anthems Month, Year (8–10). All month lists include every prepared non-archived track with that release month, including tracks without energy. Do not invent a month for year-only dates. Recognize explicit release tags, including Beatport RELEASE_TIME, before DATE. Accept valid YYYY-MM and YYYY-MM-DD dates; reject malformed dates and timestamps.
 

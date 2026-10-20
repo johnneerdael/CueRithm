@@ -1828,21 +1828,21 @@ fn automatic_preferences_validate_ranges_and_default_for_existing_libraries() {
     assert!(
         enable_automatic(
             &f.lib,
-            serde_json::json!({"bpm_ranges":[{"start":130.,"end":120.}]})
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":130.,"end":120.}]})
         )
         .is_err()
     );
     assert!(
         enable_automatic(
             &f.lib,
-            serde_json::json!({"bpm_ranges":[{"start":0.,"end":120.}]})
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":0.,"end":120.}]})
         )
         .is_err()
     );
     assert!(
         enable_automatic(
             &f.lib,
-            serde_json::json!({"bpm_ranges":vec![serde_json::json!({"start":120.,"end":130.});11]})
+            serde_json::json!({"bpm":true,"bpm_ranges":vec![serde_json::json!({"start":120.,"end":130.});11]})
         )
         .is_err()
     );
@@ -2207,4 +2207,31 @@ fn automatic_rule_repairs_keep_stacked_undo_and_reject_newer_user_aba_edits() {
     );
     f.lib.refresh_smart_lists(NOW).unwrap();
     assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+}
+
+#[test]
+fn automatic_inactive_bpm_ranges_do_not_block_disabling_or_other_preferences() {
+    let f = fixture();
+    enable_automatic(
+        &f.lib,
+        serde_json::json!({"bpm":false,"bpm_ranges":[{"start":150.,"end":120.}]}),
+    )
+    .unwrap();
+    let old = f.lib.get_playlist_preferences().unwrap();
+    f.lib
+        .save_playlist_preferences(
+            PlaylistPreferences {
+                time_zone: Some("Europe/Amsterdam".into()),
+                ..old.preferences
+            },
+            old.revision,
+        )
+        .unwrap();
+    assert!(
+        enable_automatic(
+            &f.lib,
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":150.,"end":120.}]})
+        )
+        .is_err()
+    );
 }

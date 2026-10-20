@@ -63,7 +63,7 @@ Every automatic option is **off** in a new or existing library. Choose the categ
 
 New tracks and metadata changes expand enabled categories automatically, including new years and months. Release grouping uses explicit release tags (including `RELEASE_TIME`) before `DATE`; valid year-month and full dates are supported. A year alone cannot supply a month. Audio and file tags are unchanged.
 
-Turning an option off stops creating lists in that category. Existing lists remain and their memberships stay live. Removing a BPM range also keeps its existing list. Renamed or moved generated lists retain their identities; deleting one prevents that identity from being recreated automatically. Enabled categories maintain generated list rules. Duplicate a generated list to customize its rules. Manual lists are never adopted just because their names match.
+Turning an option off stops creating lists in that category. Existing lists remain and their memberships stay live. Removing a BPM range also keeps its existing list. Invalid or incomplete range drafts are discarded when saving with BPM generation off. Renamed or moved generated lists retain their identities; deleting one prevents that identity from being recreated automatically. Enabled categories maintain generated list rules. Duplicate a generated list to customize its rules. Manual lists are never adopted just because their names match.
 
 ![Smart Playlist settings with one configured BPM range](../assets/screens/16-settings-smart-playlists.png){ .screen loading=lazy }
 
