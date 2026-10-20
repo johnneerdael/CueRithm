@@ -103,14 +103,14 @@ other genres have 8 songs or fewer each. **A set with many songs per genre is ex
 - First corpus (private, not in the repo): 434 FLAC files, 364 distinct songs, 434 captured pairs; 282 tuning groups,
   82 groups sealed. `sealed_corpus_holdout_feature_sha1.txt` lists the sealed songs by feature hash; never train, tune or
   look at results on them until the final scoring.
-- New set (owner will provide): about 3,400 FLAC tracks analysed by Mixed In Key, with the request and the response for
-  each, including genres other than melodic house and techno. The owner's rekordbox library already carries the final
-  analysis for them: a comment `<key> - Energy <n>` and eight hot plus eight memory cues named `Energy <n>`
-  (2,024 tracks have the 16 entries; 1,026 have none, probably not analysed or cleared). Use it to cross-check responses
-  (`final.jsonl`).
-- The owner is also adding a few hundred songs from other dance genres (trance, techno, hardstyle, tech house and more).
-  Treat them as the genre test set: fit on everything, then compare per-genre agreement, and fit per-genre weights or an
-  added genre input only if it beats the genre-blind model on songs held out within each genre.
+- New set (hand-back package): 4,000+ tracks from a clean Mixed In Key scan, captured on another laptop and delivered as a
+  package built by `build_handback.py` (see `CAPTURE-LAPTOP.md`; nothing is analysed on that laptop). It holds the sanitized
+  request/response pairs, `final.jsonl` (the stored key, energy, tempo, genre, cues, segments and decoded beat grid per song),
+  `tags.jsonl`, `inventory.jsonl`, the whole database backup and a manifest. Run `build_handback.py --verify` on receipt, then
+  drop the sealed songs of the first corpus (the library probably overlaps it). Genres other than melodic house and techno are
+  included; the response `EliteData.Genre` is the tag the application sent.
+- Treat the non-melodic-house-and-techno songs as the genre test set: fit on everything, then compare per-genre agreement, and
+  fit per-genre weights or an added genre input only if it beats the genre-blind model on songs held out within each genre.
 - Learning curve for the window classifier on the first corpus: 21 songs 71.1%, 54 songs 77.3%, 108 songs 81.4%,
   162 songs 83.3%, 217 songs 84.4%: still rising by about 3 points per doubling. Sixteen times more songs is the largest
   lever there is.

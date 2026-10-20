@@ -8,7 +8,8 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 | --- | --- |
 | `import_capture.py` | mitmproxy addon: saved flow file -> sanitized request/response folder (offline, redacts credentials) |
 | `gather_mik_data.py` | runs on the capture laptop: database backup, per-song export with beat grids, file inventory, tag dump, capture check (see CAPTURE-LAPTOP.md) |
-| `CAPTURE-LAPTOP.md` | step-by-step for the laptop that has Mixed In Key: capture settings, trial run, the real run, what to bring back |
+| `CAPTURE-LAPTOP.md` | the task for the agent on the capture laptop: gather, check and package only, no analysis there |
+| `build_handback.py` | builds the hand-back package (manifest with SHA-256, counts, tools) and verifies one that was received |
 | `mikdata.py` | loader, genre grouping, split policy, cue/energy helpers |
 | `key_experiments.py` | key from the 352 features: tonic-rotation-shared model, confidence and genre breakdowns, baselines |
 | `energy_experiments.py` | window levels (RBF SVC), overall rating rules, boundary and genre breakdowns, learning curve |
