@@ -2,11 +2,13 @@ use crate::http::{CatalogHttp, MemoryChallengeStore, SolverConfig};
 use anyhow::Error;
 use chrono::NaiveDate;
 use onetagger_tagger::{
-    supported_tags, AudioFileInfo, AutotaggerSource, AutotaggerSourceBuilder, MatchingUtils,
+    supported_tags, Album, AudioFileInfo, AutotaggerSource, AutotaggerSourceBuilder, MatchingUtils,
     PlatformInfo, SupportedTag, TaggerConfig, Track, TrackMatch, TrackNumber,
 };
 use reqwest::blocking::Client;
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Html, Selector};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub struct Traxsource {
@@ -66,327 +68,402 @@ impl Traxsource {
     }
 
     pub fn search_tracks(&self, query: &str) -> Result<Vec<Track>, Error> {
-        // Fetch
-        debug!("Q: {}", query);
         let mut url = reqwest::Url::parse(&format!("{}/search/tracks", self.web))?;
         url.query_pairs_mut().append_pair("term", query);
         let data = self
             .http
             .get_text(url.as_str(), &self.solver, &self.cancel)?;
-
-        // Minify and parse
-        let data = String::from_utf8(minify_html::minify(
-            &data.as_bytes(),
-            &minify_html::Cfg::new(),
-        ))?;
-        let document = Html::parse_document(&data);
-
-        // Track list
-        let list_selector = Selector::parse("div#searchTrackList").unwrap();
-        let track_list = match document.select(&list_selector).next() {
-            Some(list) => list,
-            None => {
-                let empty_selector = Selector::parse("div#bodyBay div.search-res-cont h2").unwrap();
-                if document.select(&empty_selector).any(|e| {
-                    e.text()
-                        .collect::<String>()
-                        .trim_start()
-                        .starts_with("No results found for ")
-                }) {
-                    return Ok(vec![]);
-                }
-                return Err(anyhow!("Malformed Traxsource page: missing search results"));
+        let document = page(&data)?;
+        let list = document.select(&selector("div#searchTrackList")).next();
+        let Some(list) = list else {
+            if empty_search(&document) {
+                return Ok(vec![]);
             }
+            return Err(anyhow!("Malformed Traxsource page: missing search results"));
         };
-        // Select track
-        let track_selector = Selector::parse("div.trk-row").unwrap();
-        let mut tracks = vec![];
-        for track_element in track_list.select(&track_selector) {
-            // Get title
-            let mut selector = Selector::parse("div.title").unwrap();
-            let title_elem = track_element
-                .select(&selector)
-                .next()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-            let title_vec = title_elem.text().collect::<Vec<_>>();
-            let title = title_vec
-                .first()
-                .ok_or_else(|| anyhow!("Missing track title"))?
-                .to_string();
-            let (version, duration) = match title_vec.len() {
-                3 => {
-                    // Remove space at end because of duration
-                    let mut v = title_vec[1].to_owned();
-                    v.pop();
-                    // Parse duration
-                    let duration = MatchingUtils::parse_duration(title_vec[2])?;
-                    (Some(v), duration)
-                }
-                _ => (
-                    None,
-                    MatchingUtils::parse_duration(
-                        title_vec
-                            .get(1)
-                            .ok_or_else(|| anyhow!("Missing duration"))?,
-                    )?,
-                ),
-            };
-
-            // Get URL, ID
-            selector = Selector::parse("a").unwrap();
-            let title_link = title_elem
-                .select(&selector)
-                .next()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-            let title_href = title_link
-                .value()
-                .attr("href")
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing attribute"))?;
-            let mut track_id = title_href.replace("/track/", "");
-            track_id = track_id
-                .split('/')
-                .next()
-                .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
-                .ok_or_else(|| anyhow!("Invalid track ID"))?
-                .to_string();
-            let url = format!("{}{}", self.web, title_href);
-
-            // Artists
-            selector = Selector::parse("div.artists a").unwrap();
-            let artists: Vec<String> = track_element
-                .select(&selector)
-                .map(|e| e.text().collect::<String>().trim().to_string())
-                .collect();
-
-            // Label
-            selector = Selector::parse("div.label").unwrap();
-            let label = track_element
-                .select(&selector)
-                .next()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?
-                .text()
-                .collect::<Vec<_>>()
-                .first()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing text"))?
-                .to_owned();
-
-            // Key, BPM
-            selector = Selector::parse("div.key-bpm").unwrap();
-            let key_bpm_values = track_element
-                .select(&selector)
-                .next()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?
-                .text()
-                .collect::<Vec<_>>();
-            let mut key = None;
-            let mut bpm: Option<i64> = None;
-            if key_bpm_values.len() == 2 {
-                key = Some(
-                    key_bpm_values[0]
-                        .to_owned()
-                        .replace("maj", "")
-                        .replace("min", "m"),
-                );
-                bpm = key_bpm_values[1].to_owned().parse().ok();
-            }
-
-            // Genre
-            selector = Selector::parse("div.genre").unwrap();
-            let genre = track_element
-                .select(&selector)
-                .next()
-                .map(|e| e.text().collect::<Vec<_>>().first().map(|v| v.to_string()))
-                .flatten();
-
-            // Release date
-            selector = Selector::parse("div.r-date").unwrap();
-            let release_date_raw = track_element
-                .select(&selector)
-                .next()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?
-                .text()
-                .collect::<Vec<_>>()
-                .first()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing text"))?
-                .to_owned();
-            let release_date_clean = release_date_raw.replace("Pre-order for ", "");
-            let release_date = release_date_clean.trim().to_owned();
-
-            // Art
-            selector = Selector::parse("div.thumb img").unwrap();
-            let art_url = track_element
-                .select(&selector)
-                .next()
-                .and_then(|element| element.attr("src"))
-                .map(String::from);
-
-            // Create track
-            tracks.push(Track {
-                platform: "traxsource".to_string(),
-                version,
-                artists,
-                bpm,
-                key,
-                title,
-                url,
-                album_artists: vec![],
-                label: Some(label.to_string()),
-                release_date: NaiveDate::parse_from_str(&release_date, "%Y-%m-%d").ok(),
-                genres: genre.map(|g| vec![g]).unwrap_or_default(),
-                track_id: Some(track_id),
-                release_id: None,
-                duration: duration.into(),
-                thumbnail: art_url,
-                ..Default::default()
-            })
-        }
-
-        Ok(tracks)
+        list.select(&selector("div.trk-row"))
+            .map(|row| parse_track(row, &self.web, true))
+            .collect()
     }
 
-    // Tracks in search don't have album name and art
+    /// Fetch one explicit result page; callers decide whether to request more pages.
+    pub fn search_releases(
+        &self,
+        query: &str,
+        page_number: u32,
+    ) -> Result<Vec<TraxsourceRelease>, Error> {
+        if page_number == 0 {
+            return Err(anyhow!("Traxsource pages start at 1"));
+        }
+        let mut url = reqwest::Url::parse(&format!("{}/scripts/search.php/titles", self.web))?;
+        url.query_pairs_mut()
+            .append_pair("term", query)
+            .append_pair("page", &page_number.to_string())
+            .append_pair("rpc", "1");
+        let data = self
+            .http
+            .get_text(url.as_str(), &self.solver, &self.cancel)?;
+        let document = page(&data)?;
+        let container = document.select(&selector("#searchResCont")).next();
+        let Some(container) = container else {
+            if empty_search(&document) {
+                return Ok(vec![]);
+            }
+            return Err(anyhow!(
+                "Malformed Traxsource page: missing release search results"
+            ));
+        };
+        let mut found = Vec::new();
+        for card in container.select(&selector(".grid-item.play-ttl")) {
+            let title = card
+                .select(&selector("a.com-title"))
+                .next()
+                .ok_or_else(|| anyhow!("Missing release title"))?;
+            let href = title
+                .attr("href")
+                .ok_or_else(|| anyhow!("Missing release link"))?;
+            found.push(TraxsourceRelease {
+                id: catalog_id(href, "title")?,
+                title: nonempty(text(title), "release title")?,
+                url: format!("{}{}", self.web, href),
+                label: optional_text(card, "a.com-label"),
+                thumbnail: card
+                    .select(&selector(".grid-image img"))
+                    .next()
+                    .and_then(|e| e.attr("src"))
+                    .map(str::to_owned),
+            });
+        }
+        if found.is_empty() && !empty_search(&document) {
+            return Err(anyhow!(
+                "Malformed Traxsource page: missing release results"
+            ));
+        }
+        Ok(found)
+    }
+
+    pub fn get_release(&self, id: &str) -> Result<Album, Error> {
+        numeric_id(id)?;
+        let data = self.http.get_text(
+            &format!("{}/title/{id}/", self.web),
+            &self.solver,
+            &self.cancel,
+        )?;
+        self.parse_release(id, &data)
+    }
+
+    fn parse_release(&self, id: &str, data: &str) -> Result<Album, Error> {
+        let document = page(data)?;
+        if let Some(actual) = document
+            .select(&selector("#ttlPageCont[data-tid]"))
+            .next()
+            .and_then(|e| e.attr("data-tid"))
+        {
+            if actual != id {
+                return Err(anyhow!("Traxsource returned a different release"));
+            }
+        }
+        let release = document
+            .select(&selector(".ttl-cont"))
+            .next()
+            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing release"))?;
+        let name = required_text(release, "h1.title")?;
+        let artists_element = release
+            .select(&selector("h1.artists"))
+            .next()
+            .ok_or_else(|| anyhow!("Missing release artists"))?;
+        let mut artists: Vec<_> = artists_element
+            .select(&selector("a"))
+            .map(text)
+            .filter(|v| !v.is_empty())
+            .collect();
+        if artists.is_empty() {
+            artists = text(artists_element)
+                .split(',')
+                .map(|v| v.trim().to_owned())
+                .filter(|v| !v.is_empty())
+                .collect();
+        }
+        let cat_date = required_text(release, ".cat-rdate")?;
+        let parts: Vec<_> = cat_date.split('|').map(str::trim).collect();
+        let date_text = parts
+            .last()
+            .ok_or_else(|| anyhow!("Missing release date"))?
+            .replace("Pre-order for ", "");
+        let date = NaiveDate::parse_from_str(date_text.trim(), "%Y-%m-%d")
+            .map_err(|_| anyhow!("Invalid Traxsource release date"))?;
+        let catalog = (parts.len() > 1)
+            .then(|| parts[0].to_owned())
+            .filter(|v| !v.is_empty());
+        let label = optional_text(release, "a.com-label");
+        let art = release
+            .select(&selector(".t-image img"))
+            .next()
+            .and_then(|e| e.attr("src"))
+            .map(str::to_owned);
+        let list = release
+            .select(&selector("#trkListCont .trklist"))
+            .next()
+            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing release tracklist"))?;
+        let mut tracks = Vec::new();
+        let mut ids = HashSet::new();
+        for row in list.select(&selector(".trk-row.play-trk")) {
+            let mut track = parse_track(row, &self.web, false)?;
+            if !ids.insert(track.track_id.clone()) {
+                return Err(anyhow!("Duplicate Traxsource release track"));
+            }
+            let number: i32 = required_text(row, ".tnum")?.parse()?;
+            if number != tracks.len() as i32 + 1 {
+                return Err(anyhow!("Incomplete or unordered Traxsource tracklist"));
+            }
+            track.track_number = Some(TrackNumber::Number(number));
+            track.album = Some(name.clone());
+            track.album_artists = artists.clone();
+            track.release_id = Some(id.to_owned());
+            track.catalog_number = catalog.clone();
+            track.release_date = Some(date);
+            track.label = label.clone();
+            track.art = art.clone();
+            tracks.push(track);
+        }
+        if tracks.is_empty() {
+            return Err(anyhow!("Malformed Traxsource release: no tracks"));
+        }
+        if let Some(expected) = release
+            .select(&selector("a.com-play-all[data-tracks]"))
+            .next()
+            .and_then(|element| element.attr("data-tracks"))
+        {
+            let advertised: Vec<_> = expected.split(',').map(str::trim).collect();
+            let actual: Vec<_> = tracks
+                .iter()
+                .filter_map(|track| track.track_id.as_deref())
+                .collect();
+            if advertised != actual {
+                return Err(anyhow!("Incomplete Traxsource release tracklist"));
+            }
+        }
+        let count = u16::try_from(tracks.len())?;
+        for track in &mut tracks {
+            track.track_total = Some(count);
+        }
+        Ok(Album {
+            id: id.to_owned(),
+            name,
+            tracks,
+        })
+    }
+
+    // Preserve the exact release identity linked from the matched track.
     pub fn extend_track_traxsource(
         &self,
         track: &mut Track,
         album_meta: bool,
         album_art: bool,
     ) -> Result<(), Error> {
-        // Fetch
         let data = self.http.get_text(&track.url, &self.solver, &self.cancel)?;
-
-        // Minify and parse
-        let data = String::from_utf8(minify_html::minify(
-            data.as_bytes(),
-            &minify_html::Cfg::new(),
-        ))?;
-        let document = Html::parse_document(&data);
-
-        // Select album element
-        let mut selector = Selector::parse("div.ttl-info.ellip a").unwrap();
-        let album_element = document
-            .select(&selector)
+        let document = page(&data)?;
+        let link = document
+            .select(&selector("div.ttl-info.ellip a[href^='/title/']"))
             .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        let album_url = album_element
-            .value()
+            .ok_or_else(|| anyhow!("Missing Traxsource track release link"))?;
+        let href = link
             .attr("href")
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing attribute"))?;
-        let album_text = album_element.text().collect::<Vec<_>>();
-        track.album = Some(
-            album_text
-                .first()
-                .ok_or_else(|| anyhow!("Malformed Traxsource page: missing text"))?
-                .to_owned()
-                .to_owned(),
-        );
-
-        // Get release id
-        let release_id = album_url.replace("/title/", "");
-        track.release_id = Some(
-            release_id
-                .split('/')
-                .next()
-                .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
-                .ok_or_else(|| anyhow!("Invalid release ID"))?
-                .to_string(),
-        );
-
-        // Album metadata
+            .ok_or_else(|| anyhow!("Missing release link"))?;
+        let id = catalog_id(href, "title")?;
+        track.album = Some(nonempty(text(link), "release title")?);
+        track.release_id = Some(id.clone());
         if !album_meta {
             return Ok(());
         }
-        let data = self.http.get_text(
-            &format!("{}{}", self.web, album_url),
-            &self.solver,
-            &self.cancel,
-        )?;
-        // Minify and parse
-        let data = String::from_utf8(minify_html::minify(
-            data.as_bytes(),
-            &minify_html::Cfg::new(),
-        ))?;
-        let document = Html::parse_document(&data);
-
-        // Select catalog number
-        selector = Selector::parse("div.cat-rdate").unwrap();
-        let rdate_element = document
-            .select(&selector)
-            .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        let release_date = rdate_element.text().collect::<Vec<_>>().join(" ");
-        let rd_split = release_date.split(" | ").collect::<Vec<_>>();
-        let mut catalog_number = None;
-        if rd_split.len() >= 2 {
-            catalog_number = Some(rd_split[0].trim().to_string());
-        }
-        track.catalog_number = catalog_number;
-
-        // Album artists
-        selector = Selector::parse("h1.artists").unwrap();
-        let album_artists_element = document
-            .select(&selector)
-            .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        let album_artists_text = album_artists_element.text().collect::<Vec<_>>().join(" ");
-        let album_artists: Vec<String> = album_artists_text
-            .split(",")
-            .map(|i| i.trim().to_string())
-            .collect();
-        track.album_artists = album_artists;
-
-        // Track number
-        selector = Selector::parse(&format!(
-            "div.trk-row.ptk-{}",
-            track
-                .track_id
-                .as_ref()
-                .ok_or_else(|| anyhow!("Missing track ID"))?
-        ))
-        .unwrap();
-        let track_element = document
-            .select(&selector)
-            .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        selector = Selector::parse("div.tnum").unwrap();
-        let track_number_element = track_element
-            .select(&selector)
-            .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        let track_number_text = track_number_element.text().collect::<Vec<_>>().join("");
-        if let Ok(tn) = track_number_text.trim().parse() {
-            track.track_number = Some(TrackNumber::Number(tn));
-        }
-
-        // Track total
-        selector = Selector::parse("div.trk-row.play-trk").unwrap();
-        track.track_total = Some(document.select(&selector).count() as u16);
-
-        // Album art
-        selector = Selector::parse("div.t-image img").unwrap();
-        let img_element = document
-            .select(&selector)
-            .next()
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing required element"))?;
-        let art_url = img_element
-            .value()
-            .attr("src")
-            .ok_or_else(|| anyhow!("Malformed Traxsource page: missing attribute"))?;
-        track.art = Some(art_url.to_owned());
-
-        // Pre fetch album art since traxsource changed something
+        let album = self.get_release(&id)?;
+        let found = album
+            .tracks
+            .iter()
+            .find(|candidate| candidate.track_id == track.track_id)
+            .ok_or_else(|| anyhow!("Matched track is absent from its Traxsource release"))?;
+        track.album = found.album.clone();
+        track.catalog_number = found.catalog_number.clone();
+        track.album_artists = found.album_artists.clone();
+        track.track_number = found.track_number.clone();
+        track.track_total = found.track_total;
+        track.art = found.art.clone();
         if album_art {
-            self.client
-                .get(art_url)
-                .header("Referer", "https://www.traxsource.com/")
-                .send()
-                .ok();
+            if let Some(art) = track.art.as_deref() {
+                self.client
+                    .get(art)
+                    .header("Referer", "https://www.traxsource.com/")
+                    .send()
+                    .ok();
+            }
         }
-
         Ok(())
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraxsourceRelease {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub label: Option<String>,
+    pub thumbnail: Option<String>,
+}
+
+fn selector(css: &str) -> Selector {
+    Selector::parse(css).expect("static selector")
+}
+fn text(element: ElementRef<'_>) -> String {
+    element.text().collect::<String>().trim().to_owned()
+}
+fn optional_text(root: ElementRef<'_>, css: &str) -> Option<String> {
+    root.select(&selector(css))
+        .next()
+        .map(text)
+        .filter(|v| !v.is_empty())
+}
+fn nonempty(value: String, field: &str) -> Result<String, Error> {
+    if value.is_empty() {
+        Err(anyhow!("Missing Traxsource {field}"))
+    } else {
+        Ok(value)
+    }
+}
+fn required_text(root: ElementRef<'_>, css: &str) -> Result<String, Error> {
+    optional_text(root, css).ok_or_else(|| anyhow!("Missing Traxsource element: {css}"))
+}
+fn numeric_id(id: &str) -> Result<(), Error> {
+    if id.is_empty() || !id.bytes().all(|v| v.is_ascii_digit()) {
+        return Err(anyhow!("Invalid Traxsource catalog ID"));
+    }
+    Ok(())
+}
+fn catalog_id(href: &str, kind: &str) -> Result<String, Error> {
+    let suffix = href
+        .strip_prefix(&format!("/{kind}/"))
+        .ok_or_else(|| anyhow!("Invalid Traxsource catalog link"))?;
+    let id = suffix.split('/').next().unwrap_or_default();
+    numeric_id(id)?;
+    Ok(id.to_owned())
+}
+fn page(data: &str) -> Result<Html, Error> {
+    let body = if data.trim_start().starts_with("<?xml") || data.trim_start().starts_with("<root>")
+    {
+        let xml = roxmltree::Document::parse(data)
+            .map_err(|_| anyhow!("Malformed Traxsource RPC response"))?;
+        xml.root_element()
+            .children()
+            .find(|n| n.has_tag_name("data"))
+            .and_then(|n| n.text())
+            .ok_or_else(|| anyhow!("Missing Traxsource RPC data"))?
+            .to_owned()
+    } else {
+        data.to_owned()
+    };
+    Ok(Html::parse_document(&body))
+}
+fn empty_search(document: &Html) -> bool {
+    document
+        .select(&selector("#bodyBay .search-res-cont h2, #searchResCont h2"))
+        .any(|e| text(e).starts_with("No results found for "))
+}
+fn parse_track(row: ElementRef<'_>, web: &str, search: bool) -> Result<Track, Error> {
+    let title_element = row
+        .select(&selector("div.title"))
+        .next()
+        .ok_or_else(|| anyhow!("Missing Traxsource track title"))?;
+    let link = title_element
+        .select(&selector("a[href^='/track/']"))
+        .next()
+        .ok_or_else(|| anyhow!("Missing Traxsource track link"))?;
+    let href = link
+        .attr("href")
+        .ok_or_else(|| anyhow!("Missing Traxsource track URL"))?;
+    let duration_text = optional_text(title_element, ".duration")
+        .or_else(|| {
+            title_element
+                .text()
+                .map(str::trim)
+                .filter(|v| v.contains(':'))
+                .last()
+                .map(str::to_owned)
+        })
+        .ok_or_else(|| anyhow!("Missing Traxsource duration"))?;
+    let duration = MatchingUtils::parse_duration(&duration_text)?;
+    let version = title_element
+        .select(&selector(".version"))
+        .next()
+        .map(|e| {
+            e.text()
+                .collect::<String>()
+                .replace(&duration_text, "")
+                .trim()
+                .to_owned()
+        })
+        .filter(|v| !v.is_empty());
+    let artists: Vec<_> = row
+        .select(&selector("div.artists a"))
+        .map(text)
+        .filter(|v| !v.is_empty())
+        .collect();
+    if artists.is_empty() {
+        return Err(anyhow!("Missing Traxsource track artists"));
+    }
+    let label = optional_text(row, "div.label");
+    let release_date = optional_text(row, "div.r-date")
+        .map(|v| NaiveDate::parse_from_str(v.replace("Pre-order for ", "").trim(), "%Y-%m-%d"))
+        .transpose()?;
+    let key_bpm: Vec<_> = row
+        .select(&selector("div.key-bpm"))
+        .next()
+        .map(|e| {
+            e.text()
+                .map(|v| v.trim().to_owned())
+                .filter(|v| !v.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    if search
+        && (label.is_none()
+            || release_date.is_none()
+            || row.select(&selector("div.key-bpm")).next().is_none())
+    {
+        return Err(anyhow!("Malformed Traxsource search track metadata"));
+    }
+    let (key, bpm) = if key_bpm.len() == 2 {
+        (
+            Some(key_bpm[0].replace("maj", "").replace("min", "m")),
+            key_bpm[1].parse().ok(),
+        )
+    } else {
+        (None, None)
+    };
+    Ok(Track {
+        platform: "traxsource".into(),
+        title: nonempty(text(link), "track title")?,
+        version,
+        artists,
+        key,
+        bpm,
+        track_id: Some(catalog_id(href, "track")?),
+        url: format!("{web}{href}"),
+        duration,
+        label,
+        release_date,
+        genres: optional_text(row, "div.genre").into_iter().collect(),
+        thumbnail: row
+            .select(&selector("div.thumb img"))
+            .next()
+            .and_then(|e| e.attr("src"))
+            .map(str::to_owned),
+        ..Default::default()
+    })
+}
+
 impl AutotaggerSource for Traxsource {
+    fn get_album(&mut self, id: &str, _config: &TaggerConfig) -> Result<Option<Album>, Error> {
+        self.get_release(id).map(Some)
+    }
     fn match_track(
         &mut self,
         info: &AudioFileInfo,

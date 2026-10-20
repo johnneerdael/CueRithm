@@ -75,3 +75,12 @@ rewrites synchronize known ID3/INFO mirrors, recognize legacy comments/date/trac
 numbers, preserve unrelated INFO and non-INFO LIST chunks, and propagate flush
 errors. The supported writer rejects unsupported/truncated/trailing-data WAVE
 containers before rewriting rather than discarding bytes it did not parse.
+
+Traxsource release acquisition (2026-10-21) adds explicit paginated title search
+and complete release tracklists through the existing shared CatalogHttp/optional
+solver transport. Track searches and release pages share a row parser. Track
+enrichment follows the exact linked release ID and checks that the selected
+track is present. Album grouping carries provider identity so equal numeric IDs
+from different catalogs never form one album. Offline fixtures use invented
+metadata and structural markup only; captured traffic and credentials are not
+vendored. Analysis and file-writing calculations are unchanged.
