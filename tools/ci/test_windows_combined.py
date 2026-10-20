@@ -1,5 +1,6 @@
 """Exercise real child processes: overlap, isolation, and failure propagation."""
 import json
+import os
 from pathlib import Path
 import sys
 import subprocess
@@ -10,6 +11,31 @@ from windows_combined import prepare, run_groups
 
 
 class CombinedChecksTest(unittest.TestCase):
+    def test_unicode_output_survives_a_windows_code_page(self):
+        # Windows Python pipes can default to cp1252; logging must not kill a worker.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for group in ('engine', 'desktop'):
+                (root / group).mkdir()
+            script = '''from pathlib import Path
+import sys
+from windows_combined import run_groups
+root = Path(sys.argv[1])
+workspaces = {name: root / name for name in ('engine', 'desktop')}
+commands = {name: [[sys.executable, '-c', "import sys; sys.stdout.buffer.write(chr(0x240d).encode('utf-8'))"]] for name in workspaces}
+results = run_groups(workspaces, commands, root / 'logs', 8)
+raise SystemExit(any(result['exit_code'] for result in results.values()))
+'''
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'cp1252'
+            result = subprocess.run([sys.executable, '-c', script, str(root)],
+                                    cwd=Path(__file__).parent, env=env, capture_output=True,
+                                    text=True, encoding='utf-8', errors='replace', timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for group in ('engine', 'desktop'):
+                self.assertIn('\u240d', (root / 'logs' / (group + '.log')).read_text(encoding='utf-8'))
+            self.assertTrue((root / 'logs' / 'results.json').exists())
+
     def test_prepare_copies_generated_media_and_refuses_existing_workspaces(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -44,6 +44,9 @@ COMMANDS = {
 
 
 def run_groups(workspaces, commands, logs, build_jobs):
+    # GitHub consumes UTF-8, but Windows Python can default redirected stdout to cp1252.
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     logs.mkdir(parents=True, exist_ok=True)
 
     def run(name):
