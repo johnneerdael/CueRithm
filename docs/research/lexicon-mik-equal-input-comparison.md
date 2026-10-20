@@ -88,3 +88,39 @@ within-one agreement and does not beat the unfitted formula on exact agreement, 
 amount of data, are the limit. A closer imitation would need MIK-style segment features with a segment classifier
 trained on captured server labels and then MIK's aggregation; the earlier SVC did that and matched 58.5%, scored on
 its own training songs. Nothing here uses the held-out split.
+
+## Energy against Mixed In Key's server contract, tuning split only
+
+Measured on the 282 development request and response pairs captured earlier from the licensed app, and on the
+tuning-split files. Aggregates only.
+
+- **The tag is the server's overall value.** The `OverallEnergy` field of the analysis response equals the energy tag
+  Mixed In Key writes on every one of the 255 songs whose request windows were securely matched to a file (255/255).
+  The client's duration-weighted mode over the response's segments equals the tag on only 58.7% of the 126 songs
+  matched by duration, so that rule is not what produces the tag.
+- **The overall value is not a function of the response's segment levels.** On the 282 responses it never exceeds the
+  highest segment level or falls below the lowest, but the best rule found (a duration-weighted 80th percentile of the
+  segment levels) reproduces it on only 80.1%; no rule tried reached 100%. It is therefore computed from something
+  the response does not expose, such as per-window scores before they are rounded and merged. The server answers in
+  roughly 4 to 20 ms for cues, key and energy, which is the speed of a calculation, not of a large model.
+- **Our request windows match Mixed In Key's.** The 183-value energy windows computed from the files are bit-identical
+  to the captured request vectors on 255 of 282 songs (90.4%). The other 27 differ from the first window onward;
+  the cause is unknown (not tempo: 16 of the 27 agree with the captured tempo to 0.001 BPM, and 38 songs with a
+  different tempo still match). Mixed In Key's recorded duration is shorter than the file by up to about 4,100
+  samples on roughly half of all songs, including many that match, so duration alone does not explain them.
+- **Window classifier plus an 80th-percentile rule.** The shipped SVC with the 80th percentile of window levels
+  (`EnergyModel::estimate_overall`, method `svc-percentile80-v1`) matches the server value on 78.4% (99.2% within one
+  level) of the 255 matched songs, in-sample, and on 74.8% (99.6%) out of fold on the 282 development songs. The
+  Lexicon formula gets 46.3% (91.0%) on the same 255 songs. On the whole tuning split, scored against the file tag,
+  both methods match 64.5% exactly; the 80th-percentile route is better within one level (96.5% against 94.3%). The
+  desktop still uses the acoustic formula, since the window route needs the 10 MB model and the unexplained 27
+  songs resolved first.
+- **A direct whole-track model does worse.** Ridge, logistic, SVM and random-forest models on per-track summaries of
+  the window features reached 63 to 66% exact, below the window route.
+
+## Capturing Mixed In Key's analysis traffic
+
+Run `mitmweb --mode local:"Mixed In Key 11"` with the sanitising add-on, naming the process and never its PID (a
+PID breaks when the app relaunches, and an attach to a stale PID records nothing). The analysis starts paused and
+only began after Mixed In Key was restarted. Scope the capture to the analysis endpoint, redact credentials and
+license values, keep the output private, and stop mitmweb when finished.
