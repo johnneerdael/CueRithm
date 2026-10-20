@@ -82,6 +82,19 @@ cues, so cue comparison with MIK is not meaningful.
   song does not work, because it breaks two others that currently agree, so the app's buffer length depends on
   something per song that is not identified. Chromium reports the file's full length for this song, both for
   `decodeAudioData` and for the media element. Nothing was changed for it.
+
+  Narrowed down on 2026-10-20 (tuning split only). Lexicon's analysis passes its worker a mono buffer whose length is
+  `duration × sample rate`, a fractional number that the Web Audio API truncates, so the buffer can be shorter than the
+  file. Running Lexicon's shipped worker on the song with the exact tempo and first beat our engine produces: the full
+  length returns our Last beat, one sample fewer returns Lexicon's. So the cause is confirmed to be a shorter buffer in the
+  app, not the tempo or the cue logic. Only 75 of 282 songs have a beat count that one sample can change, and only two
+  of those tell the full-length buffer from one sample fewer (this song needs the shorter buffer; the other needs the
+  full length); a rule that shortens by more samples is tested on the 35 songs it would change. Rules tested and rejected: the media element's duration, in Chrome 155 and in Electron 32.3.3
+  (Chromium 128, the version Lexicon bundles), which Chromium rounds to a microsecond and which keeps all three songs at
+  full length; the decoded buffer's own duration, same result; the floating-point product `(N / rate) × rate`; Lexicon's
+  stored track duration; and a duration rounded to the millisecond, which fits both of those songs but moves one of the 35
+  songs it changes to a different Last beat than Lexicon's. The rule is still unidentified, so nothing in the engine changed; one song in
+  282 is the visible effect.
 - **Energy.** CueRithm's rating in this run is Lexicon's published local formula. Against the current Mixed In Key
   tags it matches 45.4% exactly (91.5% within one level), a little above Lexicon's own rating (36.2%, 84.0%), and it
   does not reproduce Lexicon's rating on real music (19.1%). Probed on 12 songs, Lexicon feeds the formula the left
