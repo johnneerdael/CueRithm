@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Lean PR gate: PR body sections plus a completed Codex review of the head commit.
 
+Once the gate passes it starts the hosted builds for that commit (one dispatch per commit), and a
+newer commit cancels unfinished builds of the old one. Pushes alone never start them.
+
 Run only from main with a token that never executes PR code.
 """
 import argparse
@@ -8,9 +11,11 @@ import json
 import os
 import re
 import subprocess
+import urllib.parse
 
 CONTEXT = "PR gate"
 CODEX = "chatgpt-codex-connector[bot]"
+HOSTED_CHECKS = ("ci.yml", "desktop.yml")
 
 
 def sections(body):
@@ -99,6 +104,38 @@ def review_threads(repo, number):
         cursor = data["pageInfo"]["endCursor"]
 
 
+def check_actions(pr, repo, state, runs):
+    """Plan hosted-build changes for the PR head from each workflow's dispatched runs on its branch."""
+    if pr["head"]["repo"]["full_name"] != repo:  # fork branches cannot be dispatched
+        return []
+    sha = pr["head"]["sha"]
+    actions = []
+    for workflow in HOSTED_CHECKS:
+        found = runs.get(workflow, [])
+        actions += [("cancel", item["id"]) for item in found
+                    if item["head_sha"] != sha and item["status"] in {"queued", "in_progress"}]
+        # Any earlier run of this commit, even a failed or cancelled one, blocks a repeat dispatch.
+        if state == "success" and not any(item["head_sha"] == sha for item in found):
+            actions.append(("dispatch", workflow))
+    return actions
+
+
+def manage_checks(repo, pr, state):
+    branch = pr["head"]["ref"]
+    runs = {}
+    for workflow in HOSTED_CHECKS:
+        query = f"branch={urllib.parse.quote(branch, safe='')}&event=workflow_dispatch&per_page=50"
+        found = gh(f"repos/{repo}/actions/workflows/{workflow}/runs?{query}")["workflow_runs"]
+        runs[workflow] = [{key: item[key] for key in ("id", "head_sha", "status")} for item in found]
+    for action, target in check_actions(pr, repo, state, runs):
+        print(f"{action}: {target}")
+        if action == "cancel":
+            gh(f"repos/{repo}/actions/runs/{target}/cancel", "--method", "POST")
+        else:
+            gh(f"repos/{repo}/actions/workflows/{target}/dispatches", "--method", "POST",
+               "--input", "-", data={"ref": branch})
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY"))
@@ -114,6 +151,7 @@ def main():
     print(f"{state}: {description}")
     gh(f"repos/{args.repo}/statuses/{pr['head']['sha']}", "--method", "POST", "--input", "-",
        data=dict(state=state, context=CONTEXT, description=description[:140]))
+    manage_checks(args.repo, pr, state)
 
 
 if __name__ == "__main__":
