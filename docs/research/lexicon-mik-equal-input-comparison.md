@@ -15,7 +15,10 @@ Aggregate results only. Per-track detail stays under `.analysis/`.
 - **Lexicon 1.11.15.** Own analysis with tempo range 78–155, key and energy analysis on, and the Cue Point Generator
   with the Default template (overwrite on, start at first beat, breakdown minimum 64 beats, drop at start never,
   no custom anchors, no emergency loop). Read from a read-only copy of its database.
-- **CueRithm.** `camelot analyze --lexicon-timing --lexicon-tempo 78_155 --lexicon-cues --lexicon-energy`.
+- **CueRithm.** `camelot analyze --lexicon-timing --lexicon-tempo 78_155 --lexicon-cues --lexicon-energy` for timing,
+  cues and energy, and `camelot analyze --key-openkeyscan-model models/builtin/openkeyscan3-logits.onnx` (built with
+  the `openkeyscan-key` feature) for key, which is the model the desktop uses. A first key pass used the CLI's fallback
+  estimator by mistake and reported 35.8% against MIK; that figure was wrong and is withdrawn.
 - **MIK column.** The base64-JSON tags that Mixed In Key wrote into the original files (`source: mixedinkey`).
   This is not a fresh MIK run, and the MIK version that wrote them is not established.
 - Identical audio gives identical results: no disagreement across the 42 songs with more than one copy, in either tool.
@@ -29,8 +32,8 @@ Aggregate results only. Per-track detail stays under `.analysis/`.
 | First beat within 5 ms | 277/282 (98.2%) | 153/282 (54.3%) | 154/282 (54.6%) |
 | Same cue count | 276/282 (97.9%) | — | — |
 | Every cue within 5 ms | 270/282 (95.7%) | — | — |
-| Key exact | 116/282 (41.1%) | 101/282 (35.8%) | 213/282 (75.5%) |
-| Key adjacent on the wheel | 42/282 (14.9%) | 40/282 (14.2%) | 24/282 (8.5%) |
+| Key exact | 213/282 (75.5%) | 274/282 (97.2%) | 213/282 (75.5%) |
+| Key adjacent on the wheel | 23/282 (8.2%) | 6/282 (2.1%) | 24/282 (8.5%) |
 | Energy exact | 54/282 (19.1%) | 182/282 (64.5%) | 85/282 (30.1%) |
 | Energy within one level | 243/282 (86.2%) | 266/282 (94.3%) | 236/282 (83.7%) |
 
@@ -52,4 +55,6 @@ cues, so cue comparison with MIK is not meaningful.
 - **MIK energy.** MIK's tag rating is a local aggregation of segment levels that its server returns, so a local
   rating can only imitate it. The earlier replacement of the SVC by the Lexicon formula (2026-10-18) was made for
   independence from a model file and a server and was not compared with MIK.
-- **Key.** CueRithm agrees with MIK on 35.8% and Lexicon on 75.5%. Key is the largest gap to MIK.
+- **Key.** OpenKeyScan agrees with MIK's tags on 97.2% (274/282), matching the earlier development measurement of
+  274/282, and agrees with Lexicon's own key on 75.5%. Lexicon's key is itself 75.5% against MIK, so CueRithm is
+  much closer to MIK than Lexicon is.
