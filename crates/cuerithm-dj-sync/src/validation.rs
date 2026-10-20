@@ -20,10 +20,6 @@ pub fn validate_library(library: &SyncLibrary) -> Result<()> {
             !track.id.is_empty() && ids.insert(track.id.as_str()),
             "Duplicate or missing sync track identity"
         );
-        let path = track
-            .path
-            .to_str()
-            .context("DJ software requires UTF-8 paths")?;
         ensure!(
             !track.path.components().any(|part| matches!(
                 part,
@@ -39,7 +35,18 @@ pub fn validate_library(library: &SyncLibrary) -> Result<()> {
         }
 
         ensure!(
-            track.path.is_absolute() && !path.chars().any(|c| c.is_control()) && paths.insert(path),
+            track.path.is_absolute()
+                && !track
+                    .path
+                    .as_os_str()
+                    .as_encoded_bytes()
+                    .iter()
+                    .any(u8::is_ascii_control)
+                && track
+                    .path
+                    .to_str()
+                    .is_none_or(|path| !path.chars().any(char::is_control))
+                && paths.insert(&track.path),
             "Duplicate or invalid sync audio path"
         );
         ensure!(

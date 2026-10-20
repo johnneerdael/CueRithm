@@ -26,6 +26,9 @@ and move, removes only proven owned playlists for explicit source tombstones, an
 retains matched external lists. Typed directory and case-rename operations restore
 the original tree; batch staging avoids repeatedly rewriting growing journals.
 The service recovers both publication and restoration acknowledgement windows.
+Private path serialization preserves raw platform names and path-keyed evidence;
+valid Unicode paths keep their ordinary JSON form. Destination text encoders retain
+their own representability checks, while portable media copies use safe names.
 
 Timing profiles bind codec measurements to source bytes and the bundled runtime.
 Native clock adjustments affect export clones, leaving saved analysis and playback

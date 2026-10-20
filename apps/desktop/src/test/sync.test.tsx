@@ -89,6 +89,22 @@ describe("native DJ sync",()=>{
   expect(bridge.applyDjSync).not.toHaveBeenCalled();
  });
 
+ it("waits for option-change cleanup before allocating another preview",async()=>{
+  const bridge=fakeBridge([]);let finish!:()=>void;
+  bridge.discardDjSync=vi.fn(()=>new Promise<void>(resolve=>{finish=resolve;}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  enterDestination();fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("checkbox",{name:"Keep existing beatgrids"}));
+  await waitFor(()=>expect(bridge.discardDjSync).toHaveBeenCalledWith("sync"));
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  expect(bridge.previewDjSync).toHaveBeenCalledTimes(1);
+  await act(async()=>{finish();});
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(2));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeEnabled());
+  bridge.discardDjSync=vi.fn(async()=>{});
+ });
+
  it.each(["revision","unmount"] as const)("discards a late preview after %s instead of losing its files",async reason=>{
   const bridge=fakeBridge([]);let finish!:(value:SyncPreview)=>void;
   bridge.previewDjSync=vi.fn(()=>new Promise<SyncPreview>(resolve=>{finish=resolve;}));
@@ -114,6 +130,17 @@ describe("native DJ sync",()=>{
   expect(screen.queryByRole("region",{name:"Sync preview"})).not.toBeInTheDocument();
   expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeDisabled();
   expect(bridge.applyDjSync).not.toHaveBeenCalled();expect(bridge.restoreDjSync).not.toHaveBeenCalled();
+ });
+
+ it("renders raw native preview paths without replacing their apply identity",async()=>{
+  const bridge=fakeBridge([]);
+  bridge.previewDjSync=vi.fn(async()=>({...prepared("raw-plan"),files:[{target:{unix:[47,114,97,119,45,0xff,46,119,97,118]},before_sha256:"before",after_sha256:null,bytes:1}]}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  enterDestination();fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await screen.findByText("/raw-\\xff.wav");
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Sync to VirtualDJ"}));
+  await waitFor(()=>expect(bridge.applyDjSync).toHaveBeenCalledWith("raw-plan"));
  });
 
  it("retains a discard action for incomplete Prepared history while keeping recovery actions",async()=>{

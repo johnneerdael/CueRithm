@@ -21,8 +21,10 @@ pub type PlaylistOwnershipReports =
 pub struct SyncTarget {
     pub software: DjSoftware,
     /// Native database path; Pioneer USB uses its drive root.
+    #[serde(with = "crate::path_serde")]
     pub path: PathBuf,
     /// Original external/network volume root for a Serato location database.
+    #[serde(default, with = "crate::path_serde::option")]
     pub source_root: Option<PathBuf>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,10 +48,12 @@ pub struct SyncPreview {
 #[derive(Serialize, Deserialize)]
 struct PreparedRequest {
     target: SyncTarget,
+    #[serde(with = "crate::path_serde::map")]
     sources: BTreeMap<PathBuf, Option<String>>,
     preview: SyncPreview,
+    #[serde(with = "crate::path_serde::map")]
     preconditions: BTreeMap<PathBuf, Option<String>>,
-    #[serde(default)]
+    #[serde(default, with = "crate::path_serde::rooted_map")]
     ownership: PlaylistOwnershipReports,
 }
 
@@ -969,6 +973,97 @@ pub fn verify_sync_restored(journal_root: &Path, id: &str) -> Result<FileJournal
 mod tests {
     use super::*;
     use crate::SyncTrack;
+    #[test]
+    fn private_request_reopens_raw_sources_dependencies_and_ownership_paths() {
+        #[cfg(unix)]
+        let raw = {
+            use std::os::unix::ffi::OsStringExt;
+            PathBuf::from(std::ffi::OsString::from_vec(
+                b"/music/raw-\xff.wav".to_vec(),
+            ))
+        };
+        #[cfg(windows)]
+        let raw = {
+            use std::os::windows::ffi::OsStringExt;
+            PathBuf::from(std::ffi::OsString::from_wide(&[0x43, 0x3a, 0x5c, 0xd800]))
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let transaction = FileTransaction::create(dir.path()).unwrap();
+        let target = SyncTarget {
+            software: DjSoftware::EngineDj,
+            path: raw.clone(),
+            source_root: Some(raw.clone()),
+        };
+        let file = crate::transaction::FileChange {
+            target: raw.clone(),
+            before_sha256: None,
+            after_sha256: Some("hash".into()),
+            bytes: 1,
+        };
+        let directory = crate::transaction::DirectoryChange {
+            target: raw.clone(),
+            before_manifest: None,
+            after_exists: true,
+        };
+        let rename = crate::transaction::CaseRenameChange {
+            from: raw.clone(),
+            to: raw.clone(),
+            temporary: raw.clone(),
+            before: crate::transaction::RenameBefore::File {
+                sha256: "hash".into(),
+            },
+        };
+        let journal = FileJournal {
+            id: "fixture".into(),
+            state: crate::transaction::JournalState::Prepared,
+            changes: vec![file.clone()],
+            directories: vec![directory.clone()],
+            renames: vec![rename.clone()],
+        };
+        crate::transaction::durable_json(&transaction.path().join("raw-journal.json"), &journal)
+            .unwrap();
+        let restored: FileJournal = serde_json::from_reader(
+            fs::File::open(transaction.path().join("raw-journal.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(restored.changes[0].target, raw);
+        assert_eq!(restored.directories[0].target, raw);
+        assert_eq!(restored.renames[0].temporary, raw);
+        let prepared = PreparedRequest {
+            target: target.clone(),
+            sources: BTreeMap::from([(raw.clone(), Some("audio".into()))]),
+            preconditions: BTreeMap::from([(raw.clone(), None)]),
+            ownership: BTreeMap::from([(
+                raw.clone(),
+                (
+                    Some(raw.clone()),
+                    crate::ownership::PlaylistOwnershipReport::default(),
+                ),
+            )]),
+            preview: SyncPreview {
+                id: transaction.inspect().unwrap().id,
+                target,
+                tracks: 1,
+                playlists: 0,
+                bytes_to_write: 1,
+                files: vec![file],
+                warnings: vec![],
+                directories: vec![directory],
+                deleted_playlists: 0,
+                retained_external_playlists: 0,
+                renames: vec![rename],
+            },
+        };
+        crate::transaction::durable_json(&transaction.path().join("request.json"), &prepared)
+            .unwrap();
+        let restored = request(&transaction).unwrap();
+        assert_eq!(restored.sources, prepared.sources);
+        assert_eq!(restored.preconditions, prepared.preconditions);
+        assert_eq!(restored.target.path, raw);
+        assert_eq!(restored.target.source_root.as_ref(), Some(&raw));
+        assert_eq!(restored.ownership[&raw].0.as_ref(), Some(&raw));
+        assert_eq!(restored.preview.files[0].target, raw);
+    }
     #[test]
     fn engine_device_libraries_include_windows_drive_roots_without_copying_desktop_libraries() {
         for root in [

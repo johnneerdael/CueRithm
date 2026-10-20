@@ -1136,6 +1136,66 @@ mod tests {
         (dir, path)
     }
     #[test]
+    fn portable_source_copy_survives_preparation_reopen_apply_and_restore() {
+        let (dir, database) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        #[cfg(all(unix, not(target_os = "macos")))]
+        let filename = {
+            use std::os::unix::ffi::OsStringExt;
+            std::ffi::OsString::from_vec(b"source-\xff.wav".to_vec())
+        };
+        // APFS rejects invalid UTF-8 names at creation; exercise the same
+        // publication flow with a representable name on macOS.
+        #[cfg(target_os = "macos")]
+        let filename = std::ffi::OsString::from("source-\u{e000}.wav");
+        #[cfg(windows)]
+        let filename = {
+            use std::os::windows::ffi::OsStringExt;
+            std::ffi::OsString::from_wide(&[0x61, 0xd800, 0x2e, 0x77, 0x61, 0x76])
+        };
+        let source = root.join(filename);
+        let original_audio = b"synthetic portable source audio";
+        std::fs::write(&source, original_audio).unwrap();
+        let original_database = std::fs::read(&database).unwrap();
+        let library = SyncLibrary {
+            tracks: vec![track(source.clone())],
+            ..Default::default()
+        };
+        let journals = root.join("journals");
+        let preview = crate::prepare_sync(
+            &journals,
+            crate::SyncTarget {
+                software: crate::DjSoftware::EngineDj,
+                path: database.clone(),
+                source_root: None,
+            },
+            &library,
+            &SyncOptions {
+                engine_copy_audio: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let journal = crate::transaction::FileTransaction::open(&journals, &preview.id).unwrap();
+        assert!(journal.path().join("request.json").is_file());
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        let connection = Connection::open(&database).unwrap();
+        let relative: String = connection
+            .query_row("SELECT path FROM Track WHERE title='Synthetic'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        drop(connection);
+        let copied = database.parent().unwrap().parent().unwrap().join(relative);
+        assert!(copied.file_name().unwrap().to_str().is_some());
+        assert_eq!(std::fs::read(&copied).unwrap(), original_audio);
+        assert_eq!(std::fs::read(&source).unwrap(), original_audio);
+        crate::restore_sync(&journals, &preview.id).unwrap();
+        assert_eq!(std::fs::read(&database).unwrap(), original_database);
+        assert_eq!(std::fs::read(&source).unwrap(), original_audio);
+        assert!(!copied.exists());
+    }
+    #[test]
     fn owned_playlist_rename_keeps_native_id() {
         let (dir, path) = fixture();
         let library_root = path.parent().unwrap().parent().unwrap();

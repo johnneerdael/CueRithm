@@ -40,6 +40,7 @@ pub struct DjSyncHistoryEntry {
 #[derive(Clone, Serialize, Deserialize)]
 struct Source {
     id: String,
+    #[serde(with = "cuerithm_dj_sync::path_serde")]
     path: PathBuf,
     hash: String,
 }
@@ -1044,6 +1045,46 @@ mod tests {
             options: SyncOptions::default(),
             scope,
         }
+    }
+    #[test]
+    fn raw_source_paths_hash_and_roundtrip_without_changing_source_bytes() {
+        let (dir, library, _target) = fixture();
+        #[cfg(unix)]
+        let filename = {
+            use std::os::unix::ffi::OsStringExt;
+            std::ffi::OsString::from_vec(b"authored-\xff.wav".to_vec())
+        };
+        #[cfg(windows)]
+        let filename = {
+            use std::os::windows::ffi::OsStringExt;
+            std::ffi::OsString::from_wide(&[0x61, 0xd800, 0x2e, 0x77, 0x61, 0x76])
+        };
+        let source = dir.path().canonicalize().unwrap().join(filename);
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=? WHERE id='a'",
+                [crate::model::path_bytes(&source)],
+            )
+            .unwrap();
+        let original = dir.path().join("authored.wav");
+        let before = fs::read(&original).unwrap();
+        let mut export = library.dj_sync_library(DjSyncScope::Full).unwrap();
+        assert_eq!(export.tracks[0].path, source);
+        let hashes = track_hashes(&mut export).unwrap();
+        let sources = vec![Source {
+            id: "a".into(),
+            path: source.clone(),
+            hash: file_hash(&original).unwrap().unwrap(),
+        }];
+        let bytes = serde_json::to_vec(&sources).unwrap();
+        let restored: Vec<Source> = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored[0].path, source);
+        assert_eq!(hashes, track_hashes(&mut export).unwrap());
+        export.tracks[0].path = dir.path().join("another.wav");
+        assert_ne!(hashes, track_hashes(&mut export).unwrap());
+        assert_eq!(fs::read(&original).unwrap(), before);
     }
     #[test]
     fn discarded_library_previews_release_staging_and_leave_sources_and_native_state_unchanged() {

@@ -25,6 +25,7 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileChange {
+    #[serde(with = "crate::path_serde")]
     pub target: PathBuf,
     pub before_sha256: Option<String>,
     pub after_sha256: Option<String>,
@@ -52,6 +53,7 @@ pub struct DirectoryEntry {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryChange {
+    #[serde(with = "crate::path_serde")]
     pub target: PathBuf,
     /// None means absent; Some(empty) means an existing empty directory.
     pub before_manifest: Option<Vec<DirectoryEntry>>,
@@ -498,13 +500,9 @@ impl FileTransaction {
             if entry.file_name() == "journal.json" {
                 continue;
             }
-            if entry.file_type()?.is_dir() {
-                fs::remove_dir_all(entry.path())?;
-            } else {
-                fs::remove_file(entry.path())?;
-            }
+            crate::private_cleanup::remove(&entry.path())?;
         }
-        fs::remove_file(self.root.join("journal.json"))?;
+        crate::private_cleanup::remove(&self.root.join("journal.json"))?;
         if let Err(error) = fs::remove_dir(&self.root) {
             // A platform sharing violation or a newly appeared child can leave
             // the directory behind. Restore its Prepared record for retry.
@@ -1278,6 +1276,39 @@ mod tests {
         fs::set_permissions(&build, fs::Permissions::from_mode(0o700)).unwrap();
         FileTransaction::discard(&root.join("journals"), &id).unwrap();
         assert!(!transaction.path().exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn abandoned_prepared_readonly_copies_are_discarded_without_changing_source_permissions() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let source = root.join("original-resource");
+        fs::write(&source, b"original resource bytes").unwrap();
+        let mut permissions = fs::metadata(&source).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&source, permissions).unwrap();
+        let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+        let id = transaction.inspect().unwrap().id;
+        // No BuildDirectory guard owns this tree: model a killed preparation.
+        let abandoned = transaction.path().join("build-abandoned/nested");
+        fs::create_dir_all(&abandoned).unwrap();
+        fs::copy(&source, abandoned.join("resource")).unwrap();
+        fs::copy(&source, transaction.path().join("loose-resource")).unwrap();
+        assert!(
+            fs::metadata(abandoned.join("resource"))
+                .unwrap()
+                .permissions()
+                .readonly()
+        );
+        FileTransaction::discard(&root.join("journals"), &id).unwrap();
+        assert!(!transaction.path().exists());
+        assert_eq!(fs::read(&source).unwrap(), b"original resource bytes");
+        assert!(fs::metadata(&source).unwrap().permissions().readonly());
+        // Restore only the synthetic source fixture for TempDir's own teardown.
+        let mut permissions = fs::metadata(&source).unwrap().permissions();
+        permissions.set_readonly(false);
+        fs::set_permissions(&source, permissions).unwrap();
     }
 
     #[cfg(windows)]

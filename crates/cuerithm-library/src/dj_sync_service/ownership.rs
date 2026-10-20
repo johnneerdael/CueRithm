@@ -10,6 +10,7 @@ pub(super) struct OwnershipLedger {
     pub generation: u64,
     pub last_journal: String,
     pub registration: String,
+    #[serde(with = "cuerithm_dj_sync::path_serde::rooted_map")]
     pub stores: BTreeMap<PathBuf, (Option<PathBuf>, PlaylistOwnership)>,
     pub tombstones: Vec<Tombstone>,
 }

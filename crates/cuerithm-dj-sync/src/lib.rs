@@ -1,5 +1,6 @@
 //! Native DJ library format adapters. No installed JavaScript or Python runtime.
 mod model;
+pub mod path_serde;
 pub use model::*;
 pub mod discovery;
 pub mod djay_pro;
@@ -8,6 +9,7 @@ pub mod serato4;
 mod validation;
 pub mod virtual_dj;
 pub use validation::validate_library;
+mod private_cleanup;
 mod sync;
 pub mod transaction;
 pub use sync::*;

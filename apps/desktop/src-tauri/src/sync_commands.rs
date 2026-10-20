@@ -8,6 +8,8 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{Emitter, Manager, State};
 type Managed<'a> = State<'a, Arc<Host>>;
 type Ipc<T> = Result<T, AppError>;
+#[cfg(not(windows))]
+mod mounts;
 
 fn mounted_drives() -> anyhow::Result<Vec<PathBuf>> {
     #[cfg(windows)]
@@ -19,37 +21,25 @@ fn mounted_drives() -> anyhow::Result<Vec<PathBuf>> {
     }
     #[cfg(not(windows))]
     {
-        let mut paths = vec![];
-        for parent in [
-            PathBuf::from("/Volumes"),
-            PathBuf::from("/media"),
-            PathBuf::from("/run/media"),
-            PathBuf::from("/mnt"),
-        ] {
-            if !parent.exists() {
-                continue;
-            }
-            for entry in std::fs::read_dir(&parent)? {
-                let entry = entry?;
-                if entry.path().is_dir() {
-                    paths.push(entry.path());
-                }
-            }
-        }
-        #[cfg(target_os = "linux")]
-        {
-            let nested = paths.clone();
-            for parent in nested {
-                for entry in std::fs::read_dir(&parent)? {
-                    let entry = entry?;
-                    if entry.path().is_dir() {
-                        paths.push(entry.path());
-                    }
-                }
-            }
-        }
-        Ok(paths)
+        Ok(mounts::scan(
+            &[
+                PathBuf::from("/Volumes"),
+                PathBuf::from("/media"),
+                PathBuf::from("/run/media"),
+                PathBuf::from("/mnt"),
+            ],
+            cfg!(target_os = "linux"),
+        )?)
     }
+}
+
+fn ipc_targets(targets: Vec<DiscoveredTarget>) -> Vec<DiscoveredTarget> {
+    // The destination picker is a text input. Raw source paths stay lossless in
+    // private evidence, but a raw destination tag cannot fill this string field.
+    targets
+        .into_iter()
+        .filter(|target| target.path.to_str().is_some())
+        .collect()
 }
 #[tauri::command]
 pub async fn discover_dj_targets(app: tauri::AppHandle) -> Ipc<Vec<DiscoveredTarget>> {
@@ -66,12 +56,12 @@ pub async fn discover_dj_targets(app: tauri::AppHandle) -> Ipc<Vec<DiscoveredTar
         .document_dir()
         .unwrap_or_else(|_| home.join("Documents"));
     work(move || {
-        Ok(cuerithm_dj_sync::discovery::discover(
+        Ok(ipc_targets(cuerithm_dj_sync::discovery::discover(
             &home,
             &music,
             &documents,
             &mounted_drives()?,
-        ))
+        )))
     })
     .await
 }
@@ -121,4 +111,37 @@ pub async fn restore_dj_sync(
 pub async fn dj_sync_history(host: Managed<'_>) -> Ipc<Vec<DjSyncHistoryEntry>> {
     let library = host.library.clone();
     work(move || library.history_dj_sync()).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_keeps_the_frontend_destination_path_contract_as_text() {
+        #[cfg(unix)]
+        let raw = {
+            use std::os::unix::ffi::OsStringExt;
+            PathBuf::from(std::ffi::OsString::from_vec(b"/volumes/raw-\xff".to_vec()))
+        };
+        #[cfg(windows)]
+        let raw = {
+            use std::os::windows::ffi::OsStringExt;
+            PathBuf::from(std::ffi::OsString::from_wide(&[0x43, 0x3a, 0x5c, 0xd800]))
+        };
+        assert!(raw.to_str().is_none());
+        let targets = ipc_targets(vec![
+            DiscoveredTarget {
+                software: cuerithm_dj_sync::DjSoftware::EngineDj,
+                path: raw,
+            },
+            DiscoveredTarget {
+                software: cuerithm_dj_sync::DjSoftware::EngineDj,
+                path: "/volumes/Engine Library/Database2/m.db".into(),
+            },
+        ]);
+        let json = serde_json::to_value(targets).unwrap();
+        assert_eq!(json.as_array().unwrap().len(), 1);
+        assert_eq!(json[0]["path"], "/volumes/Engine Library/Database2/m.db");
+    }
 }

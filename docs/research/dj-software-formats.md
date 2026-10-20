@@ -35,6 +35,13 @@ Database WAL/journal absence is also a dependency: a newly created sidecar inval
 the preview. Interrupted writes remain visible for recovery and never acknowledge a
 modified-scope baseline. Restore refuses foreign post-sync edits.
 
+Source hashes and private evidence preserve platform paths losslessly, including
+raw Unix bytes and Windows UTF-16 units. Normal paths retain their existing JSON
+string form. Engine portable copies use generated destination names; shared-file
+adapters still require paths their native text format can represent. The desktop
+destination picker accepts text paths. Discovery skips inaccessible or vanished
+mount candidates so accessible libraries can still be returned.
+
 Native smart-rule compilation is implemented for the supported whole-definition
 subset. Unsupported predicates or missing target semantics materialize the complete
 captured membership with a preview reason; Pioneer USB always uses ordinary lists.

@@ -7,8 +7,11 @@ pub enum RenameBefore {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaseRenameChange {
+    #[serde(with = "crate::path_serde")]
     pub from: PathBuf,
+    #[serde(with = "crate::path_serde")]
     pub to: PathBuf,
+    #[serde(with = "crate::path_serde")]
     pub temporary: PathBuf,
     pub before: RenameBefore,
 }

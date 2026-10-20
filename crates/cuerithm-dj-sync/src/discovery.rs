@@ -9,6 +9,7 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredTarget {
     pub software: DjSoftware,
+    #[serde(with = "crate::path_serde")]
     pub path: PathBuf,
 }
 

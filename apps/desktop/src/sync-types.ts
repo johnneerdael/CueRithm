@@ -1,5 +1,6 @@
+import type {NativePath} from "./native-paths";
 export type DjSoftware="virtual_dj"|"engine_dj"|"djay_pro"|"serato4"|"pioneer_usb";
-export interface SyncTarget {software:DjSoftware;path:string;source_root:string|null}
+export interface SyncTarget {software:DjSoftware;path:NativePath;source_root:NativePath|null}
 export interface DiscoveredTarget {software:DjSoftware;path:string}
 export type SyncTextField="title"|"artist"|"album"|"genre"|"label"|"comment"|"key";
 export interface SyncOptions {
@@ -17,9 +18,9 @@ export interface SyncOptions {
   extra_cue_markers:boolean;
 }
 export interface DjSyncRequest {target:SyncTarget;scope:{type:"full"}|{type:"playlist";id:string}|{type:"changed"};options:SyncOptions}
-export interface FileChange {target:string;before_sha256:string|null;after_sha256:string|null;bytes:number}
-export interface DirectoryChange {target:string;before_manifest:unknown;after_exists:boolean}
-export interface CaseRenameChange {from:string;to:string}
+export interface FileChange {target:NativePath;before_sha256:string|null;after_sha256:string|null;bytes:number}
+export interface DirectoryChange {target:NativePath;before_manifest:unknown;after_exists:boolean}
+export interface CaseRenameChange {from:NativePath;to:NativePath}
 export interface SyncPreview {renames?:CaseRenameChange[];deleted_playlists:number;retained_external_playlists:number;id:string;target:SyncTarget;tracks:number;playlists:number;bytes_to_write:number;files:FileChange[];warnings:string[];directories:DirectoryChange[]}
 export type JournalState="prepared"|"applying"|"applied"|"restoring"|"restored";
 export interface FileJournal {renames?:CaseRenameChange[];id:string;state:JournalState;changes:FileChange[];directories:DirectoryChange[]}

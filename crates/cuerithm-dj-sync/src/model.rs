@@ -19,6 +19,7 @@ pub struct SyncLibrary {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncTrack {
     pub id: String,
+    #[serde(with = "crate::path_serde")]
     pub path: PathBuf,
     pub title: String,
     pub artist: String,
