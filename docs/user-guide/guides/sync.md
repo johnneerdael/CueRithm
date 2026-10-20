@@ -26,6 +26,10 @@ checks for libraries again. Older library formats are not a separate export targ
 Existing direct rekordbox 6/7 groundwork is separate from these five sync targets;
 Pioneer USB exports to a drive rather than a desktop rekordbox library.
 
+Sync remembers the selected software and keeps the destination, scope and options
+separately for each target. Returning restores these choices; create a fresh preview
+before applying them.
+
 ## Choose what to sync
 
 Only prepared, active tracks are eligible. Incoming and archived tracks are excluded.

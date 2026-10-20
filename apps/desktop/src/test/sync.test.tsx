@@ -1,14 +1,103 @@
 import {act,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
-import {describe,expect,it,vi} from "vitest";
+import {beforeEach,describe,expect,it,vi} from "vitest";
 import Sync from "../views/Sync";
 import App from "../App";
 import {fakeBridge,track} from "./bridge";
 import type {DjSyncHistoryEntry,FileJournal,SyncPreview} from "../sync-types";
+import type {PlaylistWorkspace} from "../playlist-types";
+import {syncPreferencesKey as preferencesKey} from "../sync-preferences";
+
+beforeEach(()=>{localStorage.removeItem(preferencesKey);});
 
 function prepared(id:string):SyncPreview{return {id,target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null},tracks:1,playlists:0,bytes_to_write:1024,files:[],warnings:[],directories:[],deleted_playlists:0,retained_external_playlists:0};}
 function enterDestination(){fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/VirtualDJ"}});}
 
 describe("native DJ sync",()=>{
+ it("restores destination, scope and options after remount without restoring a preview",async()=>{
+  const bridge=fakeBridge([]);
+  bridge.discoverDjTargets=vi.fn(async()=>[{software:"pioneer_usb" as const,path:"/Volumes/Discovered"}]);
+  const view=render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"pioneer_usb"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Target USB drive"}),{target:{value:"/Volumes/Saved"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"What to sync"}),{target:{value:"changed"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Cue destination"}),{target:{value:"both"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"CDJ compatibility"}),{target:{value:"detect"}});
+  fireEvent.click(screen.getByText("Field mappings"));
+  fireEvent.change(screen.getByRole("combobox",{name:"Map comment"}),{target:{value:"genre"}});
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await screen.findByRole("region",{name:"Sync preview"});
+  view.unmount();
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  await waitFor(()=>expect(bridge.discoverDjTargets).toHaveBeenCalledTimes(2));
+  expect(screen.getByRole("combobox",{name:"Sync to"})).toHaveValue("pioneer_usb");
+  expect(screen.getByRole("textbox",{name:"Target USB drive"})).toHaveValue("/Volumes/Saved");
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("changed");
+  expect(screen.getByRole("combobox",{name:"Cue destination"})).toHaveValue("both");
+  expect(screen.getByRole("combobox",{name:"CDJ compatibility"})).toHaveValue("detect");
+  fireEvent.click(screen.getByText("Field mappings"));
+  expect(screen.getByRole("combobox",{name:"Map comment"})).toHaveValue("genre");
+  expect(screen.queryByRole("region",{name:"Sync preview"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"Sync to Pioneer USB"})).toBeDisabled();
+  expect(bridge.applyDjSync).not.toHaveBeenCalled();
+  expect(bridge.previewDjSync).toHaveBeenCalledTimes(1);
+  const saved=JSON.parse(localStorage.getItem(preferencesKey)!);
+  expect(Object.keys(saved).sort()).toEqual(["profiles","software","version"]);
+  expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["options","path","playlistId","scope"]);
+ });
+ it("keeps independent destination, playlist selection and field mappings for each target",async()=>{
+  const bridge=fakeBridge([]);
+  const workspace:PlaylistWorkspace={tree:{revision:1,nodes:[{id:"set",name:"Saved set",kind:"playlist",parent_id:null,position:0,favorite_position:null,definition:null,deleted:false,deleted_by:null}]},statuses:[],latest_undo:null,service_error:null};
+  const view=render(<Sync bridge={bridge} workspace={workspace} revision={1} onChanged={()=>{}}/>);
+  enterDestination();
+  fireEvent.change(screen.getByRole("combobox",{name:"What to sync"}),{target:{value:"playlist"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync playlist"}),{target:{value:"set"}});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Keep existing beatgrids"}));
+  fireEvent.click(screen.getByText("Field mappings"));
+  fireEvent.change(screen.getByRole("combobox",{name:"Map comment"}),{target:{value:"artist"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"engine_dj"}});
+  expect(screen.getByRole("textbox",{name:"Engine Library folder or target drive"})).toHaveValue("");
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("full");
+  expect(screen.getByRole("checkbox",{name:"Keep existing beatgrids"})).not.toBeChecked();
+  expect(screen.getByRole("combobox",{name:"Map comment"})).toHaveValue("comment");
+  fireEvent.change(screen.getByRole("textbox",{name:"Engine Library folder or target drive"}),{target:{value:"/Engine"}});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Copy audio to the target drive"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Map comment"}),{target:{value:"genre"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"virtual_dj"}});
+  expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/VirtualDJ");
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("playlist");
+  expect(screen.getByRole("combobox",{name:"Sync playlist"})).toHaveValue("set");
+  expect(screen.getByRole("checkbox",{name:"Keep existing beatgrids"})).toBeChecked();
+  expect(screen.getByRole("combobox",{name:"Map comment"})).toHaveValue("artist");
+  view.unmount();
+  const remounted=render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("playlist");
+  expect(screen.getByRole("button",{name:"Preview sync"})).toBeDisabled();
+  remounted.rerender(<Sync bridge={bridge} workspace={workspace} revision={1} onChanged={()=>{}}/>);
+  expect(screen.getByRole("combobox",{name:"Sync playlist"})).toHaveValue("set");
+  expect(screen.getByRole("button",{name:"Preview sync"})).toBeEnabled();
+  remounted.rerender(<Sync bridge={bridge} workspace={{...workspace,tree:{revision:2,nodes:[]}}} revision={2} onChanged={()=>{}}/>);
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("playlist");
+  expect(screen.getByRole("button",{name:"Preview sync"})).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"engine_dj"}});
+  expect(screen.getByRole("textbox",{name:"Engine Library folder or target drive"})).toHaveValue("/Engine");
+  expect(screen.getByRole("checkbox",{name:"Copy audio to the target drive"})).toBeChecked();
+  fireEvent.click(screen.getByText("Field mappings"));
+  expect(screen.getByRole("combobox",{name:"Map comment"})).toHaveValue("genre");
+ });
+ it.each(["{broken",JSON.stringify({version:0,software:"pioneer_usb",profiles:{}}),JSON.stringify({version:1,software:"unknown",profiles:{virtual_dj:{path:{unix:[47]},scope:"all",playlistId:7,options:{nearest_color:"false",skip_beatgrids:1,key_notation:"invalid",field_mappings:{comment:"not-a-field"}}}}})])("uses safe defaults for corrupt or unsupported saved choices (%#)",async cached=>{
+  localStorage.setItem(preferencesKey,cached);
+  const bridge=fakeBridge([]);
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);
+  expect(screen.getByRole("combobox",{name:"Sync to"})).toHaveValue("virtual_dj");
+  expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("");
+  expect(screen.getByRole("combobox",{name:"What to sync"})).toHaveValue("full");
+  expect(screen.getByRole("checkbox",{name:"Use nearest supported colors"})).toBeChecked();
+  expect(screen.getByRole("checkbox",{name:"Keep existing beatgrids"})).not.toBeChecked();
+  fireEvent.click(screen.getByText("Field mappings"));
+  expect(screen.getByRole("combobox",{name:"Map comment"})).toHaveValue("comment");
+  expect(screen.getByRole("button",{name:"Preview sync"})).toBeDisabled();
+  expect(bridge.previewDjSync).not.toHaveBeenCalled();expect(bridge.applyDjSync).not.toHaveBeenCalled();
+ });
  it("opens from the sidebar, discovers a library and requires a current preview to apply",async()=>{
   const bridge=fakeBridge([track("a")]);
   bridge.discoverDjTargets=vi.fn(async()=>[{software:"virtual_dj" as const,path:"/VirtualDJ/database.xml"}]);
