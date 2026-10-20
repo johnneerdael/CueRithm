@@ -56,6 +56,7 @@ impl Library {
         value: PlaylistPreferences,
         expected: u64,
     ) -> Result<PlaylistPreferencesSnapshot> {
+        value.automatic.validate()?;
         if let Some(zone) = &value.time_zone {
             ensure!(zone.len() <= 128, "Invalid time zone");
             let _: chrono_tz::Tz = zone.parse()?;
@@ -82,6 +83,7 @@ impl Library {
             )?;
             Library::bump(&tx)?;
         }
+        automatic::reconcile_in_transaction(&tx)?;
         let result = preferences(&tx)?;
         tx.commit()?;
         Ok(result)

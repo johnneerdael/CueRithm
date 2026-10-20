@@ -18,6 +18,14 @@ Each item has a stable identity, a position among its siblings, and, if you favo
 
 Click **+** (*Create playlist*). If a folder is selected the new item is created inside it. The editor has **Playlist name** (up to 255 characters), **Playlist type** and **Parent folder** (*Your playlists* means the top level). For a smart playlist it adds the rule editor, a **Preview matches** button and the note *Calendar dates use <your time zone>.*
 
+## Automatic Smart Playlists
+
+Open **Settings → Smart Playlists** to opt in to automatic lists by **Artist**, **BPM**, **release date**, **Genre** or **Key**, then press **Save Smart Playlist settings**. All five options are off by default.
+
+CueRithm creates the selected categories under **Automatic Smart Playlists** and expands them as prepared tracks arrive. Artists and remixers get individual lists; BPM supports up to ten configured ranges; dates create year/month folders with all-tracks, Warm-Up, Dancefloor and Anthems lists. Key creates 24 Camelot lists containing compatible tracks. See [Smart Playlist settings](settings.md#smart-playlists) for boundaries and metadata requirements.
+
+Names and folder positions can be changed. Enabled categories maintain their generated rules; **Duplicate** a list before customizing its conditions. Turning an option off keeps existing live lists. Removing a generated list suppresses its automatic identity until it is restored.
+
 ## The playlist menu
 
 Each row has a **⋯** menu:

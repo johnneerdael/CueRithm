@@ -95,12 +95,15 @@ pub(crate) type Delta = std::collections::BTreeMap<String, Option<StoredNode>>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlaylistPreferences {
+    #[serde(default)]
+    pub automatic: AutomaticPlaylistSettings,
     pub time_zone: Option<String>,
     pub key_mixing_mode: cuerithm_smartlists::KeyMixingMode,
 }
 impl Default for PlaylistPreferences {
     fn default() -> Self {
         Self {
+            automatic: AutomaticPlaylistSettings::default(),
             time_zone: None,
             key_mixing_mode: cuerithm_smartlists::KeyMixingMode::Harmonic,
         }
@@ -334,4 +337,43 @@ pub struct PlaylistWorkspace {
     pub tree: PlaylistState,
     pub statuses: Vec<SmartListStatus>,
     pub latest_undo: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutomaticPlaylistSettings {
+    pub artists: bool,
+    pub bpm: bool,
+    pub bpm_ranges: Vec<AutomaticBpmRange>,
+    pub release_dates: bool,
+    pub genres: bool,
+    pub keys: bool,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AutomaticBpmRange {
+    pub start: f64,
+    pub end: f64,
+}
+impl AutomaticPlaylistSettings {
+    pub(super) fn validate(&self) -> anyhow::Result<()> {
+        if !self.bpm {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            self.bpm_ranges.len() <= 10,
+            "Configure at most 10 BPM ranges"
+        );
+        for (i, range) in self.bpm_ranges.iter().enumerate() {
+            anyhow::ensure!(
+                range.start.is_finite()
+                    && range.end.is_finite()
+                    && range.start > 0.
+                    && range.start <= range.end
+                    && range.end <= 999.,
+                "BPM ranges must be between 0 and 999, with minimum no greater than maximum"
+            );
+            anyhow::ensure!(!self.bpm_ranges[..i].contains(range), "Duplicate BPM range");
+        }
+        Ok(())
+    }
 }

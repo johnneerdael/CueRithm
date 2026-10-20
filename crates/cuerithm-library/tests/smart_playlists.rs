@@ -640,6 +640,7 @@ fn fixture() -> Fixture {
         PlaylistPreferences {
             time_zone: Some("UTC".into()),
             key_mixing_mode: KeyMixingMode::Harmonic,
+            ..Default::default()
         },
         preferences.revision,
     )
@@ -867,6 +868,7 @@ fn stale_evaluations_are_rejected_after_data_tree_or_preference_changes() {
             PlaylistPreferences {
                 time_zone: Some("Europe/Amsterdam".into()),
                 key_mixing_mode: KeyMixingMode::Fuzzy,
+                ..Default::default()
             },
             prefs.revision,
         )
@@ -910,6 +912,7 @@ fn independent_preferences_never_change_preparation_or_enqueue_work() {
             PlaylistPreferences {
                 time_zone: Some("Asia/Tokyo".into()),
                 key_mixing_mode: KeyMixingMode::Fuzzy,
+                ..Default::default()
             },
             prefs.revision,
         )
@@ -1331,6 +1334,7 @@ fn release_dates_from_full_tags_use_the_library_calendar_for_preview_cache_and_r
             PlaylistPreferences {
                 time_zone: Some("America/Los_Angeles".into()),
                 key_mixing_mode: KeyMixingMode::Harmonic,
+                ..Default::default()
             },
             preferences.revision,
         )
@@ -1726,4 +1730,508 @@ fn archived_incoming_tracks_require_both_opt_ins_in_smart_evaluation_and_tables(
     assert_eq!(rows[0].id, f.ids[2]);
     assert!(rows[0].archived);
     assert_eq!(rows[0].state, "incoming");
+}
+
+fn enable_automatic(
+    lib: &Library,
+    automatic: serde_json::Value,
+) -> anyhow::Result<PlaylistPreferencesSnapshot> {
+    let old = lib.get_playlist_preferences()?;
+    let mut json = serde_json::to_value(old.preferences)?;
+    json["automatic"] = automatic;
+    lib.save_playlist_preferences(serde_json::from_value(json)?, old.revision)
+}
+#[test]
+fn automatic_lists_expand_all_dimensions_and_keep_manual_organization() {
+    let f = fixture();
+    create(&f.lib, "Artists", None, PlaylistKind::Folder, None);
+    let undo = f.lib.playlist_workspace_at(NOW).unwrap().latest_undo;
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute(r#"UPDATE tracks SET native_metadata_json=json_set(native_metadata_json,'$.fields.artist',json('["Alpha, Beta feat. Gamma"]')),metadata_json=json_set(metadata_json,'$.tags.remixer','Delta; Alpha','$.tags.release_time','2026-09-12','$.tags.date','2025-01-01') WHERE id=?1"#, [&f.ids[0]]).unwrap();
+    conn.execute(r#"UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags.date','2026-09'),native_metadata_json=json_set(native_metadata_json,'$.fields.artist',json('["Alphabet"]'),'$.fields.title',json('["Track (Echo Remix)"]')) WHERE id=?1"#, [&f.ids[1]]).unwrap();
+    enable_automatic(&f.lib, serde_json::json!({"artists":true,"genres":true,"release_dates":true,"keys":true,"bpm":true,"bpm_ranges":[{"start":128.,"end":130.}]})).unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    let list = |name: &str| {
+        state
+            .nodes
+            .iter()
+            .find(|n| n.name == name && n.kind == PlaylistKind::Smartlist)
+            .unwrap_or_else(|| panic!("missing automatic list {name}"))
+    };
+    for name in ["Alpha", "Beta", "Gamma", "Delta"] {
+        assert_eq!(
+            f.lib.playlist_members(&list(name).id).unwrap(),
+            [f.ids[0].clone()]
+        );
+    }
+    assert_eq!(
+        f.lib.playlist_members(&list("Echo").id).unwrap(),
+        [f.ids[1].clone()]
+    );
+    assert_eq!(
+        f.lib.playlist_members(&list("House").id).unwrap(),
+        f.ids[..2]
+    );
+    assert_eq!(
+        f.lib.playlist_members(&list("128–130 BPM").id).unwrap(),
+        f.ids[..2]
+    );
+    for (name, ids) in [
+        ("September, 2026", f.ids[..2].to_vec()),
+        ("Warm-Up September, 2026", vec![]),
+        ("Dancefloor September, 2026", vec![f.ids[0].clone()]),
+        ("Anthems September, 2026", vec![f.ids[1].clone()]),
+    ] {
+        assert_eq!(f.lib.playlist_members(&list(name).id).unwrap(), ids);
+    }
+    assert_eq!(
+        state
+            .nodes
+            .iter()
+            .filter(|n| n.parent_id == list("September, 2026").parent_id
+                && n.kind == PlaylistKind::Smartlist)
+            .count(),
+        4
+    );
+    assert_eq!(
+        state.nodes.iter().filter(|n| n.name == "Artists").count(),
+        2
+    );
+    assert_eq!(f.lib.playlist_members(&list("8A").id).unwrap(), f.ids[..2]);
+    assert_eq!(f.lib.playlist_workspace_at(NOW).unwrap().latest_undo, undo);
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_state().unwrap(), state);
+    conn.execute("UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags.release_time','2027-01-05') WHERE id=?1", [&f.ids[0]]).unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|n| n.name == "January, 2027")
+    );
+    enable_automatic(&f.lib, serde_json::json!({})).unwrap();
+    assert!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|n| n.name == "January, 2027" && !n.deleted)
+    );
+}
+#[test]
+fn automatic_preferences_validate_ranges_and_default_for_existing_libraries() {
+    let f = fixture();
+    assert!(
+        enable_automatic(
+            &f.lib,
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":130.,"end":120.}]})
+        )
+        .is_err()
+    );
+    assert!(
+        enable_automatic(
+            &f.lib,
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":0.,"end":120.}]})
+        )
+        .is_err()
+    );
+    assert!(
+        enable_automatic(
+            &f.lib,
+            serde_json::json!({"bpm":true,"bpm_ranges":vec![serde_json::json!({"start":120.,"end":130.});11]})
+        )
+        .is_err()
+    );
+    let defaults: PlaylistPreferences =
+        serde_json::from_value(serde_json::json!({"time_zone":null,"key_mixing_mode":"harmonic"}))
+            .unwrap();
+    assert_eq!(
+        serde_json::to_value(defaults).unwrap()["automatic"]["artists"],
+        false
+    );
+}
+
+#[test]
+fn automatic_service_expands_after_restart_and_never_creates_before_opt_in() {
+    let f = fixture();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(f.lib.playlist_state().unwrap().nodes.is_empty());
+    enable_automatic(
+        &f.lib,
+        serde_json::json!({"release_dates":true,"artists":true}),
+    )
+    .unwrap();
+    drop(f.lib);
+    let library = Library::open(&f.dir.path().join("db")).unwrap();
+    let service = SmartPlaylistService::start(library.clone()).unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute("UPDATE tracks SET metadata_json=json_set((SELECT metadata_json FROM tracks WHERE id=?2),'$.tags.release_time','2028-12-04') WHERE id=?1",params![f.ids[2],f.ids[0]]).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert!(
+        !library
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|n| n.name == "December, 2028")
+    );
+    conn.execute(
+        "UPDATE tracks SET state='ready',artist='Future Artist' WHERE id=?1",
+        [&f.ids[2]],
+    )
+    .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        if library
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|n| n.name == "December, 2028")
+        {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "service did not expand: {:?}",
+            service.last_error()
+        );
+        std::thread::sleep(std::time::Duration::from_millis(30));
+    }
+    service.shutdown();
+    assert!(service.last_error().unwrap().is_none());
+    let state = library.playlist_state().unwrap();
+    let month = state
+        .nodes
+        .iter()
+        .find(|n| n.name == "December, 2028")
+        .unwrap();
+    library.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(
+        library.playlist_members(&month.id).unwrap(),
+        [f.ids[2].clone()]
+    );
+    let source = std::fs::read(f.dir.path().join("Incoming.flac")).unwrap();
+    assert_eq!(
+        source,
+        b"synthetic input; no DSP is invoked in a playlist query"
+    );
+}
+#[test]
+fn automatic_keys_use_harmonic_aliases_wraparound_and_live_membership() {
+    let f = fixture();
+    enable_automatic(&f.lib, serde_json::json!({"keys":true})).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    assert_eq!(
+        state
+            .nodes
+            .iter()
+            .filter(|n| n.kind == PlaylistKind::Smartlist)
+            .count(),
+        24
+    );
+    let one = state.nodes.iter().find(|n| n.name == "1A").unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    for (key, expected) in [
+        ("1A", true),
+        ("12A", true),
+        ("2A", true),
+        ("1B", true),
+        ("2B", false),
+        ("12B", false),
+        ("G#m", true),
+        ("6m", true),
+        ("unknown", false),
+    ] {
+        conn.execute("UPDATE tracks SET analysis_json=json_set(analysis_json,'$.analysis.key.camelot',?1) WHERE id=?2",params![key,f.ids[0]]).unwrap();
+        f.lib.refresh_smart_lists(NOW).unwrap();
+        assert_eq!(
+            f.lib.playlist_members(&one.id).unwrap().contains(&f.ids[0]),
+            expected,
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn automatic_artists_use_cleanup_remixer_values_instead_of_stale_source_tags() {
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute("UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags.remixer','Old Remixer'),native_metadata_json=json_set(native_metadata_json,'$.fields.remixer',json(?1)) WHERE id=?2",params![serde_json::json!(["Clean Remixer", "Second Remixer"]).to_string(),f.ids[0]]).unwrap();
+    enable_automatic(&f.lib, serde_json::json!({"artists":true})).unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    assert!(!state.nodes.iter().any(|n| n.name == "Old Remixer"));
+    for name in ["Clean Remixer", "Second Remixer"] {
+        let node = state.nodes.iter().find(|n| n.name == name).unwrap();
+        assert_eq!(
+            f.lib.playlist_members(&node.id).unwrap(),
+            [f.ids[0].clone()]
+        );
+    }
+}
+
+#[test]
+fn automatic_settings_and_generated_nodes_rollback_together_on_failure() {
+    let f = fixture();
+    let before = serde_json::to_value(f.lib.get_playlist_preferences().unwrap()).unwrap();
+    let tree = f.lib.playlist_state().unwrap();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute_batch("CREATE TRIGGER reject_automatic BEFORE INSERT ON playlists WHEN NEW.kind='smartlist' BEGIN SELECT RAISE(ABORT,'fixture write failure'); END;").unwrap();
+    assert!(enable_automatic(&f.lib, serde_json::json!({"keys":true})).is_err());
+    assert_eq!(
+        serde_json::to_value(f.lib.get_playlist_preferences().unwrap()).unwrap(),
+        before
+    );
+    assert_eq!(f.lib.playlist_state().unwrap(), tree);
+}
+#[test]
+fn automatic_months_use_all_energy_boundaries_and_keep_unknown_energy_in_all_tracks() {
+    let f = fixture();
+    let conn = Connection::open(f.dir.path().join("db")).unwrap();
+    conn.execute("UPDATE tracks SET metadata_json=json_set(metadata_json,'$.tags.date','2026-09-12') WHERE id=?1",[&f.ids[0]]).unwrap();
+    enable_automatic(&f.lib, serde_json::json!({"release_dates":true})).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    for energy in [
+        None,
+        Some(0),
+        Some(1),
+        Some(5),
+        Some(6),
+        Some(7),
+        Some(8),
+        Some(10),
+    ] {
+        if let Some(e) = energy {
+            conn.execute("UPDATE tracks SET analysis_json=json_set(analysis_json,'$.analysis.energy',json(?1)) WHERE id=?2",params![serde_json::json!({"level":e,"method":"fixture"}).to_string(),f.ids[0]]).unwrap();
+        } else {
+            conn.execute("UPDATE tracks SET analysis_json=json_set(analysis_json,'$.analysis.energy',NULL) WHERE id=?1",[&f.ids[0]]).unwrap();
+        }
+        f.lib.refresh_smart_lists(NOW).unwrap();
+        for (prefix, expected) in [
+            ("", true),
+            ("Warm-Up ", energy.is_some_and(|e| (1..=5).contains(&e))),
+            ("Dancefloor ", energy.is_some_and(|e| (6..=7).contains(&e))),
+            ("Anthems ", energy.is_some_and(|e| (8..=10).contains(&e))),
+        ] {
+            let name = format!("{prefix}September, 2026");
+            let node = state.nodes.iter().find(|n| n.name == name).unwrap();
+            assert_eq!(
+                f.lib
+                    .playlist_members(&node.id)
+                    .unwrap()
+                    .contains(&f.ids[0]),
+                expected,
+                "{name}: {energy:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn automatic_enabled_lists_repair_rules_while_retaining_names_and_folders() {
+    let f = fixture();
+    enable_automatic(&f.lib, serde_json::json!({"keys":true})).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    let id = state
+        .nodes
+        .iter()
+        .find(|n| n.name == "8A")
+        .unwrap()
+        .id
+        .clone();
+    create(&f.lib, "custom-parent", None, PlaylistKind::Folder, None);
+    let wrong = definition(
+        "title",
+        Operator::StringEquals,
+        RuleValue::Text("never matches".into()),
+    );
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "My harmonic list".into(),
+                    },
+                    PlaylistEdit::Move {
+                        id: id.clone(),
+                        parent_id: Some("custom-parent".into()),
+                        position: 0,
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong.clone(),
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    let node = state.nodes.iter().find(|n| n.id == id).unwrap();
+    assert_eq!(node.name, "My harmonic list");
+    assert_eq!(node.parent_id.as_deref(), Some("custom-parent"));
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+    let workspace = f.lib.playlist_workspace_at(NOW).unwrap();
+    f.lib
+        .undo_playlist_edit(&workspace.latest_undo.unwrap(), workspace.tree.revision)
+        .unwrap();
+    let restored = f
+        .lib
+        .playlist_state()
+        .unwrap()
+        .nodes
+        .into_iter()
+        .find(|n| n.id == id)
+        .unwrap();
+    assert_eq!(restored.name, "8A");
+    assert_ne!(restored.parent_id.as_deref(), Some("custom-parent"));
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+    enable_automatic(&f.lib, serde_json::json!({})).unwrap();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::SetDefinition {
+                id: id.clone(),
+                definition: wrong.clone(),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(f.lib.playlist_members(&id).unwrap().is_empty());
+    assert_eq!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .into_iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .definition,
+        Some(wrong)
+    );
+}
+
+#[test]
+fn automatic_rule_repairs_keep_stacked_undo_and_reject_newer_user_aba_edits() {
+    let f = fixture();
+    enable_automatic(&f.lib, serde_json::json!({"keys":true})).unwrap();
+    let id = f
+        .lib
+        .playlist_state()
+        .unwrap()
+        .nodes
+        .into_iter()
+        .find(|n| n.name == "8A")
+        .unwrap()
+        .id;
+    let wrong = definition(
+        "title",
+        Operator::StringEquals,
+        RuleValue::Text("never".into()),
+    );
+    let first = f
+        .lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "First".into(),
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong.clone(),
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap()
+        .edit_id
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let second = f
+        .lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "Second".into(),
+                    },
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "First".into(),
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong,
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap()
+        .edit_id
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(
+        f.lib
+            .undo_playlist_edit(&first, f.lib.playlist_state().unwrap().revision)
+            .is_err()
+    );
+    f.lib
+        .undo_playlist_edit(&second, f.lib.playlist_state().unwrap().revision)
+        .unwrap();
+    f.lib
+        .undo_playlist_edit(&first, f.lib.playlist_state().unwrap().revision)
+        .unwrap();
+    assert_eq!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .into_iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .name,
+        "8A"
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+}
+
+#[test]
+fn automatic_inactive_bpm_ranges_do_not_block_disabling_or_other_preferences() {
+    let f = fixture();
+    enable_automatic(
+        &f.lib,
+        serde_json::json!({"bpm":false,"bpm_ranges":[{"start":150.,"end":120.}]}),
+    )
+    .unwrap();
+    let old = f.lib.get_playlist_preferences().unwrap();
+    f.lib
+        .save_playlist_preferences(
+            PlaylistPreferences {
+                time_zone: Some("Europe/Amsterdam".into()),
+                ..old.preferences
+            },
+            old.revision,
+        )
+        .unwrap();
+    assert!(
+        enable_automatic(
+            &f.lib,
+            serde_json::json!({"bpm":true,"bpm_ranges":[{"start":150.,"end":120.}]})
+        )
+        .is_err()
+    );
 }

@@ -24,6 +24,8 @@ For *Combine*, the source picker has a *Find playlists…* box, *Select all N ma
 
 ## Generate playlists
 
+For categories that also expand when new tracks arrive, use the opt-in [Smart Playlist settings](settings.md#smart-playlists).
+
 **Generate playlists** (top right of the tools page) builds smart playlists automatically from your library's values, ranges and tags.
 
 <figure markdown>

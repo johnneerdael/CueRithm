@@ -562,6 +562,7 @@ impl Library {
         Ok(result)
     }
     pub fn refresh_smart_lists(&self, now_millis: i64) -> Result<SmartRefresh> {
+        self.reconcile_automatic_playlists()?;
         let started = std::time::Instant::now();
         let evaluation = self.evaluate_smart_lists(now_millis)?;
         self.commit_smart_evaluation(
@@ -619,6 +620,7 @@ impl Library {
         scope: SmartPreviewScope,
         now_millis: i64,
     ) -> Result<SmartPreview> {
+        self.reconcile_automatic_playlists()?;
         let started = std::time::Instant::now();
         let prepared = self.prepare_smart_preview(definition, scope, now_millis)?;
         self.commit_smart_preview(
