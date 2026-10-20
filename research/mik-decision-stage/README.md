@@ -12,6 +12,11 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 | `build_handback.py` | builds the hand-back package (manifest with SHA-256, counts, tools) and verifies one that was received |
 | `genre_experiment.py` | controlled genre test: tag-only variants of the same audio, then pack and compare the responses (see GENRE-EXPERIMENT.md) |
 | `GENRE-EXPERIMENT.md` | the task for the agent on the capture laptop for that test (the owner does the scanning) |
+| `build_cache.py` | request/response folder -> one numpy cache (key features, energy windows, cue scores, labels) that the scripts below load in a second |
+| `key_models.py` | key: shift-augmented RBF SVC (96.7%) and the pitch-shared convolutional network (97.1%), out of fold on the tuning split |
+| `energy_overall.py` | window level (RBF SVC, 92.0%) and the overall rating from the predicted levels (logistic aggregator 77.2% vs 71.0% for the 80th-percentile rule) |
+| `cue_ranker.py` | cues: list-wise ranker over candidate beats with hierarchical-phase features (65% of tracks with every cue right) |
+| `freeze_and_score.py` | writes the freeze record, then scores the held-out songs once (refuses a second scoring) |
 | `mikdata.py` | loader, genre grouping, split policy, cue/energy helpers |
 | `key_experiments.py` | key from the 352 features: tonic-rotation-shared model, confidence and genre breakdowns, baselines |
 | `energy_experiments.py` | window levels (RBF SVC), overall rating rules, boundary and genre breakdowns, learning curve |
@@ -22,6 +27,10 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 
 ```sh
 python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+python build_cache.py       --data DIR --deny-hashes sealed_corpus_holdout_feature_sha1.txt --out cache.npz
+python key_models.py        --cache cache.npz --model cnn   # or svc; torch is needed for cnn
+python energy_overall.py    --cache cache.npz
+python cue_ranker.py        --cache cache.npz
 python key_experiments.py    --data DIR --deny-hashes sealed_corpus_holdout_feature_sha1.txt --only-split tuning --baseline
 python energy_experiments.py --data DIR --deny-hashes sealed_corpus_holdout_feature_sha1.txt --only-split tuning --grid --curve
 python cue_experiments.py    --data DIR --deny-hashes sealed_corpus_holdout_feature_sha1.txt --only-split tuning

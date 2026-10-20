@@ -60,6 +60,27 @@ def greedy(beats, score, count, separation=32):
     return {int(beats[j]) for j in chosen}
 
 
+def fit_ranker(tables, songs, objective='rank'):
+    """Fit on the given songs' candidate tables; returns a function from a candidate matrix to scores."""
+    params = dict(n_estimators=400, learning_rate=0.05, num_leaves=31, min_child_samples=40, subsample=0.8, subsample_freq=1,
+                  colsample_bytree=0.8, verbose=-1, n_jobs=4)
+    X = np.vstack([tables[s][0] for s in songs])
+    y = np.concatenate([tables[s][1] for s in songs])
+    if objective == 'rank':
+        model = lgb.LGBMRanker(objective='lambdarank', lambdarank_truncation_level=10, **params).fit(X, y, group=[len(tables[s][1]) for s in songs])
+        return model.predict
+    model = lgb.LGBMClassifier(**params).fit(X, y)
+    return lambda m: model.predict_proba(m)[:, 1]
+
+
+def song_tables(d, songs):
+    tables = {}
+    for s in songs:
+        o0, o1 = d['cue_off'][s], d['cue_off'][s + 1]
+        tables[s] = song_table(d['cue_scores'][o0:o1], int(d['cue_start'][s]), d['cue_truth'][s], int(d['cue_ntruth'][s]))
+    return tables
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--cache', required=True)
@@ -74,23 +95,10 @@ def main():
     if a.limit:
         songs = songs[:a.limit]
     t0 = time.time()
-    tables = {}
-    for s in songs:
-        o0, o1 = d['cue_off'][s], d['cue_off'][s + 1]
-        tables[s] = song_table(d['cue_scores'][o0:o1], int(d['cue_start'][s]), d['cue_truth'][s], int(d['cue_ntruth'][s]))
-    params = dict(n_estimators=400, learning_rate=0.05, num_leaves=31, min_child_samples=40, subsample=0.8, subsample_freq=1,
-                  colsample_bytree=0.8, verbose=-1, n_jobs=4)
+    tables = song_tables(d, songs)
     exact, recall = {}, {}
     for train, test in GroupKFold(min(a.folds, len(songs))).split(songs, groups=d['h'][songs]):
-        tr = songs[train]
-        X = np.vstack([tables[s][0] for s in tr])
-        y = np.concatenate([tables[s][1] for s in tr])
-        if a.objective == 'rank':
-            model = lgb.LGBMRanker(objective='lambdarank', lambdarank_truncation_level=10, **params).fit(X, y, group=[len(tables[s][1]) for s in tr])
-            predict = model.predict
-        else:
-            model = lgb.LGBMClassifier(**params).fit(X, y)
-            predict = lambda m: model.predict_proba(m)[:, 1]
+        predict = fit_ranker(tables, songs[train], a.objective)
         for s in songs[test]:
             matrix, _, beat, wanted = tables[s]
             picked = greedy(beat, predict(matrix), len(wanted))
