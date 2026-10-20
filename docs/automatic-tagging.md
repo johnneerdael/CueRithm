@@ -16,7 +16,14 @@ Select Beatport and/or Traxsource. Move providers earlier or later to set their
 order. With Combine providers off, the first successful match supplies metadata.
 With it on, every selected provider is consulted and matches apply in order.
 Configured provider failures leave the job in Incoming for retry; they are not
-reported as successful empty results.
+reported as successful empty results. Traxsource uses the shared public-catalog
+fetcher to detect Cloudflare challenges. Detected restrictions are persisted,
+and a marked source stops direct requests until explicitly reset. Configure an
+optional FlareSolverr-compatible URL under Automatic tagging; affected sources
+use its `/v1` endpoint, with a 120-second default solve timeout and one retry for
+timeouts or temporary unavailability.
+See [solver setup](user-guide/guides/catalog-solver.md) for FlareSolverr, Byparr
+and Trawl, source availability, caching and troubleshooting.
 
 Matching settings include title/artist strictness, optional duration tolerance,
 embedded IDs/ISRC, oldest/newest release preference, filename parsing and title
@@ -66,9 +73,10 @@ PCM and frame checks. These checks establish pipeline behavior, not catalog
 coverage or musical-analysis accuracy.
 
 A native Beatport catalog probe returned a public diagnostic match through its
-catalog API. Native Traxsource requests returned HTTP 403 on the validation
-machine; live Traxsource success has not been established. Keep this distinction
-when testing provider availability. A blocked provider stays actionable in
+catalog API. Direct Traxsource requests returned HTTP 403 on the validation
+machine. A read-only Trawl probe retrieved live search, track and release pages
+that the Rust adapter parsed, including key, BPM and release metadata. This
+establishes that fetch/parse path, not a file-write or packaged-app acceptance. A blocked provider stays actionable in
 Incoming, without silently bypassing a required tagging stage.
 
 The integration excludes Spotify/audio-feature workflows, Shazam, QuickTag,

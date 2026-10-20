@@ -280,8 +280,18 @@ pub async fn tagging_storage(host: Managed<'_>) -> Ipc<TaggingStorage> {
     work(move || lib.tagging_storage()).await
 }
 #[tauri::command]
-pub fn tagging_catalog() -> cuerithm_autotag::TaggingCatalog {
-    cuerithm_autotag::settings_catalog()
+pub async fn tagging_catalog(host: Managed<'_>) -> Ipc<cuerithm_autotag::TaggingCatalog> {
+    let library = host.library.clone();
+    work(move || library.tagging_catalog()).await
+}
+#[tauri::command]
+pub async fn reset_catalog_access(host: Managed<'_>) -> Ipc<cuerithm_autotag::TaggingCatalog> {
+    let library = host.library.clone();
+    work(move || {
+        library.reset_catalog_access()?;
+        library.tagging_catalog()
+    })
+    .await
 }
 #[tauri::command]
 pub async fn cleanup_catalog(

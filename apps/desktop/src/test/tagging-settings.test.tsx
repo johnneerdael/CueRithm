@@ -4,8 +4,44 @@ import App from "../App";
 import catalog from "./tagging-catalog.json";
 import type {TaggingCatalog,Snapshot} from "../types";
 import {fakeBridge,track} from "./bridge";
+import TaggingSettings from "../views/TaggingSettings";
 
 describe("automatic tagging Settings",()=>{
+  it("refreshes detected restrictions while mounted without losing selected providers or draft edits",async()=>{
+    const bridge=fakeBridge([]);
+    let access:NonNullable<TaggingCatalog["access"]>=[];
+    bridge.getTaggingCatalog=vi.fn(async()=>({...structuredClone(catalog as TaggingCatalog),access}));
+    const config=structuredClone((catalog as TaggingCatalog).defaults);
+    const change=vi.fn();
+    const page=render(<TaggingSettings bridge={bridge} config={config} enabled onChange={change} catalogRevision={0}/>);
+    expect(await screen.findByLabelText("Use Traxsource")).toBeChecked();
+    access=[{id:"traxsource",requires_solver:true}];
+    page.rerender(<TaggingSettings bridge={bridge} config={config} enabled onChange={change} catalogRevision={1}/>);
+    await screen.findByText("Unavailable · configure a solver");
+    expect(screen.getByLabelText("Use Traxsource")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("Use Traxsource"));
+    const unselected=change.mock.calls.at(-1)![0];
+    page.rerender(<TaggingSettings bridge={bridge} config={unselected} enabled onChange={change} catalogRevision={1}/>);
+    expect(screen.getByLabelText("Use Traxsource")).toBeDisabled();
+  });
+  it("disables a detected blocked source until a solver is configured and persists its timeout",async()=>{
+    const bridge=fakeBridge([]);
+    bridge.getTaggingCatalog=vi.fn(async()=>({...structuredClone(catalog as TaggingCatalog),access:[{id:"traxsource",requires_solver:true}]}));
+    render(<App bridge={bridge}/>);
+    await screen.findByText("Your library starts here");
+    fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
+    expect(await screen.findByLabelText("Use Traxsource")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Solver API URL"),{target:{value:"http://localhost:8191/v1"}});
+    expect(screen.getByLabelText("Use Traxsource")).toBeEnabled();
+    fireEvent.click(screen.getByLabelText("Use Traxsource"));
+    fireEvent.change(screen.getByLabelText("Solver timeout"),{target:{value:"180"}});
+    fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
+    await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+    const saved=vi.mocked(bridge.saveSettings).mock.calls.at(-1)![0];
+    expect(saved.tagging?.solver).toEqual({endpoint:"http://localhost:8191/v1",timeout_seconds:180});
+    expect(saved.tagging?.options.platforms).toContain("traxsource");
+  });
   it("persists provider order, field policies and catalog options across remount",async()=>{
     const bridge=fakeBridge([]);
     bridge.getTaggingStorage=vi.fn(async()=>({original_files:2,original_bytes:1048576,pending_cleanup:0}));

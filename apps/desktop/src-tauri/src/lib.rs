@@ -113,6 +113,7 @@ pub fn run() {
             commands::get_artwork,
             commands::get_settings,
             commands::tagging_catalog,
+            commands::reset_catalog_access,
             commands::tagging_storage,
             commands::cleanup_catalog,
             commands::preview_cleanup,

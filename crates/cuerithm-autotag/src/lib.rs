@@ -18,6 +18,7 @@ mod providers;
 use anyhow::{Result, ensure};
 pub use config::{AnalysisTagSource, AutotagConfig, NoMatchPolicy};
 pub use input::TagInput;
+pub use onetagger_selected_providers::http::{ChallengeStore, MemoryChallengeStore, SolverConfig};
 use onetagger_tagger::MatchingUtils;
 pub use onetagger_tagger::{
     Album as CatalogAlbum, FrameName, PlatformInfo, SupportedTag, TaggerConfig,
@@ -146,11 +147,18 @@ struct Backend {
 pub struct TaggingCatalog {
     pub defaults: AutotagConfig,
     pub providers: Vec<PlatformInfo>,
+    pub access: Vec<SourceAccess>,
+}
+#[derive(Debug, serde::Serialize)]
+pub struct SourceAccess {
+    pub id: String,
+    pub requires_solver: bool,
 }
 pub fn settings_catalog() -> TaggingCatalog {
     TaggingCatalog {
         defaults: AutotagConfig::default(),
         providers: Tagger::provider_options(),
+        access: vec![],
     }
 }
 pub struct Tagger {
@@ -161,7 +169,13 @@ impl Tagger {
         Self::with_endpoints(CatalogEndpoints::default())
     }
     pub fn with_endpoints(endpoints: CatalogEndpoints) -> Result<Self> {
-        Self::with_backends(providers::backends(endpoints)?)
+        Self::with_endpoints_and_store(endpoints, Arc::new(MemoryChallengeStore::default()))
+    }
+    pub fn with_endpoints_and_store(
+        endpoints: CatalogEndpoints,
+        store: Arc<dyn ChallengeStore>,
+    ) -> Result<Self> {
+        Self::with_backends(providers::backends(endpoints, store)?)
     }
     pub fn with_backends(backends: Vec<Arc<dyn ProviderBackend>>) -> Result<Self> {
         let mut seen = std::collections::HashSet::new();

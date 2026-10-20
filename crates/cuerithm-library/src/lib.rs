@@ -29,6 +29,8 @@ pub use playlists::*;
 mod maintenance;
 mod model;
 pub use maintenance::*;
+#[cfg(feature = "autotag")]
+mod catalog_access;
 pub mod playback;
 mod settings;
 mod store;

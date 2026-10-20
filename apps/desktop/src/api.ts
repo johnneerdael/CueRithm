@@ -38,6 +38,7 @@ export const nativeBridge:Bridge={
   getArtwork:(trackId,sourceSha256)=>invoke("get_artwork",{trackId,sourceSha256}),
   getTaggingStorage:()=>invoke("tagging_storage"),
   getTaggingCatalog:()=>invoke("tagging_catalog"),
+  resetCatalogAccess:()=>invoke("reset_catalog_access"),
   saveSettings:settings=>invoke("save_settings",{settings}),
   enqueuePaths:paths=>invoke("enqueue_paths",{paths}),
   retryJob:jobId=>invoke("retry_job",{jobId}),

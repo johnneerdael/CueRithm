@@ -40,6 +40,7 @@ export function fakeBridge(rows:Track[]) {
     onLibraryChange:vi.fn(async()=>()=>{}),
     getTaggingStorage:vi.fn(async()=>({original_files:0,original_bytes:0,pending_cleanup:0})),
     getTaggingCatalog:vi.fn(async()=>JSON.parse(JSON.stringify(catalog))),
+    resetCatalogAccess:vi.fn(async()=>JSON.parse(JSON.stringify(catalog))),
     getMetadataFields:vi.fn(async()=>[]),
     rows,jobs:[],changed:e=>listener?.(e),
     selectTrackIds:vi.fn(async q=>bridge.rows.filter(r=>q.view==="archive"?r.archived:!r.archived&&(q.view==="incoming"?r.state==="incoming":r.state==="ready")).map(r=>r.id)),

@@ -14,16 +14,24 @@ const labelFor=(field:string)=>fieldLabels[field]??(field[0].toUpperCase()+field
 const routes=[["default","Genres and styles separately"],["onlyGenres","Genres only"],["onlyStyles","Styles only"],["mergeToGenres","Merge both into genres"],["mergeToStyles","Merge both into styles"],["stylesToGenre","Styles into genres"],["genresToStyle","Genres into styles"],["customTag","Styles into custom fields"]];
 const swap=(values:string[],index:number,delta:number)=>{const next=[...values];[next[index],next[index+delta]]=[next[index+delta],next[index]];return next;};
 
-export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge:Bridge;config:AutotagConfig|null|undefined;enabled:boolean;onChange:(config:AutotagConfig,enabled:boolean)=>void}){
+export default function TaggingSettings({bridge,config,enabled,onChange,catalogRevision=0}:{catalogRevision?:number;bridge:Bridge;config:AutotagConfig|null|undefined;enabled:boolean;onChange:(config:AutotagConfig,enabled:boolean)=>void}){
   const [storage,setStorage]=useState<Awaited<ReturnType<Bridge["getTaggingStorage"]>>|null>(null);
   const [catalog,setCatalog]=useState<TaggingCatalog|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
-  useEffect(()=>{let active=true;setError(null);bridge.getTaggingCatalog().then(value=>{if(active)setCatalog(value);}).catch(e=>{if(active)setError(errorMessage(e));});return ()=>{active=false;};},[bridge,retry]);
+  const [accessError,setAccessError]=useState<string|null>(null);
+  const [resetting,setResetting]=useState(false);
+  useEffect(()=>{let active=true;setError(null);bridge.getTaggingCatalog().then(value=>{if(active)setCatalog(value);}).catch(e=>{if(active)setError(errorMessage(e));});return ()=>{active=false;};},[bridge,retry,catalogRevision]);
   useEffect(()=>{let active=true;bridge.getTaggingStorage().then(value=>{if(active)setStorage(value);}).catch(()=>{});return ()=>{active=false;};},[bridge]);
   if(error)return <section className="setting-section"><h2>Automatic tagging</h2><p role="alert">{error}</p><button className="secondary" onClick={()=>setRetry(n=>n+1)}>Retry loading tagging settings</button></section>;
   if(!catalog)return <section className="setting-section" aria-busy="true"><h2>Automatic tagging</h2><p className="setting-note">Loading tagging settings…</p></section>;
-  const current=config??catalog.defaults;
+  const requiresSolver=(id:string)=>catalog.access?.some(a=>a.id===id&&a.requires_solver)??false;
+  const defaultSolver=catalog.defaults.solver??{endpoint:null,timeout_seconds:120};
+  const configuredSolver=config?.solver??defaultSolver;
+  const hasSolver=!!configuredSolver.endpoint?.trim();
+  const current=config??{...catalog.defaults,options:{...catalog.defaults.options,platforms:catalog.defaults.options.platforms.filter(id=>!requiresSolver(id)||hasSolver)}};
+  const solver=current.solver??defaultSolver;
+  const resetAccess=async()=>{setResetting(true);setAccessError(null);try{setCatalog(await bridge.resetCatalogAccess());}catch(e){setAccessError(errorMessage(e));}finally{setResetting(false);}};
   const options=current.options;
   const update=(patch:Partial<AutotagConfig>)=>onChange({...current,...patch},enabled);
   const opt=(patch:Partial<TaggingOptions>)=>update({options:{...options,...patch}});
@@ -41,8 +49,17 @@ export default function TaggingSettings({bridge,config,enabled,onChange}:{bridge
     <div className="provider-order" aria-label="Catalog providers">{ordered.map(id=>{
       const provider=catalog.providers.find(p=>p.id===id);if(!provider)return null;
       const index=options.platforms.indexOf(id),selected=index>=0;
-      return <div className="provider-line" key={id}><span className="provider-position">{selected?index+1:"—"}</span><label><input type="checkbox" aria-label={"Use "+provider.name} checked={selected} onChange={e=>opt({platforms:e.target.checked?[...options.platforms,id]:options.platforms.filter(p=>p!==id)})}/><strong>{provider.name}</strong></label><small>{provider.maxThreads===1?"One request at a time":"Uses tagging concurrency"}</small><button aria-label={"Move "+provider.name+" earlier"} disabled={!selected||index===0} onClick={()=>opt({platforms:swap(options.platforms,index,-1)})}><ArrowUp size={15}/></button><button aria-label={"Move "+provider.name+" later"} disabled={!selected||index===options.platforms.length-1} onClick={()=>opt({platforms:swap(options.platforms,index,1)})}><ArrowDown size={15}/></button></div>;
+      const unavailable=requiresSolver(id)&&!hasSolver;
+      return <div className="provider-line" key={id}><span className="provider-position">{selected?index+1:"—"}</span><label><input type="checkbox" aria-label={"Use "+provider.name} disabled={unavailable&&!selected} checked={selected} onChange={e=>opt({platforms:e.target.checked?[...options.platforms,id]:options.platforms.filter(p=>p!==id)})}/><strong>{provider.name}</strong></label><small>{unavailable?"Unavailable · configure a solver":requiresSolver(id)?"Uses configured solver":provider.maxThreads===1?"One request at a time":"Uses tagging concurrency"}</small><button aria-label={"Move "+provider.name+" earlier"} disabled={!selected||index===0} onClick={()=>opt({platforms:swap(options.platforms,index,-1)})}><ArrowUp size={15}/></button><button aria-label={"Move "+provider.name+" later"} disabled={!selected||index===options.platforms.length-1} onClick={()=>opt({platforms:swap(options.platforms,index,1)})}><ArrowDown size={15}/></button></div>;
     })}</div>
+    <details className="tagging-group" open><summary>Cloudflare challenge solver</summary>
+      <p className="setting-note">Optional. Only sources detected as blocked use this service. It receives their catalog URLs and search queries. Beatport keeps its direct catalog API connection.</p>
+      <Row label="Solver API URL" note="FlareSolverr, Byparr or Trawl. Enter the server URL or its /v1 endpoint; leave empty to disable."><input aria-label="Solver API URL" type="url" placeholder="http://localhost:8191" value={solver.endpoint??""} onChange={e=>update({solver:{...solver,endpoint:e.target.value||null}})}/></Row>
+      <Row label="Solver timeout" note="Seconds per attempt. Initial challenges can take longer; default 120. Temporary failures are retried once."><input aria-label="Solver timeout" type="number" min={1} max={300} step={1} value={solver.timeout_seconds} onChange={e=>update({solver:{...solver,timeout_seconds:Number(e.target.value)}})}/></Row>
+      <p className="setting-note">Detected restrictions are remembered across restarts. To test direct access again after a source or network changes, reset detected statuses.</p>
+      <button className="secondary" type="button" disabled={resetting} onClick={()=>void resetAccess()}>{resetting?"Resetting source access…":"Retry direct source access"}</button>
+      {accessError?<p role="alert">{accessError}</p>:null}
+    </details>
     {bool("multiplatform","Combine providers","Off: use the first provider with a match. On: apply matches from every selected provider in order.")}
     <Row label="No catalog match"><select aria-label="No catalog match" value={current.no_match} onChange={e=>update({no_match:e.target.value as AutotagConfig["no_match"]})}><option value="keep_existing">Keep existing tags and finish</option><option value="attention">Keep in Incoming for attention</option></select></Row>
     <p className="setting-note">Provider errors keep the track in Incoming for retry. A successful preparation replaces cues and moves the track into Tracks.</p>

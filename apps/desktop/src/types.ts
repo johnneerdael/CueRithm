@@ -31,10 +31,11 @@ export interface TaggingOptions {
   custom:Record<string,Record<string,unknown>>;
   [key:string]:unknown;
 }
-export interface AutotagConfig {options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean}
+export interface SolverConfig {endpoint:string|null;timeout_seconds:number}
+export interface AutotagConfig {solver?:SolverConfig;options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean}
 export type CustomOptionValue = {type:"boolean";value:boolean}|{type:"number";min:number;max:number;step:number;value:number}|{type:"string";value:string;hidden:boolean|null}|{type:"tag";value:TagFrame}|{type:"option";values:string[];value:string}|{type:"button"};
 export interface TaggingProvider {id:string;name:string;maxThreads:number;supportedTags:string[];customOptions:{options:{id:string;label:string;tooltip:string|null;value:CustomOptionValue}[]}}
-export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[]}
+export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[];access?:{id:string;requires_solver:boolean}[]}
 export type MetadataField="title"|"artist"|"album"|"album_artist"|"genre"|"comment"|"grouping"|"label"|"remixer"|"mix"|"producer"|"composer"|"lyricist";
 export type ContributorRole="artist"|"remixer"|"producer"|"composer"|"lyricist";
 export type CommonTextPattern="CamelotKeyFromTitle"|"OriginalMixFromTitle"|"CamelotKeyEnergyFromTitle"|"BpmFromTitle";
@@ -92,6 +93,7 @@ export interface Bridge {
   getState():Promise<LibraryState>;
   getMetadataFields():Promise<string[]>;
   getTaggingCatalog():Promise<TaggingCatalog>;
+  resetCatalogAccess():Promise<TaggingCatalog>;
   getTaggingStorage():Promise<{original_files:number;original_bytes:number;pending_cleanup:number}>;
   listTracks(query:TrackQuery):Promise<TrackPage>;
   selectTrackIds(query:TrackQuery):Promise<string[]>;

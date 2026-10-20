@@ -90,6 +90,36 @@ fn malformed_rows_and_empty_results_are_distinct() {
         server.join().unwrap();
     }
 }
+
+#[test]
+fn traxsource_explicit_empty_search_is_no_match_but_missing_markup_is_an_error() {
+    for (html, empty) in [
+        (
+            r#"<div id="bodyBay"><div class="search-res-cont"><h1>Search</h1><h2>No results found for <span class="ss">&quot;Signal&quot;</span></h2></div></div>"#,
+            true,
+        ),
+        (r#"<h2>No results found for Signal</h2>"#, false),
+        (
+            r#"<div id="bodyBay"><div class="search-res-cont"><h1>Search</h1></div></div>"#,
+            false,
+        ),
+    ] {
+        let (url, server) = fixture(200, html, Duration::ZERO);
+        let tagger = Tagger::with_endpoints(
+            CatalogEndpoints::for_local_server(&url, Duration::from_secs(2)).unwrap(),
+        )
+        .unwrap();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["traxsource".into()];
+        let result = tagger.match_track(&input(), &config);
+        if empty {
+            assert_eq!(result.unwrap().status, MatchStatus::NoMatch);
+        } else {
+            assert!(result.is_err());
+        }
+        server.join().unwrap();
+    }
+}
 #[test]
 fn requests_time_out_and_fixture_overrides_cannot_target_other_hosts() {
     assert!(
