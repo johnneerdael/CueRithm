@@ -805,7 +805,7 @@ impl Engine {
             });
         }
         if self.energy.is_some() {
-            config_identity["energy_method"] = "svc-duration-mode-v1".into();
+            config_identity["energy_method"] = "svc-percentile80-v1".into();
         } else if self.settings.lexicon_energy {
             config_identity["energy_method"] = crate::lexicon_energy::METHOD.into();
         }
@@ -869,8 +869,8 @@ impl Engine {
                 Some(p) => camelot_source_analysis::analyze_energy_pcm(p)?,
                 None => camelot_source_analysis::analyze_energy_file(decode_path)?,
             };
-            analysis.energy = model.estimate(&segments)?;
-            analysis.engine.push_str("+track-energy-svc-v1");
+            analysis.energy = model.estimate_overall(&segments)?;
+            analysis.engine.push_str("+track-energy-svc-p80-v1");
         } else if self.settings.lexicon_energy {
             let input = decoded
                 .iter()
