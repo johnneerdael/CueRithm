@@ -224,6 +224,25 @@ fn validate_device_source_replacements(
     Ok(())
 }
 
+fn engine_device_library(root: &Path) -> bool {
+    // Discovery checks <drive>/Engine Library on Windows. Canonical paths may
+    // carry the verbatim prefix; normal Music/Engine Library folders stay local.
+    let windows = root.to_string_lossy().replace('\\', "/");
+    let windows = windows.strip_prefix("//?/").unwrap_or(&windows);
+    let bytes = windows.as_bytes();
+    let windows_drive = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && &bytes[1..3] == b":/"
+        && windows[3..]
+            .trim_end_matches('/')
+            .eq_ignore_ascii_case("Engine Library");
+    windows_drive
+        || root.starts_with("/Volumes")
+        || root.starts_with("/media")
+        || root.starts_with("/run/media")
+        || root.starts_with("/mnt")
+}
+
 fn serato_group(
     library: &SyncLibrary,
     tracks: Vec<crate::SyncTrack>,
@@ -458,11 +477,7 @@ pub fn prepare_sync_owned_with_runtime(
                 .context("Engine Library folder is missing")?;
             let stage = build.join("engine/Database2/m.db");
             sqlite_snapshot(&database, &stage, &mut before)?;
-            let portable = options.engine_copy_audio
-                || root.starts_with("/Volumes")
-                || root.starts_with("/media")
-                || root.starts_with("/run/media")
-                || root.starts_with("/mnt");
+            let portable = options.engine_copy_audio || engine_device_library(root);
             if portable {
                 let (projected, media) =
                     crate::engine_dj::stage_device_media(&build.join("engine"), root, library)?;
@@ -950,6 +965,31 @@ pub fn verify_sync_restored(journal_root: &Path, id: &str) -> Result<FileJournal
 mod tests {
     use super::*;
     use crate::SyncTrack;
+    #[test]
+    fn engine_device_libraries_include_windows_drive_roots_without_copying_desktop_libraries() {
+        for root in [
+            r"E:\Engine Library",
+            r"e:\ENGINE LIBRARY\",
+            "E:/Engine Library",
+            r"\\?\E:\Engine Library",
+            "/Volumes/DJ USB/Engine Library",
+            "/media/user/DJ USB/Engine Library",
+            "/run/media/user/DJ USB/Engine Library",
+            "/mnt/dj/Engine Library",
+        ] {
+            assert!(engine_device_library(Path::new(root)), "{root}");
+        }
+        for root in [
+            r"C:\Users\DJ\Music\Engine Library",
+            r"E:\Music\Engine Library",
+            r"\\?\C:\Users\DJ\Music\Engine Library",
+            "/Users/dj/Music/Engine Library",
+            "/mnt-backup/Music/Engine Library",
+            "E:Engine Library",
+        ] {
+            assert!(!engine_device_library(Path::new(root)), "{root}");
+        }
+    }
     #[test]
     fn cleanup_cannot_remove_assets_from_a_second_pioneer_catalog() {
         let dir = tempfile::tempdir().unwrap();

@@ -53,6 +53,9 @@ available. Engine DJ and Serato also offer **Beatgrid locks**.
 Engine DJ can **Copy audio to the target drive**. Engine DJ and Pioneer USB can
 **Add album art**. Serato and Pioneer USB offer **Convert keys** with original,
 musical, Camelot and Open Key notation.
+Engine DJ copies audio automatically for libraries at recognized mounted-drive
+locations, including `E:\Engine Library` on Windows. Enable **Copy audio to the
+target drive** for other folders when the export needs its own audio copies.
 
 ### Pioneer USB
 
