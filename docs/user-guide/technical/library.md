@@ -7,7 +7,7 @@ CueRithm keeps everything it knows in a single **SQLite** database, with a small
 - SQLite (bundled with the app, via `rusqlite`), file name **`library.sqlite`**, in the application data folder.
 - **WAL** journal mode, **synchronous FULL**, foreign keys on, a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library (a non-empty SQLite file without it is rejected).
-- Schema version (`user_version`) is currently **11**. Migrations are embedded SQL files applied in order, in an immediate transaction. A **newer schema is refused** ("Library schema is newer than this application"), and there is **no downgrade**. Migrations preserve existing tracks, jobs and cue ownership.
+- Schema version (`user_version`) is currently **12**. Migrations are embedded SQL files applied in order, in an immediate transaction. A **newer schema is refused** ("Library schema is newer than this application"), and there is **no downgrade**. Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live
 
@@ -35,6 +35,8 @@ If you move or delete a track outside CueRithm, its stored path breaks. A scan f
 | `settings`, `selected_settings` | Immutable settings snapshots identified by a SHA-256, plus a pointer to the current one |
 | `preparation_analysis` | The analysis cache |
 | `tag_writes`, `tag_write_files` | The tag-write journal |
+| `library_preferences` | Revision-checked time zone, key compatibility and opt-in automatic Smart Playlist settings |
+| `automatic_playlist_nodes`, `automatic_playlist_state` | Managed playlist identities and the last reconciled input, preference and playlist revisions |
 | Playlist, cleanup and maintenance tables | Playlists with members and edits, cleanup plans and batches, custom tags and categories |
 
 A global `revision` counter increments on every change, which is how the interface knows to refresh.
@@ -58,7 +60,7 @@ CueRithm takes an exclusive advisory lock on `library.sqlite.lock`. A second pro
 
 ## Settings storage
 
-Everything in the preparation settings (watch folders, cue settings, tagging, cleanup and the enable flags) is in the database. Display preferences (waveform style, theme, column layout, sidebar width and player height) are stored in the interface's local storage on your computer.
+Everything in the preparation settings (watch folders, cue settings, tagging, cleanup and the enable flags) is in the database. Library preferences and automatic Smart Playlist settings share a separate revision-checked database record; saving them does not change preparation settings. Display preferences (waveform style, theme, column layout, sidebar width and player height) are stored in the interface's local storage on your computer.
 
 ## Backups
 

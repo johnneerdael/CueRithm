@@ -39,6 +39,7 @@ impl SmartPlaylistService {
                     }
                     let result = (|| -> Result<()> {
                         let now = clock();
+                        library.reconcile_automatic_playlists()?;
                         if library.smart_lists_need_refresh(now)? {
                             let evaluation =
                                 library.evaluate_smart_lists_cancellable(now, Some(&stopped))?;

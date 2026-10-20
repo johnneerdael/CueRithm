@@ -41,11 +41,11 @@ Not every track gets every cue. A track with no clear breakdown simply has fewer
 
 ## 4. Zoom to the beats
 
-Click the waveform to switch to a **16-second** view that follows the playhead. Beat lines become clearly visible, so you can check that the grid sits on the kicks.
+The waveform defaults to a **32-second** view that follows the playhead. Beat lines become clearly visible, so you can check that the grid sits on the kicks.
 
 <figure markdown>
   ![The waveform zoomed to a 16-second window with beat lines](../assets/screens/41-player-zoom16.webp){ .screen loading=lazy }
-  <figcaption>16-second zoom. Click the waveform again to return to the whole track.</figcaption>
+  <figcaption>Zoomed view, shown with the previous 16-second window. Click the waveform to switch between the default 32-second view and the whole track.</figcaption>
 </figure>
 
 Use ++arrow-left++ and ++arrow-right++ to jump a bar (four beats) at a time, and ++space++ to play or pause.

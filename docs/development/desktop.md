@@ -120,9 +120,10 @@ for known identities and missing target acceptance.
 
 ## Preview and batch throughput
 
-The main waveform defaults to the entire playable track, with all cue positions.
-Click the main waveform to switch between the entire track and 16 seconds;
-the small overview remains a click-to-seek control. Left/Right jumps backward or
+The main waveform defaults to a 32-second window that follows the playhead.
+Click the main waveform, or focus it and press Enter/Space, to switch between
+32 seconds and the entire track. The small overview always shows the full
+playable track with all cue positions and remains a click-to-seek control. Left/Right jumps backward or
 forward one four-beat bar at the analyzed BPM, preserving playback. Repeated
 keypresses are ordered against the current native position and clamped to the
 playable duration. Text fields and volume retain their normal arrow keys.
