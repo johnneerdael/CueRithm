@@ -488,3 +488,31 @@ baseline is applied to rekordbox's current set, so a tag that exists only in rek
 rekordbox already reflects is converged; ownership rules still apply. Missing categories and tags are created
 with the reference writer's row protocol. The end-to-end test adds a local tag, writes it, and confirms the
 track's existing rekordbox tags are unchanged.
+
+
+## Adding tracks that rekordbox lacks (2026-10-20)
+
+`NativeSyncOptions { add_new_tracks }` (off by default; the **rekordbox** screen shows a checkbox with the
+count) adds CueRithm tracks to the library in the same transaction as the rest of the sync. The preview always
+lists what could be added and what cannot, with the reason.
+
+A track qualifies when it is ready and not archived, is not linked to this library, its file exists, its
+format is one rekordbox plays (MP3, AAC, MP4, M4A, ALAC, FLAC, WAV, AIFF; Ogg Vorbis, Opus and WMA are
+reported as unsupported by rekordbox), no track with that path is already in the library, and it has been
+analysed (a duration). Nothing is added from a track's source tags or file name beyond what CueRithm holds.
+
+Each new track is written with the reference writer's row protocol: a `djmdContent` row (ID allocated as
+maximum plus one, a fresh UUID, `rb_data_status` 0), its folder and file name, file type, size, bit rate,
+sample rate and the fields CueRithm owns, foreign rows by name (created or revived), a `contentFile` row,
+cues as `djmdCue` plus `contentCue`, MyTags, and an analysis file under
+`share/PIONEER/USBANLZ/<uuid[0..3]>/<uuid[3..]>/ANLZ0000.DAT` holding a constant beat grid from the analysed
+tempo and first beat plus empty waveform sections. rekordbox analyses the waveform itself when the track is
+next opened. The analysis file is created only if absent, is recorded in the publication journal and is
+removed again if the publication is rolled back or recovered. Playlist members that are being added are
+written in the same plan.
+
+After the verified publish the new tracks are read back, linked to the CueRithm tracks they came from with
+CueRithm as owner of every writable field, and acknowledged, so the next sync neither re-adds them nor treats
+them as changed. The end-to-end test adds a generated WAV to a snapshot of a real 7.2.19 library, checks the
+analysis file, the playlist membership and the link, and then repeats the sync to confirm nothing is written.
+Opening the result in the real rekordbox application is still a manual check.

@@ -6,8 +6,8 @@ export const nativeRekordbox={
   preflight:()=>invoke<RekordboxPreflight>("rekordbox_preflight"),
   playlists:(operationId:string)=>invoke<RekordboxPlaylist[]>("rekordbox_playlists",{operationId}),
   importTracks:(operationId:string,scope:ImportScope)=>invoke<NativeImportReport>("rekordbox_import",{operationId,scope}),
-  prepare:(operationId:string)=>invoke<NativeSyncPrepared>("rekordbox_prepare",{operationId}),
-  apply:(operationId:string)=>invoke<ApplyOutcome>("rekordbox_apply",{operationId}),
+  prepare:(operationId:string,addNewTracks=false)=>invoke<NativeSyncPrepared>("rekordbox_prepare",{operationId,addNewTracks}),
+  apply:(operationId:string,addNewTracks=false)=>invoke<ApplyOutcome>("rekordbox_apply",{operationId,addNewTracks}),
   history:()=>invoke<NativeSyncRun[]>("rekordbox_history"),
 };
 export type RekordboxBridge=typeof nativeRekordbox;

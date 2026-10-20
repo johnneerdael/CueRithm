@@ -227,11 +227,18 @@ pub async fn rekordbox_import(
 }
 
 #[tauri::command]
-pub async fn rekordbox_prepare(host: Managed<'_>, operation_id: String) -> Ipc<NativeSyncPrepared> {
+pub async fn rekordbox_prepare(
+    host: Managed<'_>,
+    operation_id: String,
+    add_new_tracks: Option<bool>,
+) -> Ipc<NativeSyncPrepared> {
+    let options = NativeSyncOptions {
+        add_new_tracks: add_new_tracks.unwrap_or(false),
+    };
     run(host.inner().clone(), operation_id, move |host, cancel| {
         let (live, key) = context(host, cancel)?;
         host.library
-            .native_sync_prepare(&live, &key, &work_dir(host, "work")?, cancel)
+            .native_sync_prepare(&live, &key, &work_dir(host, "work")?, options, cancel)
     })
     .await
 }
@@ -243,7 +250,14 @@ pub struct ApplyOutcome {
     pub conflicts: Vec<NativeSyncConflict>,
 }
 #[tauri::command]
-pub async fn rekordbox_apply(host: Managed<'_>, operation_id: String) -> Ipc<ApplyOutcome> {
+pub async fn rekordbox_apply(
+    host: Managed<'_>,
+    operation_id: String,
+    add_new_tracks: Option<bool>,
+) -> Ipc<ApplyOutcome> {
+    let options = NativeSyncOptions {
+        add_new_tracks: add_new_tracks.unwrap_or(false),
+    };
     run(host.inner().clone(), operation_id, move |host, cancel| {
         let (live, key) = context(host, cancel)?;
         match host.library.native_sync_apply(
@@ -251,6 +265,7 @@ pub async fn rekordbox_apply(host: Managed<'_>, operation_id: String) -> Ipc<App
             &key,
             &work_dir(host, "work")?,
             &work_dir(host, "backups")?,
+            options,
             cancel,
         ) {
             Ok(run) => Ok(ApplyOutcome {

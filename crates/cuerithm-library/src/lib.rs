@@ -15,6 +15,8 @@ mod jobs;
 mod metadata;
 mod native_apply;
 pub use native_apply::*;
+mod native_new_tracks;
+pub use native_new_tracks::*;
 mod native_plan;
 mod native_smart;
 pub use native_plan::*;

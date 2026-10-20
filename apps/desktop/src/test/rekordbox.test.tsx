@@ -16,8 +16,9 @@ const prepared=(over:Partial<NativeSyncPrepared>={}):NativeSyncPrepared=>({targe
     {content_id:"101",local_track_id:"l1",status:"linked",expected_fingerprint:"fp",blocked:null,fields:[diff("title","push_local","New title","Old title"),diff("genre","pull_remote","House","Tech House"),diff("key","empty_local",null,"8A"),diff("tag_ids","push_local",["Mood\u001fDark","Energy\u001fPeak"],null)]},
     {content_id:"102",local_track_id:"l2",status:"identity_changed",expected_fingerprint:null,blocked:"identity_changed",fields:[]}]},
   plan:{tracks:[{content_id:"101",local_track_id:"l1",fields:["title","tag_ids"]}],skipped:[{content_id:"101",field:"key",decision:"empty_local"}],blocked:[["102","identity_changed"]],pull_available:1},
+  new_tracks:{items:[],skipped:[]},
   playlists:{items:[{path:["Sets","Friday"],kind:"playlist",action:"create",tracks:12,unlinked:2,materialized:false},{path:["Warmup"],kind:"playlist",action:"skip_existing",tracks:5,unlinked:0,materialized:false},{path:["Old"],kind:"playlist",action:"unchanged",tracks:1,unlinked:0,materialized:false},{path:["Peak"],kind:"smartlist",action:"create",tracks:0,unlinked:0,materialized:false},{path:["Regex"],kind:"playlist",action:"create",tracks:4,unlinked:0,materialized:true}]},...over});
-const run:NativeSyncRun={id:"r1",created:1700000000000,target_id:"t1",state:"committed",usn_before:10,usn_after:11,tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],playlists:{items:[]},skipped:1,backup:"/data/backups/r1/master.backup.db",journal:"/data/backups/r1/journal.json"};
+const run:NativeSyncRun={id:"r1",created:1700000000000,target_id:"t1",state:"committed",usn_before:10,usn_after:11,tracks:[{content_id:"101",local_track_id:"l1",fields:["title"]}],playlists:{items:[]},tracks_added:0,skipped:1,backup:"/data/backups/r1/master.backup.db",journal:"/data/backups/r1/journal.json"};
 function fakeRekordbox(){
   return {
     preflight:vi.fn<RekordboxBridge["preflight"]>(async()=>preflight()),
@@ -126,4 +127,32 @@ it("lists past syncs with the backup that was made first",async()=>{
   expect(history.getByText("Wrote 1 track")).toBeInTheDocument();
   expect(history.getByText(/Backup: \/data\/backups\/r1\/master.backup.db/)).toBeInTheDocument();
   expect(history.getByText("Nothing to write")).toBeInTheDocument();
+});
+
+it("offers to add CueRithm tracks rekordbox lacks, re-reads the preview with the choice and reports the result",async()=>{
+  const rekordbox=fakeRekordbox();
+  const withNew=prepared({new_tracks:{items:[{local_track_id:"n1",title:"Fresh Cut",artist:"DJ A",path:"/music/fresh.flac"},{local_track_id:"n2",title:"Second",artist:"",path:"/music/second.mp3"}],skipped:[{local_track_id:"n3",title:"Odd One",reason:"format_not_supported_by_rekordbox"},{local_track_id:"n4",title:"Dup",reason:"already_in_rekordbox"}]}});
+  rekordbox.prepare.mockResolvedValue(withNew);
+  rekordbox.apply.mockResolvedValue({run:{...run,tracks_added:2},conflicts:[]});
+  await open(rekordbox);
+  fireEvent.click(await screen.findByRole("button",{name:/Preview changes/}));
+  const box=await screen.findByRole("checkbox",{name:/Also add 2 CueRithm tracks that are not in rekordbox yet/});
+  expect(box).not.toBeChecked();
+  expect(rekordbox.prepare).toHaveBeenLastCalledWith(expect.any(String),false);
+  expect(screen.queryByRole("list",{name:"Tracks to add"})).toBeNull();
+  const cannot=within(screen.getByRole("list",{name:"Tracks that cannot be added"}));
+  expect(cannot.getByText("rekordbox cannot play this format")).toBeInTheDocument();
+  expect(cannot.queryByText("Dup")).toBeNull();
+  fireEvent.click(box);
+  await waitFor(()=>expect(rekordbox.prepare).toHaveBeenLastCalledWith(expect.any(String),true));
+  const added=within(await screen.findByRole("list",{name:"Tracks to add"}));
+  expect(added.getByText("DJ A — Fresh Cut")).toBeInTheDocument();
+  expect(added.getByText("Second")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button",{name:/Apply 7 changes/}));
+  const dialog=await screen.findByRole("alertdialog");
+  expect(dialog).toHaveTextContent("2 new tracks added");
+  fireEvent.click(within(dialog).getByRole("checkbox"));
+  fireEvent.click(within(dialog).getByRole("button",{name:/Write 7 changes/}));
+  await waitFor(()=>expect(rekordbox.apply).toHaveBeenCalledWith(expect.any(String),true));
+  expect(await screen.findByText(/and added 2 new tracks/)).toBeInTheDocument();
 });

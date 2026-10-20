@@ -84,7 +84,13 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     let work = tempfile::tempdir().unwrap();
     let backups = tempfile::tempdir().unwrap();
     let idle = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert!(idle.plan.tracks.is_empty(), "{:?}", idle.plan);
     // Edit the track in Cuerithm.
@@ -93,7 +99,13 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     lib.add_track_tag_for_test(&local_id, "Cuerithm Acceptance", "Written")
         .unwrap();
     let prepared = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     let planned = &prepared.plan.tracks[0];
     assert_eq!(planned.content_id, content_id);
@@ -103,7 +115,14 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     );
     // Apply.
     let run = lib
-        .native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert_eq!(run.state, "committed");
     assert_eq!(run.usn_after, Some(run.usn_before.unwrap() + 1));
@@ -158,7 +177,14 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     assert!(link.fields["title"].acknowledged && link.fields["genre"].acknowledged);
     assert!(!link.fields["label"].acknowledged);
     let again = lib
-        .native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert_eq!(again.state, "nothing_to_write");
     assert_eq!(
@@ -195,12 +221,25 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
             .unwrap();
     }
     let conflicted = lib
-        .native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert_eq!(conflicted.state, "nothing_to_write");
     assert!(conflicted.skipped >= 1);
     let after_conflict = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert!(
         after_conflict
@@ -296,8 +335,15 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
         .unwrap();
     let (work, backups) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let sync = || {
-        lib.native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
-            .unwrap()
+        lib.native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
+        .unwrap()
     };
     // A folder with a playlist holding the linked track, plus a playlist whose name already exists in rekordbox.
     let existing_name = before
@@ -327,7 +373,13 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
         },
     );
     let prepared = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert_eq!(prepared.playlists.writes(), 2, "{:?}", prepared.playlists);
     let run = sync();
@@ -378,7 +430,13 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
     assert!(rb_temp(&read(&live.path, &key)).is_some());
     playlist_edit(&lib, PlaylistEdit::Remove { id: temp });
     let removal = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert!(
         removal
@@ -417,7 +475,13 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
             .unwrap();
     }
     let changed = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert!(
         changed
@@ -445,7 +509,13 @@ fn playlists_are_mirrored_by_path_managed_by_cuerithm_and_never_taken_over() {
             },
         );
         let prepared = lib
-            .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+            .native_sync_prepare(
+                &live.path,
+                &key,
+                work.path(),
+                NativeSyncOptions::default(),
+                &cancel,
+            )
             .unwrap();
         assert!(
             prepared
@@ -566,7 +636,13 @@ fn smart_lists_are_native_when_every_rule_maps_and_materialized_otherwise() {
     }
     let (work, backups) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let prepared = lib
-        .native_sync_prepare(&live.path, &key, work.path(), &cancel)
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     let kind_of = |name: &str| {
         prepared
@@ -582,7 +658,14 @@ fn smart_lists_are_native_when_every_rule_maps_and_materialized_otherwise() {
     );
     assert_eq!(kind_of("Regex rules"), Some((PlaylistType::Playlist, true)));
     let run = lib
-        .native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
         .unwrap();
     assert_eq!(run.state, "committed");
     let after = read(&live.path, &key);
@@ -629,9 +712,215 @@ fn smart_lists_are_native_when_every_rule_maps_and_materialized_otherwise() {
         );
     }
     assert_eq!(
-        lib.native_sync_apply(&live.path, &key, work.path(), backups.path(), &cancel)
-            .unwrap()
-            .state,
+        lib.native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel
+        )
+        .unwrap()
+        .state,
         "nothing_to_write"
     );
+}
+
+/// A minimal PCM WAV file: `seconds` of silence at 44.1 kHz stereo.
+fn silent_wav(path: &std::path::Path, seconds: u32) {
+    let data = 44_100 * 4 * seconds;
+    let mut out = b"RIFF".to_vec();
+    out.extend((36 + data).to_le_bytes());
+    out.extend(b"WAVEfmt ");
+    out.extend(16u32.to_le_bytes());
+    out.extend([1, 0, 2, 0]);
+    out.extend(44_100u32.to_le_bytes());
+    out.extend((44_100u32 * 4).to_le_bytes());
+    out.extend([4, 0, 16, 0]);
+    out.extend(b"data");
+    out.extend(data.to_le_bytes());
+    out.extend(vec![0u8; data as usize]);
+    std::fs::write(path, out).unwrap();
+}
+
+#[test]
+fn a_cuerithm_track_rekordbox_lacks_is_added_with_its_grid_analysis_file_and_playlist_place() {
+    let Some(copy) = std::env::var_os("CUERITHM_REKORDBOX_COPY").map(PathBuf::from) else {
+        eprintln!("skipped: CUERITHM_REKORDBOX_COPY is not set");
+        return;
+    };
+    let key = key();
+    let cancel = CancellationToken::default();
+    let scratch = tempfile::tempdir().unwrap();
+    let live = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(scratch.path(), &key, &cancel)
+        .unwrap();
+    let before = read(&live.path, &key);
+    let linked = before
+        .tracks
+        .iter()
+        .find(|t| {
+            t.importable_local()
+                && t.source
+                    .resolved_path
+                    .as_ref()
+                    .is_some_and(|p| std::path::Path::new(p).is_file())
+        })
+        .expect("a track whose audio file exists")
+        .identity
+        .content_id
+        .clone();
+    let library_dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&library_dir.path().join("library")).unwrap();
+    let report = lib
+        .import_rekordbox_collection(
+            &before,
+            NativeImportOptions {
+                settings_revision: lib.settings().unwrap().revision,
+                content_ids: Some([linked.clone()].into()),
+                initial_owners: Default::default(),
+            },
+            &cancel,
+        )
+        .unwrap();
+    let music = tempfile::tempdir().unwrap();
+    let file = music.path().join("cuerithm acceptance new.wav");
+    silent_wav(&file, 4);
+    let file = file.canonicalize().unwrap();
+    let new_id = lib
+        .add_ready_track_for_test(
+            &file,
+            "Cuerithm New Track",
+            "Cuerithm Artist",
+            124.,
+            4.,
+            0.25,
+        )
+        .unwrap();
+    let folder = playlist_edit(
+        &lib,
+        create(PlaylistKind::Folder, "Cuerithm New Acceptance", None),
+    )
+    .created_ids[0]
+        .clone();
+    let playlist = playlist_edit(&lib, create(PlaylistKind::Playlist, "Fresh", Some(&folder)))
+        .created_ids[0]
+        .clone();
+    playlist_edit(
+        &lib,
+        PlaylistEdit::AddMembers {
+            id: playlist,
+            track_ids: vec![new_id.clone()],
+        },
+    );
+    let (work, backups) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    // Offered, but not added unless asked for.
+    let offered = lib
+        .native_sync_prepare(
+            &live.path,
+            &key,
+            work.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(offered.new_tracks.items.len(), 1);
+    assert_eq!(offered.new_tracks.items[0].local_track_id, new_id);
+    let declined = lib
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            NativeSyncOptions::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(declined.tracks_added, 0);
+    assert!(
+        !read(&live.path, &key)
+            .tracks
+            .iter()
+            .any(|t| t.metadata.title == "Cuerithm New Track")
+    );
+    // Added when asked for, with the analysis file published beside the database change.
+    let options = NativeSyncOptions {
+        add_new_tracks: true,
+    };
+    let run = lib
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            options,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(run.state, "committed");
+    assert_eq!(run.tracks_added, 1);
+    let after = read(&live.path, &key);
+    let added = after
+        .tracks
+        .iter()
+        .find(|t| t.metadata.title == "Cuerithm New Track")
+        .expect("the new track");
+    assert_eq!(added.metadata.artist, "Cuerithm Artist");
+    let share = live.path.parent().unwrap().join("share");
+    let analysis_files = walk(&share);
+    assert!(
+        analysis_files.iter().any(|p| p.ends_with("ANLZ0000.DAT")),
+        "{analysis_files:?}"
+    );
+    // The playlist holds it, and it is linked so that nothing is added twice.
+    let fresh = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Fresh" && p.deleted == Some(false))
+        .expect("the playlist");
+    assert!(
+        after
+            .playlist_links
+            .iter()
+            .any(|m| m.playlist_id == fresh.id
+                && m.deleted == Some(false)
+                && m.content_id == added.identity.content_id)
+    );
+    assert!(
+        lib.native_linked_content_ids(&report.target_id)
+            .unwrap()
+            .contains(&added.identity.content_id)
+    );
+    let again = lib
+        .native_sync_prepare(&live.path, &key, work.path(), options, &cancel)
+        .unwrap();
+    assert!(again.new_tracks.items.is_empty(), "{:?}", again.new_tracks);
+    assert!(again.plan.tracks.is_empty(), "{:?}", again.plan);
+    let repeat = lib
+        .native_sync_apply(
+            &live.path,
+            &key,
+            work.path(),
+            backups.path(),
+            options,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(repeat.state, "nothing_to_write");
+}
+
+fn walk(dir: &std::path::Path) -> Vec<PathBuf> {
+    let mut out = vec![];
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                out.extend(walk(&path));
+            } else {
+                out.push(path);
+            }
+        }
+    }
+    out
 }

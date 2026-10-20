@@ -183,7 +183,7 @@ impl Library {
     }
     /// CueRithm's playlists as rekordbox would hold them: unique names per level, siblings in order, members
     /// reduced to the tracks linked to this target, smart lists as native rules where they map exactly.
-    fn desired_playlists(&self, target: &str) -> Result<Vec<Desired>> {
+    fn desired_playlists(&self, target: &str, adding: &BTreeSet<String>) -> Result<Vec<Desired>> {
         let zone = crate::playlists::zone(&self.get_playlist_preferences()?.preferences)?;
         let nodes: Vec<_> = self
             .playlist_state()?
@@ -247,7 +247,12 @@ impl Library {
                     let total = members.len();
                     let ids: Vec<String> = members
                         .iter()
-                        .filter_map(|t| linked.get(t).cloned())
+                        .filter_map(|t| {
+                            linked
+                                .get(t)
+                                .cloned()
+                                .or_else(|| adding.contains(t).then(|| format!("new:{t}")))
+                        })
                         .collect();
                     let unlinked = total - ids.len();
                     (ids, unlinked)
@@ -278,12 +283,13 @@ impl Library {
         &self,
         target: &str,
         collection: &RekordboxCollection,
+        adding: &BTreeSet<String>,
     ) -> Result<(
         Vec<PlaylistWrite>,
         Vec<PlaylistRemoval>,
         PlaylistPlanSummary,
     )> {
-        let desired = self.desired_playlists(target)?;
+        let desired = self.desired_playlists(target, adding)?;
         let state = self.native_playlist_state(target)?;
         let existing = rb_paths(collection);
         let mut writes = vec![];
@@ -406,7 +412,7 @@ impl Library {
         summary: &PlaylistPlanSummary,
         after: &RekordboxCollection,
     ) -> Result<()> {
-        let desired = self.desired_playlists(target)?;
+        let desired = self.desired_playlists(target, &BTreeSet::new())?;
         let mut state = self.native_playlist_state(target)?;
         let existing = rb_paths(after);
         let written: BTreeSet<&Vec<String>> = summary

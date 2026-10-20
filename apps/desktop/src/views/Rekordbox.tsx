@@ -12,6 +12,7 @@ const decisionText:Record<FieldDecision,string>={
   conflict:"Conflict — both changed",needs_owner:"Needs an owner",empty_local:"Cuerithm has no value",
 };
 const playlistText:Record<PlaylistAction,string>={create:"Create",update:"Update",unchanged:"Unchanged",remove:"Remove",skip_existing:"Left alone — already in rekordbox",skip_changed:"Left alone — changed in rekordbox"};
+const skippedNewText:Record<string,string>={format_not_supported_by_rekordbox:"rekordbox cannot play this format",file_missing:"The file is missing",already_in_rekordbox:"Already in rekordbox",not_analysed:"Not analysed yet"};
 const fieldNames:Record<string,string>={tag_ids:"MyTags",mix_name:"Mix",release_year:"Year",release_date:"Release date",track_number:"Track number",disc_number:"Disc number",cues:"Cues",bpm:"BPM"};
 const fieldName=(f:string)=>fieldNames[f]??f.charAt(0).toUpperCase()+f.slice(1).replace(/_/g," ");
 function show(value:unknown){
@@ -33,7 +34,7 @@ export default function Rekordbox({rekordbox,maintenance,onLibraryChanged,onBack
   const task=useMaintenanceTask(maintenance);
   const [preflight,setPreflight]=useState<RekordboxPreflight|null>(null),[playlists,setPlaylists]=useState<RekordboxPlaylist[]|null>(null);
   const [scope,setScope]=useState("all"),[prepared,setPrepared]=useState<NativeSyncPrepared|null>(null),[history,setHistory]=useState<NativeSyncRun[]>([]);
-  const [outcome,setOutcome]=useState<ApplyOutcome|null>(null),[notice,setNotice]=useState<string|null>(null),[confirming,setConfirming]=useState(false);
+  const [addNew,setAddNew]=useState(false),[outcome,setOutcome]=useState<ApplyOutcome|null>(null),[notice,setNotice]=useState<string|null>(null),[confirming,setConfirming]=useState(false);
   const load=useCallback(async()=>{
     try{const [p,h]=await Promise.all([rekordbox.preflight(),rekordbox.history()]);setPreflight(p);setHistory(h);}
     catch(e){task.setError(errorMessage(e));}
@@ -47,16 +48,19 @@ export default function Rekordbox({rekordbox,maintenance,onLibraryChanged,onBack
     setNotice(`Linked ${Object.values(report.statuses).reduce((a,b)=>a+b,0).toLocaleString()} tracks: ${report.tracks_created.toLocaleString()} new tracks are in Incoming for preparation.`);
     setPrepared(null);onLibraryChanged();await load();
   });
-  const preview=()=>void task.run("Reading rekordbox and comparing…",null,async id=>{setPrepared(await rekordbox.prepare(id));setOutcome(null);setNotice(null);});
+  const preview=(adding=addNew)=>void task.run("Reading rekordbox and comparing…",null,async id=>{setPrepared(await rekordbox.prepare(id,adding));setOutcome(null);setNotice(null);});
+  // Adding tracks changes which playlist members can be written, so the preview is read again with the choice.
+  const chooseAddNew=(adding:boolean)=>{setAddNew(adding);preview(adding);};
   const apply=()=>void task.run("Writing to a copy, then publishing with a backup…",null,async id=>{
-    const result=await rekordbox.apply(id);
+    const result=await rekordbox.apply(id,addNew);
     setOutcome(result);setPrepared(null);
-    if(result.run?.state==="committed")setNotice(`Wrote ${result.run.tracks.length.toLocaleString()} tracks to rekordbox. A verified backup was made first.`);
+    if(result.run?.state==="committed")setNotice(`Wrote ${result.run.tracks.length.toLocaleString()} tracks to rekordbox${result.run.tracks_added?` and added ${result.run.tracks_added.toLocaleString()} new ${result.run.tracks_added===1?"track":"tracks"}`:""}. A verified backup was made first.`);
     else if(result.run)setNotice("Nothing needed writing.");
     await load();
   }).then(()=>setConfirming(false));
   const playlistWrites=prepared?.playlists.items.filter(i=>i.action==="create"||i.action==="update"||i.action==="remove").length??0;
-  const plannedFields=(prepared?.plan.tracks.reduce((n,t)=>n+t.fields.length,0)??0)+playlistWrites;
+  const newTracks=prepared?.new_tracks.items.length??0,addCount=addNew?newTracks:0;
+  const plannedFields=(prepared?.plan.tracks.reduce((n,t)=>n+t.fields.length,0)??0)+playlistWrites+addCount;
   const attention=useMemo(()=>prepared?.preview.tracks.filter(t=>t.blocked||t.fields.some(f=>f.decision!=="pull_remote"&&f.decision!=="converged")).length??0,[prepared]);
   return <section className="rekordbox-view cleanup-view">
     <div className="view-title"><div><button className="back-link" onClick={onBack}><ChevronLeft size={15}/>Library</button><div className="eyebrow">LIBRARY TOOLS</div><h1>rekordbox</h1><p>Send tracks you have changed in CueRithm to your rekordbox library. Nothing is written until you review it, and a verified backup comes first.</p></div></div>
@@ -83,15 +87,20 @@ export default function Rekordbox({rekordbox,maintenance,onLibraryChanged,onBack
         </div>
       </section>
       <section className="maint-panel" aria-label="Preview"><h2>Preview</h2>
-        <div className="maint-controls"><button className="primary" disabled={!!task.busy||!ready||!linked} onClick={preview}><Eye size={14}/>Preview changes</button>
+        <div className="maint-controls"><button className="primary" disabled={!!task.busy||!ready||!linked} onClick={()=>preview()}><Eye size={14}/>Preview changes</button>
           {prepared&&preflight?.write_supported?<button className="primary maint-danger" disabled={!!task.busy||!plannedFields} onClick={()=>setConfirming(true)}><Upload size={14}/>Apply {plannedFields.toLocaleString()} {plannedFields===1?"change":"changes"}…</button>:null}</div>
         {!linked?<p className="cleanup-note">Link tracks first.</p>:null}
         {prepared?<>
-          <div className="maint-summary" role="status"><strong>{prepared.plan.tracks.length.toLocaleString()} {prepared.plan.tracks.length===1?"track":"tracks"} and {playlistWrites.toLocaleString()} {playlistWrites===1?"playlist":"playlists"} to write</strong>
+          <div className="maint-summary" role="status"><strong>{prepared.plan.tracks.length.toLocaleString()} {prepared.plan.tracks.length===1?"track":"tracks"}{addCount?` plus ${addCount.toLocaleString()} new`:""} and {playlistWrites.toLocaleString()} {playlistWrites===1?"playlist":"playlists"} to write</strong>
             <span>{prepared.plan.skipped.length.toLocaleString()} need a decision · {prepared.plan.pull_available.toLocaleString()} where rekordbox is newer (never overwritten) · {prepared.plan.blocked.length.toLocaleString()} blocked</span></div>
+          {newTracks||prepared.new_tracks.skipped.length?<div className="rb-new-tracks">
+            {newTracks?<label className="maint-check"><input type="checkbox" checked={addNew} disabled={!!task.busy||!preflight?.write_supported} onChange={e=>chooseAddNew(e.target.checked)}/>Also add {newTracks.toLocaleString()} CueRithm {newTracks===1?"track":"tracks"} that {newTracks===1?"is":"are"} not in rekordbox yet, with their beat grid, cues and tags</label>:null}
+            {addNew&&newTracks?<ul className="maint-list" aria-label="Tracks to add">{prepared.new_tracks.items.map(i=><li key={i.local_track_id}><span title={i.path}>{i.artist?`${i.artist} — `:""}{i.title}</span><small>Added to rekordbox with a placeholder analysis; rekordbox analyses the waveform when you open it</small></li>)}</ul>:null}
+            {prepared.new_tracks.skipped.length?<ul className="maint-list" aria-label="Tracks that cannot be added">{prepared.new_tracks.skipped.filter(i=>i.reason!=="already_in_rekordbox").map(i=><li key={i.local_track_id}><span>{i.title}</span><small>{skippedNewText[i.reason]??i.reason}</small></li>)}</ul>:null}
+          </div>:null}
           {!preflight?.write_supported?<div role="alert" className="maint-stale">This library's schema is not verified for writing, so changes can be previewed but not applied.</div>:null}
           {prepared.playlists.items.some(i=>i.action!=="unchanged")?<ul className="maint-list" aria-label="Playlists to review">{prepared.playlists.items.filter(i=>i.action!=="unchanged").map((i,n)=><li key={n}><span title={i.path.join(" / ")}>{i.kind==="folder"?"Folder: ":i.kind==="smartlist"?"Smart list: ":""}{i.path.join(" / ")}</span><small>{playlistText[i.action]}{i.kind==="smartlist"?" · rekordbox keeps it up to date":""}{i.materialized?" · written as a playlist because rekordbox cannot express a rule":""}{(i.action==="create"||i.action==="update")&&i.kind==="playlist"?` · ${i.tracks.toLocaleString()} tracks`:""}{i.unlinked?` · ${i.unlinked.toLocaleString()} not linked to rekordbox`:""}</small></li>)}</ul>:null}
-          {attention===0&&!prepared.plan.tracks.length&&!playlistWrites?<p className="cleanup-note">rekordbox and CueRithm already agree.</p>:null}
+          {attention===0&&!prepared.plan.tracks.length&&!playlistWrites&&!addCount?<p className="cleanup-note">rekordbox and CueRithm already agree.</p>:null}
           <ul className="rb-tracks" aria-label="Tracks to review">{prepared.preview.tracks.map(t=><li key={t.content_id}>
             <strong>Track {t.content_id}</strong>{t.blocked?<span className="maint-state bad">Blocked: {t.blocked.replace(/_/g," ")}</span>:null}
             <table className="maint-table"><thead><tr><th>Field</th><th>CueRithm</th><th>rekordbox</th><th>Result</th></tr></thead><tbody>
@@ -109,7 +118,7 @@ export default function Rekordbox({rekordbox,maintenance,onLibraryChanged,onBack
     </div>
     {confirming&&prepared?<ConfirmDialog title="Write to your rekordbox library?" confirmLabel={`Write ${plannedFields.toLocaleString()} ${plannedFields===1?"change":"changes"}`} danger busy={!!task.busy}
       acknowledge="rekordbox and its background agent are closed, and I want these changes written." onConfirm={apply} onCancel={()=>setConfirming(false)}>
-      <p>{prepared.plan.tracks.length.toLocaleString()} {prepared.plan.tracks.length===1?"track":"tracks"} and {playlistWrites.toLocaleString()} {playlistWrites===1?"playlist":"playlists"} will be updated in your rekordbox library. CueRithm writes to a copy first, makes a verified backup of the library as it is now, publishes the copy, and checks the result. If anything fails, the backup is restored automatically.</p>
+      <p>{prepared.plan.tracks.length.toLocaleString()} {prepared.plan.tracks.length===1?"track":"tracks"} and {playlistWrites.toLocaleString()} {playlistWrites===1?"playlist":"playlists"} will be updated{addCount?`, and ${addCount.toLocaleString()} new ${addCount===1?"track":"tracks"} added,`:""} in your rekordbox library. CueRithm writes to a copy first, makes a verified backup of the library as it is now, publishes the copy, and checks the result. If anything fails, the backup is restored automatically.</p>
       <p>Tracks that rekordbox changed since they were read are never overwritten.</p><TaskStatus task={task}/></ConfirmDialog>:null}
   </section>;
 }
