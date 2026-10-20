@@ -21,8 +21,8 @@ class CombinedChecksTest(unittest.TestCase):
             subprocess.run(['git', '-c', 'user.name=CI test', '-c', 'user.email=ci@example.invalid',
                             'commit', '--quiet', '-m', 'fixture'], cwd=source, check=True)
             binary = source / 'tools/media-runtime/bin/ffmpeg.exe'
-            archive = source / '.superpowers/media-build/ffmpeg-9.0.2.tar.xz'
-            for path in (binary, archive):
+            # Checks require generated binaries, not a particular source archive.
+            for path in (binary,):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'generated media')
             workspaces = {'engine': root / 'e', 'desktop': root / 'd'}
@@ -30,7 +30,6 @@ class CombinedChecksTest(unittest.TestCase):
             for path in workspaces.values():
                 self.assertEqual((path / 'tracked').read_text(), 'same source')
                 self.assertEqual((path / binary.relative_to(source)).read_bytes(), b'generated media')
-                self.assertEqual((path / archive.relative_to(source)).read_bytes(), b'generated media')
             (workspaces['engine'] / 'keep').write_text('keep')
             with self.assertRaises(subprocess.CalledProcessError):
                 prepare(source, workspaces)

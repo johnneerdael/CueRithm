@@ -92,14 +92,11 @@ def prepare(source, workspaces):
     for path in workspaces.values():
         # git refuses an existing worktree path; never remove an unknown directory.
         subprocess.run(['git', 'worktree', 'add', '--detach', str(path), 'HEAD'], cwd=source, check=True)
-        for relative in ('tools/media-runtime/bin', '.superpowers/media-build/ffmpeg-9.0.2.tar.xz'):
-            origin = source / relative
-            destination = path / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if origin.is_dir():
-                shutil.copytree(origin, destination)
-            else:
-                shutil.copy2(origin, destination)
+        # The checks consume sealed binaries; source archives belong to setup.
+        relative = Path('tools/media-runtime/bin')
+        destination = path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source / relative, destination)
 
 
 def main():

@@ -18,7 +18,7 @@ on:
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, labeled]
-    paths: ['.github/workflows/cloudrunner-benchmark.yml']
+    paths: ['.github/workflows/cloudrunner-benchmark.yml', 'tools/ci/**']
 permissions:
   contents: read
 concurrency:
@@ -370,6 +370,14 @@ jobs:
         with:
           ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
           persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: .cloudrunner-ci
+          sparse-checkout: tools/ci
+          persist-credentials: false
+      - name: Verify current coordinator on Windows
+        run: python -m unittest discover -s .cloudrunner-ci/tools/ci -v
       - name: Prepare matching cache workspaces
         shell: pwsh
         run: |
