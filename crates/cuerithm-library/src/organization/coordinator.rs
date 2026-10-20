@@ -45,6 +45,7 @@ impl Library {
         let mut sources = HashSet::new();
         let mut targets = HashSet::new();
         let mut target_keys = HashSet::new();
+        let mut identities = HashSet::new();
         for (index, (source, destination)) in request.files.iter().enumerate() {
             ensure!(
                 source.starts_with(&request.source_root)
@@ -73,6 +74,12 @@ impl Library {
             let (parent, source_parent) = Parent::capture(source_folder)?;
             let source_name = Path::new(source.file_name().context("Missing source file name")?);
             let original = parent.fingerprint(source_name)?;
+            // Two names can open one native file (case aliases, hard links), and
+            // cleanup of the first leaves the second without a source.
+            ensure!(
+                identities.insert((original.identity.volume, original.identity.object)),
+                "Organization lists the same native source file more than once"
+            );
             if index == 0 {
                 ensure!(
                     original.sha256 == current_hash,
