@@ -37,10 +37,23 @@ unsafe extern "C" {
         len: *mut usize,
         mime: *mut *const u8,
         ml: *mut usize,
+        description: *mut *const u8,
+        dl: *mut usize,
     ) -> i32;
     fn cw_asf_remove_picture(handle: *mut c_void, kind: u32) -> i32;
     fn cw_asf_set_picture(
         handle: *mut c_void,
+        kind: u32,
+        mime: *const u8,
+        ml: usize,
+        description: *const u8,
+        dl: usize,
+        data: *const u8,
+        len: usize,
+    ) -> i32;
+    fn cw_asf_edit_picture(
+        handle: *mut c_void,
+        selected: i64,
         kind: u32,
         mime: *const u8,
         ml: usize,
@@ -64,6 +77,46 @@ impl Drop for AsfTag {
     }
 }
 impl AsfTag {
+    pub(crate) fn editor_picture(
+        &mut self,
+        selected: Option<usize>,
+        image: Option<&crate::editing::ArtworkValue>,
+    ) -> Result<()> {
+        let (kind, mime, description, bytes) = if let Some(image) = image {
+            let validated = crate::image::Artwork::validate(image.bytes.clone())?;
+            (
+                image.kind.unwrap_or(3),
+                validated.mime.to_string(),
+                image.description.clone().unwrap_or_default(),
+                Some(validated.bytes),
+            )
+        } else {
+            (0, String::new(), String::new(), None)
+        };
+        let (ptr, len) = bytes
+            .as_ref()
+            .map(|b| (b.as_ptr(), b.len()))
+            .unwrap_or((std::ptr::null(), 0));
+        if unsafe {
+            cw_asf_edit_picture(
+                self.handle.as_ptr(),
+                selected.map(|i| i as i64).unwrap_or(-1),
+                kind,
+                mime.as_ptr(),
+                mime.len(),
+                description.as_ptr(),
+                description.len(),
+                ptr,
+                len,
+            )
+        } == 0
+        {
+            self.remember();
+            anyhow::bail!("Edit selected ASF artwork failed");
+        }
+        Ok(())
+    }
+
     pub fn open(path: &Path) -> Result<Self> {
         #[cfg(unix)]
         let raw = {
@@ -150,7 +203,7 @@ impl AsfTag {
         self.set_raw(key, vec![value], overwrite);
     }
 }
-fn kind(kind: &CoverType) -> u32 {
+pub(crate) fn kind(kind: &CoverType) -> u32 {
     match kind {
         CoverType::Other => 0,
         CoverType::Icon => 1,
@@ -293,6 +346,8 @@ impl TagImpl for AsfTag {
             let mut len = 0;
             let mut ml = 0;
             let mut k = 0;
+            let mut description = std::ptr::null();
+            let mut dl = 0;
             let result = unsafe {
                 cw_asf_picture(
                     self.handle.as_ptr(),
@@ -302,6 +357,8 @@ impl TagImpl for AsfTag {
                     &mut len,
                     &mut mime,
                     &mut ml,
+                    &mut description,
+                    &mut dl,
                 )
             };
             if result < 0 {
@@ -323,7 +380,10 @@ impl TagImpl for AsfTag {
                 data: unsafe { std::slice::from_raw_parts(data, len) }.to_vec(),
                 mime: String::from_utf8_lossy(unsafe { std::slice::from_raw_parts(mime, ml) })
                     .into_owned(),
-                description: String::new(),
+                description: String::from_utf8_lossy(unsafe {
+                    std::slice::from_raw_parts(description, dl)
+                })
+                .into_owned(),
             });
         }
         out

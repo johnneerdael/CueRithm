@@ -51,64 +51,218 @@ pub(crate) fn safe_target(target: &Path, source: &Path) -> Result<()> {
     Ok(())
 }
 pub(crate) fn rollback(files: &[Artifact]) -> Result<()> {
+    rollback_with_proof(files, |_, _| Ok(()))
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ArtifactRestoreProof {
+    pub path: crate::organization::NativePath,
+    pub parent: crate::organization::Authority,
+    pub fingerprint: crate::organization::Fingerprint,
+    #[serde(skip)]
+    pub from_backup: bool,
+    #[serde(default)]
+    pub displaced: Option<crate::organization::NativePath>,
+}
+#[derive(Clone)]
+pub(crate) struct RollbackAuthority {
+    pub parent: crate::organization::Authority,
+    pub before: Option<crate::organization::Fingerprint>,
+    pub after: Option<crate::organization::Fingerprint>,
+    pub backup: Option<ArtifactRestoreProof>,
+}
+pub(crate) fn restore_is_owned(
+    proof: &ArtifactRestoreProof,
+    original: Option<&crate::organization::Fingerprint>,
+) -> bool {
+    original.is_some_and(|original| {
+        original.sha256 == proof.fingerprint.sha256
+            && original.bytes == proof.fingerprint.bytes
+            && (proof.from_backup || original.identity == proof.fingerprint.identity)
+    })
+}
+pub(crate) fn rollback_with_proof(
+    files: &[Artifact],
+    before_restore: impl FnMut(&Artifact, &ArtifactRestoreProof) -> Result<()>,
+) -> Result<()> {
+    rollback_with_authority(files, &[], before_restore)
+}
+pub(crate) fn rollback_with_authority(
+    files: &[Artifact],
+    authorities: &[RollbackAuthority],
+    before_restore: impl FnMut(&Artifact, &ArtifactRestoreProof) -> Result<()>,
+) -> Result<()> {
+    rollback_with_authority_and_copy_hook(files, authorities, before_restore, |_, _| Ok(()))
+}
+fn rollback_with_authority_and_copy_hook(
+    files: &[Artifact],
+    authorities: &[RollbackAuthority],
+    mut before_restore: impl FnMut(&Artifact, &ArtifactRestoreProof) -> Result<()>,
+    mut after_copy: impl FnMut(&Path, &crate::organization::Fingerprint) -> Result<()>,
+) -> Result<()> {
+    ensure!(
+        authorities.is_empty() || authorities.len() == files.len(),
+        "Missing native rollback authority; all versions retained"
+    );
+    use crate::organization::{NativeParent, NativePath};
     let mut errors = Vec::new();
-    for f in files.iter().rev() {
+    for (ordinal, f) in files.iter().enumerate().rev() {
         let result = (|| -> Result<()> {
-            let current = current_hash(&f.target)?;
-            if current == f.before {
+            let directory = f.target.parent().context("Missing rollback parent")?;
+            let (parent, authority) = if let Some(expected) = authorities.get(ordinal) {
+                (
+                    NativeParent::reopen(&expected.parent)?,
+                    expected.parent.clone(),
+                )
+            } else {
+                NativeParent::capture(directory)?
+            };
+            let target = Path::new(f.target.file_name().context("Missing rollback name")?);
+            let current = parent.optional(target)?;
+            if current.as_ref().map(|p| &p.sha256) == f.before.as_ref() {
+                if let Some(expected) = authorities.get(ordinal) {
+                    ensure!(
+                        match (&current, &expected.before) {
+                            (Some(current), Some(before)) =>
+                                crate::organization::same_native_file(current, before),
+                            (None, None) => true,
+                            _ => false,
+                        },
+                        "Unchanged bytes belong to another native object; preserved"
+                    );
+                    NativeParent::reopen(&authority)?;
+                }
                 return Ok(());
             }
+            let current =
+                current.context("Published target disappeared; recovery evidence retained")?;
             ensure!(
-                current.as_deref() == Some(f.after.as_str()),
+                current.sha256 == f.after,
                 "Later user edit preserved; original backup retained"
             );
+            if let Some(expected) = authorities.get(ordinal) {
+                ensure!(
+                    expected.after.as_ref().is_some_and(|after| {
+                        crate::organization::same_native_file(&current, after)
+                    }),
+                    "Published target native identity changed; latest target and all recovery versions retained"
+                );
+            }
             if let Some(before) = &f.before {
-                let restore = if f.displaced.exists() && file_sha256(&f.displaced)? != f.after {
-                    f.displaced.clone()
+                let displaced_name =
+                    Path::new(f.displaced.file_name().context("Missing displaced name")?);
+                let mut from_backup = false;
+                let mut copied_receipt = None;
+                let restore = if parent
+                    .optional(displaced_name)?
+                    .is_some_and(|p| p.sha256 != f.after)
+                {
+                    displaced_name.to_owned()
                 } else {
+                    from_backup = true;
                     let backup = f.backup.as_ref().context("Missing original backup")?;
-                    ensure!(file_sha256(backup)? == *before, "Original backup changed");
-                    let restore = f
-                        .target
-                        .parent()
-                        .unwrap()
-                        .join(format!(".cuerithm-restore-{}.tmp", uuid::Uuid::new_v4()));
-                    publish_files::copy_prepared(backup, &restore, before)?;
-                    restore
+                    let name =
+                        PathBuf::from(format!(".cuerithm-restore-{}.tmp", uuid::Uuid::new_v4()));
+                    let cancel = cuerithm_media::CancellationToken::default();
+                    let created = if let Some(authority) = authorities.get(ordinal) {
+                        let receipt = authority
+                            .backup
+                            .as_ref()
+                            .context("Missing original backup native receipt; retained")?;
+                        ensure!(
+                            receipt.path == NativePath::new(backup),
+                            "Original backup path changed; retained"
+                        );
+                        parent.copy_prepared_verified(
+                            backup,
+                            &name,
+                            before,
+                            &cancel,
+                            &receipt.parent,
+                            &receipt.fingerprint,
+                        )?
+                    } else {
+                        parent.copy_prepared(backup, &name, before, &cancel)?
+                    };
+                    after_copy(&directory.join(&name), &created)?;
+                    copied_receipt = Some(created);
+                    name
                 };
+                let visible = parent.fingerprint(&restore)?;
+                let fingerprint = if let Some(created) = copied_receipt {
+                    ensure!(
+                        crate::organization::same_native_file(&visible, &created),
+                        "Created restore copy changed before receipt; all versions retained"
+                    );
+                    created
+                } else {
+                    visible
+                };
+                // The durable callback records this exact inode before exchanging it.
+                // An externally captured version may be restored, but its different
+                // hash can never authorize replay of the original reviewed decision.
                 let displaced = if cfg!(windows) {
                     restore.with_extension("after.tmp")
                 } else {
                     restore.clone()
                 };
-                publish_files::replace(&restore, &f.target, &displaced)?;
-                if file_sha256(&displaced)? == f.after {
-                    std::fs::remove_file(&displaced)?;
-                } else {
-                    // A user edit raced the rollback; restore that newer captured version.
-                    let other = if cfg!(windows) {
-                        displaced.with_extension("previous.tmp")
-                    } else {
-                        displaced.clone()
-                    };
-                    publish_files::replace(&displaced, &f.target, &other)?;
-                    bail!("Concurrent user edit preserved; recovery backup retained");
-                }
+                before_restore(
+                    f,
+                    &ArtifactRestoreProof {
+                        path: NativePath::new(&f.target),
+                        parent: authority.clone(),
+                        fingerprint: fingerprint.clone(),
+                        from_backup,
+                        displaced: Some(NativePath::new(&directory.join(&displaced))),
+                    },
+                )?;
+                ensure!(
+                    crate::organization::same_native_file(
+                        &parent.fingerprint(&restore)?,
+                        &fingerprint
+                    ),
+                    "Restore leaf changed before exchange; all versions retained"
+                );
+                parent.exchange(&restore, target, &displaced)?;
+                let captured = parent.fingerprint(&displaced)?;
+                ensure!(
+                    captured.identity == current.identity && captured.sha256 == current.sha256,
+                    "Concurrent user edit retained in displaced recovery file; manual recovery required"
+                );
+                let restored = parent.fingerprint(target)?;
+                ensure!(
+                    restored.identity == fingerprint.identity
+                        && restored.sha256 == fingerprint.sha256,
+                    "Restored source changed; all recovery versions retained"
+                );
+                // Known displaced output remains journal evidence until ordinary
+                // guarded cleanup. Never remove an unknown exchanged object here.
             } else {
-                let captured = f
-                    .target
-                    .parent()
-                    .unwrap()
-                    .join(format!(".cuerithm-rollback-{}.tmp", uuid::Uuid::new_v4()));
-                publish_files::create(&f.target, &captured)?;
-                if file_sha256(&captured)? == f.after {
-                    std::fs::remove_file(captured)?;
-                } else {
-                    if !f.target.exists() {
-                        publish_files::create(&captured, &f.target)?;
+                let captured =
+                    PathBuf::from(format!(".cuerithm-rollback-{}.tmp", uuid::Uuid::new_v4()));
+                // An absent original needs retirement, not a source restore.
+                // Persist the generated leaf and exact published identity before
+                // moving it so a crash cannot leave unaccounted source copies.
+                before_restore(
+                    f,
+                    &ArtifactRestoreProof {
+                        path: NativePath::new(&f.target),
+                        parent: authority.clone(),
+                        fingerprint: current.clone(),
+                        from_backup: false,
+                        displaced: Some(NativePath::new(&directory.join(&captured))),
+                    },
+                )?;
+                parent.rename(target, &parent, &captured)?;
+                let observed = parent.fingerprint(&captured)?;
+                if observed.identity != current.identity || observed.sha256 != current.sha256 {
+                    if parent.optional(target)?.is_none() {
+                        parent.rename(&captured, &parent, target)?;
                     }
                     bail!("Concurrent artwork edit preserved");
                 }
+            }
+            if !authorities.is_empty() {
+                NativeParent::reopen(&authority)?;
             }
             Ok(())
         })();
@@ -116,9 +270,7 @@ pub(crate) fn rollback(files: &[Artifact]) -> Result<()> {
             errors.push(format!("{e:#}"));
         }
     }
-    if !errors.is_empty() {
-        bail!("{}", errors.join("; "));
-    }
+    ensure!(errors.is_empty(), "{}", errors.join("; "));
     Ok(())
 }
 pub(crate) fn cleanup_temporaries(files: &[Artifact], root: &Path) -> Result<()> {
@@ -178,23 +330,182 @@ pub(crate) fn cleanup_temporaries(files: &[Artifact], root: &Path) -> Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn backup_restore_fixture() -> (tempfile::TempDir, Artifact, RollbackAuthority) {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let target = root.join("source");
+        let backup = root.join("original");
+        std::fs::write(&target, b"published output").unwrap();
+        std::fs::write(&backup, b"original input").unwrap();
+        let (parent, after) = crate::organization::capture_regular_source(&target).unwrap();
+        let (backup_parent, before) = crate::organization::capture_regular_source(&backup).unwrap();
+        let authority = RollbackAuthority {
+            parent,
+            before: Some(before.clone()),
+            after: Some(after.clone()),
+            backup: Some(ArtifactRestoreProof {
+                path: crate::organization::NativePath::new(&backup),
+                parent: backup_parent,
+                fingerprint: before.clone(),
+                from_backup: false,
+                displaced: None,
+            }),
+        };
+        let file = Artifact {
+            target,
+            staged: root.join("staged"),
+            backup: Some(backup),
+            before: Some(before.sha256),
+            after: after.sha256,
+            publish: root.join("publication"),
+            displaced: root.join("missing-displaced"),
+        };
+        (temp, file, authority)
+    }
+    #[test]
+    fn restored_copy_receipt_never_adopts_a_same_byte_replacement_after_copy() {
+        let (_temp, file, authority) = backup_restore_fixture();
+        let mut accepted = 0;
+        let result = rollback_with_authority_and_copy_hook(
+            std::slice::from_ref(&file),
+            std::slice::from_ref(&authority),
+            |_, proof| {
+                if restore_is_owned(proof, authority.before.as_ref()) {
+                    accepted += 1;
+                }
+                Ok(())
+            },
+            |path, _created| {
+                let bytes = std::fs::read(path)?;
+                std::fs::rename(path, path.with_extension("original-copy"))?;
+                std::fs::write(path, bytes)?;
+                Ok(())
+            },
+        );
+        assert!(
+            result.is_err(),
+            "unknown replacement of the created copy must be refused"
+        );
+        assert_eq!(
+            accepted, 0,
+            "unknown identity must never become durable replay authority"
+        );
+        assert_eq!(std::fs::read(&file.target).unwrap(), b"published output");
+    }
+    #[test]
+    fn backup_restore_requires_the_saved_native_input_receipt() {
+        let (_temp, file, authority) = backup_restore_fixture();
+        let backup = file.backup.as_ref().unwrap();
+        let bytes = std::fs::read(backup).unwrap();
+        std::fs::rename(backup, backup.with_extension("retained-original")).unwrap();
+        std::fs::write(backup, bytes).unwrap();
+        let mut accepted = 0;
+        let result = rollback_with_authority(
+            std::slice::from_ref(&file),
+            std::slice::from_ref(&authority),
+            |_, _| {
+                accepted += 1;
+                Ok(())
+            },
+        );
+        assert!(
+            result.is_err(),
+            "equal bytes cannot replace the saved backup's native identity"
+        );
+        assert_eq!(accepted, 0);
+        assert_eq!(std::fs::read(&file.target).unwrap(), b"published output");
+    }
+    #[test]
+    fn rollback_persists_the_known_restore_inode_before_changing_the_source_namespace() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let target = root.join("source");
+        let displaced = root.join("displaced");
+        let backup = root.join("backup");
+        std::fs::write(&target, b"published metadata").unwrap();
+        std::fs::write(&displaced, b"before metadata").unwrap();
+        std::fs::write(&backup, b"before metadata").unwrap();
+        let file = Artifact {
+            target: target.clone(),
+            staged: root.join("staged"),
+            backup: Some(backup),
+            before: Some(file_sha256(&displaced).unwrap()),
+            after: file_sha256(&target).unwrap(),
+            publish: displaced.clone(),
+            displaced,
+        };
+        let mut saved = None;
+        rollback_with_proof(&[file], |_, proof| {
+            assert_eq!(
+                std::fs::read(&target).unwrap(),
+                b"published metadata",
+                "intent must persist before atomic restore"
+            );
+            saved = Some(proof.clone());
+            Ok(())
+        })
+        .unwrap();
+        let proof = saved.expect("owned rollback must emit a pre-publication restore identity");
+        let (_, actual) = crate::organization::capture_regular_source(&target).unwrap();
+        assert_eq!(proof.path, crate::organization::NativePath::new(&target));
+        assert_eq!(actual.identity, proof.fingerprint.identity);
+        assert_eq!(actual.sha256, proof.fingerprint.sha256);
+    }
+    #[test]
+    fn equal_byte_unknown_displaced_file_cannot_authorize_review_replay() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let source = root.join("source");
+        let displaced = root.join("displaced");
+        let backup = root.join("known-original");
+        std::fs::write(&source, b"before").unwrap();
+        let (_, original) = crate::organization::capture_regular_source(&source).unwrap();
+        std::fs::rename(&source, &backup).unwrap();
+        std::fs::write(&source, b"after").unwrap();
+        std::fs::write(&displaced, b"before").unwrap();
+        let (_, unknown) = crate::organization::capture_regular_source(&displaced).unwrap();
+        let file = Artifact {
+            target: source.clone(),
+            staged: root.join("stage"),
+            backup: Some(backup.clone()),
+            before: Some(original.sha256.clone()),
+            after: file_sha256(&source).unwrap(),
+            publish: displaced.clone(),
+            displaced,
+        };
+        let mut authorized = None;
+        rollback_with_proof(&[file], |_, proof| {
+            authorized = Some(restore_is_owned(proof, Some(&original)));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            authorized,
+            Some(false),
+            "same bytes in an unknown external inode cannot become our durable restore authority"
+        );
+        let (_, restored) = crate::organization::capture_regular_source(&source).unwrap();
+        assert_eq!(restored.identity, unknown.identity);
+        assert!(backup.exists(), "known original backup remains available");
+    }
     #[test]
     fn rollback_restores_the_user_version_captured_by_atomic_exchange() {
         let d = tempfile::tempdir().unwrap();
-        let target = d.path().join("audio");
-        let displaced = d.path().join("displaced");
-        let backup = d.path().join("backup");
+        let directory = d.path().canonicalize().unwrap();
+        let target = directory.join("audio");
+        let displaced = directory.join("displaced");
+        let backup = directory.join("backup");
         std::fs::write(&target, b"our metadata output").unwrap();
         std::fs::write(&displaced, b"latest user edit").unwrap();
         std::fs::write(&backup, b"expected original").unwrap();
         let artifact = Artifact {
             target: target.clone(),
-            staged: d.path().join("staged"),
+            staged: directory.join("staged"),
             backup: Some(backup.clone()),
             before: Some(file_sha256(&backup).unwrap()),
             after: file_sha256(&target).unwrap(),
             publish: if cfg!(windows) {
-                d.path().join("publish")
+                directory.join("publish")
             } else {
                 displaced.clone()
             },

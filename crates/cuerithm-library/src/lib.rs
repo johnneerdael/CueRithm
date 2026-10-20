@@ -1,5 +1,7 @@
 //! Durable local library and background preparation.
 #[cfg(feature = "autotag")]
+mod artifact_cleanup;
+#[cfg(feature = "autotag")]
 mod artifacts;
 #[cfg(feature = "autotag")]
 mod cleanup;
@@ -29,6 +31,14 @@ pub use playlists::*;
 mod maintenance;
 #[cfg(feature = "autotag")]
 mod match_evidence;
+#[cfg(feature = "autotag")]
+mod metadata_edit;
+#[cfg(feature = "autotag")]
+pub use metadata_edit::*;
+#[cfg(feature = "autotag")]
+mod match_review;
+#[cfg(feature = "autotag")]
+pub use match_review::*;
 mod model;
 pub mod organization;
 pub use organization::service::*;
