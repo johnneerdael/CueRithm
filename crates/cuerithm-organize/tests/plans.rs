@@ -216,6 +216,18 @@ fn symlink_ancestors_and_directory_targets_block_publication() {
 }
 
 #[test]
+fn nested_patterns_preserve_logical_separators_when_appending_the_extension() {
+    let mut req = request(vec![track("1", "Title.v2")]);
+    req.config.pattern = "Artist/Album/{title}".into();
+    let plan = build_plan(req, || false).unwrap();
+    assert_eq!(plan.rows[0].outcome, RowOutcome::Ready);
+    assert_eq!(
+        plan.rows[0].files[0].destination.0,
+        native("/managed/Artist/Album/Title.v2.flac")
+    );
+}
+
+#[test]
 fn totals_distinguish_blocked_skipped_and_ready() {
     let mut req = request(vec![track("1", "CON"), track("2", "Good"), track("3", "")]);
     req.config.missing = MissingPolicy::SkipOptional;

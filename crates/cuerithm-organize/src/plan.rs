@@ -336,17 +336,17 @@ fn files_for(
         &config.managed_root.as_ref().unwrap().path.0
     };
     // Pattern names a stem. Append, never replace, the actual source extension.
-    let mut relative = std::path::PathBuf::from(name);
+    let mut relative = name;
     if let Some(extension) = track.source.path.0.extension() {
-        let mut name = relative.file_name().unwrap().to_os_string();
-        name.push(".");
-        name.push(extension);
-        relative.set_file_name(name);
+        let extension = extension
+            .to_str()
+            .ok_or_else(|| blocked("Non-Unicode destination extension".into()))?;
+        relative.push('.');
+        relative.push_str(extension);
     }
-    let text = relative
-        .to_str()
-        .ok_or_else(|| blocked("Non-Unicode destination extension".into()))?;
-    crate::paths::validate_relative(text, config.rules).map_err(blocked)?;
+    // Validate the logical '/' grammar before Windows renders native '\\'
+    // separators. Native path spelling is not a naming-template input.
+    crate::paths::validate_relative(&relative, config.rules).map_err(blocked)?;
     let destination = root.join(relative);
     let mut files = vec![PlannedFile {
         source: track.source.clone(),
