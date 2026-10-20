@@ -1,0 +1,409 @@
+name: Cloudrunner benchmark
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Source commit to validate on AWS'
+        required: false
+      platform:
+        description: 'AWS runner platforms to validate'
+        type: choice
+        options: [all, windows, linux]
+        default: all
+      check:
+        description: 'Separate workloads, restore-only check, or combined Windows pilot'
+        type: choice
+        options: [workload, cache, combined, combined-cache]
+        default: workload
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, labeled]
+    paths: ['.github/workflows/cloudrunner-benchmark.yml', 'tools/ci/**']
+permissions:
+  contents: read
+concurrency:
+  group: cloudrunner-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'dispatch' }}-${{ inputs.platform || vars.CLOUDRUNNER_BENCHMARK_PLATFORM || 'all' }}-${{ vars.CLOUDRUNNER_WINDOWS_VCPU || '8' }}
+  cancel-in-progress: false
+env:
+  BENCHMARK_SHA: fc5975b1b183313c63c8f90a84579073f4c84cd2
+jobs:
+  smoke:
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'opened' ||
+       (github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-smoke')) &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == github.repository_owner
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(vars.CLOUDRUNNER_BENCHMARK_PLATFORM == 'windows' && '["windows"]' || vars.CLOUDRUNNER_BENCHMARK_PLATFORM == 'linux' && '["linux"]' || '["windows","linux"]') }}
+    runs-on: ${{ fromJSON(format('["self-hosted","{0}","x64","cloudrunner","cuerithm"]', matrix.os)) }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: ./.github/actions/native-crypto-tools
+      - name: Windows image and hardware
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Content C:\Cloudrunner\image.json
+          Get-CimInstance Win32_ComputerSystem | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          foreach ($tool in @('git','aws','python','node','cmake','nasm','rustc','cargo','pwsh')) {
+            & $tool --version
+            if ($LASTEXITCODE) { throw $tool }
+          }
+      - name: Linux image and hardware
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          lscpu
+          free -h
+          git --version
+          aws --version
+          python --version
+          cmake --version
+          rustc --version
+          cargo --version
+
+  profiles:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && contains(fromJSON('["cloudrunner-benchmark","cloudrunner-cache-check"]'), github.event.label.name))
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      stage: ${{ steps.select.outputs.stage }}
+    steps:
+      - name: Select benchmark profiles
+        id: select
+        env:
+          SELECTED_PLATFORM: ${{ inputs.platform || vars.CLOUDRUNNER_BENCHMARK_PLATFORM || 'all' }}
+          SELECTED_STAGE: ${{ vars.CLOUDRUNNER_WINDOWS_VCPU || '8' }}
+        shell: python {0}
+        run: |
+          import json
+          import os
+          platform = os.environ['SELECTED_PLATFORM']
+          if platform not in ('all', 'windows', 'linux'):
+              raise SystemExit('Select all, windows, or linux')
+          stage = os.environ['SELECTED_STAGE']
+          if stage not in ('8', '16'):
+              raise SystemExit('Windows benchmark stage must be 8 or 16')
+          profiles = []
+          for system, os_label in [('windows', 'windows-2025'), ('linux', 'ubuntu-24.04')]:
+              if platform != 'all' and platform != system:
+                  continue
+              labels = ['self-hosted', system, 'x64', 'cloudrunner', 'cuerithm']
+              profiles.append({'profile': system + '-aws', 'os': os_label, 'runner': json.dumps(labels)})
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('matrix=' + json.dumps({'include': profiles}) + '\n')
+              output.write('stage=' + stage + '\n')
+
+  cache-check:
+    needs: profiles
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'cache') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-cache-check')
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        id: restore
+        with:
+          shared-key: cloudrunner-benchmark-engine-${{ matrix.profile }}-${{ env.BENCHMARK_STAGE }}
+          save-if: false
+      - name: Verify saved engine cache restores
+        shell: python {0}
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        run: |
+          import os
+          if os.environ['CACHE_HIT'].lower() != 'true':
+              raise SystemExit('No exact cache entry restored; inspect cache keys and the prior successful engine job')
+          print('Saved Rust cache restored successfully')
+
+  engine:
+    needs: profiles
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'workload') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - name: Record benchmark source and hardware
+        shell: python {0}
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+        run: |
+          import os
+          import platform
+          print('Source:', os.environ['SOURCE_SHA'])
+          print('Platform:', platform.platform())
+          print('Logical CPUs:', os.cpu_count())
+      - name: Confirm AWS Windows benchmark size
+        if: matrix.profile == 'windows-aws'
+        shell: pwsh
+        env:
+          EXPECTED_VCPU: ${{ env.BENCHMARK_STAGE }}
+        run: |
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne [int]$env:EXPECTED_VCPU) {
+            throw 'AWS instance size does not match the benchmark stage; check the Terraform pool.'
+          }
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cloudrunner-benchmark-engine-${{ matrix.profile }}-${{ env.BENCHMARK_STAGE }}
+          save-if: true
+      - uses: ./.github/actions/native-crypto-tools
+      - uses: ./.github/actions/media-runtime
+      - name: Verify native source build tooling
+        run: cmake --version
+      - name: Install Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Format
+        run: cargo +stable fmt --all -- --check
+      - name: Lint
+        run: cargo +stable clippy --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-targets --all-features --locked -- -D warnings
+      - name: Tests
+        run: cargo +stable test --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked -- --test-threads=2
+      - name: Cleanup overflow and debug regressions
+        run: cargo +stable test -p cuerithm-cleanup --locked
+      - name: Release build
+        run: cargo +stable build --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked
+
+  desktop:
+    needs: profiles
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'workload') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-benchmark')
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.profiles.outputs.matrix) }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+      BENCHMARK_STAGE: ${{ needs.profiles.outputs.stage }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - name: Record benchmark source and hardware
+        shell: python {0}
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+        run: |
+          import os
+          import platform
+          print('Source:', os.environ['SOURCE_SHA'])
+          print('Platform:', platform.platform())
+          print('Logical CPUs:', os.cpu_count())
+      - name: Confirm AWS Windows benchmark size
+        if: matrix.profile == 'windows-aws'
+        shell: pwsh
+        env:
+          EXPECTED_VCPU: ${{ env.BENCHMARK_STAGE }}
+        run: |
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne [int]$env:EXPECTED_VCPU) {
+            throw 'AWS instance size does not match the benchmark stage; check the Terraform pool.'
+          }
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cloudrunner-benchmark-desktop-${{ matrix.profile }}-${{ env.BENCHMARK_STAGE }}
+          save-if: true
+      - name: Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential cmake libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libasound2-dev
+      - uses: ./.github/actions/native-crypto-tools
+      - uses: ./.github/actions/media-runtime
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@12.14.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Locked frontend dependencies
+        shell: bash
+        run: pnpm --dir apps/desktop install --frozen-lockfile
+      - name: Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Frontend tests and production build
+        shell: bash
+        run: |
+          pnpm --dir apps/desktop test
+          pnpm --dir apps/desktop build
+      - name: Formatting and native bridge lint
+        shell: bash
+        run: |
+          cargo +stable fmt --all -- --check
+          cargo +stable clippy -p cuerithm-desktop -p cuerithm-library -p cuerithm-rekordbox --all-targets --locked -- -D warnings
+      - name: Tagging, decoder, worker, recovery and playback tests
+        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop -p cuerithm-rekordbox --release --locked -- --test-threads=2
+      - name: Synthetic sync and linkage invariants
+        shell: bash
+        run: |
+          python -m unittest discover -s tools/fixtures/rekordbox -v
+          python -m unittest discover -s tools/media-runtime -v
+
+  windows-combined:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'combined') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-combined')
+    runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: .cloudrunner-ci
+          sparse-checkout: tools/ci
+          persist-credentials: false
+      - name: Confirm single-host pilot size and record source
+        shell: pwsh
+        run: |
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne 16 -or $computer.TotalPhysicalMemory -lt 60GB) {
+            throw 'The combined pilot requires the 16-vCPU/64-GB pool.'
+          }
+          git rev-parse HEAD
+          git -C .cloudrunner-ci rev-parse HEAD
+      - name: Test parallel coordinator
+        run: python -m unittest discover -s .cloudrunner-ci/tools/ci -v
+      - uses: ./.github/actions/native-crypto-tools
+      - uses: ./.github/actions/media-runtime
+      - name: Install Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Prepare isolated engine and desktop workspaces
+        run: python .cloudrunner-ci/tools/ci/windows_combined.py prepare
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cloudrunner-combined-windows-16-v1
+          workspaces: |
+            C:/cr/e -> target
+            C:/cr/d -> target
+          save-if: true
+      - name: Fetch native dependencies before parallel compilation
+        run: cargo +stable fetch --locked --target x86_64-pc-windows-msvc
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@12.14.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Locked frontend dependencies
+        shell: bash
+        run: pnpm --dir C:/cr/d/apps/desktop install --frozen-lockfile
+      - name: Engine and desktop checks in parallel
+        run: python .cloudrunner-ci/tools/ci/windows_combined.py run
+      - name: Preserve component logs and timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-combined-logs
+          path: C:/cr/logs/*.*
+          if-no-files-found: warn
+          retention-days: 7
+
+  combined-cache-check:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'combined-cache') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-combined-cache-check')
+    runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: .cloudrunner-ci
+          sparse-checkout: tools/ci
+          persist-credentials: false
+      - name: Verify current coordinator on Windows
+        run: python -m unittest discover -s .cloudrunner-ci/tools/ci -v
+      - name: Prepare matching cache workspaces
+        shell: pwsh
+        run: |
+          git worktree add --detach C:/cr/e HEAD
+          if ($LASTEXITCODE) { throw 'Engine worktree setup failed' }
+          git worktree add --detach C:/cr/d HEAD
+          if ($LASTEXITCODE) { throw 'Desktop worktree setup failed' }
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        id: restore
+        with:
+          shared-key: cloudrunner-combined-windows-16-v1
+          workspaces: |
+            C:/cr/e -> target
+            C:/cr/d -> target
+          save-if: false
+      - name: Verify exact combined cache restore
+        shell: python {0}
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        run: |
+          import os
+          from pathlib import Path
+          if os.environ['CACHE_HIT'].lower() != 'true':
+              raise SystemExit('No exact combined engine/desktop cache restored')
+          for group in ('e', 'd'):
+              target = Path('C:/cr') / group / 'target'
+              if not target.is_dir() or not any(target.iterdir()):
+                  raise SystemExit('Missing restored target directory: ' + str(target))
+          print('Both isolated Cargo target directories restored on a fresh VM')
