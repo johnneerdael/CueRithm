@@ -349,6 +349,7 @@ impl Library {
                 &tx,
                 &saved.sources,
                 recovering.then_some(&current_publication),
+                true,
             )?;
             // Keep the library write transaction through external publication, as
             // tag publication does: a local edit cannot race the final revision check.
@@ -451,7 +452,9 @@ impl Library {
             let mut connection = self.conn()?;
             let tx =
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            validate_sources(&tx, &saved.sources, Some(&current))?;
+            // Restoring a backup depends on source identity, not whether the
+            // track is still eligible to be included in a new sync.
+            validate_sources(&tx, &saved.sources, Some(&current), false)?;
             // Clear even before a partial recovery: no old baseline can describe
             // a target whose previous publication/restoration was interrupted.
             invalidate_baseline(&root, &saved.request.target)?;
@@ -807,16 +810,21 @@ fn validate_sources(
     connection: &Connection,
     sources: &[Source],
     journal: Option<&FileJournal>,
+    require_prepared: bool,
 ) -> Result<()> {
     for source in sources {
-        let row: Option<(Vec<u8>, String)> = connection
+        let row: Option<(Vec<u8>, String, bool)> = connection
             .query_row(
-                "SELECT path,source_hash FROM tracks WHERE id=?1 AND state='ready' AND archived=0",
+                "SELECT path,source_hash,state='ready' AND archived=0 FROM tracks WHERE id=?1",
                 [&source.id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let (path, hash) = row.context("A synced track is no longer prepared")?;
+        let (path, hash, prepared) = row.context("A synced track is no longer in the library")?;
+        ensure!(
+            !require_prepared || prepared,
+            "A synced track is no longer prepared"
+        );
         ensure!(
             crate::model::bytes_path(&path)? == source.path,
             "A synced source moved after preview"
@@ -833,6 +841,21 @@ fn validate_sources(
             hash == source.hash || after == Some(&hash),
             "A synced source identity changed after preview"
         );
+        if !require_prepared {
+            // Reject later audio edits before restoring any destination files.
+            // An interrupted tag restore may contain either journal-owned image.
+            let actual = match journal {
+                Some(journal) => {
+                    cuerithm_dj_sync::transaction::observed_file_hash(journal, &source.path)?
+                }
+                None => file_hash(&source.path)?,
+            };
+            ensure!(
+                actual.as_deref() == Some(source.hash.as_str())
+                    || after.is_some_and(|expected| actual.as_ref() == Some(expected)),
+                "A synced source changed before restore"
+            );
+        }
     }
     Ok(())
 }
@@ -1191,18 +1214,97 @@ mod tests {
         let applied = transaction.apply(|| Ok(())).unwrap();
         {
             let conn = library.conn().unwrap();
-            validate_sources(&conn, &sources, Some(&applied)).unwrap();
+            validate_sources(&conn, &sources, Some(&applied), true).unwrap();
             update_source_hashes(&conn, &sources, &applied, false).unwrap();
         }
         assert_eq!(library.source_hash("a").unwrap(), after);
         let restored = transaction.restore(|| Ok(())).unwrap();
         {
             let conn = library.conn().unwrap();
-            validate_sources(&conn, &sources, Some(&restored)).unwrap();
+            validate_sources(&conn, &sources, Some(&restored), false).unwrap();
             update_source_hashes(&conn, &sources, &restored, true).unwrap();
         }
         assert_eq!(library.source_hash("a").unwrap(), before);
         assert_eq!(file_hash(&source).unwrap(), Some(before));
+    }
+    #[test]
+    fn archived_tracks_can_restore_native_backups_and_own_tag_hashes() {
+        let (_dir, library, target) = fixture();
+        let initial = fs::read(&target.path).unwrap();
+        let source = library.track_path("a").unwrap();
+        let original_audio = fs::read(&source).unwrap();
+        let original_hash = library.source_hash("a").unwrap();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        let root = library.data_dir().join("sync");
+        let transaction = FileTransaction::open(&root, &preview.id).unwrap();
+        let tagged = library.data_dir().join("synthetic-archived-tagged-copy");
+        fs::write(&tagged, b"Synthetic tag publication before archival").unwrap();
+        transaction
+            .add(&source, Some(original_hash.clone()), Some(&tagged))
+            .unwrap();
+        library.apply_dj_sync(&preview.id).unwrap();
+        assert_ne!(library.source_hash("a").unwrap(), original_hash);
+        library.set_archived("a", true).unwrap();
+
+        assert_eq!(
+            library.restore_dj_sync(&preview.id).unwrap().state,
+            JournalState::Restored
+        );
+        assert_eq!(fs::read(&target.path).unwrap(), initial);
+        assert_eq!(fs::read(&source).unwrap(), original_audio);
+        assert_eq!(library.source_hash("a").unwrap(), original_hash);
+        assert!(read_baseline(&root, &target).unwrap().is_none());
+        assert!(
+            library
+                .conn()
+                .unwrap()
+                .query_row("SELECT archived FROM tracks WHERE id='a'", [], |row| {
+                    row.get::<_, bool>(0)
+                })
+                .unwrap()
+        );
+        library.restore_dj_sync(&preview.id).unwrap();
+    }
+    #[test]
+    fn archived_track_restore_still_rejects_changed_source_identity_or_bytes() {
+        for change in ["path", "hash", "bytes"] {
+            let (_dir, library, target) = fixture();
+            let preview = library
+                .preview_dj_sync(request(&target, DjSyncScope::Full))
+                .unwrap();
+            library.apply_dj_sync(&preview.id).unwrap();
+            let applied = fs::read(&target.path).unwrap();
+            library.set_archived("a", true).unwrap();
+            match change {
+                "path" => {
+                    library
+                        .conn()
+                        .unwrap()
+                        .execute(
+                            "UPDATE tracks SET path=?1 WHERE id='a'",
+                            [crate::model::path_bytes(
+                                &library.data_dir().join("moved.wav"),
+                            )],
+                        )
+                        .unwrap();
+                }
+                "hash" => {
+                    library
+                        .conn()
+                        .unwrap()
+                        .execute("UPDATE tracks SET source_hash='different' WHERE id='a'", [])
+                        .unwrap();
+                }
+                "bytes" => {
+                    fs::write(library.track_path("a").unwrap(), b"Later audio edit").unwrap()
+                }
+                _ => unreachable!(),
+            }
+            assert!(library.restore_dj_sync(&preview.id).is_err(), "{change}");
+            assert_eq!(fs::read(&target.path).unwrap(), applied, "{change}");
+        }
     }
     #[test]
     fn bitmap_digest_keeps_buffers_and_hashes_content_without_json_expansion() {

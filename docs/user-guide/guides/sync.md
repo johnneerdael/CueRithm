@@ -95,6 +95,8 @@ are reported for resolution.
 **Sync history** lists completed syncs and operations with recovery information.
 Choose **Restore backup** to reverse a sync. Restore checks for later destination
 edits and stops on a conflict instead of overwriting them.
+Archiving a synced track does not prevent restoring its backup; its source location
+and file contents must still match the recorded sync.
 
 Serato writes cues and grids into source music files, so its backup includes those
 audio files as well as its native library files. Pioneer USB conversion backs up and
