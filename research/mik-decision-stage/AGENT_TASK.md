@@ -9,15 +9,15 @@ of request/response pairs ([DATA_FORMAT.md](DATA_FORMAT.md)).
 The owner wants **near-perfect alignment with Mixed In Key 11's results for the cue points, the key and the overall energy
 rating** of a track (Mixed In Key is considered the better product for key and energy, and the user prefers its cues). BPM and
 beat grid are already good enough (see below). Do not chase Lexicon's energy value. Melodic house and techno is the main
-genre (about 87% of the first corpus); other genres matter too and are what a genre effect would show in.
+genre (87% of the first corpus, 98% of the second); the genre tag is not an input of the service (see the genre section).
 
 Suggested success bar, measured once on sealed data and reported as exact agreement and as within one level separately:
 
-| Output | Today (tuning songs, out of fold) | Target |
+| Output | Today (801 held-out songs, scored once; tuning out of fold in brackets) | Target |
 | --- | --- | --- |
-| Key (24 Camelot codes) | 96.0% (14 of 272 wrong; 58% when the server's own confidence is below 0.7) | at least 99% |
-| Overall energy (1-10) | 76.5% exact, all within one except one song | at least 95% exact |
-| Cues (every one of the eight right) | about 60% of tracks, 91-96% cue recall | at least 90% of tracks |
+| Key (24 Camelot codes) | 96.8% (97.1%); 100% when the server's confidence is at least 0.97, 65% below 0.7 | at least 99% |
+| Overall energy (1-10) | 75.7% exact (77.2%), 99.9% within one; window level 92.7% (92.0%) | at least 95% exact |
+| Cues (every one of the eight right) | 67.9% of tracks with the server's cue count given, 56.3% with eight fixed (65.1% tuning); cue recall 93% | at least 90% of tracks |
 
 ## How the service works (established)
 
@@ -105,12 +105,7 @@ tag the application sends by the controlled test above.
 - First corpus (private, not in the repo): 434 FLAC files, 364 distinct songs, 434 captured pairs; 282 tuning groups,
   82 groups sealed. `sealed_corpus_holdout_feature_sha1.txt` lists the sealed songs by feature hash; never train, tune or
   look at results on them until the final scoring.
-- New set (hand-back package): 4,000+ tracks from a clean Mixed In Key scan, captured on another laptop and delivered as a
-  package built by `build_handback.py` (see `CAPTURE-LAPTOP.md`; nothing is analysed on that laptop). It holds the sanitized
-  request/response pairs, `final.jsonl` (the stored key, energy, tempo, genre, cues, segments and decoded beat grid per song),
-  `tags.jsonl`, `inventory.jsonl`, the whole database backup and a manifest. Run `build_handback.py --verify` on receipt, then
-  drop the sealed songs of the first corpus (the library probably overlaps it). Genres other than melodic house and techno are
-  included; the response `EliteData.Genre` is the tag the application sent.
+- Second set (arrived 2026-10-20 as a hand-back package, verified with `build_handback.py --verify`): 4,168 analysis calls from a clean scan of a second library, 4,084 distinct songs, 4,045 after dropping the 39 sealed first-corpus songs. 3,244 are tuning songs and 801 are the **held-out part, which was scored once on 2026-10-20** (freeze record in `.analysis`, results in `docs/research/mik-decision-stage-4k-2026-10-20.md`) and must not be used to choose anything any more. A new claim needs a new held-out set: the sealed songs of the first corpus (only with the owner's word) or a further capture. The package holds the stored analysis with decoded beat grids, every tag, a file inventory and a copy of the database; the library is 98% melodic house and techno.
 - Genre is not an input (controlled test above): fit all songs together. Per-genre agreement is still worth reporting as a check on the data, but there is nothing to tune per genre.
 - Learning curve for the window classifier on the first corpus: 21 songs 71.1%, 54 songs 77.3%, 108 songs 81.4%,
   162 songs 83.3%, 217 songs 84.4%: still rising by about 3 points per doubling. Sixteen times more songs is the largest
