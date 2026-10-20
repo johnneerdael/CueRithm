@@ -1,10 +1,10 @@
 # Incoming and Archive
 
-Both are **states** of a track inside CueRithm's library. Neither is a folder, and neither moves your audio.
+Incoming and Archive are track states in CueRithm's library. They do not correspond to folders or move your audio files.
 
 ## Incoming
 
-A track is *incoming* from the moment it is added until its preparation succeeds. The view's subtitle says it: *Automatic preparation. Ready tracks move into your library.*
+A track stays *incoming* from the moment it is added until preparation succeeds. The subtitle reads: *Automatic preparation. Ready tracks move into your library.*
 
 <figure markdown>
   ![Incoming view showing stages](../assets/screens/21-incoming-analyzing.webp){ .screen loading=lazy }
@@ -27,11 +27,11 @@ A track is *incoming* from the moment it is added until its preparation succeeds
 
 A failed stage sets the track to *Needs attention*. It stays in Incoming with the stage and error. The usual causes are an unsupported or protected file, a file longer than about 24 minutes, a disk or permission problem, being offline while tagging is on, or a provider error.
 
-To retry: press the **retry** icon on the row. Saving **Settings** also re-queues every track that needs attention, using the new settings.
+Press the **retry** icon on the row to try again. Saving **Settings** also re-queues every track that needs attention, using the new settings.
 
 ### What "ready" requires
 
-A track becomes ready only when it has a key, a positive BPM with a non-empty beatgrid, an energy from 1 to 10 and at least one cue, all inside the track. Otherwise it stays in Incoming. CueRithm never fills in missing results.
+A track becomes ready only when it has a key, a positive BPM with a non-empty beatgrid, an energy rating from 1 to 10 and at least one cue, with all positions inside the track. Otherwise it stays in Incoming.
 
 ### Empty Incoming
 

@@ -1,13 +1,13 @@
 # The library database
 
-CueRithm keeps everything it knows in a single **SQLite** database, with a small set of caches beside it. Your music files stay where they are.
+CueRithm keeps everything it knows in a single SQLite database, with a small set of caches beside it. Your music files stay where they are.
 
 ## The engine
 
-- SQLite (bundled with the app, via `rusqlite`), file name **`library.sqlite`**, in the application data folder.
-- **WAL** journal mode, **synchronous FULL**, foreign keys on, a 5-second busy timeout.
+- SQLite (bundled with the app, via `rusqlite`), file name `library.sqlite`, in the application data folder.
+- **WAL** journal mode, synchronous FULL, foreign keys on, a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library (a non-empty SQLite file without it is rejected).
-- Schema version (`user_version`) is currently **12**. Migrations are embedded SQL files applied in order, in an immediate transaction. A **newer schema is refused** ("Library schema is newer than this application"), and there is **no downgrade**. Migrations preserve existing tracks, jobs and cue ownership.
+- Schema version (`user_version`) is currently 12. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live
 
@@ -41,7 +41,7 @@ If you move or delete a track outside CueRithm, its stored path breaks. A scan f
 
 A global `revision` counter increments on every change, which is how the interface knows to refresh.
 
-Each job **pins the settings revision** it was queued under, so changing settings never alters a job already in flight.
+Each job pins the settings revision it was queued under, so changing settings never alters a job already in flight.
 
 ## Paths across systems
 

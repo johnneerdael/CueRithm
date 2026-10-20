@@ -13,7 +13,7 @@
   <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey?style=flat-square">
 </p>
 
-**CueRithm** is a desktop library app for DJs. Drop in your tracks and it listens to every one of them, entirely offline: **musical key, BPM and beatgrid, one energy rating, structural cues and a colour waveform**. It then helps you tag, clean and organise the library, with playlists and smart playlists that update themselves.
+CueRithm is a desktop library app for DJs. It analyses tracks offline, computing musical key, BPM and beatgrid, one whole-track energy rating, structural cues and a colour waveform. You can tag and clean up the library, create playlists, and set up smart playlists that update automatically.
 
 Your music stays where it is. Nothing is uploaded. There is no account.
 
@@ -32,16 +32,16 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 
 | | |
 | --- | --- |
-| **Key** | A neural network that runs inside the app reads the whole track and gives a Camelot key such as `7A`. |
+| **Key** | A neural network inside the app analyses the whole track and returns a Camelot key such as `7A`. |
 | **BPM and beatgrid** | One tempo and one first beat per track, shown to two decimals, with beat lines in the player. |
 | **Energy** | One rating from 1 to 10 for the whole track. |
 | **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
 | **Waveform** | Three frequency bands in six colour palettes, with a default 32-second zoom for checking the grid. |
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
-| **Tagging** | Optional Beatport and Traxsource lookups, with a staged write that proves your audio is unchanged. |
+| **Tagging** | Optional Beatport and Traxsource lookups, with staged tag writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
-| **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA, with a bundled decoder. Nothing else to install. |
+| **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA. The decoder is bundled, so you do not need to install anything else. |
 
 ## See it work
 
@@ -56,12 +56,13 @@ Your music stays where it is. Nothing is uploaded. There is no account.
   </tr>
 </table>
 
-## Built to be trusted
+## Analysis and file handling
 
-- **Offline analysis.** Key, tempo, energy and cues are computed on your computer from the decoded audio. Only the optional catalog tagging uses the network.
-- **Your files are safe.** CueRithm never moves your audio. When tagging or cleanup writes tags, it works on a staged copy, decodes it again to prove the playable audio is identical, keeps the original, and swaps atomically with a journal for crash recovery.
-- **One timeline.** A bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback all agree on where a cue sits.
-- **Honest about gaps.** Analysis agreement is measured against reference tools on the developers' own library, not against musical truth. Read [How accurate is it?](https://johnneerdael.github.io/CueRithm/technical/accuracy/).
+Key, tempo, energy and cues are computed on your computer from the decoded audio. Only the optional catalog tagging uses the network.
+
+CueRithm never moves your audio. Tagging and cleanup write to a staged copy, then decode it again to verify that the playable audio is identical. The original is kept, and an atomic swap with a journal allows recovery after a crash.
+
+The bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback use the same cue positions. Analysis agreement is measured against reference tools on my own library; it does not establish musical accuracy. Read [How accurate is it?](https://johnneerdael.github.io/CueRithm/technical/accuracy/).
 
 ## Install
 
@@ -73,7 +74,7 @@ Download the latest build from the [releases page](https://github.com/johnneerda
 | **Windows** (x86-64) | `.zip` | Portable app. Keep the `media` folder next to the program. Unsigned, so SmartScreen may warn on first launch. |
 | **Linux** (x86-64) | `.deb` | Unsigned. |
 
-Every release also carries the matching application source, the FFmpeg source and `THIRD_PARTY_NOTICES.md`. Step by step: [Install](https://johnneerdael.github.io/CueRithm/get-started/install/).
+Every release includes the matching application source, the FFmpeg source and `THIRD_PARTY_NOTICES.md`. For installation steps, see [Install](https://johnneerdael.github.io/CueRithm/get-started/install/).
 
 You can check an installation at any time:
 
@@ -83,23 +84,23 @@ You can check an installation at any time:
 
 ## Not available yet
 
-CueRithm is version 0.1. **Direct rekordbox sync** and the **duplicate and file-maintenance screens** are not available in this release, there is no cue editor or template editor yet, and playback uses the system default output. Details in [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
+CueRithm is version 0.1. Direct rekordbox sync, duplicate and file-maintenance screens, and cue and template editors are not available in this release. Playback uses the system default output. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
 
 ## Documentation
 
-**[johnneerdael.github.io/CueRithm](https://johnneerdael.github.io/CueRithm/)** covers:
+The [user guide](https://johnneerdael.github.io/CueRithm/) covers:
 
-- **[Get started](https://johnneerdael.github.io/CueRithm/get-started/):** install, the window, adding music and keyboard shortcuts.
-- **[Learn](https://johnneerdael.github.io/CueRithm/learn/):** nine hands-on tutorials, from your first tracks to smart playlists, cleanup and tagging.
-- **[Guides](https://johnneerdael.github.io/CueRithm/guides/):** every control and setting.
-- **[Under the hood](https://johnneerdael.github.io/CueRithm/technical/):** the analysis pipeline, decoding, key detection, tempo and beatgrid, energy, the cue engine, waveforms, the library database, safe tag writing, catalog matching and the smart playlist engine.
-- **[About](https://johnneerdael.github.io/CueRithm/about/):** credits, provenance and an FAQ.
+- [Get started](https://johnneerdael.github.io/CueRithm/get-started/): install, the window, adding music and keyboard shortcuts.
+- [Learn](https://johnneerdael.github.io/CueRithm/learn/): nine hands-on tutorials, from your first tracks to smart playlists, cleanup and tagging.
+- [Guides](https://johnneerdael.github.io/CueRithm/guides/): every control and setting.
+- [Under the hood](https://johnneerdael.github.io/CueRithm/technical/): the analysis pipeline, decoding, key detection, tempo and beatgrid, energy, the cue engine, waveforms, the library database, safe tag writing, catalog matching and the smart playlist engine.
+- [About](https://johnneerdael.github.io/CueRithm/about/): credits, provenance and an FAQ.
 
 ## Credits
 
-CueRithm builds on a lot of open-source work, notably **[OneTagger](https://github.com/Marekkon5/onetagger)** by Marekkon5 (Beatport and Traxsource tagging, under the GPL v3), **[OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer)** (the key network, MIT), **FFmpeg** (decoding, LGPL), **TagLib**, **libsoxr**, **Tauri** and **React**. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+CueRithm uses [OneTagger](https://github.com/Marekkon5/onetagger) by Marekkon5 for Beatport and Traxsource tagging (GPL v3), [OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer) for the key network (MIT), and FFmpeg for decoding (LGPL). Other components include TagLib, libsoxr, Tauri and React. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-CueRithm's behaviour was inspired by **Mixed In Key** and **Lexicon DJ**. It was studied through reverse engineering of copies the project's author owns, and CueRithm is an independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://johnneerdael.github.io/CueRithm/about/provenance/).
+Mixed In Key and Lexicon DJ shaped how CueRithm behaves. I studied them using copies I own, and CueRithm is my own independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://johnneerdael.github.io/CueRithm/about/provenance/).
 
 CueRithm is not affiliated with, endorsed by or sponsored by Mixed In Key, Lexicon, Beatport, Traxsource, rekordbox, OneTagger or any other product named here.
 
@@ -116,4 +117,4 @@ Pull requests need a completed `@codex review` and the checks in the [pull reque
 
 ## Licence
 
-The independent analysis engine is **MIT** licensed ([`LICENSE`](LICENSE)). The desktop application and the OneTagger integration are **GPL-3.0-only** ([`apps/desktop/LICENSE`](apps/desktop/LICENSE)). See [third-party notices](THIRD_PARTY_NOTICES.md).
+The independent analysis engine is MIT licensed ([`LICENSE`](LICENSE)). The desktop application and the OneTagger integration are GPL-3.0-only ([`apps/desktop/LICENSE`](apps/desktop/LICENSE)). See [third-party notices](THIRD_PARTY_NOTICES.md).

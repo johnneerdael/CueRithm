@@ -1,13 +1,13 @@
 # Playlist tools and generator
 
-Open **Playlist tools** under **TOOLS**. Every tool follows the same loop: set it up, **Preview changes**, then **Apply preview**. Applying updates everything in the preview as one undoable step. Audio files and analysis are never touched.
+Open **Playlist tools** under **TOOLS**. Configure a tool, press **Preview changes**, then **Apply preview**. Applying updates everything in the preview as one undoable step. Audio files and analysis are never touched.
 
 <figure markdown>
   ![Playlist tools showing the Combine playlists tool](../assets/screens/60-playlist-tools-combine.webp){ .screen loading=lazy }
   <figcaption>Playlist tools, with the Combine playlists tool selected.</figcaption>
 </figure>
 
-Previews are pinned to the exact playlist state, library data, time zone and file observations they were made against. If anything changed, the preview is rejected and you preview again.
+Each preview records the playlist state, library data, time zone and file observations it used. If any of these have changed when you apply it, CueRithm rejects the preview. Run the preview again before applying.
 
 ## The tools
 

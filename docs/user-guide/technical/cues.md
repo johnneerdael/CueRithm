@@ -3,18 +3,18 @@
 Cues are the structural landmarks you see in the player: Start, Drop, Breakdown, Drop #2, Breakdown #2, End / Fade-out and, optionally, an emergency loop. They are detected from the track's energy shape, section by section.
 
 !!! note "Provenance"
-    The cue detector is described in the project as the "validated Lexicon-compatible DSP", and its source keeps references to the functions of the program it was studied from. Read [How CueRithm was made](../about/provenance.md) before relying on any statement about its origin.
+    I describe the cue detector as the "validated Lexicon-compatible DSP". Its source keeps references to functions in the program it was studied from. See [How CueRithm was made](../about/provenance.md) for the origin and limits of this work.
 
 ## Inputs
 
-The left channel at 44.1 kHz, the **unrounded BPM** and the **anchor** from [Tempo and beatgrid](tempo.md), and the track's genre tag. If timing failed, there are no cues, and the track cannot become ready.
+The left channel at 44.1 kHz, the unrounded BPM and the anchor from [Tempo and beatgrid](tempo.md), and the track's genre tag. If timing failed, there are no cues, and the track cannot become ready.
 
 ## Front end
 
 1. **Filtered signal.** Seven cascaded second-order low-pass filters at 800, 400, 400, 200, 200, 200 and 200 Hz (resonance of 1 dB, matching the Web Audio default).
 2. **Second signal.** A six-pass single-pole low-pass at 300 Hz for the alternative drop path.
 3. **Genre signal.** An 80 Hz six-pass low-pass, used only for genre overrides.
-4. **Sections.** The track is cut into **4-beat sections**. For each: RMS energy, per-beat strength within plus or minus 50 ms, and a "ramp" class.
+4. **Sections.** The track is cut into 4-beat sections. For each: RMS energy, per-beat strength within plus or minus 50 ms, and a "ramp" class.
 
 ## Stages
 
@@ -28,7 +28,7 @@ Each stage builds on the previous one.
 6. **Last beat (End / Fade-out).** Per-beat RMS against the 75th percentile, the last run of at least 16 "active" beats, snapped to a 16-beat grid, at least 4 beats.
 7. **Emergency loop** (optional). A 16-beat loop at the best late steady four-section block.
 
-The **Start** cue always exists when timing exists. Genre influences only tracks whose genre tag contains "techno" or "hardcore".
+The Start cue always exists when timing exists. Genre influences only tracks whose genre tag contains "techno" or "hardcore".
 
 ## Published names, colours and types
 
@@ -53,7 +53,7 @@ Slots follow list order, and the emergency loop takes the highest free slot. The
 
 ## Revisions
 
-Each preparation stores a **new cue revision**. Earlier revisions are kept. Cues are recomputed when the effective genre changes after tagging or cleanup. Key, BPM and energy are preserved when that happens. Cues are never written to file tags.
+Each preparation stores a new cue revision. Earlier revisions are kept. Cues are recomputed when the effective genre changes after tagging or cleanup. Key, BPM and energy are preserved when that happens. Cues are never written to file tags.
 
 ## Settings that matter
 

@@ -1,6 +1,6 @@
 # Learn
 
-Hands-on tutorials, in the order most people need them. Each one uses real screens from CueRithm running on a small test library of electronic dance music, and finishes with a short "what just happened" section that links to the technical detail.
+Start with preparing tracks, then work through the tutorials for analysis, cues and library organisation. The screenshots show CueRithm running on a small test library of electronic dance music. Each tutorial ends with an explanation and links to the technical details.
 
 <div class="grid cards" markdown>
 

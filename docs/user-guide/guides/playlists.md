@@ -8,7 +8,7 @@
 | **Folder** | folder | Playlists, smart playlists and other folders. |
 | **Smart playlist** | lightning bolt | Tracks chosen by [rules](smart-rules.md). A dot beside it means it is not currently up to date. |
 
-Each item has a stable identity, a position among its siblings, and, if you favourite it, a separate position in the favourites list. Playlists are part of the library. Audio files are never changed or deleted by anything you do with playlists.
+Each item has a stable identity and a position among its siblings. Favourites also have a separate position in the favourites list. Playlists are part of the library. Audio files are never changed or deleted by anything you do with playlists.
 
 <figure markdown>
   ![The sidebar with a playlist, a smart playlist and a folder](../assets/screens/57-sidebar-playlists.webp){ .screen loading=lazy }
@@ -24,7 +24,7 @@ Open **Settings → Smart Playlists** to opt in to automatic lists by **Artist**
 
 CueRithm creates the selected categories under **Automatic Smart Playlists** and expands them as prepared tracks arrive. Artists and remixers get individual lists; BPM supports up to ten configured ranges; dates create year/month folders with all-tracks, Warm-Up, Dancefloor and Anthems lists. Key creates 24 Camelot lists containing compatible tracks. See [Smart Playlist settings](settings.md#smart-playlists) for boundaries and metadata requirements.
 
-Names and folder positions can be changed. Enabled categories maintain their generated rules; **Duplicate** a list before customizing its conditions. Turning an option off keeps existing live lists. Removing a generated list suppresses its automatic identity until it is restored.
+You can change names and folder positions. Enabled categories maintain their generated rules, so use **Duplicate** before customizing a list's conditions. Turning an option off keeps existing live lists. Removing a generated list suppresses its automatic identity until it is restored.
 
 ## The playlist menu
 
@@ -42,7 +42,7 @@ Each row has a **⋯** menu:
 
 ## Removing and restoring
 
-**Remove** hides the item and its members, but keeps them. A collapsible **Removed playlists** list in the sidebar explains *Restore playlists and their contents. Audio files stay in your library.* Press **Restore** on a row to bring it back. **Undo last playlist change** reverses your most recent edit and refuses if a newer edit conflicts.
+**Remove** hides the item and its members without deleting them. A collapsible **Removed playlists** list in the sidebar explains *Restore playlists and their contents. Audio files stay in your library.* Press **Restore** on a row to bring it back. **Undo last playlist change** reverses your most recent edit and refuses if a newer edit conflicts.
 
 ## Drag and drop
 
@@ -58,7 +58,7 @@ Dragging uses CueRithm's own pointer handling and starts after a short movement.
 
 ## The membership toolbar
 
-Shown when tracks are selected, or when an ordinary playlist is not in manual order.
+The membership toolbar appears when tracks are selected or an ordinary playlist is not in manual order.
 
 - **Choose playlist** (ordinary playlists only) and **Add to playlist**.
 - **Remove from playlist** when you are inside an ordinary playlist.

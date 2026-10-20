@@ -1,6 +1,6 @@
 # Cleanup rules
 
-Cleanup edits **human-readable metadata** (title, artist, album, genre, comment and similar). It never changes audio, analysis, key, BPM, beatgrid, energy, paths or cues. The tool and the automatic Incoming step share one rule set.
+Cleanup edits human-readable metadata (title, artist, album, genre, comment and similar). It never changes audio, analysis, key, BPM, beatgrid, energy, paths or cues. The tool and the automatic Incoming step share one rule set.
 
 <figure markdown>
   ![Cleanup with Smart Fixes tab and two rules](../assets/screens/71-cleanup-smart-fixes.webp){ .screen loading=lazy }
@@ -18,16 +18,16 @@ Scope is **All ready tracks** or **N selected tracks**. Only ready, non-archived
 
 ## What apply guarantees
 
-- File tags and library metadata are written **together**, with a durable backup of the original.
+- CueRithm writes file tags and library metadata together and keeps a durable backup of the original.
 - Decoded audio, key, BPM, beatgrid, energy and existing cue history are preserved.
 - If nothing physical changes, the file is not rewritten.
-- Unrepresentable metadata, a file that changed since the scan, or a concurrent edit is reported **per track**. Other tracks still complete, and conflicting tracks need a fresh scan.
+- Unrepresentable metadata, a file that changed since the scan, or a concurrent edit is reported per track. Other tracks still complete, and conflicting tracks need a fresh scan.
 - **Undo** restores the original file bytes and metadata when the file still matches what the apply produced. Newer edits are preserved and reported as conflicts. Undo survives restarts.
 - Custom (categorised) tags live in CueRithm's library, not in file tags.
 
 ## Smart Fixes
 
-An ordered list of up to **64** rules. *Rules run in this order, before genre and artist mappings. Only enabled rules are applied.* No rules are preinstalled. Add one with **New Smart Fix** and **Add Smart Fix**. Each rule has **Enabled**, **Move up**, **Move down**, **Remove rule**, its options, and **Ignored values** (one per line, exact whole-value matches that the rule skips).
+Smart Fixes run as an ordered list of up to 64 rules. *Rules run in this order, before genre and artist mappings. Only enabled rules are applied.* No rules are preinstalled. Add one with **New Smart Fix** and **Add Smart Fix**. Each rule has **Enabled**, **Move up**, **Move down**, **Remove rule**, its options, and **Ignored values** (one per line, exact whole-value matches that the rule skips).
 
 | # | Fix | Options and behaviour |
 | --- | --- | --- |
@@ -60,15 +60,15 @@ Enable **Artist cleanup** and choose the roles it covers: **artist**, **remixer*
 
 ## Order of application
 
-All enabled Smart Fixes in list order, then genre conversion and mapping, then artist mapping. Values used as mapping sources or targets are protected from text fixes in their roles.
+CueRithm runs enabled Smart Fixes in list order, followed by genre conversion and mapping, then artist mapping. Values used as mapping sources or targets are protected from text fixes in their roles.
 
 ## Limits
 
-64 fixes. Ignored and protected values at most 4,096 each, each at most 4,096 UTF-8 bytes. At most 4,096 mappings, with no duplicates or cycles. Per track at most 128 values per field, 1 MiB total and 4,096 custom tags. Violations are shown in a banner before saving.
+You can save up to 64 fixes, with at most 4,096 entries in each of the ignored and protected value lists. Each value can contain up to 4,096 UTF-8 bytes. There can be at most 4,096 mappings, with no duplicates or cycles. Each track can have up to 128 values per field, 1 MiB total and 4,096 custom tags. A banner shows any violations before saving.
 
 ## Automatic cleanup
 
 In **Settings > Cleanup**, *Clean incoming tracks automatically* applies the saved rules after catalog tagging and before the track enters Tracks. Changing rules never rewrites tracks that are already complete. Cleanup never contacts a provider.
 
 !!! info "Backups"
-    Originals are kept until a retention action exists, and that action is not yet built. The size is shown in Settings > Automatic tagging as *Recovery backups*.
+    Originals are kept indefinitely because there is no retention control yet. The size is shown in Settings > Automatic tagging as *Recovery backups*.

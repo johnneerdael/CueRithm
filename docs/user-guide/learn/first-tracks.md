@@ -1,8 +1,6 @@
 # Prepare your first tracks
 
-**You will:** start from an empty library, drop in a handful of tracks, watch them being prepared and find them analysed in **Tracks**.
-
-**Time:** five minutes.
+Start with an empty library, add a handful of tracks and watch them move through preparation into **Tracks**. Allow five minutes.
 
 ## 1. Start from an empty library
 
@@ -44,12 +42,12 @@ When a track finishes it leaves Incoming and the **Tracks** count grows. Open **
   <figcaption>Prepared tracks, with BPM, key, energy and a waveform preview with cue markers.</figcaption>
 </figure>
 
-Every prepared track has all of these, or it would still be in Incoming:
+A track must have all of these results before it can leave Incoming:
 
-- a **key** (shown as a chip such as `7A`),
-- a **BPM** and a beatgrid,
-- an **energy** from 1 to 10,
-- at least one **cue**.
+- a key (shown as a chip such as `7A`),
+- a BPM and a beatgrid,
+- an energy rating from 1 to 10,
+- at least one cue.
 
 !!! info "Why a track can stay in Incoming"
     CueRithm never invents results to mark a track ready. If decoding fails, if the file is not music it can analyse, or if a required stage fails, the track stays in Incoming with the stage and error shown. Fix the cause and press the retry icon on the row, or save Settings to re-queue everything that needs attention.
@@ -61,4 +59,4 @@ Every prepared track has all of these, or it would still be in Incoming:
 3. Key, tempo and beatgrid, energy and cues were computed from those samples.
 4. In one database transaction, the results were saved, a new cue revision was recorded and the track became *ready*.
 
-Your audio file was not changed. Read the full story in [The analysis pipeline](../technical/pipeline.md).
+Read the full story in [The analysis pipeline](../technical/pipeline.md).

@@ -1,6 +1,6 @@
 # The track table
 
-The table shows the tracks of the current view: **Tracks**, **Incoming**, **Archive** or a playlist. It is virtual, so large libraries scroll smoothly, and it loads 200 rows at a time as you scroll.
+The table shows the tracks of the current view: **Tracks**, **Incoming**, **Archive** or a playlist. It uses a virtual table to keep large libraries scrolling smoothly and loads 200 rows at a time as you scroll.
 
 <figure markdown>
   ![The Tracks table sorted by title](../assets/screens/30-tracks.webp){ .screen loading=lazy }
@@ -66,7 +66,7 @@ When rows are selected, the toolbar above the table changes.
 
 ## Row menu
 
-The **⋯** button on a row offers **Analyze again** and **Archive track** (or **Restore to library** in the Archive). A row that needs attention shows a retry icon instead.
+Use the **⋯** button on a row for **Analyze again** and **Archive track** (or **Restore to library** in the Archive). A row that needs attention shows a retry icon instead.
 
 ## Status icons
 

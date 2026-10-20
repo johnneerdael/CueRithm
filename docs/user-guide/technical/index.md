@@ -1,14 +1,14 @@
 # Under the hood
 
-This section explains how CueRithm gets from an audio file to a key, a tempo, an energy rating and a set of cues, and how it protects your files while doing so. Everything here is derived from the source code and the project's own research notes. Where the project has not verified something, the page says so.
+CueRithm decodes each audio file, computes its key, tempo, energy and cues, then stores the results in the library. Optional tag writes use a staged copy to protect the original file.
 
 !!! abstract "The short version"
-    - One **decoder** (a bundled, LGPL-licensed FFmpeg 9.0.2) turns every supported format into the same 44.1 kHz stereo float samples. Analysis, the waveform, tag verification and playback all share that one timeline.
+    - One decoder (a bundled, LGPL-licensed FFmpeg 9.0.2) turns every supported format into the same 44.1 kHz stereo float samples. Analysis, the waveform, tag verification and playback all share that one timeline.
     - **Key** comes from a small neural network (OpenKeyScan3, MIT) running on a constant-Q spectrum of the whole track.
     - **Tempo and the first beat** come from a signal-processing detector with many explicit correction rules, producing one constant BPM and one anchor.
     - **Energy** is one number from 1 to 10 from a fixed acoustic formula.
     - **Cues** come from a section-by-section energy analysis of the track.
-    - Results go into a **SQLite** library. Your audio is never moved. Tag writes are staged, verified, journaled and atomic.
+    - Results go into a SQLite library. Your audio is never moved. Tag writes are staged, verified, journaled and atomic.
 
 | Page | Topic |
 | --- | --- |

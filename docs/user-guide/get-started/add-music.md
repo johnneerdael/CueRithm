@@ -11,14 +11,14 @@ There are four ways to bring tracks in. All of them end in the same place: the *
 
 ## Watch folders
 
-On a brand-new library CueRithm creates and watches `Music/Cuerithm/Incoming` inside your Music folder. Add more in **Settings > Incoming** with **Add watch folder**.
+In a new library CueRithm creates and watches `Music/Cuerithm/Incoming` inside your Music folder. Add more in **Settings > Incoming** with **Add watch folder**.
 
 <figure markdown>
   ![Settings, Incoming page, listing a watch folder](../assets/screens/10-settings-incoming.webp){ .screen loading=lazy }
   <figcaption>Files added to these folders are prepared automatically. Completed tracks move into Tracks; original audio files stay in place.</figcaption>
 </figure>
 
-A watcher listens for changes and a rescan runs every five seconds as a safety net. If a folder goes offline you see a *Folder is offline* warning in Incoming.
+A watcher detects changes, and CueRithm also rescans every five seconds. If a folder goes offline you see a *Folder is offline* warning in Incoming.
 
 ## Which files are accepted
 
@@ -31,7 +31,7 @@ Files you pick or drop individually are not filtered by extension. If one cannot
 
 ## When does a file start processing?
 
-A copy in progress must finish first. CueRithm checks the file's size and modified time twice, two seconds apart by default, and starts only when they stop changing. A file that keeps changing for five minutes fails with *File copy did not settle*. You can retry it later.
+A copy in progress has to finish first. The app checks the file's size and modified time twice, two seconds apart by default, and starts only when they stop changing. A file that keeps changing for five minutes fails with *File copy did not settle*. You can retry it later.
 
 ## What happens next
 
