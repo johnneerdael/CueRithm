@@ -17,6 +17,10 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 | `energy_overall.py` | window level (RBF SVC, 92.0%) and the overall rating from the predicted levels (logistic aggregator 77.2% vs 71.0% for the 80th-percentile rule) |
 | `cue_ranker.py` | cues: list-wise ranker over candidate beats with hierarchical-phase features (65% of tracks with every cue right) |
 | `freeze_and_score.py` | writes the freeze record, then scores the held-out songs once (refuses a second scoring) |
+| `events.py`, `event_view.py` | structural events (intro, breakdown, build-up, drop, outro) from the low/mid/high bands, and the beat-grid band view with cues overlaid |
+| `coverage_check.py`, `event_coverage.py` | how many detected events a cue set covers; the validator that adds the uncovered ones within eight slots |
+| `window_bands.py`, `cue_bands.py` | learn each 32-beat window's low/mid/high level from its 183 request features (R2 0.85-0.89) |
+| `cue_signal.py` | the client's ramp and band-pass conditioning of the per-beat cue scores |
 | `mikdata.py` | loader, genre grouping, split policy, cue/energy helpers |
 | `key_experiments.py` | key from the 352 features: tonic-rotation-shared model, confidence and genre breakdowns, baselines |
 | `energy_experiments.py` | window levels (RBF SVC), overall rating rules, boundary and genre breakdowns, learning curve |

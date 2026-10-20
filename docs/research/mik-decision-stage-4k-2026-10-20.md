@@ -90,6 +90,42 @@ nearly all the loss.
 * The cue selection is not a function of the local scores alone, nor of the energy stage. What is left to find sits in how the eight
   cues are chosen as a set.
 
+## Cues: what reading the client and the data added, and the DJ view
+
+**Client code.** The cue stage is split: the client turns the audio into per-beat scores (`CalculateScore`) and a phase, and the request
+carries the raw scores. The client's own code does the ramp (zero at start + 32 and at a rounded end, quadratic rise over 32 beats), a
+band-pass over Hann-weighted sums (widths 1, 3 and 32) and a phrase-distance weighting over the 32/16/8/4/2-beat hierarchy to pick the
+phase. The step that chooses the eight cues from the scores is not in the client, so it can only be recovered from the data.
+
+**From the data (3,244 tuning songs).**
+* A true cue is the best-scoring lattice point among its neighbours 98% of the time once the score is multiplied by the phrase-distance
+  weighting (weights about 0.7, 0.8, 0.5-0.8 for the 32, 16 and 8-beat levels, 0 for 4 and 2), against 75% for the raw score.
+* No true cue lies within about 2 grid steps (64 beats) of the rounded end; the cue share rises from 1% to 7% to the normal 30-45% over the
+  last three steps. Positions at even multiples of 32 from the origin are cued far more often than odd ones (52% against 12-30%).
+* With the oracle count a nine-parameter model (weighted score, end ramp, 32-beat spacing) reaches 60.7% of tracks with every cue right on
+  held-out songs, the learned list-wise ranker about 65%. A sequence model over the whole score track, energy sections, learned band
+  structure, section quantiles, neighbour penalties and position priors add nothing. The cue count is not a threshold on any score
+  statistic tried (AUC 0.65-0.69) and not a function of the energy sections.
+* The remaining errors are mostly one cue swapped for a neighbour exactly 32 beats from a true cue, all on the 32-beat grid.
+
+**DJ view.** What matters to a DJ is that every breakdown start, build-up start, drop, the intro entry and the outro start is cued. From
+audio, a low/mid/high band view on the beat grid (`event_view.py`) and a detector (`events.py`: the kick and bass band against its own recent
+level, breakdown at the start of the descent, drop at the return, build-up at the lowest mid/high point before a drop, outro as the groove
+leaves for good) give about 6.5 events per track on 434 tracks. The 183 window features carry the same structure at 32-beat resolution
+(out-of-track R2 0.85-0.89, within-track correlation 0.93-0.97, `window_bands.py`).
+
+| Share of detected events within 8 beats of a cue (434 tracks) | intro | breakdown | build-up | drop | outro | all | tracks with every event |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Mixed In Key's cues | 0.79 | 0.69 | 0.43 | 0.88 | 0.01 | 0.68 | 13% |
+| Our predicted eight cues (ranker trained on other songs) | 0.80 | 0.69 | 0.43 | 0.88 | 0.01 | 0.68 | 13% |
+| Ours + validator (adds uncovered events, eight slots) | 0.95 | 0.97 | 0.87 | 1.00 | 0.89 | 0.95 | 82.5% |
+
+Mixed In Key does not cue the outro start at all and misses about a third of the breakdown starts. The validator adds cues from the same
+detector it is scored against, so this measures coverage of *detected* events; whether the events are the right ones is judged on review
+sheets by a DJ. 15% of tracks have more than eight events, which caps the last column. When a detected event has no cue, check first
+whether Mixed In Key had one nearby: gradual breakdowns (a filter sweep) are cued at the start of the descent, which the first detector
+placed 24 beats late.
+
 ## Limits
 
 One library, one machine, one Mixed In Key build; almost only FLAC (the client features were verified from audio only for 44.1 kHz stereo 16-bit FLAC). The held-out songs come from the same library as the tuning songs, so near-versions of a track can sit on both sides. Several
