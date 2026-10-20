@@ -1,0 +1,303 @@
+//! Convert canonical prepared PCM positions on export copies, exactly once.
+use crate::{AppliedTiming, DjSoftware, SyncLibrary, SyncTrack};
+use anyhow::{Context, Result, ensure};
+use cuerithm_media::{CodecTimingProfile, Mp3TimingCase, SourceExportTiming};
+use sha2::{Digest, Sha256};
+
+pub fn implementation_sha256() -> String {
+    let mut hash = Sha256::new();
+    hash.update(include_bytes!("timing.rs"));
+    hash.update(include_bytes!("pioneer_usb/analysis.rs"));
+    format!("{:x}", hash.finalize())
+}
+fn profile_hash(profile: Option<&SourceExportTiming>) -> Result<String> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&profile)?)
+    ))
+}
+pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
+    let extension = track
+        .path
+        .extension()
+        .and_then(|p| p.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let Some(profile) = &track.export_timing else {
+        ensure!(
+            !((extension == "mp3"
+                && matches!(target, DjSoftware::Serato4 | DjSoftware::PioneerUsb))
+                || (matches!(extension.as_str(), "m4a" | "mp4")
+                    && matches!(target, DjSoftware::Serato4 | DjSoftware::DjayPro))),
+            "Source timing must be measured before this DJ export"
+        );
+        return Ok(0.);
+    };
+    ensure!(
+        profile.profile == "dj-timeline-v1",
+        "Unsupported source timing profile"
+    );
+    ensure!(
+        profile.source_sample_rate > 0
+            && profile.source_sample_rate == track.sample_rate
+            && profile.source_sha256.len() == 64
+            && profile.source_sha256.bytes().all(|b| b.is_ascii_hexdigit())
+            && !profile.measurement_identity.is_empty(),
+        "Invalid timing profile identity or source rate"
+    );
+    ensure!(
+        match &profile.codec_profile {
+            CodecTimingProfile::Direct => !matches!(extension.as_str(), "mp3" | "m4a" | "mp4"),
+            CodecTimingProfile::Mp3 { .. } => extension == "mp3",
+            CodecTimingProfile::IsoAudio {
+                extension: measured,
+                ..
+            } => measured == &extension,
+            CodecTimingProfile::Unmeasured { .. } => true,
+        },
+        "Timing profile codec kind does not match the exported file"
+    );
+
+    let seconds = match &profile.codec_profile {
+        CodecTimingProfile::Direct => 0.,
+        CodecTimingProfile::Unmeasured { reason } => {
+            ensure!(
+                !matches!(
+                    target,
+                    DjSoftware::Serato4 | DjSoftware::PioneerUsb | DjSoftware::DjayPro
+                ),
+                "Source timing is unmeasured: {reason}"
+            );
+            0.
+        }
+        CodecTimingProfile::Mp3 { case } => match target {
+            DjSoftware::Serato4 => {
+                if *case == Mp3TimingCase::A {
+                    0.046 - 0.051
+                } else {
+                    0.046
+                }
+            }
+            DjSoftware::PioneerUsb => match case {
+                Mp3TimingCase::A => 0.,
+                Mp3TimingCase::B | Mp3TimingCase::C => 0.051 - 0.026,
+                Mp3TimingCase::D => 0.051,
+            },
+            _ => 0.,
+        },
+        CodecTimingProfile::IsoAudio {
+            extension,
+            audio_delay_ms,
+            video_delay_ms,
+        } => {
+            ensure!(
+                matches!(extension.as_str(), "m4a" | "mp4")
+                    && profile.source_sample_rate > 0
+                    && audio_delay_ms.is_finite()
+                    && *audio_delay_ms >= 0.
+                    && video_delay_ms.is_finite()
+                    && *video_delay_ms >= 0.,
+                "Invalid measured container timing"
+            );
+            match target {
+                DjSoftware::Serato4 => {
+                    let audio = if *audio_delay_ms > 0. {
+                        audio_delay_ms / 1000.
+                            - if extension == "m4a" {
+                                2048. / f64::from(profile.source_sample_rate)
+                            } else {
+                                0.
+                            }
+                    } else {
+                        0.
+                    };
+                    audio - video_delay_ms / 1000.
+                }
+                DjSoftware::DjayPro => -video_delay_ms / 1000.,
+                _ => 0.,
+            }
+        }
+    };
+    ensure!(seconds.is_finite(), "Invalid native timeline adjustment");
+    Ok(seconds)
+}
+pub fn export_track(track: &SyncTrack, target: DjSoftware) -> Result<SyncTrack> {
+    let profile_sha256 = profile_hash(track.export_timing.as_ref())?;
+    if let Some(applied) = &track.native_timeline {
+        ensure!(
+            applied.target == target && applied.profile_sha256 == profile_sha256,
+            "Export copy already belongs to a different target or timing profile"
+        );
+        return Ok(track.clone());
+    }
+    let offset = offset_seconds(track, target)
+        .with_context(|| format!("Measure DJ export timing for track {}", track.id))?;
+    let mut output = track.clone();
+    for cue in &mut output.cues {
+        cue.start_seconds += offset;
+        if let Some(end) = &mut cue.end_seconds {
+            *end += offset;
+        }
+        if target == DjSoftware::Serato4 {
+            cue.start_seconds = cue.start_seconds.max(0.);
+            if let Some(end) = &mut cue.end_seconds {
+                *end = end.max(0.);
+                ensure!(
+                    *end > cue.start_seconds,
+                    "Native timing adjustment collapses a saved loop"
+                );
+            }
+        }
+    }
+    for beat in &mut output.beatgrid {
+        beat.seconds += offset;
+    }
+    output.native_timeline = Some(AppliedTiming {
+        target,
+        offset_seconds: offset,
+        profile_sha256,
+    });
+    Ok(output)
+}
+pub fn export_library(library: &SyncLibrary, target: DjSoftware) -> Result<SyncLibrary> {
+    Ok(SyncLibrary {
+        tracks: library
+            .tracks
+            .iter()
+            .map(|track| export_track(track, target))
+            .collect::<Result<_>>()?,
+        playlists: library.playlists.clone(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{SyncBeat, SyncCue};
+    fn track(profile: CodecTimingProfile) -> SyncTrack {
+        let extension = match &profile {
+            CodecTimingProfile::Mp3 { .. } => "mp3",
+            CodecTimingProfile::IsoAudio { extension, .. } => extension.as_str(),
+            _ => "wav",
+        };
+        SyncTrack {
+            id: "synthetic".into(),
+            path: format!("/synthetic.{extension}").into(),
+            sample_rate: 44100,
+            duration_seconds: 10.,
+            export_timing: Some(SourceExportTiming {
+                decoded_sample_count: None,
+                profile: "dj-timeline-v1".into(),
+                source_sha256: "0".repeat(64),
+                source_sample_rate: 44100,
+                codec_profile: profile,
+                measurement_identity: "synthetic".into(),
+            }),
+            cues: vec![SyncCue {
+                start_seconds: 1.,
+                end_seconds: Some(2.),
+                ..Default::default()
+            }],
+            beatgrid: vec![SyncBeat {
+                seconds: 0.5,
+                bpm: 120.,
+                beat: 1,
+            }],
+            ..Default::default()
+        }
+    }
+    #[test]
+    fn mp3_cases_match_executed_reference_offsets_and_never_accumulate() {
+        for (case, serato, usb) in [
+            (Mp3TimingCase::A, -0.005, 0.),
+            (Mp3TimingCase::B, 0.046, 0.025),
+            (Mp3TimingCase::C, 0.046, 0.025),
+            (Mp3TimingCase::D, 0.046, 0.051),
+        ] {
+            let original = track(CodecTimingProfile::Mp3 { case });
+            let before = serde_json::to_vec(&original).unwrap();
+            for (target, expected) in [
+                (DjSoftware::Serato4, serato),
+                (DjSoftware::PioneerUsb, usb),
+                (DjSoftware::VirtualDj, 0.),
+                (DjSoftware::EngineDj, 0.),
+                (DjSoftware::DjayPro, 0.),
+            ] {
+                let converted = export_track(&original, target).unwrap();
+                assert!((converted.cues[0].start_seconds - 1. - expected).abs() < 1e-12);
+                assert!((converted.cues[0].end_seconds.unwrap() - 2. - expected).abs() < 1e-12);
+                assert!((converted.beatgrid[0].seconds - 0.5 - expected).abs() < 1e-12);
+                assert_eq!(
+                    serde_json::to_vec(&converted).unwrap(),
+                    serde_json::to_vec(&export_track(&converted, target).unwrap()).unwrap()
+                );
+            }
+            assert_eq!(serde_json::to_vec(&original).unwrap(), before);
+        }
+    }
+    #[test]
+    fn priming_depends_on_source_rate_extension_video_and_known_zero() {
+        for (rate, delay) in [(44100, 23.2), (48000, 21.3)] {
+            for extension in ["m4a", "mp4"] {
+                let mut original = track(CodecTimingProfile::IsoAudio {
+                    extension: extension.into(),
+                    audio_delay_ms: delay,
+                    video_delay_ms: 42.7,
+                });
+                original.sample_rate = rate;
+                original.export_timing.as_mut().unwrap().source_sample_rate = rate;
+                let expected = delay / 1000.
+                    - if extension == "m4a" {
+                        2048. / f64::from(rate)
+                    } else {
+                        0.
+                    }
+                    - 0.0427;
+                assert!(
+                    (offset_seconds(&original, DjSoftware::Serato4).unwrap() - expected).abs()
+                        < 1e-12
+                );
+                assert_eq!(
+                    offset_seconds(&original, DjSoftware::PioneerUsb).unwrap(),
+                    0.
+                );
+                assert_eq!(
+                    offset_seconds(&original, DjSoftware::DjayPro).unwrap(),
+                    -0.0427
+                );
+            }
+        }
+        let known = track(CodecTimingProfile::IsoAudio {
+            extension: "m4a".into(),
+            audio_delay_ms: 0.,
+            video_delay_ms: 0.,
+        });
+        assert_eq!(offset_seconds(&known, DjSoftware::Serato4).unwrap(), 0.);
+        let mut unknown = known.clone();
+        unknown.export_timing = None;
+        unknown.path = "/source.m4a".into();
+        assert!(export_track(&unknown, DjSoftware::Serato4).is_err());
+    }
+    #[test]
+    fn serato_clamps_markers_while_grid_conversion_retains_interval_math_and_djay_is_signed() {
+        let mut original = track(CodecTimingProfile::Mp3 {
+            case: Mp3TimingCase::A,
+        });
+        original.cues[0].start_seconds = 0.;
+        original.beatgrid[0].seconds = 0.;
+        let exported = export_track(&original, DjSoftware::Serato4).unwrap();
+        assert_eq!(exported.cues[0].start_seconds, 0.);
+        assert_eq!(exported.beatgrid[0].seconds, 0.046 - 0.051);
+        assert!(export_track(&exported, DjSoftware::PioneerUsb).is_err());
+        original.path = "/synthetic.mp4".into();
+        original.export_timing.as_mut().unwrap().codec_profile = CodecTimingProfile::IsoAudio {
+            extension: "mp4".into(),
+            audio_delay_ms: 0.,
+            video_delay_ms: 46.4,
+        };
+        assert_eq!(
+            export_track(&original, DjSoftware::DjayPro).unwrap().cues[0].start_seconds,
+            -0.0464
+        );
+    }
+}

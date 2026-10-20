@@ -2,12 +2,16 @@
 mod cancel;
 mod clock;
 mod decode;
+mod export_timing;
 mod fingerprint;
 mod probe;
 mod runtime;
 pub use cancel::{CancellationToken, MediaTaskError};
 pub use clock::AudioClock;
 pub use decode::PreparedAudio;
+pub use export_timing::{
+    CodecTimingProfile, Mp3TimingCase, SOURCE_EXPORT_TIMING_PROFILE, SourceExportTiming,
+};
 pub use fingerprint::cancellable_sha256 as file_sha256_cancellable;
 pub use fingerprint::{AudioFingerprint, FingerprintOutcome, UnsupportedAudio};
 pub use probe::MediaInfo;
@@ -21,6 +25,7 @@ pub fn source_sha256() -> String {
         include_str!("lib.rs"),
         include_str!("clock.rs"),
         include_str!("decode.rs"),
+        include_str!("export_timing.rs"),
         include_str!("probe.rs"),
         include_str!("artwork.rs"),
         include_str!("runtime.rs"),
