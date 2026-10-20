@@ -182,3 +182,10 @@ every cue within 50 ms and none extra or missing.
 - **Genre.** By the exact genre string Mixed In Key receives, plain "Melodic House & Techno" (202 songs) is 60% right
   and the suffixed variant (24 songs) 75%; the other groups hold 8 songs or fewer. The failures are within the
   majority genre, so genre weights are not the main missing piece for it.
+- **What separates the swapped cue.** In the 63 one-swap tracks the rule's wrong pick beats Mixed In Key's cue on the raw
+  per-beat score in 47 (by 12% on average); the ramp and the bar-position weight rarely decide it (equal in 60 and 43
+  tracks). Both cues usually sit on the same 32-beat phrase grid (46 and 56 of 63 at phrase position 0), but Mixed In
+  Key's cue is earlier in the track (median 58% of the way through) than the rule's pick (72%). A single exponential
+  decay with position nevertheless does not help: zero decay is best on the training sample, the unseen tracks and the
+  test tracks, and every other value loses tracks (for example 158 and 152 of 272 at decay 0.1 and 0.2, against 169).
+  The rule is at a local optimum for simple changes; the missing signal has not been found.
