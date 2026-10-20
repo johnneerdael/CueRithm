@@ -50,6 +50,14 @@ Response fields and how well they are understood:
 Server latency is 1-38 ms, which fits a small classifier rather than a large model. Identical audio gives identical
 requests and identical responses (45 of 45 duplicate pairs), so the response is a deterministic function of the request.
 
+### Stage timings (established, small)
+
+Responses carry the service's own per-stage times. On 218 tuning songs: key is a fixed 16.5 ms whatever the song (no early
+exit), energy 0.90 ms per window with no per-song stage, cue points 5.65 us per beat and linear (no pairwise search); costs
+are equal across genres. Read: dense fixed-size models, about 10^6 operations per window and 10^7 per key decision, far above a
+linear model or a tree ensemble. Details and caveats: `profile_time_experiments.py` and `docs/research/mik-profile-times-2026-10-20.md`.
+Rerun it on the new set: a per-genre cost difference would be the first direct sign of genre-specific models.
+
 ### Client reproduction at scale
 
 `crates/camelot-source-analysis` (`cargo run --release -p camelot-source-analysis --example analyze_features -- file.flac`)
