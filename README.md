@@ -36,7 +36,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 | **BPM and beatgrid** | One tempo and one first beat per track, shown to two decimals, with beat lines in the player. |
 | **Energy** | One rating from 1 to 10 for the whole track. |
 | **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
-| **Waveform** | Three frequency bands in six colour palettes, with a 16-second zoom for checking the grid. |
+| **Waveform** | Three frequency bands in six colour palettes, with a default 32-second zoom for checking the grid. |
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
 | **Tagging** | Optional Beatport and Traxsource lookups, with a staged write that proves your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
