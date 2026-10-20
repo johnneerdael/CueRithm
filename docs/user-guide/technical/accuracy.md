@@ -3,7 +3,7 @@
 The published figures measure agreement with reference tools on my own test library. They do not establish independently verified musical accuracy.
 
 !!! warning "Agreement is not accuracy"
-    Every figure below compares CueRithm with another program's output (Mixed In Key labels for key, a reimplemented Lexicon timing and cue worker for timing and cues). My own notes call these "agreement tests against supplied outputs, not independently annotated musical truth".
+    Every figure below compares CueRithm with another program's output (Mixed In Key 11.2.6 labels for key, a reimplemented Lexicon 1.11.15 timing and cue worker for timing and cues). My own notes call these "agreement tests against supplied outputs, not independently annotated musical truth".
 
 ## The test library
 

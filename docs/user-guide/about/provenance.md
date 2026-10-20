@@ -17,7 +17,7 @@ I no longer follow it. CueRithm does not imitate Mixed In Key's cue inference, a
 
 I studied Lexicon and ran its analysis on synthetic audio I wrote myself, recording the numeric results. Only those inputs and outputs are kept, as test fixtures. My notes on the application itself stayed private.
 
-This informed three areas of CueRithm:
+This informed three areas of CueRithm. The product versions I compared against are listed in [How accurate is it?](../technical/accuracy.md).
 
 - Tempo and first beat: the Rust timing detector reproduces the behaviour I observed, and its results match the original on every track in my test library.
 - Energy: the Rust energy formula reproduces an acoustic calculation from the original, matching it on all but three deliberate differences in 29 synthetic cases.
