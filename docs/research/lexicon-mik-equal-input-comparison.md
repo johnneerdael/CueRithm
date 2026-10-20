@@ -103,11 +103,13 @@ tuning-split files. Aggregates only.
   segment levels) reproduces it on only 80.1%; no rule tried reached 100%. It is therefore computed from something
   the response does not expose, such as per-window scores before they are rounded and merged. The server answers in
   roughly 4 to 20 ms for cues, key and energy, which is the speed of a calculation, not of a large model.
-- **Our request windows match Mixed In Key's.** The 183-value energy windows computed from the files are bit-identical
-  to the captured request vectors on 255 of 282 songs (90.4%). The other 27 differ from the first window onward;
-  the cause is unknown (not tempo: 16 of the 27 agree with the captured tempo to 0.001 BPM, and 38 songs with a
-  different tempo still match). Mixed In Key's recorded duration is shorter than the file by up to about 4,100
-  samples on roughly half of all songs, including many that match, so duration alone does not explain them.
+- **Our request windows match Mixed In Key's.** A fresh capture of the licensed app (2026-10-20, 434 analysis
+  transactions, all HTTP 200) shows the 183-value energy windows computed from the files are bit-identical to the
+  captured request vectors on all 272 tuning-split songs (100%). Against the earlier capture they matched on 247 of
+  272 (90.8%), and the 25 other songs are ones where the two Mixed In Key captures differ from each other (new equals
+  old on the same 247), so the earlier "27 unexplained songs" were a difference between captures, not in our code.
+  Exact duplicate audio gives identical requests and identical responses in all 45 tuning-split pairs, so Mixed In
+  Key's pipeline is deterministic in the audio. The earlier training labels were therefore wrong on those 25 songs.
 - **Window classifier plus an 80th-percentile rule.** The shipped SVC with the 80th percentile of window levels
   (`EnergyModel::estimate_overall`, method `svc-percentile80-v1`) matches the server value on 78.4% (99.2% within one
   level) of the 255 matched songs, in-sample, and on 74.8% (99.6%) out of fold on the 282 development songs. The
@@ -124,3 +126,10 @@ Run `mitmweb --mode local:"Mixed In Key 11"` with the sanitising add-on, naming 
 PID breaks when the app relaunches, and an attach to a stale PID records nothing). The analysis starts paused and
 only began after Mixed In Key was restarted. Scope the capture to the analysis endpoint, redact credentials and
 license values, keep the output private, and stop mitmweb when finished.
+
+## Refit on the fresh capture, tuning split only
+
+The window SVC (C=10, gamma=0.1), refit out of fold by song on the 272 clean songs (5,956 windows): window level
+85.4% exact and 96.5% within one; overall level as the 80th percentile of predicted window levels 75.0% exact and
+99.6% within one (70th: 72.4%, 75th: 73.5%, 85th: 72.1%; always predicting 6: 51.5%). Cleaner labels did not move
+the ceiling, so the missing piece is the server's rule for the overall value, not the window classifier.
