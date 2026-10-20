@@ -13,7 +13,7 @@ on:
       check:
         description: 'Separate workloads, restore-only check, or combined Windows pilot'
         type: choice
-        options: [workload, cache, combined]
+        options: [workload, cache, combined, combined-cache]
         default: workload
   pull_request:
     branches: [main]
@@ -355,3 +355,47 @@ jobs:
           path: C:/cr/logs/*.*
           if-no-files-found: warn
           retention-days: 7
+
+  combined-cache-check:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'combined-cache') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-combined-cache-check')
+    runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - name: Prepare matching cache workspaces
+        shell: pwsh
+        run: |
+          git worktree add --detach C:/cr/e HEAD
+          if ($LASTEXITCODE) { throw 'Engine worktree setup failed' }
+          git worktree add --detach C:/cr/d HEAD
+          if ($LASTEXITCODE) { throw 'Desktop worktree setup failed' }
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        id: restore
+        with:
+          shared-key: cloudrunner-combined-windows-16-v1
+          workspaces: |
+            C:/cr/e -> target
+            C:/cr/d -> target
+          save-if: false
+      - name: Verify exact combined cache restore
+        shell: python {0}
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        run: |
+          import os
+          from pathlib import Path
+          if os.environ['CACHE_HIT'].lower() != 'true':
+              raise SystemExit('No exact combined engine/desktop cache restored')
+          for group in ('e', 'd'):
+              target = Path('C:/cr') / group / 'target'
+              if not target.is_dir() or not any(target.iterdir()):
+                  raise SystemExit('Missing restored target directory: ' + str(target))
+          print('Both isolated Cargo target directories restored on a fresh VM')
