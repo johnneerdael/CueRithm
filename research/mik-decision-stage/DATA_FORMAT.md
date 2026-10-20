@@ -24,6 +24,10 @@ a request to the vendor's server.
 
 ## Strongly wanted: the genre of every song
 
+What would settle the genre question: at least 50 songs, ideally 100, in each genre that should be tested separately, with
+different artists and tracks (no copies of the same recording). Priority order: trance, techno (peak time, raw and
+hypnotic), hardstyle, tech house, house and progressive house, drum and bass, and anything else dance music, next to
+the melodic house and techno songs already there. Fewer than about 30 songs in a genre can only show a trend.
 `EliteData.Genre` is the tag the application sent. The patents say weights may be chosen by genre, and the corpus so far
 is 87% "Melodic House & Techno", so the other genres are where a genre effect would show. Keep the genre tag exactly as sent.
 

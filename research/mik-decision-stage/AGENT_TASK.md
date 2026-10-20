@@ -100,6 +100,9 @@ other genres have 8 songs or fewer each. **A set with many songs per genre is ex
   analysis for them: a comment `<key> - Energy <n>` and eight hot plus eight memory cues named `Energy <n>`
   (2,024 tracks have the 16 entries; 1,026 have none, probably not analysed or cleared). Use it to cross-check responses
   (`final.jsonl`).
+- The owner is also adding a few hundred songs from other dance genres (trance, techno, hardstyle, tech house and more).
+  Treat them as the genre test set: fit on everything, then compare per-genre agreement, and fit per-genre weights or an
+  added genre input only if it beats the genre-blind model on songs held out within each genre.
 - Learning curve for the window classifier on the first corpus: 21 songs 71.1%, 54 songs 77.3%, 108 songs 81.4%,
   162 songs 83.3%, 217 songs 84.4%: still rising by about 3 points per doubling. Sixteen times more songs is the largest
   lever there is.
