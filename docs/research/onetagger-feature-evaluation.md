@@ -85,6 +85,19 @@ All twelve built-in source adapters are covered above: Beatport, Traxsource, Bea
 
 The [complete issue audit](onetagger-issue-audit.md) is the per-ticket record; this table identifies architectural consequences rather than substituting a small sample for the full audit.
 
+### Native editor preflight findings
+
+The PR3 source preflight checked the vendored writer helpers before exposing manual controls. These are source-confirmed helper behaviors, not reproduced user-library corruption reports:
+
+| Helper | Existing behavior | Required editor contract |
+|---|---|---|
+| ID3 `set_rating` | Overwrite removes every POPM frame and creates one `no@email` entry with a zero counter. | Edit an explicit rating owner; preserve other owners and counters. Do not pass manual rating edits through the existing bulk helper unchanged. |
+| ID3 common `set_native("COMM")` | Reads the first empty-description comment, then removes all comments with that description when replacing it. Different empty-description languages can collapse. Named comments are preserved by this path. | Address a comment by language and description, or block an ambiguous common-comment edit until its identity is chosen. |
+| ID3 `set_art` | Replaces all pictures of the chosen type. Multiple front covers are not individually identified. | Replace/remove the selected image by type, description and byte digest; preserve other images. Report container differences such as MP4's missing cover-type identity. |
+| Review evidence | PR1 stores bounded candidate identity/ranking summaries, but not the complete validated proposed fields/artwork payload. | Retain a bounded selectable payload or explicitly requery and issue a new selection token before acceptance. A summary is not an executable write plan. |
+
+Evidence: `vendor/onetagger/onetagger-tag/src/id3.rs` (`set_rating`, `set_art`, `set_native`), `crates/cuerithm-autotag/src/evidence.rs` and the current metadata/staged-write adapters. PR3 acceptance must independently reread multiple POPM owners/counters, multilingual comments and same-type pictures while also checking PCM/timeline equality. Protected opaque/DJ records remain outside the editable surface.
+
 ## Fit with CueRithm
 
 - **Settings:** extend the existing Incoming/Automatic tagging/Cleanup pages; add File organization and later named presets. Keep unnumbered page navigation, draft persistence and Save settings semantics.

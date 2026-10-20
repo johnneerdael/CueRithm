@@ -370,11 +370,19 @@ pub async fn enqueue_paths(host: Managed<'_>, paths: Vec<PathBuf>) -> Ipc<Vec<Jo
     work(move || host.preparation.enqueue_paths(&paths)).await
 }
 #[tauri::command]
-pub async fn retry_job(host: Managed<'_>, job_id: String) -> Ipc<()> {
+pub async fn retry_job(
+    host: Managed<'_>,
+    job_id: String,
+    use_captured_settings: Option<bool>,
+) -> Ipc<()> {
     let host = host.inner().clone();
     work(move || {
-        host.preparation
-            .retry(job_id, Some(host.library.settings()?.revision))
+        let revision = if use_captured_settings.unwrap_or(false) {
+            None
+        } else {
+            Some(host.library.settings()?.revision)
+        };
+        host.preparation.retry(job_id, revision)
     })
     .await
 }

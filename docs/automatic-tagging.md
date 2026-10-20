@@ -6,8 +6,9 @@ It does not automatically retag tracks already in the library when Settings
 change. Existing offline configurations stay offline until enabled.
 
 Preparation runs full audio analysis, catalog matching, staged metadata writing
-and replacement cues before moving the track from Incoming to Tracks. Original
-audio stays at its location. Key, BPM, beatgrid, cue and whole-track energy
+and replacement cues before moving the track from Incoming to Tracks. Saved
+file-organization rules run after accepted metadata and analysis, before Ready.
+The default leaves audio at its location. Key, BPM, beatgrid, cue and whole-track energy
 results in the library remain measured analysis, independently of catalog tags.
 
 ## Providers and matching
@@ -94,11 +95,14 @@ establishes that fetch/parse path, not a file-write or packaged-app acceptance. 
 Incoming, without silently bypassing a required tagging stage.
 
 The integration excludes Spotify/audio-feature workflows, Shazam, QuickTag,
-standalone tag editing/renaming and post-commands. It reuses pinned OneTagger
+standalone tag editing and post-commands. It reuses pinned OneTagger
 source under GPLv3; desktop licensing and modifications are documented in
 [third-party notices](../THIRD_PARTY_NOTICES.md). The separate analysis engine
 remains MIT.
 
-An internal naming planner and recoverable organization coordinator are now
-available to library services. Desktop Incoming/manual organization remains the
-next delivery step; no organization command is exposed by this foundation change.
+Settings → File organization saves opt-in rename, move and copy rules. The
+Organize files workspace previews complete existing-track scopes and exposes
+actual results, recovery and guarded Undo. Required reference repair and file
+cleanup finish before Incoming promotion. See the
+[file organization guide](user-guide/guides/file-organization.md) for naming,
+copy-original conflicts and the known-reference boundary.

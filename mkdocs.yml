@@ -148,6 +148,7 @@ nav:
       - Cleanup rules: guides/cleanup-rules.md
       - Automatic tagging settings: guides/tagging-settings.md
       - Cloudflare challenge solver: guides/catalog-solver.md
+      - File organization: guides/file-organization.md
       - Settings reference: guides/settings.md
   - Under the hood:
       - technical/index.md

@@ -12,7 +12,8 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Playlist tools and generator](playlist-tools.md) | Combine, snapshot, sort, number, prefix, uppercase, generate |
 | [Cleanup rules](cleanup-rules.md) | The eleven Smart Fixes, genres, artists, limits |
 | [Automatic tagging settings](tagging-settings.md) | Every option on the tagging page |
-| [Settings reference](settings.md) | All six settings pages |
+| [File organization](file-organization.md) | Naming, complete previews, reference repair, recovery and Undo |
+| [Settings reference](settings.md) | Saved preparation, library and appearance settings |
 
 For details of how CueRithm computes values, see [Under the hood](../technical/index.md).
 

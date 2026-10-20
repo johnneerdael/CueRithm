@@ -3,6 +3,7 @@ mod commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
+mod organization_commands;
 mod sync_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -70,6 +71,21 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            organization_commands::organization_roots,
+            organization_commands::choose_organization_root,
+            organization_commands::organization_example,
+            organization_commands::preview_organization,
+            organization_commands::organization_preview_page,
+            organization_commands::discard_organization_preview,
+            organization_commands::apply_organization,
+            organization_commands::cancel_organization,
+            organization_commands::cancel_organization_batch,
+            organization_commands::organization_history,
+            organization_commands::organization_batch_page,
+            organization_commands::recover_organization,
+            organization_commands::undo_organization,
+            organization_commands::organization_alternates,
+            organization_commands::resolve_organization_alternate,
             sync_commands::discover_dj_targets,
             sync_commands::preview_dj_sync,
             sync_commands::discard_dj_sync,
