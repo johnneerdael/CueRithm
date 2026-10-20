@@ -12,7 +12,8 @@ export type PlaylistEdit={type:"create";id?:string|null;parent_id:string|null;ki
 export interface SmartStamp {input_revision:number;playlist_revision:number;preference_revision:number}
 export interface SmartCatalog {time_zone:string;catalog:{fields:Record<string,{label:string;kind:string;any_text:boolean;unavailable_reason:string|null}>;tags:string[];categories:Record<string,string[]>;playlists:Record<string,PlaylistKind>};tags:{id:string;category_id:string;name:string}[];categories:{id:string;name:string}[];playlists:PlaylistNode[];stamp:SmartStamp}
 export interface SmartPreview {id:string;track_ids:string[];stamp:SmartStamp;created:number;expires:number|null}
-export interface PlaylistPreferences {time_zone:string|null;key_mixing_mode:"harmonic"|"fuzzy"}
+export interface AutomaticPlaylistSettings {artists:boolean;bpm:boolean;bpm_ranges:{start:number;end:number}[];release_dates:boolean;genres:boolean;keys:boolean}
+export interface PlaylistPreferences {automatic?:AutomaticPlaylistSettings;time_zone:string|null;key_mixing_mode:"harmonic"|"fuzzy"}
 export interface PlaylistPreferenceSnapshot {revision:number;preferences:PlaylistPreferences}
 export type PlaylistPrefix={type:"number";start:number;leading_zero:boolean;replace_existing:boolean}|{type:"text";text:string};
 export type PlaylistToolRequest={type:"combine";source_ids:string[];parent_id:string|null;name:string;mode:"union"|"intersection"|"absent_from_all"}|{type:"sort_siblings";parent_id:string|null;ids:string[]|null;order:"name_ascending"|"name_descending"|"track_count_descending"}|{type:"prefix";ids:string[];prefix:PlaylistPrefix}|{type:"uppercase";ids:string[]}|{type:"reorder_members";id:string;track_ids:string[]}|{type:"snapshot";source_id:string;parent_id:string|null;name:string};

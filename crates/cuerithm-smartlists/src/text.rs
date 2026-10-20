@@ -59,6 +59,18 @@ pub(crate) fn matches(
     } else {
         raw(&value)
     };
+    if matches!(field, "artistCredit" | "genreCredit")
+        && matches!(op, Operator::StringEquals | Operator::StringNotEquals)
+    {
+        let found = displayed
+            .lines()
+            .any(|s| trim(s).to_lowercase() == query.to_lowercase());
+        return Ok(if op == Operator::StringNotEquals {
+            !found
+        } else {
+            found
+        });
+    }
     let text = trim(&displayed).to_lowercase();
     let q = query.to_lowercase();
     use Operator::*;

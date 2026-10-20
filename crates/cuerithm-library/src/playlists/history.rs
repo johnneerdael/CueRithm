@@ -23,11 +23,28 @@ impl Library {
         let before: Delta = serde_json::from_str(&before)?;
         let after: Delta = serde_json::from_str(&after)?;
         let current = load(&tx)?;
+        let mut repaired = BTreeSet::new();
         for (id, expected) in &after {
-            ensure!(
-                current.get(id) == expected.as_ref(),
-                "Newer playlist edits prevent Undo: {id}"
-            );
+            if current.get(id) == expected.as_ref() {
+                continue;
+            }
+            if let (Some(actual), Some(expected)) = (current.get(id), expected) {
+                let mut comparable = actual.clone();
+                comparable.node.definition = expected.node.definition.clone();
+                let managed: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM automatic_playlist_nodes WHERE playlist_id=?1)",
+                    [id],
+                    |r| r.get(0),
+                )?;
+                // Automatic repair changes only the definition. All other
+                // contents AND the user edit identity must still match exactly.
+                if managed && actual.node.kind == PlaylistKind::Smartlist && comparable == *expected
+                {
+                    repaired.insert(id.clone());
+                    continue;
+                }
+            }
+            anyhow::bail!("Newer playlist edits prevent Undo: {id}");
         }
         let removing: std::collections::BTreeSet<_> = before
             .iter()
@@ -58,7 +75,11 @@ impl Library {
         let mut restored = current.clone();
         for (id, row) in &before {
             if let Some(row) = row {
-                restored.insert(id.clone(), row.clone());
+                let mut row = row.clone();
+                if repaired.contains(id) {
+                    row.node.definition = current[id].node.definition.clone();
+                }
+                restored.insert(id.clone(), row);
             } else {
                 restored.remove(id);
             }
