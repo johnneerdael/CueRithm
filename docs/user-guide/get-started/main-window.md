@@ -1,6 +1,6 @@
 # The main window
 
-CueRithm has one window with four regions: a **sidebar** on the left, a **header** across the top, the **main area** (a track table or a tool) and a **player** that stays at the bottom.
+CueRithm has one window with four regions: a sidebar on the left, a header across the top, the main area (a track table or a tool) and a player at the bottom.
 
 <figure markdown>
   ![The CueRithm window with the sidebar open, the track table and the player panel](../assets/screens/40-player.webp){ .screen loading=lazy }
@@ -42,11 +42,11 @@ Press ++cmd+b++ (or ++ctrl+b++) to collapse the sidebar to an icon rail. The rai
 
 ## The track table
 
-The table lists tracks with artwork, title, artist, genre, BPM, key, energy, duration and a mini waveform with cue markers. Click a row to select it. Selecting shows a toolbar with **Analyze again**, **Archive** and an **Add to playlist** control.
+The table lists tracks with artwork, title, artist, genre, BPM, key, energy, duration and a mini waveform with cue markers. Click a row to select it. Selecting a row opens a toolbar with **Analyze again**, **Archive** and an **Add to playlist** control.
 
 <figure markdown>
   ![Table header and the first rows](../assets/screens/crop-table-head.webp){ .crop loading=lazy }
-  <figcaption>Key appears as a labelled chip such as 7A, energy as a number out of 10 with a bar, BPM with two decimals.</figcaption>
+  <figcaption>Key appears as a labelled chip such as 7A. Energy is a number out of 10 with a bar, and BPM is shown with two decimals.</figcaption>
 </figure>
 
 <figure markdown>

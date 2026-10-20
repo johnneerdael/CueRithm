@@ -8,10 +8,10 @@ The waveform in the table and the player is computed once per track from the sam
 
 ## What is computed
 
-For up to **16,384 bins** across the track:
+For up to 16,384 bins across the track:
 
-- the **minimum and maximum** sample and the **RMS** in each bin (this sets bar height, scaled per track),
-- three **frequency band levels**,
+- the minimum and maximum sample and the RMS in each bin (this sets bar height, scaled per track),
+- three frequency band levels,
 - an RGB triple for the colour.
 
 The row previews use 240 bins; the player uses 16,384.
@@ -30,11 +30,11 @@ The strongest band is scaled to 255. For the stacked "Layers" styles, nested lev
 
 ## Colour
 
-The interface blends the band weights into a palette in a perceptual colour space (OKLab). Every palette steps from dark to light in the order bass, mids, highs, so the bands remain distinguishable by **lightness alone**, which keeps them readable for colour-blind users. The default pairing of cobalt and coral is a blue-orange axis that survives red-green colour blindness.
+The interface blends the band weights into a palette in a perceptual colour space (OKLab). Every palette steps from dark to light in the order bass, mids, highs, so the bands remain distinguishable by lightness alone, which keeps them readable for colour-blind users. The default pairing of cobalt and coral is a blue-orange axis that survives red-green colour blindness.
 
 Styles: CueRithm, Dusk, Lagoon, Tonal (one blue), Layers, and Layers tonal. See [Choose a theme and waveform style](../learn/appearance.md).
 
-The style is a display preference stored on your computer, not in the library, and switching it recomputes nothing.
+CueRithm stores the display style on your computer, outside the library. Switching styles does not recompute waveform data.
 
 ## Caching
 

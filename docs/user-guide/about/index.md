@@ -11,7 +11,7 @@ CueRithm is an independent, open-source desktop library app for DJs. It is writt
 
 ## Project facts
 
-- **Source:** [github.com/johnneerdael/CueRithm](https://github.com/johnneerdael/CueRithm)
-- **Name:** write it **CueRithm**. The tagline is *Know your music. Shape your set.*
-- **Licences:** the analysis engine is MIT. The desktop application is GPL-3.0-only, because it includes OneTagger code. Details in [Credits](credits.md#how-the-licences-fit-together).
-- **Status:** version 0.1. Releases are published automatically on GitHub. The macOS build for Apple Silicon is signed and notarized; Windows and Linux builds are unsigned.
+- Source: [github.com/johnneerdael/CueRithm](https://github.com/johnneerdael/CueRithm)
+- The app name is CueRithm. The tagline is *Know your music. Shape your set.*
+- Licences: the analysis engine is MIT. The desktop application is GPL-3.0-only, because it includes OneTagger code. Details in [Credits](credits.md#how-the-licences-fit-together).
+- Status: version 0.1. Releases are published automatically on GitHub. The macOS build for Apple Silicon is signed and notarized; Windows and Linux builds are unsigned.

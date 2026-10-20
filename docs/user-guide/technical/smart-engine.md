@@ -4,7 +4,7 @@ Smart playlists are evaluated by a separate engine over a snapshot of your libra
 
 ## Model
 
-A smart playlist is a flat list of up to 128 conditions, each with a **field**, an **operator** and a **value**, and a combinator (*all* or *any*, optionally with an OR group). See [Smart playlist rules](../guides/smart-rules.md) for the catalogue.
+A smart playlist is a flat list of up to 128 conditions, each with a field, an operator and a value, and a combinator (*all* or *any*, optionally with an OR group). See [Smart playlist rules](../guides/smart-rules.md) for the catalogue.
 
 ## Evaluation
 
@@ -13,7 +13,7 @@ A smart playlist is a flat list of up to 128 conditions, each with a **field**, 
 - **Missing values**: numbers compare as 0 (except *is between*). Dates that are missing do not match. File-availability fields distinguish *present*, *missing* and *unavailable* (for example when a volume cannot be read).
 - **Measured fields.** Key, BPM and energy come from CueRithm's analysis. BPM compares after rounding to two decimals.
 - **Text.** Lower-cased and trimmed on the track value, with the query's spaces kept.
-- **Dates.** Calendar days in the **library time zone**. Relative cutoffs use calendar subtraction with clamped month ends.
+- **Dates.** Calendar days in the library time zone. Relative cutoffs use calendar subtraction with clamped month ends.
 
 ## Keys
 
@@ -21,7 +21,7 @@ A smart playlist is a flat list of up to 128 conditions, each with a **field**, 
 
 ## Regular expressions
 
-`regress`, a Rust implementation of the ECMAScript regular-expression syntax, adapted with a bounded-execution budget and no JavaScript runtime. Patterns are at most 100 characters, tested values at most 1 MiB, and the budget is one million steps. Exceeding the budget is an **error**, even inside a negative assertion, never a silent "no match".
+The engine uses `regress`, a Rust implementation of ECMAScript regular-expression syntax adapted to enforce a work budget. It does not need a JavaScript runtime. Patterns are at most 100 characters, tested values at most 1 MiB, and the budget is one million steps. Exceeding the budget is an error, even inside a negative assertion, never a silent "no match".
 
 ## Refresh
 

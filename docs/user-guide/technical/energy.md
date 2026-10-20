@@ -1,10 +1,10 @@
 # Track energy
 
-Energy is **one whole-track rating from 1 to 10**. It is computed from the audio by a fixed formula. There is no model file, and no per-segment energy anywhere in the app.
+Energy is one whole-track rating from 1 to 10, computed from the audio with a fixed formula. The calculation uses no model file, and CueRithm does not show per-segment energy.
 
 ## Why only one number
 
-Earlier research explored per-section energy labels on cues. The product deliberately does not offer them: a single whole-track rating is easier to trust and to use in a smart playlist, and attaching labels to structural cues would imply precision that CueRithm does not claim.
+Earlier research explored per-section energy labels on cues. CueRithm uses a single whole-track rating because it is easier to trust and use in a smart playlist. Energy labels on structural cues would imply precision the app does not claim.
 
 ## The calculation
 
@@ -22,15 +22,15 @@ score = 9.0124 − 0.49685·crest_db + 21.436·flatness + 10.183·highmid + 2.98
 level = clamp(floor(score + 0.5), 1, 10)
 ```
 
-A track with a peak at or below 1e-10, or shorter than 2,048 samples, gets **no rating** and cannot become ready.
+A track with a peak at or below 1e-10, or shorter than 2,048 samples, gets no rating and cannot become ready.
 
 ## How to read it
 
-Lower crest factor (a more compressed, constant-loudness track), more spectral flatness (noisier, denser) and more high-mid and sub-bass power all push the number up. A sparse, dynamic track scores lower. It is a statement about the whole track's texture, not about how an individual drop feels.
+Lower crest factor (a more compressed, constant-loudness track), more spectral flatness (noisier, denser) and more high-mid and sub-bass power all push the number up. A sparse, dynamic track scores lower. The rating describes the whole track's texture; it does not rate an individual drop.
 
 ## Provenance of the coefficients
 
-The coefficients are an independent Rust reimplementation of a calculation observed in Lexicon. The project's research notes say plainly that the historical origin of the fixed coefficients is unknown, and that the expression could have been fitted originally. They also record that agreement with the observed calculation was checked on 29 synthetic audio cases (26 matched, 3 are deliberate differences: silence and very short input return *no rating* here), and that **real-music agreement has not been measured**.
+CueRithm's Rust code independently implements an acoustic calculation observed in Lexicon. The historical origin of its fixed coefficients is unknown; the expression may originally have been fitted. Agreement was checked on 29 synthetic audio cases: 26 matched, and 3 are deliberate differences because silence and very short input return *no rating* here. Real-music agreement has not been measured.
 
 ## Where it goes
 

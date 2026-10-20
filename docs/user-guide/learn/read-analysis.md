@@ -1,6 +1,6 @@
 # Read key, BPM and energy
 
-**You will:** learn what the three analysis columns mean and how to use them to pick the next track.
+Use the key, BPM and energy columns to choose your next track.
 
 ## Key
 
@@ -20,9 +20,9 @@ BPM is shown with two decimals, for example `124.00`. CueRithm detects one const
 
 ## Energy
 
-Energy is a **single rating from 1 to 10 for the whole track**, shown as `6/10` with a small bar.
+Energy is a single rating from 1 to 10 for the whole track, shown as `6/10` with a small bar.
 
-It is computed from the track's loudness shape and spectrum, not from a label. It tells you how hard a track hits overall, not how any one moment compares. CueRithm deliberately does not show per-segment energy and does not attach energy labels to cues.
+CueRithm computes energy from the track's loudness shape and spectrum without using labels. The rating describes how hard the track hits overall. It does not compare individual moments: CueRithm has no per-segment energy display or energy labels on cues.
 
 <figure markdown>
   ![Table header and first rows with BPM, key chip and energy bar](../assets/screens/crop-table-head.webp){ .crop loading=lazy }

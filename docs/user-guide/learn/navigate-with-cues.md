@@ -1,6 +1,6 @@
 # Navigate a track with cues
 
-**You will:** load a track, read the beatgrid and jump between its structural cues.
+Load a track and use the waveform, beatgrid and cue buttons to navigate it.
 
 ## 1. Load a track
 
@@ -37,11 +37,11 @@ A typical set looks like this:
 | <span class="cr-cue cr-cue--breakdown">Breakdown #2</span> | A second breakdown, when present. |
 | <span class="cr-cue cr-cue--end">E · End / Fade-out</span> | The last strong beat before the outro. |
 
-Not every track gets every cue. A track with no clear breakdown simply has fewer cues. The **CUE** button in the transport jumps to the first cue and pauses.
+A track with no clear breakdown has fewer cues; not every track gets every cue type. The **CUE** button in the transport jumps to the first cue and pauses.
 
 ## 4. Zoom to the beats
 
-The waveform defaults to a **32-second** view that follows the playhead. Beat lines become clearly visible, so you can check that the grid sits on the kicks.
+The default 32-second view follows the playhead and spaces out the beat lines so you can check whether they line up with the kicks.
 
 <figure markdown>
   ![The waveform zoomed to a 16-second window with beat lines](../assets/screens/41-player-zoom16.webp){ .screen loading=lazy }
@@ -49,7 +49,5 @@ The waveform defaults to a **32-second** view that follows the playhead. Beat li
 </figure>
 
 Use ++arrow-left++ and ++arrow-right++ to jump a bar (four beats) at a time, and ++space++ to play or pause.
-
-## What just happened
 
 The cue buttons and markers are drawn from the cues saved at preparation time. The beat lines come from the saved BPM and first-beat anchor. Cues are read-only in this release: you can seek to them, but not edit them. The detection logic is described in [The cue engine](../technical/cues.md).

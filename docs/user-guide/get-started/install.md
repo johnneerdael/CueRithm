@@ -1,6 +1,6 @@
 # Install
 
-CueRithm is distributed as GitHub release assets. Open the [releases page](https://github.com/johnneerdael/CueRithm/releases) and pick the latest release.
+Download the latest CueRithm release from the [releases page](https://github.com/johnneerdael/CueRithm/releases).
 
 ## What is in a release
 
@@ -21,7 +21,7 @@ The file name casing follows the app name at the time of the build. The first re
 2. Drag the app into **Applications**.
 3. Open it. Because the app is notarized, macOS opens it without the "unidentified developer" warning. If you downloaded it through a browser you may see the usual "downloaded from the internet" confirmation once.
 
-There is no Intel Mac build. Apple Silicon only.
+The macOS app supports Apple Silicon only; there is no Intel Mac build.
 
 ## Windows
 
@@ -74,13 +74,13 @@ On success it prints one JSON line such as:
 | System | Data folder |
 | --- | --- |
 | macOS | `~/Library/Application Support/com.cuerithm.app` |
-| Windows | `%APPDATA%\com.cuerithm.app` (platform convention; not yet verified by the project) |
-| Linux | `~/.local/share/com.cuerithm.app` (platform convention; not yet verified by the project) |
+| Windows | `%APPDATA%\com.cuerithm.app` (platform convention; I have not verified it) |
+| Linux | `~/.local/share/com.cuerithm.app` (platform convention; I have not verified it) |
 
 It holds `library.sqlite` (the library), caches for artwork and waveforms, the embedded analysis model, and `tagging/`, where original-file backups are kept. Your music stays wherever you keep it. Details in [The library database](../technical/library.md).
 
 !!! note "Advanced: isolated profiles"
-    Setting the environment variable `CUERITHM_DATA_DIR` to a folder makes CueRithm use that folder instead. This is how the screenshots in this guide were made without touching a real library.
+    Set the environment variable `CUERITHM_DATA_DIR` to a folder to use an isolated profile. The guide screenshots use this setting to keep the test library separate from a real library.
 
 ## Uninstall
 

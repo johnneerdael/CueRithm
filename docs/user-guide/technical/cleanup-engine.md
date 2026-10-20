@@ -1,14 +1,14 @@
 # Cleanup engine
 
-The cleanup engine is a **pure function**: it takes a track's metadata and the saved rules and returns the proposed new metadata. It performs no input or output. The library service around it handles scanning, previews, journaling, backups and undo.
+The cleanup engine is a pure function: it takes a track's metadata and the saved rules and returns proposed new metadata. It performs no input or output. The library service around it handles scanning, previews, journaling, backups and undo.
 
 ## Design rules
 
-- **Deterministic and idempotent.** Running the same rules twice changes nothing the second time.
-- **Fixed algorithms, not user regexes.** Each of the [eleven Smart Fixes](../guides/cleanup-rules.md#smart-fixes) is a purpose-built routine. The only user-facing regular expressions in CueRithm are in smart playlists and the optional tagging "title cleanup pattern".
-- **Never blank a value.** A fix that would empty a field leaves it alone.
-- **Protect declared values.** Ignored values and active genre or artist mapping sources and targets are skipped by text fixes in their roles.
-- **Human fields only.** Title, artist, album, album artist, genre, comment, grouping, label, remixer, mix, producer, composer and lyricist. Never paths, audio or analysis.
+- Rules are deterministic and idempotent: running the same rules twice changes nothing the second time.
+- Each of the [eleven Smart Fixes](../guides/cleanup-rules.md#smart-fixes) uses a built-in algorithm. User-facing regular expressions are available only in smart playlists and the optional tagging "title cleanup pattern".
+- A fix that would empty a field leaves it unchanged.
+- Text fixes skip ignored values and active genre or artist mapping sources and targets in their respective roles.
+- Cleanup changes human-readable fields: title, artist, album, album artist, genre, comment, grouping, label, remixer, mix, producer, composer and lyricist. It never changes paths, audio or analysis.
 
 ## Order
 
@@ -28,7 +28,7 @@ Unrepresentable metadata (for example a value a tag format cannot hold) is repor
 
 ## Custom tags
 
-Genre conversion can turn genres into **categorised tags** (default category *Subgenres*). Those live in the CueRithm library, not in file tags.
+Genre conversion can turn genres into categorised tags (default category *Subgenres*). Those live in the CueRithm library, not in file tags.
 
 ## Validation
 

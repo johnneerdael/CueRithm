@@ -1,8 +1,8 @@
 # Tag from Beatport and Traxsource
 
-**You will:** turn on automatic catalog tagging, choose which fields to write, and understand how CueRithm keeps your files safe while doing it.
+Turn on automatic catalog tagging, choose which fields to write, and learn how CueRithm protects your audio files during tag writes.
 
-Tagging is **off by default**. Analysis and cue generation work without it, and offline.
+Tagging is off by default. Analysis and cue generation work offline with tagging disabled.
 
 ## 1. Open the settings
 
@@ -43,10 +43,10 @@ New tracks, tracks arriving in a watch folder and **Analyze again** use your set
 
 ## The safeguards
 
-- Tags are written to a **staged copy**, never straight to your file.
-- The staged copy is **decoded again** and must match the original audio sample for sample. If it does not, the write is refused.
-- The original is kept in the **recovery backups**, and the page shows their size.
-- Your file is replaced with one **atomic swap**. If anything fails afterwards, the original is put back. If you edited the file yourself in the meantime, your edit is preserved.
+- CueRithm writes tags to a staged copy of the file.
+- It decodes that copy again and checks that the audio matches the original sample for sample. A mismatch stops the write.
+- The original is kept in recovery backups, whose size is shown on the settings page.
+- An atomic swap replaces your file. If anything fails afterwards, CueRithm restores the original. If you have edited the file in the meantime, it preserves your newer edit.
 
 !!! warning "Traxsource status"
     Live Traxsource lookups have not been confirmed to work from every network. On the validation machine native Traxsource requests were rejected with HTTP 403. A blocked provider leaves tracks in Incoming with an error rather than silently skipping. Beatport has one successful live probe, not universal coverage.

@@ -1,6 +1,6 @@
 # Build playlists and folders
 
-**You will:** create an ordinary playlist and a folder, add tracks, and reorder them.
+Create a playlist and a folder, add tracks, then put them in the order you want.
 
 CueRithm has three kinds of playlist item: **Playlist** (you choose the tracks), **Folder** (a container) and **Smart playlist** (rules choose the tracks, see [Build a smart playlist](smart-playlist.md)). Playlists live inside the library. Audio files are never touched, and removing a playlist never deletes music.
 
@@ -21,10 +21,10 @@ The new playlist opens empty.
 
 ## 2. Add tracks
 
-There are two ways.
+Select one or more tracks, then either:
 
-- **Drag**: select one or more tracks and drag them onto the playlist in the sidebar. Only ordinary playlists accept tracks. Folders and smart playlists do not.
-- **Toolbar**: select tracks, open the **Choose playlist** menu, pick the playlist and press **Add to playlist**.
+- Drag them onto the playlist in the sidebar. Only ordinary playlists accept tracks; folders and smart playlists do not.
+- Open the **Choose playlist** menu in the toolbar, pick the playlist and press **Add to playlist**.
 
 <figure markdown>
   ![A playlist with five tracks in manual order](../assets/screens/54-playlist-with-tracks.webp){ .screen loading=lazy }
@@ -57,8 +57,6 @@ Each playlist has a **⋯** menu.
   <figcaption>Edit, Duplicate, Add to favorites, Move up and down, Move to folder, Remove.</figcaption>
 </figure>
 
-**Remove** is gentle: the playlist moves to a *Removed playlists* list in the sidebar, where **Restore** brings it and its contents back. **Undo last playlist change** (the arrow at the top of the Playlists section) reverses your latest edit, including a tool or generator run.
-
-## What just happened
+**Remove** moves the playlist to the *Removed playlists* list in the sidebar. Use **Restore** to bring it and its contents back. **Undo last playlist change** (the arrow at the top of the Playlists section) reverses your latest edit, including a tool or generator run.
 
 Playlist membership is stored by track identity, not by file path, in the library database. Each edit is a checked transaction, so a stale window cannot overwrite a newer change. See [The library database](../technical/library.md) and [Playlists, folders and favourites](../guides/playlists.md).
