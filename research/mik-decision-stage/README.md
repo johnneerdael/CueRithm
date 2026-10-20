@@ -6,6 +6,7 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 
 | File | Purpose |
 | --- | --- |
+| `import_capture.py` | mitmproxy addon: saved flow file -> sanitized request/response folder (offline, redacts credentials) |
 | `mikdata.py` | loader, genre grouping, split policy, cue/energy helpers |
 | `key_experiments.py` | key from the 352 features: tonic-rotation-shared model, confidence and genre breakdowns, baselines |
 | `energy_experiments.py` | window levels (RBF SVC), overall rating rules, boundary and genre breakdowns, learning curve |

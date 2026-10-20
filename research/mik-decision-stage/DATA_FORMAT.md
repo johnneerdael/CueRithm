@@ -22,6 +22,20 @@ Pairs whose response has an `Error`, or no `Segments`, are skipped. Songs with t
 (the loader keeps the first). Capture only your own licensed copy's traffic, keep the raw captures private and never replay
 a request to the vendor's server.
 
+## Making the folder from a capture
+
+If you captured your own licensed copy's traffic with mitmproxy/mitmweb and saved the flows to a file (`mitmweb -w capture.flow`,
+or File > Save in the web interface), convert it offline with the addon in this folder:
+
+```sh
+mitmdump -q -nr capture.flow -s import_capture.py --set out_dir=DIR
+```
+
+It keeps only the analysis calls, redacts credential-looking values, keeps every other number exactly as received and writes
+`import-summary.json` (counts and the genre tally only). The flow file itself still holds credentials from the other
+requests: keep it private, never commit it, and never replay it. A large capture is better streamed to a file with `-w`
+than left in the web interface's memory.
+
 ## Strongly wanted: the genre of every song
 
 What would settle the genre question: at least 50 songs, ideally 100, in each genre that should be tested separately, with
