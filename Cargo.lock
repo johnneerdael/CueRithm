@@ -999,6 +999,7 @@ dependencies = [
  "camelot-core",
  "cuerithm-autotag",
  "cuerithm-cleanup",
+ "cuerithm-dj-sync",
  "cuerithm-library",
  "cuerithm-media",
  "serde",
@@ -1011,6 +1012,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuerithm-dj-sync"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "camelot-core",
+ "chrono",
+ "chrono-tz",
+ "cuerithm-media",
+ "cuerithm-rekordbox",
+ "cuerithm-smartlists",
+ "flate2",
+ "fs2",
+ "image",
+ "lofty",
+ "quick-xml",
+ "rusqlite",
+ "same-file",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tar",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "cuerithm-library"
 version = "0.1.0"
 dependencies = [
@@ -1019,6 +1048,7 @@ dependencies = [
  "chrono-tz",
  "cuerithm-autotag",
  "cuerithm-cleanup",
+ "cuerithm-dj-sync",
  "cuerithm-maintenance",
  "cuerithm-media",
  "cuerithm-rekordbox",
@@ -4078,6 +4108,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -5050,6 +5081,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "sha1"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a978451301f4db1d02937a4ab3ccce137717b81826e79b7d49ffe3244a13c3b8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest",
 ]
 
 [[package]]

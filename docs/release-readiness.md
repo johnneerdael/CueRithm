@@ -1,6 +1,6 @@
 # Release scope and outstanding gaps
 
-Updated 2026-10-19. This is the release-stabilization scope requested after the
+Updated 2026-10-20. This is the release-stabilization scope requested after the
 integration work. Finish and review the existing implementation before adding
 features. The broader product plans remain open; merging this release does not
 claim complete Lexicon or OneTagger parity.
@@ -16,7 +16,8 @@ claim complete Lexicon or OneTagger parity.
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens remain unfinished. |
-| Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Sync action remains disabled. |
+| DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
+| Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Rekordbox Sync action remains unavailable. The five other DJ targets use the native Sync workspace. |
 
 No collection XML transport is part of the product. Plays, Last Played and
 Danceability, the remaining OneTagger workflows, and Mixed In Key segment-energy
@@ -29,7 +30,7 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 11. Migration preserves existing tracks, jobs,
+The library upgrades to schema 12. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
@@ -48,8 +49,10 @@ unchanged until explicit reanalysis.
 | Scale acceptance | Full user-library maintenance, provider throughput, CPU/memory use and retained recovery-storage growth need larger-library measurement. Workers use 75% of available logical CPUs; that policy is not a proven optimum or utilization cap. | Reproducible large-library benchmarks and operation/recovery checks using copies. |
 | Optional future work | All-In-One structural/deep analysis remains research, not an integrated optional desktop add-on. | Native model/frontend/separation/postprocessing integration and a separately accepted optional workflow. |
 
-Preparation and manual cleanup retain original recovery backups. Explicit
-disposal currently covers reviewed unused-file-removal backups; general
+Preparation, manual cleanup and DJ Sync retain recovery backups. Sync history
+exposes guarded restore and interrupted-operation recovery; Serato sync backups
+include affected source audio, while Pioneer conversion protects the affected USB
+copies. Explicit disposal currently covers reviewed unused-file-removal backups; general
 preparation/cleanup backup retention management remains outstanding. Disk-space
 claims must distinguish logical backup deletion from filesystem snapshot storage.
 
@@ -93,3 +96,25 @@ Check the resulting signing/notarization, publishing job and downloadable assets
 before reporting a release as available. A merged PR or unsigned local app is
 not publication evidence. No manual version bump or release tag is part of this
 stabilization change.
+
+## Native DJ sync
+
+`crates/cuerithm-dj-sync` adds independent current-format adapters for VirtualDJ,
+Engine DJ, djay Pro, Serato DJ Pro 4 and Pioneer USB, with a desktop Sync workspace.
+Implemented behavior includes measured export timing, supported native smart-rule
+compilation with exact whole-list fallbacks, durable playlist ownership and owned
+removal propagation, batch staging, typed file/directory/case-rename journals and
+recoverable apply/restore acknowledgement. Extra prepared metadata and explicit
+calendar/key-mode context reach the compiler. Older Lexicon formats are excluded;
+existing direct rekordbox foundations remain separate and unavailable as a desktop
+sync target.
+
+Targeted final artifact review has resolved ANLZ path collisions, hidden catalog
+discovery, dotted VirtualDJ names, Serato explicit null clears, djay filename indexes
+and raw Engine BPM precision. Current-head validation and integration evidence are
+recorded in [PR 12](https://github.com/johnneerdael/CueRithm/pull/12).
+See [format evidence](research/dj-software-formats.md),
+[timing](research/dj-sync-timing.md), [ownership](research/dj-sync-playlist-ownership.md)
+and [smart-rule policies](research/dj-sync-smart-rules.md). Native application/device
+acceptance and release publication are separate evidence layers; this implementation is
+not a declaration of shipped cross-application parity.

@@ -41,6 +41,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 | **Tagging** | Optional Beatport and Traxsource lookups, with staged tag writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
+| **DJ sync** | Send prepared tracks, cues, grids and playlists to VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4 or Pioneer USB, with a preview and recoverable backups. See the [Sync guide](docs/user-guide/guides/sync.md). |
 | **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA. The decoder is bundled, so you do not need to install anything else. |
 
 ## See it work

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/cuerithm-rekordbox", "crates/cuerithm-maintenance", "crates/cuerithm-smartlists", "crates/cuerithm-regex", "crates/cuerithm-cleanup", "crates/cuerithm-autotag", "crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
+members = ["crates/cuerithm-dj-sync", "crates/cuerithm-rekordbox", "crates/cuerithm-maintenance", "crates/cuerithm-smartlists", "crates/cuerithm-regex", "crates/cuerithm-cleanup", "crates/cuerithm-autotag", "crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
 exclude = ["vendor/regress", "vendor/onetagger/onetagger-tag", "vendor/onetagger/onetagger-tagger", "vendor/onetagger/providers", "vendor/onetagger/template"]
 resolver = "2"
 
