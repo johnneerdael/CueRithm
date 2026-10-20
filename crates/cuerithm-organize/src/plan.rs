@@ -309,6 +309,11 @@ fn files_for(
     if config.mode == OrganizationMode::LeaveInPlace {
         return Ok(None);
     }
+    if config.mode == OrganizationMode::RenameInPlace && config.pattern.contains('/') {
+        return Err(blocked(
+            "Rename in place cannot create subdirectories; use Move to folder".into(),
+        ));
+    }
     let name = match template
         .render(
             &track.metadata,

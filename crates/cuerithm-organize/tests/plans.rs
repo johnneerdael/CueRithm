@@ -228,6 +228,17 @@ fn nested_patterns_preserve_logical_separators_when_appending_the_extension() {
 }
 
 #[test]
+fn rename_in_place_rejects_directory_patterns_before_advertising_apply() {
+    let mut req = request(vec![track("1", "Title")]);
+    req.config.mode = OrganizationMode::RenameInPlace;
+    req.config.pattern = "Artist/{title}".into();
+    let plan = build_plan(req, || false).unwrap();
+    assert!(matches!(plan.rows[0].outcome, RowOutcome::Blocked { .. }));
+    assert!(!plan.can_apply());
+    assert!(plan.rows[0].files.is_empty());
+}
+
+#[test]
 fn totals_distinguish_blocked_skipped_and_ready() {
     let mut req = request(vec![track("1", "CON"), track("2", "Good"), track("3", "")]);
     req.config.missing = MissingPolicy::SkipOptional;
