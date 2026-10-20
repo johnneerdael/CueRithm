@@ -40,7 +40,7 @@ Response fields and how well they are understood:
 | `EnergyLevelSegments[].Volume` | exactly the `VolumeRmsDb` of the segment's first window | nothing |
 | segment bounds | runs of equal window level; neighbours never share a level; bounds are raw window bounds | nothing |
 | window level (1-9) | a function of the window's 183 features and nothing else we could find (neighbours, position and track statistics made it worse); best model an RBF SVC on the raw features, 85.3% exact, 96.6% within one; errors are +-1 and concentrate at the extremes and next to level changes | the exact function |
-| `OverallEnergy` | not a function of the rounded segment levels (best rules about 81% on the true levels); the 80th percentile of predicted window levels gives 76.5% | the aggregator and its inputs |
+| `OverallEnergy` | **not a function of the response's own window levels**: with the TRUE levels as input the best rule or learned model reaches only about 80.5% (80th percentile, mean of the top 40%, logistic on the level histogram plus volumes; gradient boosting 75%; `overall_experiments.py`), so a better window classifier cannot get past it; the 80th percentile of predicted levels gives 76.5% | the service uses something finer than rounded levels (continuous scores) or another input |
 | cue time from a beat | exact (`time_at_beat` in `mikdata.py`) | nothing |
 | first cue | always the origin beat (`CuePointStartBeat - 32`) | nothing |
 | cue selection | greedy-like peak picking with at least 32 beats between cues, at most eight; 87.5% of gaps are multiples of 32; 38% of tracks have one swapped cue (MIK's cue can be ranked about 19th by raw score) | the rule |
@@ -124,10 +124,12 @@ Energy (window level, then overall):
 1. Fit the window classifier on the whole new set: RBF SVC grid on raw features (the current best; do not standardize first,
    standardizing lost 12 points), then gradient boosting and an MLP for comparison, learning curve, per-genre results. If it
    climbs toward 95%+, keep the SVC (it exports as plain arrays and `crates/camelot-core/src/energy.rs` already loads it).
-2. Overall energy: with the **true** window levels as input, find the aggregator. Try median, mean, 75th and 80th percentile
+2. Overall energy (the ceiling on true levels is about 80.5%, so this is the real bottleneck, not the level classifier): with the **true** window levels as input, find the aggregator. Try median, mean, 75th and 80th percentile
    (the patent), duration weighting, the top fraction, and rules that use `VolumeRmsDb`; compute an upper bound with gradient
-   boosting on the levels, volumes and durations. If the upper bound is far above every rule, the server uses continuous
-   window scores: fit an ordinal regression or SVR, then test the same aggregators on its scores.
+   boosting on the levels, volumes and durations. The tuning songs already show the upper bound is not far above the rules, which points at continuous
+   window scores or another input: train an ordinal regression or SVR on the windows, with a bag-level objective (the song's
+   overall rating as the target, windows as instances), then test the same aggregators on its scores; direct song-level models
+   on averaged features reached only 63-66% on 282 songs, so this needs the larger set.
 3. Cue `EnergyLevel`: confirm the beat-median rule on the new data.
 
 Key:

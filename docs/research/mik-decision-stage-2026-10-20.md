@@ -23,7 +23,7 @@ client's decoder.)
 | --- | --- | --- |
 | Key | 96.0% of 272 (plain linear model 92.7%) | linear in the tonic-aligned unfolded features; mismatches sit at low server confidence |
 | Window energy level | 85.3% exact, 96.6% within one (5,956 windows) | RBF SVC on raw features; standardizing loses 12 points |
-| Overall energy | 76.5% exact, errors +-1 | 80th percentile of predicted window levels |
+| Overall energy | 76.5% exact, errors +-1 | 80th percentile of predicted window levels; even the true levels give only about 80.5% |
 | Cue set | about 60% of tracks fully right, 91-96% of cues found | selection rule not recovered; the first cue and cue times are exact |
 
 ## Checks against the patents
@@ -62,8 +62,10 @@ genre-specific weights; eight songs or fewer per other genre cannot decide that.
   `<key> - Energy <n>`, 2,024 tracks with eight hot plus eight memory cues named `Energy <n>`, 87% melodic house and techno,
   the rest other genres), on an external drive that is not attached to this machine. The request and response for each can be
   captured on another machine; the decision-stage models need only those pairs, not the audio.
-- **The overall-energy aggregator**, which the patent and every simple rule leave about 20 points short, and the cue
-  selection rule, which is the least understood part.
+- **The overall-energy aggregator.** Given the response's own (true) window levels and volumes, the best rule or learned model
+  explains only about 80.5% of the overall ratings, so the service must use something finer than the rounded levels. That, not
+  the level classifier (76.5% from predicted levels), is the bottleneck, and it needs a bag-level model on many songs.
+- **The cue selection rule**, which is the least understood part.
 
 `research/mik-decision-stage/AGENT_TASK.md` lists the ranked experiments, the success bar, the protocol (sealed held-out songs,
 no replay to the vendor, aggregates only) and how to hand results back.
