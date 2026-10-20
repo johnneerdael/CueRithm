@@ -1,7 +1,7 @@
 # Packaged-app walkthrough of the Maintenance screens, 2026-10-20
 
 The macOS `CueRithm.app` built with `pnpm tauri build --bundles app` (release profile, bundled media runtime) was started
-against a generated library of 10,000 tracks and driven through the Maintenance screens with the accessibility API.
+against generated libraries of 10,000 tracks (and 2,000 for the Missing files step) and driven through the Maintenance screens with the accessibility API.
 `CUERITHM_DATA_DIR` pointed at a throwaway data folder, so nothing touched a real library. The library came from
 `build_library_fixture_for_the_desktop_app` in `crates/cuerithm-library/tests/scale_benchmark.rs`, which writes the
 files and the library with no analysis jobs pending (10,000 one-second WAV files, 20 duplicate groups).
@@ -22,6 +22,7 @@ files and the library with no analysis jobs pending (10,000 one-second WAV files
 | Restore from the removal history | "Restored 30 files to their original locations" |
 | Remove again, Retained backups, select the removal, Review disposal | A second dialog needs a ticked "I understand this cannot be undone" box before the button enables; Cancel is focused by default |
 | Dispose of backups | "Disposed of 30 backup files"; the retained copies are gone from application storage |
+| Missing files: scan a 2,000-track library with five files deleted | The five missing files, nothing else; selecting one enables "Archive 1 selected…", whose confirmation (Cancel and "Archive 1 track") ends with "Archived 1 track. Restore them from Archive." and the database shows one archived track |
 
 The library-level steps match the measurements in [the scale write-up](large-library-scale-2026-10-20.md).
 
@@ -40,7 +41,7 @@ disposing of it deleted its 30 files, and the table said "No removal backups are
 
 ## What this does not cover
 
-- The Missing files tab, the Cleanup, Playlist tools and Rekordbox screens, and Windows and Linux windows.
+- The Cleanup, Playlist tools and Rekordbox screens, and Windows and Linux windows.
 - A real user library: the audio is generated and every file is one second long.
 - The saved review for 500 groups cannot be reached by accessibility alone; a person scrolling could.
 - It is an unsigned local build of the release profile run from its bundle, not the signed, notarized download.
