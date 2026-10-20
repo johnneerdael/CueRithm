@@ -189,3 +189,16 @@ every cue within 50 ms and none extra or missing.
   decay with position nevertheless does not help: zero decay is best on the training sample, the unseen tracks and the
   test tracks, and every other value loses tracks (for example 158 and 152 of 272 at decay 0.1 and 0.2, against 169).
   The rule is at a local optimum for simple changes; the missing signal has not been found.
+
+## The overall-energy rule, fresh capture, tuning split (272 songs)
+
+- **No exact rule from the rounded levels.** Scored against the server's `OverallEnergy` (equal to the file tag), the
+  best rules over the response's own rounded window levels reproduce it on 81.2% (mean of the top 40% of window
+  levels), 80.5% (80th percentile) and 79.4% (85th percentile); rules over the 8 cue energies reach at most 75.7%,
+  and always predicting 6 gets 51.5%. The overall value is therefore not a function of the rounded levels the
+  response returns, which fits a calculation on continuous per-window scores before rounding.
+- **Predicted levels or predicted continuous scores.** Five-fold by song, the 80th percentile of an RBF SVC's
+  predicted window levels gives 73.9% exact; the same percentile of an RBF SVR's continuous predictions (C 10, gamma
+  0.2, epsilon 0.25) gives 76.8%, 75th gives 76.1%, and the mean of the top 40% gives 74.6% (levels) and 72.8%
+  (scores). The best achievable from predicted windows is still below the 81% that true levels allow, and the gain from
+  using continuous scores is small (about 3 points).
