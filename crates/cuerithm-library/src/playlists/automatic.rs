@@ -40,7 +40,8 @@ impl Builder {
                 && row.node.definition != definition
             {
                 row.node.definition = definition;
-                row.last_edit_id = "automatic".into();
+                // Keep the user edit identity so Undo can distinguish this rule
+                // repair from any later user edit, including an ABA change.
             }
             return id.clone();
         }

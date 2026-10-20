@@ -2078,6 +2078,22 @@ fn automatic_enabled_lists_repair_rules_while_retaining_names_and_folders() {
     assert_eq!(node.name, "My harmonic list");
     assert_eq!(node.parent_id.as_deref(), Some("custom-parent"));
     assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+    let workspace = f.lib.playlist_workspace_at(NOW).unwrap();
+    f.lib
+        .undo_playlist_edit(&workspace.latest_undo.unwrap(), workspace.tree.revision)
+        .unwrap();
+    let restored = f
+        .lib
+        .playlist_state()
+        .unwrap()
+        .nodes
+        .into_iter()
+        .find(|n| n.id == id)
+        .unwrap();
+    assert_eq!(restored.name, "8A");
+    assert_ne!(restored.parent_id.as_deref(), Some("custom-parent"));
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
     enable_automatic(&f.lib, serde_json::json!({})).unwrap();
     f.lib
         .apply_playlist_edit(
@@ -2101,4 +2117,94 @@ fn automatic_enabled_lists_repair_rules_while_retaining_names_and_folders() {
             .definition,
         Some(wrong)
     );
+}
+
+#[test]
+fn automatic_rule_repairs_keep_stacked_undo_and_reject_newer_user_aba_edits() {
+    let f = fixture();
+    enable_automatic(&f.lib, serde_json::json!({"keys":true})).unwrap();
+    let id = f
+        .lib
+        .playlist_state()
+        .unwrap()
+        .nodes
+        .into_iter()
+        .find(|n| n.name == "8A")
+        .unwrap()
+        .id;
+    let wrong = definition(
+        "title",
+        Operator::StringEquals,
+        RuleValue::Text("never".into()),
+    );
+    let first = f
+        .lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "First".into(),
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong.clone(),
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap()
+        .edit_id
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let second = f
+        .lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "Second".into(),
+                    },
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "First".into(),
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong,
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap()
+        .edit_id
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(
+        f.lib
+            .undo_playlist_edit(&first, f.lib.playlist_state().unwrap().revision)
+            .is_err()
+    );
+    f.lib
+        .undo_playlist_edit(&second, f.lib.playlist_state().unwrap().revision)
+        .unwrap();
+    f.lib
+        .undo_playlist_edit(&first, f.lib.playlist_state().unwrap().revision)
+        .unwrap();
+    assert_eq!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .into_iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .name,
+        "8A"
+    );
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
 }

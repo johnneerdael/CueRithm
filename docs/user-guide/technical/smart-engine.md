@@ -37,7 +37,7 @@ If an evaluation fails, the last good membership stays and an error shows. Nothi
 
 Opt-in [Smart Playlist settings](../guides/settings.md#smart-playlists) reconcile generated nodes before membership refresh. Discovery reads effective prepared metadata, including cleanup's artist/remixer/genre values. It adds missing artist, genre and release-month groups, configured BPM ranges and the 24 compatible-key lists.
 
-Preferences and node creation commit atomically. Managed identities are separate from names, so manual lists with matching names are untouched. Enabled categories restore their generated rules while preserving user names and folder positions. Removed nodes remain suppressed; disabled categories and removed BPM ranges retain their existing live lists.
+Preferences and node creation commit atomically. Managed identities are separate from names, so manual lists with matching names are untouched. Enabled categories restore their generated rules while preserving user names and folder positions. Rule repair keeps user edit identities intact, so renames and moves remain undoable and newer edits still prevent an older Undo. Removed nodes remain suppressed; disabled categories and removed BPM ranges retain their existing live lists.
 
 Release grouping accepts valid year-month or full calendar dates, preferring explicit release tags over generic DATE. It never derives a month from a year alone. Individual artist/remixer and genre equality rules compare complete credits rather than substrings.
 
