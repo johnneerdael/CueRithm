@@ -142,8 +142,10 @@ pub(super) fn decode_string(bytes: &[u8], offset: usize) -> Result<String> {
         0x90 => {
             ensure!(payload.len().is_multiple_of(2), "Odd UTF-16 PDB string");
             let words = payload
-                .chunks_exact(2)
-                .map(|b| u16::from_le_bytes(b.try_into().unwrap()))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|b| u16::from_le_bytes(*b))
                 .collect::<Vec<_>>();
             Ok(String::from_utf16(&words)?)
         }

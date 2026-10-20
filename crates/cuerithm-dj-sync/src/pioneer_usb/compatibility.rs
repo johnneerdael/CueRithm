@@ -80,13 +80,11 @@ pub(super) fn inspect(track: &SyncTrack, runtime: Option<&MediaRuntime>) -> Resu
                     file.read_exact(&mut fmt)?;
                     match u16::from_le_bytes(fmt) {
                         0xfffe => add("WAV uses an extensible header", true),
-                        3 => {
-                            if !issues.iter().any(|i| i.message.contains("floating-point")) {
-                                issues.push(Issue {
-                                    message: "floating-point WAV requires PCM conversion".into(),
-                                    fixable: true,
-                                });
-                            }
+                        3 if !issues.iter().any(|i| i.message.contains("floating-point")) => {
+                            issues.push(Issue {
+                                message: "floating-point WAV requires PCM conversion".into(),
+                                fixable: true,
+                            });
                         }
                         _ => {}
                     }
