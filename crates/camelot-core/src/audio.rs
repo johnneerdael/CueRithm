@@ -4,8 +4,16 @@ use std::{collections::HashSet, fs::File, io::ErrorKind, path::Path};
 use anyhow::{Context, Result, bail, ensure};
 use rubato::{FftFixedIn, Resampler};
 use symphonia::core::{
-    audio::SampleBuffer, codecs::DecoderOptions, errors::Error as DecodeError,
-    formats::FormatOptions, io::MediaSourceStream, meta::MetadataOptions, probe::Hint,
+    audio::SampleBuffer,
+    codecs::{
+        CODEC_TYPE_ALAC, CODEC_TYPE_FLAC, CODEC_TYPE_PCM_S16BE, CODEC_TYPE_PCM_S16LE,
+        CodecParameters, DecoderOptions,
+    },
+    errors::Error as DecodeError,
+    formats::FormatOptions,
+    io::MediaSourceStream,
+    meta::MetadataOptions,
+    probe::Hint,
 };
 
 #[derive(Debug)]
@@ -109,6 +117,36 @@ impl MonoResampler {
     }
 }
 
+/// Chromium's `decodeAudioData`, the source of Lexicon's timing samples, turns
+/// 16-bit integer PCM into floats with an asymmetric scale: positive values
+/// times `1/32767` (so +32767 is exactly 1.0), negative values times `1/32768`.
+/// Symphonia divides everything by 32768. The difference is under 3e-5 but it
+/// moves a few percent of the sample values and, on some songs, the beat grid
+/// that Lexicon's own analysis stores.
+const CHROMIUM_POSITIVE_SCALE: f32 = (1.0_f64 / 32767.0) as f32;
+const CHROMIUM_NEGATIVE_SCALE: f32 = (1.0_f64 / 32768.0) as f32;
+
+/// Integer PCM families that Chromium decodes to signed 16-bit before scaling.
+/// Lossy codecs decode to float there and need no conversion.
+fn is_integer_pcm16(params: &CodecParameters) -> bool {
+    params.bits_per_sample == Some(16)
+        && matches!(
+            params.codec,
+            CODEC_TYPE_FLAC | CODEC_TYPE_ALAC | CODEC_TYPE_PCM_S16LE | CODEC_TYPE_PCM_S16BE
+        )
+}
+
+fn chromium_int16_to_float(sample: f32) -> f32 {
+    // Symphonia's integer to float conversion divides by a power of two, so the
+    // original integer is recovered exactly.
+    let raw = (sample * 32768.0).round();
+    raw * if raw < 0.0 {
+        CHROMIUM_NEGATIVE_SCALE
+    } else {
+        CHROMIUM_POSITIVE_SCALE
+    }
+}
+
 pub fn decode(path: &Path, target_rate: u32, max_seconds: Option<f64>) -> Result<DecodedAudio> {
     Ok(decode_at_rates(path, &[target_rate], max_seconds)?.remove(0))
 }
@@ -202,6 +240,7 @@ fn decode_inputs(
     let mut frames = 0_u64;
     let mut reached_limit = false;
     let mut first_channel = retain_first_channel.then(Vec::new);
+    let chromium_int16 = is_integer_pcm16(&params);
     loop {
         let packet = match format.next_packet() {
             Ok(packet) => packet,
@@ -238,7 +277,13 @@ fn decode_inputs(
                     .samples()
                     .chunks_exact(channels)
                     .take(remaining)
-                    .map(|frame| frame[0]),
+                    .map(|frame| {
+                        if chromium_int16 {
+                            chromium_int16_to_float(frame[0])
+                        } else {
+                            frame[0]
+                        }
+                    }),
             );
         }
         frames += mono.len() as u64;

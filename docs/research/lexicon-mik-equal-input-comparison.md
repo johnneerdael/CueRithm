@@ -28,14 +28,20 @@ Aggregate results only. Per-track detail stays under `.analysis/`.
 | Measure | CueRithm vs Lexicon | CueRithm vs MIK tags | Lexicon vs MIK tags |
 | --- | ---: | ---: | ---: |
 | BPM within 0.001 | 282/282 (100%) | 239/282 (84.8%) | 239/282 (84.8%) |
-| First beat within 1 ms | 275/282 (97.5%) | 43/282 (15.2%) | 44/282 (15.6%) |
-| First beat within 5 ms | 277/282 (98.2%) | 153/282 (54.3%) | 154/282 (54.6%) |
-| Published cue set within 5 ms | 276/282 (97.9%) | — | — |
-| Grid and published cues both agree | 274/282 (97.2%) | — | — |
+| First beat within 1 ms | 282/282 (100%) | 44/282 (15.6%) | 44/282 (15.6%) |
+| First beat within 5 ms | 282/282 (100%) | 154/282 (54.6%) | 154/282 (54.6%) |
+| Published cue set within 5 ms | 281/282 (99.6%) | — | — |
+| Grid and published cues both agree | 281/282 (99.6%) | — | — |
 | Key exact | 213/282 (75.5%) | 274/282 (97.2%) | 213/282 (75.5%) |
 | Key adjacent on the wheel | 23/282 (8.2%) | 6/282 (2.1%) | 24/282 (8.5%) |
-| Energy exact | 54/282 (19.1%) | 182/282 (64.5%) | 85/282 (30.1%) |
-| Energy within one level | 243/282 (86.2%) | 266/282 (94.3%) | 236/282 (83.7%) |
+| Energy exact | 54/282 (19.1%) | 128/282 (45.4%) | 102/282 (36.2%) |
+| Energy within one level | 243/282 (86.2%) | 258/282 (91.5%) | 237/282 (84.0%) |
+
+The energy tags in the original files changed on 54 of the 282 songs after the first version of this comparison (the
+key and beat-grid tags did not change). Probably Mixed In Key rewrote them when the cue points were exported to
+Serato; that is inferred, not observed. The first version reported 64.5% exact (94.3% within one) for CueRithm and
+30.1% (83.7%) for Lexicon against the earlier tags; the table above uses the tags as they stand now, which equal the
+values the Mixed In Key server returns. CueRithm's own energy results did not change between the two runs.
 
 Lexicon stores keys in Open Key notation (`11M` minor, `11D` major); the mapping to Camelot was checked against the
 MIK tags (`9M` is `4A`, `1M` is `8A`, `6M` is `1A`). MIK cues are phrase positions named "Energy N", not structural
@@ -43,24 +49,39 @@ cues, so cue comparison with MIK is not meaningful.
 
 ## What the numbers say
 
-- **Timing and cues.** CueRithm reproduces Lexicon's BPM on every song, its first beat on 97.5% and its published cue
-  set on 97.9%; grid and cues agree together on 274/282 (97.2%). Cues here are the published set, after the template
-  rule that Lexicon's renderer applies and `lexicon_publication.rs` ports (a Second Drop or Second Breakdown exists
-  only if its first one exists and differs in time). An earlier reading of the raw detector output showed 14
-  disagreements; seven of those were that rule and are not differences in the app.
-- **The remaining seven songs.** They all differ in the first beat, and the cues follow. What is established: Lexicon's
-  result for them is reproducible (re-analysing at an explicit 78–155 with overwrite on changed none of the 282 grids);
-  Lexicon's original analysis worker, run in Node on our decoded audio at 78–155, returns exactly CueRithm's first beat
-  on the five of them tested, so the port is faithful to the shipped worker; no single other preset reproduces them
-  (68–135 reproduces three of five); and the app's decoded length equals the file's true length on every song, so
-  decoder trimming is excluded. The cause is therefore in an input or runtime detail of the app that is not visible in
-  the shipped code, and is unknown. Only the 78–155 preset was compared across the whole split.
-- **Energy.** CueRithm's rating is Lexicon's published local formula. It tracks MIK's tags (64.5% exact) better than
-  Lexicon's own rating does (30.1%) but does not reproduce Lexicon's rating on real music. Probed on 12 songs, Lexicon
-  feeds the formula the left channel decimated to 22.05 kHz without a low-pass filter, which reproduced its values on
-  all 12; CueRithm averages the channels and low-passes first. That makes the formula score one level lower on most
-  tracks. The earlier bundled SVC, fit to the captured MIK segment labels and scored on its own training songs, matched
-  MIK's overall level on 58.5%, below the formula.
+- **Timing and cues.** CueRithm reproduces Lexicon's BPM and first beat on every song (282/282, the largest
+  difference is 0 ms) and its published cue set on 281/282 (99.6%). Cues here are the published set, after the
+  template rule that Lexicon's renderer applies and `lexicon_publication.rs` ports (a Second Drop or Second Breakdown
+  exists only if its first one exists and differs in time). Read as raw detector output, 7 songs differ; six of those
+  are that rule and are not differences in the app.
+- **What used to differ in seven first beats.** Lexicon hands its analysis worker the first channel of what
+  Chromium's `decodeAudioData` returns. For 16-bit integer sources Chromium converts to float with an uneven scale:
+  positive samples times 1/32767, negative samples times 1/32768. FFmpeg and Symphonia divide every sample by 32768.
+  The gap is under 3e-5 per sample, but it was enough to move the first beat the tempo and phase search picked on
+  7 of 282 songs. How this was found: Lexicon's original worker, run in Node on our samples, returned CueRithm's
+  value on those songs, so the port was faithful and the input had to differ. Stock Electron 32.3.3 (the version
+  Lexicon ships) decoding the same files gave samples that differ from FFmpeg's. The worker fed those samples
+  returned Lexicon's stored tempo and first beat on both songs tried. The uneven scale then reproduced Chromium's
+  samples bit for bit on both (1,692,168 and 11,571,438 samples). `audio.rs` now applies it to the timing and cue
+  input for 16-bit integer sources (FLAC, ALAC, WAV, AIFF). All seven songs now match Lexicon exactly. Two further
+  songs whose first beat was already within 1 ms moved onto Lexicon's exact value, and no other result changed.
+  Not covered: lossy codecs decode to float in Chromium, so nothing changes for them; sources that are not 44.1 kHz
+  are resampled by Chromium's own resampler, which is not ported (the whole development folder is 44.1 kHz and
+  16-bit, so this is unmeasured); 24-bit sources scale the same to within float precision.
+- **The one remaining song.** One song's Last beat is one 16-beat grid step earlier in Lexicon (350.5 s against
+  358.1 s). Its length is exactly 753 beats, so the beat count `floor((duration - first beat) / beat length)` is
+  sensitive to the last sample: with that sample removed CueRithm returns Lexicon's value. Removing it from every
+  song does not work, because it breaks two others that currently agree, so the app's buffer length depends on
+  something per song that is not identified. Chromium reports the file's full length for this song, both for
+  `decodeAudioData` and for the media element. Nothing was changed for it.
+- **Energy.** CueRithm's rating in this run is Lexicon's published local formula. Against the current Mixed In Key
+  tags it matches 45.4% exactly (91.5% within one level), a little above Lexicon's own rating (36.2%, 84.0%), and it
+  does not reproduce Lexicon's rating on real music (19.1%). Probed on 12 songs, Lexicon feeds the formula the left
+  channel decimated to 22.05 kHz without a low-pass filter, which reproduced its values on all 12; CueRithm averages
+  the channels and low-passes first. That makes the formula score one level lower on most tracks. The window
+  classifier with the 80th-percentile rule (`cuerithm-svc`, not in the app) matches the current tags on 79.8% (99.3%
+  within one level) of the same 282 songs; it was fit on the earlier capture's labels, so part of that is in-sample,
+  and the out-of-fold figure is the 74.8% given below.
 - **MIK energy.** MIK's tag rating is a local aggregation of segment levels that its server returns, so a local
   rating can only imitate it. The earlier replacement of the SVC by the Lexicon formula (2026-10-18) was made for
   independence from a model file and a server and was not compared with MIK.
@@ -86,8 +107,11 @@ cross-validation over the 282 songs, folds assigned by a hash of the song, MIK t
 MIK rates 94% of these songs 5, 6 or 7, so exact agreement has a low ceiling. Refitting trades exact agreement for
 within-one agreement and does not beat the unfitted formula on exact agreement, so these four features, not the
 amount of data, are the limit. A closer imitation would need MIK-style segment features with a segment classifier
-trained on captured server labels and then MIK's aggregation; the earlier SVC did that and matched 58.5%, scored on
-its own training songs. Nothing here uses the held-out split.
+trained on captured server labels and then MIK's aggregation; the later window classifier with the 80th-percentile
+rule did that (see the next section). The percentages in this table were measured against the energy tags as they
+stood before they changed on 54 songs (see the note under the results table); against the current tags the unfitted
+formula scores 45.4% exact and 91.5% within one level. The comparison between the methods was not re-run on the
+current tags. Nothing here uses the held-out split.
 
 ## Energy against Mixed In Key's server contract, tuning split only
 
@@ -113,10 +137,11 @@ tuning-split files. Aggregates only.
 - **Window classifier plus an 80th-percentile rule.** The shipped SVC with the 80th percentile of window levels
   (`EnergyModel::estimate_overall`, method `svc-percentile80-v1`) matches the server value on 78.4% (99.2% within one
   level) of the 255 matched songs, in-sample, and on 74.8% (99.6%) out of fold on the 282 development songs. The
-  Lexicon formula gets 46.3% (91.0%) on the same 255 songs. On the whole tuning split, scored against the file tag,
-  both methods match 64.5% exactly; the 80th-percentile route is better within one level (96.5% against 94.3%). The
-  desktop still uses the acoustic formula, since the window route needs the 10 MB model and the unexplained 27
-  songs resolved first.
+  Lexicon formula gets 46.3% (91.0%) on the same 255 songs. On the whole tuning split, scored against the file tags
+  as they stood when this was first written, both methods matched 64.5% exactly; against the current tags (which
+  equal the server values) the 80th-percentile route matches 79.8% (99.3% within one level, partly in-sample) and the
+  formula 45.4% (91.5%). The desktop still uses the acoustic formula; switching is a product decision, because the
+  window route needs the 10 MB model file.
 - **A direct whole-track model does worse.** Ridge, logistic, SVM and random-forest models on per-track summaries of
   the window features reached 63 to 66% exact, below the window route.
 

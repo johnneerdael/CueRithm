@@ -44,6 +44,8 @@ patent and web pages were produced by a fetch tool and should be checked against
 No public dataset labels DJ-style 1–10 energy, and no peer-reviewed method reproduces Mixed In Key's rating. The
 only grounded route to MIK-like energy is the one the patent and the reverse engineering both point to: segment
 features that we already reproduce exactly, a segment classifier trained on captured Mixed In Key labels, and a
-combination of segment predictions. The earlier SVC followed that route and reached 58.5% on the tuning split, below
-the unfitted Lexicon formula's 64.5%, so the open questions are the classifier and the combination rule (median,
-mean, 75th percentile, or Mixed In Key's client-side duration-weighted mode), not the amount of data.
+combination of segment predictions. The earlier SVC with a different combination rule reached 58.5% on the tuning
+split against the tags as they stood then, below the unfitted Lexicon formula's 64.5% on those tags. Later work with
+the 80th-percentile rule reached 79.8% against the current tags, where the formula gets 45.4% (see the equal-input
+comparison). The open questions are the classifier and the combination rule (median, mean, 75th percentile, or
+Mixed In Key's client-side duration-weighted mode), not the amount of data.

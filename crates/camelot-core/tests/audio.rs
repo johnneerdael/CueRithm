@@ -196,3 +196,40 @@ fn native_timing_channel_does_not_silently_resample_an_unsupported_rate() {
     assert!(decode_at_rates(&path, &[11025], None).is_ok());
     assert!(decode_at_rates_with_first_channel(&path, &[11025], None).is_err());
 }
+
+#[test]
+fn timing_channel_scales_sixteen_bit_pcm_like_chromium_while_the_downmix_is_unchanged() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("edges.wav");
+    let values: [i16; 7] = [-32768, -16384, -1, 0, 1, 16384, 32767];
+    let mut writer = hound::WavWriter::create(
+        &path,
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )
+    .unwrap();
+    for &value in &values {
+        writer.write_sample(value).unwrap();
+    }
+    writer.finalize().unwrap();
+
+    let (_, timing) = decode_at_rates_with_first_channel(&path, &[11025], None).unwrap();
+    let expected: Vec<f32> = values
+        .iter()
+        .map(|&v| {
+            if v < 0 {
+                v as f32 * (1.0_f64 / 32768.0) as f32
+            } else {
+                v as f32 * (1.0_f64 / 32767.0) as f32
+            }
+        })
+        .collect();
+    assert_eq!(timing.samples, expected);
+    assert_eq!(timing.samples[0], -1.0);
+    assert_eq!(timing.samples[6], 1.0);
+    assert_eq!(timing.samples[3], 0.0);
+}
