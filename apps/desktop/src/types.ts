@@ -1,5 +1,6 @@
+import type {OrganizationBridge} from "./organization-types";
 export type View="tracks"|"incoming"|"archive";
-export type WorkspaceView=View|"settings"|"cleanup"|"sync";
+export type WorkspaceView=View|"settings"|"cleanup"|"sync"|"organize";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;archived:boolean;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null}
@@ -56,14 +57,14 @@ export interface CleanupCatalogValue {value:string;track_count:number;protected:
 export interface CleanupCatalog {genres:CleanupCatalogValue[];artists:(CleanupCatalogValue&{roles:Partial<Record<ContributorRole,number>>})[];categories:string[];unavailable_tracks:CleanupFailure[]}
 export type CleanupScope={kind:"all_ready"}|{kind:"track_ids";track_ids:string[]};
 export interface LibraryChangeEvent {track_ids:string[];playlist_ids?:string[]}
-export interface Settings {cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
+export interface Settings {organization?:import("./organization-types").OrganizationSettings;cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}
 export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][];rms?:number[];levels?:[number,number,number][]}
-export interface Bridge {
+export interface Bridge extends OrganizationBridge {
   discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
   previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
   discardDjSync(id:string):Promise<void>;
@@ -101,7 +102,7 @@ export interface Bridge {
   getArtwork(id:string,sourceSha256:string):Promise<string|null>;
   saveSettings(settings:Settings):Promise<Snapshot>;
   enqueuePaths(paths:string[]):Promise<string[]>;
-  retryJob(id:string):Promise<void>;
+  retryJob(id:string,useCapturedSettings?:boolean):Promise<void>;
   reprepareTrack(id:string):Promise<void>;
   archiveTrack(id:string,archived:boolean):Promise<void>;
   playerLoad(id:string):Promise<Detail>;

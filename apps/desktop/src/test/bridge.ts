@@ -13,6 +13,19 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    organizationRoots:vi.fn(async()=>[]),
+    chooseOrganizationRoot:vi.fn(async()=>null),
+    organizationExample:vi.fn(async()=>({valid:true,error:null,tokens:["artist","title","version"],examples:[{label:"Example",original_name:"input.flac",result:"Artist - Title.flac",outcome:"ready",reason:null}]})),
+    previewOrganization:vi.fn(async()=>({id:"organization-preview",revision:"frozen",created:1,totals:{total:0,ready:0,unchanged:0,skipped:0,blocked:0},can_apply:false})),
+    organizationPreviewPage:vi.fn(async()=>({rows:[],total:0,offset:0,limit:50})),
+    discardOrganizationPreview:vi.fn(async()=>{}),
+    applyOrganization:vi.fn(async()=>({id:"organization-batch",created:1,kind:"apply" as const,state:"complete" as const,totals:{total:0,completed:0,unchanged:0,skipped:0,blocked:0,failed:0,recovery_required:0,cancelled:0},can_undo:false,can_recover:false,error:null})),
+    cancelOrganization:vi.fn(async()=>true),cancelOrganizationBatch:vi.fn(async()=>{}),
+    organizationHistory:vi.fn(async()=>[]),
+    organizationBatchPage:vi.fn(async()=>({rows:[],total:0,offset:0,limit:50})),
+    recoverOrganization:vi.fn(async()=>({id:"organization-recovery",created:1,kind:"apply" as const,state:"complete" as const,totals:{total:0,completed:0,unchanged:0,skipped:0,blocked:0,failed:0,recovery_required:0,cancelled:0},can_undo:false,can_recover:false,error:null})),
+    undoOrganization:vi.fn(async()=>({id:"organization-undo",created:1,kind:"undo" as const,state:"complete" as const,totals:{total:0,completed:0,unchanged:0,skipped:0,blocked:0,failed:0,recovery_required:0,cancelled:0},can_undo:false,can_recover:false,error:null})),
+    organizationAlternates:vi.fn(async()=>[]),resolveOrganizationAlternate:vi.fn(async()=>{}),
     discoverDjTargets:vi.fn(async()=>[]),
     previewDjSync:vi.fn(async request=>({deleted_playlists:0,retained_external_playlists:0,id:"sync",target:request.target,tracks:rows.length,playlists:0,bytes_to_write:1024,files:[],warnings:[],directories:[]})),
     discardDjSync:vi.fn(async()=>{}),

@@ -1,6 +1,6 @@
 # Incoming and Archive
 
-Incoming and Archive are track states in CueRithm's library. They do not correspond to folders or move your audio files.
+Incoming and Archive are track states in CueRithm's library. Files stay in place by default. An enabled [file organization](file-organization.md) rule can rename, move or copy a file after successful Incoming preparation. Archiving does not move audio.
 
 ## Incoming
 
@@ -18,20 +18,21 @@ A track stays *incoming* from the moment it is added until preparation succeeds.
 | Waiting for file | The file is still changing. |
 | Decoding | The bundled decoder is producing the working copy. |
 | Analyzing | Key, tempo, energy and cues. |
-| Matching catalog | Looking up Beatport or Traxsource (tagging on). |
+| Matching catalog | Looking up an enabled catalog provider (tagging on). |
 | Preparing tags | Building the tag plan (tagging or cleanup on). |
 | Writing tags | Staging and publishing tags. |
+| Organizing files | Applying the saved naming rule and repairing known references before completion. |
 | Applying cues | Refreshing cues, for example after a genre change. |
 
 ### When a track needs attention
 
 A failed stage sets the track to *Needs attention*. It stays in Incoming with the stage and error. The usual causes are an unsupported or protected file, a file longer than about 24 minutes, a disk or permission problem, being offline while tagging is on, or a provider error.
 
-Press the **retry** icon on the row to try again. Saving **Settings** also re-queues every track that needs attention, using the new settings.
+Press the **retry** icon on the row to try again. Saving **Settings** re-queues ordinary failed preparation with the new settings. Interrupted file organization keeps its captured settings and recovery evidence. Its history entry offers **Retry in Incoming** to resume that work. An unpublished naming failure can use a corrected organization rule without repeating verified analysis; staged or published operations must finish or be safely cancelled first.
 
 ### What "ready" requires
 
-A track becomes ready only when it has a key, a positive BPM with a non-empty beatgrid, an energy rating from 1 to 10 and at least one cue, with all positions inside the track. Otherwise it stays in Incoming.
+A track becomes ready only when it has a key, a positive BPM with a non-empty beatgrid, an energy rating from 1 to 10 and at least one cue, with all positions inside the track. Configured required tagging, cleanup and organization must also finish, including reference repair and recoverable file cleanup. Otherwise it stays in Incoming. Retrying an interrupted organization operation reuses verified analysis when its source and captured settings still match.
 
 ### Empty Incoming
 
