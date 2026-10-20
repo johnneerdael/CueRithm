@@ -109,6 +109,37 @@ fn identical_existing_copy_requires_content_proof() {
     ));
 }
 #[test]
+fn partially_existing_copy_is_blocked_because_no_request_can_express_it() {
+    let mut owner = track("1", "Title");
+    owner.sidecars.push(Sidecar {
+        source: file("/incoming/cover-source.jpg", "art"),
+        destination_name: "cover.jpg".into(),
+    });
+    let mut req = request(vec![owner]);
+    req.config.mode = OrganizationMode::Copy;
+    // The audio copy exists but its sidecar does not.
+    req.existing.push(file("/managed/Title.flac", "audio-copy"));
+    assert!(matches!(
+        build_plan(req.clone(), || false).unwrap().rows[0].outcome,
+        RowOutcome::Blocked { .. }
+    ));
+    // The sidecar copy exists but the audio does not.
+    req.existing = vec![file("/managed/cover.jpg", "art-copy")];
+    assert!(matches!(
+        build_plan(req.clone(), || false).unwrap().rows[0].outcome,
+        RowOutcome::Blocked { .. }
+    ));
+    // Every destination already holds identical bytes.
+    req.existing = vec![
+        file("/managed/Title.flac", "audio-copy"),
+        file("/managed/cover.jpg", "art-copy"),
+    ];
+    assert_eq!(
+        build_plan(req, || false).unwrap().rows[0].outcome,
+        RowOutcome::IdenticalCopy
+    );
+}
+#[test]
 fn cancellation_never_returns_partial_plan() {
     assert_eq!(
         build_plan(request(vec![track("1", "Title")]), || true),

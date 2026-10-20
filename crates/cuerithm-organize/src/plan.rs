@@ -274,6 +274,12 @@ pub fn build_plan(
                 row.outcome = RowOutcome::Unchanged;
             } else if row.outcome == RowOutcome::Ready && identical + unchanged == row.files.len() {
                 row.outcome = RowOutcome::IdenticalCopy;
+            } else if row.outcome == RowOutcome::Ready && identical > 0 {
+                // The coordinator rejects an existing destination and requires the
+                // audio first, so a request cannot express a partly present copy.
+                row.outcome = RowOutcome::Blocked {
+                    reason: "Part of this copy already exists at the destination; remove it or choose another destination".into(),
+                };
             }
         }
         rows.push(row);
