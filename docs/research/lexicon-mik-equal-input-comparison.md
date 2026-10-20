@@ -30,8 +30,8 @@ Aggregate results only. Per-track detail stays under `.analysis/`.
 | BPM within 0.001 | 282/282 (100%) | 239/282 (84.8%) | 239/282 (84.8%) |
 | First beat within 1 ms | 275/282 (97.5%) | 43/282 (15.2%) | 44/282 (15.6%) |
 | First beat within 5 ms | 277/282 (98.2%) | 153/282 (54.3%) | 154/282 (54.6%) |
-| Same cue count | 276/282 (97.9%) | — | — |
-| Every cue within 5 ms | 270/282 (95.7%) | — | — |
+| Published cue set within 5 ms | 276/282 (97.9%) | — | — |
+| Grid and published cues both agree | 274/282 (97.2%) | — | — |
 | Key exact | 213/282 (75.5%) | 274/282 (97.2%) | 213/282 (75.5%) |
 | Key adjacent on the wheel | 23/282 (8.2%) | 6/282 (2.1%) | 24/282 (8.5%) |
 | Energy exact | 54/282 (19.1%) | 182/282 (64.5%) | 85/282 (30.1%) |
@@ -43,9 +43,18 @@ cues, so cue comparison with MIK is not meaningful.
 
 ## What the numbers say
 
-- **Timing and cues.** CueRithm reproduces Lexicon's BPM on every song and its grid and cues on about 96–98%. The 14
-  songs that differ fail identically under the default 98–195 preset, so they are timing-engine corner cases (anchors
-  a whole number of beats off, or one more cue), not a preset effect. Only the 78–155 preset was compared.
+- **Timing and cues.** CueRithm reproduces Lexicon's BPM on every song, its first beat on 97.5% and its published cue
+  set on 97.9%; grid and cues agree together on 274/282 (97.2%). Cues here are the published set, after the template
+  rule that Lexicon's renderer applies and `lexicon_publication.rs` ports (a Second Drop or Second Breakdown exists
+  only if its first one exists and differs in time). An earlier reading of the raw detector output showed 14
+  disagreements; seven of those were that rule and are not differences in the app.
+- **The remaining seven songs.** They all differ in the first beat, and the cues follow. What is established: Lexicon's
+  result for them is reproducible (re-analysing at an explicit 78–155 with overwrite on changed none of the 282 grids);
+  Lexicon's original analysis worker, run in Node on our decoded audio at 78–155, returns exactly CueRithm's first beat
+  on the five of them tested, so the port is faithful to the shipped worker; no single other preset reproduces them
+  (68–135 reproduces three of five); and the app's decoded length equals the file's true length on every song, so
+  decoder trimming is excluded. The cause is therefore in an input or runtime detail of the app that is not visible in
+  the shipped code, and is unknown. Only the 78–155 preset was compared across the whole split.
 - **Energy.** CueRithm's rating is Lexicon's published local formula. It tracks MIK's tags (64.5% exact) better than
   Lexicon's own rating does (30.1%) but does not reproduce Lexicon's rating on real music. Probed on 12 songs, Lexicon
   feeds the formula the left channel decimated to 22.05 kHz without a low-pass filter, which reproduced its values on
