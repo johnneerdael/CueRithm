@@ -133,3 +133,26 @@ The window SVC (C=10, gamma=0.1), refit out of fold by song on the 272 clean son
 85.4% exact and 96.5% within one; overall level as the 80th percentile of predicted window levels 75.0% exact and
 99.6% within one (70th: 72.4%, 75th: 73.5%, 85th: 72.1%; always predicting 6: 51.5%). Cleaner labels did not move
 the ceiling, so the missing piece is the server's rule for the overall value, not the window classifier.
+
+## What Mixed In Key's window energy level depends on (fresh capture, tuning split, 272 songs)
+
+Aggregates only; five-fold cross-validation by song.
+
+- **Inputs.** Adding genre, tempo, duration, downbeat, per-window cue-score statistics or key features to the 184
+  window numbers (183 features and the window's volume) did not change window accuracy (76.9% to at most 77.2%
+  with gradient boosting), so the level depends on the window vector, not those fields.
+- **It is a trained kernel model, not a compact formula.** An RBF SVM on the raw feature scale reaches 84 to 85% of
+  windows exactly; gradient boosting reaches 77%, the same SVM after standardising 72%, a small neural network 70%
+  and kNN 62%. No single statistic (best 63%) or frequency band (best 58%) carries the level, dropping any one
+  statistic costs at most 6 points, and the best 80 features reach about 80% against 84.4% for all 183. One feature
+  (index 171, the top band) is dominant: shuffling it alone drops the SVM from 84.6% to 52.4%.
+- **More labelled songs help, with diminishing returns.** Window accuracy by training songs: 21 songs 71.1%, 54
+  songs 77.3%, 108 songs 81.4%, 162 songs 83.3%, 217 songs 84.4%. Overall energy (80th percentile of window levels)
+  moves from 70% to 74% and is noisy. SVM settings `C` 10 to 100 and `gamma` 0.1 to 0.3 are equivalent; `gamma`
+  above 0.5 is worse.
+- **Genre.** 227 of the 272 songs (83%) are melodic house and techno, and the rest are 20 house, 13 indie dance, 8
+  progressive house and a few others. There are no trance, hardstyle or plain techno songs, so genre effects on
+  those cannot be fitted or checked from this capture.
+- **Cues.** A literal implementation of the cue patent's scoring (compare per-beat values 16, 8, 4 and 2 beats apart,
+  asymmetric penalty, peaks at least 32 beats apart) recovers 22% of Mixed In Key's cues, against 95.7% for the
+  earlier reverse-engineered rule, which scores every cue within 50 ms for 62% of whole tracks.
