@@ -71,7 +71,14 @@ fn sqlite_reference_repairs_preserve_track_ids_remote_metadata_and_performance_b
             conn.execute_batch("PRAGMA user_version=1; CREATE TABLE master(revision INTEGER,last_sync_time INTEGER); INSERT INTO master VALUES(9,123); CREATE TABLE asset(id INTEGER PRIMARY KEY,portable_id TEXT,file_name TEXT,revision INTEGER,name TEXT,cues BLOB,grid BLOB);").unwrap();
             conn.execute(
                 "INSERT INTO asset VALUES(73,?1,'old.wav',8,'Remote title',X'00FF1700',X'FF0019')",
-                [source.to_str().unwrap().trim_start_matches('/')],
+                [source
+                    .components()
+                    .filter_map(|component| match component {
+                        std::path::Component::Normal(value) => Some(value.to_str().unwrap()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("/")],
             )
             .unwrap();
         }

@@ -32,14 +32,8 @@ pub fn location_for_track(
     local_library: &Path,
     audio_path: &Path,
 ) -> Result<(PathBuf, Option<PathBuf>)> {
-    let audio = audio_path
-        .to_str()
-        .context("Serato audio path must be Unicode")?
-        .replace('\\', "/");
-    let local = local_library
-        .to_str()
-        .context("Serato library path must be Unicode")?
-        .replace('\\', "/");
+    let audio = native_serato_path(audio_path)?;
+    let local = native_serato_path(local_library)?;
     let root = if audio.starts_with("//") {
         let components: Vec<_> = audio.trim_start_matches('/').split('/').collect();
         ensure!(
@@ -305,28 +299,55 @@ fn normalize(path: &str) -> String {
     path.replace('\\', "/").to_lowercase()
 }
 
-fn location_portable_id(path: &Path, root: &Path) -> Result<String> {
+// Convert Windows extended spelling to Serato's portable path grammar. Keep
+// real UNC paths distinct; an extended local disk prefix is not a network share.
+fn native_serato_path(path: &Path) -> Result<String> {
     let text = path
         .to_str()
         .context("Serato paths must be Unicode")?
         .replace('\\', "/");
-    let root = root
-        .to_str()
-        .context("Serato roots must be Unicode")?
-        .replace('\\', "/");
+    if text
+        .get(..8)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("//?/UNC/"))
+    {
+        return Ok(format!("//{}", &text[8..]));
+    }
+    if let Some(disk) = text.strip_prefix("//?/") {
+        ensure!(
+            disk.as_bytes().first().is_some_and(u8::is_ascii_alphabetic)
+                && disk.as_bytes().get(1) == Some(&b':')
+                && disk.as_bytes().get(2) == Some(&b'/'),
+            "Unsupported Serato Windows namespace"
+        );
+        return Ok(disk.to_owned());
+    }
+    ensure!(!text.starts_with("//./"), "Unsupported Serato device path");
+    Ok(text)
+}
+fn same_root_database_location(source: &Path, destination: &Path) -> Result<bool> {
+    let source = native_serato_path(source)?;
+    let destination = native_serato_path(destination)?;
+    let drive = |text: &str| text.as_bytes().get(1) == Some(&b':');
+    Ok(match (drive(&source), drive(&destination)) {
+        (true, true) => source[..2].eq_ignore_ascii_case(&destination[..2]),
+        (false, false) => true,
+        _ => false,
+    })
+}
+fn location_portable_id(path: &Path, root: &Path) -> Result<String> {
+    let text = native_serato_path(path)?;
+    let root = native_serato_path(root)?;
     let prefix = format!("{}/", root.trim_end_matches('/'));
     ensure!(
-        text.to_lowercase().starts_with(&prefix.to_lowercase()),
+        text.to_ascii_lowercase()
+            .starts_with(&prefix.to_ascii_lowercase()),
         "Track is outside the selected Serato location root"
     );
     Ok(text[prefix.len()..].to_owned())
 }
 
 fn portable_id(path: &Path) -> Result<String> {
-    let text = path
-        .to_str()
-        .context("Serato paths must be valid Unicode")?
-        .replace('\\', "/");
+    let text = native_serato_path(path)?;
     ensure!(
         path.is_absolute() || text.as_bytes().get(1) == Some(&b':'),
         "Serato tracks require absolute paths"
@@ -811,10 +832,7 @@ pub(crate) fn reference_id(database: &Path, root: Option<&Path>, source: &Path) 
         let actual = if let Some(root) = root {
             root.join(&spelling)
         } else {
-            let source = source
-                .to_str()
-                .context("Serato source path is not Unicode")?
-                .replace('\\', "/");
+            let source = native_serato_path(source)?;
             if source.as_bytes().get(1) == Some(&b':') {
                 PathBuf::from(format!("{}/{}", &source[..2], spelling))
             } else {
@@ -843,7 +861,7 @@ pub(crate) fn repair_reference(
     // location database and cannot be represented by changing this one row.
     if root.is_none() {
         ensure!(
-            source.components().next() == destination.components().next(),
+            same_root_database_location(source, destination)?,
             "Serato relocation requires another location database"
         );
     }
@@ -893,7 +911,7 @@ pub(crate) fn validate_reference_location(
     reference_portable(destination, root)?;
     if root.is_none() {
         ensure!(
-            source.components().next() == destination.components().next(),
+            same_root_database_location(source, destination)?,
             "Serato relocation requires another location database"
         );
     }
@@ -902,6 +920,26 @@ pub(crate) fn validate_reference_location(
 #[cfg(test)]
 mod path_reference_tests {
     use super::*;
+    #[test]
+    fn extended_windows_disk_paths_are_local_but_unc_paths_keep_their_location() {
+        assert_eq!(
+            portable_id(Path::new(r"\\?\C:\music\old.wav")).unwrap(),
+            "music/old.wav"
+        );
+        assert_eq!(
+            portable_id(Path::new(r"C:\music\old.wav")).unwrap(),
+            "music/old.wav"
+        );
+        assert!(portable_id(Path::new(r"\\?\UNC\server\share\old.wav")).is_err());
+        assert_eq!(
+            location_portable_id(
+                Path::new(r"\\?\UNC\server\share\music\old.wav"),
+                Path::new(r"\\server\share")
+            )
+            .unwrap(),
+            "music/old.wav"
+        );
+    }
     #[test]
     fn root_database_cannot_follow_audio_to_an_external_location() {
         assert!(
