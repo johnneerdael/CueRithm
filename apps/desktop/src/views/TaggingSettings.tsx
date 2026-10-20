@@ -109,8 +109,9 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
     </details>
     {catalog.providers.filter(p=>p.customOptions.options.length>0).map(provider=><details className="tagging-group" key={provider.id} open><summary>{provider.name} settings</summary>{provider.customOptions.options.map(option=>{
       const spec=option.value,value=options.custom[provider.id]?.[option.id];
+      const note=provider.id==="beatport"&&option.id==="ignore_version"?"Ignore mix text while scoring titles. Known edition, recording ID and duration conflicts still require review.":option.tooltip??undefined;
       const set=(next:unknown)=>opt({custom:{...options.custom,[provider.id]:{...options.custom[provider.id],[option.id]:next}}});
-      if(spec.type==="boolean")return <Toggle key={option.id} label={option.label} note={option.tooltip??undefined} value={typeof value==="boolean"?value:spec.value} onChange={set}/>;
+      if(spec.type==="boolean")return <Toggle key={option.id} label={option.label} note={note} value={typeof value==="boolean"?value:spec.value} onChange={set}/>;
       if(spec.type==="number")return <Row key={option.id} label={option.label} note={option.tooltip??undefined}><input type="number" aria-label={option.label} min={spec.min} max={spec.max} step={spec.step} value={typeof value==="number"?value:spec.value} onChange={e=>set(Number(e.target.value))}/></Row>;
       if(spec.type==="string")return <Row key={option.id} label={option.label} note={option.tooltip??undefined}><input type={spec.hidden?"password":"text"} aria-label={option.label} value={typeof value==="string"?value:spec.value} onChange={e=>set(e.target.value)}/></Row>;
       if(spec.type==="option")return <Row key={option.id} label={option.label}><select aria-label={option.label} value={typeof value==="string"?value:spec.value} onChange={e=>set(e.target.value)}>{spec.values.map(v=><option key={v}>{v}</option>)}</select></Row>;

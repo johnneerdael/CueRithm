@@ -86,6 +86,11 @@ fn challenge_is_remembered_and_next_lookup_does_not_contact_direct_source() {
             .get_text(&url, &SolverConfig::default(), &cancel)
             .unwrap_err();
         assert!(error.to_string().contains("solver"), "{error:#}");
+        assert!(
+            error
+                .downcast_ref::<onetagger_selected_providers::http::SolverFailure>()
+                .is_some()
+        );
     }
     assert_eq!(direct.join().unwrap().len(), 1);
 }
@@ -192,7 +197,8 @@ fn unresolved_or_malformed_solver_results_never_become_catalog_content() {
         let (url,direct)=server(vec![(403,"cf-mitigated: challenge\r\n","challenge".into())]);
         let (api,solver)=server(vec![(200,"",response)]);
         let config=SolverConfig{endpoint:Some(api),..Default::default()};
-        assert!(transport().get_text(&url,&config,&Arc::new(AtomicBool::new(false))).is_err());
+        let error=transport().get_text(&url,&config,&Arc::new(AtomicBool::new(false))).unwrap_err();
+        assert!(error.downcast_ref::<onetagger_selected_providers::http::SolverFailure>().is_some());
         direct.join().unwrap();assert_eq!(solver.join().unwrap().len(),1);
     }
     let (url, direct) = server(vec![(

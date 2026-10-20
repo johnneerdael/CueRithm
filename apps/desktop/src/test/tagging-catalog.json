@@ -77,7 +77,8 @@
     "solver": {
       "endpoint": null,
       "timeout_seconds": 120
-    }
+    },
+    "required_tags": []
   },
   "providers": [
     {

@@ -359,3 +359,320 @@ fn id3_upgrade_preserves_slashes_in_unselected_contributors() {
         Some("Composer/Name")
     );
 }
+
+#[test]
+fn explicit_overwrite_respects_global_and_selected_field_policy() {
+    for extension in ["mp3", "m4a", "flac", "ogg", "opus"] {
+        let (d, path, rt) = fixture(extension);
+        {
+            let mut wrapper = Tag::load_file(&path, true).unwrap_or_else(|_| panic!("{extension}"));
+            let tag = wrapper.tag_mut();
+            tag.set_explicit(true);
+            tag.save_file(&path).unwrap();
+        }
+        let before = source(&rt, &path, d.path());
+        let mut output = result();
+        output.matches[0].track.explicit = Some(false);
+        let mut config = AutotagConfig::default();
+        config.options.tags = vec![SupportedTag::Explicit];
+        config.options.overwrite = false;
+        let staged = TagWritePlan::build(before, &output, &config, &AnalysisTags::default())
+            .unwrap()
+            .stage(&rt, d.path())
+            .unwrap();
+        let original = Tag::load_file(&path, false).unwrap();
+        let actual = Tag::load_file(&staged.path, false).unwrap();
+        let key = if extension == "mp3" {
+            "ITUNESADVISORY"
+        } else if extension == "m4a" {
+            "rtng"
+        } else {
+            "COMMENT"
+        };
+        if extension == "m4a" {
+            assert_eq!(
+                mp4ameta::Tag::read_from_path(&staged.path)
+                    .unwrap()
+                    .advisory_rating(),
+                Some(mp4ameta::AdvisoryRating::Explicit)
+            );
+        }
+        assert_eq!(
+            actual.tag().all_tags().get(key),
+            original.tag().all_tags().get(key),
+            "{extension}"
+        );
+    }
+}
+
+#[test]
+fn unrelated_id3_native_records_survive_selected_title_edit_independently() {
+    use id3::frame::{Comment, EncapsulatedObject, Popularimeter, Private, Unknown};
+    use id3::{Content, Frame, TagLike, Version};
+    let (d, path, rt) = fixture("mp3");
+    let mut native = id3::Tag::read_from_path(&path).unwrap_or_default();
+    native.add_frame(EncapsulatedObject {
+        mime_type: "application/octet-stream".into(),
+        filename: String::new(),
+        description: "Serato Markers2".into(),
+        data: vec![0, 255, 7, 19, 0, 8],
+    });
+    native.add_frame(Popularimeter {
+        user: "DJ fixture".into(),
+        rating: 196,
+        counter: 237,
+    });
+    native.add_frame(Private {
+        owner_identifier: "Native DJ fixture".into(),
+        private_data: vec![255, 0, 19, 27],
+    });
+    native.add_frame(Comment {
+        lang: "eng".into(),
+        description: "DJ notes".into(),
+        text: "Preserve this exact / note".into(),
+    });
+    native.add_frame(Comment {
+        lang: "fra".into(),
+        description: "different owner".into(),
+        text: "Deuxième commentaire".into(),
+    });
+    native.add_frame(Frame::with_content(
+        "XDJX",
+        Content::Unknown(Unknown {
+            data: vec![9, 8, 7, 0, 255],
+            version: Version::Id3v24,
+        }),
+    ));
+    native.write_to_path(&path, Version::Id3v24).unwrap();
+    let before = id3::Tag::read_from_path(&path).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Title];
+    config.options.id3v24 = true;
+    let mut output = result();
+    output.matches[0].track.title = "New title".into();
+    let staged = TagWritePlan::build(
+        source(&rt, &path, d.path()),
+        &output,
+        &config,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    let after = id3::Tag::read_from_path(&staged.path).unwrap();
+    for id in ["GEOB", "PRIV", "COMM", "POPM", "XDJX"] {
+        assert_eq!(
+            after.frames().filter(|f| f.id() == id).collect::<Vec<_>>(),
+            before.frames().filter(|f| f.id() == id).collect::<Vec<_>>(),
+            "{id}"
+        );
+    }
+    assert_eq!(after.title(), Some("New title"));
+}
+
+#[test]
+fn malformed_id3_is_refused_without_reconstructing_an_empty_tag() {
+    let (d, path, rt) = fixture("mp3");
+    let audio = std::fs::read(&path).unwrap();
+    // A claimed ID3 body with an invalid frame ID; keep real playable audio behind it.
+    let mut bytes = b"ID3\x04\x00\x00\x00\x00\x00\x0b!!!!\x00\x00\x00\x01\x00\x00\xff".to_vec();
+    bytes.extend(audio);
+    std::fs::write(&path, &bytes).unwrap();
+    let input = source(&rt, &path, d.path());
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Title];
+    let error = TagWritePlan::build(input, &result(), &config, &AnalysisTags::default())
+        .unwrap()
+        .stage(&rt, d.path());
+    assert!(error.is_err());
+    assert_eq!(std::fs::read(path).unwrap(), bytes);
+}
+
+#[test]
+fn required_selected_field_absence_is_not_reported_as_success() {
+    let (d, path, rt) = fixture("flac");
+    {
+        let mut wrapper = Tag::load_file(&path, true).unwrap();
+        wrapper.tag_mut().remove_raw("MOOD");
+        wrapper.tag_mut().save_file(&path).unwrap();
+    }
+    let input = source(&rt, &path, d.path());
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Mood];
+    let staged = TagWritePlan::build(input.clone(), &result(), &config, &AnalysisTags::default())
+        .unwrap()
+        .stage(&rt, d.path())
+        .unwrap();
+    assert_eq!(staged.provenance["fields"][0]["status"], "unavailable");
+    config.required_tags = vec![SupportedTag::Mood];
+    let error = TagWritePlan::build(input, &result(), &config, &AnalysisTags::default())
+        .unwrap()
+        .stage(&rt, d.path())
+        .err()
+        .unwrap();
+    assert!(
+        error
+            .to_string()
+            .contains("Required selected field unavailable")
+    );
+}
+
+fn flac_applications(bytes: &[u8]) -> Vec<Vec<u8>> {
+    assert_eq!(&bytes[..4], b"fLaC");
+    let mut offset = 4;
+    let mut applications = vec![];
+    loop {
+        let header = bytes[offset];
+        let len = u32::from_be_bytes([0, bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]])
+            as usize;
+        if header & 127 == 2 {
+            applications.push(bytes[offset + 4..offset + 4 + len].to_vec());
+        }
+        offset += 4 + len;
+        if header & 128 != 0 {
+            break;
+        }
+    }
+    applications
+}
+#[test]
+fn opaque_flac_application_block_survives_selected_title_write() {
+    let (d, path, rt) = fixture("flac");
+    let bytes = std::fs::read(&path).unwrap();
+    let mut offset = 4;
+    loop {
+        let header = bytes[offset];
+        let len = u32::from_be_bytes([0, bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]])
+            as usize;
+        if header & 128 != 0 {
+            break;
+        }
+        offset += 4 + len;
+    }
+    let last_len =
+        u32::from_be_bytes([0, bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]]) as usize;
+    let end = offset + 4 + last_len;
+    let mut changed = bytes[..end].to_vec();
+    changed[offset] &= 127;
+    let payload = b"DJXX\x00\xffopaque native DJ record\x00";
+    changed.extend([130, 0, 0, payload.len() as u8]);
+    changed.extend(payload);
+    changed.extend(&bytes[end..]);
+    std::fs::write(&path, &changed).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Title];
+    let staged = TagWritePlan::build(
+        source(&rt, &path, d.path()),
+        &result(),
+        &config,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    assert_eq!(
+        flac_applications(&std::fs::read(staged.path).unwrap()),
+        flac_applications(&changed)
+    );
+}
+fn riff_unknown(bytes: &[u8]) -> Vec<Vec<u8>> {
+    let mut pos = 12;
+    let mut found = vec![];
+    while pos + 8 <= bytes.len() {
+        let n = u32::from_le_bytes(bytes[pos + 4..pos + 8].try_into().unwrap()) as usize;
+        if &bytes[pos..pos + 4] == b"DJXX" {
+            found.push(bytes[pos + 8..pos + 8 + n].to_vec());
+        }
+        pos += 8 + n + (n % 2);
+    }
+    found
+}
+#[test]
+fn unknown_riff_chunk_survives_selected_title_write() {
+    let (d, path, rt) = fixture("wav");
+    let mut bytes = std::fs::read(&path).unwrap();
+    let payload = b"opaque\x00DJ\xff\x00\x19";
+    bytes.extend(b"DJXX");
+    bytes.extend((payload.len() as u32).to_le_bytes());
+    bytes.extend(payload);
+    if !payload.len().is_multiple_of(2) {
+        bytes.push(0);
+    }
+    let size = (bytes.len() - 8) as u32;
+    bytes[4..8].copy_from_slice(&size.to_le_bytes());
+    std::fs::write(&path, &bytes).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::Title];
+    let staged = TagWritePlan::build(
+        source(&rt, &path, d.path()),
+        &result(),
+        &config,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    assert_eq!(
+        riff_unknown(&std::fs::read(staged.path).unwrap()),
+        riff_unknown(&bytes)
+    );
+}
+
+#[test]
+fn per_field_explicit_replacement_keeps_unrelated_comments_and_rating() {
+    use id3::{TagLike, Version};
+    let (d, path, rt) = fixture("mp3");
+    let mut native = id3::Tag::read_from_path(&path).unwrap_or_default();
+    native.set_title("Protected title");
+    native.add_frame(id3::frame::Comment {
+        lang: "eng".into(),
+        description: "DJ notes".into(),
+        text: "Preserve".into(),
+    });
+    native.write_to_path(&path, Version::Id3v24).unwrap();
+    {
+        let mut wrapper = Tag::load_file(&path, true).unwrap();
+        let tag = wrapper.tag_mut();
+        tag.set_explicit(true);
+        tag.set_rating(4, true);
+        tag.save_file(&path).unwrap();
+    }
+    let before = id3::Tag::read_from_path(&path).unwrap();
+    let mut output = result();
+    output.matches[0].track.explicit = Some(false);
+    output.matches[0].track.title = "Replace?".into();
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![
+        SupportedTag::Title,
+        SupportedTag::Genre,
+        SupportedTag::Explicit,
+    ];
+    config.options.overwrite = false;
+    config.options.overwrite_tags = vec![SupportedTag::Genre, SupportedTag::Explicit];
+    let staged = TagWritePlan::build(
+        source(&rt, &path, d.path()),
+        &output,
+        &config,
+        &AnalysisTags::default(),
+    )
+    .unwrap()
+    .stage(&rt, d.path())
+    .unwrap();
+    let after = id3::Tag::read_from_path(staged.path).unwrap();
+    assert_eq!(after.title(), Some("Protected title"));
+    assert_eq!(after.genre(), Some("house"));
+    assert_eq!(
+        after
+            .extended_texts()
+            .find(|t| t.description == "ITUNESADVISORY")
+            .unwrap()
+            .value,
+        "2"
+    );
+    for id in ["COMM", "POPM"] {
+        assert_eq!(
+            after.frames().filter(|f| f.id() == id).collect::<Vec<_>>(),
+            before.frames().filter(|f| f.id() == id).collect::<Vec<_>>()
+        );
+    }
+}

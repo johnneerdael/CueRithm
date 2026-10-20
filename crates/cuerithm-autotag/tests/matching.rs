@@ -1,7 +1,7 @@
 use anyhow::Result;
 use cuerithm_autotag::{
     AutotagConfig, CatalogMatch, CatalogTrack, MatchStatus, ProviderBackend, ProviderId, TagInput,
-    Tagger,
+    TagMatchOutcome, Tagger,
 };
 use cuerithm_media::MediaInfo;
 use std::{
@@ -257,4 +257,346 @@ fn invalid_file_tag_limits_are_rejected_before_any_write() {
     assert!(config.validate().is_err());
     config.options.id3_comm_lang = Some("eng".into());
     assert!(config.validate().is_ok());
+}
+
+#[test]
+fn cleaned_similarity_never_overrides_explicit_edition_or_recording_conflicts() {
+    let mut config = AutotagConfig::default();
+    config.options.strictness = 0.5;
+    for (wanted, wrong) in [
+        ("Club Mix", "Dub Mix"),
+        ("Extended Mix", "Radio Edit"),
+        ("Instrumental", "Vocal Mix"),
+    ] {
+        let mut source = input();
+        source
+            .media
+            .tags
+            .insert("title".into(), format!("Signal ({wanted})"));
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.version = Some(wrong.into());
+        assert!(
+            Tagger::match_candidates(&source, vec![candidate], &config)
+                .unwrap()
+                .is_empty(),
+            "{wanted} vs {wrong}"
+        );
+    }
+    let mut source = input();
+    source
+        .media
+        .tags
+        .insert("isrc".into(), "GBABC2500001".into());
+    let mut candidate = track(ProviderId::Beatport, "Signal");
+    candidate.isrc = Some("GBABC2500002".into());
+    assert!(
+        Tagger::match_candidates(&source, vec![candidate], &config)
+            .unwrap()
+            .is_empty()
+    );
+}
+#[test]
+fn equally_good_distinct_candidates_require_review_in_stable_order() {
+    struct Ties;
+    impl ProviderBackend for Ties {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            Ok(["2", "1"]
+                .into_iter()
+                .map(|id| {
+                    let mut t = track(ProviderId::Beatport, "Signal");
+                    t.track_id = Some(id.into());
+                    CatalogMatch::new(1., t)
+                })
+                .collect())
+        }
+    }
+    let tagger = Tagger::with_backends(vec![Arc::new(Ties)]).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["beatport".into()];
+    let outcome = tagger.match_track(&input(), &config).unwrap();
+    assert_ne!(outcome.status, MatchStatus::Matched);
+    assert_eq!(
+        outcome
+            .matches
+            .iter()
+            .map(|m| m.track.track_id.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["1", "2"]
+    );
+}
+
+#[test]
+fn provider_high_similarity_cannot_bypass_identity_checks() {
+    struct WrongVersion;
+    impl ProviderBackend for WrongVersion {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            let mut t = track(ProviderId::Beatport, "Signal");
+            t.version = Some("Dub Mix".into());
+            Ok(vec![CatalogMatch::new(1., t)])
+        }
+    }
+    let tagger = Tagger::with_backends(vec![Arc::new(WrongVersion)]).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["beatport".into()];
+    let mut source = input();
+    source
+        .media
+        .tags
+        .insert("title".into(), "Signal (Club Mix)".into());
+    assert_ne!(
+        tagger.match_track(&source, &config).unwrap().status,
+        MatchStatus::Matched
+    );
+}
+
+#[test]
+fn candidate_provenance_is_bounded_and_bound_to_source_and_config() {
+    let mut output = TagMatchOutcome {
+        status: MatchStatus::Ambiguous,
+        matches: (0..40)
+            .map(|n| {
+                let mut t = track(ProviderId::Beatport, &"Long title".repeat(2000));
+                t.track_id = Some(n.to_string());
+                CatalogMatch::new(1., t)
+            })
+            .collect(),
+        attempted: vec![],
+        warnings: vec![],
+    };
+    let config = AutotagConfig::default();
+    let source = input();
+    let evidence = output.provenance(&source, &config).unwrap();
+    assert_eq!(evidence.candidates.len(), 10);
+    assert!(evidence.truncated);
+    assert_eq!(evidence.source_sha256, source.source_sha256);
+    assert!(serde_json::to_vec(&evidence).unwrap().len() < 100_000);
+    let decoded: AutotagConfig =
+        serde_json::from_value(serde_json::to_value(&config).unwrap()).unwrap();
+    assert_eq!(
+        evidence.config_sha256,
+        output.provenance(&source, &decoded).unwrap().config_sha256
+    );
+    output.matches[0].track.duration = Duration::ZERO;
+    assert_eq!(
+        output.provenance(&source, &config).unwrap().candidates[0].duration_seconds,
+        None
+    );
+}
+
+#[test]
+fn nonfinite_candidate_evidence_is_rejected_instead_of_serialized_as_null() {
+    let output = TagMatchOutcome {
+        status: MatchStatus::Matched,
+        matches: vec![CatalogMatch::new(
+            f64::NAN,
+            track(ProviderId::Beatport, "Signal"),
+        )],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    assert!(
+        output
+            .provenance(&input(), &AutotagConfig::default())
+            .is_err()
+    );
+}
+
+#[test]
+fn provider_other_tags_cannot_bypass_explicit_or_native_record_protection() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::OtherTags];
+    for key in [
+        "GEOB",
+        "PRIV",
+        "POPM",
+        "COMM",
+        "COMMENT",
+        "ITUNESADVISORY",
+        "rtng",
+        "TITLE",
+        "ARTIST",
+        "BEATPORT_TRACK_ID",
+    ] {
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        let output = TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        assert!(
+            TagWritePlan::build(input(), &output, &config, &AnalysisTags::default()).is_err(),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn explicit_release_preference_can_choose_reissues_but_never_conflicting_recordings() {
+    struct Reissues {
+        conflict: bool,
+    }
+    impl ProviderBackend for Reissues {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            Ok([(2020, "older"), (2024, "newer")]
+                .into_iter()
+                .map(|(year, id)| {
+                    let mut t = track(ProviderId::Beatport, "Signal");
+                    t.track_id = Some(id.into());
+                    t.release_id = Some(format!("release-{id}"));
+                    t.isrc = Some(
+                        if self.conflict && year == 2020 {
+                            "GBABC2000002"
+                        } else {
+                            "GBABC2000001"
+                        }
+                        .into(),
+                    );
+                    t.version = Some("Club Mix".into());
+                    t.release_date = chrono::NaiveDate::from_ymd_opt(year, 1, 1);
+                    CatalogMatch::new(1., t)
+                })
+                .collect())
+        }
+    }
+    for (preference, id) in [
+        (onetagger_tagger::MultipleMatchesSort::Oldest, "older"),
+        (onetagger_tagger::MultipleMatchesSort::Newest, "newer"),
+    ] {
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["beatport".into()];
+        config.options.multiple_matches = preference;
+        let tagger = Tagger::with_backends(vec![Arc::new(Reissues { conflict: false })]).unwrap();
+        let output = tagger.match_track(&input(), &config).unwrap();
+        assert_eq!(output.status, MatchStatus::Matched);
+        assert_eq!(output.matches[0].track.track_id.as_deref(), Some(id));
+        let tagger = Tagger::with_backends(vec![Arc::new(Reissues { conflict: true })]).unwrap();
+        assert_eq!(
+            tagger.match_track(&input(), &config).unwrap().status,
+            MatchStatus::Ambiguous
+        );
+    }
+}
+
+#[test]
+fn custom_style_binding_cannot_overwrite_unselected_native_fields() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    for (codec, key) in [
+        ("flac", "TITLE"),
+        ("mp3", "TIT2"),
+        ("flac", "GENRE"),
+        ("alac", "©day"),
+        ("mp3", "TYER"),
+        ("flac", "CUERITHM_TAGGEDDATE"),
+    ] {
+        let mut config = AutotagConfig::default();
+        config.options.tags = vec![SupportedTag::Style];
+        config.options.styles_options = onetagger_tagger::StylesOptions::CustomTag;
+        config.options.styles_custom_tag = Some(FrameName::same(key));
+        let mut source = input();
+        source.media.codec = codec.into();
+        let output = TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., track(ProviderId::Beatport, "Signal"))],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        assert!(
+            TagWritePlan::build(source, &output, &config, &AnalysisTags::default()).is_err(),
+            "{codec} {key}"
+        );
+    }
+}
+#[test]
+fn multiple_providers_cannot_merge_conflicting_known_recordings() {
+    struct Recording {
+        provider: ProviderId,
+        version: &'static str,
+        isrc: &'static str,
+    }
+    impl ProviderBackend for Recording {
+        fn id(&self) -> ProviderId {
+            self.provider
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            let mut t = track(self.provider, "Signal");
+            t.version = Some(self.version.into());
+            t.isrc = Some(self.isrc.into());
+            Ok(vec![CatalogMatch::new(1., t)])
+        }
+    }
+    let tagger = Tagger::with_backends(vec![
+        Arc::new(Recording {
+            provider: ProviderId::Beatport,
+            version: "Club Mix",
+            isrc: "GBABC2000001",
+        }),
+        Arc::new(Recording {
+            provider: ProviderId::Traxsource,
+            version: "Radio Edit",
+            isrc: "GBABC2000002",
+        }),
+    ])
+    .unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.multiplatform = true;
+    let output = tagger.match_track(&input(), &config).unwrap();
+    assert_eq!(output.status, MatchStatus::Ambiguous);
+    assert_eq!(output.matches.len(), 2);
+}
+#[test]
+fn featured_artist_annotation_is_not_invented_edition_evidence() {
+    let mut source = input();
+    source
+        .media
+        .tags
+        .insert("title".into(), "Signal (feat. Guest Artist)".into());
+    let mut config = AutotagConfig::default();
+    config.options.strictness = 0.5;
+    let mut candidate = track(ProviderId::Beatport, "Signal (feat. Guest Artist)");
+    candidate.version = Some("Original Mix".into());
+    assert_eq!(
+        Tagger::match_candidates(&source, vec![candidate], &config)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn actual_ambiguous_pipeline_retains_bounded_overflow_evidence() {
+    struct Many;
+    impl ProviderBackend for Many {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            Ok((0..40)
+                .map(|id| {
+                    let mut t = track(ProviderId::Beatport, "Signal");
+                    t.track_id = Some(format!("{id:02}"));
+                    CatalogMatch::new(1., t)
+                })
+                .collect())
+        }
+    }
+    let tagger = Tagger::with_backends(vec![Arc::new(Many)]).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["beatport".into()];
+    let outcome = tagger.match_track(&input(), &config).unwrap();
+    let evidence = outcome.provenance(&input(), &config).unwrap();
+    assert_eq!(outcome.matches.len(), 11);
+    assert_eq!(evidence.candidates.len(), 10);
+    assert!(evidence.truncated);
 }

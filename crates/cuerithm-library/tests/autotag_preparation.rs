@@ -200,6 +200,10 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
     });
     assert_eq!(lib.counts().unwrap().tracks, 0);
     assert_eq!(file_sha256(&source).unwrap(), original);
+    let evidence = lib.preparation_match_snapshot(&ids[0]).unwrap().unwrap();
+    assert_eq!(evidence.source_sha256, original);
+    assert_eq!(evidence.outcome["status"], "unavailable");
+    assert_eq!(evidence.outcome["warnings"][0]["provider"], "beatport");
     catalog.fail.store(false, Ordering::SeqCst);
     service.retry(ids[0].clone(), None).unwrap();
     until(&lib, || ready(&lib));
@@ -209,6 +213,67 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
         events.try_iter().filter(|e| e.stage == "analysis").count(),
         1,
         "unchanged provider retry must reuse completed analysis"
+    );
+}
+
+#[test]
+fn ambiguous_recordings_keep_the_source_untouched_and_retain_review_evidence() {
+    struct AmbiguousCatalog;
+    impl ProviderBackend for AmbiguousCatalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            Ok(["Club Mix", "Dub Mix"]
+                .into_iter()
+                .enumerate()
+                .map(|(index, version)| {
+                    CatalogMatch::new(
+                        1.,
+                        CatalogTrack {
+                            platform: "beatport".into(),
+                            track_id: Some(index.to_string()),
+                            title: "Synthetic recording".into(),
+                            version: Some(version.into()),
+                            artists: vec!["Synthetic artist".into()],
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect())
+        }
+    }
+    let (_dir, library, source, runtime, settings) = setup();
+    library.save_settings(settings).unwrap();
+    let original = file_sha256(&source).unwrap();
+    let tagger = Arc::new(Tagger::with_backends(vec![Arc::new(AmbiguousCatalog)]).unwrap());
+    let service =
+        PreparationService::start_with_tagger(library.clone(), runtime, 1, tagger).unwrap();
+    let ids = service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap();
+    until(&library, || {
+        library
+            .jobs()
+            .unwrap()
+            .iter()
+            .any(|job| job.state == "attention")
+    });
+    service.shutdown();
+    assert_eq!(library.counts().unwrap().tracks, 0);
+    assert_eq!(file_sha256(&source).unwrap(), original);
+    let evidence = library
+        .preparation_match_snapshot(&ids[0])
+        .unwrap()
+        .unwrap();
+    assert_eq!(evidence.outcome["status"], "ambiguous");
+    assert_eq!(evidence.outcome["candidates"].as_array().unwrap().len(), 2);
+    assert!(
+        library.jobs().unwrap()[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("review")
     );
 }
 

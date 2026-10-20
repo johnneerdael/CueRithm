@@ -40,7 +40,7 @@ Byparr or Trawl, source status, privacy and troubleshooting.
 | **Tagging concurrency** | 16 | Beatport lookups in parallel (1 to 64). Traxsource always runs one at a time. |
 | **Ordering** | Best match | Or oldest or newest release. |
 | Beatport: **Max pages** | 1 | 1 to 10 pages of 50 results. |
-| Beatport: **Ignore version when matching** | off | Ignores "(Extended Mix)" and similar during matching. |
+| Beatport: **Ignore version when matching** | off | Ignores mix text while scoring titles. Known edition, recording ID and duration conflicts still require review. |
 
 ## Fields to write
 
