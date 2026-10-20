@@ -38,7 +38,7 @@ enum Control {
     Changed(Vec<PathBuf>),
 }
 type Subscribers = Arc<Mutex<Vec<SyncSender<PreparationEvent>>>>;
-fn worker_count(available_cores: usize) -> usize {
+pub(crate) fn worker_count(available_cores: usize) -> usize {
     available_cores
         .saturating_sub(available_cores.div_ceil(4))
         .max(1)

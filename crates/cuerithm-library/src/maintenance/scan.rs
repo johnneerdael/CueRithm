@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 struct Input {
@@ -29,6 +30,145 @@ struct Input {
     metadata: Option<String>,
     cues: Option<String>,
     ignored: bool,
+}
+struct Processed {
+    row: DuplicateScanTrack,
+    observed: MaintenanceFileState,
+}
+/// Hash and fingerprint one library file. Only cancellation is an error; every other failure becomes the row's state.
+fn process_input(
+    input: &Input,
+    cached: Option<&(String, String)>,
+    runtime: &MediaRuntime,
+    cache_dir: &Path,
+    cancel: &CancellationToken,
+) -> Result<Processed> {
+    cancel.check()?;
+    let observed_state = file_state(&input.path);
+    let mut row = DuplicateScanTrack {
+        id: input.id.clone(),
+        display_path: input.path.to_string_lossy().into_owned(),
+        title: input.title.clone(),
+        artist: input.artist.clone(),
+        archived: input.archived,
+        state: observed_state,
+        detail: None,
+        observed_sha256: None,
+        source_changed: false,
+        fingerprint: None,
+        cached: false,
+    };
+    if observed_state == MaintenanceFileState::Present {
+        match file_sha256_cancellable(&input.path, cancel) {
+            Ok(hash) => {
+                row.source_changed = hash != input.hash;
+                row.observed_sha256 = Some(hash.clone());
+                if input.duration <= 15. || input.duration >= 1500. {
+                    row.state = MaintenanceFileState::DurationSkipped;
+                } else {
+                    if let Some((stored_hash, text)) = cached
+                        && *stored_hash == hash
+                        && let Ok(fp) = serde_json::from_str::<AudioFingerprint>(text)
+                        && cache_valid(&fp, &hash, runtime)
+                    {
+                        row.fingerprint = Some(fp);
+                        row.cached = true;
+                    }
+                    if row.fingerprint.is_none() {
+                        match runtime.fingerprint(&input.path, cache_dir, cancel) {
+                            Ok(FingerprintOutcome::Audio(fp)) if fp.source_sha256 == hash => {
+                                row.fingerprint = Some(fp);
+                            }
+                            Ok(FingerprintOutcome::Audio(_)) => {
+                                row.state = MaintenanceFileState::Changed;
+                            }
+                            Ok(FingerprintOutcome::Video) => {
+                                row.state = MaintenanceFileState::Video;
+                            }
+                            Ok(FingerprintOutcome::NoAudio) => {
+                                row.state = MaintenanceFileState::NoAudio;
+                            }
+                            Ok(FingerprintOutcome::Symlink) => {
+                                row.state = MaintenanceFileState::Changed;
+                            }
+                            Err(error) => {
+                                cancel.check()?;
+                                row.state = super::files::decode_error_state(&error, &hash);
+                                row.detail = Some(error.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                cancel.check()?;
+                row.state = MaintenanceFileState::Unavailable;
+                row.detail = Some(error.to_string());
+            }
+        }
+    }
+    Ok(Processed {
+        row,
+        observed: observed_state,
+    })
+}
+/// Run `process_input` over every input on the same 75%-of-cores worker pool policy the preparation service uses.
+/// Results come back in input order whatever order the files finish in, so reports are identical to a serial scan.
+/// `progress` runs on the calling thread as each file finishes.
+fn process_inputs(
+    inputs: &[Input],
+    cached: &BTreeMap<String, (String, String)>,
+    runtime: &MediaRuntime,
+    cache_dir: &Path,
+    cancel: &CancellationToken,
+    mut progress: impl FnMut(usize, &DuplicateScanTrack),
+) -> Result<Vec<Processed>> {
+    let workers =
+        crate::prepare::worker_count(std::thread::available_parallelism().map_or(1, |n| n.get()))
+            .min(inputs.len().max(1));
+    let next = AtomicUsize::new(0);
+    let failed = AtomicBool::new(false);
+    let (tx, rx) = std::sync::mpsc::channel::<(usize, Result<Processed>)>();
+    let mut slots: Vec<Option<Result<Processed>>> = (0..inputs.len()).map(|_| None).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            let tx = tx.clone();
+            let (next, failed) = (&next, &failed);
+            scope.spawn(move || {
+                loop {
+                    if failed.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    let index = next.fetch_add(1, Ordering::SeqCst);
+                    let Some(input) = inputs.get(index) else {
+                        break;
+                    };
+                    let result =
+                        process_input(input, cached.get(&input.id), runtime, cache_dir, cancel);
+                    if result.is_err() {
+                        failed.store(true, Ordering::SeqCst);
+                    }
+                    if tx.send((index, result)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+        drop(tx);
+        let mut completed = 0;
+        for (index, result) in rx {
+            completed += 1;
+            if let Ok(done) = &result {
+                progress(completed, &done.row);
+            }
+            slots[index] = Some(result);
+        }
+    });
+    cancel.check()?;
+    slots
+        .into_iter()
+        .map(|slot| slot.context("A duplicate scan worker stopped early")?)
+        .collect()
 }
 #[derive(Serialize, Deserialize)]
 pub(super) struct SavedScan {
@@ -138,7 +278,7 @@ impl Library {
             .collect::<Result<Vec<_>>>()?;
         let engine = engine_identity(runtime);
         let (scope, selected) = scope::capture(self, &request.playlist_ids, cancel)?;
-        let (inputs, captured, mut cached) = {
+        let (inputs, captured, cached) = {
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             let captured = stamp(&tx)?;
@@ -232,79 +372,32 @@ impl Library {
             track_id: None,
             cached: false,
         });
-        for input in inputs {
-            cancel.check()?;
-            let observed_state = file_state(&input.path);
-            let mut row = DuplicateScanTrack {
-                id: input.id.clone(),
-                display_path: input.path.to_string_lossy().into_owned(),
-                title: input.title.clone(),
-                artist: input.artist.clone(),
-                archived: input.archived,
-                state: observed_state,
-                detail: None,
-                observed_sha256: None,
-                source_changed: false,
-                fingerprint: None,
-                cached: false,
-            };
-            if observed_state == MaintenanceFileState::Present {
-                match file_sha256_cancellable(&input.path, cancel) {
-                    Ok(hash) => {
-                        row.source_changed = hash != input.hash;
-                        row.observed_sha256 = Some(hash.clone());
-                        if input.duration <= 15. || input.duration >= 1500. {
-                            row.state = MaintenanceFileState::DurationSkipped;
-                        } else {
-                            if let Some((stored_hash, text)) = cached.remove(&input.id)
-                                && stored_hash == hash
-                                && let Ok(fp) = serde_json::from_str::<AudioFingerprint>(&text)
-                                && cache_valid(&fp, &hash, runtime)
-                            {
-                                row.fingerprint = Some(fp);
-                                row.cached = true;
-                                report.cache_hits += 1;
-                            }
-                            if row.fingerprint.is_none() {
-                                match runtime.fingerprint(
-                                    &input.path,
-                                    &self.data_dir().join("cache/fingerprints"),
-                                    cancel,
-                                ) {
-                                    Ok(FingerprintOutcome::Audio(fp))
-                                        if fp.source_sha256 == hash =>
-                                    {
-                                        row.fingerprint = Some(fp);
-                                        report.fingerprints_computed += 1;
-                                    }
-                                    Ok(FingerprintOutcome::Audio(_)) => {
-                                        row.state = MaintenanceFileState::Changed;
-                                    }
-                                    Ok(FingerprintOutcome::Video) => {
-                                        row.state = MaintenanceFileState::Video;
-                                    }
-                                    Ok(FingerprintOutcome::NoAudio) => {
-                                        row.state = MaintenanceFileState::NoAudio;
-                                    }
-                                    Ok(FingerprintOutcome::Symlink) => {
-                                        row.state = MaintenanceFileState::Changed;
-                                    }
-                                    Err(error) => {
-                                        cancel.check()?;
-                                        row.state = super::files::decode_error_state(&error, &hash);
-                                        row.detail = Some(error.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        cancel.check()?;
-                        row.state = MaintenanceFileState::Unavailable;
-                        row.detail = Some(error.to_string());
-                    }
-                }
-            }
+        let cache_dir = self.data_dir().join("cache/fingerprints");
+        let processed = process_inputs(
+            &inputs,
+            &cached,
+            runtime,
+            &cache_dir,
+            cancel,
+            |completed, row: &DuplicateScanTrack| {
+                progress(DuplicateScanProgress {
+                    completed,
+                    total,
+                    track_id: Some(row.id.clone()),
+                    cached: row.cached,
+                });
+            },
+        )?;
+        report.cache_hits = processed.iter().filter(|p| p.row.cached).count();
+        report.fingerprints_computed = processed
+            .iter()
+            .filter(|p| p.row.fingerprint.is_some() && !p.row.cached)
+            .count();
+        for (input, done) in inputs.into_iter().zip(processed) {
+            let Processed {
+                row,
+                observed: observed_state,
+            } = done;
             files.push(FileProof {
                 path: path_bytes(&input.path),
                 state: observed_state,
@@ -357,12 +450,6 @@ impl Library {
                 extra1: metadata["tags"]["extra1"].as_str().unwrap_or("").into(),
             });
             candidates.push(candidate);
-            progress(DuplicateScanProgress {
-                completed: report.tracks.len() + 1,
-                total,
-                track_id: Some(row.id.clone()),
-                cached: row.cached,
-            });
             report.tracks.push(row);
         }
         cancel.check()?;

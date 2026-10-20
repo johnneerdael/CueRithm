@@ -1894,3 +1894,69 @@ fn duplicate_classifications_from_previous_logic_cannot_be_reviewed_or_applied()
     assert!(f.lib.apply_duplicate_merge(&preview.id, &token).is_err());
     assert_eq!(f.content(), before);
 }
+
+#[test]
+fn parallel_fingerprinting_keeps_library_order_progress_and_cache_counts() {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("app/library.sqlite")).unwrap();
+    let root = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin")
+        });
+    let runtime = MediaRuntime::from_bundle(&root).unwrap();
+    let paths: Vec<_> = (0..24)
+        .map(|i| {
+            let path = dir.path().join(format!("track-{i:02}.wav"));
+            wav(&path, 100 + i);
+            path
+        })
+        .collect();
+    lib.enqueue(&paths, lib.settings().unwrap().revision)
+        .unwrap();
+    let conn = rusqlite::Connection::open(dir.path().join("app/library.sqlite")).unwrap();
+    conn.execute(
+        "UPDATE tracks SET title='T'||rowid, artist='A', duration=20, state='ready'",
+        [],
+    )
+    .unwrap();
+    let expected: Vec<String> = conn
+        .prepare("SELECT id FROM tracks ORDER BY rowid")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let mut seen = vec![];
+    let cold = lib
+        .scan_duplicates_with_progress(
+            DuplicateScanRequest::default(),
+            &runtime,
+            &CancellationToken::default(),
+            |p| seen.push((p.completed, p.total)),
+        )
+        .unwrap();
+    assert_eq!(
+        cold.tracks.iter().map(|t| t.id.clone()).collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!((cold.fingerprints_computed, cold.cache_hits), (24, 0));
+    // One call before any file, then one per file with a count that only goes up.
+    assert_eq!(seen.first(), Some(&(0, 24)));
+    assert_eq!(
+        seen.iter().map(|p| p.0).collect::<Vec<_>>(),
+        (0..=24).collect::<Vec<_>>()
+    );
+    let warm = lib
+        .scan_duplicates(
+            DuplicateScanRequest::default(),
+            &runtime,
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!((warm.fingerprints_computed, warm.cache_hits), (0, 24));
+    assert_eq!(
+        warm.tracks.iter().map(|t| t.id.clone()).collect::<Vec<_>>(),
+        expected
+    );
+}
