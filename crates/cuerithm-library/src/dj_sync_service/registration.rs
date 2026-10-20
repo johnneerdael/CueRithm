@@ -177,40 +177,10 @@ fn volume_identity(path: &Path) -> Result<VolumeIdentity> {
         return Err(std::io::Error::last_os_error()).context("Identify DJ filesystem type");
     }
     let statfs = unsafe { statfs.assume_init() };
-    let persistent_inodes = !matches!(statfs.f_type as u64, 0x4d44 | 0x2011_bab0);
-    // ext4_statfs derives f_fsid from the on-disk superblock UUID. Do not use
-    // this fallback for FAT/exFAT: those drivers encode the transient bd_dev.
+    // ext4's native ID comes from its UUID. Other filesystems can expose an
+    // anonymous st_dev, so resolve their backing source through mountinfo.
     if statfs.f_type as u64 != 0xef53 {
-        // udev's links expose the filesystem UUID/serial, not the reconnect-dependent
-        // block-device number. Use st_dev only to find the matching block device.
-        if let Ok(entries) = fs::read_dir("/dev/disk/by-uuid") {
-            let mut identities = BTreeSet::new();
-            for entry in entries {
-                let entry = entry?;
-                let device = match fs::metadata(entry.path()) {
-                    Ok(device) => device,
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-                    Err(error) => return Err(error.into()),
-                };
-                use std::os::unix::fs::FileTypeExt;
-                if device.file_type().is_block_device() && device.rdev() == metadata.dev() {
-                    identities.insert(
-                        entry
-                            .file_name()
-                            .into_string()
-                            .map_err(|_| anyhow::anyhow!("Invalid filesystem UUID"))?,
-                    );
-                }
-            }
-            ensure!(identities.len() <= 1, "Ambiguous persistent DJ volume UUID");
-            if let Some(uuid) = identities.into_iter().next() {
-                return Ok(VolumeIdentity {
-                    id: digest(&("filesystem-uuid", uuid))?,
-                    persistent_inodes,
-                });
-            }
-        }
-        anyhow::bail!("Filesystem has no accessible persistent DJ volume UUID");
+        return linux_mounts::capture(path, metadata.dev());
     }
     let mut filesystem = std::mem::MaybeUninit::<libc::statvfs>::uninit();
     if unsafe { libc::statvfs(name.as_ptr(), filesystem.as_mut_ptr()) } != 0 {
@@ -225,6 +195,316 @@ fn volume_identity(path: &Path) -> Result<VolumeIdentity> {
         id: digest(&("ext-filesystem-uuid", filesystem.f_fsid))?,
         persistent_inodes: true,
     })
+}
+
+#[cfg(all(unix, any(target_os = "linux", test)))]
+mod linux_mounts {
+    use super::*;
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Mount {
+        device: (u32, u32),
+        root: PathBuf,
+        point: PathBuf,
+        filesystem: Vec<u8>,
+        source: PathBuf,
+    }
+
+    fn unescape(value: &[u8]) -> Result<PathBuf> {
+        let mut output = Vec::new();
+        let mut index = 0;
+        while index < value.len() {
+            if value[index] == b'\\' {
+                let escape = value
+                    .get(index + 1..index + 4)
+                    .context("Truncated mountinfo escape")?;
+                output.push(match escape {
+                    b"040" => b' ',
+                    b"011" => b'\t',
+                    b"012" => b'\n',
+                    b"134" => b'\\',
+                    _ => anyhow::bail!("Invalid mountinfo escape"),
+                });
+                index += 4;
+            } else {
+                output.push(value[index]);
+                index += 1;
+            }
+        }
+        Ok(OsString::from_vec(output).into())
+    }
+
+    fn select(path: &Path, device: (u32, u32), information: &[u8]) -> Result<Mount> {
+        let mut selected: Option<Mount> = None;
+        for line in information
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+        {
+            let fields: Vec<_> = line.split(|byte| *byte == b' ').collect();
+            let separator = fields
+                .iter()
+                .position(|field| *field == b"-")
+                .context("Invalid mountinfo separator")?;
+            ensure!(
+                separator >= 6 && fields.len() >= separator + 4,
+                "Invalid mountinfo fields"
+            );
+            let pair = std::str::from_utf8(fields[2])?
+                .split_once(':')
+                .context("Invalid mountinfo device")?;
+            let mount_device = (pair.0.parse::<u32>()?, pair.1.parse::<u32>()?);
+            let point = unescape(fields[4])?;
+            if mount_device != device || !path.starts_with(&point) {
+                continue;
+            }
+            let mount = Mount {
+                device: mount_device,
+                root: unescape(fields[3])?,
+                point,
+                filesystem: fields[separator + 1].to_vec(),
+                source: unescape(fields[separator + 2])?,
+            };
+            let depth = mount.point.components().count();
+            match &selected {
+                Some(prior) if prior.point.components().count() > depth => {}
+                Some(prior) if prior.point.components().count() == depth => {
+                    ensure!(*prior == mount, "Ambiguous DJ backing mount");
+                }
+                _ => selected = Some(mount),
+            }
+        }
+        selected.context("Cannot resolve the DJ target's backing mount")
+    }
+
+    fn resolve(
+        path: &Path,
+        device: (u32, u32),
+        information: &[u8],
+        block_device: &impl Fn(&Path) -> Result<u64>,
+        device_uuids: &impl Fn(u64) -> Result<BTreeSet<String>>,
+    ) -> Result<VolumeIdentity> {
+        let mount = select(path, device, information)?;
+        ensure!(
+            mount.source.is_absolute(),
+            "DJ backing mount has no block-device source"
+        );
+        let uuids = device_uuids(block_device(&mount.source)?)?;
+        ensure!(uuids.len() <= 1, "Ambiguous persistent DJ volume UUID");
+        let uuid = uuids
+            .into_iter()
+            .next()
+            .context("Filesystem has no accessible persistent DJ volume UUID")?;
+        let id = if mount.filesystem == b"btrfs" {
+            digest(&("filesystem-uuid", uuid, &mount.root))?
+        } else {
+            digest(&("filesystem-uuid", uuid))?
+        };
+        Ok(VolumeIdentity {
+            id,
+            // FAT/exFAT and block-backed FUSE can synthesize inode numbers.
+            persistent_inodes: !matches!(
+                mount.filesystem.as_slice(),
+                b"vfat" | b"msdos" | b"exfat"
+            ) && !mount.filesystem.starts_with(b"fuse"),
+        })
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(super) fn capture(path: &Path, mounted_device: u64) -> Result<VolumeIdentity> {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+        let canonical = fs::canonicalize(path)?;
+        let information = fs::read("/proc/self/mountinfo").context("Read DJ backing mounts")?;
+        resolve(
+            &canonical,
+            (libc::major(mounted_device), libc::minor(mounted_device)),
+            &information,
+            &|source| {
+                let metadata = fs::metadata(source).context("Inspect DJ backing device")?;
+                ensure!(
+                    metadata.file_type().is_block_device(),
+                    "DJ backing source is not a block device"
+                );
+                Ok(metadata.rdev())
+            },
+            &device_uuids,
+        )
+    }
+
+    #[cfg(target_os = "linux")]
+    fn device_uuids(device: u64) -> Result<BTreeSet<String>> {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+        let mut identities = BTreeSet::new();
+        // Every Btrfs member has the shared filesystem UUID in its udev record;
+        // the single by-uuid symlink can point at a different member.
+        let record = PathBuf::from(format!(
+            "/run/udev/data/b{}:{}",
+            libc::major(device),
+            libc::minor(device)
+        ));
+        match fs::read(&record) {
+            Ok(record) => {
+                identities.extend(udev_uuids(&record)?);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error).context("Read DJ backing device UUID"),
+        }
+        match fs::read_dir("/dev/disk/by-uuid") {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = entry?;
+                    let metadata = match fs::metadata(entry.path()) {
+                        Ok(metadata) => metadata,
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                        Err(error) => return Err(error.into()),
+                    };
+                    if metadata.file_type().is_block_device() && metadata.rdev() == device {
+                        identities.insert(normalize_uuid(
+                            &entry
+                                .file_name()
+                                .into_string()
+                                .map_err(|_| anyhow::anyhow!("Invalid filesystem UUID"))?,
+                        )?);
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error).context("Read persistent DJ volume UUID links"),
+        }
+        Ok(identities)
+    }
+
+    fn udev_uuids(record: &[u8]) -> Result<BTreeSet<String>> {
+        record
+            .split(|byte| *byte == b'\n')
+            .filter_map(|line| {
+                line.strip_prefix(b"E:ID_FS_UUID=")
+                    .or_else(|| line.strip_prefix(b"E:ID_FS_UUID_ENC="))
+            })
+            .map(|uuid| normalize_uuid(std::str::from_utf8(uuid)?))
+            .collect()
+    }
+
+    fn normalize_uuid(uuid: &str) -> Result<String> {
+        ensure!(
+            !uuid.is_empty()
+                && uuid
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'),
+            "Invalid persistent DJ volume UUID"
+        );
+        Ok(uuid.to_ascii_lowercase())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn virtual_btrfs_and_fuse_devices_resolve_the_backing_mount_source() {
+            for filesystem in ["btrfs", "fuseblk"] {
+                let information =
+                    format!("32 20 0:47 / /media/usb rw - {filesystem} /dev/sdb1 rw\n");
+                let volume = resolve(
+                    Path::new("/media/usb/catalog.db"),
+                    (0, 47),
+                    information.as_bytes(),
+                    &|source| {
+                        assert_eq!(source, Path::new("/dev/sdb1"));
+                        Ok(0x0811)
+                    },
+                    &|backing| {
+                        assert_eq!(backing, 0x0811);
+                        Ok(BTreeSet::from(["filesystem-A".into()]))
+                    },
+                )
+                .unwrap();
+                assert_eq!(volume.persistent_inodes, filesystem == "btrfs");
+            }
+        }
+
+        #[test]
+        fn nested_mounts_and_escaped_mountpoint_source_and_root_are_decoded() {
+            let information = br"20 1 0:47 / /media rw - btrfs /dev/root rw
+21 20 0:47 /Music\040Library /media/DJ\040USB rw shared:3 - btrfs /dev/disk/DJ\040Drive\134one rw
+22 20 0:99 / /media/DJ\040USB/foreign rw - fuseblk /dev/foreign rw
+";
+            let mount =
+                select(Path::new("/media/DJ USB/catalog.db"), (0, 47), information).unwrap();
+            assert_eq!(mount.point, Path::new("/media/DJ USB"));
+            assert_eq!(mount.root, Path::new("/Music Library"));
+            assert_eq!(mount.source, Path::new("/dev/disk/DJ Drive\\one"));
+            let escaped = unescape(br"/tab\011line\012slash\134").unwrap();
+            assert_eq!(escaped, Path::new("/tab\tline\nslash\\"));
+            assert!(unescape(br"/invalid\777").is_err());
+        }
+
+        #[test]
+        fn btrfs_member_changes_keep_identity_and_subvolumes_remain_distinct() {
+            let resolve_member = |source: &str, root: &str, backing| {
+                let information = format!("32 20 0:47 {root} /media/usb rw - btrfs {source} rw\n");
+                resolve(
+                    Path::new("/media/usb/m.db"),
+                    (0, 47),
+                    information.as_bytes(),
+                    &|_| Ok(backing),
+                    &|_| Ok(BTreeSet::from(["shared-multidevice-uuid".into()])),
+                )
+                .unwrap()
+                .id
+            };
+            let first = resolve_member("/dev/sdb1", "/@music", 0x0811);
+            assert_eq!(first, resolve_member("/dev/sdc1", "/@music", 0x0821));
+            assert_ne!(first, resolve_member("/dev/sdb1", "/@another", 0x0811));
+        }
+
+        #[test]
+        fn backing_member_udev_uuid_is_normalized_and_conflicts_are_retained() {
+            let record =
+                b"E:ID_FS_UUID=ABCD-0123\nE:ID_FS_UUID_ENC=ABCD-0123\nE:ID_SERIAL=unrelated\n";
+            assert_eq!(
+                udev_uuids(record).unwrap(),
+                BTreeSet::from(["abcd-0123".into()])
+            );
+            assert_eq!(
+                udev_uuids(b"E:ID_FS_UUID=aaaa\nE:ID_FS_UUID_ENC=bbbb\n")
+                    .unwrap()
+                    .len(),
+                2
+            );
+            assert!(udev_uuids(b"E:ID_FS_UUID=invalid uuid\n").is_err());
+        }
+
+        #[test]
+        fn missing_ambiguous_or_unrelated_backing_identity_fails_closed() {
+            let information = b"32 20 0:47 / /media/usb rw - fuseblk /dev/sdb1 rw\n";
+            let resolve_uuids = |ids: BTreeSet<String>| {
+                resolve(
+                    Path::new("/media/usb/m.db"),
+                    (0, 47),
+                    information,
+                    &|_| Ok(0x0811),
+                    &|_| Ok(ids.clone()),
+                )
+            };
+            assert!(resolve_uuids(BTreeSet::<String>::new()).is_err());
+            assert!(resolve_uuids(BTreeSet::from(["uuid-A".into(), "uuid-B".into()])).is_err());
+            assert!(select(Path::new("/media/usb/m.db"), (0, 99), information).is_err());
+            let ambiguous = b"32 20 0:47 / /media/usb rw - fuseblk /dev/sdb1 rw\n33 20 0:47 / /media/usb rw - fuseblk /dev/sdc1 rw\n";
+            assert!(select(Path::new("/media/usb/m.db"), (0, 47), ambiguous).is_err());
+            let non_block = b"32 20 0:47 / /media/usb rw - fuse.sshfs server:path rw\n";
+            assert!(
+                resolve(
+                    Path::new("/media/usb/m.db"),
+                    (0, 47),
+                    non_block,
+                    &|_| Ok(1),
+                    &|_| Ok(BTreeSet::from(["uuid".into()]))
+                )
+                .is_err()
+            );
+        }
+    }
 }
 
 #[cfg(windows)]

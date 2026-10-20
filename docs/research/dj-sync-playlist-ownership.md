@@ -50,12 +50,15 @@ Symlink registrations are rejected. Unsettled apply/restore acknowledgement
 blocks a new preview for that target.
 
 Registration uses macOS volume UUIDs, Linux ext UUID-derived filesystem IDs or
-matched `/dev/disk/by-uuid` entries, and Windows volume serials. Mount-session
+mount-aware udev/`/dev/disk/by-uuid` identity, and Windows volume serials. Linux
+virtual mounts resolve their backing source through mount information; Btrfs
+subvolume roots are included in identity. Mount-session
 device numbers are not persisted. FAT/exFAT allocated inode numbers are excluded;
 catalog creation times supply object proof there. Pioneer includes both visible
 and hidden catalog objects, without binding its host mount-folder identity.
 Engine's native database UUID is checked by the existing staged adapter snapshot.
-Missing persistent volume identity or required creation-time proof stops sync.
+Missing persistent volume identity or required creation-time proof stops sync,
+including block-backed FUSE drivers that expose no stable creation metadata.
 Identical FAT catalog replacements that also preserve creation metadata cannot be
 distinguished through these filesystem APIs.
 
@@ -65,6 +68,10 @@ The Linux distinction follows the kernel's
 [exFAT](https://github.com/torvalds/linux/blob/master/fs/exfat/inode.c) implementations;
 [udev's persistent-storage rules](https://github.com/systemd/systemd/blob/main/rules.d/60-persistent-storage.rules.in)
 provide UUID links for matching block devices.
+Virtual-device resolution follows the documented
+[mountinfo fields and escapes](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html).
+For multi-device Btrfs, each backing member's udev filesystem UUID identifies the
+shared filesystem; its member-specific UUID is not the library identity.
 
 ## Adapter planning and reporting
 
