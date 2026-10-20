@@ -23,4 +23,4 @@ CREATE TABLE organization_alternates (
  ignored_hash TEXT
 );
 CREATE INDEX organization_alternate_path ON organization_alternates(path);
-PRAGMA user_version=13;
+PRAGMA user_version=14;

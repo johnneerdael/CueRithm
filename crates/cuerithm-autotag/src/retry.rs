@@ -41,40 +41,55 @@ impl fmt::Display for BackendFailure {
 }
 impl std::error::Error for BackendFailure {}
 pub(crate) fn classify(error: &anyhow::Error) -> ProviderFailureKind {
-    if error
-        .downcast_ref::<onetagger_selected_providers::http::SolverFailure>()
-        .is_some()
-    {
-        // CatalogHttp already performs its bounded solve retry. Retrying here
-        // would multiply requests and turn missing setup into repeated traffic.
-        return ProviderFailureKind::Unavailable;
+    classify_cause(error.as_ref(), 0).unwrap_or(ProviderFailureKind::Unknown)
+}
+fn classify_cause(
+    error: &(dyn std::error::Error + 'static),
+    depth: usize,
+) -> Option<ProviderFailureKind> {
+    if depth > 32 {
+        return None;
     }
-    if let Some(e) = error.downcast_ref::<BackendFailure>() {
-        return e.kind;
+    if error.is::<onetagger_selected_providers::http::SolverFailure>() {
+        // The transport already exhausted its bounded solver attempts.
+        return Some(ProviderFailureKind::Unavailable);
     }
-    if let Some(e) = error.downcast_ref::<reqwest::Error>() {
-        if e.is_timeout() {
-            return ProviderFailureKind::Timeout;
-        }
-        if let Some(status) = e.status() {
-            return match status.as_u16() {
+    if let Some(error) = error.downcast_ref::<BackendFailure>() {
+        return Some(error.kind);
+    }
+    if let Some(error) = error.downcast_ref::<reqwest::Error>() {
+        let kind = if error.is_timeout() {
+            ProviderFailureKind::Timeout
+        } else if let Some(status) = error.status() {
+            match status.as_u16() {
                 401 | 403 => ProviderFailureKind::Authentication,
                 429 => ProviderFailureKind::RateLimited,
                 500..=599 => ProviderFailureKind::Transport,
                 _ => ProviderFailureKind::InvalidResponse,
-            };
-        }
-        if e.is_decode() {
-            return ProviderFailureKind::Parse;
-        }
-        if e.is_connect() || e.is_request() || e.is_body() {
-            return ProviderFailureKind::Transport;
-        }
+            }
+        } else if error.is_decode() {
+            ProviderFailureKind::Parse
+        } else if error.is_connect() || error.is_request() || error.is_body() {
+            ProviderFailureKind::Transport
+        } else {
+            ProviderFailureKind::Unknown
+        };
+        return Some(kind);
     }
-    if error.downcast_ref::<serde_json::Error>().is_some() {
-        return ProviderFailureKind::Parse;
+    // blocking Response implements Read by wrapping reqwest failures in io::Error.
+    // Inspect the actual inner error; do not guess retryability from its text.
+    if let Some(error) = error.downcast_ref::<std::io::Error>()
+        && let Some(inner) = error.get_ref()
+        && let Some(kind) = classify_cause(inner, depth + 1)
+    {
+        return Some(kind);
     }
-    ProviderFailureKind::Unknown
+    if error.is::<serde_json::Error>() {
+        return Some(ProviderFailureKind::Parse);
+    }
+    error
+        .source()
+        .and_then(|cause| classify_cause(cause, depth + 1))
 }
 #[derive(Default)]
 pub(crate) struct Cooldown(Mutex<Option<Instant>>);
@@ -127,6 +142,8 @@ impl Cooldown {
                         ) =>
                 {
                     let until = Instant::now() + Duration::from_millis(250 * (1 << attempt));
+                    let until = error.downcast_ref::<onetagger_selected_providers::beatport::TokenRefreshFailure>()
+                        .map_or(until, |failure| until.max(failure.retry_after()));
                     let mut cooldown = self
                         .0
                         .lock()

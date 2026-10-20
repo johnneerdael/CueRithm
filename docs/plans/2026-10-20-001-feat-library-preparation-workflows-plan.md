@@ -15,7 +15,7 @@ Build one coherent library workflow on CueRithm's existing preparation, metadata
 
 Keep the existing global settings as the first configuration surface. Named presets are useful later; they are not a prerequisite for shipping organization. The default still leaves source files in place. Once organization is explicitly configured, successful Incoming tracks finish without a review wizard.
 
-The user approved the selected feature scope. The [five-PR delivery plan](2026-10-20-002-feat-library-preparation-five-pr-delivery-plan.md) now governs sequence, selected providers and PR boundaries; this document retains the detailed technical contracts. U0–U11 are internal work packages, not an additional twelve PRs. No proposed feature is implemented by a planning document. The separately requested Traxsource UI-only change is prepared locally and identified under U0.
+The user approved the selected feature scope. The [five-PR delivery plan](2026-10-20-002-feat-library-preparation-five-pr-delivery-plan.md) now governs sequence, selected providers and PR boundaries; this document retains the detailed technical contracts. U0–U11 are internal work packages, not an additional twelve PRs. No proposed feature is implemented by a planning document. U0 follows the later user instruction to preserve main's optional solver integration and show Traxsource with detected-source availability; this supersedes the initial blanket UI restriction.
 
 ## Evidence and requirements trace
 
@@ -29,7 +29,7 @@ Baseline: CueRithm `e80a44214418d7c59e7620a00bfdb868bcd6407e`; OneTagger `36523f
 | R4 renaming/organization | U2–U6; templates, full plans, collisions, copy/move recovery, references, batch preview/Undo |
 | R5 current design system | Surface contracts and prototype; U5–U9 frontend acceptance |
 | R6 all relevant issues and broken reuse | Complete audit ledger; issue families and tests mapped below; reported versus confirmed evidence retained |
-| R7 preserve Traxsource code, hide UI | U0 and provider availability policy throughout U10 |
+| R7 preserve Traxsource code and honest detected-source availability | U0 and provider availability policy throughout U10 |
 | R8 concrete plan and visuals | This plan, research/ledger companions, `docs/design/onetagger-preparation/` |
 | R9 current alternatives and large DJ data | Alternatives/source matrix; U10/U11 access, rights and capability gates; no broken upstream endpoint is treated as a required dependency |
 | R10 MusicBrainz/SonoVault, private user keys, no Musicfetch | PR5 of the canonical delivery plan; meaningful release-version User-Agent, native credential storage, free-key signup link and individually accepted service capabilities |
@@ -48,7 +48,7 @@ Retain the current-version target boundaries from the [DJ sync specification](..
 
 | Priority | Delivery | Why / release condition |
 |---|---|---|
-| Now | Hide Traxsource UI, retain code/config | Explicit user direction; restoring controls does not require reimplementing a provider |
+| Now | Retain visible Traxsource/config and main's shared solver controls | Direct access is allowed initially and after reset; persist detected Cloudflare restrictions and require a configured compatible solver for blocked sources |
 | First feature delivery | Naming/organization for configured Incoming and unlinked existing tracks | Removes repetitive preparation work; requires complete path/recovery contracts, not a thin wrapper around `rename` |
 | First feature delivery | Match/field trust, outcomes and recovery visibility | Extra automation is only useful if wrong editions, failed fields and incomplete moves are visible |
 | Next | Match review, manual common fields/artwork, Curate | Resolves exceptions and adds human DJ knowledge without changing analysis or leaving the library workspace |
@@ -95,7 +95,7 @@ The prototype is a proposal using invented data, not proof that these product fl
 | Existing external references are a separate publication boundary | A local rename cannot magically update every DJ application. Known linked tracks need supported reference repair; unsupported or inaccessible targets block that operation instead of silently breaking paths |
 | Structured taxonomy before export strings | Category IDs/values are independent of comment separators and named COMM records. Destination mappings are explicit and collision-checked |
 | Provider contract acceptance before enablement | Current endpoints, access, paging, field semantics, artwork and failure behavior must pass per-adapter fixtures and permitted live checks. More providers is not inherently better matching |
-| Traxsource is retained but hidden | Backend enum/adapter/schema and saved profiles remain. New UI configurations select visible providers only. Existing saved Traxsource use is unchanged by the UI-only patch; changing execution eligibility would be a separate explicit policy change |
+| Traxsource remains visible with detected-source availability | Preserve code/schema, saved order and custom options. Initial/reset access may try direct requests. After a detected Cloudflare challenge, persist the requirement and disable new selection without a configured compatible solver; keep existing selection deselectable. Endpoint presence is not solver health proof; runtime solver failures remain unavailable, never no-match |
 
 ## Intended preparation flow
 
@@ -141,19 +141,19 @@ flowchart TB
   U10 --> U11[U11 Optional identification and automation]
 ```
 
-U0 is independent and already prepared locally. U7/U8 UI work can progress alongside the organization backend; mutation/path-sensitive invalidation requires U3/U4a, and organization-aware review resume requires U5. U4b gates linked-file mode specifically, not first delivery for files with no known managed external references. U10 contains separately gated adapters; it is not one bulk provider-import PR.
+U0 is independent and reconciles main's solver integration with the later user instruction. U7/U8 UI work can progress alongside the organization backend; mutation/path-sensitive invalidation requires U3/U4a, and organization-aware review resume requires U5. U4b gates linked-file mode specifically, not first delivery for files with no known managed external references. U10 contains separately gated adapters; it is not one bulk provider-import PR.
 
 ## Implementation units
 
-### U0 — Temporary Traxsource UI restriction
+### U0 — Detected-source availability and optional solver
 
-**Status:** local follow-up prepared at the user's explicit request; not a backend removal or a shipped release claim.
+**Status:** the later user instruction supersedes blanket hiding. Preserve main's global FlareSolverr-compatible solver integration; this records current source policy, not a claim that a configured service is reachable or healthy.
 
-**Files:** `apps/desktop/src/views/TaggingSettings.tsx`; test `apps/desktop/src/test/tagging-settings.test.tsx`.
+**Files:** `apps/desktop/src/views/{Settings,TaggingSettings}.tsx`, bridge types/API and `App.tsx` catalog-revision wiring; `crates/cuerithm-library/src/catalog_access.rs`; tests `apps/desktop/src/test/tagging-settings.test.tsx` and `crates/cuerithm-library/tests/catalog_access.rs`.
 
-**Behavior:** omit Traxsource selection, provider options and capability hints. Fresh UI defaults include only visible providers. Preserve existing saved platform order/custom values; do not alter backend code, schema, tests or provider fixtures. Visible ordering cannot move hidden entries accidentally. Restore by removing the narrow visibility restriction after the user's workaround passes provider acceptance.
+**Behavior:** show Traxsource selection, options and capabilities. Keep shared solver URL/timeout controls and catalogRevision refresh without replacing unsaved settings. Allow initial/reset direct access; persist detected Cloudflare restrictions across restart. Without a configured compatible solver, a detected blocked source is visibly unavailable and cannot be newly selected. Existing selected sources remain deselectable; unrelated saves retain order, custom values and required-field policies. Retry direct source access clears detected restrictions. A configured endpoint is not health/capability proof; unreachable or unsupported solver responses surface provider-unavailable outcomes, distinct from no match.
 
-**Verification:** hidden controls/hints stay absent, fresh defaults do not enable the hidden provider, and unrelated saves retain an existing Traxsource profile. Full frontend suite/build and visual inspection cover the patch. Backend behavior is intentionally not disabled by hiding the UI.
+**Verification:** cover initial/direct and reset attempts, detected-block persistence/reopen, no-solver disabled selection, selected-source deselection, solver/timeout persistence, mounted catalog refresh, unrelated-save preservation and explicit reset failure. Fixture tests cover unsupported/unreachable solver behavior without live providers. Frontend checks do not establish live solver or provider health.
 
 ### U1 — Field policy, identity evidence and truthful outcomes
 
@@ -245,7 +245,7 @@ The first Incoming organization release may handle never-exported tracks before 
 
 **Files:** modify `crates/cuerithm-library/src/{settings.rs,prepare.rs,jobs.rs}`, Tauri command registration and frontend `types.ts`, `api.ts`; create `apps/desktop/src/views/OrganizationSettings.tsx`; extend `Settings.tsx`, `TrackTable.tsx`; test `crates/cuerithm-library/tests/{organization_preparation.rs,autotag_preparation.rs}`, `apps/desktop/src/test/{organization-settings.test.tsx,settings-pages.test.tsx,workspace.test.tsx}`.
 
-**Approach:** add opt-in organization to existing preparation settings and immutable snapshots. File organization comes after accepted tags/cleanup and preservation checks but before Ready. No fresh per-import dialog. Save settings validates the complete configuration and explains missing fields/collision policy. Keep sample preview labeled Example; actual Incoming planning checks every track. Update the current "Original audio files stay in place" promise to reflect the enabled mode accurately. Respect hidden Traxsource controls without removing its backend support.
+**Approach:** add opt-in organization to existing preparation settings and immutable snapshots. File organization comes after accepted tags/cleanup and preservation checks but before Ready. No fresh per-import dialog. Save settings validates the complete configuration and explains missing fields/collision policy. Keep sample preview labeled Example; actual Incoming planning checks every track. Update the current "Original audio files stay in place" promise to reflect the enabled mode accurately. Preserve shared detected-source availability and solver settings without removing Traxsource support.
 
 **Test scenarios:** default Off preserves names/paths; configured rename uses final artist/title/version/cleanup and analysis tokens; required match/art/organization failure stays Incoming with actual partial state; provider outage is not success/no-match; settings change during a job does not silently change its captured rule; analysis retry reuses valid DSP; folder watches and copy mode do not reingest owned outputs; configured successful input reaches Tracks/automatic playlists unattended; all supported analysis/playback formats follow the same lifecycle.
 
@@ -317,7 +317,7 @@ Follow the design contract's commit model: durable local outbox first, coalesced
 
 **Approach:** save/load/duplicate/export/import named preparation presets using current settings snapshots; optional per-watch-folder assignment with deterministic precedence and explicit captured preset revision. Secret references are excluded from portable exports, stored using an appropriate platform credential facility, and never embedded into logs or shared presets. Unsupported/imported fields are surfaced rather than silently ignored.
 
-Provider sequence: maintain Beatport; retain hidden Traxsource until the user's workaround is validated; implement MusicBrainz and the required user-key SonoVault design in PR5. Exclude Musicfetch. Discogs, Bandcamp, Juno/Beatsource and other catalogs remain individually accepted candidates rather than promised adapters. Define a separate adapter enablement checklist covering access, authentication, field mappings, paging, IDs, rate/cancel/deadline behavior, malformed responses, artwork and native-write preservation. MusicBrainz uses the canonical desktop-release/contact User-Agent and shared request-start pacing across all jobs. Repair Discogs disc/track indexing before any later enablement. Spotify remains a separate access/model/auth project.
+Provider sequence: maintain Beatport; retain visible Traxsource with persisted detected-source restrictions and optional compatible solver support; implement MusicBrainz and the required user-key SonoVault design in PR5. Exclude Musicfetch. Discogs, Bandcamp, Juno/Beatsource and other catalogs remain individually accepted candidates rather than promised adapters. Define a separate adapter enablement checklist covering access, authentication, field mappings, paging, IDs, rate/cancel/deadline behavior, malformed responses, artwork and native-write preservation. MusicBrainz uses the canonical desktop-release/contact User-Agent and shared request-start pacing across all jobs. Repair Discogs disc/track indexing before any later enablement. Spotify remains a separate access/model/auth project.
 
 The user selected MusicBrainz and optional SonoVault; a SonoVault-versus-Musicfetch trial is no longer planned. Only users choosing SonoVault enter a key through its masked input, native secure storage and free-key signup link. After the section 9 concern was raised, the user explicitly approved proceeding with this optional personal-account interpretation; do not add a vendor-approval hold or substitute a hosted broker/shared key. Compare exact-edition coverage, useful fields and source persistence/export capabilities in bounded acceptance. No paid subscription or hosted billing service is introduced by this plan; source dependencies must not delay local organization/editor/Curate delivery.
 
@@ -325,9 +325,9 @@ Accept provider artwork/API URLs under a per-adapter production policy: permitte
 
 Carry verified source permissions as adapter capabilities for transient candidates, durable library/provenance data, file tags, necessary recovery evidence and native exports. Check the relevant channel before storing or publishing fields. Separate expirable caches from user-owned metadata and mandatory recovery journals; define refresh/termination behavior without silently deleting music or recovery evidence. If a source agreement cannot permit the necessary retained evidence, leave that integration disabled. An API transport test or a permitted audio-tag field does not imply all other persistence/export rights.
 
-**Test scenarios:** default/global/per-folder precedence, overlapping roots, unavailable preset, import across OS with path remapping, migration/unknown settings, no secret export, settings changes do not mutate claimed jobs; per-provider fixture/API drift, zero/multidisc numbering, language/date/explicit capabilities, auth/403/429/retry, request coalescing and cancellation; no providers or hidden-only configurations have clear validation and preserve standalone offline analysis.
+**Test scenarios:** default/global/per-folder precedence, overlapping roots, unavailable preset, import across OS with path remapping, migration/unknown settings, no secret export, settings changes do not mutate claimed jobs; per-provider fixture/API drift, zero/multidisc numbering, language/date/explicit capabilities, auth/403/429/retry, request coalescing and cancellation; no providers or unavailable-only configurations have clear validation and preserve standalone offline analysis.
 
-**Verification:** a new adapter is exposed only after its own contract and permitted current-service acceptance pass. Re-enabling Traxsource is independent of importing more features and requires the user's workaround, not merely a UI checkbox or old source fix.
+**Verification:** a new adapter is exposed only after its own contract and permitted current-service acceptance pass. Traxsource availability follows the shared detected-restriction/solver contract independently of new provider adoption. A configured URL or historical source fix is not proof of live health.
 
 ### U11 — Optional identification, reports and headless reuse
 
@@ -360,7 +360,7 @@ An issue marked source-addressed means a specific code path or existing test add
 
 ## System-wide impact and rollout
 
-- **State:** preparation settings, job attempts, track content/path revisions, native metadata, taxonomy, write/organization history and recovery backups must use compatible migrations. Reopen older libraries/presets without silently enabling organization or hidden providers.
+- **State:** preparation settings, job attempts, track content/path revisions, native metadata, taxonomy, write/organization history and recovery backups must use compatible migrations. Reopen older libraries/presets without silently enabling organization or changing saved provider selections.
 - **Events:** watcher, playback, metadata editor, smart evaluation and Sync need one coherent revision/event after each committed logical change. Observe in-progress/recovery states without treating owned filesystem events as new input.
 - **Failure propagation:** distinguish no-match, provider unavailable, partial enrichment, source conflict, destination conflict and recovery-required. Keep actual file state discoverable; never collapse them into "done".
 - **Resource usage:** bounded candidate/artwork caches, paged previews, interruptible scopes, global provider budgets, visible retained backup storage and guarded disposal. Do not delete original/recovery material to make a successful run appear smaller.
@@ -370,7 +370,7 @@ An issue marked source-addressed means a specific code path or existing test add
 
 ## Resolved choices and implementation-time unknowns
 
-Resolved: extend current services; keep original paths by default; use final metadata for naming; no destination overwrite; exception-only review; structured categories; measured analysis separation; Traxsource code retained/UI hidden; no legacy Spotify Audio Features/native plugin/server transplant.
+Resolved: extend current services; keep original paths by default; use final metadata for naming; no destination overwrite; exception-only review; structured categories; measured analysis separation; Traxsource code retained/visible with detected-source availability; no legacy Spotify Audio Features/native plugin/server transplant.
 
 Implementation-time work: exact journal schema and API names; native per-target reference repair details; per-container preservation edge cases; current provider access/live health; OS-specific path/handle behavior; measured scale/memory budgets and final recipe migration shape. These require code and acceptance experiments. They are explicit gates, not evidence that an adapter or mode already works.
 

@@ -15,7 +15,7 @@ The user approved automatic naming/organization after Incoming, match review and
 
 MusicBrainz is included. SonoVault is an **optional provider**: CueRithm works fully without a SonoVault account; users who choose this provider enter their own API key. Use secure native storage and a **Get a free API key** link to `https://sonovault.now/signup`. The user explicitly approved proceeding on this optional personal-account basis; no vendor-approval hold is added to implementation. Musicfetch is excluded: the current offer is a card-backed seven-day trial followed by paid plans, with no ongoing free API plan established. There is no Musicfetch adapter, trial, account purchase or fallback in these PRs. [Musicfetch pricing](https://musicfetch.io/#pricing).
 
-Preserve CueRithm's current Settings, table/sidebar/player and cobalt/coral light/dark design. Retain measured key/BPM/grid/cues and whole-track energy independently of catalog/manual values. Preserve all required audio formats and current-version native/USB sync scope. Do not port Lexicon's older-version compatibility, add rekordbox XML, import OneTagger's mutation runtime or restore Traxsource controls before the user's workaround.
+Preserve CueRithm's current Settings, table/sidebar/player and cobalt/coral light/dark design. Retain measured key/BPM/grid/cues and whole-track energy independently of catalog/manual values. Preserve all required audio formats and current-version native/USB sync scope. Do not port Lexicon's older-version compatibility, add rekordbox XML, import OneTagger's mutation runtime or remove Traxsource support. The later user instruction supersedes blanket hiding: preserve main's global solver controls and visible detected-source availability. Initial/reset direct attempts remain allowed; detected Cloudflare restrictions persist and require a configured compatible solver. Endpoint presence is not a health check.
 
 | PR | Result | Detailed units | Depends on |
 |---|---|---|---|
@@ -29,9 +29,9 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 ## Execution status
 
-- [ ] PR1: in progress — metadata integrity, planner and recoverable internal organization engine.
-- [ ] PR2: automatic/manual organization and reference repair.
-- [ ] PR3: review and metadata/artwork editor.
+- [ ] PR1: implemented in draft #13 — metadata integrity, planner and recoverable internal organization engine; latest-head review and hosted checks remain merge gates.
+- [ ] PR2: implemented in draft #14, stacked on #13 — automatic/manual organization and reference repair; latest-head review and hosted checks remain merge gates.
+- [ ] PR3: implementation in progress — review and metadata/artwork editor; not yet a pull request.
 - [ ] PR4: Curate and presets.
 - [ ] PR5: MusicBrainz, optional personal-key SonoVault, accepted identification and shared automation.
 
@@ -39,7 +39,7 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 **Design:** define actual field/provider outcomes and a consistent attention model: no match, ambiguous edition, provider unavailable, failed required field, source conflict, destination conflict, recovery required. Preserve existing successful unattended preparation. Treat match similarity as evidence, never a probability of correctness.
 
-**Implementation:** include the prepared Traxsource UI restriction; retain code/schema/saved selections. Harden field overwrite/explicit-value policy, recording/release/version/date evidence and native-record preservation. Define final effective metadata as the naming input. Validate bounded naming expressions, missing-value rules, filesystem-safe names, containment and a full frozen scope rather than a three-file sample. Implement one per-track journaled coordinator for rename/move/copy, owned artwork/sidecars, native source/destination identities, staging, no-replace publication, partial outcomes and restart recovery. Destination overwrite is unavailable. No source-audio organization is exposed yet.
+**Implementation:** retain main's solver controls, catalogRevision refresh/reset and visible Traxsource availability after detected Cloudflare restrictions; preserve code/schema/saved selections. Unreachable or unsupported solvers surface unavailable outcomes. Harden field overwrite/explicit-value policy, recording/release/version/date evidence and native-record preservation. Define final effective metadata as the naming input. Validate bounded naming expressions, missing-value rules, filesystem-safe names, containment and a full frozen scope rather than a three-file sample. Implement one per-track journaled coordinator for rename/move/copy, owned artwork/sidecars, native source/destination identities, staging, no-replace publication, partial outcomes and restart recovery. Destination overwrite is unavailable. No source-audio organization is exposed yet.
 
 **Seams:** `crates/cuerithm-autotag/src/{lib.rs,config.rs,write.rs,metadata.rs}`, `crates/cuerithm-library/src/{prepare.rs,tagging.rs,settings.rs,store.rs}`; new focused `organization.rs`/`naming.rs` modules under the library; `apps/desktop/src/views/TaggingSettings.tsx`. Follow current staged writes/recovery, source-change checks and immutable preparation snapshots. Keep filesystem authority in Rust.
 
@@ -83,7 +83,7 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 **Tests:** `crates/cuerithm-library/tests/{curation.rs,preparation_presets.rs}` and frontend `apps/desktop/src/test/{curate.test.tsx,preparation-presets.test.tsx}`. Cover single/multi/mixed selections, category rename/delete, conflicting native mappings, multivalue roundtrip, notes debounce, fast navigation/close/restart, out-of-order acknowledgments, filtered-out edited tracks, shortcuts while typing, preset precedence/import/migration and unchanged captured jobs.
 
-**Merge gate:** routine curation is fast and durable; failed drafts remain discoverable. Presets reproduce preparation choices without exporting secrets or enabling hidden providers. Both themes retain the table/player hierarchy and accessible navigation.
+**Merge gate:** routine curation is fast and durable; failed drafts remain discoverable. Presets reproduce preparation choices without exporting secrets or silently changing provider selections; detected-source restrictions still apply. Both themes retain the table/player hierarchy and accessible navigation.
 
 ## PR5 — MusicBrainz, SonoVault and optional identification
 
@@ -120,7 +120,7 @@ Complete the already planned U11 report and headless paths: selected/failed/revi
 
 **Tests:** add `crates/cuerithm-autotag/tests/{musicbrainz.rs,sonovault.rs,identification.rs}`, `crates/cuerithm-library/tests/{provider_credentials.rs,identification.rs,headless_preparation.rs}` and frontend `apps/desktop/src/test/provider-credentials.test.tsx`; extend matching/config/writing fixtures and CLI/report tests. Test meaningful UA with canonical version on all request paths, shared pacing with multiple jobs/retries, cancellation, 503/429, malformed/partial results and CAA limits; missing/invalid/revoked/removed/replaced keys, vault failure and header/error/export redaction; quota exhaustion versus temporary wait, paid endpoint refusal, source persistence/export capabilities; wrong-edition IDs, empty fields, recognition consent/no-match and all decoder formats; identical UI/headless authority and truthful reports.
 
-**Merge/activation gates:** fixture tests cover every adapter; bounded live tests are recorded separately and never required in ordinary CI. MusicBrainz and optional personal-key SonoVault can activate independently after technical acceptance. Recognition is enabled only after its own service/build acceptance. Record an explicit accepted/deferred reason for each candidate. Musicfetch stays excluded and Traxsource stays hidden.
+**Merge/activation gates:** fixture tests cover every adapter; bounded live tests are recorded separately and never required in ordinary CI. MusicBrainz and optional personal-key SonoVault can activate independently after technical acceptance. Recognition is enabled only after its own service/build acceptance. Record an explicit accepted/deferred reason for each candidate. Musicfetch stays excluded. Traxsource remains visible under the shared persisted detected-restriction/optional-solver contract; a configured endpoint does not establish live health.
 
 ## Shared design, validation and scope accounting
 

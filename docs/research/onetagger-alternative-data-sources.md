@@ -8,7 +8,7 @@ status: planning-evidence
 
 Checked **2026-10-20** against primary official documentation, terms, publisher sites and the official Songstats repository. No accounts created, credentials used, subscriptions purchased, catalog/recognition API calls made, music uploaded or bulk dumps downloaded. Availability below means a current documented public product surface, not a successful authorized endpoint or measured dance-music match rate. Prices are the published snapshot, not a quote. All recommendations and fit rankings are our planning inferences.
 
-Existing Traxsource code must be retained and its UI remain hidden as explicitly requested. None of the alternatives below requires deleting it, bypassing Cloudflare or evading provider limits.
+**Current decision update:** retain Traxsource code and show its UI with main's optional compatible solver controls. Initial/reset direct requests remain allowed. Persist detected Cloudflare restrictions; a detected blocked source is unavailable without a configured solver, with existing selections still deselectable. A configured endpoint is not health proof; runtime solver failures must surface as unavailable. This supersedes the earlier blanket-hide instruction. None of the alternatives below requires deleting the adapter or evading provider limits.
 
 ## Recommended shortlist
 
@@ -57,7 +57,7 @@ Keep CueRithm PCM-derived key/BPM/whole-track energy and existing cue DSP author
 - Run a separately authorized bounded trial across representative electronic subgenres, old vinyl/CD, mainstream, bootlegs/unreleased material and clean/dirty/radio/extended/remix variants. Keep source originals untouched and label unsupported coverage honestly.
 - Compare accepted exact-edition matches, ambiguous matches, false positives, missing fields, original-date semantics, artwork correctness and per-track total cost/request count. Avoid a single match-rate metric that rewards unsafe substitutions.
 - Exercise cancellation,429/Retry-After, challenge/HTML responses, deprecation/schema changes, cache expiration and quota exhaustion. Provider failure should pause enrichment or enter review while preserving completed local analysis.
-- Preserve Traxsource implementation and hidden UI status. Any future restored exposure needs its own source-health/permission evidence; aggregation vendor coverage does not automatically authorize direct scraping.
+- Preserve Traxsource implementation and shared detected-source availability/optional-solver policy. Live provider and solver health remain separate acceptance evidence; aggregation vendor coverage does not automatically authorize direct scraping.
 
 ## Unverified boundaries
 
@@ -80,4 +80,4 @@ No provider credential/API contract has been obtained and no metadata/API result
 
 **Fit relative to alternatives.** Musicfetch emphasizes broad links and platform/art metadata; Sonovault offers a narrower text-catalog/identity service and explicitly documented permitted audio-tag fields. MusicBrainz offers a more open direct core-data basis but requires more joins, careful licence separation and public-API pacing. Sonovault may reduce that engineering load; it adds a service dependency and restricted app-data lifecycle. CueRithm should retain its PCM-derived analysis and independent taxonomy, and apply returned genre/date/title only under the same protected-value/review policy as every source.
 
-**Evidence boundary.** No free-key signup, demo-key request, identification upload, endpoint call or copied provider code was used. API/documented fields, pricing and terms were inspected; 93M coverage, exact remix precision, underground subgenre quality and contractual approval remain unverified. Existing Traxsource code/hidden UI requirement remains unchanged.
+**Evidence boundary.** No free-key signup, demo-key request, identification upload, endpoint call or copied provider code was used. API/documented fields, pricing and terms were inspected; 93M coverage, exact remix precision, underground subgenre quality and contractual approval remain unverified. The current Traxsource decision above supersedes the historical hidden-UI requirement; it does not establish live provider or solver health.

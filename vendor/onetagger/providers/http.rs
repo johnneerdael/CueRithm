@@ -1,13 +1,13 @@
 //! Shared, opt-in transport for public catalog GETs. Never forward local credentials.
-use anyhow::{Context, Result, bail, ensure};
-use reqwest::{StatusCode, Url, blocking::Client, header::HeaderMap};
+use anyhow::{bail, ensure, Context, Result};
+use reqwest::{blocking::Client, header::HeaderMap, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     io::Read,
     sync::{
-        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
     },
     time::Duration,
 };

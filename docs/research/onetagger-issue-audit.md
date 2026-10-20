@@ -12,6 +12,8 @@ The review used OneTagger source `36523f71f2d9a5947912f3cb930f1a31fcb2e3ee` and 
 
 Closed does not mean fixed. A maintainer or community success claim remains reported evidence unless a corresponding source change was located; even then runtime/target acceptance remains unverified. A report alleging malware or corruption is not treated as a confirmed finding merely because it exists.
 
+**Current decision update:** the later user instruction preserves main's shared optional solver controls and visible Traxsource availability. Initial/reset direct requests remain allowed. Detected Cloudflare restrictions persist across restart; without a configured compatible solver the detected blocked source is unavailable, while existing selections remain deselectable. A configured endpoint is not service-health proof; runtime unsupported/unreachable solver errors remain unavailable, distinct from no-match. The historical issue assessments below are unchanged.
+
 ## Coverage and decisions
 
 | Planning relevance | Issues |
@@ -48,7 +50,7 @@ These are per-issue planning decisions, not counts of independently reproduced b
 - Keep existing CueRithm safeguards: duration post-filters, unreadable-tag refusal, staged writes, PCM/timing proof, current provider fixes and cancellation/recovery. Add opaque DJ metadata preservation beyond audio equality.
 - Resolve edition/release ambiguity with evidence and exception review; similarity is not a calibrated correctness probability.
 - Treat manual save/draft persistence, mixed values, shared comment-frame ownership, multivalue mappings and Undo as first-class requirements.
-- Accept providers individually against current access/response contracts. Retain Traxsource code but hide its UI as directed; do not import broken Spotify Audio Features or an entire community fork.
+- Accept providers individually against current access/response contracts. The original audit-time decision was to retain Traxsource code but hide its UI; the current decision above supersedes that restriction. Do not import broken Spotify Audio Features or an entire community fork.
 - Use current alternative software/data research where an upstream capability is broken or unavailable, rather than making it a promised Incoming dependency. See the feature evaluation and alternatives assessment.
 
 The [implementation plan](../plans/2026-10-20-001-feat-library-preparation-workflows-plan.md) maps these families to concrete services, UI surfaces and test scenarios. Unit references below are broad traceability, not a claim that every report requires new code.
