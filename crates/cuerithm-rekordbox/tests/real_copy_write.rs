@@ -275,6 +275,8 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
             work: &snapshot.path,
             key: &key,
             backup_dir: backups.path(),
+            assets: &[],
+            share_dir: None,
             base_usn: usn(&before),
         },
         &CancellationToken::default(),
@@ -320,6 +322,8 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
             work: &snapshot.path,
             key: &key,
             backup_dir: backups.path(),
+            assets: &[],
+            share_dir: None,
             base_usn: usn(&before),
         },
         &CancellationToken::default(),
@@ -330,4 +334,166 @@ fn writing_to_a_copy_of_a_real_library_passes_rekordbox_style_verification() {
             .to_string()
             .contains("changed the library")
     );
+}
+
+#[test]
+fn a_new_track_is_added_to_a_copy_of_a_real_library_with_its_analysis_file() {
+    let Some(copy) = std::env::var_os("CUERITHM_REKORDBOX_COPY").map(PathBuf::from) else {
+        eprintln!("skipped: CUERITHM_REKORDBOX_COPY is not set");
+        return;
+    };
+    let key = key();
+    let cache = tempfile::tempdir().unwrap();
+    let cancel = CancellationToken::default();
+    let work = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(cache.path(), &key, &cancel)
+        .unwrap();
+    let stand_in = ReadOnlyDatabase::open(&copy, &key)
+        .unwrap()
+        .capture(cache.path(), &key, &cancel)
+        .unwrap();
+    let (before, _, _) = collection(&work.path, &key);
+    let existing = before
+        .tracks
+        .iter()
+        .find(|t| t.importable_local())
+        .expect("a track");
+    let plan = WritePlan {
+        new_tracks: vec![NewTrack {
+            key: "new".into(),
+            folder_path: "/tmp/cuerithm-acceptance/Acceptance Artist - Acceptance Track.mp3".into(),
+            file_name: "Acceptance Artist - Acceptance Track.mp3".into(),
+            fields: ContentFields {
+                title: Some("Acceptance Track".into()),
+                artist: Some("Acceptance Artist".into()),
+                genre: Some("Acceptance Genre".into()),
+                key: Some("8A".into()),
+                bpm_hundredths: Some(12800),
+                release_year: Some(2024),
+                ..Default::default()
+            },
+            length_seconds: 215,
+            bit_rate: Some(320),
+            sample_rate: Some(44100),
+            file_size: Some(8_600_000),
+            file_type: 1,
+            date_added: "2026-10-20".into(),
+            color_id: None,
+            first_beat_seconds: Some(0.25),
+            cues: vec![CueRow {
+                in_msec: 4000,
+                out_msec: -1,
+                kind: 1,
+                active_loop: false,
+                beat_loop_size: None,
+                color: Some(-1),
+                color_table_index: Some(41),
+                comment: Some("Start".into()),
+            }],
+            tags: vec![MyTagRef {
+                category: "Cuerithm Acceptance".into(),
+                tag: "Added".into(),
+            }],
+        }],
+        playlists: vec![PlaylistWrite {
+            path: vec!["Cuerithm Acceptance".into()],
+            kind: PlaylistKind::Playlist,
+            position: 99,
+            tracks: vec![existing.identity.content_id.clone(), "new:new".into()],
+            rules: None,
+            expected_members: None,
+        }],
+        share_dir: Some("/tmp/cuerithm-acceptance-share".into()),
+        ..Default::default()
+    };
+    let mut writer = WriteDatabase::open(&work.path, &key).unwrap();
+    let report = writer.apply(&plan, &cancel).unwrap();
+    drop(writer);
+    assert_eq!((report.tracks_added, report.assets.len()), (1, 1));
+    let added = report.new_tracks[0].clone();
+    let share = tempfile::tempdir().unwrap();
+    let backups = tempfile::tempdir().unwrap();
+    publish_verified_copy(
+        &PublishRequest {
+            live: &stand_in.path,
+            work: &work.path,
+            key: &key,
+            backup_dir: backups.path(),
+            assets: &report.assets,
+            share_dir: Some(share.path()),
+            base_usn: usn(&before),
+        },
+        &cancel,
+    )
+    .unwrap_or_else(|error| panic!("{error:#}"));
+    let (after, checks, _) = collection(&stand_in.path, &key);
+    assert!(checks.integrity_ok);
+    assert_eq!(
+        checks.foreign_key_issues,
+        collection(&work.path, &key).1.foreign_key_issues
+    );
+    assert_eq!(after.tracks.len(), before.tracks.len() + 1);
+    let track = after
+        .tracks
+        .iter()
+        .find(|t| t.identity.content_id == added.content_id)
+        .expect("the new track");
+    assert_eq!(track.metadata.title, "Acceptance Track");
+    assert_eq!(track.metadata.artist, "Acceptance Artist");
+    assert_eq!(track.metadata.genre, "Acceptance Genre");
+    assert_eq!(track.metadata.key, "8A");
+    assert_eq!(track.bpm, Some(128.));
+    assert_eq!(track.duration_seconds, Some(215.));
+    assert_eq!(
+        track.identity.master_song_id.as_deref(),
+        Some(added.master_song_id.as_str())
+    );
+    assert_eq!(track.deleted, Some(false));
+    assert_eq!(
+        track.source.analysis_path.as_deref(),
+        Some(added.analysis_path.as_str())
+    );
+    assert_eq!(track.cues.len(), 1);
+    assert_eq!(track.tag_ids.len(), 1);
+    // Its analysis file is on disk, parses, and carries the path and a grid at 128 BPM.
+    let bytes = std::fs::read(
+        share
+            .path()
+            .join(added.analysis_path.trim_start_matches('/')),
+    )
+    .unwrap();
+    let file = cuerithm_rekordbox::anlz::AnlzFile::parse(&bytes, Default::default()).unwrap();
+    assert_eq!(
+        file.tags()[0].audio_path().unwrap(),
+        "?/Acceptance Artist - Acceptance Track.mp3"
+    );
+    assert!(
+        file.tags()[2]
+            .beats()
+            .unwrap()
+            .iter()
+            .all(|b| b.tempo == 12800)
+    );
+    // The playlist holds the existing track and the new one, in order. Nothing else changed.
+    let playlist = after
+        .playlists
+        .iter()
+        .find(|p| p.name == "Cuerithm Acceptance" && p.attribute == 0)
+        .unwrap();
+    assert_eq!(
+        after.playlist_local_track_ids(&playlist.id),
+        vec![
+            existing.identity.content_id.clone(),
+            added.content_id.clone()
+        ]
+    );
+    for other in &before.tracks {
+        let now = after
+            .tracks
+            .iter()
+            .find(|t| t.identity.content_id == other.identity.content_id)
+            .unwrap();
+        assert_eq!(now.raw_hash, other.raw_hash, "an existing track changed");
+    }
 }

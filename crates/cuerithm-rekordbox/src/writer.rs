@@ -60,6 +60,44 @@ pub struct ContentFields {
     pub disc_number: Option<i64>,
     pub rating: Option<i64>,
 }
+/// A track to add to rekordbox. Its file must already exist at `folder_path`; rekordbox analyses it when it is
+/// next opened, and until then holds the grid and cues given here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewTrack {
+    /// Caller's name for the track; playlists in the same plan refer to it as `new:<key>`.
+    pub key: String,
+    /// Absolute path of the audio file as rekordbox should store it.
+    pub folder_path: String,
+    pub file_name: String,
+    pub fields: ContentFields,
+    pub length_seconds: i64,
+    pub bit_rate: Option<i64>,
+    pub sample_rate: Option<i64>,
+    pub file_size: Option<i64>,
+    /// rekordbox's file type number: 1 MP3, 2 AAC, 3 MP4, 4 M4A, 5 FLAC, 6 ALAC, 11 WAV, 12 AIFF.
+    pub file_type: i64,
+    /// `YYYY-MM-DD`.
+    pub date_added: String,
+    pub color_id: Option<i64>,
+    /// First beat of a constant grid in seconds, and the tempo in `fields.bpm_hundredths`.
+    pub first_beat_seconds: Option<f64>,
+    pub cues: Vec<CueRow>,
+    pub tags: Vec<MyTagRef>,
+}
+/// A file that belongs with the database change, relative to the library's `share` folder.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AssetWrite {
+    pub relative_path: String,
+    pub bytes: Vec<u8>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NewTrackResult {
+    pub key: String,
+    pub content_id: String,
+    pub master_song_id: String,
+    pub uuid: String,
+    pub analysis_path: String,
+}
 /// One cue or loop as rekordbox stores it in `djmdCue`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CueRow {
@@ -181,6 +219,12 @@ pub struct TrackWrite {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WritePlan {
     pub tracks: Vec<TrackWrite>,
+    /// Tracks to add. A plan that adds none leaves `new_tracks` empty.
+    #[serde(default)]
+    pub new_tracks: Vec<NewTrack>,
+    /// Absolute path of the library's `share` folder, recorded with each new analysis file.
+    #[serde(default)]
+    pub share_dir: Option<String>,
     pub playlists: Vec<PlaylistWrite>,
     pub remove_playlists: Vec<PlaylistRemoval>,
 }
@@ -192,6 +236,11 @@ pub struct WriteReport {
     pub tracks_unchanged: usize,
     pub cues_replaced: usize,
     pub tags_replaced: usize,
+    pub tracks_added: usize,
+    /// Identifiers rekordbox now has for each added track.
+    pub new_tracks: Vec<NewTrackResult>,
+    /// Files to publish with the database change.
+    pub assets: Vec<AssetWrite>,
     pub playlists_created: usize,
     pub playlists_updated: usize,
     pub playlists_unchanged: usize,
@@ -332,6 +381,37 @@ impl WriteDatabase {
                 }
             }
         }
+        let new_keys: BTreeSet<&str> = plan.new_tracks.iter().map(|t| t.key.as_str()).collect();
+        ensure!(
+            new_keys.len() == plan.new_tracks.len() && plan.new_tracks.len() <= 100_000,
+            "New tracks need distinct keys"
+        );
+        for new in &plan.new_tracks {
+            cancel.check()?;
+            ensure!(
+                !new.key.is_empty()
+                    && !new.key.starts_with("new:")
+                    && !new.file_name.trim().is_empty()
+                    && (new.folder_path.starts_with('/')
+                        || new.folder_path.chars().nth(1) == Some(':'))
+                    && new.length_seconds >= 0
+                    && new.file_type >= 0,
+                "A new track needs a key, an absolute file path and a name"
+            );
+            let existing: Option<String> = tx
+                .query_row(
+                    "SELECT ID FROM djmdContent WHERE FolderPath=?1 AND COALESCE(rb_local_deleted,0)=0 LIMIT 1",
+                    [&new.folder_path],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if existing.is_some() {
+                conflicts.push(TrackConflict {
+                    subject: format!("new track {}", new.key),
+                    reason: "A track with this file is already in rekordbox".into(),
+                });
+            }
+        }
         for playlist in &plan.playlists {
             cancel.check()?;
             ensure!(
@@ -361,6 +441,15 @@ impl WriteDatabase {
                 "{subject} lists a track twice"
             );
             for track in &playlist.tracks {
+                if let Some(key) = track.strip_prefix("new:") {
+                    if !new_keys.contains(key) {
+                        conflicts.push(TrackConflict {
+                            subject: subject.clone(),
+                            reason: format!("Track {track} is not in the plan"),
+                        });
+                    }
+                    continue;
+                }
                 let live: Option<i64> = tx
                     .query_row(
                         "SELECT COALESCE(rb_local_deleted,0) FROM djmdContent WHERE ID=?1",
@@ -428,10 +517,33 @@ impl WriteDatabase {
                 report.tracks_unchanged += 1;
             }
         }
-        let mut playlists: Vec<&PlaylistWrite> = plan.playlists.iter().collect();
+        let mut added: BTreeMap<String, String> = BTreeMap::new();
+        for new in &plan.new_tracks {
+            cancel.check()?;
+            let result = session.insert_track(new, plan.share_dir.as_deref(), &mut report)?;
+            added.insert(new.key.clone(), result.content_id.clone());
+            report.new_tracks.push(result);
+            report.tracks_added += 1;
+        }
+        let mut playlists: Vec<PlaylistWrite> = plan
+            .playlists
+            .iter()
+            .map(|p| PlaylistWrite {
+                tracks: p
+                    .tracks
+                    .iter()
+                    .map(|t| {
+                        t.strip_prefix("new:")
+                            .and_then(|key| added.get(key).cloned())
+                            .unwrap_or_else(|| t.clone())
+                    })
+                    .collect(),
+                ..p.clone()
+            })
+            .collect();
         // Parents before children, so a new folder exists when its contents are written.
         playlists.sort_by_key(|p| p.path.len());
-        for playlist in playlists {
+        for playlist in &playlists {
             cancel.check()?;
             session.write_playlist(playlist, &mut report)?;
         }
@@ -753,6 +865,125 @@ impl<'a> Session<'a> {
             }
         }
         Ok(touched)
+    }
+
+    /// Add a track the way the reference exporter does: a content row with ID and master-song ID after the
+    /// highest in use, foreign rows by name, an analysis path derived from its UUID, its cues and tags, and a
+    /// file record. The analysis file itself is returned as an asset for the caller to publish.
+    fn insert_track(
+        &mut self,
+        track: &NewTrack,
+        share_dir: Option<&str>,
+        report: &mut WriteReport,
+    ) -> Result<NewTrackResult> {
+        let (db_id, device_id): (Option<String>, Option<String>) =
+            self.tx
+                .query_row("SELECT DBID,DeviceID FROM djmdProperty LIMIT 1", [], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })?;
+        let f = &track.fields;
+        let id = self.allocate("djmdContent", "ID")?.to_string();
+        let master = self.allocate("djmdContent", "MasterSongID")?.to_string();
+        let uuid = uuid::Uuid::new_v4().to_string();
+        let analysis_path = format!(
+            "/PIONEER/USBANLZ/{}/{}/ANLZ0000.DAT",
+            &uuid[..3],
+            &uuid[3..]
+        );
+        let mut foreign = |table: &'static str,
+                           column: &'static str,
+                           name: &Option<String>|
+         -> Result<Option<String>> {
+            match name {
+                Some(name) => self.foreign(table, column, name, report),
+                None => Ok(None),
+            }
+        };
+        let artist = foreign("djmdArtist", "Name", &f.artist)?;
+        let album = foreign("djmdAlbum", "Name", &f.album)?;
+        let genre = foreign("djmdGenre", "Name", &f.genre)?;
+        let label = foreign("djmdLabel", "Name", &f.label)?;
+        let remixer = foreign("djmdArtist", "Name", &f.remixer)?;
+        let composer = foreign("djmdArtist", "Name", &f.composer)?;
+        let key = foreign("djmdKey", "ScaleName", &f.key)?;
+        let usn = self.use_usn();
+        let non_empty = |v: &Option<String>| v.clone().filter(|t| !t.is_empty());
+        self.tx.execute(
+            "INSERT INTO djmdContent(ID,MasterSongID,MasterDBID,DeviceID,UUID,FolderPath,OrgFolderPath,FileNameL,Title,ArtistID,AlbumID,GenreID,LabelID,RemixerID,ComposerID,KeyID,BPM,Length,TrackNo,DiscNo,BitRate,BitDepth,SampleRate,FileSize,FileType,Commnt,Subtitle,Lyricist,Rating,ReleaseYear,ReleaseDate,StockDate,DateCreated,ColorID,ImagePath,ContentLink,HotCueAutoLoad,SamplerTrackInfo,SamplerPlayOffset,SamplerGain,Analysed,CueUpdated,AnalysisUpdated,TrackInfoUpdated,AnalysisDataPath,VideoAssociate,LyricStatus,ServiceID,ExtInfo,rb_file_id,rb_data_status,rb_local_deleted,rb_local_data_status,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,0,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?30,?31,'',0,'on',0,0,0,16,0,0,0,?32,'0',0,0,'null',0,?33,0,0,0,?34,?35,?35)",
+            params![
+                id,
+                master,
+                db_id,
+                device_id,
+                uuid,
+                track.folder_path,
+                track.file_name,
+                non_empty(&f.title),
+                artist,
+                album,
+                genre,
+                label,
+                remixer,
+                composer,
+                key,
+                f.bpm_hundredths.unwrap_or(0).max(0),
+                track.length_seconds,
+                f.track_number,
+                f.disc_number.unwrap_or(0),
+                track.bit_rate,
+                track.sample_rate.unwrap_or(0),
+                track.file_size,
+                track.file_type,
+                non_empty(&f.comment),
+                non_empty(&f.subtitle),
+                non_empty(&f.lyricist),
+                f.rating.unwrap_or(0),
+                f.release_year.unwrap_or(0),
+                non_empty(&f.release_date),
+                track.date_added,
+                track.color_id.map(|c| c.to_string()),
+                analysis_path,
+                status::ADDED_NOT_YET_SENT,
+                usn,
+                self.now,
+            ],
+        )?;
+        self.tx.execute(
+            "INSERT INTO contentFile(ID,ContentID,Path,Hash,Size,rb_local_path,rb_file_hash_dirty,rb_local_file_status,rb_in_progress,rb_process_type,rb_priority,rb_file_size_dirty,UUID,rb_data_status,rb_local_data_status,rb_local_deleted,rb_local_synced,rb_local_usn,created_at,updated_at) VALUES(?1,?2,?3,NULL,NULL,?4,0,0,0,0,0,0,?5,?6,0,0,0,?7,?8,?8)",
+            params![
+                format!("{uuid}_{}", encode_uri_component(&analysis_path)),
+                id,
+                analysis_path,
+                share_dir.map(|dir| format!("{}{analysis_path}", dir.trim_end_matches(['/', '\\']))),
+                uuid::Uuid::new_v4().to_string(),
+                status::ADDED_NOT_YET_SENT,
+                usn,
+                self.now,
+            ],
+        )?;
+        if !track.cues.is_empty() {
+            self.replace_cues(&id, Some(uuid.clone()), &track.cues)?;
+        }
+        if !track.tags.is_empty() {
+            self.replace_tags(&id, &track.tags)?;
+        }
+        let beats = match (f.bpm_hundredths, track.first_beat_seconds) {
+            (Some(bpm), Some(first)) if bpm > 0 => {
+                crate::anlz::beat_grid(bpm as f64 / 100., first, track.length_seconds as f64)
+            }
+            _ => vec![],
+        };
+        report.assets.push(AssetWrite {
+            relative_path: analysis_path.trim_start_matches('/').to_owned(),
+            bytes: crate::anlz::placeholder_analysis(&track.file_name, &beats)?,
+        });
+        Ok(NewTrackResult {
+            key: track.key.clone(),
+            content_id: id,
+            master_song_id: master,
+            uuid,
+            analysis_path,
+        })
     }
 
     /// Replace a track's cues when they differ. Returns whether anything was written.
@@ -1150,6 +1381,18 @@ fn find_playlist(conn: &Connection, path: &[String], kind: PlaylistKind) -> Resu
     Ok(Some(parent))
 }
 
+/// JavaScript's `encodeURIComponent`, which the reference exporter uses to build file record IDs.
+fn encode_uri_component(text: &str) -> String {
+    let mut out = String::new();
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
 fn cue_key(cue: &CueRow) -> (i64, i64, i64, Option<String>) {
     (cue.in_msec, cue.out_msec, cue.kind, cue.comment.clone())
 }
@@ -1198,6 +1441,39 @@ mod tests {
         INSERT INTO djmdMyTag VALUES('61',1,'Dark',0,'60','ut',256,0,40,'t','t');
         INSERT INTO djmdSongMyTag VALUES('m1','61','200','um',256,0,40,'t','t');
         ALTER TABLE djmdPlaylist ADD COLUMN SmartList TEXT;
+        ALTER TABLE djmdContent ADD COLUMN MasterSongID TEXT;
+        ALTER TABLE djmdContent ADD COLUMN MasterDBID TEXT;
+        ALTER TABLE djmdContent ADD COLUMN DeviceID TEXT;
+        ALTER TABLE djmdContent ADD COLUMN FolderPath TEXT;
+        ALTER TABLE djmdContent ADD COLUMN OrgFolderPath TEXT;
+        ALTER TABLE djmdContent ADD COLUMN FileNameL TEXT;
+        ALTER TABLE djmdContent ADD COLUMN Length INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN BitRate INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN BitDepth INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN SampleRate INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN FileSize INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN FileType INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN StockDate TEXT;
+        ALTER TABLE djmdContent ADD COLUMN DateCreated TEXT;
+        ALTER TABLE djmdContent ADD COLUMN ColorID TEXT;
+        ALTER TABLE djmdContent ADD COLUMN ImagePath TEXT;
+        ALTER TABLE djmdContent ADD COLUMN ContentLink INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN HotCueAutoLoad TEXT;
+        ALTER TABLE djmdContent ADD COLUMN SamplerTrackInfo INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN SamplerPlayOffset INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN SamplerGain REAL;
+        ALTER TABLE djmdContent ADD COLUMN Analysed INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN AnalysisUpdated TEXT;
+        ALTER TABLE djmdContent ADD COLUMN AnalysisDataPath TEXT;
+        ALTER TABLE djmdContent ADD COLUMN VideoAssociate TEXT;
+        ALTER TABLE djmdContent ADD COLUMN LyricStatus INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN ServiceID INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN ExtInfo TEXT;
+        ALTER TABLE djmdContent ADD COLUMN rb_file_id TEXT;
+        ALTER TABLE djmdContent ADD COLUMN rb_local_data_status INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN rb_local_synced INTEGER;
+        ALTER TABLE djmdContent ADD COLUMN created_at TEXT;
+        CREATE TABLE contentFile(ID TEXT PRIMARY KEY,ContentID TEXT,Path TEXT,Hash TEXT,Size INTEGER,rb_local_path TEXT,rb_file_hash_dirty INTEGER,rb_local_file_status INTEGER,rb_in_progress INTEGER,rb_process_type INTEGER,rb_priority INTEGER,rb_file_size_dirty INTEGER,UUID TEXT,rb_data_status INTEGER,rb_local_data_status INTEGER,rb_local_deleted INTEGER,rb_local_synced INTEGER,rb_local_usn INTEGER,created_at TEXT,updated_at TEXT);
         INSERT INTO djmdProperty VALUES('db','dev');
         INSERT INTO agentRegistry VALUES('localUpdateCount',41);
         INSERT INTO djmdArtist VALUES('7','Old Artist','ua',256,0,0,0,40,'t','t');
@@ -1205,6 +1481,10 @@ mod tests {
         INSERT INTO djmdContent(ID,UUID,Title,Commnt,BPM,ArtistID,CueUpdated,TrackInfoUpdated,rb_data_status,rb_local_usn,updated_at)
           VALUES('100','track-uuid','Old Title','keep me',12800,'7','1','2',256,40,'t');
         INSERT INTO djmdContent(ID,UUID,Title,rb_data_status,rb_local_usn,updated_at) VALUES('200','other-uuid','Untouched',256,40,'t');
+        UPDATE djmdContent SET MasterSongID=ID;
+        UPDATE djmdContent SET FolderPath='/music/existing-100.mp3' WHERE ID='100';
+        UPDATE djmdContent SET FolderPath='/music/existing-200.mp3' WHERE ID='200';
+        UPDATE djmdProperty SET DeviceID='dev';
     ";
     static PROFILE: &[WriteProfile] = &[WriteProfile {
         name: "synthetic",
@@ -1839,6 +2119,8 @@ mod tests {
             work,
             key,
             backup_dir: backups,
+            assets: &[],
+            share_dir: None,
             base_usn,
         }
     }
@@ -2150,5 +2432,442 @@ mod tests {
         folder_with_tracks.tracks = vec!["100".into()];
         plan.playlists = vec![folder_with_tracks];
         assert!(run(&path, profile, &plan).is_err());
+    }
+
+    fn new_track(key: &str, path: &str) -> NewTrack {
+        NewTrack {
+            key: key.into(),
+            folder_path: path.into(),
+            file_name: path.rsplit('/').next().unwrap().into(),
+            fields: ContentFields {
+                title: Some("Brand New".into()),
+                artist: Some("Fresh Artist".into()),
+                genre: Some("Techno".into()),
+                key: Some("8A".into()),
+                bpm_hundredths: Some(12800),
+                release_year: Some(2024),
+                rating: Some(3),
+                ..Default::default()
+            },
+            length_seconds: 200,
+            bit_rate: Some(320),
+            sample_rate: Some(44100),
+            file_size: Some(8_000_000),
+            file_type: 1,
+            date_added: "2026-10-20".into(),
+            color_id: Some(5),
+            first_beat_seconds: Some(0.5),
+            cues: vec![CueRow {
+                in_msec: 1000,
+                out_msec: -1,
+                kind: 1,
+                active_loop: false,
+                beat_loop_size: None,
+                color: Some(-1),
+                color_table_index: Some(41),
+                comment: Some("Start".into()),
+            }],
+            tags: vec![MyTagRef {
+                category: "Mood".into(),
+                tag: "Dark".into(),
+            }],
+        }
+    }
+
+    #[test]
+    fn a_new_track_gets_ids_foreign_rows_cues_tags_a_file_record_and_an_analysis_asset() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.share_dir = Some("/lib/share/".into());
+        plan.new_tracks = vec![new_track("n1", "/music/new one.mp3")];
+        plan.playlists = vec![PlaylistWrite {
+            path: vec!["Sets".into(), "Friday".into()],
+            kind: PlaylistKind::Playlist,
+            position: 1,
+            tracks: vec!["100".into(), "new:n1".into()],
+            rules: None,
+            expected_members: None,
+        }];
+        let report = run(&path, profile, &plan).unwrap();
+        assert_eq!((report.tracks_added, report.usn), (1, Some(42)));
+        let added = &report.new_tracks[0];
+        assert_eq!(
+            (added.key.as_str(), added.content_id.as_str()),
+            ("n1", "201")
+        );
+        assert_eq!(added.master_song_id, "201");
+        assert!(
+            added.analysis_path.starts_with("/PIONEER/USBANLZ/")
+                && added.analysis_path.ends_with("/ANLZ0000.DAT")
+        );
+        let value = |sql: &str| {
+            query::<String>(
+                &path,
+                &format!("SELECT {sql} FROM djmdContent WHERE ID='201'"),
+            )
+        };
+        let number = |sql: &str| {
+            query::<i64>(
+                &path,
+                &format!("SELECT {sql} FROM djmdContent WHERE ID='201'"),
+            )
+        };
+        assert_eq!(value("Title"), "Brand New");
+        assert_eq!(value("FolderPath"), "/music/new one.mp3");
+        assert_eq!(value("OrgFolderPath"), "/music/new one.mp3");
+        assert_eq!(value("FileNameL"), "new one.mp3");
+        assert_eq!(value("MasterDBID"), "db");
+        assert_eq!(value("DeviceID"), "dev");
+        assert_eq!(value("UUID"), added.uuid);
+        assert_eq!(
+            (
+                number("BPM"),
+                number("Length"),
+                number("FileType"),
+                number("Rating")
+            ),
+            (12800, 200, 1, 3)
+        );
+        // New tracks wait for rekordbox to analyse them (16), and carry the sync bookkeeping.
+        assert_eq!(
+            (
+                number("Analysed"),
+                number("rb_data_status"),
+                number("rb_local_usn")
+            ),
+            (16, 0, 42)
+        );
+        assert_eq!(value("AnalysisDataPath"), added.analysis_path);
+        assert_eq!(value("ColorID"), "5");
+        assert_eq!(value("HotCueAutoLoad"), "on");
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT Name FROM djmdArtist WHERE ID=(SELECT ArtistID FROM djmdContent WHERE ID='201')"
+            ),
+            "Fresh Artist"
+        );
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT ScaleName FROM djmdKey WHERE ID=(SELECT KeyID FROM djmdContent WHERE ID='201')"
+            ),
+            "8A"
+        );
+        // Cues, the MyTag, and the file record.
+        assert_eq!(
+            query::<i64>(&path, "SELECT COUNT(*) FROM djmdCue WHERE ContentID='201'"),
+            1
+        );
+        assert_eq!(
+            query::<String>(&path, "SELECT ID FROM contentCue WHERE ContentID='201'"),
+            added.uuid
+        );
+        assert_eq!(
+            query::<i64>(
+                &path,
+                "SELECT COUNT(*) FROM djmdSongMyTag WHERE ContentID='201' AND rb_local_deleted=0"
+            ),
+            1
+        );
+        let file_id: String = query(&path, "SELECT ID FROM contentFile WHERE ContentID='201'");
+        assert!(
+            file_id.starts_with(&format!("{}_%2FPIONEER%2FUSBANLZ%2F", added.uuid)),
+            "{file_id}"
+        );
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT rb_local_path FROM contentFile WHERE ContentID='201'"
+            ),
+            format!("/lib/share{}", added.analysis_path)
+        );
+        // The playlist refers to the new track by its new ID, in order.
+        assert_eq!(
+            query::<String>(
+                &path,
+                "SELECT group_concat(ContentID,',') FROM (SELECT ContentID FROM djmdSongPlaylist WHERE PlaylistID='51' AND rb_local_deleted=0 ORDER BY TrackNo)"
+            ),
+            "100,201"
+        );
+        // The analysis file is returned for publication, and parses with the beat grid.
+        let asset = &report.assets[0];
+        assert_eq!(format!("/{}", asset.relative_path), added.analysis_path);
+        let file = crate::anlz::AnlzFile::parse(&asset.bytes, Default::default()).unwrap();
+        assert_eq!(file.tags()[0].audio_path().unwrap(), "?/new one.mp3");
+        assert_eq!(file.tags()[2].beats().unwrap()[0].tempo, 12800);
+    }
+
+    #[test]
+    fn a_file_already_in_rekordbox_or_an_unknown_new_key_refuses_the_plan() {
+        let (_dir, path, profile) = database();
+        let mut plan = base_plan();
+        plan.new_tracks = vec![new_track("n1", "/music/existing-100.mp3")];
+        let error = run(&path, profile, &plan)
+            .err()
+            .expect("the plan is refused");
+        assert!(
+            error.downcast_ref::<ConflictError>().unwrap().0[0]
+                .reason
+                .contains("already in rekordbox")
+        );
+        plan.new_tracks = vec![new_track("n1", "/music/other.mp3")];
+        plan.playlists = vec![friday(&["new:missing"], None)];
+        let error = run(&path, profile, &plan)
+            .err()
+            .expect("the plan is refused");
+        assert!(
+            error.downcast_ref::<ConflictError>().unwrap().0[0]
+                .reason
+                .contains("not in the plan")
+        );
+        plan.playlists = vec![];
+        plan.new_tracks = vec![
+            new_track("n1", "/music/a.mp3"),
+            new_track("n1", "/music/b.mp3"),
+        ];
+        assert!(
+            run(&path, profile, &plan)
+                .unwrap_err()
+                .to_string()
+                .contains("distinct keys")
+        );
+        plan.new_tracks = vec![new_track("n1", "relative/path.mp3")];
+        assert!(
+            run(&path, profile, &plan)
+                .unwrap_err()
+                .to_string()
+                .contains("absolute file path")
+        );
+        assert_eq!(query::<i64>(&path, "SELECT COUNT(*) FROM djmdContent"), 2);
+        assert_eq!(query::<i64>(&path, "SELECT int_1 FROM agentRegistry"), 41);
+    }
+
+    #[test]
+    fn uri_component_encoding_matches_javascript() {
+        assert_eq!(
+            encode_uri_component("/PIONEER/USBANLZ/abc/def/ANLZ0000.DAT"),
+            "%2FPIONEER%2FUSBANLZ%2Fabc%2Fdef%2FANLZ0000.DAT"
+        );
+        assert_eq!(encode_uri_component("a b~c'(d)*!é"), "a%20b~c'(d)*!%C3%A9");
+    }
+
+    // ---- publishing assets with the database ----
+
+    /// A live library and a write copy that adds one track, with the analysis file the writer returned.
+    fn live_and_work_with_new_track() -> (
+        tempfile::TempDir,
+        PathBuf,
+        PathBuf,
+        &'static [WriteProfile],
+        Vec<AssetWrite>,
+    ) {
+        let (dir, live, profile) = database();
+        let work = dir.path().join("work.db");
+        std::fs::copy(&live, &work).unwrap();
+        let mut plan = base_plan();
+        plan.new_tracks = vec![new_track("n1", "/music/published.mp3")];
+        let mut db = WriteDatabase::open_with_profiles(&work, &key(), profile).unwrap();
+        let report = db.apply(&plan, &CancellationToken::default()).unwrap();
+        drop(db);
+        (dir, live, work, profile, report.assets)
+    }
+    fn publish_with_assets(
+        live: &Path,
+        work: &Path,
+        backups: &Path,
+        share: &Path,
+        assets: &[AssetWrite],
+        profile: &'static [WriteProfile],
+        check: &dyn Fn(&Connection) -> Result<()>,
+    ) -> Result<crate::PublishReport> {
+        let key = key();
+        publish_with(
+            &PublishRequest {
+                live,
+                work,
+                key: &key,
+                backup_dir: backups,
+                assets,
+                share_dir: Some(share),
+                base_usn: 41,
+            },
+            &CancellationToken::default(),
+            check,
+            profile,
+        )
+    }
+
+    #[test]
+    fn assets_are_created_with_the_database_change_and_recorded_in_the_journal() {
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let report = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap();
+        let file = share.join(&assets[0].relative_path);
+        assert_eq!(std::fs::read(&file).unwrap(), assets[0].bytes);
+        assert_eq!(
+            query::<String>(&live, "SELECT Title FROM djmdContent WHERE ID='201'"),
+            "Brand New"
+        );
+        let journal: crate::PublishJournal =
+            serde_json::from_slice(&std::fs::read(&report.journal).unwrap()).unwrap();
+        assert_eq!(
+            (journal.state.as_str(), journal.assets.len()),
+            ("committed", 1)
+        );
+        assert_eq!(journal.assets[0].path, file);
+    }
+
+    #[test]
+    fn an_asset_that_already_exists_or_escapes_the_share_folder_stops_the_publication_untouched() {
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let existing = share.join(&assets[0].relative_path);
+        std::fs::create_dir_all(existing.parent().unwrap()).unwrap();
+        std::fs::write(&existing, b"someone else's file").unwrap();
+        let error = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("already exists"), "{error:#}");
+        assert_eq!(std::fs::read(&existing).unwrap(), b"someone else's file");
+        assert_eq!(query::<i64>(&live, "SELECT COUNT(*) FROM djmdContent"), 2);
+        assert_eq!(query::<i64>(&live, "SELECT int_1 FROM agentRegistry"), 41);
+        let escaping = [AssetWrite {
+            relative_path: "../outside.dat".into(),
+            bytes: vec![1],
+        }];
+        let error = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &escaping,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("inside the share folder"),
+            "{error:#}"
+        );
+        assert!(!dir.path().join("outside.dat").exists());
+    }
+
+    #[test]
+    fn a_failed_verification_restores_the_library_and_removes_the_files_it_created() {
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let error = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| anyhow::bail!("simulated"),
+        )
+        .unwrap_err();
+        assert!(format!("{error:#}").contains("restored"));
+        assert_eq!(query::<i64>(&live, "SELECT COUNT(*) FROM djmdContent"), 2);
+        assert!(!share.join(&assets[0].relative_path).exists());
+        // The folders it made are gone too, and unrelated files in the share folder are untouched.
+        assert!(
+            !share.join("PIONEER/USBANLZ").exists()
+                || std::fs::read_dir(share.join("PIONEER/USBANLZ"))
+                    .unwrap()
+                    .next()
+                    .is_none()
+        );
+    }
+
+    #[test]
+    fn recovering_an_interrupted_publication_removes_its_files_unless_it_committed() {
+        let key = key();
+        let prepared = |journal_path: &Path| {
+            let mut journal: crate::PublishJournal =
+                serde_json::from_slice(&std::fs::read(journal_path).unwrap()).unwrap();
+            journal.state = "prepared".into();
+            std::fs::write(journal_path, serde_json::to_vec(&journal).unwrap()).unwrap();
+        };
+        // Committed in the database but not marked: the files stay with it.
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let report = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap();
+        prepared(&report.journal);
+        assert_eq!(
+            recover_with(&report.journal, &key, profile).unwrap().state,
+            "committed"
+        );
+        assert!(share.join(&assets[0].relative_path).exists());
+        // The database never changed: the files that were already written are removed.
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let report = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap();
+        std::fs::copy(&report.backup, &live).unwrap();
+        prepared(&report.journal);
+        assert_eq!(
+            recover_with(&report.journal, &key, profile).unwrap().state,
+            "rolled_back"
+        );
+        assert!(!share.join(&assets[0].relative_path).exists());
+        // A file that is no longer the one written is never removed.
+        let (dir, live, work, profile, assets) = live_and_work_with_new_track();
+        let share = dir.path().join("share");
+        let report = publish_with_assets(
+            &live,
+            &work,
+            &dir.path().join("b"),
+            &share,
+            &assets,
+            profile,
+            &|_| Ok(()),
+        )
+        .unwrap();
+        std::fs::copy(&report.backup, &live).unwrap();
+        std::fs::write(
+            share.join(&assets[0].relative_path),
+            b"rekordbox rewrote this",
+        )
+        .unwrap();
+        prepared(&report.journal);
+        recover_with(&report.journal, &key, profile).unwrap();
+        assert_eq!(
+            std::fs::read(share.join(&assets[0].relative_path)).unwrap(),
+            b"rekordbox rewrote this"
+        );
     }
 }

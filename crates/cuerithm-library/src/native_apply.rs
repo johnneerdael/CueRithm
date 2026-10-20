@@ -171,6 +171,8 @@ impl Library {
                 work: &snapshot.path,
                 key,
                 backup_dir,
+                assets: &[],
+                share_dir: None,
                 base_usn: prepared.snapshot_usn,
             },
             cancel,

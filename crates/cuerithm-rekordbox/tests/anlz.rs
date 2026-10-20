@@ -520,3 +520,75 @@ fn shipped_lexicon_builders_match_all_authored_reference_cases() {
         assert_eq!(tag.bytes(), wire, "reference case {index}");
     }
 }
+
+#[test]
+fn a_constant_grid_counts_bars_forward_and_the_lead_in_backward() {
+    use cuerithm_rekordbox::anlz::beat_grid;
+    // 120 BPM is a beat every 500 ms; the first beat is at 1.25 s, so two beats precede it.
+    let beats = beat_grid(120., 1.25, 4.);
+    let times: Vec<_> = beats.iter().map(|b| (b.number, b.time_ms)).collect();
+    assert_eq!(
+        times,
+        [
+            (3, 250),
+            (4, 750),
+            (1, 1250),
+            (2, 1750),
+            (3, 2250),
+            (4, 2750),
+            (1, 3250),
+            (2, 3750)
+        ]
+    );
+    assert!(beats.iter().all(|b| b.tempo == 12000));
+    // Fractional tempos are floored to hundredths, as rekordbox stores them.
+    assert_eq!(beat_grid(128.345, 0., 2.)[0].tempo, 12834);
+    for (bpm, first, duration) in [
+        (0., 0., 10.),
+        (700., 0., 10.),
+        (120., 0., 3600.),
+        (120., f64::NAN, 10.),
+        (f64::NAN, 0., 10.),
+        (120., 0., -1.),
+    ] {
+        assert!(
+            beat_grid(bpm, first, duration).is_empty(),
+            "{bpm} {first} {duration}"
+        );
+    }
+}
+
+#[test]
+fn a_placeholder_analysis_file_parses_and_carries_the_path_and_grid() {
+    use cuerithm_rekordbox::anlz::{AnlzFile, ParseLimits, beat_grid, placeholder_analysis};
+    let beats = beat_grid(126., 0.2, 30.);
+    let bytes = placeholder_analysis("Artist - Title (Club Mix).flac", &beats).unwrap();
+    let file = AnlzFile::parse(&bytes, ParseLimits::default()).unwrap();
+    let kinds: Vec<_> = file
+        .tags()
+        .iter()
+        .map(|t| String::from_utf8_lossy(&t.fourcc()).into_owned())
+        .collect();
+    assert_eq!(
+        kinds,
+        ["PPTH", "PVBR", "PQTZ", "PWAV", "PWV2", "PCOB", "PCOB"]
+    );
+    assert_eq!(
+        file.tags()[0].audio_path().unwrap(),
+        "?/Artist - Title (Club Mix).flac"
+    );
+    assert_eq!(file.tags()[2].beats().unwrap(), beats);
+    // Without a grid there is no PQTZ at all, rather than an empty one.
+    let bare = AnlzFile::parse(
+        &placeholder_analysis("x.mp3", &[]).unwrap(),
+        ParseLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(bare.tags().len(), 6);
+    // The same input always gives the same bytes.
+    assert_eq!(
+        bytes,
+        placeholder_analysis("Artist - Title (Club Mix).flac", &beats).unwrap()
+    );
+    assert!(placeholder_analysis("", &beats).is_err());
+}

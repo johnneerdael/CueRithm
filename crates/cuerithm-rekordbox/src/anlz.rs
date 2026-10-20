@@ -724,3 +724,123 @@ fn encode_utf16(value: &str) -> Result<Vec<u8>> {
         .flat_map(u16::to_be_bytes)
         .collect())
 }
+
+/// Beats of a constant-tempo grid in PQTZ units, as the reference exporter lays them out: bars counted 1-4 from
+/// the first beat, and the beats before it counted 4, 3, 2, 1 backwards from the first. Grids over an hour, a
+/// tempo of 650 or more, or a tempo that rounds to zero have no beats.
+pub fn beat_grid(bpm: f64, first_beat_seconds: f64, duration_seconds: f64) -> Vec<Beat> {
+    if !(bpm.is_finite()
+        && bpm > 0.
+        && bpm < 650.
+        && duration_seconds.is_finite()
+        && duration_seconds > 0.
+        && duration_seconds < 3600.)
+        || !first_beat_seconds.is_finite()
+    {
+        return vec![];
+    }
+    let tempo = (bpm * 100.).floor();
+    if tempo <= 0. {
+        return vec![];
+    }
+    let (tempo, period, end) = (tempo as u16, 60. / bpm * 1000., duration_seconds * 1000.);
+    let mut beats = vec![];
+    let (mut at, mut count) = (first_beat_seconds * 1000., 0i64);
+    while at < end && at >= 0. {
+        beats.push(Beat {
+            number: (count % 4) as u16 + 1,
+            tempo,
+            time_ms: at.floor() as u32,
+        });
+        at += period;
+        count += 1;
+    }
+    let (mut before, mut m) = (first_beat_seconds * 1000. - period, 0i64);
+    let mut lead = vec![];
+    while before >= 0. && before < end {
+        lead.push(Beat {
+            number: ((m % 4) + 4) as u16,
+            tempo,
+            time_ms: before.floor() as u32,
+        });
+        before -= period;
+        m -= 1;
+    }
+    lead.reverse();
+    lead.extend(beats);
+    lead
+}
+
+/// A minimal analysis file for a track rekordbox has not analysed yet: the audio path, an empty waveform
+/// preview and cue lists, and the beat grid, so the grid survives until rekordbox analyses the track itself.
+pub fn placeholder_analysis(file_name: &str, beats: &[Beat]) -> Result<Vec<u8>> {
+    ensure!(
+        !file_name.is_empty() && file_name.len() <= 1024,
+        "Invalid audio file name"
+    );
+    let mut out = vec![0u8; 28];
+    out[..4].copy_from_slice(b"PMAI");
+    put32(&mut out, 4, 28);
+    put32(&mut out, 12, 1);
+    put32(&mut out, 16, 65536);
+    put32(&mut out, 20, 65536);
+    // PPTH: "?/" and the file name, UTF-16BE, NUL-terminated.
+    let mut path: Vec<u8> = format!("?/{file_name}")
+        .encode_utf16()
+        .flat_map(u16::to_be_bytes)
+        .collect();
+    path.extend([0, 0]);
+    let mut ppth = vec![0u8; 16];
+    ppth[..4].copy_from_slice(b"PPTH");
+    put32(&mut ppth, 4, 16);
+    put32(&mut ppth, 8, u32::try_from(16 + path.len())?);
+    put32(&mut ppth, 12, u32::try_from(path.len())?);
+    ppth.extend(path);
+    out.extend(ppth);
+    // PVBR: the variable-bit-rate index, left empty.
+    let mut pvbr = vec![0u8; 1620];
+    pvbr[..4].copy_from_slice(b"PVBR");
+    put32(&mut pvbr, 4, 16);
+    put32(&mut pvbr, 8, 1620);
+    put32(&mut pvbr, 1616, 15_616_512);
+    out.extend(pvbr);
+    if !beats.is_empty() {
+        let mut pqtz = vec![0u8; 24 + 8 * beats.len()];
+        pqtz[..4].copy_from_slice(b"PQTZ");
+        put32(&mut pqtz, 4, 24);
+        let length = u32::try_from(pqtz.len())?;
+        put32(&mut pqtz, 8, length);
+        put32(&mut pqtz, 16, 524_288);
+        put32(&mut pqtz, 20, u32::try_from(beats.len())?);
+        for (i, beat) in beats.iter().enumerate() {
+            let at = 24 + 8 * i;
+            pqtz[at..at + 2].copy_from_slice(&beat.number.to_be_bytes());
+            pqtz[at + 2..at + 4].copy_from_slice(&beat.tempo.to_be_bytes());
+            pqtz[at + 4..at + 8].copy_from_slice(&beat.time_ms.to_be_bytes());
+        }
+        out.extend(pqtz);
+    }
+    // PWAV: 400 empty preview bytes; PWV2: 100.
+    for (tag, total, header) in [(b"PWAV", 420usize, 20u32), (b"PWV2", 120, 20)] {
+        let mut chunk = vec![0u8; total];
+        chunk[..4].copy_from_slice(tag);
+        put32(&mut chunk, 4, header);
+        put32(&mut chunk, 8, u32::try_from(total)?);
+        put32(&mut chunk, 12, u32::try_from(total)? - header);
+        put32(&mut chunk, 16, 65536);
+        out.extend(chunk);
+    }
+    // PCOB: empty hot-cue (1) and memory-cue (0) lists.
+    for hot in [1u32, 0] {
+        let mut chunk = vec![0u8; 24];
+        chunk[..4].copy_from_slice(b"PCOB");
+        put32(&mut chunk, 4, 24);
+        put32(&mut chunk, 8, 24);
+        put32(&mut chunk, 12, hot);
+        put32(&mut chunk, 20, u32::MAX);
+        out.extend(chunk);
+    }
+    let total = u32::try_from(out.len())?;
+    put32(&mut out, 8, total);
+    Ok(out)
+}
