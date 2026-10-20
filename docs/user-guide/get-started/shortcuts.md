@@ -21,7 +21,7 @@ Shortcuts are ignored while you type in a text box, a menu or a dialog. On Windo
 | ++cmd++ + click | Add or remove a row from the selection. |
 | ++shift++ + click | Select a range. |
 | Double-click a row, or press its play button | Load the track and play. |
-| Click the waveform | Toggle entire track and 16-second zoom. |
+| Click the waveform | Toggle the default 32-second zoom and the entire track. |
 | Click the track overview | Seek. |
 | Click a cue button | Seek to that cue. |
 | Drag tracks onto a playlist | Add them to an ordinary playlist. |

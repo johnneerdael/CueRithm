@@ -22,8 +22,8 @@ function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=fal
     return buildShape(data,style,{first,last,columns:900,x:bin=>(bin/bins*data.duration_seconds-start)/span*1000,width:1000,mid:40,half:35,stacked:small,theme});
   },[data,style,theme,small,start,end,span]);
   const ticks=beats.filter(t=>t>=start&&t<=end);
-  return <div className={small?"wave overview":"wave detail-wave"} data-wave-style={style} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"16 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
-    title={small?"Click to seek · ← / → jump one bar":"Click to show "+(zoomed?"entire track":"16 seconds")+" · ← / → jump one bar"}
+  return <div className={small?"wave overview":"wave detail-wave"} data-wave-style={style} role={small?"slider":"button"} aria-label={small?"Track overview":"Waveform zoom: "+(zoomed?"32 seconds":"Entire track")} aria-pressed={small?undefined:zoomed} aria-valuemin={small?0:undefined} aria-valuemax={small?data?.duration_seconds??0:undefined} aria-valuenow={small?position:undefined} tabIndex={data?0:-1}
+    title={small?"Click to seek · ← / → jump one bar":"Click to show "+(zoomed?"entire track":"32 seconds")+" · ← / → jump one bar"}
     onPointerDown={event=>{if(!data||!small)return;const rect=event.currentTarget.getBoundingClientRect();onSeek(Math.max(0,Math.min(data.duration_seconds,start+(event.clientX-rect.left)/rect.width*span)));}}
     onClick={()=>{if(data&&!small)onToggleZoom?.();}}
     onKeyDown={event=>{if(!small&&(event.key==="Enter"||event.key===" ")){event.preventDefault();event.stopPropagation();if(data)onToggleZoom?.();}}}>
@@ -37,7 +37,7 @@ function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=fal
   </div>;
 }
 export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader}:{artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
-  const [zoom,setZoom]=useState(0);
+  const [zoom,setZoom]=useState(32);
   const duration=status.duration_seconds||data?.duration_seconds||0;
   const center=status.position_seconds;
   const span=zoom||duration;
@@ -59,8 +59,8 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
       <div className="player-volume"><Volume2 size={16}/><input aria-label="Volume" type="range" min={0} max={1} step={.01} value={status.volume} onChange={event=>onVolume(Number(event.target.value))}/></div>
     </div>
     <div className="waveform-area">
-      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><span>{zoom?"16 seconds":"Entire track"} · click waveform to switch</span></div>
-        <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek} zoomed={!!zoom} onToggleZoom={()=>setZoom(value=>value?0:16)}/>
+      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><span>{zoom?"32 seconds":"Entire track"} · click waveform to switch</span></div>
+        <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek} zoomed={!!zoom} onToggleZoom={()=>setZoom(value=>value?0:32)}/>
         <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(end,true)}</span></div>
         <Wave small data={data} position={center} start={0} end={duration} beats={[]} cues={cues} onSeek={onSeek}/>
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}

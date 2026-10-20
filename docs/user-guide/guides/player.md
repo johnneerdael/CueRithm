@@ -24,22 +24,22 @@ Playback decodes the track into one cached 44.1 kHz stereo copy, so cue position
 
 ## The waveform
 
-The label *BEATGRID & CUES* (or *PREVIEW* before analysis) sits above the waveform with the file codec. At right it says either *Entire track* or *16 seconds*, plus "click waveform to switch".
+The label *BEATGRID & CUES* (or *PREVIEW* before analysis) sits above the waveform with the file codec. At right it says either *32 seconds* or *Entire track*, plus "click waveform to switch".
 
+- **32 seconds** is the default: a window that follows the playhead, with beat lines clearly spaced.
 - **Entire track** shows everything.
-- **16 seconds** shows a window that follows the playhead, with beat lines clearly spaced.
 
 Click the waveform, or focus it and press ++enter++ or ++space++, to toggle between them.
 
 <figure markdown>
-  ![Zoomed 16-second waveform view](../assets/screens/41-player-zoom16.webp){ .screen loading=lazy }
+  ![Zoomed waveform shown with the previous 16-second window](../assets/screens/41-player-zoom16.webp){ .screen loading=lazy }
 </figure>
 
 Beat lines come from the saved BPM and first-beat anchor. Cue lines carry a letter. Colours follow the [waveform style](../learn/appearance.md) you chose.
 
 ## The overview
 
-The thin strip under the waveform is the **Track overview**. Click it to seek. ++arrow-left++ and ++arrow-right++ jump one bar (four beats at the saved BPM) when a track with a BPM is loaded.
+The thin strip under the waveform is the **Track overview**. It always shows the full track. Click it to seek. ++arrow-left++ and ++arrow-right++ jump one bar (four beats at the saved BPM) when a track with a BPM is loaded.
 
 ## Cue buttons
 
