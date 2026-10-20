@@ -67,3 +67,24 @@ cues, so cue comparison with MIK is not meaningful.
 - **Key.** OpenKeyScan agrees with MIK's tags on 97.2% (274/282), matching the earlier development measurement of
   274/282, and agrees with Lexicon's own key on 75.5%. Lexicon's key is itself 75.5% against MIK, so CueRithm is
   much closer to MIK than Lexicon is.
+
+## Energy recalibration toward MIK, tuning split only
+
+Question: does refitting the energy formula's four features (crest factor, spectral flatness, high-mid ratio,
+sub-bass ratio, taken from the production decode path) to MIK's overall level improve agreement? Five-fold
+cross-validation over the 282 songs, folds assigned by a hash of the song, MIK tag level as the target:
+
+| Method | Exact | Within one level |
+| --- | ---: | ---: |
+| Current formula (no fitting) | 64.5% | 94.3% |
+| Always predict 6 (the most common MIK level) | 53.9% | — |
+| Linear refit of the four features | 59.6% | 97.2% |
+| Multinomial logistic regression | 58.2% | 96.8% |
+| Random forest | 56.0% | 97.9% |
+| Gradient boosting | 52.5% | 95.4% |
+
+MIK rates 94% of these songs 5, 6 or 7, so exact agreement has a low ceiling. Refitting trades exact agreement for
+within-one agreement and does not beat the unfitted formula on exact agreement, so these four features, not the
+amount of data, are the limit. A closer imitation would need MIK-style segment features with a segment classifier
+trained on captured server labels and then MIK's aggregation; the earlier SVC did that and matched 58.5%, scored on
+its own training songs. Nothing here uses the held-out split.
