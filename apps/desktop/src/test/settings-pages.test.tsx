@@ -26,3 +26,17 @@ it("has separate unnumbered settings pages, preserves drafts across pages and sa
  expect(saved.engine.lexicon_config?.min_cue_length_beats).toBe(128);
  expect(saved.autotag_enabled).toBe(true);expect(saved.cleanup_enabled).toBe(true);
 });
+
+it("keeps the built-in energy formula by default and saves the MIK-style opt-in",async()=>{
+ const bridge=fakeBridge([]);render(<App bridge={bridge}/>);
+ await screen.findByText("Your library starts here");
+ fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+ const navigation=screen.getByRole("navigation",{name:"Settings pages"});
+ fireEvent.click(within(navigation).getByRole("button",{name:"Cue generation"}));
+ const energy=screen.getByLabelText("Energy rating");
+ expect(energy).toHaveValue("formula");
+ fireEvent.change(energy,{target:{value:"mik"}});
+ fireEvent.click(screen.getByRole("button",{name:"Save settings"}));
+ await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+ expect(vi.mocked(bridge.saveSettings).mock.calls.at(-1)![0].mik_style_energy).toBe(true);
+});

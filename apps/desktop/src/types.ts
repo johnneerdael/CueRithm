@@ -56,7 +56,7 @@ export interface CleanupCatalogValue {value:string;track_count:number;protected:
 export interface CleanupCatalog {genres:CleanupCatalogValue[];artists:(CleanupCatalogValue&{roles:Partial<Record<ContributorRole,number>>})[];categories:string[];unavailable_tracks:CleanupFailure[]}
 export type CleanupScope={kind:"all_ready"}|{kind:"track_ids";track_ids:string[]};
 export interface LibraryChangeEvent {track_ids:string[];playlist_ids?:string[]}
-export interface Settings {cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;autotag_enabled:boolean;cleanup_enabled:boolean}
+export interface Settings {cleanup?:CleanupConfig|null;tagging?:AutotagConfig|null;watch_folders:string[];stability_millis:number;engine:EngineSettings;mik_style_energy?:boolean;autotag_enabled:boolean;cleanup_enabled:boolean}
 export interface Snapshot {revision:string;settings:Settings;models:Record<string,string>}
 export interface LibraryState {counts:{tracks:number;incoming:number;archive:number};revision:number;jobs:Job[];settings:Snapshot;service:{watch_errors:string[];last_error:string|null}}
 export interface Playback {track_id:string|null;duration_seconds:number;position_seconds:number;playing:boolean;volume:number;error:string|null}

@@ -13,11 +13,9 @@ See `../../docs/research/local-track-energy.md` for source evidence, the
 synthetic reference boundary and intentional silence policy.
 Structural cue detection and BPM/beatgrid DSP are also compiled Rust code.
 
-The old `energy-svc-v1.json` remains a historical development artifact for the
-standalone explicit-model research API. It is not embedded or installed by the
-desktop. Existing cached copies are left untouched on upgrade; desktop settings
-and unfinished jobs migrate to compiled energy. Previously completed track
-ratings change only when those tracks are reanalyzed.
+`energy-svc-v1.json` is a window classifier fitted to Mixed In Key window levels from the development split. The
+desktop embeds it and offers it as the opt-in "MIK-style (beta)" energy rating in Settings; the built-in formula stays
+the default and nothing is downloaded. Choosing a rating never changes a completed track until it is analyzed again.
 
 `manifest.json` records active desktop component identities. Synthetic helper
 agreement is not a claim of end-to-end browser decode parity or real-music

@@ -14,6 +14,9 @@ pub struct PreparationSettings {
     pub watch_folders: Vec<PathBuf>,
     pub stability_millis: u64,
     pub engine: EngineSettings,
+    /// Rate energy with the bundled window classifier instead of the built-in formula. The desktop turns this
+    /// into the engine's energy model; it is off unless the user opts in.
+    pub mik_style_energy: bool,
     pub autotag_enabled: bool,
     #[cfg(feature = "autotag")]
     pub tagging: Option<cuerithm_autotag::AutotagConfig>,
@@ -36,6 +39,7 @@ impl Default for PreparationSettings {
                 }),
                 ..Default::default()
             },
+            mik_style_energy: false,
             autotag_enabled: false,
             tagging: None,
             cleanup_enabled: false,

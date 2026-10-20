@@ -1,5 +1,5 @@
 {
-  "revision": 2,
+  "revision": 3,
   "distribution": "embedded in desktop executable; no runtime download",
   "key": {
     "file": "openkeyscan3-logits.onnx",
@@ -15,5 +15,14 @@
     "external_model": false,
     "input": "full-track mono 22050 Hz PCM",
     "output": "one integer rating 1-10; no rating for digital silence or less than one frame"
+  },
+  "energy_window_classifier": {
+    "file": "energy-svc-v1.json",
+    "sha256": "bf7079a52240d04d8d3d5c6a7db537a47673c19655dcde45bcc10cb210272d96",
+    "use": "opt-in setting 'MIK-style (beta)'; off by default",
+    "method": "svc-percentile80-v1",
+    "origin": "RBF SVC fitted to window levels returned by the licensed application for the development split; embedded in the desktop executable, never downloaded",
+    "input": "183-value energy windows from the canonical 44.1 kHz stereo PCM",
+    "output": "one integer rating 1-10 (80th percentile of window levels)"
   }
 }

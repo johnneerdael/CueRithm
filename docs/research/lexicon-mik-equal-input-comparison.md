@@ -148,8 +148,8 @@ tuning-split files. Aggregates only.
   Lexicon formula gets 46.3% (91.0%) on the same 255 songs. On the whole tuning split, scored against the file tags
   as they stood when this was first written, both methods matched 64.5% exactly; against the current tags (which
   equal the server values) the 80th-percentile route matches 79.8% (99.3% within one level, partly in-sample) and the
-  formula 45.4% (91.5%). The desktop still uses the acoustic formula; switching is a product decision, because the
-  window route needs the 10 MB model file.
+  formula 45.4% (91.5%). The desktop rates with the acoustic formula by default and offers the window route as the opt-in
+  "MIK-style (beta)" energy rating in Settings (the 10 MB model is embedded in the app).
 - **A direct whole-track model does worse.** Ridge, logistic, SVM and random-forest models on per-track summaries of
   the window features reached 63 to 66% exact, below the window route.
 
