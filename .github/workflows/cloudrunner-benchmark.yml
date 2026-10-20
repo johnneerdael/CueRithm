@@ -11,9 +11,9 @@ on:
         options: [all, windows, linux]
         default: all
       check:
-        description: 'Build/tests or a restore-only cache check'
+        description: 'Separate workloads, restore-only check, or combined Windows pilot'
         type: choice
-        options: [workload, cache]
+        options: [workload, cache, combined]
         default: workload
   pull_request:
     branches: [main]
@@ -144,7 +144,7 @@ jobs:
   engine:
     needs: profiles
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check != 'cache') ||
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'workload') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
@@ -206,7 +206,7 @@ jobs:
   desktop:
     needs: profiles
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check != 'cache') ||
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'workload') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login == github.repository_owner &&
@@ -286,3 +286,72 @@ jobs:
         run: |
           python -m unittest discover -s tools/fixtures/rekordbox -v
           python -m unittest discover -s tools/media-runtime -v
+
+  windows-combined:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner && inputs.check == 'combined') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login == github.repository_owner &&
+       github.event.action == 'labeled' && github.event.label.name == 'cloudrunner-combined')
+    runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha || env.BENCHMARK_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: .cloudrunner-ci
+          sparse-checkout: tools/ci
+          persist-credentials: false
+      - name: Confirm single-host pilot size and record source
+        shell: pwsh
+        run: |
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne 16 -or $computer.TotalPhysicalMemory -lt 60GB) {
+            throw 'The combined pilot requires the 16-vCPU/64-GB pool.'
+          }
+          git rev-parse HEAD
+          git -C .cloudrunner-ci rev-parse HEAD
+      - name: Test parallel coordinator
+        run: python -m unittest discover -s .cloudrunner-ci/tools/ci -v
+      - uses: ./.github/actions/native-crypto-tools
+      - uses: ./.github/actions/media-runtime
+      - name: Install Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Prepare isolated engine and desktop workspaces
+        run: python .cloudrunner-ci/tools/ci/windows_combined.py prepare
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cloudrunner-combined-windows-16-v1
+          workspaces: |
+            C:/cr/e -> target
+            C:/cr/d -> target
+          save-if: true
+      - name: Fetch native dependencies before parallel compilation
+        run: cargo +stable fetch --locked --target x86_64-pc-windows-msvc
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@12.14.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Locked frontend dependencies
+        shell: bash
+        run: pnpm --dir C:/cr/d/apps/desktop install --frozen-lockfile
+      - name: Engine and desktop checks in parallel
+        run: python .cloudrunner-ci/tools/ci/windows_combined.py run
+      - name: Preserve component logs and timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-combined-logs
+          path: C:/cr/logs/*.*
+          if-no-files-found: warn
+          retention-days: 7
