@@ -1,7 +1,7 @@
 //! Turn a reconciliation preview into the rekordbox write plan it implies, and say what was left out.
 use crate::native_reconcile::{FieldDecision, NativeSyncPreview};
 use anyhow::{Context, Result};
-use cuerithm_rekordbox::{ContentFields, CueRow, TrackWrite, WritePlan};
+use cuerithm_rekordbox::{ContentFields, CueRow, MyTagRef, TrackWrite, WritePlan};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -49,6 +49,7 @@ pub fn plan_from_preview(preview: &NativeSyncPreview) -> Result<(WritePlan, Sync
         }
         let mut fields = ContentFields::default();
         let mut cues: Option<Vec<CueRow>> = None;
+        let mut tags: Option<Vec<MyTagRef>> = None;
         let mut written = vec![];
         for diff in &track.fields {
             match diff.decision {
@@ -86,6 +87,22 @@ pub fn plan_from_preview(preview: &NativeSyncPreview) -> Result<(WritePlan, Sync
                 "track_number" => fields.track_number = integer(value),
                 "disc_number" => fields.disc_number = integer(value),
                 "rating" => fields.rating = integer(value),
+                "tag_ids" => {
+                    tags = Some(
+                        value
+                            .as_array()
+                            .map(|a| a.as_slice())
+                            .unwrap_or_default()
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .filter_map(|t| t.split_once(crate::native_sync::TAG_SEPARATOR))
+                            .map(|(category, tag)| MyTagRef {
+                                category: category.into(),
+                                tag: tag.into(),
+                            })
+                            .collect(),
+                    )
+                }
                 "cues" => {
                     cues = Some(
                         serde_json::from_value(value.clone())
@@ -107,7 +124,7 @@ pub fn plan_from_preview(preview: &NativeSyncPreview) -> Result<(WritePlan, Sync
                 .context("A track to write has no recorded observation")?,
             fields,
             cues,
-            tags: None,
+            tags,
         });
         summary.tracks.push(PlannedTrack {
             content_id: track.content_id.clone(),
@@ -208,6 +225,25 @@ mod tests {
                 ("label", FieldDecision::EmptyLocal)
             ]
         );
+    }
+
+    #[test]
+    fn tags_are_planned_as_category_and_tag_pairs() {
+        let tags = json!(["Mood\u{1f}Dark", "Vibe\u{1f}Warm"]);
+        let (plan, summary) = plan_from_preview(&preview(vec![track(
+            "9",
+            vec![diff("tag_ids", FieldDecision::PushLocal, tags)],
+        )]))
+        .unwrap();
+        let written = plan.tracks[0].tags.as_ref().unwrap();
+        assert_eq!(
+            written
+                .iter()
+                .map(|t| (t.category.as_str(), t.tag.as_str()))
+                .collect::<Vec<_>>(),
+            [("Mood", "Dark"), ("Vibe", "Warm")]
+        );
+        assert_eq!(summary.tracks[0].fields, ["tag_ids"]);
     }
 
     #[test]

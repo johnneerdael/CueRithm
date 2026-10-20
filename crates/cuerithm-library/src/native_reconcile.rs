@@ -12,7 +12,7 @@ use camelot_core::lexicon_publication::PublishedCue;
 use cuerithm_rekordbox::ImportedCue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What a synchronization would have to do for one field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,6 +84,7 @@ pub fn native_writable_fields() -> Vec<&'static str> {
         "disc_number",
         "rating",
         "cues",
+        "tag_ids",
     ]);
     fields
 }
@@ -100,6 +101,7 @@ pub(crate) fn writable(field: &str) -> bool {
                 | "disc_number"
                 | "rating"
                 | "cues"
+                | "tag_ids"
         )
 }
 /// A key as Camelot notation: `8A`, `8B` or a classic name such as `Am`, `C#m` or `Gb`. Anything else is
@@ -214,6 +216,24 @@ pub(crate) fn canonical_fields(
                 Some(bpm) => serde_json::json!((bpm * 100.).round() as i64),
                 None => Value::Null,
             },
+            "tag_ids" => {
+                let mut names: Vec<String> = value
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_owned)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                names.sort();
+                names.dedup();
+                if names.is_empty() {
+                    Value::Null
+                } else {
+                    serde_json::json!(names)
+                }
+            }
             "cues" if local => {
                 let bpm = get("bpm").as_f64().unwrap_or(0.);
                 serde_json::from_value::<Vec<PublishedCue>>(value)
@@ -262,6 +282,52 @@ fn same(a: &Value, b: &Value) -> bool {
     a == b || (empty(a) && empty(b))
 }
 
+fn string_set(value: &Value) -> BTreeSet<String> {
+    value
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+fn set_value(set: &BTreeSet<String>) -> Value {
+    if set.is_empty() {
+        Value::Null
+    } else {
+        serde_json::json!(set.iter().collect::<Vec<_>>())
+    }
+}
+/// Decide a tag set against its baseline by merging, not replacing: what CueRithm added or removed since the
+/// baseline is applied to rekordbox's current set, so tags that exist only in rekordbox are never dropped.
+/// The value returned is the set to write.
+pub fn decide_tags(
+    base: &NativeFieldBaseline,
+    local: &Value,
+    remote: &Value,
+) -> (FieldDecision, Value) {
+    let (local, remote, base_local) = (
+        string_set(local),
+        string_set(remote),
+        string_set(&base.local),
+    );
+    let added: BTreeSet<_> = local.difference(&base_local).cloned().collect();
+    let removed: BTreeSet<_> = base_local.difference(&local).cloned().collect();
+    if added.is_empty() && removed.is_empty() {
+        return (FieldDecision::Unchanged, set_value(&remote));
+    }
+    let merged: BTreeSet<_> = remote.difference(&removed).cloned().chain(added).collect();
+    if merged == remote {
+        return (FieldDecision::Converged, set_value(&remote));
+    }
+    match base.owner {
+        NativeFieldOwner::Unowned => (FieldDecision::NeedsOwner, set_value(&merged)),
+        NativeFieldOwner::Remote => (FieldDecision::Conflict, set_value(&merged)),
+        _ => (FieldDecision::PushLocal, set_value(&merged)),
+    }
+}
 /// The decision for one field from its recorded baseline and the current values on both sides.
 pub fn decide(base: &NativeFieldBaseline, local: &Value, remote: &Value) -> FieldDecision {
     if same(local, remote) {
@@ -300,12 +366,58 @@ pub fn decide(base: &NativeFieldBaseline, local: &Value, remote: &Value) -> Fiel
     }
 }
 
+/// MyTag row IDs of one target mapped to `category SEP tag` names, read from the stored target records.
+fn remote_tag_names(conn: &rusqlite::Connection, target: &str) -> Result<BTreeMap<String, String>> {
+    use cuerithm_rekordbox::{TargetRecord, TargetValue};
+    let mut q = conn
+        .prepare("SELECT json FROM native_records WHERE target_id=?1 AND table_name='djmdMyTag'")?;
+    let records = q
+        .query_map([target], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .map(|text| serde_json::from_str::<TargetRecord>(&text))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let text = |r: &TargetRecord, key: &str| match r.values.get(key) {
+        Some(TargetValue::Text(t)) => Some(t.clone()),
+        Some(TargetValue::Integer(i)) => Some(i.to_string()),
+        _ => None,
+    };
+    let by_id: BTreeMap<_, _> = records.iter().map(|r| (r.id.clone(), r)).collect();
+    let mut names = BTreeMap::new();
+    for record in &records {
+        // Attribute 0 is a tag; its parent is the category.
+        if matches!(
+            record.values.get("Attribute"),
+            Some(TargetValue::Integer(0))
+        ) && let (Some(name), Some(parent)) = (text(record, "Name"), text(record, "ParentID"))
+            && let Some(category) = by_id.get(&parent).and_then(|c| text(c, "Name"))
+        {
+            names.insert(
+                record.id.clone(),
+                format!("{category}{}{name}", crate::native_sync::TAG_SEPARATOR),
+            );
+        }
+    }
+    Ok(names)
+}
+fn resolve_tags(map: &mut BTreeMap<String, Value>, names: &BTreeMap<String, String>) {
+    if let Some(Value::Array(ids)) = map.get("tag_ids").cloned() {
+        let resolved: Vec<Value> = ids
+            .iter()
+            .filter_map(Value::as_str)
+            .filter_map(|id| names.get(id).cloned())
+            .map(Value::String)
+            .collect();
+        map.insert("tag_ids".into(), Value::Array(resolved));
+    }
+}
 impl Library {
     /// Compare every linked track with its latest rekordbox observation. Read-only.
     pub fn native_sync_preview(&self, target: &str) -> Result<NativeSyncPreview> {
         let state = self.native_target(target)?;
         let conn = self.conn()?;
         let links = crate::native_sync::links(&conn, target)?;
+        let tag_names = remote_tag_names(&conn, target)?;
         let mut tracks = vec![];
         let mut summary: BTreeMap<String, usize> = BTreeMap::new();
         for (content_id, link) in links {
@@ -335,7 +447,9 @@ impl Library {
                 *summary.entry("blocked_tracks".into()).or_default() += 1;
             } else if let (Some(local_id), Some(observation)) = (&link.local, &observation) {
                 let local = canonical_fields(&local_fields(&conn, local_id)?, true);
-                let remote = canonical_fields(&remote_fields(observation)?, false);
+                let mut remote_raw = remote_fields(observation)?;
+                resolve_tags(&mut remote_raw, &tag_names);
+                let remote = canonical_fields(&remote_raw, false);
                 let base_local = canonical_fields(
                     &link
                         .fields
@@ -344,14 +458,13 @@ impl Library {
                         .collect(),
                     true,
                 );
-                let base_remote = canonical_fields(
-                    &link
-                        .fields
-                        .iter()
-                        .map(|(k, f)| (k.clone(), f.remote.clone()))
-                        .collect(),
-                    false,
-                );
+                let mut base_remote_raw: BTreeMap<String, Value> = link
+                    .fields
+                    .iter()
+                    .map(|(k, f)| (k.clone(), f.remote.clone()))
+                    .collect();
+                resolve_tags(&mut base_remote_raw, &tag_names);
+                let base_remote = canonical_fields(&base_remote_raw, false);
                 for (field, base) in link.fields.iter().filter(|(f, _)| writable(f)) {
                     let l = local.get(field).cloned().unwrap_or(Value::Null);
                     let r = remote.get(field).cloned().unwrap_or(Value::Null);
@@ -361,7 +474,11 @@ impl Library {
                         owner: base.owner,
                         acknowledged: base.acknowledged,
                     };
-                    let decision = decide(&comparable, &l, &r);
+                    let (decision, l) = if field == "tag_ids" {
+                        decide_tags(&comparable, &l, &r)
+                    } else {
+                        (decide(&comparable, &l, &r), l)
+                    };
                     let name = serde_json::to_value(decision)?
                         .as_str()
                         .unwrap_or_default()
@@ -568,5 +685,68 @@ mod tests {
         // A cue list in some other shape is treated as having no comparable cues rather than a mismatch.
         let odd = BTreeMap::from([("cues".to_owned(), json!({"native": true}))]);
         assert_eq!(canonical_fields(&odd, true)["cues"], Value::Null);
+    }
+
+    fn tag_base(local: Value, owner: NativeFieldOwner) -> NativeFieldBaseline {
+        NativeFieldBaseline {
+            local,
+            remote: Value::Null,
+            owner,
+            acknowledged: false,
+        }
+    }
+    #[test]
+    fn tags_merge_local_changes_into_rekordbox_without_dropping_its_own_tags() {
+        use FieldDecision::*;
+        let base = tag_base(json!(["Mood\u{1f}Dark"]), NativeFieldOwner::Local);
+        // The local set did not change since the baseline: nothing to do, whatever rekordbox holds.
+        assert_eq!(
+            decide_tags(
+                &base,
+                &json!(["Mood\u{1f}Dark"]),
+                &json!(["Energy\u{1f}Peak"])
+            )
+            .0,
+            Unchanged
+        );
+        // A tag added here is added there; a tag only rekordbox has is kept.
+        let (decision, write) = decide_tags(
+            &base,
+            &json!(["Mood\u{1f}Dark", "Vibe\u{1f}Warm"]),
+            &json!(["Energy\u{1f}Peak", "Mood\u{1f}Dark"]),
+        );
+        assert_eq!(decision, PushLocal);
+        assert_eq!(
+            write,
+            json!(["Energy\u{1f}Peak", "Mood\u{1f}Dark", "Vibe\u{1f}Warm"])
+        );
+        // A tag removed here is removed there, and only that one.
+        let (decision, write) = decide_tags(
+            &base,
+            &json!([]),
+            &json!(["Energy\u{1f}Peak", "Mood\u{1f}Dark"]),
+        );
+        assert_eq!((decision, write), (PushLocal, json!(["Energy\u{1f}Peak"])));
+        // Already reflected in rekordbox: converged, nothing written.
+        assert_eq!(
+            decide_tags(
+                &base,
+                &json!(["Mood\u{1f}Dark", "Vibe\u{1f}Warm"]),
+                &json!(["Mood\u{1f}Dark", "Vibe\u{1f}Warm"])
+            )
+            .0,
+            Converged
+        );
+        // Ownership still applies.
+        let unowned = tag_base(Value::Null, NativeFieldOwner::Unowned);
+        assert_eq!(
+            decide_tags(&unowned, &json!(["A\u{1f}b"]), &Value::Null).0,
+            NeedsOwner
+        );
+        let remote = tag_base(Value::Null, NativeFieldOwner::Remote);
+        assert_eq!(
+            decide_tags(&remote, &json!(["A\u{1f}b"]), &Value::Null).0,
+            Conflict
+        );
     }
 }

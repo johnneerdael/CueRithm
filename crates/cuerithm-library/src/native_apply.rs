@@ -236,6 +236,25 @@ pub fn native_sync_conflicts(error: &anyhow::Error) -> Option<Vec<NativeSyncConf
 
 #[doc(hidden)]
 impl Library {
+    /// Test support: give a track a custom tag, creating the category and tag if needed.
+    pub fn add_track_tag_for_test(&self, track_id: &str, category: &str, tag: &str) -> Result<()> {
+        let conn = self.conn()?;
+        let category_id = format!("category-{category}");
+        let tag_id = format!("tag-{category}-{tag}");
+        conn.execute(
+            "INSERT OR IGNORE INTO custom_tag_categories(id,name) VALUES(?1,?2)",
+            params![category_id, category],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO custom_tags(id,category_id,name) VALUES(?1,?2,?3)",
+            params![tag_id, category_id, tag],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO track_custom_tags(track_id,tag_id) VALUES(?1,?2)",
+            params![track_id, tag_id],
+        )?;
+        Ok(())
+    }
     /// Test support: set a track's title and genre as a local edit would.
     pub fn set_track_text_for_test(&self, track_id: &str, title: &str, genre: &str) -> Result<()> {
         ensure!(

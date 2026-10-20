@@ -12,11 +12,16 @@ const decisionText:Record<FieldDecision,string>={
   conflict:"Conflict — both changed",needs_owner:"Needs an owner",empty_local:"Cuerithm has no value",
 };
 const playlistText:Record<PlaylistAction,string>={create:"Create",update:"Update",unchanged:"Unchanged",remove:"Remove",skip_existing:"Left alone — already in rekordbox",skip_changed:"Left alone — changed in rekordbox"};
-const fieldNames:Record<string,string>={mix_name:"Mix",release_year:"Year",release_date:"Release date",track_number:"Track number",disc_number:"Disc number",cues:"Cues",bpm:"BPM"};
+const fieldNames:Record<string,string>={tag_ids:"MyTags",mix_name:"Mix",release_year:"Year",release_date:"Release date",track_number:"Track number",disc_number:"Disc number",cues:"Cues",bpm:"BPM"};
 const fieldName=(f:string)=>fieldNames[f]??f.charAt(0).toUpperCase()+f.slice(1).replace(/_/g," ");
 function show(value:unknown){
   if(value===null||value===undefined||value==="")return "—";
-  if(Array.isArray(value))return value.length?`${value.length} cue${value.length===1?"":"s"}`:"—";
+  if(Array.isArray(value)){
+    if(!value.length)return "—";
+    // MyTags are "category, tag" strings; cues are rows.
+    if(value.every(v=>typeof v==="string"))return value.map(v=>String(v).replace("\u001f"," / ")).join(", ");
+    return `${value.length} cue${value.length===1?"":"s"}`;
+  }
   return String(value);
 }
 

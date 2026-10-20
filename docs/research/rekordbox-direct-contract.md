@@ -477,3 +477,14 @@ The end-to-end test (`cuerithm-library/tests/native_sync_real.rs`, skipped unles
 set) runs this on a snapshot of a real 7.2.19 library: previewing, writing, publishing, acknowledging,
 repeating as a no-op, reporting an edit made in rekordbox as a conflict, mirroring and removing playlists,
 and refusing to take over an existing playlist.
+
+
+## MyTags in the sync flow (2026-10-20)
+
+CueRithm's custom tags are (category, tag) pairs per track; rekordbox's are tag rows under category rows. They
+are compared by name (the target's `djmdMyTag` records resolve rekordbox's tag IDs). Because CueRithm does not
+import rekordbox's tags as custom tags, tags are merged, never replaced: what CueRithm added or removed since the
+baseline is applied to rekordbox's current set, so a tag that exists only in rekordbox is kept. A tag set that
+rekordbox already reflects is converged; ownership rules still apply. Missing categories and tags are created
+with the reference writer's row protocol. The end-to-end test adds a local tag, writes it, and confirms the
+track's existing rekordbox tags are unchanged.

@@ -61,12 +61,10 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     let content_id = track.identity.content_id.clone();
     let library_dir = tempfile::tempdir().unwrap();
     let lib = Library::open(&library_dir.path().join("library")).unwrap();
-    let owners: BTreeMap<_, _> = [
-        "title", "artist", "album", "genre", "label", "comment", "key", "bpm", "rating", "cues",
-    ]
-    .into_iter()
-    .map(|f| (f.to_owned(), NativeFieldOwner::Local))
-    .collect();
+    let owners: BTreeMap<_, _> = native_writable_fields()
+        .into_iter()
+        .map(|f| (f.to_owned(), NativeFieldOwner::Local))
+        .collect();
     let report = lib
         .import_rekordbox_collection(
             &before,
@@ -92,6 +90,8 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     // Edit the track in Cuerithm.
     lib.set_track_text_for_test(&local_id, "Cuerithm edited title", "Cuerithm edited genre")
         .unwrap();
+    lib.add_track_tag_for_test(&local_id, "Cuerithm Acceptance", "Written")
+        .unwrap();
     let prepared = lib
         .native_sync_prepare(&live.path, &key, work.path(), &cancel)
         .unwrap();
@@ -116,6 +116,29 @@ fn a_local_edit_is_previewed_written_published_acknowledged_and_not_repeated() {
     assert_eq!(written.metadata.title, "Cuerithm edited title");
     assert_eq!(written.metadata.genre, "Cuerithm edited genre");
     assert_eq!(written.metadata.artist, track.metadata.artist);
+    // The new MyTag is on the track and the track's existing rekordbox tags were kept.
+    let names = |c: &RekordboxCollection, t: &ImportedTrack| {
+        let mut out: Vec<(String, String)> = t
+            .tag_ids
+            .iter()
+            .filter_map(|id| c.tags.iter().find(|x| x.id == *id))
+            .map(|tag| {
+                let category = c
+                    .tags
+                    .iter()
+                    .find(|x| Some(&x.id) == tag.parent_id.as_ref())
+                    .map(|x| x.name.clone())
+                    .unwrap_or_default();
+                (category, tag.name.clone())
+            })
+            .collect();
+        out.sort();
+        out
+    };
+    let mut expected = names(&before, track);
+    expected.push(("Cuerithm Acceptance".into(), "Written".into()));
+    expected.sort();
+    assert_eq!(names(&after, written), expected);
     for other in before
         .tracks
         .iter()

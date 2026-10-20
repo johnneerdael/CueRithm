@@ -86,6 +86,8 @@ const TABLES: &[&str] = &[
     "djmdMyTag",
     "djmdSongMyTag",
 ];
+/// Joins a MyTag category and tag in a comparable string; neither can contain it.
+pub(crate) const TAG_SEPARATOR: char = '\u{1f}';
 pub(crate) const TEXT_FIELDS: &[&str] = &[
     "title",
     "artist",
@@ -342,6 +344,20 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
         let json: Value = serde_json::from_str(&latest)?;
         result.insert("cues".into(), json.get("cues").cloned().unwrap_or(json));
     }
+    // MyTags are compared by name, so the local side is the "category, tag" pairs of its custom tags.
+    let tags: Vec<String> = {
+        let mut q = conn.prepare("SELECT c.name,t.name FROM track_custom_tags l JOIN custom_tags t ON t.id=l.tag_id JOIN custom_tag_categories c ON c.id=t.category_id WHERE l.track_id=?1 ORDER BY c.name,t.name")?;
+        q.query_map([id], |r| {
+            Ok(format!(
+                "{}{}{}",
+                r.get::<_, String>(0)?,
+                TAG_SEPARATOR,
+                r.get::<_, String>(1)?
+            ))
+        })?
+        .collect::<rusqlite::Result<_>>()?
+    };
+    result.insert("tag_ids".into(), json!(tags));
     Ok(result)
 }
 #[derive(Clone)]
