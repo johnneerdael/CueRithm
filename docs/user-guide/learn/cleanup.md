@@ -1,8 +1,6 @@
 # Clean up messy titles
 
-**You will:** strip the "(Original Mix)" suffix from titles with a Smart Fix, review exactly what would change, apply it, and undo it if you change your mind.
-
-Cleanup never guesses silently. It follows a fixed flow: **edit rules, scan, review, apply, undo**.
+Remove the "(Original Mix)" suffix from track titles with a Smart Fix. Choose the rule, scan for matches and review the proposed changes before applying them, then try Undo.
 
 ## 1. Open Cleanup
 
@@ -61,4 +59,4 @@ In **Settings > Cleanup** enable **Clean incoming tracks automatically**. The sa
 
 ## What just happened
 
-Each fix is a fixed algorithm, not a regular expression you write. The engine is a pure function: it takes the current metadata and rules and returns proposed values, and the library service applies them with journaling and rollback. See [Cleanup rules](../guides/cleanup-rules.md) and [Cleanup engine](../technical/cleanup-engine.md).
+Each fix uses a built-in algorithm; you do not need to write regular expressions. The engine is a pure function: it takes the current metadata and rules and returns proposed values, and the library service applies them with journaling and rollback. See [Cleanup rules](../guides/cleanup-rules.md) and [Cleanup engine](../technical/cleanup-engine.md).

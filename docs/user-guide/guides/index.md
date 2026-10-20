@@ -14,4 +14,4 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Automatic tagging settings](tagging-settings.md) | Every option on the tagging page |
 | [Settings reference](settings.md) | All six settings pages |
 
-Looking for how a value is computed? See [Under the hood](../technical/index.md).
+For details of how CueRithm computes values, see [Under the hood](../technical/index.md).

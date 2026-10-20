@@ -1,6 +1,6 @@
 # Automatic tagging settings
 
-All of these live on **Settings > Automatic tagging** and apply to new tracks, watch-folder arrivals and **Analyze again**. They never retag finished tracks on their own.
+Open **Settings > Automatic tagging** to configure tagging for new tracks, watch-folder arrivals and **Analyze again**. Changing these settings does not retag finished tracks.
 
 <figure markdown>
   ![Automatic tagging settings](../assets/screens/12-settings-automatic-tagging.webp){ .screen loading=lazy }
@@ -36,7 +36,7 @@ All of these live on **Settings > Automatic tagging** and apply to new tracks, w
 
 Each field has **Write** and **Overwrite** checkboxes, and there is a global **Overwrite all selected fields** (on by default; it forces every overwrite box on). Unselected fields are never touched.
 
-**On by default:** genre, BPM, style, label, release date. **Off by default:** title, artist, album, key, artwork, ISRC, identifiers and the tagging marker.
+Genre, BPM, style, label and release date are on by default. Title, artist, album, key, artwork, ISRC, identifiers and the tagging marker are off.
 
 Fields the providers can supply include title, version, artist, album artist, album, BPM, genre, style, label, URL, release and publish date, key, album art, remixer, catalogue number, track number and total, ISRC, duration and provider IDs. Each field shows which providers can fill it.
 
@@ -53,15 +53,15 @@ Fields the providers can supply include title, version, artist, album artist, al
 
 ## Genre and style routing
 
-Eight modes, default **Genres and styles separately**: genres only, styles only, merge both into genres, merge both into styles, styles into genres, genres into styles, or styles into a custom field (default name `STYLE`). Also **Merge with existing genres** (off) and **Capitalize genres** (off).
+There are eight modes. The default is **Genres and styles separately**; the others are genres only, styles only, merge both into genres, merge both into styles, styles into genres, genres into styles, or styles into a custom field (default name `STYLE`). **Merge with existing genres** and **Capitalize genres** are both off by default.
 
 ## Artwork
 
-Off unless **Album art** is ticked. **Artwork destination** is **Embed in audio file** (default) or **External cover file** (a `cover.jpg`-style file beside the audio, with a template you can edit). **Replace all embedded covers** removes every picture type first. Beatport **Album art resolution** is 200 to 1600 pixels, default 500. Images must be PNG, JPEG, GIF or WebP, decode within 4096 by 4096 pixels and be under 8 MiB.
+Artwork is off unless **Album art** is ticked. **Artwork destination** is **Embed in audio file** (default) or **External cover file** (a `cover.jpg`-style file beside the audio, with a template you can edit). **Replace all embedded covers** removes every picture type first. Beatport **Album art resolution** is 200 to 1600 pixels, default 500. Images must be PNG, JPEG, GIF or WebP, decode within 4096 by 4096 pixels and be under 8 MiB.
 
 ## File tag format
 
-**ID3 version** (v2.4 by default, v2.3 optional), an optional ID3 **comment language**, and **value separators** for ID3 (default `, `), Vorbis (empty means separate native values) and MP4 (default `, `).
+Choose the **ID3 version** (v2.4 by default, v2.3 optional), an optional ID3 **comment language**, and **value separators** for ID3 (default `, `), Vorbis (empty means separate native values) and MP4 (default `, `).
 
 !!! info "Attribution"
     The page ends with: *Tagging uses OneTagger source under GPLv3. CueRithm desktop is GPLv3; the separate analysis engine remains MIT.*

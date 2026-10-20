@@ -1,10 +1,10 @@
 # Choose a theme and waveform style
 
-**You will:** switch between light and dark and pick a waveform palette.
+Switch between light and dark, then choose a waveform palette.
 
 ## Theme
 
-The **Colour theme** button in the header cycles **System**, **Light** and **Dark**. System follows your operating system. The choice is remembered on this computer.
+The **Colour theme** button in the header cycles **System**, **Light** and **Dark**. System follows your operating system. CueRithm remembers your choice on this computer.
 
 <div class="two-up" markdown>
 
@@ -22,7 +22,7 @@ The **Colour theme** button in the header cycles **System**, **Light** and **Dar
 
 ## Waveform style
 
-Open **Settings > Appearance**. Six styles are offered, each previewed on a sample waveform. The change applies immediately and is saved on this computer.
+Open **Settings > Appearance**. Each of the six styles has a sample waveform preview. The change applies immediately and is saved on this computer.
 
 <figure markdown>
   ![Appearance settings with six waveform style previews](../assets/screens/15-settings-appearance.webp){ .screen loading=lazy }
@@ -54,6 +54,4 @@ Open **Settings > Appearance**. Six styles are offered, each previewed on a samp
 
 Bar height always follows the average loudness of each moment, scaled per track. The tonal styles never rely on hue to separate frequency bands, which helps if colour is hard for you to tell apart.
 
-## What just happened
-
-The waveform is computed once per track from the decoded audio, as three frequency bands, and cached. The style only changes how those bands are coloured. Nothing is recomputed when you switch. See [Waveforms](../technical/waveform.md).
+The waveform is computed once per track from the decoded audio, as three frequency bands, and cached. The style only changes how those bands are coloured. Switching styles does not recompute the waveform. See [Waveforms](../technical/waveform.md).

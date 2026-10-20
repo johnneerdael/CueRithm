@@ -12,7 +12,7 @@ hide:
 
 # Know your music. Shape your set.
 
-CueRithm is a desktop library app for DJs. Drop in your tracks and it listens to every one of them, offline: musical key, BPM and beatgrid, a single energy rating, structural cues and a colour waveform. It then helps you tag, clean and organise the library, with playlists and smart playlists that update themselves.
+CueRithm is a desktop library app for DJs. It analyses tracks offline, computing musical key, BPM and beatgrid, one whole-track energy rating, structural cues and a colour waveform. You can tag and clean up the library, create playlists, and set up smart playlists that update automatically.
 
 [Get started](get-started/index.md){ .md-button .md-button--primary }
 [Install CueRithm](get-started/install.md){ .md-button }
@@ -29,25 +29,25 @@ CueRithm is a desktop library app for DJs. Drop in your tracks and it listens to
 
 <div class="grid cards" markdown>
 
--   :material-waveform: **Listens to your music**
+-   :material-waveform: **Analyses your music**
 
-    Key, BPM, one whole-track energy rating from 1 to 10, and five or six structural cues per track. Everything is computed on your computer from the decoded audio. No uploads, no accounts.
+    CueRithm computes the key, BPM, one whole-track energy rating from 1 to 10, and five or six structural cues per track. Analysis uses the decoded audio on your computer without uploads or an account.
 
     [:octicons-arrow-right-24: Under the hood](technical/index.md)
 
 -   :material-tray-arrow-down: **Prepares tracks automatically**
 
-    Watch a folder, drop files on the window or use **Add tracks**. Every track passes through Incoming: decode, analyse, optionally tag and clean up, then it moves into your library. Your files stay where they are.
+    Watch a folder, drop files on the window or use **Add tracks**. In Incoming, CueRithm decodes and analyses each track, applies any enabled tagging and cleanup, then adds the prepared track to your library. The audio files stay where they are.
 
     [:octicons-arrow-right-24: Your first tracks](learn/first-tracks.md)
 
 -   :material-tag-multiple: **Tags and cleans**
 
-    Optional catalog tagging from Beatport and Traxsource, and a review-then-apply cleanup workspace with Undo, so messy titles, genres and artists never need hand editing.
+    Use optional Beatport and Traxsource catalog tagging and cleanup rules to fix messy titles, genres and artists without hand editing. Review cleanup changes before applying them, and use Undo to reverse them.
 
     [:octicons-arrow-right-24: Cleanup tutorial](learn/cleanup.md)
 
--   :material-playlist-music: **Playlists that keep up**
+-   :material-playlist-music: **Organises playlists**
 
     Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates, cues and more. Smart playlists re-evaluate in the background.
 
@@ -55,12 +55,13 @@ CueRithm is a desktop library app for DJs. Drop in your tracks and it listens to
 
 </div>
 
-## Honest by design
+## Analysis and file handling
 
-- **Offline analysis.** Analysis and cue generation never touch the network. Only the optional catalog tagging does.
-- **Your files are safe.** CueRithm never moves your audio. When it writes tags it stages a copy, proves the playable audio is unchanged, keeps the original, and swaps atomically.
-- **Clear about what is missing.** Direct rekordbox sync and the duplicate and file-maintenance screens are not available in this release. See [Not available yet](about/roadmap.md).
-- **Open source and credited.** CueRithm builds on [OneTagger](about/credits.md#onetagger), FFmpeg, TagLib and many others. It was inspired by Mixed In Key and Lexicon DJ, studied through reverse engineering, and written independently in Rust. Read [how CueRithm was made](about/provenance.md).
+Analysis and cue generation run offline. Only the optional catalog tagging uses the network. CueRithm never moves your audio. Tag writes use a staged copy: CueRithm verifies that the playable audio is unchanged, keeps the original and swaps the files atomically.
+
+Direct rekordbox sync and the duplicate and file-maintenance screens are not available in this release. See [Not available yet](about/roadmap.md).
+
+CueRithm uses [OneTagger](about/credits.md#onetagger), FFmpeg, TagLib and other open-source components. Mixed In Key and Lexicon DJ shaped how it behaves; I studied them using copies I own and wrote my own implementation in Rust. Read [how CueRithm was made](about/provenance.md).
 
 !!! info "Status: version 0.1"
     CueRithm is early software. macOS builds for Apple Silicon are signed with a Developer ID and notarized by Apple. Windows and Linux builds are unsigned. There is no Intel Mac build.

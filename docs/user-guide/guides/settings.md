@@ -1,6 +1,6 @@
 # Settings reference
 
-Open **Settings** at the bottom of the sidebar, or the sliders button at the top right of the library. Settings are saved into the library. **Save settings** appears at the top (it reads *Saving…* then *Settings saved*); Library preferences and Smart Playlists have their own save buttons. Appearance saves immediately.
+Open **Settings** at the bottom of the sidebar, or the sliders button at the top right of the library. CueRithm saves settings in the library. **Save settings** appears at the top (it reads *Saving…* then *Settings saved*); Library preferences and Smart Playlists have their own save buttons. Appearance saves immediately.
 
 ## Incoming { #incoming }
 
@@ -8,7 +8,7 @@ Open **Settings** at the bottom of the sidebar, or the sliders button at the top
 | --- | --- | --- |
 | **Add watch folder** | `Music/Cuerithm/Incoming` on a new library | Files that appear in these folders are prepared automatically. Remove one with the **×** beside it. |
 
-The note on the page: *Completed tracks move into Tracks automatically. Original audio files stay in place.* The file-stability wait (2 seconds) is not adjustable in the interface.
+The page explains: *Completed tracks move into Tracks automatically. Original audio files stay in place.* The file-stability wait (2 seconds) is not adjustable in the interface.
 
 ## Cue generation { #cue-generation }
 
@@ -57,7 +57,7 @@ Every automatic option is **off** in a new or existing library. Choose the categ
 | --- | --- |
 | **By Artist** | One list per individual artist or remixer. Commas, semicolons and collaboration markers separate credits. Named remix credits in titles are used when the remixer tag is empty. |
 | **By BPM** | One list for each configured range, up to ten. Both ends are included; overlapping ranges can share tracks. |
-| **By release date** | Year folders containing month folders. Each month has **Month, Year**, **Warm-Up Month, Year** (energy 1–5), **Dancefloor Month, Year** (6–7) and **Anthems Month, Year** (8–10). The all-tracks list includes tracks without an energy rating. |
+| **By release date** | Year folders containing month folders. Each month has **Month, Year**, **Warm-Up Month, Year** (energy 1 to 5), **Dancefloor Month, Year** (6 to 7) and **Anthems Month, Year** (8 to 10). The all-tracks list includes tracks without an energy rating. |
 | **By Genre** | One list per individual genre in the library. |
 | **By Key** | All 24 Camelot key lists, including compatible keys according to **Library preferences → Key compatibility mode**. Harmonic is the default: same key, adjacent numbers with the same letter, and the relative major/minor. |
 
@@ -69,7 +69,7 @@ Turning an option off stops creating lists in that category. Existing lists rema
 
 ## Appearance { #appearance }
 
-Waveform style: six palettes. See [Choose a theme and waveform style](../learn/appearance.md). The light and dark theme is a separate button in the header.
+Choose from six waveform palettes. See [Choose a theme and waveform style](../learn/appearance.md). The light and dark theme is a separate button in the header.
 
 ## What is not a setting
 

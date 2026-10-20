@@ -1,6 +1,6 @@
 # Key detection
 
-CueRithm predicts the musical key of the **whole track** with a small neural network that ships inside the app. There is no download, no server and no use of file tags.
+CueRithm predicts the musical key of the whole track with a small neural network bundled in the app. It runs locally without a model download or server and does not use file tags.
 
 ## The model
 
@@ -23,11 +23,11 @@ The class order is 1A to 12A then 1B to 12B (`models/openkeyscan/model.json`).
 
 ## Notation
 
-The result is stored as a **Camelot code**. **A is minor and B is major**: C major is 8B and A minor is 8A. CueRithm can also write the standard name (for example "A minor") into file tags. Open Key is parsed in smart-playlist rules but is not an output format.
+The result is stored as a Camelot code. A is minor and B is major: C major is 8B and A minor is 8A. CueRithm can also write the standard name (for example "A minor") into file tags. Open Key is parsed in smart-playlist rules but is not an output format.
 
 ## Confidence
 
-The engine records a **margin** (top logit minus second) and the ranked list of 24 candidates. The project states plainly that these are "raw network logits rank keys; scores/margins are not probabilities". There is **no low-confidence threshold**. A track with no resolvable key does not become ready.
+The engine records a margin (top logit minus second) and the ranked list of 24 candidates. These are raw network logits. They rank the keys but are not probabilities. There is no low-confidence threshold. A track with no resolvable key does not become ready.
 
 ## What else runs
 
@@ -35,4 +35,4 @@ A classical Krumhansl-Kessler profile estimator still exists in the engine and r
 
 ## Limits
 
-The network predicts key agreement, not musical truth. See [How accurate is it?](accuracy.md): against the project's reference labels it agreed on 274 of 282 tracks, and the major-key coverage in that corpus is small, so held-out accuracy is unverified.
+The network predicts key agreement, not musical truth. See [How accurate is it?](accuracy.md): against my reference labels it agreed on 274 of 282 tracks, and the major-key coverage in that corpus is small, so held-out accuracy is unverified.

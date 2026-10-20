@@ -1,6 +1,6 @@
 # Safe tag writing
 
-Writing tags is the only time CueRithm changes your audio files. The process is built so that a crash, a power loss or a competing edit cannot leave you with a damaged or silently changed file.
+Writing tags is the only time CueRithm changes your audio files. Staging and recovery checks protect the file from damage or unnoticed changes during a crash, power loss or competing edit.
 
 ## Which tags go where
 
@@ -17,7 +17,7 @@ The container is detected from the file's actual codec, not its extension.
 | AIFF | ID3 chunk | |
 | WMA | ASF attributes | Via a statically linked TagLib 2.3.2, used for WMA only |
 
-For measured data: **key** uses the standard key field of each format, BPM uses the BPM field (MP4 gets both the integer `tmpo` atom and a full-precision `BPM` freeform), **energy** is a custom `ENERGY` field, and an optional `CUERITHM_TAGGEDDATE` marker records when a file was tagged. **Cues and beatgrids are never written to tags.**
+For measured data: key uses the standard key field of each format, BPM uses the BPM field (MP4 gets both the integer `tmpo` atom and a full-precision `BPM` freeform), energy is a custom `ENERGY` field, and an optional `CUERITHM_TAGGEDDATE` marker records when a file was tagged. Cues and beatgrids are never written to tags.
 
 ### ID3 versions
 
@@ -25,13 +25,13 @@ If the setting says v2.4 and a file has v2.3, it is upgraded when a write is nee
 
 ## The seven safeguards
 
-1. **Snapshot.** The source is copied privately, with SHA-256 before and after. If it changes during the copy the write aborts (*Source changed during capture*).
-2. **Two copies.** The snapshot is copied into the data folder as `original.<ext>` (your recovery backup) and `staged.<ext>`.
-3. **Edit the staged copy only.** An unreadable existing tag causes a refusal, never a silent discard.
-4. **Prove the audio is unchanged.** The staged file is decoded again and must have the **same frame count and identical PCM hash**. If not, the write is refused with *Tagging changed playable audio or timeline*. For cleanup the tags read back must equal exactly what was intended.
-5. **Recheck the source.** The original file is hashed again to ensure you did not change it meanwhile.
-6. **Journal, flush, swap.** A journal row records the intent. Files and their parent directories are flushed to disk. The staged file replaces the original with an **atomic exchange** (macOS `renamex_np` swap, Linux `renameat2` exchange, Windows `ReplaceFileW`). The displaced original is hash-checked.
-7. **Commit together.** Only then does the database transaction store the analysis and cues and mark the track ready.
+1. CueRithm makes a private snapshot of the source, checking its SHA-256 before and after the copy. A change aborts the write (*Source changed during capture*).
+2. It copies the snapshot into the data folder as `original.<ext>` (your recovery backup) and `staged.<ext>`.
+3. It edits only the staged copy. If an existing tag cannot be read, CueRithm refuses the write instead of discarding it.
+4. The staged file is decoded again and must have the same frame count and identical PCM hash. A mismatch stops the write with *Tagging changed playable audio or timeline*. For cleanup, the tags read back must also equal the intended values exactly.
+5. CueRithm hashes the original file again to check that you have not changed it in the meantime.
+6. A journal row records the intended change. Files and their parent directories are flushed to disk, then the staged file replaces the original in an atomic exchange (macOS `renamex_np` swap, Linux `renameat2` exchange, Windows `ReplaceFileW`). CueRithm checks the displaced original's hash.
+7. Only then does the database transaction store the analysis and cues and mark the track ready.
 
 Targets must be regular, writable files in the original folder, not symbolic links.
 

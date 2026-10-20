@@ -1,26 +1,26 @@
 # How accurate is it?
 
-Short answer: the project reports **agreement with reference tools on its developers' own test library**, not independently verified musical truth. This page lays out what was measured and what was not, so you can judge it for your music.
+The published figures measure agreement with reference tools on my own test library. They do not establish independently verified musical accuracy.
 
 !!! warning "Agreement is not accuracy"
-    Every figure below compares CueRithm with another program's output (Mixed In Key labels for key, a reimplemented Lexicon timing and cue worker for timing and cues). The project's own notes call these "agreement tests against supplied outputs, not independently annotated musical truth".
+    Every figure below compares CueRithm with another program's output (Mixed In Key 11.2.6 labels for key, a reimplemented Lexicon 1.11.15 timing and cue worker for timing and cues). My own notes call these "agreement tests against supplied outputs, not independently annotated musical truth".
 
 ## The test library
 
-282 tuning groups of 44.1 kHz stereo 16-bit FLAC tracks, 38 to 557 seconds long, from Beatport electronic music. A separate holdout of 82 groups was reserved, but one reserved file was accidentally exposed in a diagnostic, so the project does not claim an untouched holdout.
+282 tuning groups of 44.1 kHz stereo 16-bit FLAC tracks, 38 to 557 seconds long, from Beatport electronic music. A separate holdout of 82 groups was reserved, but one reserved file was accidentally exposed in a diagnostic, so I do not claim an untouched holdout.
 
 ## Key
 
 - **274 of 282** exact agreement (97.16%) with stored Mixed In Key 11 keys.
 - The 8 disagreements: 5 neighbouring fifths, 1 relative major or minor, 2 parallel major or minor.
 - **Camelot-compatible** (same key or a harmonic neighbour): 280 of 282 (99.29%).
-- Only **8 tracks were major keys**, with 7 of 8 matched. Broader major-key coverage is needed, and held-out accuracy "remains unverified".
+- Only 8 tracks were major keys, with 7 of 8 matched. Broader major-key coverage is needed, and held-out accuracy "remains unverified".
 
 ## Tempo and first beat
 
-- On the same corpus the Rust implementation matched the reimplemented Lexicon timing worker exactly on 282 of 282 tracks. This shows the port is faithful. It does not show the grid is musically right.
+- On the same corpus the Rust implementation matched the reimplemented Lexicon timing worker exactly on 282 of 282 tracks. This verifies the port against that worker on those tracks; it does not establish whether the grid is musically right.
 - An earlier, classical tempo search that the desktop does not use matched exact two-decimal BPM on only 58 of 282 tracks, and its tests covered only a 104 to 144 BPM range.
-- Coverage gaps the project names: other tempo ranges and sample rates, stereo channel policy, long intros, irregular rhythm, tempo changes and complete music files.
+- Coverage gaps I know of: other tempo ranges and sample rates, stereo channel policy, long intros, irregular rhythm, tempo changes and complete music files.
 - A single-track check in the original application's interface does not establish library-wide parity, independent musical accuracy or Windows and Linux behaviour.
 
 ## Energy
@@ -45,4 +45,4 @@ Windows and Linux native playback, import and restart acceptance are not complet
 - Treat energy as a coarse, whole-track rating.
 - Treat cues as good starting points. They are read-only today.
 
-If you find a track where an answer is clearly wrong, an issue on the project's [GitHub](https://github.com/johnneerdael/CueRithm/issues) with the file type and what you expected helps. Please do not attach copyrighted audio.
+If you find a track where an answer is clearly wrong, an issue on [GitHub](https://github.com/johnneerdael/CueRithm/issues) with the file type and what you expected helps. Please do not attach copyrighted audio.

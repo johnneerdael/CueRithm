@@ -1,6 +1,6 @@
 # Build a smart playlist
 
-**You will:** make a playlist that holds every track in a chosen key above a minimum BPM, and keeps itself up to date.
+Make a playlist that automatically includes every track in a chosen key above a minimum BPM.
 
 !!! tip "Create whole categories automatically"
     To build lists for artists/remixers, BPM ranges, release months and energy, genres or compatible keys, opt in under **Settings → Smart Playlists**. CueRithm creates them and adds new groups as prepared tracks arrive. See [Automatic Smart Playlists](../guides/playlists.md#automatic-smart-playlists). Use the steps below for your own custom conditions.
@@ -24,7 +24,7 @@ For this tutorial:
 </figure>
 
 !!! tip "Use the right field"
-    The field list also exposes raw technical fields (for example `audio.sample_rate`) next to friendly ones such as BPM, Energy, Key, Genre and Date added. See [Smart playlist rules](../guides/smart-rules.md) for the full catalogue.
+    The field list includes raw technical fields (for example `audio.sample_rate`) next to friendly ones such as BPM, Energy, Key, Genre and Date added. See [Smart playlist rules](../guides/smart-rules.md) for the full catalogue.
 
 ## 3. Preview, then create
 
