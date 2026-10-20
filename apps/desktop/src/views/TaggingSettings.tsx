@@ -31,6 +31,11 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
   const hasSolver=!!configuredSolver.endpoint?.trim();
   const current=config??{...catalog.defaults,options:{...catalog.defaults.options,platforms:catalog.defaults.options.platforms.filter(id=>!requiresSolver(id)||hasSolver)}};
   const solver=current.solver??defaultSolver;
+  const retainedCleanup=storage?[
+    storage.pending_cleanup>0?`Pending cleanup: ${storage.pending_cleanup} ${storage.pending_cleanup===1?"operation":"operations"}.`:null,
+    (storage.retained_cleanup_files??0)>0||(storage.retained_cleanup_bytes??0)>0?`Temporary files retained: ${storage.retained_cleanup_files??"count unavailable"} · ${storage.retained_cleanup_bytes===undefined?"size not reported":(storage.retained_cleanup_bytes/1048576).toFixed(1)+" MB measured"}.`:null,
+    (storage.retained_cleanup_unknown_sizes??0)>0?`Size unavailable for ${storage.retained_cleanup_unknown_sizes} ${storage.retained_cleanup_unknown_sizes===1?"file":"files"}.`:null,
+  ].filter(Boolean).join(" "):"";
   const resetAccess=async()=>{setResetting(true);setAccessError(null);try{setCatalog(await bridge.resetCatalogAccess());}catch(e){setAccessError(errorMessage(e));}finally{setResetting(false);}};
   const options=current.options;
   const update=(patch:Partial<AutotagConfig>)=>onChange({...current,...patch},enabled);
@@ -45,7 +50,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
   return <section className="setting-section tagging-settings">
     <div className="setting-heading"><div><h2>Automatic tagging</h2><p>Apply these settings to every incoming track after analysis.</p></div></div>
     <Toggle label="Automatic tagging" value={enabled} onChange={value=>onChange(current,value)} note="Catalog lookups use an internet connection. Analysis and cue generation work offline."/>
-    <div className="setting-row"><div><strong>Recovery backups</strong><p>Original file backups are retained in application data. Temporary stage files are cleaned automatically.</p></div><span className="fixed-setting">{storage?`${(storage.original_bytes/1048576).toFixed(1)} MB · ${storage.original_files} files`:"Storage unavailable"}</span></div>
+    <div className="setting-row"><div><strong>Recovery backups</strong><p>Original file backups are retained in application data. Temporary files remain while cleanup is pending.</p>{retainedCleanup?<p>{retainedCleanup}</p>:null}</div><span className="fixed-setting">{storage?`${(storage.original_bytes/1048576).toFixed(1)} MB · ${storage.original_files} files`:"Storage unavailable"}</span></div>
     <div className="provider-order" aria-label="Catalog providers">{ordered.map(id=>{
       const provider=catalog.providers.find(p=>p.id===id);if(!provider)return null;
       const index=options.platforms.indexOf(id),selected=index>=0;

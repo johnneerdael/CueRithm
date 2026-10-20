@@ -285,13 +285,18 @@ pub async fn tagging_catalog(host: Managed<'_>) -> Ipc<cuerithm_autotag::Tagging
     work(move || library.tagging_catalog()).await
 }
 #[tauri::command]
-pub async fn reset_catalog_access(host: Managed<'_>) -> Ipc<cuerithm_autotag::TaggingCatalog> {
+pub async fn reset_catalog_access(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+) -> Ipc<cuerithm_autotag::TaggingCatalog> {
     let library = host.library.clone();
-    work(move || {
+    let result = work(move || {
         library.reset_catalog_access()?;
         library.tagging_catalog()
     })
-    .await
+    .await;
+    let _ = app.emit("catalog-access-change", ());
+    result
 }
 #[tauri::command]
 pub async fn cleanup_catalog(
@@ -352,17 +357,20 @@ pub async fn get_settings(host: Managed<'_>) -> Ipc<SettingsSnapshot> {
 #[tauri::command]
 pub async fn save_settings(
     host: Managed<'_>,
+    app: tauri::AppHandle,
     mut settings: PreparationSettings,
 ) -> Ipc<SettingsSnapshot> {
     let host = host.inner().clone();
-    work(move || {
+    let result = work(move || {
         host.builtin.apply(&mut settings);
         host.library.save_settings(settings)?;
         host.preparation.wake();
         let _ = host.preparation.retry_attention();
         host.library.settings()
     })
-    .await
+    .await;
+    let _ = app.emit("catalog-access-change", ());
+    result
 }
 #[tauri::command]
 pub async fn enqueue_paths(host: Managed<'_>, paths: Vec<PathBuf>) -> Ipc<Vec<JobId>> {

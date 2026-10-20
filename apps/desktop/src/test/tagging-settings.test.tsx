@@ -7,6 +7,14 @@ import {fakeBridge,track} from "./bridge";
 import TaggingSettings from "../views/TaggingSettings";
 
 describe("automatic tagging Settings",()=>{
+  it("reports pending cleanup and known retained temporary bytes without hiding unknown sizes",async()=>{
+    const bridge=fakeBridge([]);
+    bridge.getTaggingStorage=vi.fn(async()=>({original_files:2,original_bytes:1048576,pending_cleanup:2,retained_cleanup_files:3,retained_cleanup_bytes:2097152,retained_cleanup_unknown_sizes:1}));
+    render(<TaggingSettings bridge={bridge} config={null} enabled={false} onChange={()=>{}}/>);
+    expect(await screen.findByText("1.0 MB · 2 files")).toBeInTheDocument();
+    expect(screen.getByText(/Pending cleanup: 2 operations/)).toHaveTextContent("Temporary files retained: 3 · 2.0 MB measured");
+    expect(screen.getByText(/Size unavailable for 1 file/)).toBeInTheDocument();
+  });
   it("refreshes detected restrictions while mounted without losing selected providers or draft edits",async()=>{
     const bridge=fakeBridge([]);
     let access:NonNullable<TaggingCatalog["access"]>=[];
