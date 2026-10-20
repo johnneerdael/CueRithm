@@ -41,6 +41,14 @@ pub struct FLACTag {
 }
 
 impl FLACTag {
+    /// Exact native records for reviewed edits on private staged copies.
+    pub fn editor_tag(&self) -> &metaflac::Tag {
+        &self.tag
+    }
+    pub fn editor_tag_mut(&mut self) -> &mut metaflac::Tag {
+        &mut self.tag
+    }
+
     // Load from file
     pub fn load_file(path: impl AsRef<Path>) -> Result<FLACTag, Error> {
         // Load header

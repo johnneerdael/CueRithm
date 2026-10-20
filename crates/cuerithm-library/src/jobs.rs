@@ -29,6 +29,9 @@ impl Library {
         };
         let mut count = 0;
         for (path, hash, previous) in &rows {
+            #[cfg(feature="autotag")]
+            if tx.query_row("SELECT EXISTS(SELECT 1 FROM tracks t WHERE t.path=?1 AND (EXISTS(SELECT 1 FROM preparation_review_decisions r WHERE r.job_id=t.current_job AND r.state IN ('pending','claimed','applied')) OR EXISTS(SELECT 1 FROM metadata_edit_overrides e WHERE e.job_id=t.current_job AND e.state IN ('queued','claimed'))))",[path],|r|r.get::<_,bool>(0))? {continue;}
+
             if obsolete.is_some_and(|ids| !ids.contains(previous)) {
                 continue;
             }
@@ -86,6 +89,16 @@ impl Library {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
             let hash = hash_source(&path)?;
+            #[cfg(feature = "autotag")]
+            if let Some(track) = self.metadata_edit_source_owner(&path, &hash)? {
+                let job: Option<String> = self.conn()?.query_row(
+                    "SELECT current_job FROM tracks WHERE id=?1",
+                    [track],
+                    |r| r.get(0),
+                )?;
+                ids.push(job.context("Metadata publication is pending; recover its editor batch before preparing this track")?);
+                continue;
+            }
             let requested_owner = self.organization_source_state(&requested_path, &hash)?;
             let owner = if matches!(
                 requested_owner,
@@ -289,6 +302,11 @@ impl Library {
         Ok(())
     }
     pub fn retry(&self, id: &str, revision: Option<SettingsRevision>) -> Result<JobId> {
+        #[cfg(feature = "autotag")]
+        if self.retry_protected_preparation(id, revision.as_deref())? {
+            return Ok(id.to_owned());
+        }
+
         if self.retry_preparation_checkpoint(id, revision.as_deref())? {
             return Ok(id.to_owned());
         }

@@ -1,5 +1,25 @@
 use cuerithm_library::{Library, PreparationSettings, TrackQuery, TrackView};
 
+#[cfg(unix)]
+#[test]
+fn library_resources_remain_bound_when_its_requested_directory_alias_changes() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let original = root.join("original");
+    let replacement = root.join("replacement");
+    std::fs::create_dir(&original).unwrap();
+    std::fs::create_dir(&replacement).unwrap();
+    let alias = root.join("library-alias");
+    std::os::unix::fs::symlink(&original, &alias).unwrap();
+    let library = Library::open(&alias.join("library.sqlite")).unwrap();
+    std::fs::remove_file(&alias).unwrap();
+    std::os::unix::fs::symlink(&replacement, &alias).unwrap();
+    std::fs::write(library.data_dir().join("private-resource"), b"owned").unwrap();
+    assert!(original.join("private-resource").is_file());
+    assert!(!replacement.join("private-resource").exists());
+    assert_eq!(library.data_dir(), original);
+}
+
 #[test]
 fn engine_setup_migration_requeues_unfinished_work_without_reading_sources() {
     let d = tempfile::tempdir().unwrap();
@@ -216,4 +236,91 @@ fn reopening_waits_for_a_briefly_inherited_child_lease() {
         "transient inherited lease must settle: {:?}",
         reopened.err()
     );
+}
+
+// A build without native tag writers must not silently resume past accepted
+// editor/review work, even before a physical write journal has been created.
+#[cfg(not(feature = "autotag"))]
+#[test]
+fn untagged_build_preserves_pending_native_decisions_before_recovery() {
+    for (kind, state, completed) in [
+        ("editor", "queued", false),
+        ("editor", "claimed", false),
+        ("editor", "committed", false),
+        ("review", "pending", false),
+        ("review", "claimed", false),
+        ("review", "applied", false),
+        ("editor", "committed", true),
+        ("review", "applied", true),
+    ] {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("source.flac");
+        std::fs::write(&path, b"guard fixture; never decoded").unwrap();
+        let db = temp.path().join("library.sqlite");
+        let library = Library::open(&db).unwrap();
+        library
+            .enqueue(
+                std::slice::from_ref(&path),
+                library.settings().unwrap().revision,
+            )
+            .unwrap();
+        let run = library.claim_next().unwrap().unwrap();
+        library
+            .fail_for_run(&run, "review", "retained native decision")
+            .unwrap();
+        drop(library);
+        let sql = rusqlite::Connection::open(&db).unwrap();
+        sql.pragma_update(None, "foreign_keys", true).unwrap();
+        if kind == "editor" {
+            sql.execute(
+                "INSERT INTO metadata_edit_drafts VALUES('draft',1,'draft','{}',0,0)",
+                [],
+            )
+            .unwrap();
+            sql.execute("INSERT INTO metadata_edit_batches VALUES('batch','draft',1,'save','complete','{}',NULL,0,0)", []).unwrap();
+            sql.execute("INSERT INTO metadata_edit_overrides(job_id,track_id,draft_id,draft_revision,batch_id,source_hash,settings_revision,path_revision,metadata_revision,accepted_attempt,execution_source_proof_json,state,payload_json,final_json,created,updated) VALUES(?1,?2,'draft',1,'batch',?3,?4,0,0,?5,'{}',?6,'{}',?7,0,0)",rusqlite::params![run.id,run.track_id,run.source_sha256,run.settings_revision,run.attempt,state,completed.then_some("{}")]).unwrap();
+        } else {
+            sql.execute("INSERT INTO preparation_review_decisions(job_id,track_id,source_hash,settings_revision,generation,accepted_attempt,payload_json,binding_json,state,created,updated) VALUES(?1,?2,?3,?4,'generation',?5,'{}','{}',?6,0,0)",rusqlite::params![run.id,run.track_id,run.source_sha256,run.settings_revision,run.attempt,state]).unwrap();
+        }
+        if completed {
+            sql.execute("UPDATE jobs SET state='completed' WHERE id=?1", [&run.id])
+                .unwrap();
+            sql.execute(
+                "UPDATE tracks SET state='ready' WHERE id=?1",
+                [&run.track_id],
+            )
+            .unwrap();
+        }
+        let before: String = sql
+            .query_row(
+                "SELECT json_array(state,stage,attempts,settings_revision) FROM jobs WHERE id=?1",
+                [&run.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let opened = Library::open(&db);
+        if completed {
+            assert!(
+                opened.is_ok(),
+                "completed {kind} history must remain readable"
+            );
+        } else {
+            let error = opened
+                .err()
+                .expect("pending native decisions require a tagging-enabled build");
+            assert!(
+                error.to_string().contains("Pending metadata writes"),
+                "{kind}/{state}: {error:#}"
+            );
+            let after: String = sql.query_row("SELECT json_array(state,stage,attempts,settings_revision) FROM jobs WHERE id=?1", [&run.id], |r| r.get(0)).unwrap();
+            assert_eq!(
+                after, before,
+                "refused reopen must retain pending ownership"
+            );
+        }
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"guard fixture; never decoded"
+        );
+    }
 }

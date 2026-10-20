@@ -50,6 +50,14 @@ pub struct ID3Tag {
 }
 
 impl ID3Tag {
+    /// Exact native records for reviewed edits on private staged copies.
+    pub fn editor_tag(&self) -> &id3::Tag {
+        &self.tag
+    }
+    pub fn editor_tag_mut(&mut self) -> &mut id3::Tag {
+        &mut self.tag
+    }
+
     // Read from file
     pub fn load_file(path: impl AsRef<Path>) -> Result<ID3Tag, Error> {
         let ext = path
@@ -598,7 +606,7 @@ impl TagImpl for ID3Tag {
         } else {
             self.tag.get(key)?.content().text().map(str::to_owned)
         }?;
-        Some(if self.tag.version() == Version::Id3v24 && key != "COMM" {
+        Some(if self.id3v24 && key != "COMM" {
             text.split('\0').map(str::to_owned).collect()
         } else {
             vec![text.replace('\0', "/")]

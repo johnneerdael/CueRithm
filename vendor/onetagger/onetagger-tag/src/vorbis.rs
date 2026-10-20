@@ -40,6 +40,14 @@ pub struct VorbisTag {
 }
 
 impl VorbisTag {
+    /// Exact native records for reviewed edits on private staged copies.
+    pub fn editor_tag(&self) -> &lofty::ogg::VorbisComments {
+        &self.tag
+    }
+    pub fn editor_tag_mut(&mut self) -> &mut lofty::ogg::VorbisComments {
+        &mut self.tag
+    }
+
     /// Load from path
     pub fn load_file(path: impl AsRef<Path>) -> Result<VorbisTag, Error> {
         let file = lofty::probe::Probe::open(path)?.guess_file_type()?.read()?;

@@ -1,0 +1,12 @@
+CREATE TABLE preparation_match_generations(track_id TEXT PRIMARY KEY REFERENCES tracks(id),job_id TEXT REFERENCES jobs(id),generation TEXT NOT NULL UNIQUE,attempt INTEGER NOT NULL,source_hash TEXT NOT NULL,settings_revision TEXT NOT NULL REFERENCES settings(revision),payload_json TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE preparation_match_previews(id TEXT PRIMARY KEY,track_id TEXT NOT NULL REFERENCES tracks(id),generation TEXT NOT NULL,revision TEXT NOT NULL,payload_json TEXT NOT NULL,state TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE preparation_review_decisions(job_id TEXT PRIMARY KEY REFERENCES jobs(id),track_id TEXT NOT NULL REFERENCES tracks(id),source_hash TEXT NOT NULL,settings_revision TEXT NOT NULL REFERENCES settings(revision),generation TEXT NOT NULL,accepted_attempt INTEGER NOT NULL,claimed_attempt INTEGER,payload_json TEXT NOT NULL,binding_json TEXT NOT NULL,state TEXT NOT NULL,created INTEGER NOT NULL,updated INTEGER NOT NULL);
+CREATE TABLE preparation_reuse(job_id TEXT PRIMARY KEY REFERENCES jobs(id),source_hash TEXT NOT NULL,analysis_source_hash TEXT NOT NULL,analysis_settings_revision TEXT NOT NULL REFERENCES settings(revision));
+CREATE TABLE preparation_review_artwork(generation TEXT NOT NULL,candidate_id TEXT NOT NULL,url_digest TEXT NOT NULL,asset_json TEXT NOT NULL,PRIMARY KEY(generation,candidate_id));
+CREATE TABLE preparation_review_decision_history(id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),payload_json TEXT NOT NULL,created INTEGER NOT NULL);
+ALTER TABLE tag_writes ADD COLUMN editor_receipt_json TEXT;
+ALTER TABLE tag_writes ADD COLUMN input_source_proof_json TEXT;
+ALTER TABLE tag_writes ADD COLUMN restore_source_proof_json TEXT;
+ALTER TABLE tag_writes ADD COLUMN artifact_authorities_json TEXT;
+CREATE TABLE artifact_cleanup_moves(id TEXT PRIMARY KEY,owner_kind TEXT NOT NULL,owner_id TEXT NOT NULL,source_path BLOB NOT NULL,quarantine_path BLOB NOT NULL,payload_json TEXT NOT NULL,state TEXT NOT NULL,observed_bytes INTEGER NOT NULL DEFAULT 0,error TEXT,created INTEGER NOT NULL,updated INTEGER NOT NULL,UNIQUE(owner_kind,owner_id,source_path));
+PRAGMA user_version=20;
