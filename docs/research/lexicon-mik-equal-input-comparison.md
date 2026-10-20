@@ -68,6 +68,13 @@ cues, so cue comparison with MIK is not meaningful.
   Not covered: lossy codecs decode to float in Chromium, so nothing changes for them; sources that are not 44.1 kHz
   are resampled by Chromium's own resampler, which is not ported (the whole development folder is 44.1 kHz and
   16-bit, so this is unmeasured); 24-bit sources scale the same to within float precision.
+- **Other tempo presets.** The whole-split comparison above is at the 78–155 preset only. For five presets (58–115,
+  68–135, 78–155, 88–175, 98–195) CueRithm was compared with Lexicon's shipped analysis worker, run in Node on the
+  same Chromium-scaled samples, on 20 songs (the seven that used to differ plus 13 drawn at random with a fixed
+  seed): BPM and first beat agree in 100 of 100 runs, and the presets are not trivial on these songs (in 21 of the 80
+  runs outside 78–155 the tempo differs from the 78–155 result and in 16 the first beat does). This checks the port
+  against the worker, not against the app's stored results at those presets; the app's preset selector was not driven,
+  so the app-level comparison at the other presets, and the 50–300, 128–255 and 180–300 presets, are not measured.
 - **The one remaining song.** One song's Last beat is one 16-beat grid step earlier in Lexicon (350.5 s against
   358.1 s). Its length is exactly 753 beats, so the beat count `floor((duration - first beat) / beat length)` is
   sensitive to the last sample: with that sample removed CueRithm returns Lexicon's value. Removing it from every
