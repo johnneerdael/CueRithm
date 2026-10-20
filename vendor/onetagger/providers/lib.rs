@@ -11,6 +11,7 @@ macro_rules! timestamp {
     };
 }
 pub mod beatport;
+pub mod http;
 pub mod traxsource;
 
 use std::io::Read;

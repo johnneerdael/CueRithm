@@ -2,6 +2,7 @@ use crate::{AutotagConfig, CatalogMatch, CatalogTrack, ProviderBackend, Provider
 use anyhow::{Result, ensure};
 use onetagger_selected_providers::{
     beatport::{Beatport, BeatportBuilder, BeatportTokenCache},
+    http::{CatalogHttp, ChallengeStore},
     traxsource::{Traxsource, TraxsourceBuilder},
 };
 use onetagger_tagger::{AutotaggerSource, AutotaggerSourceBuilder, MatchingUtils, PlatformInfo};
@@ -58,7 +59,10 @@ pub(crate) fn options() -> Vec<PlatformInfo> {
         TraxsourceBuilder::new().info(),
     ]
 }
-pub(crate) fn backends(endpoints: CatalogEndpoints) -> Result<Vec<Arc<dyn ProviderBackend>>> {
+pub(crate) fn backends(
+    endpoints: CatalogEndpoints,
+    store: Arc<dyn ChallengeStore>,
+) -> Result<Vec<Arc<dyn ProviderBackend>>> {
     let mut out: Vec<Arc<dyn ProviderBackend>> = Vec::new();
     for id in [ProviderId::Beatport, ProviderId::Traxsource] {
         let agent = if id == ProviderId::Beatport {
@@ -76,6 +80,7 @@ pub(crate) fn backends(endpoints: CatalogEndpoints) -> Result<Vec<Arc<dyn Provid
             client,
             endpoints: endpoints.clone(),
             token: Arc::new(BeatportTokenCache::default()),
+            store: store.clone(),
         }));
     }
     Ok(out)
@@ -85,9 +90,10 @@ struct Native {
     client: Client,
     endpoints: CatalogEndpoints,
     token: Arc<BeatportTokenCache>,
+    store: Arc<dyn ChallengeStore>,
 }
 impl Native {
-    fn source(&self, cancel: Arc<AtomicBool>) -> Box<dyn AutotaggerSource> {
+    fn source(&self, cancel: Arc<AtomicBool>, config: &AutotagConfig) -> Box<dyn AutotaggerSource> {
         match self.id {
             ProviderId::Beatport => Box::new(
                 Beatport::with_endpoints(
@@ -99,10 +105,14 @@ impl Native {
                 )
                 .with_cancel(cancel),
             ),
-            ProviderId::Traxsource => Box::new(Traxsource::with_endpoints(
-                self.client.clone(),
-                &self.endpoints.traxsource,
-            )),
+            ProviderId::Traxsource => Box::new(
+                Traxsource::with_endpoints(self.client.clone(), &self.endpoints.traxsource)
+                    .with_http(
+                        CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone()),
+                        config.solver.clone(),
+                        cancel,
+                    ),
+            ),
         }
     }
 }
@@ -117,7 +127,8 @@ impl ProviderBackend for Native {
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<crate::CatalogAlbum>> {
         ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
-        self.source(cancel.clone()).get_album(id, &config.options)
+        self.source(cancel.clone(), config)
+            .get_album(id, &config.options)
     }
     fn id(&self) -> ProviderId {
         self.id
@@ -138,7 +149,7 @@ impl ProviderBackend for Native {
             info.isrc = None;
         }
         let mut found = self
-            .source(cancel.clone())
+            .source(cancel.clone(), config)
             .match_track(&info, &config.options)?;
         found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));
         Ok(found)
@@ -153,7 +164,7 @@ impl ProviderBackend for Native {
         cancel: &Arc<AtomicBool>,
     ) -> Result<()> {
         ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
-        self.source(cancel.clone())
+        self.source(cancel.clone(), config)
             .extend_track(track, &config.options)
     }
 }

@@ -49,7 +49,7 @@ New tracks, tracks arriving in a watch folder and **Analyze again** use your set
 - An atomic swap replaces your file. If anything fails afterwards, CueRithm restores the original. If you have edited the file in the meantime, it preserves your newer edit.
 
 !!! warning "Traxsource status"
-    Live Traxsource lookups have not been confirmed to work from every network. On the validation machine native Traxsource requests were rejected with HTTP 403. A blocked provider leaves tracks in Incoming with an error rather than silently skipping. Beatport has one successful live probe, not universal coverage.
+    Traxsource can require a browser challenge. Configure an optional [FlareSolverr-compatible solver](../guides/catalog-solver.md) to use it when blocked. CueRithm remembers detected restrictions and stops direct retries; without a solver the source becomes unavailable. A failed required lookup leaves tracks in Incoming. Live fetching and parsing were verified with Trawl, without writing music tags.
 
 ## What just happened
 

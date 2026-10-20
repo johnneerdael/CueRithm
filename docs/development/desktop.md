@@ -193,8 +193,10 @@ Platform execution and hardware/power-loss testing remain separate evidence.
 
 Provider HTTP fixtures and tag/PCM round trips run on each native desktop target.
 Native live-service access is separate: Beatport matched and tagged a generated
-audio fixture; Traxsource returned HTTP403 on the development machine. Successful
-parser fixtures do not establish live Traxsource access. The saved defaults and
+audio fixture. Direct Traxsource requests returned HTTP403; the read-only
+`solver_probe` example fetched and parsed live search/track/release metadata
+through Trawl and verified a genuine empty search. This does not establish
+packaged-app or tag-write acceptance. See the [solver guide](../user-guide/guides/catalog-solver.md). The saved defaults and
 provider/field catalog can be inspected without network requests using
 `cargo run -p cuerithm-autotag --example settings_catalog`. The frontend test
 fixture is generated from this command; compare it when changing adapter options.
