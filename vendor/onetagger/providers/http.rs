@@ -133,26 +133,32 @@ impl CatalogHttp {
                 .err()
                 .map(|e| e.without_url());
             let headers = response.headers().clone();
-            ensure!(
-                response
-                    .content_length()
-                    .is_none_or(|n| n <= MAX_PAGE as u64),
-                "Catalog response exceeds size limit"
-            );
-            let mut bytes = Vec::new();
-            response.take(MAX_PAGE as u64 + 1).read_to_end(&mut bytes)?;
-            ensure!(
-                bytes.len() <= MAX_PAGE,
-                "Catalog response exceeds size limit"
-            );
-            let body = String::from_utf8(bytes)?;
-            if !is_challenge(&headers, &body) {
-                ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
-                if let Some(error) = failure {
-                    return Err(error.into());
+            // An explicit mitigation header is sufficient evidence. Do not wait
+            // for a challenge body that may be slow, oversized or interrupted.
+            if is_challenge(&headers, "") {
+                drop(response);
+            } else {
+                ensure!(
+                    response
+                        .content_length()
+                        .is_none_or(|n| n <= MAX_PAGE as u64),
+                    "Catalog response exceeds size limit"
+                );
+                let mut bytes = Vec::new();
+                response.take(MAX_PAGE as u64 + 1).read_to_end(&mut bytes)?;
+                ensure!(
+                    bytes.len() <= MAX_PAGE,
+                    "Catalog response exceeds size limit"
+                );
+                let body = String::from_utf8(bytes)?;
+                if !is_challenge(&headers, &body) {
+                    ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+                    if let Some(error) = failure {
+                        return Err(error.into());
+                    }
+                    ensure!(status.is_success(), "Catalog HTTP {status}");
+                    return Ok(body);
                 }
-                ensure!(status.is_success(), "Catalog HTTP {status}");
-                return Ok(body);
             }
             self.store.mark_requires_solver(&self.source)?;
         }

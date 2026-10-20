@@ -386,3 +386,30 @@ fn interrupted_solver_response_body_is_retried_once() {
     direct.join().unwrap();
     solver.join().unwrap();
 }
+
+#[test]
+fn mitigation_header_marks_source_even_when_challenge_body_is_interrupted() {
+    use onetagger_selected_providers::http::ChallengeStore;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let direct = thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut request = [0; 4096];
+        assert!(socket.read(&mut request).unwrap() > 0);
+        socket.write_all(b"HTTP/1.1 403 Forbidden\r\ncf-mitigated: challenge\r\nContent-Length: 1000\r\nConnection: close\r\n\r\npartial").unwrap();
+    });
+    let store = Arc::new(MemoryChallengeStore::default());
+    let http = CatalogHttp::new(reqwest::blocking::Client::new(), "fixture", store.clone());
+    let cancel = Arc::new(AtomicBool::new(false));
+    for _ in 0..2 {
+        let error = http
+            .get_text(&url, &SolverConfig::default(), &cancel)
+            .unwrap_err();
+        assert!(error.to_string().contains("solver"), "{error:#}");
+        assert!(store.requires_solver("fixture").unwrap());
+    }
+    direct.join().unwrap();
+}
