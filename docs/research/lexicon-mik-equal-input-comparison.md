@@ -156,3 +156,29 @@ Aggregates only; five-fold cross-validation by song.
 - **Cues.** A literal implementation of the cue patent's scoring (compare per-beat values 16, 8, 4 and 2 beats apart,
   asymmetric penalty, peaks at least 32 beats apart) recovers 22% of Mixed In Key's cues, against 95.7% for the
   earlier reverse-engineered rule, which scores every cue within 50 ms for 62% of whole tracks.
+
+## Mixed In Key cue points, fresh capture, tuning split (272 songs)
+
+Rule under test: the earlier reverse-engineered cue rule (per-beat scores from the cue request, a 32-beat phase search,
+bar-position weights, greedy peaks at least 32 beats apart, the downbeat as the first cue). Whole-track correct means
+every cue within 50 ms and none extra or missing.
+
+- **Baseline.** 169 of 272 tracks (62.1%) are exactly right; 95.7% of individual cues are matched. Of the 103 wrong
+  tracks, 63 differ by one cue (the rule picks a different cue for one slot), 33 get too many cues (Mixed In Key
+  returned fewer than 8 on about 12% of songs and the rule always picks 8), 1 gets too few and the rest differ in
+  position.
+- **The swapped cue is not a near-tie.** In all 63 one-swap tracks, Mixed In Key's cue sits on a position the rule
+  considers, so the phase is right, but the rule ranks that position 19th of the candidates (median).
+- **No clean stopping threshold.** Among tracks where the rule's first picks already match, a peak is kept by Mixed In
+  Key at as little as 14% of the strongest peak and dropped at as much as 42%, so the early stop is not a threshold on
+  this score.
+- **Tuning the selection constants does not help.** Fitting the weights, ramp width and exponent, margin and
+  separation on 60 training tracks gained 3 tracks there and lost 7 on the other 202 (125 against 132 right), and moved
+  the 10 test tracks from 5 to 6: overfitting.
+- **A learned candidate ranker is worse.** LightGBM ranking over the rule's own candidates, with the rule's score,
+  before-and-after block differences at 16, 8, 4 and 2 beats, local prominence and bar position, reaches 52.6% (5/10 on
+  the test tracks); adding Mixed In Key's true energy levels as an upper bound gives 51.1%, so energy changes do not
+  explain the swapped cues.
+- **Genre.** By the exact genre string Mixed In Key receives, plain "Melodic House & Techno" (202 songs) is 60% right
+  and the suffixed variant (24 songs) 75%; the other groups hold 8 songs or fewer. The failures are within the
+  majority genre, so genre weights are not the main missing piece for it.
