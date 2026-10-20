@@ -44,6 +44,7 @@ impl Library {
         let mut files = Vec::new();
         let mut sources = HashSet::new();
         let mut targets = HashSet::new();
+        let mut target_keys = HashSet::new();
         for (index, (source, destination)) in request.files.iter().enumerate() {
             ensure!(
                 source.starts_with(&request.source_root)
@@ -53,6 +54,13 @@ impl Library {
             ensure!(
                 sources.insert(source.clone()) && targets.insert(destination.clone()),
                 "Duplicate organization source or destination"
+            );
+            ensure!(
+                target_keys.insert(
+                    cuerithm_organize::paths::collision_key(destination)
+                        .map_err(|error| anyhow::anyhow!(error))?
+                ),
+                "Organization contains case-equivalent destinations"
             );
             let source_folder = source.parent().context("Missing source folder")?;
             let destination_folder = destination.parent().context("Missing destination folder")?;
