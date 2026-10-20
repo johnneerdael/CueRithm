@@ -62,7 +62,7 @@ The player is always visible. It shows the loaded track, its BPM, key and energy
 
 <figure markdown>
   ![The player panel with the waveform and cue buttons](../assets/screens/crop-player-panel.webp){ .crop loading=lazy }
-  <figcaption>Click the waveform to switch between the entire track and a 16-second window that follows the playhead.</figcaption>
+  <figcaption>The main waveform defaults to a 32-second window that follows the playhead. Click it to switch to the entire track; the overview below always shows the full track.</figcaption>
 </figure>
 
 Read more in [Player, waveform and cues](../guides/player.md).
