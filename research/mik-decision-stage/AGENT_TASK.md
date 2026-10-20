@@ -83,6 +83,8 @@ Read `docs/research/mixed-in-key-patents.md`. Tested so far:
 
 ## Genre: what the data says so far
 
+The new 4,000-track set is 98% melodic house and techno (65 songs of 16 other genre strings), so it cannot settle the question. The clean test is `genre_experiment.py`: identical audio scanned with different genre tags (84 duplicate recordings with different file names already returned identical outputs, but all had the same genre). Plan and package format: `GENRE-EXPERIMENT.md`.
+
 On 272 tuning songs (227 melodic house and techno, 45 other; one song, one vote):
 
 | Output | MHT | other genres |

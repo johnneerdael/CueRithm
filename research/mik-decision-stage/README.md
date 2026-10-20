@@ -10,6 +10,8 @@ Mixed In Key 11 calls, from the request fields alone. Start with [AGENT_TASK.md]
 | `gather_mik_data.py` | runs on the capture laptop: database backup, per-song export with beat grids, file inventory, tag dump, capture check (see CAPTURE-LAPTOP.md) |
 | `CAPTURE-LAPTOP.md` | the task for the agent on the capture laptop: gather, check and package only, no analysis there |
 | `build_handback.py` | builds the hand-back package (manifest with SHA-256, counts, tools) and verifies one that was received |
+| `genre_experiment.py` | controlled genre test: tag-only variants of the same audio, then pack and compare the responses (see GENRE-EXPERIMENT.md) |
+| `GENRE-EXPERIMENT.md` | the task for the agent on the capture laptop for that test (the owner does the scanning) |
 | `mikdata.py` | loader, genre grouping, split policy, cue/energy helpers |
 | `key_experiments.py` | key from the 352 features: tonic-rotation-shared model, confidence and genre breakdowns, baselines |
 | `energy_experiments.py` | window levels (RBF SVC), overall rating rules, boundary and genre breakdowns, learning curve |
