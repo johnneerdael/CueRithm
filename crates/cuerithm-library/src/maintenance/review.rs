@@ -31,7 +31,7 @@ pub(super) fn refresh(
     saved: &mut SavedReview,
     cancel: &CancellationToken,
 ) -> Result<()> {
-    lib.refresh_duplicate_staleness(&mut saved.scan, cancel)?;
+    lib.refresh_duplicate_staleness_for(&mut saved.scan, cancel, true)?;
     saved.review.stale = saved.scan.report.stale;
     saved.review.stale_reason = saved.scan.report.stale_reason.clone();
     Ok(())

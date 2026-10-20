@@ -3,7 +3,13 @@ use crate::model::bytes_path;
 use anyhow::{Context, Result};
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct FileProof {
     pub path: Vec<u8>,
@@ -51,28 +57,64 @@ pub(super) fn file_state(path: &Path) -> MaintenanceFileState {
         Err(_) => MaintenanceFileState::Unavailable,
     }
 }
-pub(super) fn proofs_current(files: &[FileProof], cancel: &CancellationToken) -> Result<bool> {
-    for proof in files {
+fn proof_current(proof: &FileProof, cancel: &CancellationToken) -> Result<bool> {
+    cancel.check()?;
+    let path = bytes_path(&proof.path)?;
+    if file_state(&path) != proof.state {
+        return Ok(false);
+    }
+    if proof.state == MaintenanceFileState::Present
+        && proof.hash.is_none()
+        && std::fs::File::open(&path).is_ok()
+    {
+        return Ok(false);
+    }
+    if let Some(hash) = &proof.hash {
+        let observed = file_sha256_cancellable(&path, cancel);
         cancel.check()?;
-        let path = bytes_path(&proof.path)?;
-        if file_state(&path) != proof.state {
+        if observed.as_ref().ok() != Some(hash) {
             return Ok(false);
-        }
-        if proof.state == MaintenanceFileState::Present
-            && proof.hash.is_none()
-            && std::fs::File::open(&path).is_ok()
-        {
-            return Ok(false);
-        }
-        if let Some(hash) = &proof.hash {
-            let observed = file_sha256_cancellable(&path, cancel);
-            cancel.check()?;
-            if observed.as_ref().ok() != Some(hash) {
-                return Ok(false);
-            }
         }
     }
     Ok(true)
+}
+/// Check every proof, hashing whole files, on the preparation service's worker pool (75% of the logical cores).
+/// Stops at the first proof that no longer holds. Only cancellation or an unreadable stored path is an error.
+pub(super) fn proofs_current(files: &[FileProof], cancel: &CancellationToken) -> Result<bool> {
+    let workers =
+        crate::prepare::worker_count(std::thread::available_parallelism().map_or(1, |n| n.get()))
+            .min(files.len().max(1));
+    let next = AtomicUsize::new(0);
+    let stop = AtomicBool::new(false);
+    let current = AtomicBool::new(true);
+    let error: Mutex<Option<anyhow::Error>> = Mutex::new(None);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                while !stop.load(Ordering::SeqCst) {
+                    let Some(proof) = files.get(next.fetch_add(1, Ordering::SeqCst)) else {
+                        break;
+                    };
+                    match proof_current(proof, cancel) {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            current.store(false, Ordering::SeqCst);
+                            stop.store(true, Ordering::SeqCst);
+                        }
+                        Err(e) => {
+                            error.lock().unwrap().get_or_insert(e);
+                            stop.store(true, Ordering::SeqCst);
+                        }
+                    }
+                }
+            });
+        }
+    });
+    if let Some(e) = error.into_inner().unwrap() {
+        return Err(e);
+    }
+    cancel.check()?;
+    Ok(current.load(Ordering::SeqCst))
 }
 
 pub(super) fn decode_error_state(error: &anyhow::Error, expected: &str) -> MaintenanceFileState {

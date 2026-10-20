@@ -346,7 +346,7 @@ impl Library {
             result: result.clone(),
             archives: saved.archives,
             playlists: saved.public.playlists,
-            files: saved.review.scan.files,
+            files: saved.review.scan.group_proofs(),
             logic: super::scan::logic_identity(),
             undone_by: None,
         };

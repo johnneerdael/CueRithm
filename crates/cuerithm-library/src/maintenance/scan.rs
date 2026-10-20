@@ -180,6 +180,24 @@ pub(super) struct SavedScan {
     engine: String,
     logic: String,
 }
+impl SavedScan {
+    /// The file proofs of the tracks that sit in a duplicate group: everything a review or a merge can act on.
+    /// `files` and `report.tracks` are parallel, one entry per scanned track in the same order.
+    pub(super) fn group_proofs(&self) -> Vec<FileProof> {
+        let members: BTreeSet<&String> = self
+            .report
+            .groups
+            .iter()
+            .flat_map(|g| &g.track_ids)
+            .collect();
+        self.files
+            .iter()
+            .zip(&self.report.tracks)
+            .filter(|(_, track)| members.contains(&track.id))
+            .map(|(proof, _)| proof.clone())
+            .collect()
+    }
+}
 
 pub(super) fn logic_identity() -> String {
     let mut hash = Sha256::new();
@@ -550,6 +568,16 @@ impl Library {
         saved: &mut SavedScan,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        self.refresh_duplicate_staleness_for(saved, cancel, false)
+    }
+    /// With `groups_only` the whole-file proofs cover just the tracks that sit in a duplicate group, which is all
+    /// a review can act on; the library and scope checks still cover everything.
+    pub(super) fn refresh_duplicate_staleness_for(
+        &self,
+        saved: &mut SavedScan,
+        cancel: &CancellationToken,
+        groups_only: bool,
+    ) -> Result<()> {
         if saved.logic != logic_identity() {
             mark_stale(&mut saved.report, "Duplicate logic changed; scan again");
         }
@@ -560,7 +588,12 @@ impl Library {
         if current != saved.report.stamp || !saved.scope.current(self, cancel)? {
             mark_stale(&mut saved.report, "Library or scope changed; scan again");
         }
-        if !proofs_current(&saved.files, cancel)? {
+        let proofs_hold = if groups_only && saved.files.len() == saved.report.tracks.len() {
+            proofs_current(&saved.group_proofs(), cancel)?
+        } else {
+            proofs_current(&saved.files, cancel)?
+        };
+        if !proofs_hold {
             mark_stale(&mut saved.report, "Source files changed; scan again");
         }
         Ok(())

@@ -1960,3 +1960,34 @@ fn parallel_fingerprinting_keeps_library_order_progress_and_cache_counts() {
         expected
     );
 }
+
+#[test]
+fn a_review_only_proves_group_members_unchanged_while_the_scan_still_covers_every_file() {
+    let f = Fixture::new();
+    let token = CancellationToken::default();
+    let scan = f
+        .lib
+        .scan_duplicates(DuplicateScanRequest::default(), &f.runtime, &token)
+        .unwrap();
+    let members: std::collections::BTreeSet<_> = scan
+        .groups
+        .iter()
+        .flat_map(|g| g.track_ids.iter().cloned())
+        .collect();
+    let outsider = f
+        .ids
+        .iter()
+        .position(|id| {
+            !members.contains(id) && !scan.tracks.iter().any(|t| &t.id == id && t.archived)
+        })
+        .expect("the fixture has a present track outside every group");
+    let member = f.ids.iter().position(|id| members.contains(id)).unwrap();
+    let review = f.lib.begin_duplicate_review(&scan.id, &token).unwrap();
+    // Editing a file no group contains does not change what the review can act on, so only the scan notices.
+    wav(&f.paths[outsider], 97);
+    assert!(!f.lib.duplicate_review(&review.id, &token).unwrap().stale);
+    assert!(f.lib.duplicate_scan(&scan.id).unwrap().stale);
+    // Editing a group member makes the review stale.
+    wav(&f.paths[member], 89);
+    assert!(f.lib.duplicate_review(&review.id, &token).unwrap().stale);
+}

@@ -65,6 +65,71 @@ fn step<T>(name: &str, work: impl FnOnce() -> T) -> T {
     value
 }
 
+/// Begin a review of the scan, reload it, make one edit, then preview, apply and undo the merge of every group.
+fn review_cycle(
+    lib: &Library,
+    db: &Path,
+    scan_id: &str,
+    expected_groups: usize,
+    token: &CancellationToken,
+) {
+    let review = step("begin duplicate review", || {
+        lib.begin_duplicate_review(scan_id, token).unwrap()
+    });
+    let saved_bytes: i64 = rusqlite::Connection::open(db)
+        .unwrap()
+        .query_row(
+            "SELECT length(payload_json) FROM maintenance_scans WHERE id=?1",
+            [&review.id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+    println!(
+        "  saved review row: {:.1} MB",
+        saved_bytes as f64 / 1_048_576.0
+    );
+    let review = step("reload duplicate review", || {
+        lib.duplicate_review(&review.id, token).unwrap()
+    });
+    assert_eq!(review.groups.len(), expected_groups);
+    // Every choice in the review screen is one persisted edit, so this is the latency of a single click. It runs on
+    // a second review so the one that is merged below keeps every group unlocked.
+    let spare = lib.begin_duplicate_review(scan_id, token).unwrap();
+    step("one review edit (lock a group)", || {
+        lib.edit_duplicate_review(
+            &spare.id,
+            spare.revision,
+            cuerithm_library::DuplicateReviewEdit::Group {
+                group_id: spare.groups[0].id.clone(),
+                edit: cuerithm_library::GroupEdit::Lock,
+            },
+            token,
+        )
+        .unwrap()
+    });
+    let groups: Vec<String> = review.groups.iter().map(|g| g.id.clone()).collect();
+    let preview = step("preview merge of every group", || {
+        lib.preview_duplicate_merge(&review.id, review.revision, groups, token)
+            .unwrap()
+    });
+    let applied = step("apply merge", || {
+        lib.apply_duplicate_merge(&preview.id, token).unwrap()
+    });
+    println!("  archived {}", applied.archived_ids.len());
+    assert_eq!(applied.archived_ids.len(), expected_groups);
+    let undone = step("undo merge", || {
+        lib.undo_duplicate_merge(&applied.id, token).unwrap()
+    });
+    assert_eq!(undone.undo_of.as_deref(), Some(applied.id.as_str()));
+    let archived: i64 = rusqlite::Connection::open(db)
+        .unwrap()
+        .query_row("SELECT count(*) FROM tracks WHERE archived=1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(archived, 0, "undo restores every archived track");
+}
+
 #[test]
 #[ignore = "large generated library; run explicitly with --ignored"]
 fn large_library_scan_review_merge_and_undo() {
@@ -153,61 +218,7 @@ fn large_library_scan_review_merge_and_undo() {
     });
     assert_eq!(warm.fingerprints_computed, 0);
     assert_eq!(warm.groups.len(), expected_duplicates);
-    let review = step("begin duplicate review", || {
-        lib.begin_duplicate_review(&warm.id, &token).unwrap()
-    });
-    let saved_bytes: i64 = rusqlite::Connection::open(&db)
-        .unwrap()
-        .query_row(
-            "SELECT length(payload_json) FROM maintenance_scans WHERE id=?1",
-            [&review.id],
-            |row| row.get(0),
-        )
-        .unwrap_or(-1);
-    println!(
-        "  saved review row: {:.1} MB",
-        saved_bytes as f64 / 1_048_576.0
-    );
-    let review = step("reload duplicate review", || {
-        lib.duplicate_review(&review.id, &token).unwrap()
-    });
-    assert_eq!(review.groups.len(), expected_duplicates);
-    // Every choice in the review screen is one persisted edit, so this is the latency of a single click. It runs on
-    // a second review so the one that is merged below keeps every group unlocked.
-    let spare = lib.begin_duplicate_review(&warm.id, &token).unwrap();
-    step("one review edit (lock a group)", || {
-        lib.edit_duplicate_review(
-            &spare.id,
-            spare.revision,
-            cuerithm_library::DuplicateReviewEdit::Group {
-                group_id: spare.groups[0].id.clone(),
-                edit: cuerithm_library::GroupEdit::Lock,
-            },
-            &token,
-        )
-        .unwrap()
-    });
-    let groups: Vec<String> = review.groups.iter().map(|g| g.id.clone()).collect();
-    let preview = step("preview merge of every group", || {
-        lib.preview_duplicate_merge(&review.id, review.revision, groups, &token)
-            .unwrap()
-    });
-    let applied = step("apply merge", || {
-        lib.apply_duplicate_merge(&preview.id, &token).unwrap()
-    });
-    println!("  archived {}", applied.archived_ids.len());
-    assert_eq!(applied.archived_ids.len(), expected_duplicates);
-    let undone = step("undo merge", || {
-        lib.undo_duplicate_merge(&applied.id, &token).unwrap()
-    });
-    assert_eq!(undone.undo_of.as_deref(), Some(applied.id.as_str()));
-    let archived: i64 = rusqlite::Connection::open(&db)
-        .unwrap()
-        .query_row("SELECT count(*) FROM tracks WHERE archived=1", [], |r| {
-            r.get(0)
-        })
-        .unwrap();
-    assert_eq!(archived, 0, "undo restores every archived track");
+    review_cycle(&lib, &db, &warm.id, expected_duplicates, &token);
     drop(lib);
     let reopened = step("reopen library", || Library::open(&db).unwrap());
     assert_eq!(reopened.duplicate_merge_history().unwrap().len(), 1);
@@ -233,6 +244,18 @@ fn real_audio_cold_and_warm_duplicate_scan() {
         .filter(|p| p.is_file())
         .collect();
     paths.sort();
+    // Every 20th file gets a byte-identical copy, so the scan has real duplicate groups to review and merge.
+    let copies = tempfile::tempdir().unwrap();
+    let mut expected_groups = 0;
+    for (i, original) in paths.clone().iter().enumerate().step_by(20) {
+        let copy = copies.path().join(format!(
+            "copy-{i:04}-{}",
+            original.file_name().unwrap().to_string_lossy()
+        ));
+        std::fs::copy(original, &copy).unwrap();
+        paths.push(copy);
+        expected_groups += 1;
+    }
     let megabytes: f64 = paths
         .iter()
         .map(|p| std::fs::metadata(p).unwrap().len() as f64)
@@ -279,4 +302,7 @@ fn real_audio_cold_and_warm_duplicate_scan() {
     });
     assert_eq!(warm.fingerprints_computed, 0);
     assert_eq!(warm.cache_hits, cold.fingerprints_computed);
+    assert_eq!(warm.groups.len(), expected_groups);
+    // Reviews prove the source files of duplicate groups unchanged, which is where real file sizes show.
+    review_cycle(&lib, &db, &warm.id, expected_groups, &token);
 }
