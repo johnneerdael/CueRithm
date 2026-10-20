@@ -470,6 +470,49 @@ fn mp4_provider_other_tags_cannot_alias_protected_fields_through_extra_component
 }
 
 #[test]
+fn mp4_native_comment_lyrics_description_artwork_and_rating_atoms_are_protected() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    for key in ["©lyr", "©cmt", "desc", "covr", "rtng"] {
+        let output = |candidate| TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        let mut source = input();
+        source.media.codec = "alac".into();
+        let mut other = AutotagConfig::default();
+        other.options.tags = vec![SupportedTag::OtherTags];
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        assert!(
+            TagWritePlan::build(
+                source.clone(),
+                &output(candidate),
+                &other,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "other tags {key}"
+        );
+        let mut style = AutotagConfig::default();
+        style.options.tags = vec![SupportedTag::Style];
+        style.options.styles_options = onetagger_tagger::StylesOptions::CustomTag;
+        style.options.styles_custom_tag = Some(FrameName::same(key));
+        assert!(
+            TagWritePlan::build(
+                source,
+                &output(track(ProviderId::Beatport, "Signal")),
+                &style,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "style {key}"
+        );
+    }
+}
+
+#[test]
 fn mp4_provider_other_tags_keep_unrelated_freeform_names() {
     use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
     let mut config = AutotagConfig::default();

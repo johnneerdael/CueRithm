@@ -219,7 +219,27 @@ fn same_mp4_atom(a: &str, b: &str) -> bool {
     ident(a).eq_ignore_ascii_case(&ident(b))
 }
 
+/// Native MP4 atoms for the comment, lyrics, description, artwork and rating
+/// fields that the ID3/Vorbis names in `protected_custom_target` already cover.
+fn protected_mp4_atom(key: &str) -> bool {
+    use mp4ameta::ident;
+    matches!(
+        MP4Tag::string_to_ident(key),
+        DataIdent::Fourcc(code) if [
+            ident::COMMENT,
+            ident::LYRICS,
+            ident::DESCRIPTION,
+            ident::ARTWORK,
+            ident::ADVISORY_RATING,
+        ]
+        .contains(&code)
+    )
+}
+
 pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bool {
+    if *format == AudioFileFormat::MP4 && protected_mp4_atom(key) {
+        return true;
+    }
     let leaf = custom_leaf(key, format);
     [
         "GEOB",
