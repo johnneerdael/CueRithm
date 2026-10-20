@@ -59,6 +59,8 @@ pub struct OrganizationRecord {
     pub created_directories: Vec<Authority>,
     pub error: Option<String>,
     pub undo_of: Option<String>,
+    #[serde(default)]
+    pub batch_row_id: Option<String>,
 }
 impl OrganizationRecord {
     /// Retained originals are recovery assets and are never automatically deleted.

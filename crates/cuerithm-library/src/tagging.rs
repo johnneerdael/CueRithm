@@ -198,6 +198,19 @@ impl Library {
                 ],
             )?;
         }
+        if run.snapshot.settings.organization.enabled() {
+            Self::insert_preparation_checkpoint_tx(
+                &tx,
+                &run.id,
+                &run.track_id,
+                &run.source_sha256,
+                &staged.source_after_sha256,
+                run.attempt,
+                Some(&id),
+                "tagging",
+                None,
+            )?;
+        }
         tx.commit()?;
         staged.retain_for_journal();
         Ok(id)
@@ -293,6 +306,20 @@ impl Library {
             }
             Ok(())
         })();
+        let retain_checkpoint = self.has_preparation_checkpoint(&journal.job)?;
+        let proof = if retain_checkpoint && preparation.is_ok() {
+            let main = journal.files.first().context("Missing publication audio")?;
+            Some(Self::preparation_source_checkpoint(
+                &run.path,
+                if main.before.as_deref() == Some(main.after.as_str()) {
+                    &main.target
+                } else {
+                    &main.publish
+                },
+            )?)
+        } else {
+            None
+        };
         let mut conn = self.conn()?;
         let result = preparation.and_then(|_| {
             let tx = conn.transaction()?;
@@ -372,6 +399,11 @@ impl Library {
                 "UPDATE tag_writes SET state='committed',error=NULL WHERE id=?1",
                 [id],
             )?;
+            tx.execute("DELETE FROM organization_owned_sidecars WHERE track_id=?1",[&journal.track])?;
+            tx.execute("INSERT INTO organization_owned_sidecars(track_id,path,source_hash,manifest_id,ordinal) SELECT ?1,target,after_hash,write_id,ordinal FROM tag_write_files WHERE write_id=?2 AND ordinal>0",params![journal.track,id])?;
+            if snapshot.settings.organization.enabled() {
+                Self::prepare_checkpoint_tx(&tx,&journal.job,proof.context("Missing prepared output native proof")?)?;
+            }
             tx.commit()?;
             Ok(())
         });
@@ -393,13 +425,95 @@ impl Library {
                     id
                 ],
             )?;
-            if rollback.is_ok() && cleanup_temporaries(&journal.files, self.data_dir()).is_ok() {
+            if rollback.is_ok()
+                && !retain_checkpoint
+                && cleanup_temporaries(&journal.files, self.data_dir()).is_ok()
+            {
                 conn.execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
             }
             return Err(error);
         }
-        if cleanup_temporaries(&journal.files, self.data_dir()).is_ok() {
+        if !retain_checkpoint && cleanup_temporaries(&journal.files, self.data_dir()).is_ok() {
             conn.execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
+        }
+        Ok(())
+    }
+    pub(crate) fn replay_checkpoint_tag_write(&self, run: &JobRun, id: &str) -> Result<()> {
+        let journal = self.load_tag_write(id)?;
+        ensure!(
+            journal.job == run.id
+                && journal.before == run.source_sha256
+                && journal.revision == run.settings_revision,
+            "Tag checkpoint identity differs"
+        );
+        ensure!(
+            matches!(journal.state.as_str(), "rolled_back" | "prepared"),
+            "Tag checkpoint needs manual recovery before retry"
+        );
+        for file in &journal.files {
+            safe_target(&file.target, &run.path)?;
+            owned_file(&file.staged, &journal.workspace, &file.after)?;
+            if let (Some(backup), Some(before)) = (&file.backup, &file.before) {
+                owned_file(backup, &journal.workspace, before)?;
+            }
+            ensure!(
+                current_hash(&file.target)? == file.before,
+                "Source or artwork changed after tag checkpoint"
+            );
+        }
+        // Preserve the previous attempt's journal and private publication names.
+        // Its rollback may have left known before bytes there. Reuse only the
+        // durable, hash-verified staged outputs and original backup assets.
+        let next = uuid::Uuid::new_v4().to_string();
+        {
+            let mut conn = self.conn()?;
+            let tx = conn.transaction()?;
+            ensure!(Self::run_owns(&tx, run)?, "Preparation was superseded");
+            ensure!(tx.execute("UPDATE tag_writes SET state='rolled_back' WHERE id=?1 AND state IN ('rolled_back','prepared')",[id])?==1,"Tag checkpoint changed");
+            tx.execute("INSERT INTO tag_writes(id,job_id,track_id,attempt,settings_revision,before_hash,after_hash,pcm_hash,frames,decoder,analysis_json,metadata_json,provenance_json,workspace,created,cleanup_json,native_metadata_json) SELECT ?1,job_id,track_id,?2,settings_revision,before_hash,after_hash,pcm_hash,frames,decoder,analysis_json,metadata_json,provenance_json,workspace,?3,cleanup_json,native_metadata_json FROM tag_writes WHERE id=?4",params![next,run.attempt,now(),id])?;
+            for (ordinal, file) in journal.files.iter().enumerate() {
+                let parent = file
+                    .target
+                    .parent()
+                    .context("Missing tag publication parent")?;
+                let publish = parent.join(format!(".cuerithm-{next}-{ordinal}.tmp"));
+                let displaced = if cfg!(windows) {
+                    parent.join(format!(".cuerithm-{next}-{ordinal}-before.tmp"))
+                } else {
+                    publish.clone()
+                };
+                tx.execute(
+                    "INSERT INTO tag_write_files VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+                    params![
+                        next,
+                        ordinal,
+                        path_bytes(&file.target),
+                        path_bytes(&file.staged),
+                        file.backup.as_ref().map(|p| path_bytes(p)),
+                        file.before,
+                        file.after,
+                        path_bytes(&publish),
+                        path_bytes(&displaced)
+                    ],
+                )?;
+            }
+            ensure!(tx.execute("UPDATE preparation_checkpoints SET payload_json=json_set(payload_json,'$.tag_write',?1),updated=?2 WHERE job_id=?3 AND state='tagging' AND attempt=?4 AND json_extract(payload_json,'$.tag_write')=?5",params![next,now(),run.id,run.attempt,id])?==1,"Tag checkpoint journal changed");
+            tx.commit()?;
+        }
+        self.publish_preparation(run, &next)
+    }
+    pub(crate) fn cleanup_checkpoint_tags(&self, job: &str) -> Result<()> {
+        let ids: Vec<String> = {
+            let conn = self.conn()?;
+            let mut q=conn.prepare("SELECT id FROM tag_writes WHERE job_id=?1 AND state IN ('committed','rolled_back') AND cleanup_complete=0")?;
+            q.query_map([job], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        for id in ids {
+            let journal = self.load_tag_write(&id)?;
+            cleanup_temporaries(&journal.files, self.data_dir())?;
+            self.conn()?
+                .execute("UPDATE tag_writes SET cleanup_complete=1 WHERE id=?1", [id])?;
         }
         Ok(())
     }
@@ -463,6 +577,7 @@ impl Library {
         };
         for id in committed {
             if let Ok(journal) = self.load_tag_write(&id)
+                && !self.has_preparation_checkpoint(&journal.job)?
                 && cleanup_temporaries(&journal.files, self.data_dir()).is_ok()
             {
                 self.conn()?

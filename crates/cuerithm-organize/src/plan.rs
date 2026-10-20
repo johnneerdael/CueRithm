@@ -408,9 +408,6 @@ fn files_for(
     for sidecar in &track.sidecars {
         crate::paths::validate_relative(&sidecar.destination_name, config.rules)
             .map_err(blocked)?;
-        if sidecar.destination_name.contains('/') {
-            return Err(blocked("Sidecars must remain beside their owner".into()));
-        }
         files.push(PlannedFile {
             source: sidecar.source.clone(),
             destination: NativePath(

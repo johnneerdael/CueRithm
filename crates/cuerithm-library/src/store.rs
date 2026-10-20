@@ -55,7 +55,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=15).contains(&version),
+            (0..=18).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -152,6 +152,24 @@ impl Library {
                 include_str!("../migrations/015_match_evidence.sql")
             ))?;
         }
+        if version < 16 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/016_organization_workflows.sql")
+            ))?;
+        }
+        if version < 17 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/017_organization_references.sql")
+            ))?;
+        }
+        if version < 18 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/018_organization_copy_conflicts.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -172,6 +190,10 @@ impl Library {
             "UPDATE jobs SET state='queued',stage='queued',error=NULL WHERE state='running'",
             [],
         )?;
+        // A previous process cannot still own an applying batch once this
+        // exclusive library lease has been acquired. Keep cancellation durable.
+        conn.execute("UPDATE organization_batch_rows SET outcome=CASE WHEN operation_id IS NULL THEN 'failed' ELSE 'recovery_required' END,error=COALESCE(error,'Organization was interrupted; inspect recovery before continuing') WHERE outcome IN ('ready','applying') AND batch_id IN (SELECT id FROM organization_batches WHERE state='applying')",[])?;
+        conn.execute("UPDATE organization_batches SET state='recovery_required',updated=?1 WHERE state='applying'",[now()])?;
         let lib = Self {
             inner: Arc::new(Inner {
                 conn: Mutex::new(conn),
@@ -217,6 +239,20 @@ impl Library {
         obsolete: &[SettingsRevision],
     ) -> Result<SettingsRevision> {
         settings.validate()?;
+        if settings.organization.enabled()
+            && matches!(
+                settings.organization.mode,
+                crate::OrganizationSettingMode::Move | crate::OrganizationSettingMode::Copy
+            )
+        {
+            self.organization_root_authority(
+                settings
+                    .organization
+                    .destination_root_id
+                    .as_deref()
+                    .context("Choose an organization destination")?,
+            )?;
+        }
         let models = camelot_core::Engine::new(&settings.engine)?.model_identity();
         let revision = format!(
             "{:x}",

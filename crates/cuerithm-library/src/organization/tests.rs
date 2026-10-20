@@ -39,3 +39,4 @@ fn intent_captures_complete_audio_and_sidecar_scope_before_mutation() {
 }
 
 include!("tests_additional.rs");
+include!("tests_cancellation.rs");

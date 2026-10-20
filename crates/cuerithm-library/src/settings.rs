@@ -19,6 +19,7 @@ pub struct PreparationSettings {
     pub tagging: Option<cuerithm_autotag::AutotagConfig>,
     #[cfg(not(feature = "autotag"))]
     pub tagging: Option<serde_json::Value>,
+    pub organization: crate::OrganizationSettings,
     pub cleanup_enabled: bool,
     pub cleanup: Option<cuerithm_cleanup::CleanupConfig>,
 }
@@ -38,6 +39,7 @@ impl Default for PreparationSettings {
             },
             autotag_enabled: false,
             tagging: None,
+            organization: Default::default(),
             cleanup_enabled: false,
             cleanup: None,
         }
@@ -61,6 +63,7 @@ impl PreparationSettings {
     }
     pub fn validate(&self) -> Result<()> {
         self.engine.validate()?;
+        self.organization.validate()?;
         if let Some(config) = &self.cleanup {
             config.validate()?;
         }
