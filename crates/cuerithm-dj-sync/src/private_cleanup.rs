@@ -42,6 +42,8 @@ fn clear_readonly(path: &Path) -> io::Result<()> {
     }
     if metadata.permissions().readonly() {
         let mut permissions = metadata.permissions();
+        // Windows-only: clear the read-only attribute on this owned copy.
+        #[allow(clippy::permissions_set_readonly_false)]
         permissions.set_readonly(false);
         fs::set_permissions(path, permissions)?;
     }

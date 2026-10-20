@@ -730,8 +730,12 @@ impl FileTransaction {
                         use std::os::unix::fs::PermissionsExt;
                         permissions.set_mode(permissions.mode() | 0o200);
                     }
-                    #[cfg(not(unix))]
-                    permissions.set_readonly(false);
+                    #[cfg(windows)]
+                    {
+                        // Windows read-only attribute; Unix uses owner-write above.
+                        #[allow(clippy::permissions_set_readonly_false)]
+                        permissions.set_readonly(false);
+                    }
                     fs::set_permissions(&destination, permissions)?;
                     File::options()
                         .read(true)
@@ -1307,6 +1311,8 @@ mod tests {
         assert!(fs::metadata(&source).unwrap().permissions().readonly());
         // Restore only the synthetic source fixture for TempDir's own teardown.
         let mut permissions = fs::metadata(&source).unwrap().permissions();
+        // Windows-only test: clear the fixture's read-only attribute.
+        #[allow(clippy::permissions_set_readonly_false)]
         permissions.set_readonly(false);
         fs::set_permissions(&source, permissions).unwrap();
     }
@@ -1357,8 +1363,12 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             permissions.set_mode(0o600);
         }
-        #[cfg(not(unix))]
-        permissions.set_readonly(false);
+        #[cfg(windows)]
+        {
+            // Windows fixture attribute; Unix uses explicit owner permissions.
+            #[allow(clippy::permissions_set_readonly_false)]
+            permissions.set_readonly(false);
+        }
         fs::set_permissions(source, permissions).unwrap();
     }
     #[test]
