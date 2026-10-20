@@ -31,8 +31,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
-    runs-on: ${{ matrix.os == 'windows-2025' && vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","windows","x64","cloudrunner","cuerithm"]') || matrix.os }}
+        os: ${{ fromJSON(vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]') }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -55,3 +55,62 @@ jobs:
         run: cargo +stable test -p cuerithm-cleanup --locked
       - name: Release build
         run: cargo +stable build --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked
+
+  windows-combined:
+    if: >-
+      vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
+    runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Confirm combined Windows hardware and source
+        shell: pwsh
+        run: |
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne 16 -or $computer.TotalPhysicalMemory -lt 60GB) {
+            throw 'Combined Windows checks require the 16-vCPU/64-GB pool.'
+          }
+          git rev-parse HEAD
+      - name: Test parallel coordinator
+        run: python -m unittest discover -s tools/ci -v
+      - uses: ./.github/actions/native-crypto-tools
+      - uses: ./.github/actions/media-runtime
+      - name: Install Rust checks
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Prepare isolated engine and desktop workspaces
+        run: python tools/ci/windows_combined.py prepare
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cloudrunner-combined-windows-16-v1
+          workspaces: |
+            C:/cr/e -> target
+            C:/cr/d -> target
+          save-if: true
+      - name: Fetch native dependencies before parallel compilation
+        run: cargo +stable fetch --locked --target x86_64-pc-windows-msvc
+      - name: Install pnpm
+        shell: bash
+        run: npm install --global pnpm@12.14.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Locked frontend dependencies
+        shell: bash
+        run: pnpm --dir C:/cr/d/apps/desktop install --frozen-lockfile
+      - name: Engine and desktop checks in parallel
+        run: python tools/ci/windows_combined.py run
+      - name: Preserve component logs and timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-combined-logs
+          path: C:/cr/logs/*.*
+          if-no-files-found: warn
+          retention-days: 7
