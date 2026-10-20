@@ -93,7 +93,7 @@ def draw(ax, curves, cues, found, title):
     colours = {'breakdown': '#f59e0b', 'buildup': '#a855f7', 'drop': '#111827', 'intro': '#0ea5e9', 'outro': '#64748b'}
     for kind, b in found:
         ax.plot([b], [-0.12], marker='^', color=colours.get(kind, 'k'), markersize=6, markeredgecolor='white', markeredgewidth=0.4)
-        ax.text(b, -0.3, kind[0].upper(), color=colours.get(kind, 'k'), fontsize=5, ha='center')
+        ax.text(b, -0.3, {'breakdown': 'BR', 'buildup': 'BU', 'drop': 'D', 'intro': 'IN', 'outro': 'OUT'}.get(kind, kind), color=colours.get(kind, 'k'), fontsize=5.5, ha='center')
     ax.set_xlim(0, n)
     ax.set_ylim(-0.4, 1.4)
     ax.set_yticks([])
