@@ -3,6 +3,7 @@ mod export;
 mod lexicon_benchmark;
 
 use anyhow::{Context, Result};
+use camelot_core::lexicon_timing::LexiconTempoOptions;
 use camelot_core::{AnalysisConfig, Engine, EngineSettings};
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -51,6 +52,28 @@ enum Command {
     },
 }
 
+fn parse_tempo_range(text: &str) -> Result<LexiconTempoOptions, String> {
+    let (min, max) = text
+        .split_once('_')
+        .ok_or("Use MIN_MAX, for example 78_155")?;
+    let (min_tempo, max_tempo) = (
+        min.parse::<f64>().map_err(|e| e.to_string())?,
+        max.parse::<f64>().map_err(|e| e.to_string())?,
+    );
+    if !(min_tempo.is_finite()
+        && max_tempo.is_finite()
+        && 50. <= min_tempo
+        && min_tempo < max_tempo
+        && max_tempo <= 300.)
+    {
+        return Err("The tempo range must lie within 50 and 300 BPM".into());
+    }
+    Ok(LexiconTempoOptions {
+        min_tempo,
+        max_tempo,
+    })
+}
+
 #[derive(Args)]
 struct EngineArgs {
     #[arg(long, default_value_t = 11025)]
@@ -83,6 +106,12 @@ struct EngineArgs {
     /// Complete local first-channel timing, using the fixed 98–195 BPM range.
     #[arg(long, conflicts_with_all = ["source_profile_timing", "max_seconds", "beat_model", "mel_model"])]
     lexicon_timing: bool,
+    /// Candidate tempo range for local timing as `MIN_MAX`, for example `78_155`; the default is `98_195`.
+    #[arg(long, requires = "lexicon_timing", value_parser = parse_tempo_range)]
+    lexicon_tempo: Option<LexiconTempoOptions>,
+    /// Built-in whole-track acoustic energy rating (22050 Hz mono PCM).
+    #[arg(long, conflicts_with_all = ["energy_model", "max_seconds"])]
+    lexicon_energy: bool,
     /// Generate structural cues using the Lexicon-compatible energy envelope algorithm.
     #[arg(long, alias = "cue-suggestions")]
     lexicon_cues: bool,
@@ -130,8 +159,8 @@ impl EngineArgs {
             lexicon_timing: self.lexicon_timing,
             cue_config: None,
             energy_model: self.energy_model,
-            lexicon_energy: false,
-            lexicon_tempo: None,
+            lexicon_energy: self.lexicon_energy,
+            lexicon_tempo: self.lexicon_tempo,
             cue_template: None,
             lexicon_config: self
                 .lexicon_cues
