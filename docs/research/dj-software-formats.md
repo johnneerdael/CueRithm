@@ -66,4 +66,5 @@ native-addon static evidence, not JavaScript decompilation or a runtime acceptan
 claim. REA's ASAR analysis uses the hash-matched archive identified above, but its
 semantic coverage is partial because of heap and result limits. Targeted converters
 were compared manually and probed; no whole-application semantic completeness is
-claimed. Final full checks, PR review and merge remain pending.
+claimed. Current-head checks and integration evidence are recorded in
+[PR 12](https://github.com/johnneerdael/CueRithm/pull/12).

@@ -40,34 +40,13 @@ pub(super) fn save(root: &Path, target: &SyncTarget, ledger: &OwnershipLedger) -
     fs::create_dir_all(path.parent().unwrap())?;
     atomic_json(&path, ledger)
 }
-/// Bind a registration to this filesystem object, never merely its displayed path.
+#[path = "registration.rs"]
+mod registration_identity;
+
+/// Bind the volume and native catalog objects, independent of mount-session IDs.
 /// Own atomic replacements receive a new registration after verified publication.
 pub(super) fn registration(target: &SyncTarget) -> Result<String> {
-    fn token(path: &Path) -> Result<String> {
-        let meta = fs::symlink_metadata(path)?;
-        ensure!(
-            !meta.file_type().is_symlink(),
-            "DJ registration cannot be a symbolic link"
-        );
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            digest(&(path, meta.dev(), meta.ino(), meta.created().ok()))
-        }
-        #[cfg(not(unix))]
-        {
-            digest(&(
-                path,
-                meta.created()
-                    .context("Filesystem cannot identify the selected DJ target")?,
-            ))
-        }
-    }
-    digest(&(
-        token(&target.path)?,
-        token(target.path.parent().context("DJ target parent missing")?)?,
-        target.source_root.as_ref().map(|p| token(p)).transpose()?,
-    ))
+    registration_identity::capture(target)
 }
 pub(super) fn check_registration(ledger: &OwnershipLedger, target: &SyncTarget) -> Result<()> {
     ensure!(

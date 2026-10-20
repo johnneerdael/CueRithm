@@ -1,3 +1,4 @@
+mod build;
 use crate::{
     DjSoftware, SyncLibrary, SyncOptions,
     discovery::ensure_closed,
@@ -356,8 +357,8 @@ pub fn prepare_sync_owned_with_runtime(
         target.source_root = Some(fs::canonicalize(root)?);
     }
     let transaction = FileTransaction::create(journal_root)?;
-    let build = transaction.path().join("build");
-    fs::create_dir(&build)?;
+    let build_directory = build::BuildDirectory::new(transaction.path())?;
+    let build = build_directory.path();
     let mut before = BTreeMap::new();
     let mut sources = BTreeMap::new();
     let mut input_paths = std::collections::BTreeSet::new();
@@ -787,6 +788,9 @@ pub fn prepare_sync_owned_with_runtime(
         &files,
         &normalized_directories.into_values().collect::<Vec<_>>(),
     )?;
+    // add_batch has copied and fsynced every publication into persistent staged/.
+    // Release adapter working copies before returning a durable preview.
+    build_directory.close()?;
     let journal = transaction.inspect()?;
     let preview = SyncPreview {
         id: journal.id,
@@ -1120,10 +1124,80 @@ mod tests {
         assert_eq!(fs::read(&database).unwrap(), initial);
         assert_eq!(preview.tracks, 1);
         assert_eq!(preview.files.len(), 1);
+        let transaction = FileTransaction::open(&journal_root, &preview.id).unwrap();
+        assert!(!fs::read_dir(transaction.path()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("build")
+        }));
+        assert!(transaction.path().join("request.json").is_file());
+        assert!(transaction.path().join("staged/0").is_file());
         apply_sync(&journal_root, &preview.id).unwrap();
         assert!(fs::read_to_string(&database).unwrap().contains("Ready"));
         restore_sync(&journal_root, &preview.id).unwrap();
         assert_eq!(fs::read(&database).unwrap(), initial);
+    }
+
+    #[test]
+    fn preparation_failure_removes_build_copies_but_keeps_journal_evidence() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let home = root.join("VirtualDJ");
+        let resources = home.join("MyLists/CueRithm.subfolders");
+        fs::create_dir_all(&resources).unwrap();
+        let resource = resources.join("readonly-resource.txt");
+        fs::write(&resource, b"original read-only resource").unwrap();
+        let mut permissions = fs::metadata(&resource).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&resource, permissions).unwrap();
+        let database = home.join("database.xml");
+        fs::write(&database, b"<VirtualDJ_Database><unclosed>").unwrap();
+        let journal_root = root.join("journals");
+        let result = prepare_sync(
+            &journal_root,
+            SyncTarget {
+                software: DjSoftware::VirtualDj,
+                path: database.clone(),
+                source_root: None,
+            },
+            &SyncLibrary::default(),
+            &SyncOptions::default(),
+        );
+        let read_only = fs::metadata(&resource).unwrap().permissions().readonly();
+        let mut permissions = fs::metadata(&resource).unwrap().permissions();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            permissions.set_mode(permissions.mode() | 0o200);
+        }
+        #[cfg(not(unix))]
+        permissions.set_readonly(false);
+        fs::set_permissions(&resource, permissions).unwrap();
+        assert!(result.is_err());
+        assert!(read_only, "Cleanup must not change source permissions");
+        assert_eq!(fs::read(&resource).unwrap(), b"original read-only resource");
+        let transactions = fs::read_dir(&journal_root)
+            .unwrap()
+            .collect::<std::io::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(transactions.len(), 1);
+        let transaction = &transactions[0].path();
+        assert!(transaction.join("journal.json").is_file());
+        assert!(transaction.join("staged").is_dir());
+        assert!(transaction.join("backup").is_dir());
+        assert!(!fs::read_dir(transaction).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("build")
+        }));
+        assert_eq!(
+            fs::read(database).unwrap(),
+            b"<VirtualDJ_Database><unclosed>"
+        );
     }
 
     #[test]

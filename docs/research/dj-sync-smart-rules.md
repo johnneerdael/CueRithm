@@ -189,5 +189,6 @@ Regression coverage includes each target's native record, requested materializat
 
 Final converter review also preserves raw Engine BPM in exported track fields; the
 source's decimal rounding belongs in the smart comparator expression, not in stored
-analysis. Current-head full checks and native application/hardware acceptance remain
-pending; no fixed suite total is recorded while review fixes are still landing.
+analysis. Current-head checks and integration evidence are recorded in
+[PR 12](https://github.com/johnneerdael/CueRithm/pull/12). Native application/hardware
+acceptance remains a separate verification step.

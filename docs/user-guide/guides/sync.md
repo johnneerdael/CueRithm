@@ -85,6 +85,9 @@ cleanup to preserve both.
 Changing the library, destination, scope or options invalidates the preview. Create
 a fresh preview before applying those changes. If the destination has changed since
 preview, resolve the conflict and preview again.
+Reconnect a USB at its original mount location or drive letter before resuming its
+history. If the filesystem cannot provide a persistent volume or catalog identity,
+sync stops before publishing changes.
 
 Full-library and modified syncs can remove playlists that CueRithm previously created
 and that have since been removed locally. The preview lists these as owned playlists

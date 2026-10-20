@@ -1,6 +1,6 @@
 # DJ sync timing contract
 
-Status: researched and implemented on the DJ sync worktree, 2026-10-20; final full verification and integration remain pending. This document records independent format observations and aggregate synthetic results. It contains no extracted implementation or music.
+Status: researched and implemented, 2026-10-20. This document records independent format observations and aggregate synthetic results. It contains no extracted implementation or music.
 
 ## Finding
 
@@ -207,4 +207,5 @@ Focused Rust regressions cover timing formulas, source/profile identity, old ana
 handling, native cue/grid fields, MP3 counts, detailed waveform frame padding and
 converted copies. These checks and the private reference probes establish measured
 contracts and serialization behavior; no native DJ playback or CDJ hardware acceptance
-has been recorded. Final full workspace/frontend gates remain pending after review fixes.
+has been recorded. Current-head checks and integration evidence are recorded in
+[PR 12](https://github.com/johnneerdael/CueRithm/pull/12).

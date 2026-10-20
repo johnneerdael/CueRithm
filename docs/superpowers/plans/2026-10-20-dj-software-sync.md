@@ -36,10 +36,10 @@ Do not mark goal complete until every target and screenshot requirement is accou
   idempotently before another preview can begin.
 - Source serializer/parser probes for VirtualDJ, Engine, djay, Serato and Pioneer.
   All fixtures are synthetic; private probes remain under ignored analysis paths.
-- Focused native and library regressions pass at the latest checkpoints, including
-  case-only subtree apply/restore integration. Earlier workspace/frontend tests,
-  formatting, clippy, release and production frontend builds passed before the final
-  fidelity/review fixes. Those older runs do not validate the current changed head.
+- Focused native and library regressions cover case-only subtree apply/restore,
+  source protection, ownership and acknowledgement recovery. Current-head workspace,
+  frontend, lint and build evidence is recorded in
+  [PR 12](https://github.com/johnneerdael/CueRithm/pull/12).
 - The pinned decoder was built/sealed with the existing recipe and exercised by the
   explicit Pioneer AutoFix test. The optional runtime-dependent test remains separate
   from the default suite. Test totals are not frozen while fixes continue.
@@ -47,7 +47,7 @@ Do not mark goal complete until every target and screenshot requirement is accou
   captures with synthetic data and production branding. The temporary capture harness
   and browser/server resources were removed afterward.
 
-## Remaining completion gates
+## Required completion gates
 
 1. Finish the current-head artifact/code review and resolve any new findings.
 2. Run all required workspace/frontend checks again after the final changes; retain
@@ -70,14 +70,14 @@ address findings until approved, then merge to main. Update the user guide,
 documentation and images to match final delivered behavior. The goal is not
 complete merely because implementation tests or one review pass succeeds.
 
-## Current continuation checkpoint
+## Implementation and review scope
 
 Source timing, native smart compilation, ownership/deletion, typed directory and
 case-rename journals, batch staging and both apply/restore acknowledgement recovery
 are implemented. Final artifact review found and fixed ANLZ collision allocation,
 hidden catalog discovery, dotted VirtualDJ names, Serato explicit null clears, djay
 filename indexing and Engine raw BPM precision. Focused regressions cover these fixes;
-full current-head checks, PR and merge remain pending.
+current-head validation and integration evidence are recorded in PR 12.
 
 Ghidra 12.1.4 static review covered only the shipped native SQLite addon (SHA-256
 `9e351a1ed003cd743b341d0b0b4accc7d300d8608694fbffedf5371fa05cd8b7`),

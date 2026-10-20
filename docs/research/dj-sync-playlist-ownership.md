@@ -1,7 +1,6 @@
 # Native playlist identity and owned deletion
 
-Status: implemented ownership and mutation contract on the DJ sync worktree,
-2026-10-20; final full checks, PR review and merge remain pending. This document
+Status: implemented ownership and mutation contract, 2026-10-20. This document
 combines current independent Rust behavior with aggregate observations of Lexicon DJ
 1.11.15's shipped converters. Native application/player runtime acceptance remains
 separate. Scope is current VirtualDJ MyLists, Engine DJ schema 3, djay Pro
@@ -32,8 +31,8 @@ chosen independently of this ownership decision.
 ## Durable local ledger
 
 The version-1 `OwnershipLedger` is stored beside local sync journals, keyed by the
-canonical target selector. It contains a generation, last journal, filesystem-object
-registration, per-native-store ownership state and audit tombstones. It adds no
+canonical target selector. It contains a generation, last journal, persistent-volume
+and catalog-object registration, per-native-store ownership state and audit tombstones. It adds no
 tracking columns or marker records to proprietary libraries.
 
 Each `PlaylistBinding` records `source_id`, native `locator`, `parent_source_id`,
@@ -46,9 +45,26 @@ retirement keeps the external native object.
 The replaceable Changed hash cache is not ownership proof. Legacy hash baselines,
 matching names/contents, source-derived UUIDs or filename suffixes alone cannot
 authorize deletion. The ledger separately guards native identity and filesystem
-registration, including replacement of an identical database at the same displayed
-path. Symlink registrations are rejected. Unsettled apply/restore acknowledgement
+registration, rejecting ordinary catalog replacement at the same displayed path.
+Symlink registrations are rejected. Unsettled apply/restore acknowledgement
 blocks a new preview for that target.
+
+Registration uses macOS volume UUIDs, Linux ext UUID-derived filesystem IDs or
+matched `/dev/disk/by-uuid` entries, and Windows volume serials. Mount-session
+device numbers are not persisted. FAT/exFAT allocated inode numbers are excluded;
+catalog creation times supply object proof there. Pioneer includes both visible
+and hidden catalog objects, without binding its host mount-folder identity.
+Engine's native database UUID is checked by the existing staged adapter snapshot.
+Missing persistent volume identity or required creation-time proof stops sync.
+Identical FAT catalog replacements that also preserve creation metadata cannot be
+distinguished through these filesystem APIs.
+
+The Linux distinction follows the kernel's
+[ext filesystem ID](https://github.com/torvalds/linux/blob/master/fs/ext4/super.c),
+[FAT](https://github.com/torvalds/linux/blob/master/fs/fat/inode.c) and
+[exFAT](https://github.com/torvalds/linux/blob/master/fs/exfat/inode.c) implementations;
+[udev's persistent-storage rules](https://github.com/systemd/systemd/blob/main/rules.d/60-persistent-storage.rules.in)
+provide UUID links for matching block devices.
 
 ## Adapter planning and reporting
 
@@ -67,6 +83,9 @@ Batch staging handles name swaps, moves and uniqueness constraints together.
 Reordering partial scopes preserves omitted sibling slots. Empty active input still
 processes removals. After native staging, exact file hashes, directory manifests and
 case-rename preconditions become the recoverable publication plan.
+Adapter build copies are temporary. After the journal durably owns its staged
+publications, the build tree is removed; preparation errors also clean up build
+copies while retaining journal and recovery evidence.
 
 ## Native operations
 
@@ -161,5 +180,6 @@ Private extraction provenance, artifact hash and working-source hashes are recor
 The focused suite covers native identity, ownership, tombstone-only changes, foreign
 children, representation transitions, file/directory rollback, case-only subtree
 rename/restore and acknowledgement crash windows. Test totals are intentionally not
-frozen here while review fixes continue. Full current-head gates and target DJ/physical
-player acceptance remain outstanding.
+frozen here. Current-head checks and integration evidence are recorded in
+[PR 12](https://github.com/johnneerdael/CueRithm/pull/12). Target DJ/physical player
+acceptance remains a separate verification step.
