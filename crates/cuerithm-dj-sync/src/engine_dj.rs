@@ -1104,7 +1104,13 @@ mod tests {
                 r.get(0)
             })
             .unwrap();
-        assert_eq!(path, files[0].0.to_str().unwrap());
+        assert_eq!(
+            path,
+            format!(
+                "Music/{}",
+                files[0].0.file_name().unwrap().to_str().unwrap()
+            )
+        );
         assert_eq!(library.tracks[0].path, source);
     }
     pub(super) fn fixture() -> (tempfile::TempDir, PathBuf) {

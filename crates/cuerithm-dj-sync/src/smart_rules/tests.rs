@@ -601,9 +601,17 @@ fn semantic_gaps_keep_whole_membership_instead_of_emitting_approximate_native_ru
     );
     item.smart.as_mut().unwrap().rules.remove(0);
     assert!(
-        compile(&item, &library, &Default::default(), DjSoftware::DjayPro)
-            .unwrap_err()
-            .contains("two-decimal")
+        // Exercise the native djay compiler; Windows deliberately materializes
+        // before examining individual predicates (covered separately above).
+        compile_platform(
+            &item,
+            &library,
+            &Default::default(),
+            DjSoftware::DjayPro,
+            false
+        )
+        .unwrap_err()
+        .contains("two-decimal")
     );
     let options = SyncOptions {
         skip_beatgrids: true,

@@ -710,14 +710,32 @@ fn stable_id(namespace: &str, value: &str, hyphens: bool) -> String {
 fn file_uri(path: &Path) -> Result<String> {
     let path = path.to_str().context("djay requires a UTF-8 path")?;
     ensure!(!path.contains('\0'), "NUL in djay source path");
-    let windows = path.as_bytes().get(1) == Some(&b':');
+    let normalized = path.replace('\\', "/");
     ensure!(
-        path.starts_with('/') || windows,
+        !normalized.starts_with("//./"),
+        "djay cannot export Windows device namespace paths"
+    );
+    // Rust canonicalization adds the verbatim prefix on Windows. File URLs
+    // address the same drive or UNC share without that filesystem-only prefix.
+    let normalized = if let Some(unc) = normalized.strip_prefix("//?/UNC/") {
+        format!("//{unc}")
+    } else if let Some(drive) = normalized.strip_prefix("//?/") {
+        drive.to_owned()
+    } else {
+        normalized
+    };
+    let bytes = normalized.as_bytes();
+    let windows = bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1) == Some(&b':')
+        && bytes.get(2) == Some(&b'/');
+    ensure!(
+        normalized.starts_with('/') || windows,
         "djay requires absolute source paths"
     );
-    let normalized = path.replace('\\', "/");
     let mut uri = if windows {
         "file:///".to_owned()
+    } else if normalized.starts_with("//") {
+        "file:".to_owned()
     } else {
         "file://".to_owned()
     };

@@ -351,6 +351,25 @@ fn key_conventions_and_file_uris_match_native_indices() {
     );
 }
 #[test]
+fn windows_canonical_and_network_paths_have_native_file_uris() {
+    for (path, expected) in [
+        (r"\\?\C:\Music\a #1.mp3", "file:///C:/Music/a%20%231.mp3"),
+        (
+            r"\\server\share\café mix.mp3",
+            "file://server/share/caf%C3%A9%20mix.mp3",
+        ),
+        (
+            r"\\?\UNC\server\share\café mix.mp3",
+            "file://server/share/caf%C3%A9%20mix.mp3",
+        ),
+    ] {
+        assert_eq!(file_uri(Path::new(path)).unwrap(), expected);
+    }
+    for path in [r"C:relative.mp3", r"relative.mp3", r"\\.\device\track.mp3"] {
+        assert!(file_uri(Path::new(path)).is_err(), "{path}");
+    }
+}
+#[test]
 fn variable_grid_retains_native_bar_markers() {
     let markers = [
         SyncBeat {

@@ -179,7 +179,12 @@ mod tests {
         };
         assert!(validate_library(&library).is_err());
         library.tracks.pop();
-        library.tracks[0].path = root.join("nested/../one.wav");
+        // PathBuf::join normalizes `..` when the Windows root is verbatim.
+        // Append raw OS text so the guard receives an actual parent component.
+        let mut unnormalized = root.into_os_string();
+        let separator = std::path::MAIN_SEPARATOR;
+        unnormalized.push(format!("{separator}nested{separator}..{separator}one.wav"));
+        library.tracks[0].path = unnormalized.into();
         assert!(validate_library(&library).is_err());
     }
     #[test]
