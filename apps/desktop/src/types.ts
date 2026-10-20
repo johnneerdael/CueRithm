@@ -65,6 +65,7 @@ export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[
 export interface Bridge {
   discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
   previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
+  discardDjSync(id:string):Promise<void>;
   applyDjSync(id:string):Promise<import("./sync-types").FileJournal>;
   restoreDjSync(id:string):Promise<import("./sync-types").FileJournal>;
   djSyncHistory():Promise<import("./sync-types").DjSyncHistoryEntry[]>;

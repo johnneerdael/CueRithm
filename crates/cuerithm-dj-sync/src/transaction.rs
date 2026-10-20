@@ -431,6 +431,7 @@ fn publish_copy(source: &Path, target: &Path, allow_missing_parents: bool) -> Re
 impl FileTransaction {
     pub fn create(journal_root: &Path) -> Result<Self> {
         fs::create_dir_all(journal_root)?;
+        let journal_root = fs::canonicalize(journal_root).context("Resolve sync journal root")?;
         let id = uuid::Uuid::new_v4().to_string();
         let root = journal_root.join(&id);
         fs::create_dir(&root)?;
@@ -449,12 +450,69 @@ impl FileTransaction {
     pub fn open(journal_root: &Path, id: &str) -> Result<Self> {
         let parsed = uuid::Uuid::parse_str(id).context("Invalid sync journal identity")?;
         ensure!(parsed.to_string() == id, "Invalid sync journal identity");
+        let journal_root = fs::canonicalize(journal_root).context("Resolve sync journal root")?;
         let this = Self {
             root: journal_root.join(id),
         };
+        safe_ancestors(&this.root)?;
         let journal = this.inspect()?;
         ensure!(journal.id == id, "Sync journal identity mismatch");
         Ok(this)
+    }
+    /// Remove an unpublished preview without ever touching its native targets.
+    /// Keep its journal until payload cleanup succeeds so a failed discard can
+    /// be retried from history. Applied/interrupted publications retain backups.
+    pub fn discard(journal_root: &Path, id: &str) -> Result<()> {
+        let parsed = uuid::Uuid::parse_str(id).context("Invalid sync journal identity")?;
+        ensure!(parsed.to_string() == id, "Invalid sync journal identity");
+        // Normalize the supplied storage boundary, including ordinary host
+        // aliases such as macOS /var. Never canonicalize the UUID child: a
+        // symlink there must remain an error rather than escape this boundary.
+        let journal_root = match fs::canonicalize(journal_root) {
+            Ok(root) => root,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error).context("Resolve sync journal root"),
+        };
+        let this = Self {
+            root: journal_root.join(id),
+        };
+        safe_ancestors(&this.root)?;
+        let _lease = this.lock()?;
+        match fs::symlink_metadata(&this.root) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+            Ok(metadata) => ensure!(metadata.is_dir(), "Sync journal path is not a directory"),
+        }
+        let journal = this.inspect()?;
+        ensure!(journal.id == id, "Sync journal identity mismatch");
+        ensure!(
+            journal.state == JournalState::Prepared,
+            "Only an unapplied sync preview can be discarded"
+        );
+        this.discard_payload(&journal)
+    }
+
+    fn discard_payload(&self, journal: &FileJournal) -> Result<()> {
+        for entry in fs::read_dir(&self.root)? {
+            let entry = entry?;
+            if entry.file_name() == "journal.json" {
+                continue;
+            }
+            if entry.file_type()?.is_dir() {
+                fs::remove_dir_all(entry.path())?;
+            } else {
+                fs::remove_file(entry.path())?;
+            }
+        }
+        fs::remove_file(self.root.join("journal.json"))?;
+        if let Err(error) = fs::remove_dir(&self.root) {
+            // A platform sharing violation or a newly appeared child can leave
+            // the directory behind. Restore its Prepared record for retry.
+            self.save(journal)
+                .context("Restore the failed discard's retry journal")?;
+            return Err(error).context("Remove discarded sync preview directory");
+        }
+        sync_directory(self.root.parent().context("Sync journal parent missing")?)
     }
     pub fn path(&self) -> &Path {
         &self.root
@@ -468,12 +526,28 @@ impl FileTransaction {
         durable_json(&self.root.join("journal.json"), journal)
     }
     fn lock(&self) -> Result<File> {
+        safe_ancestors(&self.root)?;
+        // Keep the lock outside disposable payloads. Windows cannot remove an
+        // opened lock file/directory, and closing it early would race apply.
+        let locks = self
+            .root
+            .parent()
+            .context("Sync journal parent missing")?
+            .join(".locks");
+        safe_ancestors(&locks)?;
+        fs::create_dir_all(&locks)?;
+        let lock = locks.join(
+            self.root
+                .file_name()
+                .context("Sync journal identity missing")?,
+        );
+        safe_ancestors(&lock)?;
         let file = File::options()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
-            .open(self.root.join("lock"))?;
+            .open(lock)?;
         let started = std::time::Instant::now();
         loop {
             match file.try_lock_exclusive() {
@@ -1002,6 +1076,232 @@ impl FileTransaction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn relative_journal_roots_support_open_publication_and_prepared_discard() {
+        let cwd = std::env::current_dir().unwrap();
+        let temp = tempfile::Builder::new()
+            .prefix(".relative-sync-test-")
+            .tempdir_in(&cwd)
+            .unwrap();
+        let relative = temp.path().strip_prefix(&cwd).unwrap().join("journals");
+        let native = fs::canonicalize(temp.path()).unwrap().join("native.db");
+        let staged = native.with_extension("staged");
+        fs::write(&native, b"before").unwrap();
+        fs::write(&staged, b"after").unwrap();
+        let transaction = FileTransaction::create(&relative).unwrap();
+        assert!(transaction.path().is_absolute());
+        let id = transaction.inspect().unwrap().id;
+        transaction
+            .add(&native, file_hash(&native).unwrap(), Some(&staged))
+            .unwrap();
+        let reopened = FileTransaction::open(&relative, &id).unwrap();
+        reopened.apply(|| Ok(())).unwrap();
+        reopened.restore(|| Ok(())).unwrap();
+        assert_eq!(fs::read(&native).unwrap(), b"before");
+        let prepared = FileTransaction::create(&relative).unwrap();
+        let id = prepared.inspect().unwrap().id;
+        FileTransaction::discard(&relative, &id).unwrap();
+        FileTransaction::discard(&relative, &id).unwrap();
+        assert!(!prepared.path().exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn journal_root_alias_is_normalized_but_uuid_child_alias_stays_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let journals = root.join("journals");
+        fs::create_dir(&journals).unwrap();
+        let alias = root.join("host-alias");
+        std::os::unix::fs::symlink(&journals, &alias).unwrap();
+        let transaction = FileTransaction::create(&alias).unwrap();
+        let id = transaction.inspect().unwrap().id;
+        assert_eq!(
+            FileTransaction::open(&alias, &id).unwrap().path(),
+            transaction.path()
+        );
+        FileTransaction::discard(&alias, &id).unwrap();
+        assert!(!transaction.path().exists());
+        let outside = FileTransaction::create(&root.join("outside")).unwrap();
+        let id = outside.inspect().unwrap().id;
+        std::os::unix::fs::symlink(outside.path(), journals.join(&id)).unwrap();
+        assert!(FileTransaction::open(&alias, &id).is_err());
+        assert!(FileTransaction::discard(&alias, &id).is_err());
+        assert!(outside.path().join("journal.json").exists());
+    }
+
+    #[test]
+    fn discarded_previews_free_payloads_without_touching_targets_and_are_idempotent() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let native = root.join("native.db");
+        let staged = root.join("copy.db");
+        fs::write(&native, b"native before").unwrap();
+        fs::write(&staged, b"prepared after").unwrap();
+        let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+        transaction
+            .add(&native, file_hash(&native).unwrap(), Some(&staged))
+            .unwrap();
+        let id = transaction.inspect().unwrap().id;
+        fs::create_dir(transaction.path().join("build")).unwrap();
+        fs::write(
+            transaction.path().join("build/large-copy"),
+            b"private export payload",
+        )
+        .unwrap();
+        FileTransaction::discard(&root.join("journals"), &id).unwrap();
+        assert!(!transaction.path().exists());
+        assert_eq!(fs::read(&native).unwrap(), b"native before");
+        FileTransaction::discard(&root.join("journals"), &id).unwrap();
+        assert!(transaction.apply(|| Ok(())).is_err());
+        assert_eq!(fs::read(&native).unwrap(), b"native before");
+        assert!(FileTransaction::discard(&root.join("journals"), "../native.db").is_err());
+    }
+
+    #[test]
+    fn discard_rejects_every_published_or_interrupted_state_and_retains_backups() {
+        for state in [
+            JournalState::Applying,
+            JournalState::Applied,
+            JournalState::Restoring,
+            JournalState::Restored,
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().canonicalize().unwrap();
+            let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+            let mut journal = transaction.inspect().unwrap();
+            journal.state = state;
+            transaction.save(&journal).unwrap();
+            fs::write(transaction.path().join("backup/0"), b"recovery evidence").unwrap();
+            let before = fs::read(transaction.path().join("journal.json")).unwrap();
+            assert!(
+                FileTransaction::discard(&root.join("journals"), &journal.id)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("unapplied")
+            );
+            assert_eq!(
+                fs::read(transaction.path().join("journal.json")).unwrap(),
+                before
+            );
+            assert_eq!(
+                fs::read(transaction.path().join("backup/0")).unwrap(),
+                b"recovery evidence"
+            );
+        }
+    }
+
+    #[test]
+    fn concurrent_apply_preserves_publication_and_discard_rejects_completed_state() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let native = root.join("native.db");
+        let staged = root.join("after.db");
+        fs::write(&native, b"before").unwrap();
+        fs::write(&staged, b"after").unwrap();
+        let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+        transaction
+            .add(&native, file_hash(&native).unwrap(), Some(&staged))
+            .unwrap();
+        let id = transaction.inspect().unwrap().id;
+        let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let apply = std::thread::spawn(move || {
+            let first = std::cell::Cell::new(true);
+            transaction.apply(|| {
+                if first.replace(false) {
+                    entered_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                }
+                Ok(())
+            })
+        });
+        entered_rx.recv().unwrap();
+        let journals = root.join("journals");
+        let discard_id = id.clone();
+        let discard = std::thread::spawn(move || FileTransaction::discard(&journals, &discard_id));
+        release_tx.send(()).unwrap();
+        assert_eq!(apply.join().unwrap().unwrap().state, JournalState::Applied);
+        let error = discard.join().unwrap().unwrap_err().to_string();
+        assert!(
+            error.contains("unapplied") || error.contains("already running"),
+            "{error}"
+        );
+        assert!(
+            FileTransaction::discard(&root.join("journals"), &id)
+                .unwrap_err()
+                .to_string()
+                .contains("unapplied")
+        );
+        assert_eq!(fs::read(&native).unwrap(), b"after");
+        assert_eq!(
+            fs::read(root.join("journals").join(&id).join("backup/0")).unwrap(),
+            b"before"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discard_rejects_a_journal_symlink_outside_its_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let original = FileTransaction::create(&root.join("outside")).unwrap();
+        let id = original.inspect().unwrap().id;
+        let journals = root.join("journals");
+        fs::create_dir(&journals).unwrap();
+        std::os::unix::fs::symlink(original.path(), journals.join(&id)).unwrap();
+        assert!(FileTransaction::discard(&journals, &id).is_err());
+        assert!(original.path().join("journal.json").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_discard_keeps_a_retryable_journal_until_payload_cleanup_succeeds() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+        let id = transaction.inspect().unwrap().id;
+        let build = transaction.path().join("build");
+        fs::create_dir(&build).unwrap();
+        fs::write(build.join("copy"), b"remaining staged payload").unwrap();
+        fs::write(build.join("permission-probe"), b"probe").unwrap();
+        fs::set_permissions(&build, fs::Permissions::from_mode(0o500)).unwrap();
+        if fs::remove_file(build.join("permission-probe")).is_ok() {
+            // Privileged test runners can bypass this fixture's permissions.
+            fs::set_permissions(&build, fs::Permissions::from_mode(0o700)).unwrap();
+            return;
+        }
+        assert!(FileTransaction::discard(&root.join("journals"), &id).is_err());
+        assert_eq!(transaction.inspect().unwrap().state, JournalState::Prepared);
+        assert!(build.join("copy").is_file());
+        fs::set_permissions(&build, fs::Permissions::from_mode(0o700)).unwrap();
+        FileTransaction::discard(&root.join("journals"), &id).unwrap();
+        assert!(!transaction.path().exists());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_opened_payload_blocks_discard_without_losing_its_retry_journal() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let transaction = FileTransaction::create(&root.join("journals")).unwrap();
+        let id = transaction.inspect().unwrap().id;
+        let payload = transaction.path().join("large-copy");
+        fs::write(&payload, b"staged payload").unwrap();
+        let opened = File::options()
+            .read(true)
+            .share_mode(1)
+            .open(&payload)
+            .unwrap();
+        assert!(FileTransaction::discard(&root.join("journals"), &id).is_err());
+        assert_eq!(transaction.inspect().unwrap().state, JournalState::Prepared);
+        drop(opened);
+        FileTransaction::discard(&root.join("journals"), &id).unwrap();
+        assert!(!transaction.path().exists());
+    }
+
     #[test]
     fn readonly_source_can_be_staged_without_changing_source_permissions() {
         let dir = tempfile::tempdir().unwrap();

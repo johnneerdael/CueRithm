@@ -85,6 +85,11 @@ pub async fn preview_dj_sync(host: Managed<'_>, request: DjSyncRequest) -> Ipc<S
     .await
 }
 #[tauri::command]
+pub async fn discard_dj_sync(host: Managed<'_>, id: String) -> Ipc<()> {
+    let library = host.library.clone();
+    work(move || library.discard_dj_sync(&id)).await
+}
+#[tauri::command]
 pub async fn apply_dj_sync(
     host: Managed<'_>,
     app: tauri::AppHandle,

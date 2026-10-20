@@ -15,6 +15,7 @@ export function fakeBridge(rows:Track[]) {
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
     discoverDjTargets:vi.fn(async()=>[]),
     previewDjSync:vi.fn(async request=>({deleted_playlists:0,retained_external_playlists:0,id:"sync",target:request.target,tracks:rows.length,playlists:0,bytes_to_write:1024,files:[],warnings:[],directories:[]})),
+    discardDjSync:vi.fn(async()=>{}),
     applyDjSync:vi.fn(async id=>({id,state:"applied" as const,changes:[],directories:[]})),
     restoreDjSync:vi.fn(async id=>({id,state:"restored" as const,changes:[],directories:[]})),
     djSyncHistory:vi.fn(async()=>[]),

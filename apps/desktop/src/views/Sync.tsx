@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from "react";
-import {ArrowRightLeft,FolderOpen,LoaderCircle,RefreshCw,RotateCcw,Search} from "lucide-react";
+import {ArrowRightLeft,FolderOpen,LoaderCircle,RefreshCw,RotateCcw,Search,Trash2} from "lucide-react";
 import type {Bridge} from "../types";
 import type {PlaylistWorkspace} from "../playlist-types";
 import {errorMessage} from "../api";
@@ -13,27 +13,34 @@ export default function Sync({bridge,workspace,revision,onChanged}:{bridge:Bridg
  const [targets,setTargets]=useState<DiscoveredTarget[]>([]),[scope,setScope]=useState<"full"|"playlist"|"changed">("full"),[playlistId,setPlaylistId]=useState("");
  const [options,setOptions]=useState<SyncOptions>({...defaultSyncOptions}),[preview,setPreview]=useState<SyncPreview|null>(null);
  const [history,setHistory]=useState<DjSyncHistoryEntry[]>([]),[busy,setBusy]=useState<string|null>(null),[error,setError]=useState<string|null>(null),[result,setResult]=useState<string|null>(null);
- const alive=useRef(true),generation=useRef(0);
+ const alive=useRef(true),generation=useRef(0),activePreview=useRef<string|null>(null),operation=useRef(false),historyRequest=useRef(0);
  const info=syncTargets.find(t=>t.id===software)!;
  const playlists=workspace?.tree.nodes.filter(n=>!n.deleted)??[];
  const signature=JSON.stringify({software,path,scope,playlistId,options,revision});
- useEffect(()=>{setPreview(null);generation.current++;},[signature]);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;generation.current++;};},[]);
- const reloadHistory=useCallback(async()=>{const next=await bridge.djSyncHistory();if(alive.current)setHistory(next);},[bridge]);
+ const reloadHistory=useCallback(async()=>{const current=++historyRequest.current;const next=await bridge.djSyncHistory();if(alive.current&&current===historyRequest.current)setHistory(next);},[bridge]);
+ const discardPrepared=useCallback(async(id:string)=>{await bridge.discardDjSync(id);if(alive.current)await reloadHistory();},[bridge,reloadHistory]);
+ const clearPreview=useCallback(()=>{const id=activePreview.current;activePreview.current=null;setPreview(null);return id;},[]);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;generation.current++;historyRequest.current++;const id=activePreview.current;activePreview.current=null;if(id)void bridge.discardDjSync(id).catch(()=>{});};},[bridge]);
+ useEffect(()=>{generation.current++;const id=clearPreview();if(id)void discardPrepared(id).catch(e=>{if(alive.current)setError(errorMessage(e));});},[signature,clearPreview,discardPrepared]);
  const discover=useCallback(async()=>{try{const next=await bridge.discoverDjTargets();if(alive.current)setTargets(next);}catch(e){if(alive.current)setError(errorMessage(e));}},[bridge]);
  useEffect(()=>{void discover();void reloadHistory().catch(e=>{if(alive.current)setError(errorMessage(e));});},[discover,reloadHistory]);
  useEffect(()=>{if(!path){const found=targets.find(t=>t.software===software);if(found)setPath(found.path);}},[software,targets,path]);
  const update=<K extends keyof SyncOptions>(key:K,value:SyncOptions[K])=>setOptions(previous=>({...previous,[key]:value}));
  const selected=scope==="playlist"?playlists.find(n=>n.id===playlistId):null;
  const canPreview=!!path.trim()&&(scope!=="playlist"||!!selected);
- const run=async(action:string,operation:()=>Promise<void>)=>{setBusy(action);setError(null);setResult(null);try{await operation();}catch(e){if(alive.current)setError(errorMessage(e));}finally{if(alive.current){setBusy(null);void reloadHistory().catch(e=>setError(errorMessage(e)));}}};
+ const run=async(action:string,work:()=>Promise<void>)=>{if(operation.current)return;operation.current=true;setBusy(action);setError(null);setResult(null);try{await work();}catch(e){if(alive.current)setError(errorMessage(e));}finally{operation.current=false;if(alive.current){setBusy(null);void reloadHistory().catch(e=>{if(alive.current)setError(errorMessage(e));});}}};
  const prepare=()=>run("preview",async()=>{
   const request:DjSyncRequest={target:{software,path:path.trim(),source_root:null},scope:scope==="playlist"?{type:"playlist",id:playlistId}:{type:scope},options};
-  const current=generation.current;const next=await bridge.previewDjSync(request);if(alive.current&&current===generation.current)setPreview(next);
+  const current=++generation.current;const previous=clearPreview();if(previous)await discardPrepared(previous);
+  if(!alive.current||current!==generation.current)return;
+  const next=await bridge.previewDjSync(request);
+  if(alive.current&&current===generation.current){activePreview.current=next.id;setPreview(next);}else await discardPrepared(next.id);
  });
- const apply=()=>{if(!preview)return;const id=preview.id;void run("apply",async()=>{const completed=await bridge.applyDjSync(id);if(alive.current){setPreview(null);setResult(completed.changes.length||completed.renames?.length||completed.directories.some(d=>!d.before_manifest||!d.after_exists)?"Sync complete. Your backup is available below.":"Everything is already synced.");onChanged();}});};
- const complete=(id:string)=>run("acknowledge",async()=>{await bridge.applyDjSync(id);if(alive.current){setPreview(null);setResult("Sync recovered. Your backup is available below.");onChanged();}});
- const restore=(id:string)=>run("restore",async()=>{await bridge.restoreDjSync(id);if(alive.current){setPreview(null);setResult("Backup restored.");onChanged();}});
+ const releasePreview=async(preserve:string)=>{generation.current++;const id=clearPreview();if(id&&id!==preserve)await discardPrepared(id);};
+ const apply=()=>{if(!preview||activePreview.current!==preview.id)return;const id=preview.id;void run("apply",async()=>{await releasePreview(id);const completed=await bridge.applyDjSync(id);if(alive.current){setResult(completed.changes.length||completed.renames?.length||completed.directories.some(d=>!d.before_manifest||!d.after_exists)?"Sync complete. Your backup is available below.":"Everything is already synced.");onChanged();}});};
+ const complete=(id:string)=>run("acknowledge",async()=>{await releasePreview(id);await bridge.applyDjSync(id);if(alive.current){setResult("Sync recovered. Your backup is available below.");onChanged();}});
+ const restore=(id:string)=>run("restore",async()=>{await releasePreview(id);await bridge.restoreDjSync(id);if(alive.current){setResult("Backup restored.");onChanged();}});
+ const discard=(id:string)=>run("discard",async()=>{if(activePreview.current===id){generation.current++;clearPreview();}await discardPrepared(id);if(alive.current)setResult("Preview discarded.");});
  return <section className="sync-view">
   <header className="view-title"><div><div className="eyebrow">DJ LIBRARIES</div><h1>Sync</h1><p>Send prepared tracks, cues and playlists to your DJ library.</p></div><ArrowRightLeft className="sync-heading-icon" size={27}/></header>
   <div className="sync-body">
@@ -59,9 +66,9 @@ export default function Sync({bridge,workspace,revision,onChanged}:{bridge:Bridg
      <details className="sync-mapping"><summary>Field mappings</summary><p>Choose which local value fills each destination field.</p>{fields.map(field=><label key={field}>{field}<select aria-label={`Map ${field}`} value={options.field_mappings[field]??field} onChange={e=>update("field_mappings",{...options.field_mappings,[field]:e.target.value as SyncTextField})}>{fields.map(source=><option key={source} value={source}>{source}</option>)}</select></label>)}</details>
     </div>
    </fieldset>
-   <div className="sync-actions"><button className="secondary" disabled={!canPreview||!!busy} onClick={()=>void prepare()}>{busy==="preview"?<LoaderCircle className="spin" size={15}/>:<Search size={15}/>}Preview sync</button><button className="primary" disabled={!preview||!!busy} onClick={apply}>{busy==="apply"?<LoaderCircle className="spin" size={15}/>:<ArrowRightLeft size={15}/>}Sync to {info.name}</button></div>
+   <div className="sync-actions"><button className="secondary" disabled={!canPreview||!!busy} onClick={()=>void prepare()}>{busy==="preview"?<LoaderCircle className="spin" size={15}/>:<Search size={15}/>}Preview sync</button><button className="primary" disabled={!preview||!!busy} onClick={apply}>{busy==="apply"?<LoaderCircle className="spin" size={15}/>:<ArrowRightLeft size={15}/>}Sync to {info.name}</button>{preview?<button className="secondary" disabled={!!busy} onClick={()=>void discard(preview.id)}><Trash2 size={15}/>Discard preview</button>:null}</div>
    {preview?<section className="sync-preview" aria-label="Sync preview"><h2>{preview.tracks.toLocaleString()} tracks · {preview.playlists.toLocaleString()} playlists</h2><p>{preview.deleted_playlists?`${preview.deleted_playlists} owned playlists to remove · `:""}{preview.retained_external_playlists?`${preview.retained_external_playlists} matched playlists retained · `:""}{preview.files.length.toLocaleString()} files to update{preview.directories.some(d=>!d.before_manifest)?` · ${preview.directories.filter(d=>!d.before_manifest).length} folders to create`:""} · {size(preview.bytes_to_write)}</p><div>{preview.warnings.map((warning,index)=><p className="attention" key={index}>{warning}</p>)}</div><ul>{preview.renames?.map(rename=><li key={rename.from}><span>{rename.from} → {rename.to}</span><small>Rename</small></li>)}{preview.directories.filter(d=>!d.before_manifest||!d.after_exists).map(d=><li key={d.target}><span>{d.target}</span><small>{d.after_exists?"Create folder":"Remove folder"}</small></li>)}{preview.files.slice(0,100).map(file=><li key={file.target}><span>{file.target}</span><small>{file.after_sha256===null?"Remove":file.before_sha256===null?"Create":"Update"}</small></li>)}</ul>{preview.files.length>100?<p>{preview.files.length-100} more files in this preview.</p>:null}</section>:null}
-   <section className="sync-history" aria-label="Sync history"><h2>Sync history</h2>{history.length?<ul>{history.map(entry=><li key={entry.id}><div><strong>{syncTargets.find(t=>t.id===entry.target?.software)?.name??"Sync preparation"}</strong><span>{entry.state??"interrupted"} · {entry.tracks} tracks{entry.created?` · ${new Date(entry.created).toLocaleString()}`:""}</span>{entry.error?<p role="status">{entry.error}</p>:null}</div>{entry.needs_acknowledgement?<button className="secondary" disabled={!!busy} onClick={()=>void complete(entry.id)}>Finish sync</button>:null}{entry.target&&entry.state&&(["applied","applying","restoring"].includes(entry.state)||entry.needs_restore_acknowledgement)?<button className="secondary" disabled={!!busy} onClick={()=>void restore(entry.id)}><RotateCcw size={14}/>{entry.needs_restore_acknowledgement?"Finish restore":"Restore backup"}</button>:null}</li>)}</ul>:<p>Your completed syncs and recoverable backups will appear here.</p>}</section>
+   <section className="sync-history" aria-label="Sync history"><h2>Sync history</h2>{history.length?<ul>{history.map(entry=><li key={entry.id}><div><strong>{syncTargets.find(t=>t.id===entry.target?.software)?.name??"Sync preparation"}</strong><span>{entry.state??"interrupted"} · {entry.tracks} tracks{entry.created?` · ${new Date(entry.created).toLocaleString()}`:""}</span>{entry.error?<p role="status">{entry.error}</p>:null}</div>{entry.state==="prepared"?<button className="secondary" disabled={!!busy} onClick={()=>void discard(entry.id)}><Trash2 size={14}/>Discard preview</button>:null}{entry.needs_acknowledgement?<button className="secondary" disabled={!!busy} onClick={()=>void complete(entry.id)}>Finish sync</button>:null}{entry.target&&entry.state&&(["applied","applying","restoring"].includes(entry.state)||entry.needs_restore_acknowledgement)?<button className="secondary" disabled={!!busy} onClick={()=>void restore(entry.id)}><RotateCcw size={14}/>{entry.needs_restore_acknowledgement?"Finish restore":"Restore backup"}</button>:null}</li>)}</ul>:<p>Your previews, completed syncs and recoverable backups will appear here.</p>}</section>
   </div>
  </section>;
 }

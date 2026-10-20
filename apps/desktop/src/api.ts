@@ -6,6 +6,7 @@ import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./t
 export const nativeBridge:Bridge={
   discoverDjTargets:()=>invoke("discover_dj_targets"),
   previewDjSync:request=>invoke("preview_dj_sync",{request}),
+  discardDjSync:id=>invoke("discard_dj_sync",{id}),
   applyDjSync:id=>invoke("apply_dj_sync",{id}),
   restoreDjSync:id=>invoke("restore_dj_sync",{id}),
   djSyncHistory:()=>invoke("dj_sync_history"),

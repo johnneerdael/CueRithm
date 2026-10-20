@@ -72,6 +72,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             sync_commands::discover_dj_targets,
             sync_commands::preview_dj_sync,
+            sync_commands::discard_dj_sync,
             sync_commands::apply_dj_sync,
             sync_commands::restore_dj_sync,
             sync_commands::dj_sync_history,

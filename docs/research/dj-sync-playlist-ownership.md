@@ -93,6 +93,12 @@ case-rename preconditions become the recoverable publication plan.
 Adapter build copies are temporary. After the journal durably owns its staged
 publications, the build tree is removed; preparation errors also clean up build
 copies while retaining journal and recovery evidence.
+Superseded and abandoned prepared previews have a separate discard operation.
+It holds the service and transaction leases, rechecks the Prepared state, and
+removes only private preview payloads. Applying, Applied, Restoring and Restored
+journals retain their recovery files. Failed cleanup keeps a Prepared journal for
+retry from history. Transaction locks live outside disposable journal payloads so
+Windows deletion never requires releasing the apply/discard mutex early.
 
 ## Native operations
 

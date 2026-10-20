@@ -85,6 +85,10 @@ cleanup to preserve both.
 Changing the library, destination, scope or options invalidates the preview. Create
 a fresh preview before applying those changes. If the destination has changed since
 preview, resolve the conflict and preview again.
+Use **Discard preview** to remove unused prepared export files. Changing options,
+replacing a preview or leaving Sync automatically cancels the unused preview.
+Older prepared entries in **Sync history** also offer **Discard preview**; failed
+cleanup stays available there for retry.
 Reconnect a USB at its original mount location or drive letter before resuming its
 history. If the filesystem cannot provide a persistent volume or catalog identity,
 sync stops before publishing changes.

@@ -15,6 +15,11 @@ Interrupted publication leaves recoverable backups; it is never an acknowledged
 successful sync. The library service coordinates local revisions and modified-scope
 baselines around this file journal.
 
+`FileTransaction::discard` releases an unused Prepared preview under the same
+transaction lock as apply and restore. Published or interrupted journals cannot
+be discarded. Cleanup failures retain a retryable journal. The desktop cancels
+superseded previews and exposes Prepared cleanup in sync history.
+
 `prepare_sync_owned_with_runtime` accepts durable playlist bindings and protected
 source paths from the library service. It preserves native identity across rename
 and move, removes only proven owned playlists for explicit source tombstones, and

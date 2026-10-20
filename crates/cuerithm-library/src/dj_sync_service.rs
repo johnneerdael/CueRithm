@@ -293,6 +293,13 @@ impl Library {
             .collect()
     }
 
+    /// Discard staged bytes only while the native transaction remains Prepared.
+    pub fn discard_dj_sync(&self, id: &str) -> Result<()> {
+        let root = self.data_dir().join("sync");
+        let _lease = service_lock(&root)?;
+        FileTransaction::discard(&root, id)
+    }
+
     /// Publish a reviewed preview only while its captured library revision and
     /// source identities still match. Baselines acknowledge verified applies only.
     pub fn apply_dj_sync(&self, id: &str) -> Result<FileJournal> {
@@ -1037,6 +1044,47 @@ mod tests {
             options: SyncOptions::default(),
             scope,
         }
+    }
+    #[test]
+    fn discarded_library_previews_release_staging_and_leave_sources_and_native_state_unchanged() {
+        let (dir, library, target) = fixture();
+        let source = dir.path().join("authored.wav");
+        let source_before = fs::read(&source).unwrap();
+        let native_before = fs::read(&target.path).unwrap();
+        let revision = library.revision().unwrap();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        let path = library.data_dir().join("sync").join(&preview.id);
+        assert!(path.join("staged").is_dir());
+        library.discard_dj_sync(&preview.id).unwrap();
+        library.discard_dj_sync(&preview.id).unwrap();
+        assert!(!path.exists());
+        assert_eq!(library.revision().unwrap(), revision);
+        assert_eq!(fs::read(&source).unwrap(), source_before);
+        assert_eq!(fs::read(&target.path).unwrap(), native_before);
+        assert!(
+            !library
+                .history_dj_sync()
+                .unwrap()
+                .iter()
+                .any(|entry| entry.id == preview.id)
+        );
+    }
+
+    #[test]
+    fn discard_cannot_remove_native_applied_unacknowledged_or_restored_history() {
+        let (_dir, library, target) = fixture();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        let root = library.data_dir().join("sync");
+        cuerithm_dj_sync::apply_sync(&root, &preview.id).unwrap();
+        assert!(library.discard_dj_sync(&preview.id).is_err());
+        assert!(root.join(&preview.id).join("backup/0").is_file());
+        library.restore_dj_sync(&preview.id).unwrap();
+        assert!(library.discard_dj_sync(&preview.id).is_err());
+        assert!(root.join(&preview.id).join("library.json").is_file());
     }
     #[test]
     fn preview_apply_changed_and_restore_use_acknowledged_baselines() {
