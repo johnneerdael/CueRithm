@@ -140,6 +140,27 @@ fn partially_existing_copy_is_blocked_because_no_request_can_express_it() {
     );
 }
 #[test]
+fn a_row_blocked_for_another_reason_does_not_block_a_valid_row_with_the_same_audio_name() {
+    let mut blocked = track("1", "Same");
+    blocked.sidecars.push(Sidecar {
+        source: file("/incoming/cover-source.jpg", "art"),
+        destination_name: "cover.jpg".into(),
+    });
+    let valid = track("2", "Same");
+    let mut req = request(vec![blocked, valid]);
+    // The sidecar destination is occupied, so the first row cannot apply.
+    req.existing.push(file("/managed/cover.jpg", "occupied"));
+    let plan = build_plan(req, || false).unwrap();
+    let row = |id: &str| plan.rows.iter().find(|r| r.track.id == id).unwrap();
+    assert!(
+        matches!(&row("1").outcome, RowOutcome::Blocked { reason } if reason.contains("Destination already exists")),
+        "{:?}",
+        row("1").outcome
+    );
+    assert_eq!(row("2").outcome, RowOutcome::Ready);
+    assert!(plan.can_apply());
+}
+#[test]
 fn cancellation_never_returns_partial_plan() {
     assert_eq!(
         build_plan(request(vec![track("1", "Title")]), || true),
