@@ -19,6 +19,7 @@ pub enum AnalysisTagSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AutotagConfig {
+    pub solver: crate::SolverConfig,
     pub options: TaggerConfig,
     pub no_match: NoMatchPolicy,
     pub analysis_tag_source: AnalysisTagSource,
@@ -37,6 +38,7 @@ impl Default for AutotagConfig {
                 .insert(provider.id, provider.custom_options.get_defaults());
         }
         Self {
+            solver: crate::SolverConfig::default(),
             options,
             no_match: NoMatchPolicy::default(),
             analysis_tag_source: AnalysisTagSource::default(),
@@ -46,6 +48,7 @@ impl Default for AutotagConfig {
 }
 impl AutotagConfig {
     pub fn validate(&self) -> Result<()> {
+        self.solver.validate()?;
         let c = &self.options;
         ensure!(
             c.track_number_leading_zeroes <= 8,

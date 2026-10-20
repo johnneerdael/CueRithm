@@ -46,7 +46,7 @@ Settings changes leave finished results intact. Choose **Analyze again** to appl
 It needs the network and rewrites tags, so it is opt-in.
 
 **Tracks are stuck at "Matching catalog".**
-You may be offline, or the provider may be blocking requests. They stay in Incoming. Check your connection and retry. Traxsource in particular has not been confirmed to work from every network.
+You may be offline, or the provider may be blocking requests. They stay in Incoming. Check your connection and retry. If Traxsource reports a browser challenge, configure a [FlareSolverr-compatible solver](../guides/catalog-solver.md), save settings, then retry the job. A source detected as blocked stops direct requests until its access status is reset.
 
 **Where are my original files after a tag write?**
 CueRithm keeps them in the data folder under `tagging/`. Settings shows them as *Recovery backups*.

@@ -24,7 +24,7 @@ players has not been established.
 
 ## Known limitations
 
-- Traxsource lookups have not been confirmed to work from every network. Requests returned HTTP 403 on the validation machine. Beatport has one successful probe, which does not establish universal coverage.
+- Traxsource may require a separately hosted [FlareSolverr-compatible solver](../guides/catalog-solver.md). Live fetching and parsing were verified with Trawl; universal catalog coverage and packaged-app acceptance remain unverified. Beatport has one successful direct API probe.
 - Decoding stops at about 24 minutes, so long mixes do not prepare.
 - There is no Intel Mac build. Windows and Linux builds are unsigned, and their native playback and restart acceptance is not complete.
 - The library schema is version 12. Older app versions refuse a newer library, and there is no downgrade.

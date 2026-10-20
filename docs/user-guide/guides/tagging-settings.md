@@ -16,6 +16,16 @@ Open **Settings > Automatic tagging** to configure tagging for new tracks, watch
 | **Combine providers** | off | Off: first provider with a match wins. On: apply matches from every provider in order. |
 | **No catalog match** | Keep existing tags and finish | Or *Keep in Incoming for attention*. |
 
+## Cloudflare challenge solver
+
+Enter an optional **Solver API URL** for a FlareSolverr-compatible service. The
+default **Solver timeout** is 120 seconds, with one retry for temporary failures.
+Detected blocked sources use the solver; other sources keep their normal
+connection. Without a solver, a detected blocked source is unavailable.
+**Retry direct source access** clears remembered restrictions.
+See [Cloudflare challenge solver](catalog-solver.md) for setup with FlareSolverr,
+Byparr or Trawl, source status, privacy and troubleshooting.
+
 ## Matching
 
 | Setting | Default | Meaning |

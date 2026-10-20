@@ -73,7 +73,11 @@
     },
     "no_match": "keep_existing",
     "analysis_tag_source": "measured",
-    "write_energy": true
+    "write_energy": true,
+    "solver": {
+      "endpoint": null,
+      "timeout_seconds": 120
+    }
   },
   "providers": [
     {
@@ -177,5 +181,6 @@
       ],
       "requiresAuth": false
     }
-  ]
+  ],
+  "access": []
 }

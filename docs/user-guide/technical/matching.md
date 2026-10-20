@@ -64,4 +64,4 @@ An empty Traxsource result list is a no-match. A missing result list or a malfor
 The HTTP client has a 30-second timeout, follows at most five redirects and caps response bodies at 8 MiB. There is no automatic retry or backoff on HTTP 429. Quitting the app cancels waiting provider calls. Offline, lookups fail, the job goes to *attention* at the matching stage and is retried when you save Settings or press retry.
 
 !!! warning "Live status"
-    Beatport has one successful native probe. Traxsource requests returned HTTP 403 on the validation machine, so live Traxsource success is not established.
+    Beatport has one successful native probe. Direct Traxsource requests returned HTTP 403; a read-only Trawl probe fetched and parsed live search, track and release metadata. This does not establish universal catalog coverage or end-to-end tag writes. See [solver setup](../guides/catalog-solver.md).

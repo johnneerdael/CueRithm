@@ -6,7 +6,7 @@ import CleanupSettings,{cleanupValidationError} from "./CleanupSettings";
 import PlaylistPreferences from "./PlaylistPreferences";
 import WaveformSettings from "./WaveformSettings";
 import {errorMessage} from "../api";
-export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
+export default function Settings({snapshot,bridge,onSaved,onBack,catalogRevision=0}:{catalogRevision?:number;snapshot:Snapshot;bridge:Bridge;onSaved:()=>void;onBack:()=>void}){
   const [draft,setDraft]=useState<SettingsType>(snapshot.settings);
   const [page,setPage]=useState("Incoming");
   const pages=["Incoming","Cue generation","Automatic tagging","Cleanup","Library preferences","Smart Playlists","Appearance"];
@@ -31,7 +31,7 @@ export default function Settings({snapshot,bridge,onSaved,onBack}:{snapshot:Snap
         <label className="setting-row"><div><strong>Drop at start</strong></div><select aria-label="Drop at start" value={draft.engine.lexicon_config?.drop_at_start??"Never"} onChange={e=>engine({lexicon_config:{...draft.engine.lexicon_config!,drop_at_start:e.target.value as "Never"|"Auto"}})}><option value="Never">Never</option><option value="Auto">Automatic</option></select></label>
         <label className="setting-row"><div><strong>Emergency loop</strong><p>Include a loop when the track has a suitable section.</p></div><input type="checkbox" checked={draft.engine.lexicon_config?.add_emergency_loop??false} onChange={e=>engine({lexicon_config:{...draft.engine.lexicon_config!,add_emergency_loop:e.target.checked}})}/></label>
       </section>:null}
-      {page==="Automatic tagging"?<TaggingSettings bridge={bridge} config={draft.tagging} enabled={draft.autotag_enabled} onChange={(tagging,enabled)=>{setSaved(false);setDraft(d=>({...d,tagging,autotag_enabled:enabled}));}}/>:null}
+      {page==="Automatic tagging"?<TaggingSettings catalogRevision={catalogRevision} bridge={bridge} config={draft.tagging} enabled={draft.autotag_enabled} onChange={(tagging,enabled)=>{setSaved(false);setDraft(d=>({...d,tagging,autotag_enabled:enabled}));}}/>:null}
       {page==="Cleanup"?<CleanupSettings config={draft.cleanup} enabled={draft.cleanup_enabled} onChange={(cleanup,enabled)=>{setSaved(false);setDraft(d=>({...d,cleanup,cleanup_enabled:enabled}));}}/>:null}
       {page==="Appearance"?<WaveformSettings/>:null}
     </fieldset></div></div>

@@ -61,12 +61,17 @@ impl PreparationService {
         runtime: MediaRuntime,
         count: usize,
     ) -> Result<Self> {
+        #[cfg(feature = "autotag")]
+        let tagger = Arc::new(Tagger::with_endpoints_and_store(
+            cuerithm_autotag::CatalogEndpoints::default(),
+            Arc::new(library.clone()),
+        )?);
         Self::start_inner(
             library,
             runtime,
             count,
             #[cfg(feature = "autotag")]
-            Arc::new(Tagger::new()?),
+            tagger,
         )
     }
     #[cfg(feature = "autotag")]

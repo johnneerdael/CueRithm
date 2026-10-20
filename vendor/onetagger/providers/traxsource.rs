@@ -1,4 +1,4 @@
-use crate::BoundedResponse;
+use crate::http::{CatalogHttp, MemoryChallengeStore, SolverConfig};
 use anyhow::Error;
 use chrono::NaiveDate;
 use onetagger_tagger::{
@@ -7,10 +7,14 @@ use onetagger_tagger::{
 };
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub struct Traxsource {
     client: Client,
     web: String,
+    http: CatalogHttp,
+    solver: SolverConfig,
+    cancel: Arc<AtomicBool>,
 }
 
 impl Traxsource {
@@ -23,27 +27,52 @@ impl Traxsource {
             .build()
             .unwrap();
         Traxsource {
+            http: CatalogHttp::new(
+                client.clone(),
+                "traxsource",
+                Arc::new(MemoryChallengeStore::default()),
+            ),
             client,
             web: "https://www.traxsource.com".into(),
+            solver: SolverConfig::default(),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub fn with_endpoints(client: Client, web: &str) -> Self {
         Self {
+            http: CatalogHttp::new(
+                client.clone(),
+                "traxsource",
+                Arc::new(MemoryChallengeStore::default()),
+            ),
             client,
             web: web.trim_end_matches('/').into(),
+            solver: SolverConfig::default(),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    pub fn with_http(
+        mut self,
+        http: CatalogHttp,
+        solver: SolverConfig,
+        cancel: Arc<AtomicBool>,
+    ) -> Self {
+        self.http = http;
+        self.solver = solver;
+        self.cancel = cancel;
+        self
     }
 
     pub fn search_tracks(&self, query: &str) -> Result<Vec<Track>, Error> {
         // Fetch
         debug!("Q: {}", query);
+        let mut url = reqwest::Url::parse(&format!("{}/search/tracks", self.web))?;
+        url.query_pairs_mut().append_pair("term", query);
         let data = self
-            .client
-            .get(format!("{}/search/tracks", self.web))
-            .query(&[("term", query)])
-            .send()?
-            .bounded_text()?;
+            .http
+            .get_text(url.as_str(), &self.solver, &self.cancel)?;
 
         // Minify and parse
         let data = String::from_utf8(minify_html::minify(
@@ -54,10 +83,21 @@ impl Traxsource {
 
         // Track list
         let list_selector = Selector::parse("div#searchTrackList").unwrap();
-        let track_list = document
-            .select(&list_selector)
-            .next()
-            .ok_or(anyhow!("No results!"))?;
+        let track_list = match document.select(&list_selector).next() {
+            Some(list) => list,
+            None => {
+                let empty_selector = Selector::parse("div#bodyBay div.search-res-cont h2").unwrap();
+                if document.select(&empty_selector).any(|e| {
+                    e.text()
+                        .collect::<String>()
+                        .trim_start()
+                        .starts_with("No results found for ")
+                }) {
+                    return Ok(vec![]);
+                }
+                return Err(anyhow!("Malformed Traxsource page: missing search results"));
+            }
+        };
         // Select track
         let track_selector = Selector::parse("div.trk-row").unwrap();
         let mut tracks = vec![];
@@ -212,7 +252,7 @@ impl Traxsource {
         album_art: bool,
     ) -> Result<(), Error> {
         // Fetch
-        let data = self.client.get(&track.url).send()?.bounded_text()?;
+        let data = self.http.get_text(&track.url, &self.solver, &self.cancel)?;
 
         // Minify and parse
         let data = String::from_utf8(minify_html::minify(
@@ -255,11 +295,11 @@ impl Traxsource {
         if !album_meta {
             return Ok(());
         }
-        let data = self
-            .client
-            .get(format!("{}{}", self.web, album_url))
-            .send()?
-            .bounded_text()?;
+        let data = self.http.get_text(
+            &format!("{}{}", self.web, album_url),
+            &self.solver,
+            &self.cancel,
+        )?;
         // Minify and parse
         let data = String::from_utf8(minify_html::minify(
             data.as_bytes(),
