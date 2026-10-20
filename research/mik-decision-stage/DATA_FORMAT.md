@@ -45,12 +45,22 @@ the melodic house and techno songs already there. Fewer than about 30 songs in a
 `EliteData.Genre` is the tag the application sent. The patents say weights may be chosen by genre, and the corpus so far
 is 87% "Melodic House & Techno", so the other genres are where a genre effect would show. Keep the genre tag exactly as sent.
 
-## Optional: the finished analysis as written to the files
+## Optional: the stored analysis, tags and file inventory (`gather_mik_data.py`)
 
-A `final.jsonl` next to the pairs, one JSON object per line, lets the code cross-check the response against what the
-application stored for the user: `{"id": ..., "key": "11A", "energy": 7, "cues": [{"time": 4.115, "energy": 5}, ...],
-"comment": "11A - Energy 7"}`. The rekordbox library of the 3,400-track collection holds exactly this: the comment is
-`<key> - Energy <n>`, and eight hot cues plus eight memory cues carry `Energy <n>` names at the cue times.
+`gather_mik_data.py` runs on the machine that has Mixed In Key and writes, next to the pairs:
+
+- `final.jsonl`, one object per analysed song: `id`, `file`, `path`, `key`, `second_key`, `energy`, `tempo`, `genre`,
+  `cues` (`time`, `name`, `energy`), `energy_segments` (`start`, `length`, `energy`), `key_segments` (`start`, `length`,
+  `key`, `confidence`, `energy`, `volume`), `beats` (`tempo` and the decoded `times` of the stored beat grid),
+  `tag_comments` (the stored tag record, decoded) and `db` (every other stored column, timestamps as ISO text). The join
+  to a captured pair is the file name (`EliteData.FileName` against `file`, extension and Unicode form ignored), with the
+  tempo as a tie-break.
+- `tags.jsonl`: per audio file the container, length, sample rate, channels, bit depth, bitrate and every tag frame
+  (binary frames as base64, artwork dropped and counted).
+- `inventory.jsonl`: every file under the scanned folders with its extension and size.
+- `Collection11.backup.mikdb`: a consistent copy of the whole database, for anything not decoded above.
+- `report.json`: counts only, including how many captured calls matched a database song and whether the stored key, energy,
+  tempo, cue count and cue times equal the response (on the first corpus all 434 did).
 
 ## Splits
 
