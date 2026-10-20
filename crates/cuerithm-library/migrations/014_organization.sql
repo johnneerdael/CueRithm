@@ -11,8 +11,11 @@ CREATE UNIQUE INDEX organization_active_track ON organization_operations(track_i
  WHERE state NOT IN ('complete','unchanged','undone','cancelled');
 CREATE TABLE organization_reservations (
  path BLOB PRIMARY KEY,
+ collision_key TEXT,
  operation_id TEXT NOT NULL REFERENCES organization_operations(id)
 );
+CREATE INDEX organization_reservation_collision ON organization_reservations(collision_key)
+ WHERE collision_key IS NOT NULL;
 CREATE TABLE organization_alternates (
  operation_id TEXT PRIMARY KEY REFERENCES organization_operations(id),
  track_id TEXT NOT NULL REFERENCES tracks(id),

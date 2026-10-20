@@ -203,6 +203,58 @@ fn no_replace_publication_preserves_a_racing_destination_and_source() {
     );
 }
 #[test]
+fn active_plans_cannot_reserve_case_equivalent_destinations() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let library = Library::open(&root.join("library.sqlite")).unwrap();
+    let track = |name: &str| {
+        let source = root.join(name);
+        std::fs::write(&source, name.as_bytes()).unwrap();
+        let job = library
+            .enqueue(
+                std::slice::from_ref(&source),
+                library.settings().unwrap().revision,
+            )
+            .unwrap()
+            .remove(0);
+        let track_id = library
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|j| j.id == job)
+            .unwrap()
+            .track_id;
+        (track_id, source)
+    };
+    let request = |(track_id, source): (String, std::path::PathBuf), destination: &str| {
+        OrganizationRequest {
+            track_id,
+            mode: OrganizationMode::Move,
+            source_root: root.clone(),
+            destination_root: root.clone(),
+            files: vec![(source, root.join(destination))],
+        }
+    };
+    library
+        .plan_organization(request(track("one.wav"), "Foo.wav"))
+        .unwrap();
+    let error = library
+        .plan_organization(request(track("two.wav"), "foo.wav"))
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("case-equivalent"), "{error:#}");
+    let operations: i64 = library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM organization_operations", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(operations, 1, "the rejected plan leaves no reservation");
+    library
+        .plan_organization(request(track("three.wav"), "Bar.wav"))
+        .unwrap();
+}
+#[test]
 fn changed_source_before_cleanup_is_never_deleted_or_marked_complete() {
     let f = Fixture::new(OrganizationMode::Move, false, false);
     f.library.execute_organization(&f.id).unwrap();
