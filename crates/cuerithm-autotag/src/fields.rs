@@ -236,9 +236,24 @@ fn protected_mp4_atom(key: &str) -> bool {
     )
 }
 
+fn dj_namespace(upper: &str) -> bool {
+    ["SERATO", "REKORDBOX", "TRAKTOR"]
+        .iter()
+        .any(|vendor| upper.contains(vendor))
+}
+
 pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bool {
-    if *format == AudioFileFormat::MP4 && protected_mp4_atom(key) {
-        return true;
+    if *format == AudioFileFormat::MP4 {
+        if protected_mp4_atom(key) {
+            return true;
+        }
+        // Serato's cue and grid atoms are `com.serato.dj:markersv2` and `:beatgrid`,
+        // so the vendor appears only in the freeform mean.
+        if let DataIdent::Freeform { mean, .. } = MP4Tag::string_to_ident(key)
+            && dj_namespace(&mean.to_uppercase())
+        {
+            return true;
+        }
     }
     let leaf = custom_leaf(key, format);
     [
@@ -265,9 +280,7 @@ pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bo
         "SYLT",
     ]
     .contains(&leaf.as_str())
-        || leaf.contains("SERATO")
-        || leaf.contains("REKORDBOX")
-        || leaf.contains("TRAKTOR")
+        || dj_namespace(&leaf)
 }
 
 pub(crate) fn custom_bypasses_field_policy(
