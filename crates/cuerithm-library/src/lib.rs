@@ -36,3 +36,8 @@ pub mod waveform;
 pub use model::*;
 pub use settings::*;
 pub use store::Library;
+
+mod dj_sync;
+pub use dj_sync::*;
+mod dj_sync_service;
+pub use dj_sync_service::{DjSyncHistoryEntry, DjSyncRequest};

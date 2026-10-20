@@ -144,6 +144,7 @@ nav:
       - Playlists, folders and favourites: guides/playlists.md
       - Smart playlist rules: guides/smart-rules.md
       - Playlist tools and generator: guides/playlist-tools.md
+      - Sync to DJ software: guides/sync.md
       - Cleanup rules: guides/cleanup-rules.md
       - Automatic tagging settings: guides/tagging-settings.md
       - Settings reference: guides/settings.md

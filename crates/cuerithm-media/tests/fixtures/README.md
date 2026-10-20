@@ -29,3 +29,12 @@ streams: a default mono 44.1 kHz 440 Hz sine and non-default stereo 48 kHz silen
 It verifies default-stream priority despite the other stream's larger channel
 layout. The original reference binary's digest and the file hash are recorded
 in `../fingerprint-reference.json`.
+
+The `timing-*` files contain one second of generated stereo silence. Generate
+AAC at 44.1 and 48 kHz with `-f lavfi -i anullsrc=r=RATE:cl=stereo -t 1 -c:a aac`;
+generate ALAC at 44.1 kHz with the same input and `-c:a alac`.
+`timing-artwork.m4a` copies the 44.1 kHz AAC stream and attaches a generated
+16×16 solid-red JPEG as `attached_pic`. These files exercise negative first
+packet PTS, zero-delay lossless audio and the distinction between artwork and
+video. They contain no music or external artwork. The application uses only
+the sealed runtime's decoders/probe; fixture encoders are not required.

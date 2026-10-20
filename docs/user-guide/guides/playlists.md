@@ -68,6 +68,6 @@ The membership toolbar appears when tracks are selected or an ordinary playlist 
 
 Ordinary playlists keep archived tracks' membership but hide them while archived. Incoming tracks never appear in playlists until prepared. Folders show the de-duplicated tracks of their descendants, in tree order.
 
-## No import or export
+## Send playlists to DJ software
 
-CueRithm has no playlist import or export, and no M3U or XML. Playlists live in the library. See [Not available yet](../about/roadmap.md).
+Use [Sync](sync.md) to export playlists and folders to supported DJ software or a Pioneer USB drive. Playlist import and standalone M3U or XML export remain unavailable.

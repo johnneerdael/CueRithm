@@ -1,4 +1,4 @@
-use crate::{AudioClock, MediaInfo, MediaRuntime, runtime::sha256};
+use crate::{AudioClock, MediaInfo, MediaRuntime, SourceExportTiming, runtime::sha256};
 use anyhow::{Context, Result, ensure};
 use std::{
     ffi::OsString,
@@ -17,6 +17,7 @@ pub struct PreparedAudio {
     pub frames: u64,
     pub clock: AudioClock,
     pub decoder_identity: String,
+    pub export_timing: Option<SourceExportTiming>,
 }
 impl PreparedAudio {
     pub fn source_is_unchanged(&self) -> Result<bool> {
@@ -129,6 +130,17 @@ impl MediaRuntime {
             "Source changed during capture"
         );
         let info = self.probe_cancellable(&snapshot_path, cancel)?;
+        let extension = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let export_timing = Some(self.capture_export_timing_cancellable(
+            &snapshot_path,
+            &before,
+            &info,
+            extension,
+            cancel,
+        )?);
         if info.codec == "flac" {
             let named = private.path().join("source.flac");
             std::fs::rename(&snapshot_path, &named)?;
@@ -227,6 +239,7 @@ impl MediaRuntime {
                 trailing_padding_frames: None,
             },
             decoder_identity: self.identity.clone(),
+            export_timing,
         })
     }
 }

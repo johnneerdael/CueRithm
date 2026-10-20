@@ -146,6 +146,7 @@ impl Fixture {
             source_timing: None,
             elapsed_seconds: 0.,
             media: Some(PreparedMediaIdentity {
+                export_timing: None,
                 cue_genre: None,
                 decoder: audio.decoder_identity.clone(),
                 codec: audio.info.codec.clone(),

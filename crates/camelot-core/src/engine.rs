@@ -484,6 +484,7 @@ impl Engine {
             source_sha256: audio.source_sha256.clone(),
             pcm_sha256: audio.pcm_sha256()?,
             clock: audio.clock.clone(),
+            export_timing: audio.export_timing.clone(),
             cue_genre: self
                 .settings
                 .lexicon_config

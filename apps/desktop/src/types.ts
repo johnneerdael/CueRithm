@@ -1,5 +1,5 @@
 export type View="tracks"|"incoming"|"archive";
-export type WorkspaceView=View|"settings"|"cleanup";
+export type WorkspaceView=View|"settings"|"cleanup"|"sync";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;archived:boolean;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
 export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null}
@@ -63,6 +63,11 @@ export interface PreparationEvent {sequence:number;attempt?:number;job_id:string
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][];rms?:number[];levels?:[number,number,number][]}
 export interface Bridge {
+  discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
+  previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
+  applyDjSync(id:string):Promise<import("./sync-types").FileJournal>;
+  restoreDjSync(id:string):Promise<import("./sync-types").FileJournal>;
+  djSyncHistory():Promise<import("./sync-types").DjSyncHistoryEntry[]>;
   getPlaylists():Promise<import("./playlist-types").PlaylistWorkspace>;
   editPlaylist(edit:import("./playlist-types").PlaylistEdit,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;
   undoPlaylist(editId:string,expectedRevision:number):Promise<import("./playlist-types").PlaylistChange>;

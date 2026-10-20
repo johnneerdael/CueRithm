@@ -141,3 +141,16 @@ select the adapter also exercise the library against SQLCipher's SQLite core.
 No proprietary application code, personal database, database key or analysis
 asset is distributed with this adapter. Preserve the pinned dependency sources,
 notices and corresponding build materials when distributing a linked binary.
+
+## Native DJ format adapters
+
+`cuerithm-dj-sync` independently implements native data contracts for current
+VirtualDJ, Engine DJ, djay Pro, Serato 4 and Pioneer USB. It shares the existing
+SQLCipher/OpenSSL and media-runtime dependencies described above. Lofty declares
+MIT OR Apache-2.0 for native metadata handling; quick-xml declares MIT for XML;
+RustCrypto SHA-1 declares MIT OR Apache-2.0 for Engine artwork identities. Exact
+registry versions and source checksums are retained in Cargo.lock. Preserve the
+upstream dependency notices with corresponding source/build materials.
+
+Reference application code, binaries, user music, personal database records and
+license credentials are not included in this implementation or its fixtures.

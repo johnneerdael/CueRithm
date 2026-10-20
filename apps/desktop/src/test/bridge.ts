@@ -13,6 +13,11 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    discoverDjTargets:vi.fn(async()=>[]),
+    previewDjSync:vi.fn(async request=>({deleted_playlists:0,retained_external_playlists:0,id:"sync",target:request.target,tracks:rows.length,playlists:0,bytes_to_write:1024,files:[],warnings:[],directories:[]})),
+    applyDjSync:vi.fn(async id=>({id,state:"applied" as const,changes:[],directories:[]})),
+    restoreDjSync:vi.fn(async id=>({id,state:"restored" as const,changes:[],directories:[]})),
+    djSyncHistory:vi.fn(async()=>[]),
     getPlaylists:vi.fn(async()=>({tree:{revision:0,nodes:[]},statuses:[],latest_undo:null,service_error:null})),
     editPlaylist:vi.fn(async()=>({edit_id:"edit",revision:1,created_ids:[],affected_ids:[]})),
     undoPlaylist:vi.fn(async()=>({edit_id:"undo",revision:2,created_ids:[],affected_ids:[]})),

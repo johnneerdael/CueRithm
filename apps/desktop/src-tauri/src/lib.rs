@@ -3,6 +3,7 @@ mod commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
+mod sync_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -69,6 +70,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            sync_commands::discover_dj_targets,
+            sync_commands::preview_dj_sync,
+            sync_commands::apply_dj_sync,
+            sync_commands::restore_dj_sync,
+            sync_commands::dj_sync_history,
             maintenance_commands::maintenance_apply_merge,
             maintenance_commands::maintenance_undo_merge,
             maintenance_commands::maintenance_recovery,

@@ -15,3 +15,5 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Settings reference](settings.md) | All six settings pages |
 
 For details of how CueRithm computes values, see [Under the hood](../technical/index.md).
+
+[Sync to DJ software](sync.md) covers target selection, previews and backup restoration.
