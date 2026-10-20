@@ -842,6 +842,7 @@ impl Library {
                     error: op.error,
                     undone_by: op.undone_by,
                     cleanup_pending: !op.cleanup_complete,
+                    backups_disposed: op.backups_disposed,
                 })
             })
             .collect()

@@ -92,15 +92,13 @@ fn reviewed_disposal_releases_only_owned_backups_and_explicitly_removes_restore_
     );
     assert_eq!(std::fs::read(f.music.join("keep.txt")).unwrap(), b"keep");
     assert!(f.lib.restore_unused_removal(&f.removed.id, &token).is_err());
-    assert!(
-        !f.lib
-            .unused_removal_history()
-            .unwrap()
-            .iter()
-            .find(|h| h.result.id == f.removed.id)
-            .unwrap()
-            .restore_available
-    );
+    let history = f.lib.unused_removal_history().unwrap();
+    let entry = history
+        .iter()
+        .find(|h| h.result.id == f.removed.id)
+        .unwrap();
+    assert!(!entry.restore_available);
+    assert!(entry.backups_disposed);
     assert!(
         f.lib
             .apply_unused_backup_disposal(&preview.id, &token)
@@ -113,6 +111,15 @@ fn restored_operations_share_one_backup_set_and_disposal_does_not_change_restore
     let mut f = Fixture::new();
     let token = CancellationToken::default();
     f.lib.restore_unused_removal(&f.removed.id, &token).unwrap();
+    // A restored removal keeps its recovery copies until they are disposed of, and says so in the history.
+    let restored = f.lib.unused_removal_history().unwrap();
+    let entry = restored
+        .iter()
+        .find(|h| h.result.id == f.removed.id)
+        .unwrap();
+    assert_eq!(entry.state, "undone");
+    assert!(!entry.backups_disposed && !entry.cleanup_pending);
+    assert_eq!(f.backups().len(), 2);
     let preview = f
         .lib
         .preview_unused_backup_disposal(std::slice::from_ref(&f.removed.id), &token)
@@ -124,6 +131,15 @@ fn restored_operations_share_one_backup_set_and_disposal_does_not_change_restore
         .apply_unused_backup_disposal(&preview.id, &token)
         .unwrap();
     assert!(f.backups().is_empty());
+    assert!(
+        f.lib
+            .unused_removal_history()
+            .unwrap()
+            .iter()
+            .find(|h| h.result.id == f.removed.id)
+            .unwrap()
+            .backups_disposed
+    );
     drop(f.lib);
     f.lib = Library::open(&f.db).unwrap();
     assert!(

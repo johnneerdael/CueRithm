@@ -255,6 +255,8 @@ pub struct UnusedRemovalHistory {
     pub error: Option<String>,
     pub undone_by: Option<String>,
     pub cleanup_pending: bool,
+    /// The recovery copies were permanently disposed of, so there is nothing left to keep or dispose.
+    pub backups_disposed: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileScanProgress {

@@ -99,11 +99,11 @@ it("restores a removal and offers recovery retry for interrupted removals",async
   const maintenance=fakeMaintenance();
   const result=(id:string,extra={})=>({directories:[],id,preview_id:"p",stamp,files:[{id:"f",display_path:"/m/a.mp3",size_bytes:10,source_sha256:"h",role:"selected" as const}],size_bytes:10,restored:false,undo_of:null,...extra});
   maintenance.unusedRemovalHistory.mockResolvedValue([
-    {restore_available:true,result:result("r1"),state:"committed",error:null,undone_by:null,cleanup_pending:false},
-    {restore_available:false,result:result("r2"),state:"conflict",error:"A newer file exists",undone_by:null,cleanup_pending:true}]);
+    {restore_available:true,result:result("r1"),state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:false},
+    {restore_available:false,result:result("r2"),state:"conflict",error:"A newer file exists",undone_by:null,cleanup_pending:true,backups_disposed:false}]);
   maintenance.retryUnusedRecovery.mockResolvedValue([
-    {restore_available:true,result:result("r1"),state:"committed",error:null,undone_by:null,cleanup_pending:false},
-    {restore_available:true,result:result("r2"),state:"committed",error:null,undone_by:null,cleanup_pending:false}]);
+    {restore_available:true,result:result("r1"),state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:false},
+    {restore_available:true,result:result("r2"),state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:false}]);
   await open(maintenance);tab("Unused files");
   expect(await screen.findByText("A newer file exists")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button",{name:/Retry recovery/}));
@@ -114,9 +114,23 @@ it("restores a removal and offers recovery retry for interrupted removals",async
   await waitFor(()=>expect(maintenance.restoreUnusedRemoval).toHaveBeenCalledWith("op-2","r1"));
 });
 
+it("lists a restored removal until its recovery copies are disposed of, and never one whose copies are gone",async()=>{
+  const maintenance=fakeMaintenance();
+  const result=(id:string)=>({directories:[],id,preview_id:"p",stamp,files:[{id:"f",display_path:"/m/a.mp3",size_bytes:10,source_sha256:"h",role:"selected" as const}],size_bytes:10,restored:false,undo_of:null});
+  maintenance.unusedRemovalHistory.mockResolvedValue([
+    {restore_available:false,result:result("restored1"),state:"undone",error:null,undone_by:"u1",cleanup_pending:false,backups_disposed:false},
+    {restore_available:false,result:result("gone0001"),state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:true},
+    {restore_available:true,result:result("kept0001"),state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:false}]);
+  await open(maintenance);tab("Retained backups");
+  expect(await screen.findByLabelText(/Select removal restored/)).toBeInTheDocument();
+  expect(screen.getByText("Restored")).toBeInTheDocument();
+  expect(screen.getByLabelText(/Select removal kept0001/)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Select removal gone0001/)).toBeNull();
+});
+
 it("requires an irreversible-disposal acknowledgement and shows the Restore loss",async()=>{
   const maintenance=fakeMaintenance();
-  maintenance.unusedRemovalHistory.mockResolvedValue([{restore_available:true,state:"committed",error:null,undone_by:null,cleanup_pending:false,
+  maintenance.unusedRemovalHistory.mockResolvedValue([{restore_available:true,state:"committed",error:null,undone_by:null,cleanup_pending:false,backups_disposed:false,
     result:{directories:[],id:"r1",preview_id:"p",stamp,files:[{id:"f",display_path:"/m/a.mp3",size_bytes:2048,source_sha256:"h",role:"selected"}],size_bytes:2048,restored:false,undo_of:null}}]);
   maintenance.previewBackupDisposal.mockResolvedValue({id:"dp",operation_ids:["r1"],size_bytes:2048,restores_lost:["r1"],files:[{operation_id:"r1",file_id:"f",display_source_path:"/m/a.mp3",size_bytes:2048,source_sha256:"h"}]});
   await open(maintenance);tab("Retained backups");

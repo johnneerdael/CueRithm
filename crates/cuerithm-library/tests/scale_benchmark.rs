@@ -306,3 +306,56 @@ fn real_audio_cold_and_warm_duplicate_scan() {
     // Reviews prove the source files of duplicate groups unchanged, which is where real file sizes show.
     review_cycle(&lib, &db, &warm.id, expected_groups, &token);
 }
+
+/// Build a generated library for walking the desktop app's screens by hand or with automation. It writes `music/`
+/// (the files) and `data/` (the library) under `CUERITHM_SCALE_FIXTURE_DIR`; start the app with
+/// `CUERITHM_DATA_DIR=<that folder>/data`. Tracks are ready with metadata and no preparation jobs are pending, so
+/// the app does not start analysing them. Size and duplicates follow the same two variables as the benchmark.
+#[test]
+#[ignore = "writes a generated library; set CUERITHM_SCALE_FIXTURE_DIR"]
+fn build_library_fixture_for_the_desktop_app() {
+    let Some(root) = std::env::var_os("CUERITHM_SCALE_FIXTURE_DIR").map(PathBuf::from) else {
+        panic!("set CUERITHM_SCALE_FIXTURE_DIR");
+    };
+    let tracks = env_usize("CUERITHM_SCALE_TRACKS", 10_000);
+    let dup_every = env_usize("CUERITHM_SCALE_DUP_EVERY", 20).max(2);
+    let music = root.join("music");
+    std::fs::create_dir_all(&music).unwrap();
+    let mut paths: Vec<PathBuf> = Vec::with_capacity(tracks);
+    for i in 0..tracks {
+        let path = music.join(format!("t{i:06}.wav"));
+        if i % dup_every == dup_every - 1 {
+            let mut bytes = std::fs::read(&paths[i - 1]).unwrap();
+            bytes.extend_from_slice(b"JUNK\x04\0\0\0tag!");
+            let size = (bytes.len() - 8) as u32;
+            bytes[4..8].copy_from_slice(&size.to_le_bytes());
+            std::fs::write(&path, bytes).unwrap();
+        } else {
+            write_wav(&path, i as u64 + 1);
+        }
+        paths.push(path);
+    }
+    let db = root.join("data/library.sqlite");
+    let lib = Library::open(&db).unwrap();
+    let revision = lib.settings().unwrap().revision;
+    for chunk in paths.chunks(500) {
+        lib.enqueue(chunk, revision.clone()).unwrap();
+    }
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let base = format!("(rowid - CASE WHEN rowid % {dup_every} = 0 THEN 1 ELSE 0 END)");
+    conn.execute(
+        &format!(
+            "UPDATE tracks SET title='Track '||{base}, artist='Artist '||({base}%500), duration=20, state='ready', \
+             analysis_json='{{\"untouched\":true}}', \
+             metadata_json='{{\"codec\":\"pcm_s16le\",\"sample_rate\":8000,\"channels\":1,\"tags\":{{}},\"properties\":{{\"audio.bit_rate\":\"128000\"}}}}'"
+        ),
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE jobs SET state='superseded' WHERE state IN ('queued','running','attention')",
+        [],
+    )
+    .unwrap();
+    println!("fixture: {tracks} tracks under {}", root.display());
+}

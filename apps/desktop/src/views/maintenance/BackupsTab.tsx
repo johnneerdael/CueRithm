@@ -20,8 +20,9 @@ export default function BackupsTab({library,bridge,task,changeTick}:{library:Bri
     catch(e){task.setError(errorMessage(e));}
   },[bridge,task.setError]);
   useEffect(()=>{setPreview(null);void load();},[load,changeTick]);
-  // Disposal selects original removals, not the reverse restore journals.
-  const originals=removals.filter(h=>!h.result.undo_of&&h.state==="committed");
+  // Disposal selects original removals, not the reverse restore journals. A restored removal still holds its
+  // recovery copies until they are disposed of, so it stays listed; one whose copies are gone does not.
+  const originals=removals.filter(h=>!h.result.undo_of&&["committed","undone","rolled_back"].includes(h.state)&&!h.backups_disposed&&!h.cleanup_pending);
   const toggle=(id:string)=>{setPreview(null);setSelected(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);return next;});};
   const review=()=>void task.run("Measuring retained backups…",null,async id=>{setPreview(await bridge.previewBackupDisposal(id,[...selected]));setNotice(null);});
   const dispose=()=>preview&&void task.run("Disposing of backups…",null,async id=>{
