@@ -515,4 +515,5 @@ After the verified publish the new tracks are read back, linked to the CueRithm 
 CueRithm as owner of every writable field, and acknowledged, so the next sync neither re-adds them nor treats
 them as changed. The end-to-end test adds a generated WAV to a snapshot of a real 7.2.19 library, checks the
 analysis file, the playlist membership and the link, and then repeats the sync to confirm nothing is written.
-Opening the result in the real rekordbox application is still a manual check.
+Opening the result in the real rekordbox application was done once on 2026-10-20; see
+[the acceptance note](rekordbox-app-acceptance-2026-10-20.md) for what was seen and what was not.
