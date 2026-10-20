@@ -180,6 +180,10 @@ rolls back owned folder creation when an interrupted restore has not committed.
 `unusedRemovalHistory()` supplies `restore_available` as history eligibility;
 actual restore still validates current paths, backup contents and reservations.
 Backups occupy application storage until the user chooses to dispose of them.
+`backups_disposed` is true once a removal's backups have been permanently disposed of. A screen that offers
+disposal lists the original removals (not the reverse journals) whose `backups_disposed` is false and whose
+`cleanup_pending` is false, whether or not they were restored, since a restored removal keeps its copies until
+they are disposed of.
 
 `previewBackupDisposal(operationId, removalIds)` returns the exact owned backup
 files, total bytes and `restores_lost` IDs. Select original removal operations,
