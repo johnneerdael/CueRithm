@@ -2603,9 +2603,7 @@ mod tests {
         let (_dir, path, profile) = database();
         let mut plan = base_plan();
         plan.new_tracks = vec![new_track("n1", "/music/existing-100.mp3")];
-        let error = run(&path, profile, &plan)
-            .err()
-            .expect("the plan is refused");
+        let error = run(&path, profile, &plan).expect_err("the plan is refused");
         assert!(
             error.downcast_ref::<ConflictError>().unwrap().0[0]
                 .reason
@@ -2613,9 +2611,7 @@ mod tests {
         );
         plan.new_tracks = vec![new_track("n1", "/music/other.mp3")];
         plan.playlists = vec![friday(&["new:missing"], None)];
-        let error = run(&path, profile, &plan)
-            .err()
-            .expect("the plan is refused");
+        let error = run(&path, profile, &plan).expect_err("the plan is refused");
         assert!(
             error.downcast_ref::<ConflictError>().unwrap().0[0]
                 .reason
