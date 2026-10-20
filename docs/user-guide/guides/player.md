@@ -8,7 +8,7 @@ The player is a panel at the bottom of the window. It is always visible and play
 
 ## Header
 
-Artwork (CueRithm's mark if the file has none), title, artist, and the analysis readout: **BPM**, **KEY** (a chip) and **ENERGY**. Before you load anything it says *Nothing playing* and *Double-click a track to load and play*.
+The header shows artwork (CueRithm's mark if the file has none), title, artist, **BPM**, **KEY** (a chip) and **ENERGY**. Before you load a track, it says *Nothing playing* and *Double-click a track to load and play*.
 
 ## Transport
 
@@ -43,7 +43,7 @@ The thin strip under the waveform is the **Track overview**. It always shows the
 
 ## Cue buttons
 
-One button per cue shows the slot letter, name and time. Click to seek. Cue colours follow the cue's own colour. Names you can see:
+Each cue has one button showing its slot letter, name, time and colour. Click a button to seek to that cue. The cue names are:
 
 | Name | Notes |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Smart playlist rules
 
-A smart playlist is a list of **conditions** evaluated against every active track. Build one in the [playlist editor](../learn/smart-playlist.md).
+A smart playlist uses conditions to select tracks from the active library. Build one in the [playlist editor](../learn/smart-playlist.md).
 
 <figure markdown>
   ![The smart playlist rule editor](../assets/screens/55-smart-playlist-editor.webp){ .screen loading=lazy }
@@ -8,12 +8,12 @@ A smart playlist is a list of **conditions** evaluated against every active trac
 
 ## Combining conditions
 
-- Up to **128 conditions** in one flat list. There is no nesting.
+- Use up to 128 conditions in one flat list, without nesting.
 - **all conditions**: every condition must be true.
 - **any condition**: at least one must be true.
 - **OR group**: tick *OR group* on two or more conditions under *all conditions*. The flagged conditions then form one alternative group: at least one flagged condition must be true, and every unflagged condition must still be true. A single flagged condition has no effect.
 - An empty list matches nothing.
-- Every rule is evaluated. An error in any rule fails the whole list. It is never hidden by an earlier match.
+- CueRithm evaluates every rule. If any rule returns an error, the whole list fails, even if an earlier rule matched.
 
 ## Fields
 

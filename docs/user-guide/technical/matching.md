@@ -35,13 +35,13 @@ Artists are cleaned the same way and compared as sorted sets.
 
 ## Scoring
 
-1. **Exact.** The file's title is tried through seven progressively stronger cleaning steps. If one equals the cleaned catalog title and at least one artist matches, the candidate scores **1.0**.
-2. **Fuzzy.** Otherwise, for each candidate whose artist matches, the score is the **normalised Levenshtein similarity** of the cleaned titles, and it is kept if it is **at or above the strictness** (default **0.70**).
+1. **Exact.** The file's title is tried through seven progressively stronger cleaning steps. If one equals the cleaned catalog title and at least one artist matches, the candidate scores 1.0.
+2. **Fuzzy.** Otherwise, for each candidate whose artist matches, the score is the normalised Levenshtein similarity of the cleaned titles, and it is kept if it is at or above the strictness (default 0.70).
 3. **Artist match** is true if any cleaned artist is equal, or one joined artist string contains the other's name, or the joined artists are similar enough by the same measure.
 4. **Duration** (only if enabled): rejects candidates more than the allowed seconds away from the decoded track length (default 30). A zero or unknown duration passes.
 5. **Ordering.** *Best match* sorts by score. *Oldest* or *newest release* sort by date. The first candidate wins.
 
-There is **no separate low-confidence band**: a candidate is accepted or dropped.
+There is no separate low-confidence band: a candidate is accepted or dropped.
 
 Matching is intentionally independent of the audio analysis. After a winner is chosen, the provider fetches the full track and, if needed, the release record for album artist, track total, catalogue number and artwork.
 
@@ -57,7 +57,7 @@ With *Album matching* on, when enough Incoming files in one folder resolve to th
 | `no_match` | None did. What happens next follows *No catalog match*. |
 | `already_tagged` | *Skip already tagged* is on and the file carries a marker. Analysis and cues still run. |
 
-An empty Traxsource result list is a no-match. A missing result list or a malformed row is an **error**, so a changed or blocked page leaves the track in Incoming instead of silently skipping the provider.
+An empty Traxsource result list is a no-match. A missing result list or a malformed row is an error, so a changed or blocked page leaves the track in Incoming instead of silently skipping the provider.
 
 ## Network behaviour
 

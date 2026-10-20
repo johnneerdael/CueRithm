@@ -3,7 +3,7 @@
 ## General
 
 **Does CueRithm change my audio files?**
-Only if you turn on automatic tagging or cleanup, and then only the tags, through a staged copy that is proven to contain identical audio. With both off, CueRithm never writes to your files. See [Safe tag writing](../technical/tag-writing.md).
+Automatic tagging and cleanup change only the tags. CueRithm writes to a staged copy and verifies that it contains identical audio. With both off, CueRithm never writes to your files. See [Safe tag writing](../technical/tag-writing.md).
 
 **Does it move or copy my music?**
 No. Incoming and Tracks are states inside the library. Files stay where they are.
@@ -12,10 +12,10 @@ No. Incoming and Tracks are states inside the library. Files stay where they are
 Not for analysis, cues, playlists or cleanup. Only catalog tagging, which is off by default, contacts Beatport and Traxsource.
 
 **Is my music uploaded anywhere?**
-No. Analysis runs on your computer. Tagging sends a title and artist search to the catalog, not audio.
+No. Analysis runs on your computer. Tagging sends the title and artist to the catalog as a search query; it does not send audio.
 
 **Why is there no Intel Mac build?**
-Intel Macs are not a target for this project. Apple Silicon only.
+I build for Apple Silicon only, so there is no Intel Mac version.
 
 **Can I sync to rekordbox?**
 Not yet. See [Not available yet](roadmap.md).
@@ -38,7 +38,7 @@ The detector searches 98 to 195 BPM and folds tracks into that range, so a 94 BP
 The grid is one constant tempo. See [Tempo and beatgrid](../technical/tempo.md).
 
 **I changed a setting and old tracks did not change.**
-By design. Analyze again to apply new settings to a finished track.
+Settings changes leave finished results intact. Choose **Analyze again** to apply the new settings to a finished track.
 
 ## Tagging
 
@@ -49,12 +49,12 @@ It needs the network and rewrites tags, so it is opt-in.
 You may be offline, or the provider may be blocking requests. They stay in Incoming. Check your connection and retry. Traxsource in particular has not been confirmed to work from every network.
 
 **Where are my original files after a tag write?**
-Kept in the data folder under `tagging/`, shown as *Recovery backups* in Settings.
+CueRithm keeps them in the data folder under `tagging/`. Settings shows them as *Recovery backups*.
 
 ## Cleanup and playlists
 
 **Can I undo a cleanup?**
-Yes, from the Undo history in Cleanup. A track edited since is kept as you left it and reported as a conflict.
+Yes, from the Undo history in Cleanup. If you have edited a track since applying cleanup, CueRithm keeps the newer edit and reports a conflict.
 
 **Why can't I add a track to a smart playlist?**
 Smart playlists are rule-driven. Use an ordinary playlist for hand-picked tracks, or take a snapshot with the Playlist tools.
