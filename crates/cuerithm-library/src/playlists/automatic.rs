@@ -32,8 +32,16 @@ impl Builder {
         definition: Option<SmartDefinition>,
     ) -> String {
         if let Some(id) = self.managed.get(key) {
-            // A user may move or rename a generated node. Keep that organization;
-            // deleting one is an explicit opt-out for that identity.
+            // Preserve names and organization while enabled categories retain
+            // ownership of their rules. Deleted nodes are explicit opt-outs.
+            if let Some(row) = self.tree.get_mut(id)
+                && !row.node.deleted
+                && row.node.kind == PlaylistKind::Smartlist
+                && row.node.definition != definition
+            {
+                row.node.definition = definition;
+                row.last_edit_id = "automatic".into();
+            }
             return id.clone();
         }
         let id = uuid::Uuid::new_v4().to_string();
@@ -159,6 +167,27 @@ pub(super) fn reconcile_in_transaction(conn: &Connection) -> Result<()> {
                     {
                         months.insert(month);
                     }
+                }
+            }
+            // Retained artist/genre/month lists stay managed even when their
+            // current grouping value disappears from the prepared library.
+            for key in builder.managed.keys() {
+                if settings.artists
+                    && let Some(name) = key.strip_prefix("artists/")
+                {
+                    artists.entry(name.into()).or_insert_with(|| name.into());
+                }
+                if settings.genres
+                    && let Some(name) = key.strip_prefix("genres/")
+                {
+                    genres.entry(name.into()).or_insert_with(|| name.into());
+                }
+                if settings.release_dates
+                    && let Some((month, _)) =
+                        key.strip_prefix("dates/").and_then(|s| s.split_once('/'))
+                    && let Ok(month) = month.parse::<u32>()
+                {
+                    months.insert(month);
                 }
             }
             for (enabled, key, name, field, names) in [

@@ -746,12 +746,12 @@ impl Library {
                     .join("\n"),
                 ),
             );
-            if let Ok(info) = &media {
-                if let Some(month) = credits::release_month(&info.tags) {
-                    row.track
-                        .fields
-                        .insert("releaseMonth".into(), FieldValue::Number(month.into()));
-                }
+            if let Ok(info) = &media
+                && let Some(month) = credits::release_month(&info.tags)
+            {
+                row.track
+                    .fields
+                    .insert("releaseMonth".into(), FieldValue::Number(month.into()));
             }
             let parsed = analysis
                 .as_deref()

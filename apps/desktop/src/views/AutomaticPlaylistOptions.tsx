@@ -23,6 +23,6 @@ export default function AutomaticPlaylistOptions({value,onChange}:{value:Automat
   <label className="setting-row"><div><strong>By release date</strong><p>Year and month folders with all tracks, Warm-Up (energy 1–5), Dancefloor (6–7) and Anthems (8–10). Tracks need a release month and year.</p></div><input aria-label="By release date" type="checkbox" checked={value.release_dates} onChange={e=>toggle("release_dates",e.target.checked)}/></label>
   <label className="setting-row"><div><strong>By Genre</strong><p>One list for each genre found in your library.</p></div><input aria-label="By Genre" type="checkbox" checked={value.genres} onChange={e=>toggle("genres",e.target.checked)}/></label>
   <label className="setting-row"><div><strong>By Key</strong><p>24 Camelot lists of compatible tracks. Uses the key compatibility mode in Library preferences, with harmonic mixing as the default.</p></div><input aria-label="By Key" type="checkbox" checked={value.keys} onChange={e=>toggle("keys",e.target.checked)}/></label>
-  <p className="setting-note">Lists appear under Automatic Smart Playlists. Turning an option off or removing a range keeps its existing lists. List memberships continue to update.</p>
+  <p className="setting-note">Lists appear under Automatic Smart Playlists. Turning an option off or removing a range keeps its existing lists. List memberships continue to update. Enabled options maintain generated list rules; duplicate a list to customize its rules.</p>
  </>;
 }

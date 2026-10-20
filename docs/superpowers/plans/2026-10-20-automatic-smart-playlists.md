@@ -36,10 +36,10 @@ Preserve music, tags, manual nodes, existing preferences, cue DSP and user undo.
 ## Execution notes
 
 - Task 1 complete: grouping fields preserve whole credits, effective native remixer/genre values, release-source priority and month precision. Unicode regression passes.
-- Task 2 complete: seven automatic integration tests pass, including atomic rollback, future-month creation after service restart, default opt-in, harmonic aliases/wraparound, energy boundaries and manual isolation.
+- Task 2 complete: eight automatic integration tests pass, including atomic rollback, future-month creation after service restart, default opt-in, harmonic aliases/wraparound, energy boundaries and manual isolation.
 - Task 3 complete: all 299 frontend tests pass, production build and visual screenshot checked. Existing Library preferences drafts remain shared with Smart Playlists to avoid stale preference writes.
-- Independent review: one effective-remixer mismatch identified; regression failed before correction and passed after native remixer overlay. No remaining findings or deferred minors. Reviewed organization decisions match the spec: preserve lists on disable/range removal, preserve user renames/moves, suppress deleted managed identities, and leave old manual releaseDate semantics intact.
-- Full workspace tests, Clippy and release build are running. Initial broad checks hit disk pressure; cleared only this worktree's disposable incremental cache and resumed with CARGO_INCREMENTAL=0.
+- Independent review: one effective-remixer mismatch identified; regression failed before correction and passed after native remixer overlay. GitHub review additionally requested maintaining enabled managed-list rules; a failing regression now verifies rule repair while preserving names and folders, and that disabled lists remain customizable. No deferred minors. Reviewed organization decisions match the spec: preserve lists on disable/range removal, preserve user renames/moves, suppress deleted managed identities, and leave old manual releaseDate semantics intact.
+- Clippy, release build, frontend suite/build and documentation build are required alongside the full workspace suite before merge; final evidence is recorded in the PR. Initial broad checks hit disk pressure; cleared only this worktree's disposable incremental cache and old object files and resumed with CARGO_INCREMENTAL=0.
 
 ### Task 4: Verify and merge
 - [ ] Run workspace test/fmt/clippy/release commands and update docs with actual results.

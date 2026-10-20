@@ -2031,3 +2031,74 @@ fn automatic_months_use_all_energy_boundaries_and_keep_unknown_energy_in_all_tra
         }
     }
 }
+
+#[test]
+fn automatic_enabled_lists_repair_rules_while_retaining_names_and_folders() {
+    let f = fixture();
+    enable_automatic(&f.lib, serde_json::json!({"keys":true})).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    let id = state
+        .nodes
+        .iter()
+        .find(|n| n.name == "8A")
+        .unwrap()
+        .id
+        .clone();
+    create(&f.lib, "custom-parent", None, PlaylistKind::Folder, None);
+    let wrong = definition(
+        "title",
+        Operator::StringEquals,
+        RuleValue::Text("never matches".into()),
+    );
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::Batch {
+                edits: vec![
+                    PlaylistEdit::Rename {
+                        id: id.clone(),
+                        name: "My harmonic list".into(),
+                    },
+                    PlaylistEdit::Move {
+                        id: id.clone(),
+                        parent_id: Some("custom-parent".into()),
+                        position: 0,
+                    },
+                    PlaylistEdit::SetDefinition {
+                        id: id.clone(),
+                        definition: wrong.clone(),
+                    },
+                ],
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    let state = f.lib.playlist_state().unwrap();
+    let node = state.nodes.iter().find(|n| n.id == id).unwrap();
+    assert_eq!(node.name, "My harmonic list");
+    assert_eq!(node.parent_id.as_deref(), Some("custom-parent"));
+    assert_eq!(f.lib.playlist_members(&id).unwrap(), f.ids[..2]);
+    enable_automatic(&f.lib, serde_json::json!({})).unwrap();
+    f.lib
+        .apply_playlist_edit(
+            PlaylistEdit::SetDefinition {
+                id: id.clone(),
+                definition: wrong.clone(),
+            },
+            f.lib.playlist_state().unwrap().revision,
+        )
+        .unwrap();
+    f.lib.refresh_smart_lists(NOW).unwrap();
+    assert!(f.lib.playlist_members(&id).unwrap().is_empty());
+    assert_eq!(
+        f.lib
+            .playlist_state()
+            .unwrap()
+            .nodes
+            .into_iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .definition,
+        Some(wrong)
+    );
+}
