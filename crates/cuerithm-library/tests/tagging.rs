@@ -562,3 +562,108 @@ fn organization_tag_checkpoint_survives_every_tag_publication_restart_gap() {
         drop(_dir);
     }
 }
+
+#[test]
+fn solver_only_retry_keeps_prepared_and_tagging_journal_revisions() {
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::{Duration, Instant},
+    };
+    struct NoCatalog(AtomicUsize);
+    impl cuerithm_autotag::ProviderBackend for NoCatalog {
+        fn id(&self) -> cuerithm_autotag::ProviderId {
+            cuerithm_autotag::ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            anyhow::bail!("accepted checkpoint must not contact a catalog")
+        }
+    }
+    for prepared in [false, true] {
+        let f = Fixture::new();
+        let mut settings = f.lib.settings().unwrap().settings;
+        settings.tagging = Some(AutotagConfig::default());
+        settings.organization = cuerithm_library::OrganizationSettings {
+            mode: cuerithm_library::OrganizationSettingMode::RenameInPlace,
+            pattern: "{original_name}".into(),
+            ..Default::default()
+        };
+        f.lib.save_settings(settings.clone()).unwrap();
+        let (run, mut staged, result) = f.prepare("Accepted checkpoint title");
+        let output = staged.source_after_sha256.clone();
+        let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+        if prepared {
+            f.lib.publish_preparation(&run, &journal).unwrap();
+        }
+        f.lib
+            .fail_for_run(&run, "organizing", "fixture interruption")
+            .unwrap();
+        let before = file_sha256(&f.source).unwrap();
+        let mut engine_change = settings.clone();
+        engine_change.engine.sample_rate = 22050;
+        engine_change.tagging.as_mut().unwrap().solver.endpoint =
+            Some("http://127.0.0.1:8191".into());
+        let engine_revision = f.lib.save_settings(engine_change).unwrap();
+        assert!(
+            f.lib.retry(&run.id, Some(engine_revision)).is_err(),
+            "real analysis changes must not replace an accepted checkpoint"
+        );
+        assert_eq!(file_sha256(&f.source).unwrap(), before);
+        settings.tagging.as_mut().unwrap().solver.endpoint = Some("http://127.0.0.1:8191".into());
+        settings.tagging.as_mut().unwrap().solver.timeout_seconds = 41;
+        let transport_revision = f.lib.save_settings(settings).unwrap();
+        assert_ne!(transport_revision, run.settings_revision);
+        f.lib
+            .retry(&run.id, Some(transport_revision))
+            .expect("transport-only retry must retain the accepted tag journal");
+        let sql = rusqlite::Connection::open(&f.db).unwrap();
+        let revisions:(String,String,String)=sql.query_row("SELECT j.settings_revision,p.settings_revision,w.settings_revision FROM jobs j JOIN preparation_checkpoints p ON p.job_id=j.id JOIN tag_writes w ON w.id=?1 WHERE j.id=?2",rusqlite::params![journal,run.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!(
+            revisions,
+            (
+                run.settings_revision.clone(),
+                run.settings_revision.clone(),
+                run.settings_revision.clone()
+            )
+        );
+        drop(sql);
+        let catalog = Arc::new(NoCatalog(AtomicUsize::new(0)));
+        let service = cuerithm_library::PreparationService::start_with_tagger(
+            f.lib.clone(),
+            f.rt.clone(),
+            1,
+            Arc::new(cuerithm_autotag::Tagger::with_backends(vec![catalog.clone()]).unwrap()),
+        )
+        .unwrap();
+        let started = Instant::now();
+        loop {
+            let job = f
+                .lib
+                .jobs()
+                .unwrap()
+                .into_iter()
+                .find(|j| j.id == run.id)
+                .unwrap();
+            if job.state == "completed" {
+                break;
+            }
+            assert_ne!(job.state, "attention", "{job:?}");
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "checkpoint retry timed out: {job:?}"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        service.shutdown();
+        assert_eq!(catalog.0.load(Ordering::SeqCst), 0);
+        assert_eq!(file_sha256(&f.source).unwrap(), output);
+        assert_eq!(f.lib.cue_revision_count(&run.track_id).unwrap(), 1);
+        assert_eq!(
+            f.lib.track(&run.track_id).unwrap().title,
+            "Accepted checkpoint title"
+        );
+    }
+}

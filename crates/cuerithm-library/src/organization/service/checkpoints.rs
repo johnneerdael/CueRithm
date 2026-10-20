@@ -202,21 +202,24 @@ impl Library {
                         })?;
                     Ok(serde_json::from_str(&text)?)
                 };
-                let mut before = load(&old)?;
+                let before = load(&old)?;
                 let after = load(revision)?;
-                before.settings.organization = after.settings.organization.clone();
-                ensure!(
-                    before.models == after.models
-                        && serde_json::to_value(&before.settings)?
-                            == serde_json::to_value(&after.settings)?,
-                    "Prepared checkpoint retains its analysis and tagging configuration; finish recovery before preparing with different analysis settings"
-                );
-                ensure!(tx.query_row("SELECT state='prepared' AND batch_id IS NULL FROM preparation_checkpoints WHERE job_id=?1",[job],|r|r.get::<_,bool>(0))?,"Organization has a durable operation; retry its original settings to finish recovery before changing naming rules");
-                tx.execute(
-                    "UPDATE preparation_checkpoints SET settings_revision=?1 WHERE job_id=?2",
-                    params![revision, job],
-                )?;
-                tx.execute("UPDATE jobs SET settings_revision=?1 WHERE id=?2 AND state IN ('attention','queued')",params![revision,job])?;
+                if !Self::settings_equal_except_solver(&before, &after)? {
+                    let mut renamed = before;
+                    renamed.settings.organization = after.settings.organization.clone();
+                    ensure!(
+                        Self::settings_equal_except_solver(&renamed, &after)?,
+                        "Prepared checkpoint retains its analysis and tagging configuration; finish recovery before preparing with different analysis settings"
+                    );
+                    ensure!(tx.query_row("SELECT state='prepared' AND batch_id IS NULL FROM preparation_checkpoints WHERE job_id=?1",[job],|r|r.get::<_,bool>(0))?,"Organization has a durable operation; retry its original settings to finish recovery before changing naming rules");
+                    tx.execute(
+                        "UPDATE preparation_checkpoints SET settings_revision=?1 WHERE job_id=?2",
+                        params![revision, job],
+                    )?;
+                    tx.execute("UPDATE jobs SET settings_revision=?1 WHERE id=?2 AND state IN ('attention','queued')",params![revision,job])?;
+                }
+                // Solver-only retries keep the original checkpoint, journal and
+                // native reference revision; the accepted output needs no HTTP.
             }
         }
         ensure!(tx.execute("UPDATE jobs SET state='queued',stage='queued',error=NULL,updated=?1 WHERE id=?2 AND state IN ('attention','queued') AND EXISTS(SELECT 1 FROM tracks t JOIN preparation_checkpoints p ON p.track_id=t.id WHERE p.job_id=jobs.id AND t.current_job=jobs.id AND t.archived=0 AND t.state='incoming' AND p.state!='complete')",params![now(),job])?==1,"Preparation is running or no longer owns its checkpoint; finish recovery before replacing it");
@@ -551,7 +554,10 @@ mod retry_tests {
     use cuerithm_cleanup::{Metadata, MetadataField};
     #[test]
     fn restart_rebinds_only_attempt_and_finishes_original_plan_without_duplicate_cues() {
-        for stop_at in [Boundary::StageReserved, Boundary::Published] {
+        for (stop_at, solver_retry) in [Boundary::StageReserved, Boundary::Published]
+            .into_iter()
+            .flat_map(|at| [(at, false), (at, true)])
+        {
             let temp = tempfile::tempdir().unwrap();
             let root = temp.path().canonicalize().unwrap();
             let db = root.join("data/library.sqlite");
@@ -562,6 +568,7 @@ mod retry_tests {
             std::fs::create_dir(&managed).unwrap();
             let grant = library.register_organization_root(managed.clone()).unwrap();
             let mut settings = crate::PreparationSettings {
+                tagging: Some(cuerithm_autotag::AutotagConfig::default()),
                 organization: OrganizationSettings {
                     mode: OrganizationSettingMode::Move,
                     pattern: "{original_name} - managed".into(),
@@ -674,8 +681,14 @@ mod retry_tests {
             library
                 .fail_for_run(&old, "organizing", "fixture interruption")
                 .unwrap();
-            settings.organization.pattern = "new-rule-{original_name}".into();
-            library.save_settings(settings).unwrap();
+            if solver_retry {
+                settings.tagging.as_mut().unwrap().solver.endpoint =
+                    Some("http://127.0.0.1:8191".into());
+                settings.tagging.as_mut().unwrap().solver.timeout_seconds = 41;
+            } else {
+                settings.organization.pattern = "new-rule-{original_name}".into();
+            }
+            let requested_revision = library.save_settings(settings).unwrap();
             assert_eq!(library.jobs().unwrap()[0].id, job);
             drop(library);
             let library = Library::open(&db).unwrap();
@@ -683,7 +696,19 @@ mod retry_tests {
                 source.exists(),
                 "startup cannot blindly retire an unacknowledged source"
             );
-            library.retry(&job, None).unwrap();
+            let receipts = |library: &Library| {
+                let conn = library.conn().unwrap();
+                (conn.query_row("SELECT json_group_array(json_array(id,state,payload_json)) FROM organization_operations",[],|r|r.get::<_,String>(0)).unwrap(),conn.query_row("SELECT json_group_array(json_array(operation_id,state,digest,payload_json,verification_digest)) FROM organization_reference_intents",[],|r|r.get::<_,String>(0)).unwrap())
+            };
+            let before_retry = receipts(&library);
+            library
+                .retry(&job, solver_retry.then_some(requested_revision))
+                .expect("solver-only retry must preserve the existing durable operation");
+            assert_eq!(
+                receipts(&library),
+                before_retry,
+                "Retry cannot rewrite native operation/reference evidence"
+            );
             let current = library.claim_next().unwrap().unwrap();
             assert_eq!(current.attempt, old.attempt + 1);
             assert_eq!(current.settings_revision, old.settings_revision);

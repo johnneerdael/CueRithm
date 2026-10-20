@@ -40,6 +40,8 @@ Native desktop work takes a `MaintenanceTasks` lease. Shutdown cancels the activ
 
 An Incoming-owned batch exposes `resume_job_id` only while its current job needs attention. The UI routes **Retry in Incoming** through `retry_job(use_captured_settings: true)`; generic recovery and Undo cannot take ownership from preparation. Queued or running Incoming work has no manual resume action.
 
+A solver-only settings change is transport configuration. Retrying an existing preparation checkpoint keeps its captured settings, accepted tags and durable organization/reference receipts. New naming rules still require an unpublished organization plan. Before a checkpoint exists, retrying with new solver settings uses that transport configuration and may reuse the prior analysis only after the normal source, engine/model, decoder, clock and PCM checks; changing analysis or tagging semantics is not equivalent.
+
 Batch totals separately report `completed`, `unchanged`, `skipped`, `blocked`, `failed`, `recovery_required` and `cancelled`. An error can follow partial publication, so mutation commands emit library and organization change notifications on both success and failure. Fetch history to establish the outcome; a rejected invocation alone does not prove that no file changed.
 
 ## Copy originals

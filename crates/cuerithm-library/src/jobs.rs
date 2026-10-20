@@ -292,13 +292,16 @@ impl Library {
         if self.retry_preparation_checkpoint(id, revision.as_deref())? {
             return Ok(id.to_owned());
         }
-        let (track, old_revision): (String, String) = self.conn()?.query_row(
-            "SELECT track_id,settings_revision FROM jobs WHERE id=?1",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )?;
+        let (track, old_revision, original_source): (String, String, String) =
+            self.conn()?.query_row(
+                "SELECT track_id,settings_revision,source_hash FROM jobs WHERE id=?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?;
+        let revision = revision.unwrap_or_else(|| old_revision.clone());
+        self.alias_solver_retry_analysis(&original_source, &old_revision, &revision)?;
         let path = self.track_path(&track)?;
-        let next = self.enqueue(&[path], revision.unwrap_or(old_revision))?[0].clone();
+        let next = self.enqueue(&[path], revision)?[0].clone();
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(
