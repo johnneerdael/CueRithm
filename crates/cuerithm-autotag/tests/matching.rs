@@ -440,6 +440,57 @@ fn provider_other_tags_cannot_bypass_explicit_or_native_record_protection() {
 }
 
 #[test]
+fn mp4_provider_other_tags_cannot_alias_protected_fields_through_extra_components() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::OtherTags];
+    for key in [
+        "com.apple.iTunes:LABEL:ignored",
+        "iTunes:LABEL",
+        "----:com.apple.iTunes:LABEL:ignored",
+        "com.apple.iTunes:RATING:ignored",
+        "com.apple.iTunes:SERATO_MARKERS:ignored",
+        "com.apple.iTunes:BEATPORT_TRACK_ID:ignored",
+    ] {
+        let mut source = input();
+        source.media.codec = "alac".into();
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        let output = TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        assert!(
+            TagWritePlan::build(source, &output, &config, &AnalysisTags::default()).is_err(),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn mp4_provider_other_tags_keep_unrelated_freeform_names() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::OtherTags];
+    let mut source = input();
+    source.media.codec = "alac".into();
+    let mut candidate = track(ProviderId::Beatport, "Signal");
+    candidate.other = vec![(
+        FrameName::same("com.apple.iTunes:CUERITHM_NOTE"),
+        vec!["kept".into()],
+    )];
+    let output = TagMatchOutcome {
+        status: MatchStatus::Matched,
+        matches: vec![CatalogMatch::new(1., candidate)],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    TagWritePlan::build(source, &output, &config, &AnalysisTags::default()).unwrap();
+}
+
+#[test]
 fn explicit_release_preference_can_choose_reissues_but_never_conflicting_recordings() {
     struct Reissues {
         conflict: bool,
@@ -499,6 +550,10 @@ fn custom_style_binding_cannot_overwrite_unselected_native_fields() {
         ("alac", "©day"),
         ("mp3", "TYER"),
         ("flac", "CUERITHM_TAGGEDDATE"),
+        // The MP4 writer keeps only the first two `:` components of a freeform key.
+        ("alac", "com.apple.iTunes:LABEL:ignored"),
+        ("alac", "iTunes:LABEL"),
+        ("alac", "com.apple.iTunes:RATING:ignored"),
     ] {
         let mut config = AutotagConfig::default();
         config.options.tags = vec![SupportedTag::Style];
