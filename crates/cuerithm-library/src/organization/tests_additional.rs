@@ -588,6 +588,8 @@ fn read_only_audio_keeps_its_permissions_through_publication_and_recovery() {
     );
     f.library.recover_organization().unwrap();
     #[cfg(windows)]
+    // Windows read-only files must be made writable so the fixture can be removed.
+    #[allow(clippy::permissions_set_readonly_false)]
     for path in [&f.target, &backup] {
         let mut permissions = std::fs::metadata(path).unwrap().permissions();
         permissions.set_readonly(false);
