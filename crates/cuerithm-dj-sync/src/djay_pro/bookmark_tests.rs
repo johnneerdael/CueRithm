@@ -31,6 +31,13 @@ fn bookmark(path: &str) -> Vec<u8> {
     b
 }
 #[test]
+fn bookmark_parser_preserves_posix_path_spelling_on_every_host() {
+    for path in ["/music/café & mix.wav", "/music/C:/track.wav"] {
+        let decoded = bookmark::stored_path(&bookmark(path)).unwrap().unwrap();
+        assert_eq!(decoded.to_str(), Some(path));
+    }
+}
+#[test]
 fn stored_bookmark_path_recovers_existing_native_uuid() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("MediaLibrary.db");

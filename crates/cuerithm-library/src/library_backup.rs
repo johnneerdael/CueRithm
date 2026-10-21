@@ -2004,7 +2004,7 @@ mod inventory_phase_tests {
             )
             .unwrap();
         let native = root.join("database.xml");
-        fs::write(&native,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Tags Author="Authored remote artist"/></Song></VirtualDJ_Database>"#,source.display())).unwrap();
+        fs::write(&native,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Tags Author="Authored remote artist"/></Song></VirtualDJ_Database>"#,cuerithm_dj_sync::destination_reference(&source).display())).unwrap();
         library
             .seed_organization_reference_fixture(
                 "fixture",

@@ -1736,7 +1736,12 @@ fn explicit_source_only_relocation_rewrites_complete_bundle_paths_and_preserves_
         .read_collection(Default::default(), &cancel)
         .unwrap();
     let track = &published.tracks[0];
-    assert_eq!(track.source.path.as_deref(), moved.to_str());
+    let native_reference = cuerithm_dj_sync::destination_reference(
+        &prior.target.environment.to_native(&moved).unwrap(),
+    );
+    assert_eq!(track.source.path.as_deref(), native_reference.to_str());
+    #[cfg(windows)]
+    assert!(!track.source.path.as_deref().unwrap().starts_with(r"\\?\"));
     assert_eq!(track.cues.len(), 1);
     assert_eq!(track.cues[0].id, "foreign-hot");
     assert_eq!(track.cues[0].start_seconds, Some(0.1));
@@ -1758,7 +1763,7 @@ fn explicit_source_only_relocation_rewrites_complete_bundle_paths_and_preserves_
             file.tags()
                 .iter()
                 .filter(|tag| tag.fourcc() == *b"PPTH")
-                .all(|tag| tag.audio_path().unwrap() == moved.to_str().unwrap())
+                .all(|tag| tag.audio_path().unwrap() == native_reference.to_str().unwrap())
         );
     }
     assert_eq!(fs::read(&f.old_asset).unwrap(), old);

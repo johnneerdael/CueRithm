@@ -65,7 +65,9 @@ fn read(bytes: &[u8]) -> Result<PathBuf> {
                 !array.is_empty() && array.len() % 4 == 0 && array.len() <= 1024,
                 "invalid bookmark path array"
             );
-            let mut path = PathBuf::from("/");
+            // Bookmark components describe a POSIX path, regardless of the
+            // host. PathBuf::push would insert Windows separators or prefixes.
+            let mut path = String::new();
             for offset in array.as_chunks::<4>().0 {
                 let component = item(bytes, base, u32::from_le_bytes(*offset) as usize, 0x100)?;
                 let component =
@@ -77,9 +79,10 @@ fn read(bytes: &[u8]) -> Result<PathBuf> {
                         && !component.contains(['/', '\\', '\0']),
                     "unsafe bookmark path component"
                 );
-                path.push(component);
+                path.push('/');
+                path.push_str(component);
             }
-            paths.insert(path);
+            paths.insert(PathBuf::from(path));
         }
         toc = word(bytes, at + 12)?;
     }

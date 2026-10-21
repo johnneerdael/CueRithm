@@ -1,6 +1,15 @@
 use super::*;
 use crate::organization::{OrganizationMode, OrganizationRequest};
 use std::sync::mpsc;
+
+// Native DJ databases store ordinary paths; keep canonical filesystem paths in
+// the library and only project strings when authoring or inspecting native XML.
+fn native_reference(path: &std::path::Path) -> String {
+    cuerithm_dj_sync::destination_reference(path)
+        .to_str()
+        .unwrap()
+        .to_owned()
+}
 fn fixture() -> (tempfile::TempDir, Library, PathBuf, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();
@@ -152,8 +161,10 @@ fn linked_reference_repairs_only_path_before_local_ack_and_preserves_remote_edit
     let database = root.join("database.xml");
     let original = format!(
         r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Tags Author="Remote artist"/><Scan BeatGrid="remote grid"/><Poi Type="cue" Pos="99"/></Song></VirtualDJ_Database>"#,
-        source.display()
+        native_reference(&source)
     );
+    #[cfg(windows)]
+    assert!(!original.contains(r"\\?\"));
     fs::write(&database, &original).unwrap();
     let target = SyncTarget {
         environment: Default::default(),
@@ -172,7 +183,7 @@ fn linked_reference_repairs_only_path_before_local_ack_and_preserves_remote_edit
     assert!(source.is_file());
     assert_eq!(library.track_path("track").unwrap(), source);
     let native = fs::read_to_string(&database).unwrap();
-    assert!(native.contains(destination.to_str().unwrap()));
+    assert!(native.contains(&native_reference(&destination)));
     for value in ["Remote artist", "remote grid", "99"] {
         assert!(native.contains(value));
     }
@@ -215,7 +226,7 @@ fn linked_target(
 ) -> SyncTarget {
     let body = format!(
         r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Tags Author="Remote artist"/><Scan BeatGrid="remote grid"/><Poi Type="cue" Pos="99"/></Song></VirtualDJ_Database>"#,
-        source.display()
+        native_reference(source)
     );
     fs::write(path, body).unwrap();
     let target = SyncTarget {
@@ -328,7 +339,7 @@ fn partial_multi_target_repair_retains_original_and_retry_does_not_republish_com
     assert!(
         fs::read_to_string(&first)
             .unwrap()
-            .contains(destination.to_str().unwrap())
+            .contains(&native_reference(&destination))
     );
     assert!(
         fs::read_to_string(&second)
@@ -418,7 +429,7 @@ fn acknowledged_target_edit_blocks_cleanup_verification_without_overwrite() {
     drop(guard);
     let changed = fs::read_to_string(&database)
         .unwrap()
-        .replace(destination.to_str().unwrap(), source.to_str().unwrap());
+        .replace(&native_reference(&destination), &native_reference(&source));
     fs::write(&database, &changed).unwrap();
     let library_path = dir.path().canonicalize().unwrap().join("library.db");
     drop(library);
@@ -441,7 +452,7 @@ fn a_retained_reference_guard_cannot_acknowledge_a_later_external_native_edit() 
     let guard = library.repair_organization_references(&operation).unwrap();
     let changed = fs::read_to_string(&database)
         .unwrap()
-        .replace(destination.to_str().unwrap(), source.to_str().unwrap());
+        .replace(&native_reference(&destination), &native_reference(&source));
     fs::write(&database, &changed).unwrap();
     assert!(
         library
@@ -465,7 +476,7 @@ fn a_retained_reference_guard_cannot_retire_source_after_a_later_external_native
         .unwrap();
     let changed = fs::read_to_string(&database)
         .unwrap()
-        .replace(destination.to_str().unwrap(), source.to_str().unwrap());
+        .replace(&native_reference(&destination), &native_reference(&source));
     fs::write(&database, &changed).unwrap();
     assert!(
         library
@@ -487,7 +498,7 @@ fn a_verified_own_receipt_can_rebase_another_frozen_track_snapshot() {
     let hash = file_hash(&second).unwrap().unwrap();
     library.conn().unwrap().execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('second',?1,'Second',?2,'incoming',1,1)",params![NativePath::new(&second).0,hash]).unwrap();
     let database = root.join("database.xml");
-    fs::write(&database,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/><Song FilePath="{}"/></VirtualDJ_Database>"#,source.display(),second.display())).unwrap();
+    fs::write(&database,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/><Song FilePath="{}"/></VirtualDJ_Database>"#,native_reference(&source),native_reference(&second))).unwrap();
     let target = SyncTarget {
         environment: Default::default(),
         software: cuerithm_dj_sync::DjSoftware::VirtualDj,
@@ -525,8 +536,8 @@ fn a_verified_own_receipt_can_rebase_another_frozen_track_snapshot() {
         .acknowledge_organization_references_checked(&operation, &guard)
         .unwrap();
     let native = fs::read_to_string(database).unwrap();
-    assert!(native.contains(destination.to_str().unwrap()));
-    assert!(native.contains(second_destination.to_str().unwrap()));
+    assert!(native.contains(&native_reference(&destination)));
+    assert!(native.contains(&native_reference(&second_destination)));
     assert!(source.is_file());
     assert!(second.is_file());
     drop(guard);
@@ -588,7 +599,7 @@ fn copy_inverse_rebinds_to_owned_original_and_preserves_later_native_edits() {
         .execute_organization_checked(&inverse, &guard)
         .unwrap();
     let native = fs::read_to_string(database).unwrap();
-    assert!(native.contains(source.to_str().unwrap()));
+    assert!(native.contains(&native_reference(&source)));
     assert!(native.contains("Edited after organization"));
     assert!(native.contains("remote grid"));
     assert_eq!(library.track_path("track").unwrap(), source);
@@ -665,7 +676,7 @@ fn pending_copy_source_edit_requires_an_explicit_choice_and_preserves_native_met
         assert_eq!(fs::read(&source).unwrap(), changed);
         assert_eq!(fs::read(&destination).unwrap(), original);
         let native = fs::read_to_string(&database).unwrap();
-        assert!(native.contains(destination.to_str().unwrap()));
+        assert!(native.contains(&native_reference(&destination)));
         for value in ["Remote artist", "remote grid", "99"] {
             assert!(native.contains(value));
         }

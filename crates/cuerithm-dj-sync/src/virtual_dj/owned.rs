@@ -466,7 +466,7 @@ mod tests {
             .iter()
             .find(|b| b.source_id == "leaf")
             .unwrap();
-        assert!(leaf.locator.starts_with("Playlists/CueRithm/"));
+        assert!(Path::new(&leaf.locator).starts_with("Playlists/CueRithm"));
         assert!(leaf.locator.ends_with(".m3u"));
         assert_eq!(
             fs::read_to_string(home.join(&leaf.locator)).unwrap(),
