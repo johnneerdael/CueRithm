@@ -7,7 +7,7 @@ CueRithm keeps everything it knows in a single SQLite database, with a small set
 - SQLite (bundled with the app, via `rusqlite`), file name `library.sqlite`, in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on, a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library (a non-empty SQLite file without it is rejected).
-- Schema version (`user_version`) is currently 12. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
+- Schema version (`user_version`) is currently 15. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live
 
@@ -23,7 +23,7 @@ CueRithm keeps everything it knows in a single SQLite database, with a small set
 
 On macOS the data folder is `~/Library/Application Support/com.cuerithm.app`. See [Install](../get-started/install.md#where-cuerithm-keeps-its-data).
 
-If you move or delete a track outside CueRithm, its stored path breaks. A scan for missing files exists in the code but its screens are not finished.
+If you move or delete a track outside CueRithm, its stored path breaks. Use [Maintenance](../guides/maintenance.md) to scan for missing or unreadable files. This identifies problems; it does not automatically relocate music.
 
 ## Core tables
 
@@ -65,3 +65,5 @@ Everything in the preparation settings (watch folders, cue settings, tagging, cl
 ## Backups
 
 Original bytes of every file that CueRithm changes are kept indefinitely under `tagging/`. There is no retention control yet. The size is visible as *Recovery backups* on the tagging settings page.
+
+[Library backup](../guides/library-backup.md) saves the database and a consistency manifest. It excludes music and requires this installation, a compatible app/schema and unchanged required files for restore. A database restore does not reverse music-tag or DJ-software edits.

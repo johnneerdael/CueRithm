@@ -34,9 +34,10 @@ request to plan additional powerful automation tools for home DJs.
 | 4 | Local health-check schedule | Check my library weekly for duplicate and missing-file findings. | Scans and reports while CueRithm is running; no automatic removal or merge. |
 | 5 | Ready-to-sync workflow | Check this crate, then prepare a preview for my home DJ library. | Preflight and preview; publication stays a reviewed action. |
 
-Scheduled portable backups can be added after the separate library-backup
-delivery establishes a coherent, tested backup/restore API. They are not a
-substitute for that delivery and are not included in the first implementation.
+Scheduled backups can build on the separate library-backup API, preserving its
+same-installation and source/resource consistency restrictions. They are not
+included in the first automation implementation. Portable migration needs a
+separate design; the current backup does not provide it.
 
 ## Requirements
 

@@ -40,6 +40,7 @@ fn native_reader_opens_real_encryption_without_exposing_keys_or_accepting_plain_
     );
     let reader = ReadOnlyDatabase::open(&path, &key()).unwrap();
     let schema = reader.schema().unwrap();
+    assert!(!reader.write_capability().unwrap().can_write());
     assert_eq!(schema.user_version, 7);
     assert_eq!(schema.application_id, 34);
     assert!(schema.objects.iter().any(|o| o.name == "authored"));

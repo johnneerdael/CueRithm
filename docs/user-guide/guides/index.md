@@ -10,6 +10,12 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Playlists, folders and favourites](playlists.md) | Creating, moving, removing, restoring, drag and drop |
 | [Smart playlist rules](smart-rules.md) | Fields, operators, combinators, evaluation |
 | [Playlist tools and generator](playlist-tools.md) | Combine, snapshot, sort, number, prefix, uppercase, generate |
+| [Maintenance](maintenance.md) | Duplicate review, missing/broken checks, unused-file removal, Restore and recovery |
+| [Correct cues, loops and beatgrid](manual-corrections.md) | Manual corrections, reusable cue templates, preview and Undo |
+| [Find compatible tracks](compatible-tracks.md) | Key/BPM/energy filters, audition and save selected matches |
+| [Playlist flow](playlist-flow.md) | Ordered energy, BPM changes and adjacent key compatibility |
+| [Match a reference tracklist](tracklist-matcher.md) | Text/CSV input, explicit version choices and ordered playlists |
+| [Library backup and restore](library-backup.md) | Local snapshots, consistency checks and restart-only restoration |
 | [Cleanup rules](cleanup-rules.md) | The eleven Smart Fixes, genres, artists, limits |
 | [Automatic tagging settings](tagging-settings.md) | Every option on the tagging page |
 | [Settings reference](settings.md) | All six settings pages |

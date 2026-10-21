@@ -10,7 +10,7 @@ rust-version = "1.89"
 license = "MIT"
 
 [workspace.dependencies]
-rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
+rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled", "cache", "fallible_uint", "backup"] }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

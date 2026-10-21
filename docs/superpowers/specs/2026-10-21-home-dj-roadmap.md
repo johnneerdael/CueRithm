@@ -4,8 +4,9 @@ Date: 2026-10-21
 
 Status: feature scope and delivery order approved in conversation. The first
 delivery design and implementation plan were also approved on 2026-10-21.
-This document records intended work,
-not implemented or released features.
+The six home-DJ workflows below are implemented on the feature branch, with
+local validation recorded in the pull request. They have not been released.
+Direct rekordbox completion remains unfinished and disabled.
 
 ## Intended outcome
 
@@ -23,7 +24,7 @@ implementation and fixture validation.
 Direct rekordbox 6/7 synchronization is a separate unfinished requirement. Its
 copied-database import and observations are foundations, not an enabled writer.
 Duplicate review, merge, donor transfer, missing/unused scans and recovery also
-exist as backend operations; dedicated maintenance screens remain unfinished.
+exist as backend operations and now have dedicated maintenance screens.
 
 ## Delivery sequence and completion criteria
 
@@ -70,7 +71,9 @@ exist as backend operations; dedicated maintenance screens remain unfinished.
 
 Maintenance is one of the six approved improvements; it appears early because
 the backend is already present. Direct rekordbox completion is the existing
-prerequisite, not a seventh newly invented feature.
+requirement, not a seventh newly invented feature. Its native mappings, publication
+and application acceptance remain incomplete; the six independent home-DJ
+workflows proceeded while that work remains disabled.
 
 ## Delivery boundaries
 

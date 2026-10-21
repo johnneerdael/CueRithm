@@ -6,6 +6,7 @@ mod key_provider;
 pub use discovery::*;
 pub use key_provider::*;
 mod records;
+mod write_profile;
 use anyhow::{Context, Result, ensure};
 pub use collection::*;
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
@@ -19,6 +20,9 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+pub use write_profile::*;
+mod writer;
+pub use writer::*;
 use zeroize::Zeroizing;
 
 /// Runtime-only material: never serializable and never included in diagnostics.
@@ -202,6 +206,10 @@ impl ReadOnlyDatabase {
     }
     pub fn cipher_version(&self) -> &str {
         &self.cipher_version
+    }
+    /// Read support alone never authorizes writing this native collection.
+    pub fn write_capability(&self) -> Result<WriteCapability> {
+        validate_write_profile(&self.schema()?)
     }
     pub fn schema(&self) -> Result<DatabaseSchema> {
         let tx = self.conn.unchecked_transaction()?;

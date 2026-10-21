@@ -15,6 +15,8 @@ mod jobs;
 mod metadata;
 mod native_sync;
 pub use native_sync::*;
+mod native_reconcile;
+pub use native_reconcile::*;
 mod prepare;
 mod publication;
 mod publish_files;
@@ -43,3 +45,15 @@ mod dj_sync;
 pub use dj_sync::*;
 mod dj_sync_service;
 pub use dj_sync_service::{DjSyncHistoryEntry, DjSyncRequest};
+
+mod compatible;
+pub use compatible::*;
+
+mod tracklist;
+pub use tracklist::*;
+
+mod manual_publication;
+pub use manual_publication::*;
+
+mod library_backup;
+pub use library_backup::*;

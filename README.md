@@ -85,7 +85,7 @@ You can check an installation at any time:
 
 ## Not available yet
 
-CueRithm is version 0.1. Direct rekordbox sync, duplicate and file-maintenance screens, and cue and template editors are not available in this release. Playback uses the system default output. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
+CueRithm is early software. Current source includes maintenance screens, manual cue/loop/grid corrections and templates, compatible-track search, playlist flow, text/CSV tracklist matching and local library backup. Direct rekordbox sync remains unavailable. Playback uses the system default output. Check a download’s release notes for its included features; native application/device acceptance is separate from implementation tests. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
 
 ## Documentation
 

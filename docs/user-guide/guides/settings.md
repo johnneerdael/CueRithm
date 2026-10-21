@@ -73,4 +73,4 @@ Choose from six waveform palettes. See [Choose a theme and waveform style](../le
 
 ## What is not a setting
 
-There is no model selector, no tempo-range control, no cue template editor and no audio device picker in this release. Playback uses the system default output.
+Cue templates are edited from **Edit cues & grid** in the player; see [Manual corrections](manual-corrections.md). There is no model selector, tempo-range control or audio device picker. Playback uses the system default output.

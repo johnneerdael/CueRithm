@@ -6,6 +6,7 @@ mod generator;
 mod history;
 mod model;
 mod preferences;
+mod prepared;
 mod previews;
 pub(crate) mod queries;
 pub(crate) mod scope;
@@ -28,6 +29,7 @@ pub use model::{
     SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
 use model::{Delta, StoredNode, Tree};
+pub use prepared::PreparedPlaylistSaveRequest;
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;
 use std::collections::BTreeSet;
@@ -244,27 +246,7 @@ impl Library {
     ) -> Result<PlaylistChange> {
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        ensure!(
-            revision(&tx)? == expected_revision,
-            "Playlist changed; refresh before editing"
-        );
-        let before = load(&tx)?;
-        let tracks = tree::known_tracks(&tx)?;
-        tree::validate(&before, &tracks)?;
-        let mut after = before.clone();
-        let mut created = vec![];
-        let operation = uuid::Uuid::new_v4().to_string();
-        edits::apply(
-            &mut after,
-            &tracks,
-            edit,
-            &operation,
-            &mut created,
-            0,
-            &mut 0,
-        )?;
-        let change =
-            commit_tree_change(&tx, &before, after, created, expected_revision, operation)?;
+        let change = apply_edit_tx(&tx, edit, expected_revision)?;
         tx.commit()?;
         Ok(change)
     }
@@ -282,4 +264,32 @@ impl Library {
             expected_revision,
         )
     }
+}
+
+/// Apply one revision-guarded playlist batch inside a caller-owned transaction.
+pub(crate) fn apply_edit_tx(
+    tx: &rusqlite::Transaction<'_>,
+    edit: PlaylistEdit,
+    expected_revision: u64,
+) -> Result<PlaylistChange> {
+    ensure!(
+        revision(tx)? == expected_revision,
+        "Playlist changed; refresh before editing"
+    );
+    let before = load(tx)?;
+    let tracks = tree::known_tracks(tx)?;
+    tree::validate(&before, &tracks)?;
+    let mut after = before.clone();
+    let mut created = vec![];
+    let operation = uuid::Uuid::new_v4().to_string();
+    edits::apply(
+        &mut after,
+        &tracks,
+        edit,
+        &operation,
+        &mut created,
+        0,
+        &mut 0,
+    )?;
+    commit_tree_change(tx, &before, after, created, expected_revision, operation)
 }

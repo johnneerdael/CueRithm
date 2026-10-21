@@ -1,6 +1,6 @@
 # Release scope and outstanding gaps
 
-Updated 2026-10-20. This is the release-stabilization scope requested after the
+Updated 2026-10-21. This is the release-stabilization scope requested after the
 integration work. Finish and review the existing implementation before adding
 features. The broader product plans remain open; merging this release does not
 claim complete Lexicon or OneTagger parity.
@@ -15,7 +15,7 @@ claim complete Lexicon or OneTagger parity.
 | Tagging | Reused OneTagger Beatport/Traxsource integrations with persistent provider, matching, field, artwork and format settings. Provider availability is subject to the limits below. |
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
-| Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens remain unfinished. |
+| Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens now expose scanning, review, apply, Undo/Restore and recovery; final packaged/native acceptance remains separate. |
 | DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
 | Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Rekordbox Sync action remains unavailable. The five other DJ targets use the native Sync workspace. |
 
@@ -30,18 +30,24 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 12. Migration preserves existing tracks, jobs,
+The library upgrades to schema 15. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
+
+## Home-DJ workflow additions
+
+Current source adds manual correction/template previews with durable Undo, compatible-track filtering, an ordered playlist flow view, text/CSV matching with explicit recording choices and atomic playlist creation, and same-installation library backup/guarded startup restoration. These additions preserve raw DSP results and source music. Local loops retain starts/ends and active-loop metadata, but local preview seeks rather than looping and current sync projection does not transfer the active-loop flag. Library restoration is separate from reversing external file-tag or DJ-software changes.
+
+Direct rekordbox reconciliation reviews and encrypted copied-row staging are internal progress only. No production schema/application profile is write-accepted; the desktop target stays unavailable.
 
 ## Outstanding work after this release
 
 | Priority | Gap | Evidence needed to close it |
 | --- | --- | --- |
 | Next delivery | Direct rekordbox 6/7 sync: field reconciliation/conflicts, verified schema write profiles, native database and asset publication, IDs/update counters, recovery/restore, playlists/MyTags/native smart rules, and desktop preflight/preview/apply/history. | Closed-target/reopen acceptance in actual rekordbox 6 and 7, including metadata, artwork, ordered playlists, cues/loops/grid playback, no-op repeat sync, later edits and interrupted-write recovery. SDK fixtures or a successful SQL commit are insufficient. |
-| Next delivery | Dedicated duplicate/missing/unused-file maintenance screens and confirmations. Backend invoke commands are present, but the user-owned branded UI is not integrated here. | Review/apply/Undo/recovery through the final screens, explicit confirmation of removal and irreversible backup disposal, and large-library acceptance. |
-| Analysis parity | Complete cue-template/settings editor, custom-anchor extraction and equal tempo-bound options. Current preparation uses factory publication rows and the existing cue settings. | Equal-input comparisons of the remaining caller/settings paths and end-to-end saved results. |
+| Native acceptance | Dedicated maintenance screens and confirmations are implemented with React workflow tests and authored screenshots. | Final packaged review/apply/Undo/recovery, removal/disposal confirmations and larger copied-library acceptance. |
+| Analysis parity | Manual cue/loop/constant-grid corrections, named templates and custom anchors are implemented. Automatic preparation still uses factory publication rows; equal tempo-bound options remain unavailable. | Equal-input comparisons of remaining automatic settings paths, final packaged manual editing/Undo and saved target playback. |
 | Provider acceptance | Direct Traxsource requests returned HTTP 403. A read-only native probe with the configured Trawl transport fetched and matched a live track including release metadata, and correctly returned no-match for an empty search. No end-to-end file write or packaged-app acceptance is established. Beatport has a native successful probe, not universal catalog coverage. | A real native Traxsource match/write and representative provider coverage checks without bypassing failed required stages. |
 | Energy acceptance | The local formula matches the recorded usable synthetic helper cases. Real-music scalar-energy agreement and exact WebAudio resampling equivalence remain unmeasured. | A frozen real-music comparison with identical inputs/configuration and separately reported missing/unrated results. |
 | Analysis acceptance | Development-set timing/cue agreement does not prove unseen-track musical correctness or all cue configurations. | Independent held-out evaluation and broader native GUI comparisons, with raw detection and saved publication evaluated separately. |

@@ -13,6 +13,8 @@ default = []
 autotag = ["dep:cuerithm-autotag"]
 
 [dependencies]
+csv = "=1.4.0"
+unicode-normalization = "=0.1.25"
 cuerithm-dj-sync = { path = "../cuerithm-dj-sync" }
 cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
 iana-time-zone = "=0.1.65"

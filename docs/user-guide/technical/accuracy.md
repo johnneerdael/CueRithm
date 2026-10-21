@@ -43,6 +43,6 @@ Windows and Linux native playback, import and restart acceptance are not complet
 - Treat key as a strong suggestion and check unfamiliar tracks by ear, especially minor-versus-major and neighbouring-key cases.
 - Check the grid on tracks with live drums or tempo changes.
 - Treat energy as a coarse, whole-track rating.
-- Treat cues as good starting points. They are read-only today.
+- Treat automatic cues as starting points. Audition them and [correct saved cues](../guides/manual-corrections.md) where needed; manual corrections do not change the measured detector results.
 
 If you find a track where an answer is clearly wrong, an issue on [GitHub](https://github.com/johnneerdael/CueRithm/issues) with the file type and what you expected helps. Please do not attach copyrighted audio.

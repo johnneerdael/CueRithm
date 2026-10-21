@@ -1,9 +1,13 @@
+mod backup_commands;
 mod builtin;
 mod commands;
+mod compatible_commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
+mod manual_publication_commands;
 mod sync_commands;
+mod tracklist_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -43,6 +47,9 @@ pub fn run() {
                 .audio_dir()
                 .ok()
                 .map(|p| p.join("Cuerithm/Incoming"));
+            // Blocked-before-mutation restore intents leave the current DB safe to open.
+            // Errors after mutation intent stop startup and retain the recovery snapshot.
+            cuerithm_library::apply_pending_library_restore(&root.join("library.sqlite"))?;
             let host = Arc::new(host::Host::open(&root, &runtime, initial_folder)?);
             let events = host.preparation.subscribe();
             let handle = app.handle().clone();
@@ -70,6 +77,25 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            manual_publication_commands::manual_publication_snapshot,
+            manual_publication_commands::preview_manual_publication,
+            manual_publication_commands::apply_manual_publication,
+            manual_publication_commands::manual_publication_history,
+            manual_publication_commands::undo_manual_publication,
+            manual_publication_commands::list_cue_templates,
+            manual_publication_commands::save_cue_template,
+            manual_publication_commands::delete_cue_template,
+            manual_publication_commands::preview_cue_template,
+            backup_commands::create_library_backup,
+            backup_commands::inspect_library_backup,
+            backup_commands::stage_library_restore,
+            backup_commands::pending_library_restore,
+            backup_commands::retry_library_restore,
+            backup_commands::cancel_library_restore,
+            compatible_commands::find_compatible_tracks,
+            compatible_commands::save_compatible_playlist,
+            tracklist_commands::match_tracklist,
+            tracklist_commands::save_tracklist_playlist,
             sync_commands::discover_dj_targets,
             sync_commands::preview_dj_sync,
             sync_commands::discard_dj_sync,
