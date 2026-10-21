@@ -11,6 +11,7 @@ use std::{cell::Cell, process::Command};
 const PURPOSE: &str = "cuerithm-isolated-native-acceptance";
 const SENTINEL: &str = ".cuerithm-native-acceptance.json";
 const TRACK: &str = "authored-native-acceptance";
+const SECOND_TRACK: &str = "authored-native-acceptance-b";
 const FOLDER: &str = "authored-native-folder";
 const PLAYLIST: &str = "authored-native-playlist";
 const SMART: &str = "authored-native-smart";
@@ -23,6 +24,8 @@ struct Sentinel {
     database: PathBuf,
     asset_root: PathBuf,
     source: PathBuf,
+    #[serde(default)]
+    second_source: Option<PathBuf>,
     agent_options: PathBuf,
     application_version: String,
     application_major: u32,
@@ -35,6 +38,7 @@ struct Case {
     root: PathBuf,
     work: PathBuf,
     source: PathBuf,
+    second_source: Option<PathBuf>,
     schema_fingerprint: String,
     target: RekordboxSyncTarget,
 }
@@ -43,6 +47,8 @@ struct Case {
 struct CaseState {
     operation_id: Option<String>,
     noop_id: Option<String>,
+    #[serde(default)]
+    earlier_operation_ids: Vec<String>,
 }
 
 fn regular(path: &Path) -> Result<()> {
@@ -165,6 +171,20 @@ impl Case {
                 && source.starts_with(root.join("authored-media")),
             "Only the case's explicitly authored WAV is allowed"
         );
+        let second_source = sentinel
+            .second_source
+            .as_ref()
+            .map(|path| relative_child(&root, path))
+            .transpose()?;
+        if let Some(path) = &second_source {
+            regular(path)?;
+            ensure!(
+                path.file_name().and_then(|name| name.to_str())
+                    == Some("CueRithm authored acceptance B.flac")
+                    && path.starts_with(root.join("authored-media")),
+                "Only the case's explicitly authored second FLAC is allowed"
+            );
+        }
         ensure!(
             sentinel.agent_options.is_absolute(),
             "Agent options must be explicitly selected"
@@ -244,6 +264,7 @@ impl Case {
             root,
             work,
             source,
+            second_source,
             schema_fingerprint: sentinel.schema_fingerprint,
             target,
         })
@@ -280,10 +301,19 @@ impl Case {
         ensure!(
             op.sources
                 .iter()
-                .all(|s| s.id == TRACK && s.path == self.source),
+                .all(|s| (s.id == TRACK && s.path == self.source)
+                    || (s.id == SECOND_TRACK && self.second_source.as_ref() == Some(&s.path))),
             "Persisted operation contains non-authored sources"
         );
         Ok(op)
+    }
+
+    fn sources(&self) -> Vec<(&str, &Path)> {
+        let mut sources = vec![(TRACK, self.source.as_path())];
+        if let Some(path) = &self.second_source {
+            sources.push((SECOND_TRACK, path));
+        }
+        sources
     }
 }
 
@@ -293,50 +323,63 @@ fn initialize_local(
     runtime: &cuerithm_media::MediaRuntime,
     cancel: &CancellationToken,
 ) -> Result<()> {
-    let existing: Option<String> = library
-        .conn()?
-        .query_row("SELECT source_hash FROM tracks WHERE id=?1", [TRACK], |r| {
-            r.get(0)
-        })
-        .optional()?;
-    if let Some(hash) = existing {
-        ensure!(
-            hash == file_sha256_cancellable(&case.source, cancel)?,
-            "Authored source changed after fixture preparation"
-        );
-        return Ok(());
-    }
-    ensure!(
+    let sources = case.sources();
+    let existing_count: u64 =
         library
             .conn()?
-            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, u64>(0))?
-            == 0,
-        "Private harness library contains unrelated tracks"
-    );
-    let audio = runtime.decode_cancellable(&case.source, &case.work.join("decode"), cancel)?;
-    ensure!(
-        audio.clock.duration_seconds() > 5.,
-        "Authored WAV must contain more than five playable seconds"
-    );
-    let publication = json!({
-        "grid":{"bpm":120.0,"startTime":0.0},
-        "cues":[
-            {"name":"Authored cue","startTime":1.0,"type":"1","position":0,"color":null},
-            {"name":"Authored four-beat loop","startTime":2.0,"endTime":4.0,"activeLoop":true,"type":"5","position":1,"color":null}
-        ],
-        "implementation_sha256":digest(&"private-authored-manual-publication-v1")?,
-        "inputs_sha256":digest(&json!([&audio.source_sha256, 120, 0, 1, 2, 4]))?
-    });
-    let analysis = json!({
-        "source_sample_rate":audio.info.sample_rate,
-        "media":{
-            "decoder":audio.decoder_identity,"codec":audio.info.codec,
-            "source_sha256":audio.source_sha256,"pcm_sha256":audio.pcm_sha256_cancellable(cancel)?,
-            "clock":audio.clock,"export_timing":audio.export_timing
-        },
-        "publication":publication
-    });
-    library.conn()?.execute("INSERT INTO tracks(id,path,title,artist,source_hash,state,analysis_json,metadata_json,musical_key,bpm,duration,created,updated,sort_title,sort_artist) VALUES(?1,?2,'CueRithm authored synchronized','CueRithm acceptance',?3,'ready',?4,?5,'8A',120,?6,1,1,'cuerithm authored synchronized','cuerithm acceptance')", params![TRACK, crate::model::path_bytes(&case.source), audio.source_sha256, analysis.to_string(), serde_json::to_string(&audio.info)?, audio.clock.duration_seconds()])?;
+            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))?;
+    if existing_count != 0 {
+        ensure!(
+            existing_count == sources.len() as u64,
+            "Private harness library contains an incomplete or unrelated fixture"
+        );
+        for (id, path) in &sources {
+            let (saved_hash, saved_path): (String, Vec<u8>) = library.conn()?.query_row(
+                "SELECT source_hash,path FROM tracks WHERE id=?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            ensure!(
+                saved_hash == file_sha256_cancellable(path, cancel)?
+                    && crate::model::bytes_path(&saved_path)? == *path,
+                "Authored source changed after fixture preparation"
+            );
+        }
+        return Ok(());
+    }
+    let mut proofs = Vec::new();
+    for (id, source) in &sources {
+        let audio = runtime.decode_cancellable(source, &case.work.join("decode"), cancel)?;
+        ensure!(
+            audio.clock.duration_seconds() > 8.,
+            "Authored source needs more than eight playable seconds"
+        );
+        let publication = json!({
+            "grid":{"bpm":128.0,"startTime":0.0},
+            "cues":[
+                {"name":"Authored cue","startTime":0.9375,"type":"1","position":0,"color":null},
+                {"name":"Authored four-beat loop","startTime":1.875,"endTime":3.75,"activeLoop":true,"type":"5","position":1,"color":null}
+            ],
+            "implementation_sha256":digest(&"private-authored-manual-publication-v2")?,
+            "inputs_sha256":digest(&json!([&audio.source_sha256,128,0,0.9375,1.875,3.75]))?
+        });
+        let analysis = json!({
+            "source_sample_rate":audio.info.sample_rate,
+            "media":{
+                "decoder":audio.decoder_identity,"codec":audio.info.codec,
+                "source_sha256":audio.source_sha256,"pcm_sha256":audio.pcm_sha256_cancellable(cancel)?,
+                "clock":audio.clock,"export_timing":audio.export_timing
+            },
+            "publication":publication
+        });
+        let title = if *id == TRACK {
+            "CueRithm authored synchronized A"
+        } else {
+            "CueRithm authored synchronized B"
+        };
+        library.conn()?.execute("INSERT INTO tracks(id,path,title,artist,source_hash,state,analysis_json,metadata_json,musical_key,bpm,duration,created,updated,sort_title,sort_artist) VALUES(?1,?2,?3,'CueRithm acceptance',?4,'ready',?5,?6,'8A',128,?7,1,1,?3,'cuerithm acceptance')", params![id, crate::model::path_bytes(source),title,audio.source_sha256,analysis.to_string(),serde_json::to_string(&audio.info)?,audio.clock.duration_seconds()])?;
+        proofs.push(json!({"local_id":id,"source_sha256":audio.source_sha256,"pcm_sha256":audio.pcm_sha256_cancellable(cancel)?,"frames":audio.frames,"clock":audio.clock,"publication":publication}));
+    }
     for (id, kind, name, definition) in [
         (
             FOLDER,
@@ -380,11 +423,17 @@ fn initialize_local(
     library.apply_playlist_edit(
         PlaylistEdit::AddMembers {
             id: PLAYLIST.into(),
-            track_ids: vec![TRACK.into()],
+            track_ids: sources.iter().map(|(id, _)| (*id).into()).collect(),
         },
         library.playlist_state()?.revision,
     )?;
     library.conn()?.execute_batch("INSERT INTO custom_tag_categories(id,name) VALUES('authored-category','CueRithm authored'); INSERT INTO custom_tags(id,category_id,name) VALUES('authored-tag','authored-category','Acceptance'); INSERT INTO track_custom_tags(track_id,tag_id) VALUES('authored-native-acceptance','authored-tag');")?;
+    if case.second_source.is_some() {
+        library.conn()?.execute(
+            "INSERT INTO track_custom_tags(track_id,tag_id) VALUES(?1,'authored-tag')",
+            [SECOND_TRACK],
+        )?;
+    }
     library.refresh_smart_lists(crate::model::now())?;
     let projected = library.dj_sync_library(DjSyncScope::Full)?;
     ensure!(
@@ -392,17 +441,21 @@ fn initialize_local(
             .playlists
             .iter()
             .find(|p| p.id == SMART)
-            .is_some_and(|p| p.track_ids == [TRACK]),
+            .is_some_and(|p| p.track_ids
+                == sources
+                    .iter()
+                    .map(|(id, _)| (*id).to_owned())
+                    .collect::<Vec<_>>()),
         "Authored smart fixture did not materialize its whole membership"
     );
     write_private(
         &case.work.join("fixture-proof.json"),
-        &json!({"authored_manual_publication":true,"engine_accuracy_claim":false,"source_sha256":audio.source_sha256,"pcm_sha256":audio.pcm_sha256_cancellable(cancel)?,"frames":audio.frames,"clock":audio.clock,"publication":publication,"limitations":["single-track membership; multi-track ordering untested","WAV has no authored embedded artwork; keep-target decision only","variable grid acceptance requires a separate fixture"]}),
+        &json!({"authored_manual_publication":true,"engine_accuracy_claim":false,"tracks":proofs,"limitations":["user-facing SavedGrid projects one constant anchor; variable grid needs separate SDK acceptance","native UI reopen, artwork display, and cue/grid playback are manual evidence"]}),
     )?;
     Ok(())
 }
 
-fn request(target: &RekordboxSyncTarget) -> RekordboxSyncRequest {
+fn request(case: &Case) -> RekordboxSyncRequest {
     let options = RekordboxSyncOptions {
         metadata_fields: ["title", "artist", "source_path"]
             .into_iter()
@@ -418,23 +471,43 @@ fn request(target: &RekordboxSyncTarget) -> RekordboxSyncRequest {
         nearest_color: false,
     };
     RekordboxSyncRequest {
-        target_id: target.id.clone(),
+        target_id: case.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
-        decisions: BTreeMap::from([(
-            TRACK.into(),
-            [
-                ("title", NativeFieldDecision::UseLocal),
-                ("artist", NativeFieldDecision::UseLocal),
-                ("source_path", NativeFieldDecision::AcceptEqual),
-                ("cues", NativeFieldDecision::UseLocal),
-                ("beat_grid", NativeFieldDecision::UseLocal),
-                ("artwork", NativeFieldDecision::UseRemote),
-            ]
+        decisions: case
+            .sources()
             .into_iter()
-            .map(|(f, d)| (f.into(), d))
+            .map(|(id, _)| {
+                (
+                    id.into(),
+                    [
+                        ("title", NativeFieldDecision::UseLocal),
+                        ("artist", NativeFieldDecision::UseLocal),
+                        (
+                            "source_path",
+                            if id == TRACK {
+                                NativeFieldDecision::AcceptEqual
+                            } else {
+                                NativeFieldDecision::UseLocal
+                            },
+                        ),
+                        ("cues", NativeFieldDecision::UseLocal),
+                        ("beat_grid", NativeFieldDecision::UseLocal),
+                        (
+                            "artwork",
+                            if id == SECOND_TRACK {
+                                NativeFieldDecision::UseLocal
+                            } else {
+                                NativeFieldDecision::UseRemote
+                            },
+                        ),
+                    ]
+                    .into_iter()
+                    .map(|(field, decision)| (field.into(), decision))
+                    .collect(),
+                )
+            })
             .collect(),
-        )]),
     }
 }
 
@@ -474,11 +547,211 @@ fn native_proof(
     Ok(proof)
 }
 
+fn verify_native_publication(
+    case: &Case,
+    library: &Library,
+    id: &str,
+    key: &DatabaseKey,
+    cancel: &CancellationToken,
+) -> Result<Value> {
+    case.guard()?;
+    let op = case.verify_operation(library, id)?;
+    let collection = ReadOnlyDatabase::open(&case.target.database, key)?
+        .read_collection(Default::default(), cancel)?;
+    let native_id = |local: &str| -> Result<&str> {
+        op.receipts
+            .iter()
+            .find(|receipt| receipt.local_id == local)
+            .map(|receipt| receipt.native_id.as_str())
+            .context("Authored entity receipt is missing")
+    };
+    let mut checked_playlists = 0;
+    let mut checked_tags = 0;
+    if let Some(plan) = &op.playlist_plan {
+        for playlist in &plan.playlists {
+            if let NativePlaylistMutation::Upsert {
+                local_id,
+                parent_local_id,
+                representation,
+                ..
+            } = playlist
+            {
+                let id = native_id(local_id)?;
+                let actual = collection
+                    .playlists
+                    .iter()
+                    .find(|playlist| playlist.id == id && playlist.deleted != Some(true))
+                    .context("Authored native playlist is missing")?;
+                if let Some(parent) = parent_local_id {
+                    ensure!(
+                        actual.parent_id.as_deref() == Some(native_id(parent)?),
+                        "Authored native folder hierarchy differs from the frozen plan"
+                    );
+                }
+                let expected = match representation {
+                    NativePlaylistRepresentation::Folder => {
+                        ensure!(
+                            actual.attribute == 1,
+                            "Authored native folder has the wrong representation"
+                        );
+                        continue;
+                    }
+                    NativePlaylistRepresentation::Ordinary { content_ids } => content_ids,
+                    NativePlaylistRepresentation::MaterializedSmart { content_ids, .. } => {
+                        ensure!(
+                            actual.attribute == 0
+                                && actual.smart_rule.as_deref().is_none_or(str::is_empty),
+                            "Whole-list materialization became a native smart definition"
+                        );
+                        content_ids
+                    }
+                    NativePlaylistRepresentation::NativeSmart { .. } => anyhow::bail!(
+                        "Authored acceptance never requests a native smart definition"
+                    ),
+                };
+                let mut links: Vec<_> = collection
+                    .playlist_links
+                    .iter()
+                    .filter(|link| link.playlist_id == id && link.deleted != Some(true))
+                    .collect();
+                links.sort_by_key(|link| link.position);
+                ensure!(
+                    links
+                        .iter()
+                        .map(|link| link.content_id.as_str())
+                        .collect::<Vec<_>>()
+                        == expected.iter().map(String::as_str).collect::<Vec<_>>(),
+                    "Authored native membership/order differs from the frozen whole list"
+                );
+                checked_playlists += 1;
+            }
+        }
+        for tag in &plan.tags {
+            if let NativeTagMutation::Upsert {
+                local_id,
+                category_local_id: Some(parent),
+                content_ids,
+                ..
+            } = tag
+            {
+                let id = native_id(local_id)?;
+                let parent_id = native_id(parent)?;
+                ensure!(
+                    collection.tags.iter().any(|tag| tag.id == id
+                        && tag.parent_id.as_deref() == Some(parent_id)
+                        && tag.deleted != Some(true)),
+                    "Authored MyTag/category relationship is missing"
+                );
+                let actual: BTreeSet<_> = collection
+                    .tag_links
+                    .iter()
+                    .filter(|link| link.tag_id == id && link.deleted != Some(true))
+                    .map(|link| link.content_id.as_str())
+                    .collect();
+                ensure!(
+                    actual == content_ids.iter().map(String::as_str).collect(),
+                    "Authored MyTag membership differs from the frozen plan"
+                );
+                checked_tags += 1;
+            }
+        }
+    }
+    let mut artwork_files = 0;
+    for resolved in &op.resolved {
+        let native = collection
+            .tracks
+            .iter()
+            .find(|track| track.identity.content_id == resolved.identity.content_id)
+            .context("Authored native track disappeared")?;
+        ensure!(
+            native
+                .cues
+                .iter()
+                .any(|cue| resolved.owned_cue_ids.contains(&cue.id)
+                    && cue.end_seconds.is_some()
+                    && cue.active_loop),
+            "Authored active loop did not survive native readback"
+        );
+        let analysis = native
+            .source
+            .analysis_path
+            .as_deref()
+            .context("Authored native analysis reference is missing")?;
+        ensure!(
+            assets::grid_observation(&case.target, analysis)?
+                .as_array()
+                .is_some_and(|beats| beats.len() > 1),
+            "Authored native grid did not survive readback"
+        );
+        if resolved.local_id == SECOND_TRACK {
+            let proof = op
+                .sources
+                .iter()
+                .find(|source| source.id == SECOND_TRACK)
+                .and_then(|source| source.native_media.as_ref())
+                .context("Authored new-track native descriptor is missing")?;
+            ensure!(
+                native.source.file_type == Some(5)
+                    && native.source.sample_rate == Some(proof.sample_rate)
+                    && native.source.file_size == Some(proof.size_bytes),
+                "Authored FLAC native descriptor differs from its measured source"
+            );
+            let runtime = cuerithm_media::MediaRuntime::from_bundle(&PathBuf::from(
+                std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+                    .context("Explicit media runtime is required")?,
+            ))?;
+            let artwork = cuerithm_dj_sync::native_rekordbox_artwork(
+                case.second_source
+                    .as_ref()
+                    .context("Authored covered source is missing")?,
+                &runtime,
+                cancel,
+            )?
+            .context("Authored second source contains no embedded artwork")?;
+            let main = PathBuf::from(
+                native
+                    .source
+                    .artwork_path
+                    .as_deref()
+                    .context("Authored native artwork reference is missing")?
+                    .trim_start_matches('/'),
+            );
+            let stem = main
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .context("Authored native artwork filename is invalid")?;
+            for (suffix, expected) in [
+                ("", artwork.main),
+                ("_m", artwork.medium),
+                ("_s", artwork.small),
+            ] {
+                let path = main.with_file_name(format!("{stem}{suffix}.jpg"));
+                let path = relative_child(&case.target.asset_root, &path)?;
+                ensure!(
+                    fs::read(path)? == expected,
+                    "Authored native artwork size differs from deterministic source normalization"
+                );
+                artwork_files += 1;
+            }
+        }
+    }
+    Ok(
+        json!({"checked_playlists":checked_playlists,"checked_tag_memberships":checked_tags,"checked_artwork_files":artwork_files,"checked_native_tracks":op.resolved.len(),"native_ui_verified":false,"native_playback_verified":false}),
+    )
+}
+
 fn run_phase(case: &Case, phase: &str) -> Result<Value> {
     ensure!(
         matches!(
             phase,
-            "preview" | "apply" | "noop" | "restore" | "interrupt" | "recover"
+            "review"
+                | "preview"
+                | "apply"
+                | "noop"
+                | "restore"
+                | "interrupt"
+                | "recover"
+                | "edit-local"
         ),
         "Unknown native acceptance phase"
     );
@@ -496,22 +769,58 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
         "Private fixture acceptance must not rely on a production promotion"
     );
     let collection = database.read_collection(Default::default(), &cancel)?;
+    let native_paths: BTreeSet<_> = collection
+        .tracks
+        .iter()
+        .map(|track| track.source.resolved_path.as_deref().map(Path::new))
+        .collect();
+    let allowed_paths: BTreeSet<_> = case
+        .sources()
+        .into_iter()
+        .map(|(_, path)| Some(path))
+        .collect();
     ensure!(
-        collection.tracks.len() == 1
-            && collection.tracks[0]
-                .source
-                .resolved_path
-                .as_deref()
-                .map(Path::new)
-                == Some(case.source.as_path()),
-        "Native case must contain exactly the authored imported track"
+        native_paths.contains(&Some(case.source.as_path()))
+            && native_paths.is_subset(&allowed_paths)
+            && native_paths.len() == collection.tracks.len(),
+        "Native case contains a missing, duplicate, or unrelated authored source"
     );
+    let creating_second = case
+        .second_source
+        .as_ref()
+        .is_some_and(|path| !native_paths.contains(&Some(path.as_path())));
     drop(database);
     let library = Library::open(&case.work.join("library.db"))?;
     let _lock = lock(&library)?;
     let mut state = case.state()?;
     let mut summary = json!({"phase":phase,"native_major":case.target.installation.major,"tables":schema.objects.iter().filter(|o|o.kind=="table").count(),"schema_objects":schema.objects.len(),"production_write_enabled":false});
-    if phase == "preview" || phase == "noop" {
+    if phase == "edit-local" {
+        ensure!(
+            case.second_source.is_some(),
+            "The reorder phase requires two authored tracks"
+        );
+        ensure_settled(&library, &case.target.database)?;
+        let before = native_proof(case, &cancel)?;
+        library.apply_playlist_edit(
+            PlaylistEdit::ReorderMembers {
+                id: PLAYLIST.into(),
+                track_ids: vec![SECOND_TRACK.into(), TRACK.into()],
+            },
+            library.playlist_state()?.revision,
+        )?;
+        ensure!(
+            library.manual_playlist_members(PLAYLIST)? == [SECOND_TRACK, TRACK],
+            "Authored local reorder did not persist"
+        );
+        ensure!(
+            native_proof(case, &cancel)? == before,
+            "A local playlist edit modified the native target"
+        );
+        summary["reordered_members"] = json!(2);
+        summary["native_write"] = json!(false);
+        return Ok(summary);
+    }
+    if phase == "review" || phase == "preview" || phase == "noop" {
         let runtime_root = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
             .map(PathBuf::from)
             .context("Explicit bundled media runtime is required")?;
@@ -519,9 +828,13 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
         initialize_local(case, &library, &runtime, &cancel)?;
         ensure_settled(&library, &case.target.database)?;
         let before = native_proof(case, &cancel)?;
+        let mut selected = request(case);
+        if phase == "review" {
+            selected.decisions.clear();
+        }
         let preview = planning::preview(
             &library,
-            request(&case.target),
+            selected,
             case.target.clone(),
             &key,
             Some(&runtime),
@@ -529,9 +842,70 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             planning::PreviewPermit::AuthoredFixture,
         )?;
         let op = case.verify_operation(&library, &preview.id)?;
+        write_private(
+            &case
+                .work
+                .join(format!("private-preview-{}.json", preview.id)),
+            &preview,
+        )?;
+        if phase == "review" {
+            if creating_second {
+                ensure!(
+                    !preview.can_apply
+                        && !preview.pending_entities.is_empty()
+                        && preview
+                            .fields
+                            .iter()
+                            .any(|field| field.track_id == SECOND_TRACK
+                                && field.field == "title"
+                                && field.decision.is_none()),
+                    "The first new-track preview is not readable and gated on explicit choices"
+                );
+                ensure!(
+                    op.resolved
+                        .iter()
+                        .all(|track| track.local_id != SECOND_TRACK),
+                    "The undecided new track was staged"
+                );
+            }
+            summary["reviewed_fields"] = json!(preview.fields.len());
+            summary["unresolved_fields"] = json!(
+                preview
+                    .fields
+                    .iter()
+                    .filter(|field| field.decision.is_none())
+                    .count()
+            );
+            summary["conflicts"] = json!(
+                preview
+                    .fields
+                    .iter()
+                    .filter(|field| matches!(field.result, NativeReconciliation::Conflict { .. }))
+                    .count()
+            );
+            summary["pending_entities"] = json!(preview.pending_entities.len());
+            summary["can_apply"] = json!(preview.can_apply);
+            summary["review_operation_id"] = json!(preview.id);
+            drop(_lock);
+            library.discard_rekordbox_sync(&preview.id)?;
+            ensure!(
+                native_proof(case, &cancel)? == before,
+                "Undecided review modified the native target"
+            );
+            return Ok(summary);
+        }
         ensure!(
-            op.resolved.len() == 1 && !op.resolved[0].created,
-            "Acceptance must match the actual imported native track"
+            op.resolved.len() == case.sources().len()
+                && op
+                    .resolved
+                    .iter()
+                    .any(|track| track.local_id == TRACK && !track.created)
+                && (!creating_second
+                    || op
+                        .resolved
+                        .iter()
+                        .any(|track| track.local_id == SECOND_TRACK && track.created)),
+            "Acceptance did not retain the imported identity and create only the explicitly authored second track"
         );
         ensure!(
             preview.can_apply && preview.skipped_fields == 0,
@@ -554,11 +928,19 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 native_proof(case, &cancel)? == before,
                 "No-op rewrote native database or resource bytes/mtime"
             );
+            summary["readback"] =
+                verify_native_publication(case, &library, &preview.id, &key, &cancel)?;
         } else {
-            ensure!(
-                state.operation_id.is_none(),
-                "This private case already has its primary acceptance operation"
-            );
+            if let Some(previous) = state.operation_id.take() {
+                ensure!(
+                    matches!(
+                        load(&library, &previous)?.status.as_str(),
+                        "applied" | "restored" | "rolled_back"
+                    ),
+                    "Previous private native operation is not settled"
+                );
+                state.earlier_operation_ids.push(previous);
+            }
             state.operation_id = Some(preview.id.clone());
             write_private(&case.state_path(), &state)?;
             ensure!(
@@ -584,10 +966,16 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 .count()
         );
     } else {
-        let id = state
-            .operation_id
+        let selected_id = std::env::var("CUERITHM_NATIVE_ACCEPTANCE_OPERATION_ID").ok();
+        let id = selected_id
             .as_deref()
+            .or(state.operation_id.as_deref())
             .context("Run the private preview phase first")?;
+        ensure!(
+            state.operation_id.as_deref() == Some(id)
+                || state.earlier_operation_ids.iter().any(|saved| saved == id),
+            "Operation is outside this private acceptance history"
+        );
         case.verify_operation(&library, id)?;
         let result = match phase {
             "apply" => publication::fixture_apply(&library, id, &key, &cancel, &|| case.guard())?,
@@ -631,6 +1019,9 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
         summary["status"] = json!(result.status);
         summary["changed_rows"] = json!(result.changed_rows);
         summary["acknowledged_fields"] = json!(result.acknowledged_fields);
+        if result.status == "applied" {
+            summary["readback"] = verify_native_publication(case, &library, id, &key, &cancel)?;
+        }
     }
     Ok(summary)
 }
@@ -658,7 +1049,14 @@ fn private_native_acceptance() {
             let report = json!({"phase":phase,"status":"failed","error":format!("{error:#}"),"production_write_enabled":false});
             let report_name = if matches!(
                 phase.as_str(),
-                "preview" | "apply" | "noop" | "restore" | "interrupt" | "recover"
+                "review"
+                    | "preview"
+                    | "apply"
+                    | "noop"
+                    | "restore"
+                    | "interrupt"
+                    | "recover"
+                    | "edit-local"
             ) {
                 format!("report-{phase}.json")
             } else {

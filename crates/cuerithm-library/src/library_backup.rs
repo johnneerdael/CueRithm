@@ -22,12 +22,13 @@ const MAX_DATABASE: u64 = 1024 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 16 * 1024 * 1024;
 const MAX_ENTRIES: usize = 50_000;
 const MAX_DEPENDENCY_BYTES: u64 = 1024 * 1024 * 1024 * 1024;
-const RESOURCE_DIRS: [&str; 5] = [
+const RESOURCE_DIRS: [&str; 6] = [
     "tagging",
     "cleanup",
     "maintenance",
     "sync",
     "organization-references",
+    "metadata-edits",
 ];
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryBackupPreview {
@@ -127,7 +128,21 @@ fn file_lease(path: &Path, message: &str) -> Result<File> {
         .create(true)
         .truncate(false)
         .open(path)?;
-    fs2::FileExt::try_lock_exclusive(&file).context(message.to_owned())?;
+    // Match Library::open: a decoder fork can inherit the open-file lock
+    // briefly before exec. Retry only contention and keep real exclusion.
+    let started = Instant::now();
+    loop {
+        match fs2::FileExt::try_lock_exclusive(&file) {
+            Ok(()) => break,
+            Err(error)
+                if error.raw_os_error() == fs2::lock_contended_error().raw_os_error()
+                    && started.elapsed() < Duration::from_millis(250) =>
+            {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(error) => return Err(error).context(message.to_owned()),
+        }
+    }
     Ok(file)
 }
 fn sync_lease(root: &Path) -> Result<File> {
@@ -164,10 +179,26 @@ fn schema(conn: &Connection) -> Result<i64> {
     let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    ensure!(version == 22, "Unsupported library backup schema");
+    ensure!(version == 24, "Unsupported library backup schema");
     Ok(version)
 }
 fn quiet_database(conn: &Connection) -> Result<()> {
+    // Match startup's non-tagging recovery guard, including accepted edits on
+    // attention jobs. Completed physical publications can still need cleanup.
+    let metadata_pending: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE state NOT IN ('committed','undone','failed','rolled_back') OR (state IN ('committed','undone') AND error IS NOT NULL))
+         OR EXISTS(SELECT 1 FROM metadata_edit_batches WHERE state IN ('saving','queued','recovery_required'))
+         OR EXISTS(SELECT 1 FROM metadata_edit_rows WHERE state IN ('ready','queued','recovery_required'))
+         OR EXISTS(SELECT 1 FROM metadata_edit_previews WHERE state IN ('retiring','cleanup_required'))
+         OR EXISTS(SELECT 1 FROM metadata_edit_overrides o JOIN jobs j ON j.id=o.job_id WHERE j.state IN ('queued','running','attention') AND (o.state IN ('queued','claimed') OR (o.state='committed' AND o.final_json IS NULL)))
+         OR EXISTS(SELECT 1 FROM preparation_review_decisions d JOIN jobs j ON j.id=d.job_id WHERE j.state IN ('queued','running','attention') AND d.state IN ('pending','claimed','applied'))
+         OR EXISTS(SELECT 1 FROM artifact_cleanup_moves WHERE state!='removed')",
+        [], |row| row.get(0),
+    )?;
+    ensure!(
+        !metadata_pending,
+        "Finish metadata saves, accepted preparation reviews and auxiliary artifact cleanup before using a library backup"
+    );
     let native_pending: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM rekordbox_sync_operations WHERE status NOT IN ('applied','restored','discarded','rolled_back'))",
         [], |row| row.get(0),
@@ -605,12 +636,150 @@ fn organization_transaction_resources(
     }
     Ok(())
 }
+// Keep these projections independent of the optional tagging decoder. Both
+// tagging-enabled and engine-only builds must validate retained native evidence.
+#[derive(Deserialize)]
+struct BackupMetadataStage {
+    path: Vec<u8>,
+    backup: Vec<u8>,
+    workspace: Vec<u8>,
+    before: String,
+    after: String,
+    workspace_authority: crate::organization::Authority,
+    staged_fingerprint: crate::organization::Fingerprint,
+    backup_fingerprint: crate::organization::Fingerprint,
+}
+fn metadata_stage(
+    locations: &mut OrganizationLocations,
+    root: &Path,
+    json: &str,
+    staged_required: bool,
+) -> Result<()> {
+    let stage: BackupMetadataStage = serde_json::from_str(json)?;
+    let workspace = bytes_path(&stage.workspace)?;
+    ensure!(
+        workspace.starts_with(root.canonicalize()?.join("metadata-edits/staging"))
+            && stage.workspace_authority.path.path()? == workspace
+            && stage.before == stage.backup_fingerprint.sha256
+            && stage.after == stage.staged_fingerprint.sha256,
+        "Invalid retained metadata workspace or recovery identity"
+    );
+    for (path, proof, required) in [
+        (&stage.backup, &stage.backup_fingerprint, true),
+        (&stage.path, &stage.staged_fingerprint, staged_required),
+    ] {
+        let path = bytes_path(path)?;
+        ensure!(
+            path.parent() == Some(workspace.as_path()),
+            "Metadata recovery file leaves its workspace"
+        );
+        if required {
+            required_organization_file(locations, &path, &stage.workspace_authority, proof, true)?;
+        } else {
+            remember_organization_path(locations, &path, false, false)?;
+        }
+    }
+    Ok(())
+}
+fn metadata_inventory(
+    conn: &Connection,
+    root: &Path,
+    locations: &mut OrganizationLocations,
+) -> Result<()> {
+    // Imported artwork also backs saved match-review decisions. Never bless
+    // missing or modified bytes just because a new backup is being created.
+    let mut query =
+        conn.prepare("SELECT path,sha256,bytes FROM metadata_artwork_assets ORDER BY id")?;
+    for row in query.query_map([], |row| {
+        Ok((
+            row.get::<_, Vec<u8>>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, u64>(2)?,
+        ))
+    })? {
+        let (path, hash, bytes) = row?;
+        let path = bytes_path(&path)?;
+        ensure!(
+            path.starts_with(root.canonicalize()?.join("metadata-edits/assets")),
+            "Metadata artwork leaves application assets"
+        );
+        let observed = remember_organization_path(locations, &path, false, false)?;
+        ensure!(
+            observed.sha256.as_deref() == Some(hash.as_str()) && observed.bytes == bytes,
+            "Retained metadata artwork is missing or changed"
+        );
+    }
+    // Every physical committed/undone write retains an original with native
+    // ownership proof. Failed pre-publication writes keep stage evidence too.
+    let mut query = conn.prepare("SELECT json_extract(payload_json,'$.row.stage'),state FROM metadata_edit_writes ORDER BY id")?;
+    for row in query.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })? {
+        let (stage, state) = row?;
+        metadata_stage(locations, root, &stage, state == "failed")?;
+    }
+    // Incoming overrides have no physical metadata_edit_write. Their original
+    // is retained in the frozen row for inverse artwork and comment edits.
+    let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state='committed' AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
+    for row in query.query_map([], |row| row.get::<_, String>(0))? {
+        metadata_stage(locations, root, &row?, false)?;
+    }
+    let mut query = conn.prepare("SELECT json_extract(row.value,'$.stage') FROM metadata_edit_previews p,json_each(p.payload_json,'$.rows') row WHERE p.state='preview' AND json_type(row.value,'$.stage')='object' ORDER BY p.id,row.key")?;
+    for row in query.query_map([], |row| row.get::<_, String>(0))? {
+        metadata_stage(locations, root, &row?, true)?;
+    }
+    // Bind native identities for the entire retained tree, including workspace
+    // directories used to reopen Undo artifacts after a same-installation restore.
+    let directory = root.join("metadata-edits");
+    if directory.exists() {
+        for entry in walkdir::WalkDir::new(&directory)
+            .follow_links(false)
+            .max_depth(32)
+        {
+            let entry = entry?;
+            ensure!(
+                entry.depth() < 32,
+                "Metadata resource tree exceeds depth limit"
+            );
+            remember_organization_path(locations, entry.path(), entry.file_type().is_dir(), false)?;
+        }
+    }
+    // A settled publication cannot leave external temporary files for startup
+    // recovery to mutate. Bind their absence and containing native authorities.
+    let mut query = conn.prepare(
+        "SELECT publish_path,displaced_path FROM metadata_edit_files ORDER BY write_id,ordinal",
+    )?;
+    for row in query.query_map([], |row| {
+        Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+    })? {
+        let (publish, displaced) = row?;
+        for path in [publish, displaced] {
+            ensure!(
+                remember_organization_path(locations, &bytes_path(&path)?, false, false)?.kind
+                    == "missing",
+                "Resolve retained external metadata publication artifacts before using a library backup"
+            );
+        }
+    }
+    let mut query = conn.prepare("SELECT json_extract(t.value,'$.path') FROM metadata_edit_writes w,json_each(w.payload_json,'$.retained_temporaries') t ORDER BY w.id,t.key")?;
+    for row in query.query_map([], |row| row.get::<_, String>(0))? {
+        let path: Vec<u8> = serde_json::from_str(&row?)?;
+        ensure!(
+            remember_organization_path(locations, &bytes_path(&path)?, false, false)?.kind
+                == "missing",
+            "Resolve retained external metadata temporary copies before using a library backup"
+        );
+    }
+    Ok(())
+}
+
 fn organization_inventory(conn: &Connection, root: &Path) -> Result<Vec<OrganizationLocation>> {
     use crate::organization::{
         Authority, Fingerprint, OrganizationMode, OrganizationPhase, OrganizationRecord,
     };
     use cuerithm_dj_sync::transaction::JournalState;
     let mut locations = OrganizationLocations::new();
+    metadata_inventory(conn, root, &mut locations)?;
     let mut records = BTreeMap::new();
     let mut query =
         conn.prepare("SELECT id,state,payload_json FROM organization_operations ORDER BY id")?;
@@ -1042,7 +1211,7 @@ fn inspect(bundle: &Path, root: &Path, current_schema: i64) -> Result<(Manifest,
     );
     ensure!(
         m.organization == organization,
-        "Organization sidecars, retained originals, native identities or reference recovery resources changed; this backup cannot restore them"
+        "Organization or metadata recovery resources, retained originals or native identities changed; this backup cannot restore them"
     );
     Ok((m, conn))
 }
@@ -1125,6 +1294,12 @@ impl Library {
             .tag_gate
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        #[cfg(feature = "autotag")]
+        let _cleanup = self
+            .inner
+            .artifact_cleanup_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
         let prepared = prepare_snapshot(&captured.connection, self.data_dir(), destination)?;
         let _current = self.revalidate_backup_database(&captured)?;
@@ -1143,6 +1318,12 @@ impl Library {
             .tag_gate
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        #[cfg(feature = "autotag")]
+        let _cleanup = self
+            .inner
+            .artifact_cleanup_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
         settled(&captured.connection, self.data_dir())?;
         let (manifest, _) = inspect(bundle, self.data_dir(), captured.stamp.schema)?;
@@ -1167,6 +1348,12 @@ impl Library {
             .tag_gate
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        #[cfg(feature = "autotag")]
+        let _cleanup = self
+            .inner
+            .artifact_cleanup_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
         settled(&captured.connection, root)?;
         let schema = captured.stamp.schema;
@@ -1225,6 +1412,12 @@ impl Library {
             .tag_gate
             .lock()
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        #[cfg(feature = "autotag")]
+        let _cleanup = self
+            .inner
+            .artifact_cleanup_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
         settled(&captured.connection, root)?;
         let mut request = pending(root)?.context("No library restore is scheduled")?;
@@ -1316,6 +1509,10 @@ pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreSt
     let Some(mut request) = pending(root)? else {
         return Ok(LibraryRestoreStartup::NoPending);
     };
+    // Match Library::open's canonical private root (including macOS /var aliases).
+    // Resolve only scheduled restores so first startup needs no existing data root.
+    let directory_root = root.canonicalize()?;
+    let root = directory_root.as_path();
     if let Some(reason) = request.blocked_reason.clone() {
         ensure!(
             !request.mutation_started,
@@ -1457,6 +1654,35 @@ mod inventory_phase_tests {
             .join()
             .unwrap();
         });
+    }
+    #[cfg(feature = "autotag")]
+    #[test]
+    fn metadata_artifact_cleanup_is_excluded_through_every_live_backup_inventory() {
+        fn assert_cleanup_excluded(library: &Library) {
+            let library = library.clone();
+            during_inventory(move || {
+                assert!(
+                    matches!(
+                        library.inner.artifact_cleanup_gate.try_lock(),
+                        Err(std::sync::TryLockError::WouldBlock)
+                    ),
+                    "Backup resource proofs must exclude concurrent artifact cleanup"
+                );
+            });
+        }
+        let (d, library) = fixture();
+        assert_cleanup_excluded(&library);
+        let backup = library
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        assert_cleanup_excluded(&library);
+        library.inspect_library_backup(&backup.path).unwrap();
+        assert_cleanup_excluded(&library);
+        library
+            .stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        assert_cleanup_excluded(&library);
+        library.retry_library_restore().unwrap();
     }
     #[test]
     fn backup_inventory_keeps_library_queries_available() {

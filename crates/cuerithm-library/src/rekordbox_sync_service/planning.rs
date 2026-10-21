@@ -371,6 +371,284 @@ fn entities(
     }
     Ok(result)
 }
+// Keep review payloads bounded without truncating the frozen mutation plan.
+const ENTITY_REVIEW_LIMIT: usize = 1_000;
+const MEMBER_REVIEW_LIMIT: usize = 50;
+fn review_name(value: &str) -> String {
+    value.chars().take(240).collect()
+}
+fn pending_entities(
+    library: &Library,
+    target: &str,
+    local: &cuerithm_dj_sync::SyncLibrary,
+    options: &RekordboxSyncOptions,
+    reserved: &BTreeMap<String, String>,
+) -> Result<Vec<RekordboxPendingEntity>> {
+    let connection = library.conn()?;
+    let mut mapped = connection.prepare("SELECT local_track_id FROM native_track_links WHERE target_id=?1 AND status='linked' AND observation_json IS NOT NULL AND local_track_id IS NOT NULL GROUP BY local_track_id HAVING COUNT(*)=1")?
+        .query_map([target], |row| row.get::<_, String>(0))?
+        .collect::<rusqlite::Result<BTreeSet<_>>>()?;
+    mapped.extend(reserved.keys().cloned());
+    let mut result = vec![];
+    let title = |id: &str| -> Result<String> {
+        let title: Option<String> = connection
+            .query_row("SELECT title FROM tracks WHERE id=?1", [id], |row| {
+                row.get(0)
+            })
+            .optional()?;
+        Ok(review_name(
+            title
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("Untitled track"),
+        ))
+    };
+    if options.playlists {
+        for playlist in &local.playlists {
+            let missing: Vec<_> = playlist
+                .track_ids
+                .iter()
+                .filter(|id| !mapped.contains(*id))
+                .collect();
+            if !missing.is_empty() {
+                result.push(RekordboxPendingEntity {
+                    kind: RekordboxEntityKind::Playlist,
+                    name: review_name(&playlist.name),
+                    unresolved_members: missing.len(),
+                    member_titles: missing
+                        .iter()
+                        .take(MEMBER_REVIEW_LIMIT)
+                        .map(|id| title(id))
+                        .collect::<Result<_>>()?,
+                });
+            }
+        }
+    }
+    if options.my_tags {
+        let tags = connection
+            .prepare("SELECT id,name FROM custom_tags ORDER BY category_id,id")?
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for (id, name) in tags {
+            let missing = connection
+                .prepare(
+                    "SELECT track_id FROM track_custom_tags WHERE tag_id=?1 ORDER BY track_id",
+                )?
+                .query_map([id], |row| row.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+                .into_iter()
+                .filter(|id| !mapped.contains(id))
+                .collect::<Vec<_>>();
+            if !missing.is_empty() {
+                result.push(RekordboxPendingEntity {
+                    kind: RekordboxEntityKind::Tag,
+                    name: review_name(&name),
+                    unresolved_members: missing.len(),
+                    member_titles: missing
+                        .iter()
+                        .take(MEMBER_REVIEW_LIMIT)
+                        .map(|id| title(id))
+                        .collect::<Result<_>>()?,
+                });
+            }
+        }
+    }
+    ensure!(
+        result.len() <= ENTITY_REVIEW_LIMIT,
+        "Too many pending playlist or My Tag changes; select a smaller sync scope"
+    );
+    Ok(result)
+}
+fn entity_state(
+    collection: &RekordboxCollection,
+    kind: NativeEntityKind,
+    id: &str,
+    owned_links: &BTreeSet<String>,
+) -> Result<Option<RekordboxEntityState>> {
+    let entities: BTreeMap<_, _> = match kind {
+        NativeEntityKind::Playlist => collection
+            .playlists
+            .iter()
+            .filter(|p| p.deleted != Some(true))
+            .map(|p| {
+                (
+                    p.id.as_str(),
+                    (p.name.as_str(), p.parent_id.as_deref(), p.sequence),
+                )
+            })
+            .collect(),
+        NativeEntityKind::MyTag => collection
+            .tags
+            .iter()
+            .filter(|p| p.deleted != Some(true))
+            .map(|p| {
+                (
+                    p.id.as_str(),
+                    (p.name.as_str(), p.parent_id.as_deref(), p.sequence),
+                )
+            })
+            .collect(),
+    };
+    let Some((name, parent, position)) = entities.get(id) else {
+        return Ok(None);
+    };
+    let mut parent_path = vec![];
+    let mut parent = *parent;
+    let mut seen = BTreeSet::new();
+    while let Some(id) = parent.filter(|id| !matches!(*id, "root" | "0" | "")) {
+        ensure!(
+            seen.insert(id),
+            "Native entity review hierarchy contains a cycle"
+        );
+        let (name, next, _) = entities
+            .get(id)
+            .context("Native entity review parent is missing")?;
+        ensure!(
+            parent_path.len() < 32,
+            "Native entity review hierarchy exceeds its limit"
+        );
+        parent_path.push(review_name(name));
+        parent = *next;
+    }
+    parent_path.reverse();
+    let mut members: Vec<_> = match kind {
+        NativeEntityKind::Playlist => collection
+            .playlist_links
+            .iter()
+            .filter(|link| link.playlist_id == id && link.deleted != Some(true))
+            .map(|link| {
+                (
+                    link.content_id.as_str(),
+                    Some(link.position),
+                    !owned_links.contains(&link.id),
+                )
+            })
+            .collect(),
+        NativeEntityKind::MyTag => collection
+            .tag_links
+            .iter()
+            .filter(|link| link.tag_id == id && link.deleted != Some(true))
+            .map(|link| {
+                (
+                    link.content_id.as_str(),
+                    None,
+                    !owned_links.contains(&link.id),
+                )
+            })
+            .collect(),
+    };
+    members.sort_by(|a, b| (a.1, a.0).cmp(&(b.1, b.0)));
+    let member_count = members.len();
+    let external_member_count = members.iter().filter(|(_, _, external)| *external).count();
+    let titles: BTreeMap<_, _> = collection
+        .tracks
+        .iter()
+        .map(|track| {
+            (
+                track.identity.content_id.as_str(),
+                track.metadata.title.as_str(),
+            )
+        })
+        .collect();
+    Ok(Some(RekordboxEntityState {
+        name: review_name(name),
+        parent_path,
+        position: *position,
+        member_count,
+        external_member_count,
+        representation: match kind {
+            NativeEntityKind::Playlist => {
+                let playlist = collection
+                    .playlists
+                    .iter()
+                    .find(|playlist| playlist.id == id)
+                    .expect("reviewed playlist");
+                if playlist.attribute == 1 {
+                    RekordboxEntityRepresentation::Folder
+                } else if playlist.smart_rule.is_some() || playlist.attribute == 4 {
+                    RekordboxEntityRepresentation::NativeSmart
+                } else {
+                    RekordboxEntityRepresentation::Ordinary
+                }
+            }
+            NativeEntityKind::MyTag => {
+                if collection
+                    .tags
+                    .iter()
+                    .any(|tag| tag.id == id && tag.attribute == 1)
+                {
+                    RekordboxEntityRepresentation::Category
+                } else {
+                    RekordboxEntityRepresentation::Tag
+                }
+            }
+        },
+        members: members
+            .into_iter()
+            .take(MEMBER_REVIEW_LIMIT)
+            .map(|(id, position, external)| RekordboxEntityMember {
+                title: review_name(
+                    titles
+                        .get(id)
+                        .copied()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("Untitled track"),
+                ),
+                position,
+                external,
+            })
+            .collect(),
+    }))
+}
+pub(super) fn entity_changes(
+    plan: Option<&NativePlaylistPlan>,
+    drafts: &[NativeEntityDraft],
+    resolved: &[NativeResolvedEntity],
+    before: &RekordboxCollection,
+    after: &RekordboxCollection,
+) -> Result<Vec<RekordboxEntityChange>> {
+    ensure!(
+        drafts.len() <= ENTITY_REVIEW_LIMIT,
+        "Too many playlist or My Tag changes to review; select a smaller sync scope"
+    );
+    let mut changes = vec![];
+    for draft in drafts {
+        let resolved = resolved
+            .iter()
+            .find(|entity| entity.local_id == draft.local_id)
+            .context("Reviewed native entity identity missing")?;
+        let mut owned_links: BTreeSet<String> = draft
+            .identity
+            .iter()
+            .flat_map(|identity| identity.owned_links.iter().map(|link| link.id.clone()))
+            .collect();
+        let previous = entity_state(before, draft.kind, &resolved.native_id, &owned_links)?;
+        owned_links.extend(resolved.owned_link_ids.iter().cloned());
+        let next = entity_state(after, draft.kind, &resolved.native_id, &owned_links)?;
+        let folder = draft.attribute == 1
+            || (draft.remove
+                && before
+                    .playlists
+                    .iter()
+                    .any(|playlist| playlist.id == resolved.native_id && playlist.attribute == 1));
+        let kind = match draft.kind {
+            NativeEntityKind::Playlist if folder => RekordboxEntityKind::Folder,
+            NativeEntityKind::Playlist => RekordboxEntityKind::Playlist,
+            NativeEntityKind::MyTag if draft.attribute == 1 => RekordboxEntityKind::Category,
+            NativeEntityKind::MyTag => RekordboxEntityKind::Tag,
+        };
+        changes.push(RekordboxEntityChange {
+            local_id: draft.local_id.clone(), kind,
+            action: if draft.remove { RekordboxEntityAction::Remove } else if draft.identity.is_none() { RekordboxEntityAction::Create } else { RekordboxEntityAction::Update },
+            ownership: match &draft.identity { None => RekordboxEntityOwnership::New, Some(identity) if identity.owned => RekordboxEntityOwnership::Owned, Some(_) => RekordboxEntityOwnership::Matched },
+            materialized_smart: plan.is_some_and(|plan| plan.playlists.iter().any(|mutation| matches!(mutation, NativePlaylistMutation::Upsert { local_id, representation: NativePlaylistRepresentation::MaterializedSmart { .. }, .. } if local_id == &draft.local_id))),
+            before: previous, after: next,
+        });
+    }
+    Ok(changes)
+}
 pub(super) enum PreviewPermit {
     Production,
     #[cfg(test)]
@@ -454,6 +732,7 @@ pub(super) fn preview(
     let mut media_copies = 0;
     let mut copied_audio_bytes = 0u64;
     let mut seen_decisions = BTreeSet::new();
+    let mut pending_creation_choice = false;
     for track in &mut local_library.tracks {
         cancel.check()?;
         let (local, epoch, link) = {
@@ -709,11 +988,9 @@ pub(super) fn preview(
         if remote.is_none() && !any_write {
             continue;
         }
-        if remote.is_none() {
-            ensure!(
-                matches!(fields.get("title"), Some(TargetValue::Text(_))),
-                "New rekordbox tracks require an explicit Use CueRithm choice for title"
-            );
+        if remote.is_none() && !matches!(fields.get("title"), Some(TargetValue::Text(_))) {
+            pending_creation_choice = true;
+            continue;
         }
         let mut regenerate_waveforms = false;
         let mut export_track = track.clone();
@@ -999,7 +1276,22 @@ pub(super) fn preview(
         }
     }
     acknowledgements.retain(|a| !a.content_id.is_empty());
-    let playlist_plan = if request.options.playlists || request.options.my_tags {
+    let pending_entities = pending_entities(
+        library,
+        &native_target_id,
+        &local_library,
+        &request.options,
+        &reserved,
+    )?;
+    if !pending_entities.is_empty() {
+        warnings.push("Playlist and My Tag changes await new track choices. Include their tracks in the sync scope, choose Use CueRithm for each new title, then preview again. All entity changes are withheld from this preview.".into());
+    }
+    if pending_creation_choice {
+        warnings.push("New rekordbox tracks require an explicit Use CueRithm choice for title. Select title in Metadata fields and preview again after choosing.".into());
+    }
+    let playlist_plan = if pending_entities.is_empty()
+        && (request.options.playlists || request.options.my_tags)
+    {
         let playlist_ids = if request.options.playlists {
             let mut selected = local_library
                 .playlists
@@ -1062,10 +1354,20 @@ pub(super) fn preview(
         "Frozen native track allocation changed while planning playlists"
     );
     let staged = stage_native_write(&prepared.plan, &workspace, key, cancel)?;
-    let after = {
+    let (after, staged_collection) = {
         let lease = NativeDatabaseLease::acquire(&staged.snapshot.path, key, cancel)?;
-        lease.state(cancel)?
+        (
+            lease.state(cancel)?,
+            lease.read_collection(CollectionReadOptions::default(), cancel)?,
+        )
     };
+    let entity_changes = entity_changes(
+        playlist_plan.as_ref(),
+        &plan_request.entities,
+        &prepared.entities,
+        &collection,
+        &staged_collection,
+    )?;
     let receipts = prepared
         .entities
         .iter()
@@ -1116,11 +1418,13 @@ pub(super) fn preview(
         target_id: target.id.clone(),
         library_revision: revision,
         fields: reviews,
+        entity_changes,
+        pending_entities: pending_entities.clone(),
         tracks: prepared.tracks.len(),
         changed_rows: staged.changed_rows,
         skipped_fields: skipped,
         warnings,
-        can_apply: writable,
+        can_apply: writable && pending_entities.is_empty() && !pending_creation_choice,
         media_copies,
         copied_audio_bytes,
     };

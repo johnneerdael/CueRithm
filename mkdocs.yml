@@ -155,6 +155,7 @@ nav:
       - Automatic tagging settings: guides/tagging-settings.md
       - Cloudflare challenge solver: guides/catalog-solver.md
       - File organization: guides/file-organization.md
+      - Match review and metadata editing: guides/metadata-editing.md
       - Settings reference: guides/settings.md
   - Under the hood:
       - technical/index.md

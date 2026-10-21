@@ -14,6 +14,8 @@ pub(crate) struct Inner {
     pub organization_gate: Mutex<()>,
     #[cfg(feature = "autotag")]
     pub tag_gate: Mutex<()>,
+    #[cfg(feature = "autotag")]
+    pub artifact_cleanup_gate: Mutex<()>,
     pub _lease: File,
     pub root: PathBuf,
 }
@@ -28,6 +30,11 @@ impl Library {
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
         std::fs::create_dir_all(root)?;
+        // Bind private staging to the opened library's real directory. Native
+        // publication must not follow aliases such as macOS /var on each write.
+        let root = root
+            .canonicalize()
+            .context("Resolve library data directory")?;
         let mut lock_path = path.as_os_str().to_owned();
         lock_path.push(".lock");
         let lease = File::options()
@@ -55,7 +62,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=22).contains(&version),
+            (0..=24).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -173,31 +180,43 @@ impl Library {
         if version < 19 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/019_native_reconciliation.sql")
+                include_str!("../migrations/019_metadata_edits.sql")
             ))?;
         }
         if version < 20 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/020_manual_publication.sql")
+                include_str!("../migrations/020_match_review.sql")
             ))?;
         }
         if version < 21 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/021_native_playlist_sync.sql")
+                include_str!("../migrations/021_native_reconciliation.sql")
             ))?;
         }
         if version < 22 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/022_rekordbox_sync.sql")
+                include_str!("../migrations/022_manual_publication.sql")
+            ))?;
+        }
+        if version < 23 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/023_native_playlist_sync.sql")
+            ))?;
+        }
+        if version < 24 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/024_rekordbox_sync.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
-                "SELECT (SELECT COUNT(*) FROM tag_writes WHERE state='prepared') + (SELECT COUNT(*) FROM cleanup_writes WHERE state='prepared') + (SELECT COUNT(*) FROM maintenance_writes WHERE state='prepared')",
+                "SELECT (SELECT COUNT(*) FROM tag_writes WHERE state='prepared') + (SELECT COUNT(*) FROM cleanup_writes WHERE state='prepared') + (SELECT COUNT(*) FROM maintenance_writes WHERE state='prepared') + (SELECT COUNT(*) FROM metadata_edit_writes WHERE state IN ('prepared','publishing','recovery_required','conflict')) + (SELECT COUNT(*) FROM metadata_edit_overrides o JOIN jobs j ON j.id=o.job_id WHERE j.state IN ('queued','running','attention') AND (o.state IN ('queued','claimed') OR (o.state='committed' AND o.final_json IS NULL))) + (SELECT COUNT(*) FROM preparation_review_decisions d JOIN jobs j ON j.id=d.job_id WHERE j.state IN ('queued','running','attention') AND d.state IN ('pending','claimed','applied'))",
                 [],
                 |r| r.get(0),
             )?;
@@ -224,6 +243,8 @@ impl Library {
                 organization_gate: Mutex::new(()),
                 #[cfg(feature = "autotag")]
                 tag_gate: Mutex::new(()),
+                #[cfg(feature = "autotag")]
+                artifact_cleanup_gate: Mutex::new(()),
                 _lease: lease,
                 root: root.to_path_buf(),
             }),
@@ -243,6 +264,11 @@ impl Library {
         lib.recover_unused_disposals()?;
         lib.recover_unused_removals()?;
         lib.recover_organization()?;
+        #[cfg(feature = "autotag")]
+        {
+            lib.recover_metadata_edits()?;
+            lib.recover_artifact_cleanup(100)?;
+        }
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

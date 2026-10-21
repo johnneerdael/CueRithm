@@ -89,6 +89,7 @@ impl TransferSnapshot {
             ensure!(
                 match (date.month, date.day) {
                     (None, None) => true,
+                    (Some(m), None) => (1..=12).contains(&m),
                     (Some(m), Some(d)) =>
                         chrono::NaiveDate::from_ymd_opt(date.year, m.into(), d.into()).is_some(),
                     _ => false,

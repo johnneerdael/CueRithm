@@ -450,7 +450,7 @@ fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
         let backup = lib
             .create_library_backup(&d.path().join("backups"))
             .unwrap();
-        assert_eq!(backup.schema, 22);
+        assert_eq!(backup.schema, 24);
         assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
         lib.stage_library_restore(&backup.path, &backup.database_sha256)
             .unwrap();
@@ -714,4 +714,323 @@ fn library_backup_refuses_unsettled_native_rekordbox_publication() {
             "{status}"
         );
     }
+}
+
+#[test]
+fn backup_refuses_metadata_recovery_and_auxiliary_cleanup() {
+    let (d, lib, _) = fixture();
+    let conn = Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
+    // A save can be interrupted before the first physical-write journal exists.
+    conn.execute(
+        "INSERT INTO metadata_edit_drafts VALUES('draft',1,'editing','{}',0,0)",
+        [],
+    )
+    .unwrap();
+    conn.execute("INSERT INTO metadata_edit_batches VALUES('batch','draft',1,'apply','saving','{}',NULL,0,0)", []).unwrap();
+    assert!(
+        lib.create_library_backup(&d.path().join("backups"))
+            .is_err(),
+        "interrupted metadata saves require recovery"
+    );
+    conn.execute("DELETE FROM metadata_edit_batches", [])
+        .unwrap();
+    conn.execute("INSERT INTO artifact_cleanup_moves(id,owner_kind,owner_id,source_path,quarantine_path,payload_json,state,observed_bytes,created,updated) VALUES('cleanup','metadata_edit','batch',X'00',X'00','{}','retained',0,0,0)", []).unwrap();
+    assert!(
+        lib.create_library_backup(&d.path().join("backups"))
+            .is_err(),
+        "unproven external cleanup must not be omitted"
+    );
+}
+
+#[cfg(feature = "autotag")]
+fn edited_metadata_fixture() -> (
+    tempfile::TempDir,
+    Library,
+    std::path::PathBuf,
+    cuerithm_media::MediaRuntime,
+    String,
+    String,
+) {
+    use cuerithm_autotag::{MetadataTextField, TextEdit};
+    use cuerithm_library::{MetadataEditService, MetadataEditorPatch};
+    let (d, lib, db) = fixture();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let path = d.path().canonicalize().unwrap().join("authored.flac");
+    fs::copy(
+        repo.join("crates/cuerithm-media/tests/fixtures/covered.flac"),
+        &path,
+    )
+    .unwrap();
+    insert_source(&lib, &path, &cuerithm_media::file_sha256(&path).unwrap());
+    let runtime =
+        cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin")).unwrap();
+    let service = MetadataEditService::new(lib.clone(), runtime.clone());
+    let draft = service.create_draft(&["authored".into()]).unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec!["Saved metadata title".into()],
+        },
+    );
+    let draft = service
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    let preview = service
+        .preview(&draft.id, draft.revision, &Default::default())
+        .unwrap();
+    let batch = service.apply(&preview.id, &Default::default()).unwrap();
+    assert_eq!(batch.state, "saved", "{batch:?}");
+    let snapshot = service
+        .snapshot(&["authored".into()])
+        .unwrap()
+        .tracks
+        .remove(0);
+    let asset = service
+        .extract_artwork(
+            "authored",
+            &snapshot.source_sha256,
+            snapshot.native.artwork[0].identity.clone(),
+        )
+        .unwrap();
+    let draft = service.create_draft(&["authored".into()]).unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.artwork.push(cuerithm_library::MetadataArtworkChoice {
+        target: None,
+        asset_id: Some(asset.id),
+        kind: Some(3),
+        description: Some("Saved draft artwork".into()),
+    });
+    service
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    (d, lib, db, runtime, batch.id, draft.id)
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn metadata_draft_artwork_history_and_undo_survive_same_installation_restore() {
+    use cuerithm_library::MetadataEditService;
+    let (d, lib, db, runtime, batch, draft) = edited_metadata_fixture();
+    let service = MetadataEditService::new(lib.clone(), runtime.clone());
+    let draft_before = serde_json::to_value(service.draft(&draft).unwrap()).unwrap();
+    let history_before = serde_json::to_value(service.history().unwrap()).unwrap();
+    let source = d.path().canonicalize().unwrap().join("authored.flac");
+    let saved_hash = cuerithm_media::file_sha256(&source).unwrap();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(backup.path.join("manifest.json")).unwrap()).unwrap();
+    let metadata_root = lib.data_dir().join("metadata-edits");
+    let expected_path =
+        cuerithm_library::organization::NativePath::new(&metadata_root.join("assets"));
+    assert!(
+        manifest["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|resource| resource["path"] == serde_json::to_value(&expected_path.0).unwrap()),
+        "metadata assets must be bound to the manifest"
+    );
+    lib.stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    drop(service);
+    drop(lib);
+    assert!(matches!(
+        apply_pending_library_restore(&db).unwrap(),
+        LibraryRestoreStartup::Applied { .. }
+    ));
+    let lib = Library::open(&db).unwrap();
+    let service = MetadataEditService::new(lib.clone(), runtime);
+    assert_eq!(
+        serde_json::to_value(service.draft(&draft).unwrap()).unwrap(),
+        draft_before
+    );
+    assert_eq!(
+        serde_json::to_value(service.history().unwrap()).unwrap(),
+        history_before
+    );
+    let restored_draft = service.draft(&draft).unwrap();
+    assert!(
+        !service
+            .artwork_bytes(restored_draft.patch.artwork[0].asset_id.as_deref().unwrap())
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(cuerithm_media::file_sha256(&source).unwrap(), saved_hash);
+    let undo = service.undo(&batch, &Default::default()).unwrap();
+    assert_eq!(undo.state, "undone", "{undo:?}");
+    assert_ne!(cuerithm_media::file_sha256(&source).unwrap(), saved_hash);
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn metadata_backup_refuses_changed_retained_original_and_artwork() {
+    let (d, lib, _db, _runtime, _batch, _draft) = edited_metadata_fixture();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    let conn = Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
+    let encoded: Vec<u8> = conn
+        .query_row("SELECT backup FROM metadata_edit_files LIMIT 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let original = cuerithm_library::organization::NativePath(encoded)
+        .path()
+        .unwrap();
+    let bytes = fs::read(&original).unwrap();
+    fs::write(&original, b"later external original edit").unwrap();
+    assert!(
+        lib.inspect_library_backup(&backup.path).is_err(),
+        "Undo originals are backup dependencies"
+    );
+    assert!(
+        lib.create_library_backup(&d.path().join("backups"))
+            .is_err(),
+        "changed retained originals cannot be blessed by a new backup"
+    );
+    fs::write(&original, bytes).unwrap();
+    let encoded: Vec<u8> = conn
+        .query_row(
+            "SELECT path FROM metadata_artwork_assets LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let asset = cuerithm_library::organization::NativePath(encoded)
+        .path()
+        .unwrap();
+    let artwork_bytes = fs::read(&asset).unwrap();
+    fs::write(&asset, b"later external artwork edit").unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    assert!(
+        lib.create_library_backup(&d.path().join("backups"))
+            .is_err()
+    );
+    fs::write(&asset, artwork_bytes).unwrap();
+    let replacement = original.with_extension("external-copy");
+    fs::copy(&original, &replacement).unwrap();
+    fs::rename(replacement, &original).unwrap();
+    assert!(
+        lib.create_library_backup(&d.path().join("backups"))
+            .is_err(),
+        "Equal bytes cannot replace the saved native Undo original"
+    );
+}
+
+#[test]
+fn attention_job_metadata_and_review_outboxes_block_the_whole_restore_flow() {
+    for (kind, state) in [
+        ("override", "queued"),
+        ("override", "claimed"),
+        ("override", "committed"),
+        ("review", "pending"),
+        ("review", "claimed"),
+        ("review", "applied"),
+        ("write", "prepared"),
+        ("write", "publishing"),
+        ("write", "recovery_required"),
+        ("write", "conflict"),
+    ] {
+        let (d, lib, db) = fixture();
+        let source = d.path().join("fixture.wav");
+        fs::write(&source, b"authored source").unwrap();
+        insert_source(
+            &lib,
+            &source,
+            &cuerithm_media::file_sha256(&source).unwrap(),
+        );
+        let backup = lib
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        lib.stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        let conn = Connection::open(&db).unwrap();
+        conn.execute("INSERT INTO jobs(id,track_id,source_hash,settings_revision,state,stage,created,updated) SELECT 'job','authored','fixture',revision,'attention','tagging',0,0 FROM selected_settings",[]).unwrap();
+        conn.execute(
+            "INSERT INTO metadata_edit_drafts VALUES('draft',1,'editing','{}',0,0)",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO metadata_edit_batches VALUES('batch','draft',1,'apply','saved','{}',NULL,0,0)",[]).unwrap();
+        match kind {
+            "override" => {
+                conn.execute("INSERT INTO metadata_edit_overrides(job_id,track_id,draft_id,draft_revision,batch_id,source_hash,settings_revision,path_revision,metadata_revision,accepted_attempt,execution_source_proof_json,state,payload_json,created,updated) SELECT 'job','authored','draft',1,'batch','fixture',revision,0,0,0,'{}',?1,'{}',0,0 FROM selected_settings",[state]).unwrap();
+            }
+            "review" => {
+                conn.execute("INSERT INTO preparation_review_decisions(job_id,track_id,source_hash,settings_revision,generation,accepted_attempt,payload_json,binding_json,state,created,updated) SELECT 'job','authored','fixture',revision,'generation',0,'{}','{}',?1,0,0 FROM selected_settings",[state]).unwrap();
+            }
+            "write" => {
+                conn.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json) VALUES('row','batch','authored',0,'written','{}')",[]).unwrap();
+                conn.execute("INSERT INTO metadata_edit_writes(id,batch_id,row_id,track_id,state,payload_json,workspace,expected_path_revision,expected_metadata_revision,output_hash,created,updated) VALUES('write','batch','row','authored',?1,'{}',X'00',0,0,'fixture',0,0)",[state]).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        for result in [
+            lib.create_library_backup(&d.path().join("blocked-backups"))
+                .map(|_| ()),
+            lib.inspect_library_backup(&backup.path).map(|_| ()),
+            lib.stage_library_restore(&backup.path, &backup.database_sha256)
+                .map(|_| ()),
+        ] {
+            let error = result.unwrap_err().to_string();
+            assert!(
+                error.contains("Finish metadata saves"),
+                "{kind}/{state}: {error}"
+            );
+        }
+        drop(conn);
+        drop(lib);
+        match apply_pending_library_restore(&db).unwrap() {
+            LibraryRestoreStartup::BlockedBeforeMutation { reason, .. } => assert!(
+                reason.contains("Finish metadata saves"),
+                "{kind}/{state}: {reason}"
+            ),
+            other => panic!("{kind}/{state}: {other:?}"),
+        }
+    }
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn metadata_restore_rechecks_retained_original_after_staging() {
+    let (d, lib, db, _runtime, _batch, _draft) = edited_metadata_fixture();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    lib.stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    let conn = Connection::open(&db).unwrap();
+    let encoded: Vec<u8> = conn
+        .query_row("SELECT backup FROM metadata_edit_files LIMIT 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let original = cuerithm_library::organization::NativePath(encoded)
+        .path()
+        .unwrap();
+    fs::write(&original, b"externally changed after staging").unwrap();
+    drop(conn);
+    drop(lib);
+    assert!(matches!(
+        apply_pending_library_restore(&db).unwrap(),
+        LibraryRestoreStartup::BlockedBeforeMutation { .. }
+    ));
+    assert_eq!(
+        fs::read(original).unwrap(),
+        b"externally changed after staging"
+    );
+}
+
+#[test]
+fn fresh_installation_without_data_directory_has_no_pending_restore() {
+    let d = tempfile::tempdir().unwrap();
+    let data = d.path().join("not-created");
+    assert!(matches!(
+        apply_pending_library_restore(&data.join("library.sqlite")).unwrap(),
+        LibraryRestoreStartup::NoPending
+    ));
+    assert!(!data.exists());
 }

@@ -2,10 +2,14 @@ mod backup_commands;
 mod builtin;
 mod commands;
 mod compatible_commands;
+mod exit;
+mod exit_commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
 mod manual_publication_commands;
+mod match_review_commands;
+mod metadata_commands;
 mod organization_commands;
 mod rekordbox_sync_commands;
 mod sync_commands;
@@ -30,17 +34,36 @@ pub fn diagnostics() -> Result<()> {
     );
     Ok(())
 }
+pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
+    if !host.alive.swap(false, std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    host.maintenance.stop();
+    std::thread::spawn(move || {
+        if let Ok(mut player) = host.player.lock() {
+            let _ = player.pause();
+        }
+        host.preparation.shutdown();
+        host.smart_playlists.shutdown();
+        host.maintenance.wait_until_idle();
+        app.exit(0);
+    });
+}
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let root = std::env::var_os("CUERITHM_DATA_DIR")
-                .map(PathBuf::from)
-                .unwrap_or(app.path().app_data_dir()?);
+            let root = if let Some(root) = std::env::var_os("CUERITHM_DATA_DIR") {
+                PathBuf::from(root)
+            } else {
+                app.path().app_data_dir()?
+            };
             let runtime = if cfg!(debug_assertions) {
-                std::env::var_os("CUERITHM_MEDIA_RUNTIME")
-                    .map(PathBuf::from)
-                    .unwrap_or(app.path().resource_dir()?.join("media"))
+                if let Some(runtime) = std::env::var_os("CUERITHM_MEDIA_RUNTIME") {
+                    PathBuf::from(runtime)
+                } else {
+                    app.path().resource_dir()?.join("media")
+                }
             } else {
                 app.path().resource_dir()?.join("media")
             };
@@ -57,7 +80,18 @@ pub fn run() {
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 for event in events {
+                    let settled = matches!(
+                        event.state.as_str(),
+                        "completed" | "attention" | "superseded"
+                    );
                     let _ = handle.emit("preparation", event);
+                    if settled {
+                        // Incoming overrides can settle after their invoke has
+                        // returned. Refresh saved receipts and access projections
+                        // without treating unrelated reviews as content changes.
+                        let _ = handle.emit("metadata-edit-change", ());
+                        let _ = handle.emit("catalog-access-change", ());
+                    }
                 }
             });
             let state = host.clone();
@@ -106,6 +140,31 @@ pub fn run() {
             compatible_commands::save_compatible_playlist,
             tracklist_commands::match_tracklist,
             tracklist_commands::save_tracklist_playlist,
+            exit_commands::register_exit_guard,
+            exit_commands::unregister_exit_guard,
+            exit_commands::complete_exit,
+            exit_commands::cancel_exit,
+            metadata_commands::metadata_editor_snapshot,
+            metadata_commands::create_metadata_draft,
+            metadata_commands::metadata_draft,
+            metadata_commands::metadata_drafts,
+            metadata_commands::update_metadata_draft,
+            metadata_commands::preview_metadata_edits,
+            metadata_commands::apply_metadata_edits,
+            metadata_commands::recover_metadata_edits,
+            metadata_commands::undo_metadata_edits,
+            metadata_commands::discard_metadata_draft,
+            metadata_commands::metadata_edit_history,
+            metadata_commands::metadata_edit_history_page,
+            metadata_commands::metadata_edit_batch,
+            metadata_commands::choose_metadata_artwork,
+            metadata_commands::extract_metadata_artwork,
+            metadata_commands::metadata_artwork_asset,
+            match_review_commands::track_match_review,
+            match_review_commands::preview_match_review,
+            match_review_commands::apply_match_review,
+            match_review_commands::requery_matches,
+            match_review_commands::match_review_artwork,
             organization_commands::organization_roots,
             organization_commands::choose_organization_root,
             organization_commands::organization_example,
@@ -207,19 +266,22 @@ pub fn run() {
                 && let Some(host) = app.try_state::<Arc<host::Host>>()
             {
                 api.prevent_exit();
-                if host.alive.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                    host.maintenance.stop();
-                    let host = host.inner().clone();
-                    let app = app.clone();
-                    std::thread::spawn(move || {
-                        if let Ok(mut player) = host.player.lock() {
-                            let _ = player.pause();
+                match host.exit.request(!app.webview_windows().is_empty()) {
+                    Ok(exit::ExitAction::Notify(id)) => {
+                        if app
+                            .emit("app-exit-requested", serde_json::json!({"request_id":id}))
+                            .is_err()
+                        {
+                            let _ = host.exit.cancel(&id);
                         }
-                        host.preparation.shutdown();
-                        host.smart_playlists.shutdown();
-                        host.maintenance.wait_until_idle();
-                        app.exit(0);
-                    });
+                    }
+                    Ok(exit::ExitAction::Shutdown) => {
+                        start_shutdown(app.clone(), host.inner().clone())
+                    }
+                    Ok(exit::ExitAction::Waiting) => {}
+                    Err(error) => {
+                        let _ = app.emit("app-exit-error", error.to_string());
+                    }
                 }
             }
         });

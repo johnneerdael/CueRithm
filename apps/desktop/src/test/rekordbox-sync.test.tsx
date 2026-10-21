@@ -2,6 +2,7 @@ import {act,fireEvent,render,screen,waitFor,within} from "@testing-library/react
 import {useState} from "react";
 import {describe,expect,it,vi} from "vitest";
 import RekordboxSync from "../views/RekordboxSync";
+import RekordboxEntities from "../components/RekordboxEntities";
 import Sync from "../views/Sync";
 import {fakeBridge} from "./bridge";
 import {allowedDecisions,rekordboxValueText} from "../components/RekordboxConflicts";
@@ -9,7 +10,7 @@ import type {RekordboxBridge,RekordboxSyncFieldReview,RekordboxSyncPreview,Rekor
 
 const target:RekordboxSyncTarget={id:"native-6",installation:{version:"6.8.5",major:6,root:"/Applications/rekordbox 6",executable:"/Applications/rekordbox 6/rekordbox",version_source:"bundle"},database:"/Synthetic/rekordbox/master.db",options_file:"/Synthetic/options.json",asset_root:"/Synthetic/rekordbox"};
 const field:RekordboxSyncFieldReview={track_id:"a",title:"Night drive",field:"title",local:{state:"present",value:"Night drive"},remote:{state:"present",value:"Night drive"},result:{state:"conflict",reason:"initial_acknowledgement",suggestion:"accept_equal"},decision:null};
-function prepared(id="plan",fields=[field]):RekordboxSyncPreview{return {id,target_id:target.id,library_revision:1,fields,tracks:1,changed_rows:2,skipped_fields:0,warnings:[],media_copies:0,copied_audio_bytes:0,can_apply:fields.every(f=>f.decision!==null)};}
+function prepared(id="plan",fields=[field]):RekordboxSyncPreview{return {id,target_id:target.id,library_revision:1,fields,entity_changes:[],pending_entities:[],tracks:1,changed_rows:2,skipped_fields:0,warnings:[],media_copies:0,copied_audio_bytes:0,can_apply:fields.every(f=>f.decision!==null)};}
 function bridge():RekordboxBridge{return {discover:vi.fn(async()=>[target]),preflight:vi.fn(async()=>({target,readable:true,writable:true,restrictions:[],schema_fingerprint:null,identity:null})),preview:vi.fn(async()=>prepared()),apply:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:1})),restore:vi.fn(async(_op,id)=>({id,status:"restored",tracks:1,changed_rows:2,acknowledged_fields:0,skipped_fields:0})),recover:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:0})),discard:vi.fn(async()=>{}),history:vi.fn(async()=>[]),cancel:vi.fn(async()=>true)};}
 async function open(api:RekordboxBridge){render(<RekordboxSync bridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);await screen.findByText("Ready for preview");}
 describe("native rekordbox sync",()=>{
@@ -24,6 +25,17 @@ describe("native rekordbox sync",()=>{
   fireEvent.click(screen.getByRole("button",{name:"Sync rekordbox"}));await waitFor(()=>expect(api.apply).toHaveBeenCalledWith(expect.any(String),"reviewed"));
   await screen.findByText("1 track · 2 rows changed · 1 field acknowledged · 1 field skipped");
   expect(screen.queryByText("Everything is already synced.")).not.toBeInTheDocument();
+ });
+ it("reviews pending new members, then concrete entities only after field choices and a fresh preview",async()=>{
+  const api=bridge();vi.mocked(api.preview).mockResolvedValueOnce({...prepared("pending",[{...field,remote:{state:"unavailable"}}]),can_apply:false,pending_entities:[{kind:"playlist",name:"Opening set",unresolved_members:1,member_titles:["Night drive"]}],entity_changes:[]});await open(api);
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
+  const entities=await screen.findByRole("region",{name:"rekordbox playlist and My Tag review"});
+  expect(within(entities).getByText("Opening set")).toBeInTheDocument();expect(within(entities).getByText(/1 member awaiting track choices/)).toBeInTheDocument();expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox",{name:"Choice for Night drive title"}),{target:{value:"use_local"}});
+  expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
+  vi.mocked(api.preview).mockResolvedValueOnce({...prepared("complete",[{...field,decision:"use_local"}]),pending_entities:[],entity_changes:[{local_id:"private-local-id",kind:"playlist",action:"create",ownership:"new",materialized_smart:true,before:null,after:{name:"Opening set",parent_path:["Weekend"],representation:"ordinary",position:2,member_count:1,members:[{title:"Night drive",position:1,external:false}],external_member_count:0}}]});
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));await screen.findByText("Smart playlist exported as a track list");expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeEnabled();expect(vi.mocked(api.preview).mock.calls[1][1].decisions).toEqual({a:{title:"use_local"}});
+  expect(screen.getByRole("region",{name:"rekordbox playlist and My Tag review"})).not.toHaveTextContent("private-local-id");
  });
  it("shows readable profiles without enabling writes",async()=>{
   const api=bridge();vi.mocked(api.preflight).mockResolvedValue({target,readable:true,writable:false,restrictions:["This installed build has not passed write acceptance."],schema_fingerprint:null,identity:null});
@@ -129,5 +141,21 @@ describe("rekordbox musical field presentation",()=>{
  });
  it("labels explicit cue replacement and clearing and never offers clearing a full beatgrid or source path",()=>{
   const cues=allowedDecisions({...field,field:"cues"});expect(cues).toContainEqual(["use_local","Replace listed rekordbox cues"]);expect(cues).toContainEqual(["clear_remote","Clear listed rekordbox cues"]);for(const name of ["beat_grid","source_path"])expect(allowedDecisions({...field,field:name}).some(([decision])=>decision==="clear_remote")).toBe(false);
+ });
+});
+
+
+describe("rekordbox entity presentation",()=>{
+ it("shows owned deletion, names, hierarchy, positions and retained foreign memberships without identifiers",()=>{
+  const before={name:"Warm up",parent_path:["Friday"],representation:"ordinary" as const,position:1,member_count:2,external_member_count:1,members:[{title:"External song",position:1,external:true},{title:"Night drive",position:2,external:false}]};
+  render(<RekordboxEntities pending={[]} changes={[
+   {local_id:"secret-identity",kind:"playlist",action:"update",ownership:"matched",materialized_smart:false,before,after:{...before,name:"Closing",parent_path:["Saturday"],position:3,members:[{title:"External song",position:1,external:true},{title:"Night drive",position:4,external:false}]}},
+   {local_id:"secret-removal",kind:"playlist",action:"remove",ownership:"owned",materialized_smart:false,before:{...before,name:"Old set"},after:null},
+   {local_id:"secret-category",kind:"category",action:"update",ownership:"owned",materialized_smart:false,before:{...before,name:"Mood",members:[],member_count:0},after:{...before,name:"Atmosphere",members:[],member_count:0}},
+   {local_id:"secret-tag",kind:"tag",action:"update",ownership:"owned",materialized_smart:false,before:{...before,name:"Warm",member_count:0,members:[]},after:{...before,name:"Warm",parent_path:["Atmosphere"],member_count:1,members:[{title:"Night drive",position:null,external:false}]}}
+  ]}/>);
+  const region=screen.getByRole("region",{name:"rekordbox playlist and My Tag review"});
+  for(const name of ["Warm up","Closing","Library root / Friday · Position 1","Library root / Saturday · Position 3","Delete owned object · Playlist","Deleted from rekordbox","Mood","Atmosphere","Update · My Tag category","Update · My Tag"])expect(within(region).getAllByText(name).length).toBeGreaterThan(0);
+  expect(within(region).getAllByText(/external member retained/).length).toBeGreaterThan(0);expect(region).not.toHaveTextContent(/secret-|UUID|raw_hash|\.db/);
  });
 });

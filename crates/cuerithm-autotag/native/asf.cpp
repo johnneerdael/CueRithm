@@ -48,13 +48,20 @@ int cw_asf_add(CwAsf *h,const unsigned char *key,size_t kl,const unsigned char *
  auto k=text(key,kl),v=text(value,vl);
  if(k=="Title")tag(h)->setTitle(v);else if(k=="Author")tag(h)->setArtist(v);else if(k=="Description")tag(h)->setComment(v);else tag(h)->addAttribute(k,TagLib::ASF::Attribute(v));return 1;
 }catch(const std::exception &e){h->error=e.what();return 0;}}
-int cw_asf_picture(CwAsf *h,size_t index,unsigned *kind,const unsigned char **bytes,size_t *len,const unsigned char **mime,size_t *ml){try{
+int cw_asf_picture(CwAsf *h,size_t index,unsigned *kind,const unsigned char **bytes,size_t *len,const unsigned char **mime,size_t *ml,const unsigned char **description,size_t *dl){try{
  auto attrs=tag(h)->attribute("WM/Picture");if(index>=attrs.size())return 0;auto pic=attrs[static_cast<unsigned>(index)].toPicture();if(!pic.isValid())return 2;
  // Buffers must remain valid until the next call; use two thread-local copies.
- static thread_local std::string image,mime_value;auto data=pic.picture();image.assign(data.data(),data.size());mime_value=pic.mimeType().to8Bit(true);
- *kind=static_cast<unsigned>(pic.type());*bytes=reinterpret_cast<const unsigned char*>(image.data());*len=image.size();*mime=reinterpret_cast<const unsigned char*>(mime_value.data());*ml=mime_value.size();return 1;
+ static thread_local std::string image,mime_value,description_value;auto data=pic.picture();image.assign(data.data(),data.size());mime_value=pic.mimeType().to8Bit(true);description_value=pic.description().to8Bit(true);
+ *kind=static_cast<unsigned>(pic.type());*bytes=reinterpret_cast<const unsigned char*>(image.data());*len=image.size();*mime=reinterpret_cast<const unsigned char*>(mime_value.data());*ml=mime_value.size();*description=reinterpret_cast<const unsigned char*>(description_value.data());*dl=description_value.size();return 1;
 }catch(const std::exception &e){h->error=e.what();return -1;}}
 int cw_asf_remove_picture(CwAsf *h,unsigned kind){try{auto attrs=tag(h)->attribute("WM/Picture");TagLib::ASF::AttributeList keep;for(const auto &a:attrs){auto pic=a.toPicture();if(!pic.isValid()||static_cast<unsigned>(pic.type())!=kind)keep.append(a);}tag(h)->setAttribute("WM/Picture",keep);return 1;}catch(const std::exception &e){h->error=e.what();return 0;}}
 int cw_asf_set_picture(CwAsf *h,unsigned kind,const unsigned char *mime,size_t ml,const unsigned char *description,size_t dl,const unsigned char *data,size_t len){try{TagLib::ASF::Picture p;p.setType(static_cast<TagLib::ASF::Picture::Type>(kind));p.setMimeType(text(mime,ml));p.setDescription(text(description,dl));p.setPicture(TagLib::ByteVector(reinterpret_cast<const char*>(data),static_cast<unsigned>(len)));if(!p.isValid())throw std::runtime_error("Invalid ASF picture");tag(h)->addAttribute("WM/Picture",TagLib::ASF::Attribute(p));return 1;}catch(const std::exception &e){h->error=e.what();return 0;}}
+int cw_asf_edit_picture(CwAsf *h,long long selected,unsigned kind,const unsigned char *mime,size_t ml,const unsigned char *description,size_t dl,const unsigned char *data,size_t len){try{
+ auto attrs=tag(h)->attribute("WM/Picture");TagLib::ASF::AttributeList out;long long valid=0;bool found=false;
+ auto append=[&](){TagLib::ASF::Picture p;p.setType(static_cast<TagLib::ASF::Picture::Type>(kind));p.setMimeType(text(mime,ml));p.setDescription(text(description,dl));p.setPicture(TagLib::ByteVector(reinterpret_cast<const char*>(data),static_cast<unsigned>(len)));if(!p.isValid())throw std::runtime_error("Invalid ASF picture");out.append(TagLib::ASF::Attribute(p));};
+ for(const auto &a:attrs){auto p=a.toPicture();if(p.isValid()&&valid++==selected){found=true;if(data)append();}else out.append(a);}
+ if(selected<0){if(!data)throw std::runtime_error("Missing new picture");append();}else if(!found)throw std::runtime_error("Selected picture is missing");
+ tag(h)->setAttribute("WM/Picture",out);return 1;
+ }catch(const std::exception &e){h->error=e.what();return 0;}}
 int cw_asf_save(CwAsf *h){try{if(!h->error.empty())return 0;if(!h->file->save())throw std::runtime_error("Save staged ASF metadata failed");return 1;}catch(const std::exception &e){h->error=e.what();return 0;}}
 }

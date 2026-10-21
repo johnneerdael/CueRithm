@@ -106,12 +106,82 @@ pub struct RekordboxSyncFieldReview {
     pub result: NativeReconciliation,
     pub decision: Option<NativeFieldDecision>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RekordboxEntityKind {
+    Playlist,
+    Folder,
+    Category,
+    Tag,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RekordboxEntityAction {
+    Create,
+    Update,
+    Remove,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RekordboxEntityOwnership {
+    New,
+    Owned,
+    Matched,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RekordboxEntityMember {
+    pub title: String,
+    pub position: Option<i64>,
+    pub external: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RekordboxEntityRepresentation {
+    Folder,
+    Ordinary,
+    NativeSmart,
+    Category,
+    Tag,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RekordboxEntityState {
+    pub name: String,
+    pub parent_path: Vec<String>,
+    pub representation: RekordboxEntityRepresentation,
+    /// Native, one-based sibling position.
+    pub position: i64,
+    pub member_count: usize,
+    /// Bounded excerpt in actual native order; member_count includes all members.
+    pub members: Vec<RekordboxEntityMember>,
+    pub external_member_count: usize,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RekordboxEntityChange {
+    pub local_id: String,
+    pub kind: RekordboxEntityKind,
+    pub action: RekordboxEntityAction,
+    pub ownership: RekordboxEntityOwnership,
+    pub materialized_smart: bool,
+    pub before: Option<RekordboxEntityState>,
+    pub after: Option<RekordboxEntityState>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RekordboxPendingEntity {
+    pub kind: RekordboxEntityKind,
+    pub name: String,
+    pub unresolved_members: usize,
+    pub member_titles: Vec<String>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RekordboxSyncPreview {
     pub id: String,
     pub target_id: String,
     pub library_revision: u64,
     pub fields: Vec<RekordboxSyncFieldReview>,
+    #[serde(default)]
+    pub entity_changes: Vec<RekordboxEntityChange>,
+    #[serde(default)]
+    pub pending_entities: Vec<RekordboxPendingEntity>,
     pub tracks: usize,
     pub changed_rows: usize,
     pub skipped_fields: usize,

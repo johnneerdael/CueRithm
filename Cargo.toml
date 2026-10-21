@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/cuerithm-organize", "crates/cuerithm-dj-sync", "crates/cuerithm-rekordbox", "crates/cuerithm-maintenance", "crates/cuerithm-smartlists", "crates/cuerithm-regex", "crates/cuerithm-cleanup", "crates/cuerithm-autotag", "crates/camelot-core", "crates/camelot-cli", "crates/camelot-source-analysis", "crates/cuerithm-media", "crates/cuerithm-library", "apps/desktop/src-tauri"]
-exclude = ["vendor/regress", "vendor/onetagger/onetagger-tag", "vendor/onetagger/onetagger-tagger", "vendor/onetagger/providers", "vendor/onetagger/template"]
+exclude = ["vendor/id3", "vendor/regress", "vendor/onetagger/onetagger-tag", "vendor/onetagger/onetagger-tagger", "vendor/onetagger/providers", "vendor/onetagger/template"]
 resolver = "2"
 
 [workspace.package]
@@ -22,6 +22,9 @@ symphonia = { version = "0.5.5", features = ["all"] }
 hound = "3.5"
 tempfile = "3"
 base64 = "0.22"
+
+[patch.crates-io]
+id3 = { path = "vendor/id3" }
 
 [profile.release]
 debug = 1

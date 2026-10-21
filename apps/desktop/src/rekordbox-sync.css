@@ -2,3 +2,5 @@
 .sync-workspace>.cleanup-tabs button[aria-current="page"]{color:var(--cr-accent);border-bottom-color:var(--cr-accent)}
 .rekordbox-sync-view .attention{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .rekordbox-sync-view .rekordbox-preflight .attention{color:var(--cr-warning)}
+
+.rekordbox-entities>p{font-size:12px;line-height:1.7;max-width:760px}.rekordbox-pending-entities{list-style:none;padding:0;margin:14px 0}.rekordbox-pending-entities li{padding:12px 0;border-bottom:1px solid var(--cr-divider);font-size:12px;overflow-wrap:anywhere}.rekordbox-pending-entities :is(strong,span,small){display:block;margin-bottom:5px}.rekordbox-pending-entities :is(span,small){color:var(--cr-muted)}.rekordbox-entities details{margin-top:10px;white-space:normal}.rekordbox-entities summary{cursor:pointer;color:var(--cr-accent)}.rekordbox-entity-members{list-style:none;padding:0;margin:10px 0;max-height:260px;overflow:auto;white-space:normal}.rekordbox-entity-members li{padding:5px 0;line-height:1.5}.rekordbox-entity-members small{margin-top:0}

@@ -140,6 +140,8 @@ fn fixture(change: bool) -> Fixture {
         target_id: target.id.clone(),
         library_revision: library.revision().unwrap(),
         fields: vec![],
+        entity_changes: vec![],
+        pending_entities: vec![],
         tracks: 0,
         changed_rows: staged.changed_rows,
         skipped_fields: 2,
@@ -1308,6 +1310,83 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
             ]),
         )]),
     };
+    let mut initial_request = request.clone();
+    initial_request.decisions.clear();
+    let initial = planning::preview(
+        &f.library,
+        initial_request,
+        prior.target.clone(),
+        &key(),
+        Some(&runtime()),
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .expect("First sync returns field choices before resolving new entity members");
+    assert!(!initial.can_apply);
+    assert_eq!(initial.pending_entities.len(), 2);
+    assert!(
+        initial
+            .pending_entities
+            .iter()
+            .any(|entity| entity.name == "Prepared set" && entity.unresolved_members == 1)
+    );
+    assert!(
+        initial
+            .pending_entities
+            .iter()
+            .any(|entity| entity.name == "Warm" && entity.kind == RekordboxEntityKind::Tag)
+    );
+    assert!(initial.entity_changes.is_empty());
+    assert!(
+        initial
+            .fields
+            .iter()
+            .any(|field| field.field == "title" && field.decision.is_none())
+    );
+    let initial_op = load(&f.library, &initial.id).unwrap();
+    assert!(
+        initial_op.playlist_plan.is_none(),
+        "No partial membership mutation is publishable"
+    );
+    assert!(initial_op.plan.rows.is_empty());
+    f.library.discard_rekordbox_sync(&initial.id).unwrap();
+    let mut tag_request = request.clone();
+    tag_request.decisions.clear();
+    tag_request.options.playlists = false;
+    let tags_only = planning::preview(
+        &f.library,
+        tag_request,
+        prior.target.clone(),
+        &key(),
+        Some(&runtime()),
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .expect("My Tag dependencies also return the initial field review");
+    assert!(!tags_only.can_apply);
+    assert_eq!(tags_only.pending_entities.len(), 1);
+    assert_eq!(tags_only.pending_entities[0].name, "Warm");
+    f.library.discard_rekordbox_sync(&tags_only.id).unwrap();
+    let mut partial_request = request.clone();
+    partial_request
+        .decisions
+        .get_mut("local")
+        .unwrap()
+        .remove("title");
+    let partial = planning::preview(
+        &f.library,
+        partial_request,
+        prior.target.clone(),
+        &key(),
+        Some(&runtime()),
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .expect("Cue and grid choices can precede the explicit title creation choice");
+    assert!(!partial.can_apply);
+    assert_eq!(partial.pending_entities.len(), 2);
+    assert!(load(&f.library, &partial.id).unwrap().plan.rows.is_empty());
+    f.library.discard_rekordbox_sync(&partial.id).unwrap();
     let preview = planning::preview(
         &f.library,
         request.clone(),
@@ -1319,6 +1398,20 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
     )
     .unwrap();
     assert_eq!(preview.media_copies, 0);
+    assert!(preview.can_apply);
+    assert!(preview.pending_entities.is_empty());
+    assert_eq!(preview.entity_changes.len(), 3);
+    let playlist_review = preview
+        .entity_changes
+        .iter()
+        .find(|entity| entity.kind == RekordboxEntityKind::Playlist)
+        .unwrap();
+    assert_eq!(playlist_review.action, RekordboxEntityAction::Create);
+    assert_eq!(playlist_review.ownership, RekordboxEntityOwnership::New);
+    let state = playlist_review.after.as_ref().unwrap();
+    assert_eq!(state.name, "Prepared set");
+    assert_eq!(state.member_count, 1);
+    assert_eq!(state.members[0].position, Some(1));
     let op = load(&f.library, &preview.id).unwrap();
     assert!(op.resolved[0].created);
     let native_id = op.resolved[0].identity.content_id.clone();
@@ -1444,6 +1537,12 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         planning::PreviewPermit::AuthoredFixture,
     )
     .unwrap();
+    assert_eq!(removal.entity_changes.len(), 1);
+    let deletion = &removal.entity_changes[0];
+    assert_eq!(deletion.action, RekordboxEntityAction::Remove);
+    assert_eq!(deletion.ownership, RekordboxEntityOwnership::Owned);
+    assert_eq!(deletion.before.as_ref().unwrap().name, "Prepared set");
+    assert!(deletion.after.is_none());
     let removal_op = load(&f.library, &removal.id).unwrap();
     assert!(matches!(
         removal_op
@@ -1491,6 +1590,19 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         planning::PreviewPermit::AuthoredFixture,
     )
     .unwrap();
+    assert_eq!(tags.entity_changes.len(), 2);
+    assert!(
+        tags.entity_changes
+            .iter()
+            .all(|entity| entity.action == RekordboxEntityAction::Remove
+                && entity.ownership == RekordboxEntityOwnership::Owned)
+    );
+    assert!(
+        tags.entity_changes
+            .iter()
+            .any(|entity| entity.kind == RekordboxEntityKind::Category
+                && entity.before.as_ref().unwrap().name == "Mood")
+    );
     let tag_op = load(&f.library, &tags.id).unwrap();
     assert_eq!(tag_op.playlist_plan.as_ref().unwrap().tags.len(), 2);
     publication::fixture_apply(
@@ -2490,4 +2602,181 @@ fn importing_recreated_playlist_and_mytag_links_never_reclaims_their_owned_ids()
             .unwrap(),
         0
     );
+}
+
+#[test]
+fn concrete_entity_review_matches_staged_order_foreign_members_tags_and_materialization() {
+    let f = fixture(false);
+    creation_columns(&f);
+    open(&f.native).execute_batch("UPDATE djmdContent SET Title='External song'; INSERT INTO djmdContent(ID,UUID,MasterSongID,Title,FolderPath,ServiceID,rb_local_deleted) VALUES('2','second','second','Second song','/missing/two.flac',0,0),('3','third','third','Third song','/missing/three.flac',0,0); INSERT INTO djmdPlaylist(ID,UUID,Name,ParentID,Seq,Attribute,rb_local_deleted) VALUES('folder','folder','Weekend','root',1,1,0),('list','list','Before','root',2,0,0); INSERT INTO djmdSongPlaylist(ID,UUID,PlaylistID,ContentID,TrackNo,rb_local_deleted) VALUES('foreign','foreign','list','1',1,0),('owned','owned','list','2',2,0); INSERT INTO djmdMyTag(ID,UUID,Name,ParentID,Seq,Attribute,rb_local_deleted) VALUES('category','category','Mood','root',1,1,0),('tag','tag','Warm','category',1,0,0); INSERT INTO djmdSongMyTag(ID,UUID,MyTagID,ContentID,rb_local_deleted) VALUES('tag-owned','tag-owned','tag','2',0);").unwrap();
+    let cancel = CancellationToken::default();
+    let before = ReadOnlyDatabase::open(&f.native, &key())
+        .unwrap()
+        .read_collection(Default::default(), &cancel)
+        .unwrap();
+    let identity =
+        |table: &str, id: &str, owned: bool, links: Vec<NativeOwnedRow>| NativeEntityIdentity {
+            native_id: id.into(),
+            uuid: Some(id.into()),
+            expected_raw_hash: before.records[table]
+                .iter()
+                .find(|row| row.id == id)
+                .unwrap()
+                .fingerprint
+                .clone(),
+            owned,
+            owned_links: links,
+        };
+    let link = |table: &str, id: &str| NativeOwnedRow {
+        id: id.into(),
+        expected_raw_hash: before.records[table]
+            .iter()
+            .find(|row| row.id == id)
+            .unwrap()
+            .fingerprint
+            .clone(),
+    };
+    let list_identity = identity(
+        "djmdPlaylist",
+        "list",
+        false,
+        vec![link("djmdSongPlaylist", "owned")],
+    );
+    let drafts = vec![
+        NativeEntityDraft {
+            kind: NativeEntityKind::Playlist,
+            local_id: "set".into(),
+            identity: Some(list_identity.clone()),
+            parent: Some(NativeEntityRef::Native("folder".into())),
+            name: "After".into(),
+            attribute: 0,
+            sequence: 1,
+            smart_rule: None,
+            members: vec![
+                NativeEntityRef::Native("3".into()),
+                NativeEntityRef::Native("2".into()),
+            ],
+            remove: false,
+        },
+        NativeEntityDraft {
+            kind: NativeEntityKind::MyTag,
+            local_id: "category".into(),
+            identity: Some(identity("djmdMyTag", "category", true, vec![])),
+            parent: None,
+            name: "Atmosphere".into(),
+            attribute: 1,
+            sequence: 2,
+            smart_rule: None,
+            members: vec![],
+            remove: false,
+        },
+        NativeEntityDraft {
+            kind: NativeEntityKind::MyTag,
+            local_id: "tag".into(),
+            identity: Some(identity(
+                "djmdMyTag",
+                "tag",
+                true,
+                vec![link("djmdSongMyTag", "tag-owned")],
+            )),
+            parent: Some(NativeEntityRef::Native("category".into())),
+            name: "Warm".into(),
+            attribute: 0,
+            sequence: 2,
+            smart_rule: None,
+            members: vec![NativeEntityRef::Native("3".into())],
+            remove: false,
+        },
+    ];
+    let request = NativePlanRequest {
+        source: f.native.clone(),
+        now: "2026-10-21 12:00:00.000 +00:00".into(),
+        iso_now: "2026-10-21T12:00:00.000Z".into(),
+        id_seed: [7; 32],
+        tracks: vec![],
+        entities: drafts.clone(),
+        auxiliary_records: vec![],
+        share_root: None,
+    };
+    let prepared = prepare_native_rows(&before, &request).unwrap();
+    let workspace = f._dir.path().join("entity-review");
+    fs::create_dir(&workspace).unwrap();
+    let staged = stage_native_write(&prepared.plan, &workspace, &key(), &cancel).unwrap();
+    let after = ReadOnlyDatabase::open(&staged.snapshot.path, &key())
+        .unwrap()
+        .read_collection(Default::default(), &cancel)
+        .unwrap();
+    let plan = NativePlaylistPlan {
+        target_id: "fixture".into(),
+        native_revision: 1,
+        playlist_revision: 1,
+        library_revision: 1,
+        source_fingerprint: String::new(),
+        playlists: vec![NativePlaylistMutation::Upsert {
+            local_id: "set".into(),
+            identity: Some(NativePlaylistIdentity {
+                native_id: "list".into(),
+                uuid: Some("list".into()),
+                expected_raw_hash: list_identity.expected_raw_hash,
+                owned: false,
+                owned_link_ids: BTreeSet::from(["owned".into()]),
+            }),
+            parent_local_id: None,
+            name: "After".into(),
+            position: 0,
+            representation: NativePlaylistRepresentation::MaterializedSmart {
+                content_ids: vec!["3".into(), "2".into()],
+                definition_json: json!({"fixture":"whole-list"}),
+            },
+            preserve_external_members: true,
+        }],
+        tags: vec![],
+        bindings: BTreeMap::new(),
+        existing_native_ids: BTreeSet::new(),
+    };
+    let changes =
+        planning::entity_changes(Some(&plan), &drafts, &prepared.entities, &before, &after)
+            .unwrap();
+    assert_eq!(changes.len(), 3);
+    let list = &changes[0];
+    assert_eq!(list.ownership, RekordboxEntityOwnership::Matched);
+    assert!(list.materialized_smart);
+    assert_eq!(list.before.as_ref().unwrap().name, "Before");
+    assert_eq!(list.before.as_ref().unwrap().position, 2);
+    let next = list.after.as_ref().unwrap();
+    assert_eq!(next.name, "After");
+    assert_eq!(next.parent_path, vec!["Weekend"]);
+    assert_eq!(next.position, 1);
+    assert_eq!(next.member_count, 3);
+    assert_eq!(next.external_member_count, 1);
+    assert_eq!(
+        next.members
+            .iter()
+            .map(|member| (member.title.as_str(), member.position, member.external))
+            .collect::<Vec<_>>(),
+        vec![
+            ("External song", Some(1), true),
+            ("Third song", Some(2), false),
+            ("Second song", Some(3), false)
+        ]
+    );
+    let category = &changes[1];
+    assert_eq!(category.kind, RekordboxEntityKind::Category);
+    assert_eq!(category.before.as_ref().unwrap().name, "Mood");
+    assert_eq!(category.after.as_ref().unwrap().name, "Atmosphere");
+    assert_eq!(category.after.as_ref().unwrap().position, 2);
+    let tag = &changes[2];
+    assert_eq!(tag.before.as_ref().unwrap().members[0].title, "Second song");
+    assert_eq!(tag.after.as_ref().unwrap().members[0].title, "Third song");
+    assert_eq!(tag.after.as_ref().unwrap().parent_path, vec!["Atmosphere"]);
+    // The review contract survives JSON round trips and old journals without the added fields.
+    let mut payload = serde_json::to_value(load(&f.library, &f.id).unwrap().preview).unwrap();
+    payload.as_object_mut().unwrap().remove("entity_changes");
+    payload.as_object_mut().unwrap().remove("pending_entities");
+    let old: RekordboxSyncPreview = serde_json::from_value(payload).unwrap();
+    assert!(old.entity_changes.is_empty() && old.pending_entities.is_empty());
+    let wire = serde_json::to_value(&changes).unwrap();
+    assert_eq!(wire[0]["ownership"], "matched");
+    assert_eq!(wire[0]["after"]["members"][0]["position"], 1);
+    assert_eq!(wire[1]["kind"], "category");
 }

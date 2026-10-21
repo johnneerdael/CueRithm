@@ -48,6 +48,16 @@ does not enable writes. Support is checked against the actual installed build.
    sync. Select the metadata, cues, beatgrids, artwork, playlists and My Tags to
    include. **Convert smart playlists to track lists** exports their saved members.
 4. Choose **Preview rekordbox sync** and review the values from both libraries.
+   **Playlists and My Tags** shows each creation, update and owned deletion,
+   with the current and resulting names, folders, positions and track membership.
+   Expand **Track membership** to inspect native track positions and retained
+   external members. Long lists show the first 50 tracks and the full count.
+   Smart playlists identify when they become track lists; native smart rules are
+   labelled separately when preserved.
+   When a new track has no native identity yet, its playlists and My Tags await
+   your choices. Include the track in the sync scope, choose **Use CueRithm** for
+   its title and any cues or beatgrid to send, then preview again. Sync remains
+   unavailable until that fresh preview contains the complete membership plan.
 5. Choose which values to use. The first sync requires explicit choices, including
    **Accept equal values** when both libraries already agree. Bulk choices apply to
    unresolved fields with available values and preserve choices already made.

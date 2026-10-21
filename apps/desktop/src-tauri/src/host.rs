@@ -21,6 +21,7 @@ pub struct Detail {
 }
 
 pub struct Host {
+    pub exit: crate::exit::ExitCoordinator,
     pub maintenance: Arc<crate::maintenance::MaintenanceTasks>,
     pub builtin: crate::builtin::BuiltinModels,
     pub library: Library,
@@ -68,6 +69,7 @@ impl Host {
         let preparation = PreparationService::start(library.clone(), runtime.clone())?;
         let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
         Ok(Self {
+            exit: crate::exit::ExitCoordinator::default(),
             maintenance: Arc::new(crate::maintenance::MaintenanceTasks::default()),
             builtin,
             library,

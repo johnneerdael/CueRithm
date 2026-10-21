@@ -57,6 +57,7 @@ impl Library {
             payload.len() <= MAX_EVIDENCE_BYTES,
             "Catalog evidence exceeds storage limit"
         );
+        let review = self.capture_match_review(run, input, outcome)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(Self::run_owns(&tx, run)?, "Preparation was superseded");
@@ -64,6 +65,7 @@ impl Library {
             "INSERT INTO preparation_match_snapshots(job_id,track_id,attempt,source_hash,settings_revision,payload_json,created) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(job_id) DO UPDATE SET track_id=excluded.track_id,attempt=excluded.attempt,source_hash=excluded.source_hash,settings_revision=excluded.settings_revision,payload_json=excluded.payload_json,created=excluded.created",
             params![run.id,run.track_id,run.attempt,run.source_sha256,run.settings_revision,payload,now()],
         )?;
+        Self::store_match_review_tx(&tx, run, &review)?;
         tx.commit()?;
         Ok(())
     }
