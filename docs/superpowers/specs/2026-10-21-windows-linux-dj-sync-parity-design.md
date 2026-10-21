@@ -1,7 +1,7 @@
 ---
 title: Windows and Linux DJ sync parity
 date: 2026-10-21
-status: proposed
+status: approved
 ---
 
 # Windows and Linux DJ sync parity
@@ -191,6 +191,7 @@ remaining native-runtime acceptance gaps explicitly. Traktor, legacy Serato and
 general DJ-library import require their own transport contracts and scope
 selection; do not claim full Lexicon target coverage while they are absent.
 
-This is a proposed architectural design awaiting review before implementation of
-the new environment/mapping interfaces. The confirmed defects in existing,
-already-approved adapter behavior can be corrected independently.
+The user approved this architectural design and authorized implementation,
+independent decisions, review rounds, merge and successful release verification.
+Implementation is tracked by the companion plan. Runtime acceptance evidence
+must remain distinct from format and authored-fixture validation.
