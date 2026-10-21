@@ -46,6 +46,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, std::path::PathBuf, SyncLibrary) 
     CREATE TABLE asset(id INTEGER PRIMARY KEY,revision INTEGER,portable_id TEXT,file_name TEXT,file_size INTEGER,file_sample_rate INTEGER,type TEXT,format TEXT,artist TEXT,name TEXT,album TEXT,genre TEXT,bpm REAL,key TEXT,year TEXT,label TEXT,comments TEXT,rating REAL,color INTEGER,length_sec INTEGER,length_ms INTEGER,time_added INTEGER,time_modified INTEGER,is_beatgrid_locked INTEGER,analysis_flags INTEGER,is_corrupt INTEGER,is_missing INTEGER,is_readonly INTEGER,third_party_type INTEGER,is_stale INTEGER,is_whitelabel INTEGER,is_karaoke INTEGER,dj_play_count INTEGER,dj_recently_played INTEGER,architectures INTEGER,stems_analyze_state INTEGER,comment_language TEXT,comment_descriptor TEXT,grouping TEXT,remixer TEXT,composer TEXT,emoji TEXT,part_of_set TEXT,track_number TEXT,video_portable_id TEXT);").unwrap();
     let library = SyncLibrary {
         tracks: vec![SyncTrack {
+            native_path: None,
             id: "one".into(),
             path: audio,
             title: "Example".into(),
@@ -385,6 +386,7 @@ fn all_native_containers_preserve_existing_metadata() {
             old.save_to_path(&path, WriteOptions::default()).unwrap();
         }
         let track = SyncTrack {
+            native_path: None,
             path: path.clone(),
             beatgrid: vec![SyncBeat {
                 seconds: 0.125,
@@ -485,6 +487,7 @@ fn variable_vorbis_grid_rejects_before_any_write() {
     std::fs::write(&path, original).unwrap();
     let library = SyncLibrary {
         tracks: vec![SyncTrack {
+            native_path: None,
             path: path.clone(),
             beatgrid: vec![
                 SyncBeat {
@@ -583,4 +586,94 @@ fn aggregate_refresh_links_native_location_ids_without_duplicates() {
         links, 2,
         "Refreshing one volume must preserve the other volume's crate members"
     );
+}
+
+#[test]
+fn windows_context_serato_reference_projection_does_not_replace_physical_audio() {
+    let (_dir, database, mut library) = fixture();
+    let source = library.tracks[0].path.clone();
+    let mut track = serde_json::to_value(&library.tracks[0]).unwrap();
+    track["native_path"] = serde_json::json!(r"D:\Music\track.wav");
+    library.tracks[0] = serde_json::from_value(track).unwrap();
+    write_location_database(
+        &database,
+        Path::new(r"D:\"),
+        &library,
+        &SyncOptions::default(),
+    )
+    .unwrap();
+    let conn = Connection::open(&database).unwrap();
+    let portable: String = conn
+        .query_row("SELECT portable_id FROM asset", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(portable, "Music/track.wav");
+    assert!(source.is_file());
+}
+
+#[test]
+fn windows_context_serato_routes_physical_external_database_and_registered_native_master_uri() {
+    let (dir, database, mut input) = fixture();
+    let root = dir.path().canonicalize().unwrap();
+    Connection::open(&database).unwrap().execute_batch("CREATE VIEW serato_db AS SELECT X'00112233445566778899aabbccddeeff' AS uuid; CREATE TABLE smart_crate_rules(container_id INTEGER PRIMARY KEY,revision INTEGER,version INTEGER,rules TEXT); CREATE TABLE alias_container(id INTEGER PRIMARY KEY,container_id INTEGER,list_order INTEGER); CREATE TABLE container_keep_alive_list_tbl(container_id INTEGER,location_id INTEGER);").unwrap();
+    let external = root.join("external");
+    let location = external.join("_Serato_/Library/location.sqlite");
+    std::fs::create_dir_all(location.parent().unwrap()).unwrap();
+    std::fs::copy(&database, &location).unwrap();
+    Connection::open(&location).unwrap().execute_batch("DROP VIEW serato_db; CREATE VIEW serato_db AS SELECT X'11112233445566778899aabbccddeeff' AS uuid;").unwrap();
+    let external_source = external.join("track.wav");
+    std::fs::copy(&input.tracks[0].path, &external_source).unwrap();
+    input.tracks[0].path = external_source.clone();
+    let master = root.join("master.sqlite");
+    std::fs::copy(&database, &master).unwrap();
+    Connection::open(&master).unwrap().execute_batch("DROP VIEW serato_db; CREATE VIEW serato_db AS SELECT X'22112233445566778899aabbccddeeff' AS uuid;").unwrap();
+    Connection::open(&master).unwrap().execute_batch("ALTER TABLE asset ADD COLUMN location_id INTEGER; ALTER TABLE asset ADD COLUMN external_id INTEGER; ALTER TABLE container_asset ADD COLUMN asset_id INTEGER; ALTER TABLE container_asset ADD COLUMN location_container_id INTEGER; ALTER TABLE container_asset ADD COLUMN external_container_asset_id INTEGER; CREATE TABLE connection(location_id INTEGER,database_uri TEXT); CREATE TABLE location_container(id INTEGER PRIMARY KEY,container_id INTEGER,location_id INTEGER,external_container_id INTEGER); INSERT INTO connection VALUES(1,'C:/root.sqlite'),(2,'d:/_serato_/library/location.sqlite');").unwrap();
+    let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({
+        "software":"serato4","path":database,"source_root":null,
+        "environment":{"kind":"windows_compatibility","prefix":root,"installation":null,
+          "mappings":[{"windows_root":"C:\\","host_root":root},{"windows_root":"D:\\","host_root":external}]}
+    })).unwrap();
+    let original = std::fs::read(&location).unwrap();
+    let audio = std::fs::read(&external_source).unwrap();
+    let journals = root.join("journals");
+    let preview = crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+    crate::apply_sync(&journals, &preview.id).unwrap();
+    let conn = Connection::open(&location).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT portable_id FROM asset", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "track.wav"
+    );
+    assert_eq!(
+        Connection::open(&master)
+            .unwrap()
+            .query_row(
+                "SELECT portable_id FROM asset WHERE location_id=2",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "track.wav"
+    );
+    drop(conn);
+    crate::restore_sync(&journals, &preview.id).unwrap();
+    assert_eq!(std::fs::read(&location).unwrap(), original);
+    assert_eq!(std::fs::read(&external_source).unwrap(), audio);
+}
+
+#[test]
+fn ambiguous_native_serato_reference_does_not_choose_an_arbitrary_asset_id() {
+    let (_dir, database, input) = fixture();
+    write_database(&database, &input, &SyncOptions::default()).unwrap();
+    let conn = Connection::open(&database).unwrap();
+    let reference: String = conn
+        .query_row("SELECT portable_id FROM asset", [], |r| r.get(0))
+        .unwrap();
+    conn.execute(
+        "INSERT INTO asset(id,portable_id) VALUES(99,?1)",
+        [reference.to_uppercase()],
+    )
+    .unwrap();
+    drop(conn);
+    assert!(write_database(&database, &input, &SyncOptions::default()).is_err());
 }

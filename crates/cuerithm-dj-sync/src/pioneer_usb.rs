@@ -403,6 +403,67 @@ mod tests {
     use cuerithm_rekordbox::anlz::{AnlzFile, AnlzTag, ParseLimits};
     mod path_tests;
     #[test]
+    fn windows_owned_audio_usb_copy_accepts_unmapped_host_source_and_keeps_device_references() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let output = root.join("usb");
+        fs::create_dir(&output).unwrap();
+        let source_dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let filename = "CON.wav";
+        #[cfg(not(unix))]
+        let filename = "unmapped.wav";
+        let source = source_dir.path().canonicalize().unwrap().join(filename);
+        audio(&source);
+        let original = fs::read(&source).unwrap();
+        let mapped = root.join("unrelated-prefix");
+        fs::create_dir(&mapped).unwrap();
+        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"pioneer_usb","path":output,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":mapped}]}})).unwrap();
+        let mut input = library(&source, "unmapped");
+        input.tracks[0].native_path = Some(PathBuf::from(r"C:\forged.wav"));
+        let journals = root.join("journals");
+        let preview =
+            crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        let dbpath = output.join("PIONEER/rekordbox/exportLibrary.db");
+        let db = database::prepare(&dbpath, &dbpath).unwrap();
+        let native: String = db
+            .query_row("SELECT path FROM content", [], |row| row.get(0))
+            .unwrap();
+        drop(db);
+        assert!(native.starts_with("/Contents/CueRithm/"));
+        assert!(!native.contains(source_dir.path().to_str().unwrap()));
+        assert!(!native.contains("forged"));
+        assert_eq!(
+            fs::read(output.join(native.trim_start_matches('/'))).unwrap(),
+            original
+        );
+        let analysis = preview
+            .files
+            .iter()
+            .find(|file| {
+                file.target
+                    .extension()
+                    .is_some_and(|extension| extension == "DAT")
+            })
+            .unwrap();
+        let parsed =
+            AnlzFile::parse(&fs::read(&analysis.target).unwrap(), ParseLimits::default()).unwrap();
+        assert_eq!(
+            parsed
+                .tags()
+                .iter()
+                .find(|tag| tag.fourcc() == *b"PPTH")
+                .unwrap()
+                .audio_path()
+                .unwrap(),
+            native
+        );
+        crate::restore_sync(&journals, &preview.id).unwrap();
+        assert!(!output.join(native.trim_start_matches('/')).exists());
+        assert_eq!(fs::read(source).unwrap(), original);
+    }
+    #[test]
     fn encrypted_catalog_uses_observed_native_sqlcipher_v4_profile() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("catalog.db");
@@ -445,6 +506,7 @@ mod tests {
     fn library(path: &Path, id: &str) -> SyncLibrary {
         SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: id.into(),
                 path: path.into(),
                 title: format!("Synthetic {id}"),
@@ -499,7 +561,7 @@ mod tests {
         }
     }
     #[test]
-    fn active_memory_loop_status_does_not_activate_hotcue_or_ordinary_memory() {
+    fn active_loops_agree_across_usb_catalogs_and_preserve_native_metadata() {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("synthetic.wav");
         audio(&source);
@@ -551,6 +613,179 @@ mod tests {
                 .collect::<Vec<_>>(),
             [(1000, 0), (500, 4), (250, 0)]
         );
+        let database_path = output.join("PIONEER/rekordbox/exportLibrary.db");
+        let db = database::prepare(&database_path, &database_path).unwrap();
+        db.execute_batch(
+            "ALTER TABLE content ADD COLUMN native_note TEXT;
+             UPDATE content SET native_note='preserve native metadata';",
+        )
+        .unwrap();
+        drop(db);
+        // Re-export through the real writer: the active loop must agree across
+        // both catalogs while an unknown native content field survives.
+        write(
+            &output,
+            &input,
+            &SyncOptions {
+                usb_cue_destination: UsbCueDestination::Both,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let db = database::prepare(&database_path, &database_path).unwrap();
+        let states = db
+            .prepare("SELECT inUsec,kind,isActiveLoop FROM cue ORDER BY inUsec,kind")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, u32>(0)?,
+                    row.get::<_, u32>(1)?,
+                    row.get::<_, u32>(2)?,
+                ))
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(
+            states,
+            [
+                (250000, 0, 0),
+                (250000, 3, 0),
+                (500000, 0, 1),
+                (500000, 1, 1),
+                (1000000, 0, 0),
+                (1000000, 4, 0),
+            ]
+        );
+        assert_eq!(
+            db.query_row("SELECT native_note FROM content", [], |row| {
+                row.get::<_, String>(0)
+            })
+            .unwrap(),
+            "preserve native metadata"
+        );
+    }
+    #[test]
+    fn optional_numeric_metadata_agrees_across_usb_catalogs_and_survives_unknown_sources() {
+        use cuerithm_smartlists::FieldValue;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("synthetic.wav");
+        audio(&source);
+        let mut input = library(&source, "metadata");
+        let output = dir.path().join("usb");
+        let supplied = [
+            ("bitrate".into(), FieldValue::Number(320.9)),
+            ("trackNumber".into(), FieldValue::Number(7.)),
+        ]
+        .into();
+        for attributes in [
+            supplied,
+            Default::default(),
+            [
+                ("bitrate".into(), FieldValue::Null),
+                ("trackNumber".into(), FieldValue::Null),
+            ]
+            .into(),
+        ] {
+            input.tracks[0].attributes = attributes;
+            write(&output, &input, &SyncOptions::default()).unwrap();
+            let db_path = output.join("PIONEER/rekordbox/exportLibrary.db");
+            let db = database::prepare(&db_path, &db_path).unwrap();
+            assert_eq!(
+                db.query_row("SELECT bitrate,trackNo FROM content", [], |row| {
+                    Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?))
+                })
+                .unwrap(),
+                (320, 7)
+            );
+            let tables =
+                pdb::read_tables(&fs::read(output.join("PIONEER/rekordbox/export.pdb")).unwrap())
+                    .unwrap();
+            assert_eq!(pdb::read32(&tables[&0][0], 48).unwrap(), 320);
+            assert_eq!(pdb::read32(&tables[&0][0], 52).unwrap(), 7);
+        }
+    }
+    #[test]
+    fn invalid_optional_numeric_metadata_does_not_commit_usb_catalog_changes() {
+        use cuerithm_smartlists::FieldValue;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("synthetic.wav");
+        audio(&source);
+        let input = library(&source, "metadata");
+        let output = dir.path().join("usb");
+        write(&output, &input, &SyncOptions::default()).unwrap();
+        let db_path = output.join("PIONEER/rekordbox/exportLibrary.db");
+        for (field, value) in [
+            ("bitrate", FieldValue::Number(-1.)),
+            ("bitrate", FieldValue::Number(f64::INFINITY)),
+            ("bitrate", FieldValue::Number(4294967296.)),
+            ("bitrate", FieldValue::Text("320".into())),
+            ("trackNumber", FieldValue::Number(7.5)),
+            ("trackNumber", FieldValue::Number(4294967296.)),
+            ("trackNumber", FieldValue::Boolean(true)),
+        ] {
+            let mut invalid = input.clone();
+            invalid.tracks[0].title = "must not commit".into();
+            invalid.tracks[0].attributes.insert(field.into(), value);
+            assert!(
+                write(&output, &invalid, &SyncOptions::default()).is_err(),
+                "{field}"
+            );
+            let db = database::prepare(&db_path, &db_path).unwrap();
+            assert_eq!(
+                db.query_row("SELECT title FROM content", [], |row| row
+                    .get::<_, String>(0))
+                    .unwrap(),
+                "Synthetic metadata"
+            );
+        }
+    }
+    #[test]
+    fn autofix_catalog_bitrate_matches_the_stereo_pcm_copy() {
+        use cuerithm_smartlists::FieldValue;
+        let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let runtime = MediaRuntime::from_bundle(&workspace.join("tools/media-runtime/bin"))
+            .expect("Sealed runtime required for compatibility verification");
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("low-rate.wav");
+        audio(&source);
+        let mut bytes = fs::read(&source).unwrap();
+        bytes[24..28].copy_from_slice(&16000_u32.to_le_bytes());
+        bytes[28..32].copy_from_slice(&32000_u32.to_le_bytes());
+        fs::write(&source, &bytes).unwrap();
+        let mut input = library(&source, "converted");
+        input.tracks[0].sample_rate = 16000;
+        input.tracks[0].duration_seconds = 6.;
+        input.tracks[0]
+            .attributes
+            .insert("bitrate".into(), FieldValue::Number(256.));
+        let output = dir.path().join("usb");
+        write_staged_with_runtime(
+            &output,
+            &output,
+            &input,
+            &SyncOptions {
+                usb_cdj_compatibility: UsbCompatibility::AutoFix,
+                ..Default::default()
+            },
+            Some(&runtime),
+        )
+        .unwrap();
+        let db_path = output.join("PIONEER/rekordbox/exportLibrary.db");
+        let db = database::prepare(&db_path, &db_path).unwrap();
+        assert_eq!(
+            db.query_row("SELECT samplingRate,bitrate FROM content", [], |row| {
+                Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?))
+            })
+            .unwrap(),
+            (44100, 1411)
+        );
+        let tables =
+            pdb::read_tables(&fs::read(output.join("PIONEER/rekordbox/export.pdb")).unwrap())
+                .unwrap();
+        assert_eq!(pdb::read32(&tables[&0][0], 48).unwrap(), 1411);
+        assert_eq!(input.tracks[0].attribute_number("bitrate"), Some(256.));
+        assert_eq!(fs::read(source).unwrap(), bytes);
     }
     #[test]
     fn exports_playable_media_encrypted_database_and_complete_analysis_assets() {

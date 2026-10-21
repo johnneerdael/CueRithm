@@ -4,6 +4,7 @@ import Sync from "../views/Sync";
 import App from "../App";
 import {fakeBridge,track} from "./bridge";
 import type {DjSyncHistoryEntry,FileJournal,SyncPreview} from "../sync-types";
+import type {SyncTargetConfiguration} from "../sync-target-types";
 import type {PlaylistWorkspace} from "../playlist-types";
 import {syncPreferencesKey as preferencesKey} from "../sync-preferences";
 
@@ -13,6 +14,71 @@ function prepared(id:string):SyncPreview{return {id,target:{software:"virtual_dj
 function enterDestination(){fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/VirtualDJ"}});}
 
 describe("native DJ sync",()=>{
+ it("previews Windows references from an explicit Wine setup and invalidates it after mapping edits",async()=>{
+  const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>prepared("mapped"));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);enterDestination();
+  fireEvent.change(screen.getByRole("combobox",{name:"Application environment"}),{target:{value:"windows_compatibility"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Wine or Proton prefix"}),{target:{value:"/games/prefix"}});
+  fireEvent.click(screen.getByRole("button",{name:"Add drive mapping"}));
+  fireEvent.change(screen.getByRole("textbox",{name:"Windows root 1"}),{target:{value:"D:\\Music"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Host folder 1"}),{target:{value:"/mnt/music"}});
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledWith(expect.objectContaining({target:expect.objectContaining({environment:{kind:"windows_compatibility",prefix:"/games/prefix",installation:null,mappings:[{windows_root:"D:\\Music",host_root:"/mnt/music"}]}})})));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeEnabled());
+  fireEvent.change(screen.getByRole("textbox",{name:"Windows root 1"}),{target:{value:"E:\\Music"}});
+  await waitFor(()=>expect(bridge.discardDjSync).toHaveBeenCalledWith("mapped"));expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeDisabled();
+ });
+ it("binds a saved normalized database path and invalidates its revision after edits or deletion",async()=>{
+  const bridge=fakeBridge([]),saved:SyncTargetConfiguration={id:"normalized-setup",revision:4,name:"Saved decks",target:{kind:"dj_library",target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null}}};
+  bridge.saveSyncTargetConfiguration=vi.fn(async()=>saved);
+  bridge.previewDjSync=vi.fn(async()=>prepared("normalized-preview"));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);enterDestination();
+  fireEvent.change(screen.getByRole("textbox",{name:"Setup name"}),{target:{value:saved.name}});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Save setup"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Save setup"}));
+  await waitFor(()=>expect(bridge.saveSyncTargetConfiguration).toHaveBeenCalledWith({id:null,expected_revision:null,name:saved.name,target:{kind:"dj_library",target:{software:"virtual_dj",path:"/VirtualDJ",source_root:null}}}));
+  await waitFor(()=>expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/VirtualDJ/database.xml"));
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledWith(expect.objectContaining({target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null},configuration:{id:saved.id,revision:4}})));
+  await screen.findByRole("region",{name:"Sync preview"});
+  fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/OtherDJ"}});
+  await waitFor(()=>expect(bridge.discardDjSync).toHaveBeenCalledWith("normalized-preview"));
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall?.[0]).not.toHaveProperty("configuration");
+  await screen.findByRole("region",{name:"Sync preview"});
+  fireEvent.change(screen.getByRole("combobox",{name:"Saved library setup"}),{target:{value:saved.id}});
+  await waitFor(()=>expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/VirtualDJ/database.xml"));
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(3));
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall?.[0]).toMatchObject({configuration:{id:saved.id,revision:4}});
+  await screen.findByRole("region",{name:"Sync preview"});
+  fireEvent.click(screen.getByRole("button",{name:"Delete saved setup"}));
+  await waitFor(()=>expect(bridge.deleteSyncTargetConfiguration).toHaveBeenCalledWith(saved.id,4));
+  await waitFor(()=>expect(screen.queryByRole("region",{name:"Sync preview"})).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(4));
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall?.[0]).not.toHaveProperty("configuration");
+ });
+ it.each(["destination","software"] as const)("ignores a normalized save returned after changing %s",async(change)=>{
+  const bridge=fakeBridge([]),saved:SyncTargetConfiguration={id:"late-normalized",revision:1,name:"Saved decks",target:{kind:"dj_library",target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null}}};
+  let finish!:(value:SyncTargetConfiguration)=>void;
+  bridge.saveSyncTargetConfiguration=vi.fn(()=>new Promise<SyncTargetConfiguration>(resolve=>{finish=resolve;}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);enterDestination();
+  fireEvent.change(screen.getByRole("textbox",{name:"Setup name"}),{target:{value:saved.name}});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Save setup"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Save setup"}));
+  await waitFor(()=>expect(bridge.saveSyncTargetConfiguration).toHaveBeenCalled());
+  if(change==="software")fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"engine_dj"}});
+  const label=change==="software"?"Engine Library folder or target drive":"VirtualDJ library folder";
+  fireEvent.change(screen.getByRole("textbox",{name:label}),{target:{value:"/CurrentChoice"}});
+  await act(async()=>finish(saved));
+  expect(screen.getByRole("textbox",{name:label})).toHaveValue("/CurrentChoice");
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalled());
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall?.[0]).toMatchObject({target:{software:change==="software"?"engine_dj":"virtual_dj",path:"/CurrentChoice"}});
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall?.[0]).not.toHaveProperty("configuration");
+ });
  it("restores destination, scope and options after remount without restoring a preview",async()=>{
   const bridge=fakeBridge([]);
   bridge.discoverDjTargets=vi.fn(async()=>[{software:"pioneer_usb" as const,path:"/Volumes/Discovered"}]);
@@ -42,7 +108,7 @@ describe("native DJ sync",()=>{
   expect(bridge.previewDjSync).toHaveBeenCalledTimes(1);
   const saved=JSON.parse(localStorage.getItem(preferencesKey)!);
   expect(Object.keys(saved).sort()).toEqual(["profiles","software","version"]);
-  expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["options","path","playlistId","scope"]);
+  expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["environment","options","path","playlistId","scope","sourceRoot"]);
  });
  it("keeps independent destination, playlist selection and field mappings for each target",async()=>{
   const bridge=fakeBridge([]);

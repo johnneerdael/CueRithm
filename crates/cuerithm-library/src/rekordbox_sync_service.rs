@@ -63,6 +63,16 @@ struct Operation {
     version: u32,
     id: String,
     target: RekordboxSyncTarget,
+    #[serde(default)]
+    environment_snapshot: Option<TargetEnvironmentSnapshot>,
+    #[serde(default)]
+    installation_hash: Option<String>,
+    #[serde(default)]
+    target_roots: Vec<TargetPathSnapshot>,
+    #[serde(default)]
+    configuration: Option<SyncConfigurationBinding>,
+    #[serde(default)]
+    configuration_target: Option<RekordboxSyncTarget>,
     native_target_id: String,
     #[serde(default)]
     native_revision: u64,
@@ -170,26 +180,271 @@ fn targets(paths: &DiscoveryPaths, cancel: &CancellationToken) -> Result<Vec<Rek
         .into_iter()
         .filter(|i| matches!(i.major, 6 | 7))
         .map(|installation| {
-            let id = digest(&json!([installation, &database, &options_file]))?;
+            let id = stable_target_id(
+                &installation,
+                &database,
+                &options_file,
+                &asset_root,
+                &TargetEnvironment::Native,
+            )?;
             Ok(RekordboxSyncTarget {
                 id,
                 installation,
                 database: database.clone(),
                 options_file: options_file.clone(),
                 asset_root: asset_root.clone(),
+                environment: TargetEnvironment::Native,
             })
         })
         .collect()
 }
+fn stable_target_id(
+    installation: &TargetInstallation,
+    database: &Path,
+    options: &Path,
+    assets: &Path,
+    environment: &TargetEnvironment,
+) -> Result<String> {
+    let mut identity_environment = environment.clone();
+    if let TargetEnvironment::WindowsCompatibility { installation, .. } = &mut identity_environment
+    {
+        *installation = None;
+    }
+    digest(&json!([
+        installation.major,
+        database,
+        options,
+        assets,
+        identity_environment
+    ]))
+}
+fn capture_target_roots(target: &RekordboxSyncTarget) -> Result<Vec<TargetPathSnapshot>> {
+    let mut paths = BTreeSet::from([
+        target
+            .database
+            .parent()
+            .context("Database parent missing")?
+            .to_path_buf(),
+        target.asset_root.clone(),
+    ]);
+    for path in [&target.options_file, &target.installation.executable] {
+        if let Some(parent) = path.parent().filter(|p| p.is_dir()) {
+            paths.insert(parent.to_path_buf());
+        }
+    }
+    paths
+        .into_iter()
+        .map(|path| TargetPathSnapshot::capture(&path))
+        .collect()
+}
+fn verify_environment(op: &Operation, cancel: &CancellationToken) -> Result<()> {
+    if let Some(snapshot) = &op.environment_snapshot {
+        snapshot.verify()?;
+    }
+    for proof in &op.target_roots {
+        proof.verify()?;
+    }
+    if let Some(hash) = &op.installation_hash {
+        ensure!(
+            file_sha256_cancellable(&op.target.installation.executable, cancel)? == *hash,
+            "Installed rekordbox executable changed; create a new preview"
+        );
+    }
+    Ok(())
+}
+// Preserve native references in records and identities; project only file access
+// paths used for matching/import. An unmapped foreign track stays unavailable.
+fn project_collection(
+    paths: &TargetPathResolver<'_>,
+    collection: &mut RekordboxCollection,
+) -> Result<()> {
+    if paths.is_native() {
+        return Ok(());
+    }
+    for track in &mut collection.tracks {
+        track.source.resolved_path = track
+            .source
+            .resolved_path
+            .as_deref()
+            .and_then(|p| paths.to_host(Path::new(p)).ok())
+            .and_then(|p| p.to_str().map(str::to_owned));
+    }
+    Ok(())
+}
 fn resolve_target(
+    library: &Library,
     id: &str,
     paths: &DiscoveryPaths,
     cancel: &CancellationToken,
 ) -> Result<RekordboxSyncTarget> {
+    let mut configured = library
+        .configured_rekordbox_targets()?
+        .into_iter()
+        .filter(|target| target.id == id);
+    if let Some(selected) = configured.next() {
+        let selected_shape = digest(&selected)?;
+        for candidate in configured {
+            ensure!(
+                digest(&candidate)? == selected_shape,
+                "Choose a saved library setup: multiple distinct configurations refer to this rekordbox library"
+            );
+        }
+        cancel.check()?;
+        return refresh_installation(selected);
+    }
     targets(paths, cancel)?
         .into_iter()
         .find(|t| t.id == id)
         .context("Selected rekordbox installation or database changed; discover targets again")
+}
+fn refresh_installation(mut target: RekordboxSyncTarget) -> Result<RekordboxSyncTarget> {
+    if matches!(
+        target.installation.version_source.as_str(),
+        "version_resource" | "bundle_plist"
+    ) {
+        let inspected = inspect_manual_installation(&target.installation.executable, None)?;
+        ensure!(
+            inspected.major == target.installation.major,
+            "Installed rekordbox application family changed; configure the updated installation"
+        );
+        target.installation.version = inspected.version;
+        target.installation.major = inspected.major;
+        target.installation.version_source = inspected.version_source;
+    }
+    Ok(target)
+}
+fn resolve_selected_target(
+    library: &Library,
+    target_id: &str,
+    configuration: Option<&SyncConfigurationBinding>,
+    paths: &DiscoveryPaths,
+    cancel: &CancellationToken,
+) -> Result<RekordboxSyncTarget> {
+    if let Some(binding) = configuration {
+        cancel.check()?;
+        let selected = library
+            .list_sync_target_configurations()?
+            .into_iter()
+            .find(|saved| saved.id == binding.id)
+            .context("Saved target setup was removed; create a new preview")?;
+        ensure!(
+            selected.revision == binding.revision,
+            "Saved target setup changed; create a new preview"
+        );
+        let SavedSyncTarget::Rekordbox { target } = selected.target else {
+            anyhow::bail!("Selected setup is not a native rekordbox target");
+        };
+        ensure!(
+            target.id == target_id,
+            "Selected saved setup belongs to a different native library"
+        );
+        return refresh_installation(target);
+    }
+    resolve_target(library, target_id, paths, cancel)
+}
+fn resolve_request_target(
+    library: &Library,
+    request: &RekordboxSyncRequest,
+    paths: &DiscoveryPaths,
+    cancel: &CancellationToken,
+) -> Result<RekordboxSyncTarget> {
+    resolve_selected_target(
+        library,
+        &request.target_id,
+        request.configuration.as_ref(),
+        paths,
+        cancel,
+    )
+}
+fn same_native_audio_resolved(
+    paths: &TargetPathResolver<'_>,
+    native: &str,
+    physical: &Path,
+) -> bool {
+    physical.canonicalize().ok().is_some_and(|physical| {
+        paths
+            .to_host(Path::new(native))
+            .ok()
+            .and_then(|path| path.canonicalize().ok())
+            == Some(physical)
+    })
+}
+fn audio_reference_resolved(
+    paths: &TargetPathResolver<'_>,
+    physical: &Path,
+    remote: Option<&ImportedTrack>,
+    relocate: bool,
+) -> Result<PathBuf> {
+    if !relocate
+        && let Some(stored) = remote
+            .and_then(|track| track.source.path.as_deref())
+            .filter(|stored| same_native_audio_resolved(paths, stored, physical))
+    {
+        return Ok(PathBuf::from(stored));
+    }
+    Ok(cuerithm_dj_sync::destination_reference(
+        &paths.to_native(physical)?,
+    ))
+}
+#[cfg(test)]
+fn same_native_audio(target: &RekordboxSyncTarget, native: &str, physical: &Path) -> bool {
+    target.environment.resolver().is_ok_and(|paths| {
+        let matches = same_native_audio_resolved(&paths, native, physical);
+        paths.verify().is_ok() && matches
+    })
+}
+#[cfg(test)]
+fn audio_reference(
+    target: &RekordboxSyncTarget,
+    physical: &Path,
+    remote: Option<&ImportedTrack>,
+    relocate: bool,
+) -> Result<PathBuf> {
+    let paths = target.environment.resolver()?;
+    let reference = audio_reference_resolved(&paths, physical, remote, relocate)?;
+    paths.verify()?;
+    Ok(reference)
+}
+fn selected_configuration(
+    library: &Library,
+    request: &RekordboxSyncRequest,
+    runtime_target: &RekordboxSyncTarget,
+) -> Result<(
+    Option<SyncConfigurationBinding>,
+    Option<RekordboxSyncTarget>,
+)> {
+    let configurations = library.list_sync_target_configurations()?;
+    if let Some(binding) = &request.configuration {
+        let selected = configurations
+            .into_iter()
+            .find(|saved| saved.id == binding.id)
+            .context("Saved target setup was removed; create a new preview")?;
+        ensure!(
+            selected.revision == binding.revision,
+            "Saved target setup changed; create a new preview"
+        );
+        let SavedSyncTarget::Rekordbox { target } = selected.target else {
+            anyhow::bail!("Selected setup is not a native rekordbox target");
+        };
+        ensure!(
+            target.id == request.target_id && target.id == runtime_target.id,
+            "Selected saved setup belongs to a different native library"
+        );
+        return Ok((Some(binding.clone()), Some(target)));
+    }
+    let captured = configurations
+        .into_iter()
+        .find_map(|saved| match saved.target {
+            SavedSyncTarget::Rekordbox { target } if target.id == runtime_target.id => Some((
+                SyncConfigurationBinding {
+                    id: saved.id,
+                    revision: saved.revision,
+                },
+                target,
+            )),
+            _ => None,
+        });
+    Ok(captured.unzip())
 }
 fn key_for(
     target: &RekordboxSyncTarget,
@@ -197,7 +452,7 @@ fn key_for(
     cancel: &CancellationToken,
 ) -> Result<DatabaseKey> {
     resolve_database_key(
-        &NativeKeySource::for_installation(&target.installation, platform)?,
+        &NativeKeySource::for_environment(&target.installation, &target.environment, platform)?,
         &target.options_file,
         KeyProviderOptions::default(),
         cancel,
@@ -210,7 +465,7 @@ fn require_capability(
 ) -> Result<()> {
     ensure!(
         accepted_write_capability_cancellable(&target.installation, schema, cancel)?.can_write(),
-        "This installed rekordbox application and database profile has not passed native write acceptance"
+        "This rekordbox library format is not supported for syncing changes"
     );
     Ok(())
 }
@@ -292,16 +547,96 @@ fn verify_sources(library: &Library, op: &Operation, cancel: &CancellationToken)
     verify_source_bytes(op, cancel)
 }
 impl Library {
+    pub fn configure_rekordbox_sync_target(
+        &self,
+        request: RekordboxManualTarget,
+    ) -> Result<RekordboxSyncTarget> {
+        request.environment.validate()?;
+        request.environment.freeze()?.verify()?;
+        let installation =
+            inspect_manual_installation(&request.executable, request.version_hint.as_deref())?;
+        if !request.environment.is_native() {
+            ensure!(
+                installation
+                    .executable
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.eq_ignore_ascii_case("rekordbox.exe")),
+                "Select the Windows rekordbox executable for Wine/Proton"
+            );
+        }
+        for path in [&request.database, &request.options_file] {
+            ensure!(
+                path.is_absolute()
+                    && fs::symlink_metadata(path)?.is_file()
+                    && !fs::symlink_metadata(path)?.file_type().is_symlink(),
+                "Select regular database and agent options files"
+            );
+        }
+        ensure!(
+            request.asset_root.is_absolute() && request.asset_root.is_dir(),
+            "Select the native share asset directory"
+        );
+        if let TargetEnvironment::WindowsCompatibility {
+            installation: Some(selected),
+            ..
+        } = &request.environment
+        {
+            let selected = selected.canonicalize()?;
+            ensure!(
+                if selected.is_dir() {
+                    installation.executable.starts_with(&selected)
+                } else {
+                    installation.executable == selected
+                },
+                "Selected Windows installation and executable do not match"
+            );
+        }
+        let database = request.database.canonicalize()?;
+        let options_file = request.options_file.canonicalize()?;
+        let asset_root = request.asset_root.canonicalize()?;
+        let id = stable_target_id(
+            &installation,
+            &database,
+            &options_file,
+            &asset_root,
+            &request.environment,
+        )?;
+        Ok(RekordboxSyncTarget {
+            id,
+            installation,
+            database,
+            options_file,
+            asset_root,
+            environment: request.environment,
+        })
+    }
     pub fn discover_rekordbox_targets(&self) -> Result<Vec<RekordboxSyncTarget>> {
-        targets(&DiscoveryPaths::current()?, &CancellationToken::default())
+        let mut available = self.configured_rekordbox_targets()?;
+        available.extend(targets(
+            &DiscoveryPaths::current()?,
+            &CancellationToken::default(),
+        )?);
+        available.sort_by(|a, b| a.id.cmp(&b.id));
+        available.dedup_by(|a, b| a.id == b.id);
+        Ok(available)
     }
     pub fn preflight_rekordbox_sync(
         &self,
         target_id: &str,
         cancel: &CancellationToken,
     ) -> Result<RekordboxSyncPreflight> {
+        self.preflight_rekordbox_sync_configured(target_id, None, cancel)
+    }
+    pub fn preflight_rekordbox_sync_configured(
+        &self,
+        target_id: &str,
+        configuration: Option<SyncConfigurationBinding>,
+        cancel: &CancellationToken,
+    ) -> Result<RekordboxSyncPreflight> {
         let paths = DiscoveryPaths::current()?;
-        let target = resolve_target(target_id, &paths, cancel)?;
+        let target =
+            resolve_selected_target(self, target_id, configuration.as_ref(), &paths, cancel)?;
         let mut result = RekordboxSyncPreflight {
             target: target.clone(),
             readable: false,
@@ -340,7 +675,7 @@ impl Library {
     ) -> Result<RekordboxSyncPreview> {
         let _lock = lock(self)?;
         cancel.check()?;
-        let target = resolve_target(&request.target_id, &runtime.discovery_paths, cancel)?;
+        let target = resolve_request_target(self, &request, &runtime.discovery_paths, cancel)?;
         ensure_settled(self, &target.database)?;
         ensure_closed()?;
         let key = key_for(&target, runtime.discovery_paths.platform, cancel)?;

@@ -3,11 +3,35 @@ use crate::{
     host::Host,
 };
 use cuerithm_dj_sync::{SyncPreview, discovery::DiscoveredTarget, transaction::FileJournal};
-use cuerithm_library::{DjSyncHistoryEntry, DjSyncRequest};
+use cuerithm_library::{
+    DjSyncHistoryEntry, DjSyncRequest, SaveSyncTargetConfiguration, SyncTargetConfiguration,
+};
 use std::{path::PathBuf, sync::Arc};
 use tauri::{Emitter, Manager, State};
 type Managed<'a> = State<'a, Arc<Host>>;
 type Ipc<T> = Result<T, AppError>;
+#[tauri::command]
+pub async fn sync_target_configurations(host: Managed<'_>) -> Ipc<Vec<SyncTargetConfiguration>> {
+    let library = host.library.clone();
+    work(move || library.list_sync_target_configurations()).await
+}
+#[tauri::command]
+pub async fn save_sync_target_configuration(
+    host: Managed<'_>,
+    request: SaveSyncTargetConfiguration,
+) -> Ipc<SyncTargetConfiguration> {
+    let library = host.library.clone();
+    work(move || library.save_sync_target_configuration(request)).await
+}
+#[tauri::command]
+pub async fn delete_sync_target_configuration(
+    host: Managed<'_>,
+    id: String,
+    expected_revision: u64,
+) -> Ipc<()> {
+    let library = host.library.clone();
+    work(move || library.delete_sync_target_configuration(&id, expected_revision)).await
+}
 #[cfg(not(windows))]
 mod mounts;
 

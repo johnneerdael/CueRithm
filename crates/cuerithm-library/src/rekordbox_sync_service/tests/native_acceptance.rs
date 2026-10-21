@@ -364,8 +364,15 @@ impl Case {
             major: sentinel.application_major,
             version_source: "private-native-acceptance-plist".into(),
         };
-        let id = digest(&json!([&installation, &database, &sentinel.agent_options]))?;
+        let id = stable_target_id(
+            &installation,
+            &database,
+            &sentinel.agent_options,
+            &asset_root,
+            &TargetEnvironment::Native,
+        )?;
         let target = RekordboxSyncTarget {
+            environment: TargetEnvironment::Native,
             id,
             installation,
             database,
@@ -685,6 +692,7 @@ fn request(case: &Case) -> RekordboxSyncRequest {
         nearest_color: false,
     };
     let mut request = RekordboxSyncRequest {
+        configuration: None,
         target_id: case.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,

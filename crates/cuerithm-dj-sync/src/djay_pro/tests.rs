@@ -15,6 +15,7 @@ fn database() -> (tempfile::TempDir, PathBuf) {
 fn library() -> SyncLibrary {
     SyncLibrary {
         tracks: vec![SyncTrack {
+            native_path: None,
             export_timing: None,
             native_timeline: None,
             id: "one".into(),
@@ -1092,4 +1093,702 @@ fn equal_tempo_phase_reset_anchors_are_preserved() {
     let mut unsupported = beats;
     unsupported[2].bpm = 130.;
     assert!(beatgrid(&unsupported).is_err());
+}
+
+#[test]
+fn optional_numeric_metadata_updates_without_resetting_native_history() {
+    use cuerithm_smartlists::FieldValue;
+    let (_folder, path) = database();
+    let mut input = library();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    let mut item = get(&path, "mediaItems", &id);
+    item.set("bitRate", Value::U16(256));
+    item.set("albumTrackNumber", Value::U16(3));
+    item.set("nativeFact", text("keep"));
+    let mut user = get(&path, "mediaItemUserData", &id);
+    user.set("playCount", Value::Double(12.));
+    let mut conn = Connection::open(&path).unwrap();
+    let tx = conn.transaction().unwrap();
+    upsert(&tx, "mediaItems", &id, &item).unwrap();
+    upsert(&tx, "mediaItemUserData", &id, &user).unwrap();
+    tx.commit().unwrap();
+    input.tracks[0].attributes = [
+        ("bitrate".into(), FieldValue::Number(320.9)),
+        ("trackNumber".into(), FieldValue::Number(7.)),
+    ]
+    .into();
+    for attributes in [
+        input.tracks[0].attributes.clone(),
+        Default::default(),
+        [
+            ("bitrate".into(), FieldValue::Null),
+            ("trackNumber".into(), FieldValue::Null),
+        ]
+        .into(),
+    ] {
+        input.tracks[0].attributes = attributes;
+        write(&path, &input, &SyncOptions::default()).unwrap();
+        let item = get(&path, "mediaItems", &id);
+        assert_eq!(item.get("bitRate"), Some(&Value::U16(320)));
+        assert_eq!(item.get("albumTrackNumber"), Some(&Value::U16(7)));
+        assert_eq!(item.get("nativeFact"), Some(&text("keep")));
+        assert_eq!(
+            get(&path, "mediaItemUserData", &id).get("playCount"),
+            Some(&Value::Double(12.))
+        );
+    }
+}
+
+#[test]
+fn invalid_optional_numeric_metadata_does_not_commit_djay_changes() {
+    use cuerithm_smartlists::FieldValue;
+    let (_folder, path) = database();
+    let input = library();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    let before = get(&path, "mediaItems", &id);
+    for (field, value) in [
+        ("bitrate", FieldValue::Number(-1.)),
+        ("bitrate", FieldValue::Number(f64::NAN)),
+        ("bitrate", FieldValue::Number(65536.)),
+        ("bitrate", FieldValue::Text("320".into())),
+        ("trackNumber", FieldValue::Number(7.5)),
+        ("trackNumber", FieldValue::Number(65536.)),
+        ("trackNumber", FieldValue::Boolean(true)),
+    ] {
+        let mut invalid = input.clone();
+        invalid.tracks[0].title = "must not commit".into();
+        invalid.tracks[0].attributes.insert(field.into(), value);
+        assert!(
+            write(&path, &invalid, &SyncOptions::default()).is_err(),
+            "{field}"
+        );
+        assert_eq!(get(&path, "mediaItems", &id), before);
+    }
+}
+
+fn seed_location(path: &Path, id: &str, uris: Vec<Value>) {
+    let mut conn = Connection::open(path).unwrap();
+    let tx = conn.transaction().unwrap();
+    let mut location = Object::new("ADCMediaItemLocation");
+    location.set("uuid", text(id));
+    location.set("sourceURIs", Value::Array(uris));
+    location.set("nativeFact", text("keep"));
+    location.set("urlBookmarkData", Value::Binary(vec![1, 7, 19, 0, 4]));
+    upsert(&tx, "localMediaItemLocations", id, &location).unwrap();
+    tx.commit().unwrap();
+}
+#[test]
+fn windows_uri_aliases_reuse_native_uuid_and_preserve_complete_uri_array() {
+    for (source, native) in [
+        (
+            r"C:\Music\Track One.mp3",
+            "file:///c:%5cMusic%5CTrack%20One.mp3",
+        ),
+        (
+            r"\\Server\share\Track One.mp3",
+            "file:///%5C%5Cserver%5Cshare%5CTrack%20One.mp3",
+        ),
+        (
+            "//Server/share/Track One.mp3",
+            "file://server/share/Track%20One.mp3",
+        ),
+    ] {
+        let (_folder, path) = database();
+        let uris = vec![
+            Value::String("file:///unrelated/primary.mp3".into()),
+            Value::Uri(native.into()),
+            Value::Uri("spotify:track:retained".into()),
+        ];
+        seed_location(&path, "native-windows", uris.clone());
+        let mut input = library();
+        input.tracks[0].path = source.into();
+        write(&path, &input, &SyncOptions::default()).unwrap();
+        let location = get(&path, "localMediaItemLocations", "native-windows");
+        assert_eq!(location.get("sourceURIs"), Some(&Value::Array(uris)));
+        assert_eq!(location.get("nativeFact"), Some(&text("keep")));
+        assert_eq!(
+            location.get("urlBookmarkData"),
+            Some(&Value::Binary(vec![1, 7, 19, 0, 4]))
+        );
+        assert_eq!(
+            get(&path, "mediaItems", "native-windows").get("title"),
+            Some(&text("Café"))
+        );
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                [],
+                |row| row.get::<_, u32>(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
+}
+#[test]
+fn equivalent_selected_windows_native_uuids_reject_without_writes() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "encoded",
+        vec![Value::Uri("file:///C:%5CMusic%5CTrack.mp3".into())],
+    );
+    seed_location(
+        &path,
+        "slash",
+        vec![Value::Uri("file:///c:/Music/Track.mp3".into())],
+    );
+    let input = library();
+    // Unrelated native duplicates are outside the selected identity scope.
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let mut selected = input.clone();
+    selected.tracks[0].path = "C:/Music/Track.mp3".into();
+    assert!(write(&path, &selected, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+#[test]
+fn duplicate_selected_windows_identities_reject_before_native_writes() {
+    let (_folder, path) = database();
+    let before = std::fs::read(&path).unwrap();
+    let mut input = library();
+    input.tracks[0].path = r"C:\Music\Track.mp3".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "c:/Music/Track.mp3".into();
+    input.tracks.push(second);
+    assert!(write(&path, &input, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+#[test]
+fn posix_backslash_filenames_remain_distinct_from_directory_separators() {
+    let (_folder, path) = database();
+    let conn = Connection::open(&path).unwrap();
+    conn.execute_batch("CREATE TABLE secondaryIndex_mediaItemLocationIndex(rowid INTEGER PRIMARY KEY,fileName TEXT);").unwrap();
+    let mut input = library();
+    input.tracks[0].path = r"/music/a\b.mp3".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "/music/a/b.mp3".into();
+    input.tracks.push(second);
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let first = stable_id("track", "one", false);
+    let second = stable_id("track", "two", false);
+    assert_eq!(
+        get(&path, "localMediaItemLocations", &first).get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///music/a%5Cb.mp3".into()
+        )]))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", &second).get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///music/a/b.mp3".into()
+        )]))
+    );
+    let filenames = conn
+        .prepare("SELECT fileName FROM secondaryIndex_mediaItemLocationIndex ORDER BY fileName")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(filenames, [r"a\b.mp3", "b.mp3"]);
+}
+#[test]
+fn windows_uri_reference_repair_uses_equivalent_identity_and_preserves_other_aliases() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "native",
+        vec![
+            Value::Uri("file:///C:%5CMusic%5CTrack.mp3".into()),
+            Value::Uri("stream:keep".into()),
+        ],
+    );
+    let source = Path::new("c:/Music/Track.mp3");
+    let destination = Path::new(r"C:\Moved\Track.mp3");
+    assert_eq!(reference_id(&path, source).unwrap(), "native");
+    repair_reference(&path, source, destination, "native").unwrap();
+    let location = get(&path, "localMediaItemLocations", "native");
+    assert_eq!(
+        location.get("sourceURIs"),
+        Some(&Value::Array(vec![
+            Value::Uri("file:///C:/Moved/Track.mp3".into()),
+            Value::Uri("stream:keep".into())
+        ]))
+    );
+    assert_eq!(location.get("nativeFact"), Some(&text("keep")));
+    seed_location(
+        &path,
+        "conflict",
+        vec![Value::Uri("file:///C:%5CElsewhere%5CTrack.mp3".into())],
+    );
+    let before = std::fs::read(&path).unwrap();
+    assert!(
+        repair_reference(
+            &path,
+            destination,
+            Path::new("c:/Elsewhere/Track.mp3"),
+            "native"
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn windows_uri_identity_does_not_claim_malformed_or_distinct_paths() {
+    for uri in [
+        "file:///music/a%5Cb.mp3",
+        "file:///C:/Music/%GG.mp3",
+        "file:///C:/Music/%00.mp3",
+        "file:///C:/Music/%FF.mp3",
+        "file:///C:/Music/Track.mp3#other",
+        "file:///C:/Music/Track.mp3?other",
+        "file://user@server/share/Track.mp3",
+        "file://server:42/share/Track.mp3",
+        "file://server/",
+        "file:///C:/Music/../Track.mp3",
+        "file:///%5C%5C%3F%5CUNC%5Cserver%5Cshare%5CTrack.mp3",
+        "spotify:track:retained",
+    ] {
+        assert!(windows_uri_identity(uri).is_none(), "{uri}");
+    }
+    for (left, right) in [
+        ("file:///music/a%5Cb.mp3", "file:///music/a/b.mp3"),
+        ("file:///C:/Music/a%255Cb.mp3", "file:///C:/Music/a/b.mp3"),
+        ("file:///C:/Music/a.mp3", "file:///C:/music/a.mp3"),
+        ("file://server/Share/a.mp3", "file://server/share/a.mp3"),
+    ] {
+        assert_ne!(uri_identity(left), uri_identity(right));
+    }
+}
+
+#[test]
+fn distinct_selected_sources_cannot_overwrite_one_native_alias_identity() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "native",
+        vec![
+            Value::Uri("file:///C:%5CMusic%5CFirst.mp3".into()),
+            Value::Uri("file:///C:%5CMusic%5CSecond.mp3".into()),
+        ],
+    );
+    seed_location(
+        &path,
+        "unselected",
+        vec![Value::Uri("file:///C:/Other/Untouched.mp3".into())],
+    );
+    let mut input = library();
+    input.tracks[0].path = "C:/Music/First.mp3".into();
+    input.tracks[0].title = "First selected metadata".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "C:/Music/Second.mp3".into();
+    second.title = "Second selected metadata".into();
+    input.tracks.push(second);
+    let before = std::fs::read(&path).unwrap();
+    assert!(write(&path, &input, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    // One selected source may legitimately have several native aliases.
+    input.tracks.pop();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    assert_eq!(
+        get(&path, "mediaItems", "native").get("title"),
+        Some(&text("First selected metadata"))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", "native").get("sourceURIs"),
+        Some(&Value::Array(vec![
+            Value::Uri("file:///C:%5CMusic%5CFirst.mp3".into()),
+            Value::Uri("file:///C:%5CMusic%5CSecond.mp3".into()),
+        ]))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", "unselected").get("nativeFact"),
+        Some(&text("keep"))
+    );
+}
+
+#[test]
+fn windows_context_djay_uses_windows_uri_and_retains_equivalent_native_identity() {
+    let (folder, database) = database();
+    let root = folder.path().canonicalize().unwrap();
+    let source = root.join("café & mix.mp3");
+    std::fs::write(&source, b"authored source").unwrap();
+    let mut input = library();
+    input.tracks[0].path = PathBuf::from(r"D:\Music\café & mix.mp3");
+    write(&database, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    input.tracks[0].id = "renamed-source".into();
+    for playlist in &mut input.playlists {
+        for track in &mut playlist.track_ids {
+            *track = "renamed-source".into();
+        }
+    }
+    input.tracks[0].path = source;
+    let target: crate::SyncTarget = serde_json::from_value(serde_json::json!({
+        "software":"djay_pro", "path":database, "source_root":null,
+        "environment":{"kind":"windows_compatibility", "prefix":root,"installation":null,
+          "mappings":[{"windows_root":"D:\\Music","host_root":root}]}
+    }))
+    .unwrap();
+    let journals = root.join("journals");
+    let preview = crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+    crate::apply_sync(&journals, &preview.id).unwrap();
+    let conn = Connection::open(&database).unwrap();
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM database2 WHERE collection='mediaItems'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    let location = get(&database, "localMediaItemLocations", &id);
+    assert_eq!(
+        location.get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///D:/Music/caf%C3%A9%20&%20mix.mp3".into()
+        )]))
+    );
+    drop(conn);
+    crate::restore_sync(&journals, &preview.id).unwrap();
+}
+
+fn mapped_case_fixture(
+    windows_root: &str,
+    native_uri: &str,
+) -> (
+    tempfile::TempDir,
+    PathBuf,
+    PathBuf,
+    crate::SyncTarget,
+    SyncLibrary,
+    Vec<Value>,
+) {
+    let (folder, database) = database();
+    let database = database.canonicalize().unwrap();
+    let root = folder.path().canonicalize().unwrap();
+    let music = root.join("Music");
+    std::fs::create_dir(&music).unwrap();
+    let source = music.join("a.mp3");
+    std::fs::write(&source, b"authored mp3 placeholder; no decoding").unwrap();
+    let uris = vec![
+        Value::String(native_uri.into()),
+        Value::Uri("spotify:track:keep".into()),
+        Value::Uri("file:///Z:/unresolved.mp3".into()),
+    ];
+    seed_location(&database, "native-case", uris.clone());
+    seed_location(
+        &database,
+        "foreign-malformed",
+        vec![
+            Value::Uri("file:///C:/Music/%ZZbad.mp3".into()),
+            Value::Uri("file:///Q:/unresolved.mp3".into()),
+        ],
+    );
+    let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"djay_pro","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":windows_root,"host_root":root}]}})).unwrap();
+    let mut input = library();
+    input.tracks[0].path = source.clone();
+    input.tracks[0].title = "Updated from physical source".into();
+    (folder, database, source, target, input, uris)
+}
+#[test]
+fn mapped_djay_case_aliases_reuse_physical_native_identity_and_preserve_all_uri_values() {
+    for (mapping, uri) in [
+        (r"C:\", "file:///C:/music/A.MP3"),
+        (r"\\nas\music", "file://NAS/MuSiC/music/A.MP3"),
+    ] {
+        let (folder, database, source, target, input, uris) = mapped_case_fixture(mapping, uri);
+        let foreign = get(&database, "localMediaItemLocations", "foreign-malformed");
+        let journals = folder.path().join("journals");
+        let preview =
+            crate::prepare_sync(&journals, target.clone(), &input, &SyncOptions::default())
+                .unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+            Some(&Value::Array(uris.clone()))
+        );
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "foreign-malformed"),
+            foreign
+        );
+        assert_eq!(
+            get(&database, "mediaItems", "native-case").get("title"),
+            Some(&text("Updated from physical source"))
+        );
+        assert_eq!(
+            Connection::open(&database)
+                .unwrap()
+                .query_row(
+                    "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            2
+        );
+        let snapshot = crate::inspect_path_reference(&target, &source).unwrap();
+        assert_eq!(snapshot.external_id, "native-case");
+        let destination = source.with_file_name("renamed.mp3");
+        std::fs::copy(&source, &destination).unwrap();
+        let plan = crate::prepare_path_repair(
+            &folder.path().join("repairs"),
+            &snapshot,
+            &crate::SourcePathChange {
+                track_id: "one".into(),
+                from: source.clone(),
+                to: destination.clone(),
+                source_sha256: crate::transaction::file_hash(&source).unwrap().unwrap(),
+                approved_from_sha256: None,
+            },
+        )
+        .unwrap();
+        crate::apply_path_repair(&folder.path().join("repairs"), &plan.id).unwrap();
+        let after = get(&database, "localMediaItemLocations", "native-case");
+        let Some(Value::Array(after_uris)) = after.get("sourceURIs") else {
+            panic!()
+        };
+        assert_eq!(&after_uris[1..], &uris[1..]);
+        assert_eq!(
+            after_uris[0],
+            Value::String(file_uri(&target.environment.to_native(&destination).unwrap()).unwrap())
+        );
+        crate::restore_path_repair(&folder.path().join("repairs"), &plan.id).unwrap();
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+            Some(&Value::Array(uris))
+        );
+        crate::restore_sync(&journals, &preview.id).unwrap();
+    }
+}
+#[test]
+fn mapped_djay_multiple_native_uuids_for_one_physical_source_are_rejected_before_write() {
+    let (_folder, database, _source, target, input, _uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    seed_location(
+        &database,
+        "second-native",
+        vec![Value::Uri("file:///C:/MUSIC/a.mp3".into())],
+    );
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        crate::prepare_sync(
+            &database.parent().unwrap().join("journals"),
+            target,
+            &input,
+            &SyncOptions::default()
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn mapped_djay_multiple_local_paths_to_one_physical_source_are_rejected_before_write() {
+    let (_folder, database, source, target, mut input, _uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    let linked = source.with_file_name("linked.mp3");
+    std::fs::hard_link(&source, &linked).unwrap();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = linked;
+    input.tracks.push(second);
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        crate::prepare_sync(
+            &database.parent().unwrap().join("journals"),
+            target,
+            &input,
+            &SyncOptions::default()
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn native_djay_distinct_case_sensitive_host_paths_keep_separate_native_uuids() {
+    let (folder, database) = database();
+    let root = folder.path().canonicalize().unwrap();
+    let lower = root.join("lower.mp3");
+    let upper = root.join("LOWER.mp3");
+    std::fs::write(&lower, b"authored lower").unwrap();
+    std::fs::write(&upper, b"authored upper").unwrap();
+    if same_file::is_same_file(&lower, &upper).unwrap() {
+        return;
+    }
+    seed_location(
+        &database,
+        "native-lower",
+        vec![Value::Uri(file_uri(&lower).unwrap())],
+    );
+    seed_location(
+        &database,
+        "native-upper",
+        vec![Value::Uri(file_uri(&upper).unwrap())],
+    );
+    let mut input = library();
+    input.playlists.clear();
+    input.tracks[0].path = lower;
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = upper;
+    input.tracks.push(second);
+    write(&database, &input, &SyncOptions::default()).unwrap();
+    assert_eq!(
+        Connection::open(&database)
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+        2
+    );
+    get(&database, "mediaItems", "native-lower");
+    get(&database, "mediaItems", "native-upper");
+}
+
+#[test]
+fn mapped_djay_direct_writer_refuses_globally_aliased_selected_sources() {
+    let (_folder, database, source, target, mut input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    input.playlists.clear();
+    let linked = source.with_file_name("linked.mp3");
+    std::fs::hard_link(&source, &linked).unwrap();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = linked;
+    input.tracks.push(second);
+    let before = std::fs::read(&database).unwrap();
+    let error = write_owned_in_environment(
+        &database,
+        &input,
+        &SyncOptions::default(),
+        &Default::default(),
+        &target.environment,
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("same physical source"),
+        "{error:#}"
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn mapped_djay_native_hardlink_aliases_cannot_select_an_arbitrary_uuid() {
+    let (_folder, database, source, target, mut input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    input.playlists.clear();
+    std::fs::hard_link(&source, source.with_file_name("linked.mp3")).unwrap();
+    seed_location(
+        &database,
+        "another-native",
+        vec![Value::Uri("file:///C:/Music/linked.mp3".into())],
+    );
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        write_owned_in_environment(
+            &database,
+            &input,
+            &SyncOptions::default(),
+            &Default::default(),
+            &target.environment
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+
+#[test]
+fn mapped_djay_reuses_directory_index_across_selected_and_native_uri_loops() {
+    let (folder, database) = database();
+    let music = folder.path().canonicalize().unwrap().join("Music");
+    std::fs::create_dir(&music).unwrap();
+    let mut input = SyncLibrary::default();
+    for index in 0..128 {
+        let source = music.join(format!("track-{index}.mp3"));
+        std::fs::write(&source, b"authored source").unwrap();
+        seed_location(
+            &database,
+            &format!("native-{index}"),
+            vec![Value::Uri(format!("file:///C:/music/TRACK-{index}.MP3"))],
+        );
+        input.tracks.push(SyncTrack {
+            id: index.to_string(),
+            path: source,
+            ..library().tracks.remove(0)
+        });
+    }
+    let environment:cuerithm_rekordbox::TargetEnvironment=serde_json::from_value(serde_json::json!({"kind":"windows_compatibility","prefix":folder.path().canonicalize().unwrap(),"mappings":[{"windows_root":"C:\\Music","host_root":music}]})).unwrap();
+    let resolver = environment.resolver().unwrap();
+    write_owned_with_resolver(
+        &database,
+        &input,
+        &SyncOptions::default(),
+        &Default::default(),
+        &resolver,
+    )
+    .unwrap();
+    assert_eq!(
+        resolver.directory_enumerations(),
+        2,
+        "one index read and one verification for all 256 selected/native URI resolutions"
+    );
+    for index in 0..128 {
+        assert_eq!(
+            get(&database, "mediaItems", &format!("native-{index}")).get("title"),
+            Some(&text("Café"))
+        );
+    }
+}
+
+#[test]
+fn mapped_djay_changed_cached_directory_refuses_before_database_write() {
+    let (_folder, database, source, target, input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    let before = std::fs::read(&database).unwrap();
+    let resolver = target.environment.resolver().unwrap();
+    resolver.to_native(&source).unwrap();
+    std::fs::write(
+        source.with_file_name("new-sibling.mp3"),
+        b"directory changed",
+    )
+    .unwrap();
+    assert!(
+        write_owned_with_resolver(
+            &database,
+            &input,
+            &SyncOptions::default(),
+            &Default::default(),
+            &resolver
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+
+#[test]
+fn mapped_djay_preparation_keeps_physical_database_outside_windows_mappings() {
+    let (folder, database, source, mut target, input, uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    target.environment=serde_json::from_value(serde_json::json!({"kind":"windows_compatibility","prefix":folder.path().canonicalize().unwrap(),"mappings":[{"windows_root":"C:\\Music","host_root":source.parent().unwrap()}]})).unwrap();
+    let initial = std::fs::read(&database).unwrap();
+    let journals = folder.path().join("journals");
+    let preview = crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+    crate::apply_sync(&journals, &preview.id).unwrap();
+    assert_eq!(
+        get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+        Some(&Value::Array(uris))
+    );
+    crate::restore_sync(&journals, &preview.id).unwrap();
+    assert_eq!(std::fs::read(database).unwrap(), initial);
 }

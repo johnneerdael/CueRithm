@@ -137,6 +137,12 @@ fn regular(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|m| m.is_file() && !m.file_type().is_symlink())
 }
 fn version_parts(text: &str) -> Option<Vec<u32>> {
+    if !text
+        .split('.')
+        .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return None;
+    }
     let parts = text
         .split('.')
         .map(str::parse)
@@ -144,55 +150,132 @@ fn version_parts(text: &str) -> Option<Vec<u32>> {
         .ok()?;
     (!parts.is_empty() && parts.len() <= 4).then_some(parts)
 }
-#[cfg(windows)]
+// Inspect PE resources as data on every host. Keep the file and section budgets
+// bounded and reject ambiguous fixed-version records.
 fn windows_version(path: &Path) -> Option<String> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{
-        GetFileVersionInfoSizeW, GetFileVersionInfoW, VS_FIXEDFILEINFO, VerQueryValueW,
+    use std::io::Read;
+    let file = std::fs::File::open(path).ok()?;
+    let length = file.metadata().ok()?.len();
+    if !(64..=256 * 1024 * 1024).contains(&length) {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    file.take(length + 1).read_to_end(&mut bytes).ok()?;
+    if bytes.len() as u64 != length || bytes.get(..2)? != b"MZ" {
+        return None;
+    }
+    let u16_at = |offset: usize| -> Option<u16> {
+        Some(u16::from_le_bytes(
+            bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?,
+        ))
     };
-    let name = path
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect::<Vec<_>>();
-    let mut unused = 0;
-    let size = unsafe { GetFileVersionInfoSizeW(name.as_ptr(), &mut unused) };
-    if size == 0 || size > 16 * 1024 * 1024 {
+    let u32_at = |offset: usize| -> Option<u32> {
+        Some(u32::from_le_bytes(
+            bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?,
+        ))
+    };
+    let pe = u32_at(60)? as usize;
+    if bytes.get(pe..pe.checked_add(4)?)? != b"PE\0\0" {
         return None;
     }
-    let mut data = vec![0u8; size as usize];
-    if unsafe { GetFileVersionInfoW(name.as_ptr(), 0, size, data.as_mut_ptr().cast()) } == 0 {
+    let count = u16_at(pe.checked_add(6)?)? as usize;
+    if count > 96 {
         return None;
     }
-    let mut ptr = std::ptr::null_mut();
-    let mut len = 0;
-    let root = [b'\\' as u16, 0];
-    if unsafe { VerQueryValueW(data.as_ptr().cast(), root.as_ptr(), &mut ptr, &mut len) } == 0
-        || ptr.is_null()
-        || len < std::mem::size_of::<VS_FIXEDFILEINFO>() as u32
-    {
-        return None;
+    let sections = pe
+        .checked_add(24)?
+        .checked_add(u16_at(pe.checked_add(20)?)? as usize)?;
+    let mut versions = std::collections::BTreeSet::new();
+    for index in 0..count {
+        let section = sections.checked_add(index * 40)?;
+        if bytes.get(section..section.checked_add(8)?)? != b".rsrc\0\0\0" {
+            continue;
+        }
+        let size = u32_at(section + 16)? as usize;
+        let start = u32_at(section + 20)? as usize;
+        if size > 16 * 1024 * 1024 {
+            return None;
+        }
+        let data = bytes.get(start..start.checked_add(size)?)?;
+        for record in data.windows(52) {
+            if record[..8] != [0xbd, 0x04, 0xef, 0xfe, 0x00, 0x00, 0x01, 0x00] {
+                continue;
+            }
+            let word = |n| u32::from_le_bytes(record[n..n + 4].try_into().unwrap());
+            let (high, low) = if word(16) != 0 {
+                (word(16), word(20))
+            } else {
+                (word(8), word(12))
+            };
+            versions.insert(format!(
+                "{}.{}.{}.{}",
+                high >> 16,
+                high & 65535,
+                low >> 16,
+                low & 65535
+            ));
+        }
     }
-    let info = unsafe { std::ptr::read_unaligned(ptr.cast::<VS_FIXEDFILEINFO>()) };
-    if info.dwSignature != 0xfeef04bd {
-        return None;
-    }
-    let (high, low) = if info.dwProductVersionMS != 0 {
-        (info.dwProductVersionMS, info.dwProductVersionLS)
+    if versions.len() == 1 {
+        versions.into_iter().next()
     } else {
-        (info.dwFileVersionMS, info.dwFileVersionLS)
-    };
-    Some(format!(
-        "{}.{}.{}.{}",
-        high >> 16,
-        high & 65535,
-        low >> 16,
-        low & 65535
-    ))
+        None
+    }
 }
-#[cfg(not(windows))]
-fn windows_version(_path: &Path) -> Option<String> {
-    None
+
+/// Inspect an explicitly selected executable without running it. Windows version
+/// resources are portable; a missing resource requires a bounded version hint.
+pub fn inspect_manual_installation(
+    executable: &Path,
+    version_hint: Option<&str>,
+) -> Result<TargetInstallation> {
+    ensure!(
+        executable.is_absolute() && regular(executable),
+        "Select a regular installed rekordbox executable"
+    );
+    let name = executable
+        .file_name()
+        .and_then(|n| n.to_str())
+        .context("Executable name is not Unicode")?;
+    ensure!(
+        name.eq_ignore_ascii_case("rekordbox.exe") || name == "rekordbox",
+        "Select the rekordbox executable"
+    );
+    let executable = executable.canonicalize()?;
+    let root = executable
+        .parent()
+        .context("Installation directory missing")?
+        .to_path_buf();
+    let observed = if name.eq_ignore_ascii_case("rekordbox.exe") {
+        windows_version(&executable).map(|v| (v, "version_resource"))
+    } else {
+        root.parent()
+            .and_then(|p| plist::Value::from_file(p.join("Info.plist")).ok())
+            .and_then(|v| {
+                v.as_dictionary()?
+                    .get("CFBundleShortVersionString")?
+                    .as_string()
+                    .map(str::to_owned)
+            })
+            .map(|v| (v, "bundle_plist"))
+    };
+    let (version, source) = observed
+        .or_else(|| version_hint.map(|v| (v.to_owned(), "explicit_version_hint")))
+        .context("Installed version unavailable; provide an explicit rekordbox 6 or 7 version")?;
+    ensure!(version.len() <= 64, "Invalid installed version");
+    let parts = version_parts(&version)
+        .context("Installed version must have one to four numeric components")?;
+    ensure!(
+        matches!(parts[0], 6 | 7),
+        "Only rekordbox 6 and 7 database protocols are supported"
+    );
+    Ok(TargetInstallation {
+        root,
+        executable,
+        version,
+        major: parts[0],
+        version_source: source.into(),
+    })
 }
 fn inspect_install(
     path: &Path,
@@ -410,4 +493,42 @@ pub fn discover_targets(
         state,
     });
     Ok(result)
+}
+
+#[cfg(test)]
+mod manual_tests {
+    use super::*;
+    #[test]
+    fn manual_windows_selection_requires_a_bounded_supported_version_without_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().canonicalize().unwrap().join("rekordbox.exe");
+        std::fs::write(&executable, b"MZ authored executable, never executed").unwrap();
+        assert!(inspect_manual_installation(&executable, None).is_err());
+        let installed = inspect_manual_installation(&executable, Some("7.9.42.1")).unwrap();
+        assert_eq!(installed.major, 7);
+        assert_eq!(installed.version_source, "explicit_version_hint");
+        for invalid in ["8.1", "7.bad", "7.1.2.3.4", "7.-1", " 7.0"] {
+            assert!(inspect_manual_installation(&executable, Some(invalid)).is_err());
+        }
+    }
+    #[test]
+    fn portable_pe_version_is_read_as_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().canonicalize().unwrap().join("rekordbox.exe");
+        let mut bytes = vec![0u8; 512];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&64u32.to_le_bytes());
+        bytes[64..68].copy_from_slice(b"PE\0\0");
+        bytes[70..72].copy_from_slice(&1u16.to_le_bytes());
+        bytes[88..96].copy_from_slice(b".rsrc\0\0\0");
+        bytes[104..108].copy_from_slice(&128u32.to_le_bytes());
+        bytes[108..112].copy_from_slice(&256u32.to_le_bytes());
+        bytes[256..264].copy_from_slice(&[0xbd, 0x04, 0xef, 0xfe, 0, 0, 1, 0]);
+        bytes[272..276].copy_from_slice(&((7u32 << 16) | 3).to_le_bytes());
+        bytes[276..280].copy_from_slice(&((5u32 << 16) | 42).to_le_bytes());
+        std::fs::write(&executable, bytes).unwrap();
+        let installed = inspect_manual_installation(&executable, Some("6.0")).unwrap();
+        assert_eq!(installed.version, "7.3.5.42");
+        assert_eq!(installed.version_source, "version_resource");
+    }
 }

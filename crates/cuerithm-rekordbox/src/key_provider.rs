@@ -23,6 +23,19 @@ impl Default for KeyProviderOptions {
     }
 }
 impl NativeKeySource {
+    pub fn for_environment(
+        target: &TargetInstallation,
+        environment: &TargetEnvironment,
+        native_platform: DesktopPlatform,
+    ) -> Result<Self> {
+        environment.validate()?;
+        let platform = if environment.is_native() {
+            native_platform
+        } else {
+            DesktopPlatform::Windows
+        };
+        Self::for_installation(target, platform)
+    }
     pub fn for_installation(
         target: &TargetInstallation,
         platform: DesktopPlatform,

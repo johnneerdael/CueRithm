@@ -40,17 +40,25 @@ fn refresh_master_inner(
     let mut dst = Connection::open_with_flags(master, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     register_functions(&dst)?;
     let src = Connection::open_with_flags(staged_location, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    let location: i64 = dst
-        .query_row(
-            "SELECT location_id FROM connection WHERE database_uri=?",
-            [original_location
-                .to_str()
-                .context("Invalid Serato location URI")?],
-            |r| r.get(0),
-        )
+    let reference = super::native_serato_path(original_location)?;
+    let mut matches = dst
+        .prepare("SELECT location_id,database_uri FROM connection")?
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .filter(|(_, uri)| super::normalize(uri) == super::normalize(&reference));
+    let location = matches
+        .next()
         .context(
             "Location is not registered in Serato master.sqlite; initialize it in Serato first",
-        )?;
+        )?
+        .0;
+    ensure!(
+        matches.next().is_none(),
+        "Ambiguous Serato location registration"
+    );
     let tx = dst.transaction()?;
     let mut ownership = ownership_request
         .map(|(request, local)| ownership::State::new(&tx, request, local, location))

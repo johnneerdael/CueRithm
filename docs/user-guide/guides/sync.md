@@ -30,16 +30,47 @@ Sync remembers the selected software and keeps the destination, scope and option
 separately for each target. Returning restores these choices; create a fresh preview
 before applying them.
 
+## Windows libraries on Linux
+
+Use **Application environment → Windows through Wine / Proton** when the DJ
+application runs in a Windows prefix. Enter its library location as a folder on
+this computer, then select the prefix and installation folder.
+
+Add the Windows drives or network shares used by the library under **Add drive
+mapping**. For example, map `C:\` to the prefix's `drive_c` folder and `D:\Music`
+to `/mnt/music`. CueRithm reads music from the host folders and writes the Windows
+references used by the DJ application. Missing or ambiguous mappings stop the
+preview with an explanation. Selecting a library does not launch the DJ app.
+
+Use **Setup name → Save setup** to keep a named configuration. **Saved library
+setup** restores it later; saving never starts a sync. Changing a saved setup or
+its mapped folders invalidates prepared changes. Recovery and restore keep the
+original operation's locations and still check them before writing.
+
+VirtualDJ uses the existing library's modern MyLists or legacy playlist layout
+and its drive-specific databases. Engine desktop libraries can reference music on
+another Windows drive; copying music remains a separate option. Keep the original
+Windows drive mappings available for later syncs and path repairs.
+Location-prefix smart rules export their saved matching tracks when the Windows
+mapping cannot preserve their meaning. The preview explains that fallback.
+
 ## Sync directly to rekordbox 6 or 7
 
 Native sync discovers installed rekordbox 6 and 7 libraries on macOS and Windows.
 The installed version and database location appear under **Installed library**.
-Linux does not support a native desktop rekordbox installation.
+On Linux, use **Set up another library** to select the Windows installation used
+through Wine or Proton. This setup is also available for custom locations on
+macOS and Windows. Choose the executable, `master.db`, the Agent's `options.json`
+and the library's `share` asset folder, then save the named setup. Windows setups
+use the same explicit drive mappings described above. A version hint is optional
+when the executable has no readable version information.
 
-**Supported native writes:** macOS builds **6.8.7.0303** and **7.2.19.0342**.
-Other builds and Windows libraries remain **Read only** until tested. Review the
-availability notice; support is checked against the actual installed build and
-library. Linux cannot run a local desktop rekordbox target.
+Writes require a supported rekordbox 6 or 7 database and asset format. Compatible
+patch builds can sync after those checks pass; unknown formats remain **Read
+only**. The installation and mapped folders must still match the preview.
+Application playback was validated on macOS builds **6.8.7.0303** and
+**7.2.19.0342**; Windows/Wine format and fixture checks are separate from playback
+validation. Review the availability notice for the selected library.
 
 1. Close rekordbox and **rekordbox Agent**. The Agent can remain running after
    closing the main application.

@@ -197,6 +197,7 @@ mod tests {
             _ => "wav",
         };
         SyncTrack {
+            native_path: None,
             id: "synthetic".into(),
             path: format!("/synthetic.{extension}").into(),
             sample_rate: 44100,

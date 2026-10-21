@@ -333,6 +333,7 @@ mod export_timing_tests {
     #[test]
     fn native_marker_loop_and_clamped_grid_fields_use_the_export_copy_only() {
         let canonical = SyncTrack {
+            native_path: None,
             path: "/synthetic.mp3".into(),
             sample_rate: 44100,
             cues: vec![

@@ -1,5 +1,8 @@
 //! Native direct-library access. No collection XML transport is provided.
 pub mod anlz;
+pub mod path_serde;
+mod target_context;
+pub use target_context::*;
 mod asset_staging;
 pub use asset_staging::*;
 mod collection;

@@ -1,10 +1,12 @@
 # Direct rekordbox contract: research revision 3
 
 This is the contract and progress record for the native Rust adapter. Desktop
-Sync writes are enabled only for the two tested macOS builds listed under
-[accepted native profiles](#accepted-native-profiles). Other builds remain
-read-only. Earlier sections retain historical research checkpoints. No collection
-XML transport or fallback is provided.
+Sync authorizes supported rekordbox 6/7 database and asset protocols rather than
+an exact executable whitelist. Unknown formats remain read-only. The
+[accepted native profiles](#accepted-native-profiles) record actual macOS
+application acceptance separately from Windows/Wine fixture validation. Earlier
+sections retain historical research checkpoints. No collection XML transport or
+fallback is provided.
 
 ## Evidence and limits
 
@@ -411,10 +413,14 @@ Version 7 executable SHA-256:
 `07dcecbaf304f777e435539c83c7dcc02e41de1eaf2e0a75e8a9852e4411a244`.
 Both schemas were measured in fresh, application-created private libraries.
 Version 6 has 42 tables and 303 schema objects; version 7 has 48 and 336.
-Integrity checks pass with no foreign-key violations. Acceptance binds platform,
-exact build, executable digest, complete schema and both SQLite header markers.
-Schema recognition alone never authorizes writing. Windows and other builds
-remain read-only until their own application acceptance passes.
+Integrity checks pass with no foreign-key violations. These entries record native
+application acceptance for the exact measured builds. The current write gate
+instead requires family 6 or 7, a recognized complete schema fingerprint, matching
+SQLite header markers and the asset protocols needed by the planned edits.
+Executable and environment fingerprints remain preview preconditions. Compatible
+builds and Windows/Wine setups are eligible after those format checks; unknown
+schemas and unsupported planned asset edits remain blocked. Eligibility is not a
+claim of native-runtime acceptance for every build or platform.
 
 Each private exercise retains an application-imported authored WAV and creates
 a second authored FLAC through CueRithm. Native readback verifies exact cue

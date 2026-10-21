@@ -179,7 +179,10 @@ fn schema(conn: &Connection) -> Result<i64> {
     let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    ensure!(version == 27, "Unsupported library backup schema");
+    ensure!(
+        (27..=28).contains(&version),
+        "Unsupported library backup schema"
+    );
     Ok(version)
 }
 fn quiet_database(conn: &Connection) -> Result<()> {
@@ -2006,6 +2009,7 @@ mod inventory_phase_tests {
             .seed_organization_reference_fixture(
                 "fixture",
                 SyncTarget {
+                    environment: Default::default(),
                     software: DjSoftware::VirtualDj,
                     path: native.clone(),
                     source_root: None,

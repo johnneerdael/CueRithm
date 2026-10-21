@@ -27,6 +27,7 @@ fn reorder_round_trip(legacy_receipt: bool) {
             .unwrap();
     }
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options: RekordboxSyncOptions {

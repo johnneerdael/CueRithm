@@ -535,8 +535,14 @@ impl Library {
                         .context("Required reference repair is incomplete")?,
                 )?;
                 if intent.entries[index].ownership.is_none() {
+                    let receipt = intent.entries[index]
+                        .receipt
+                        .as_ref()
+                        .context("Required reference repair is incomplete")?;
                     intent.entries[index].ownership = Some(self.plan_organization_ownership(
                         &intent.entries[index].reference.known.target,
+                        &receipt.before.files,
+                        &receipt.after_files,
                     )?);
                     self.save_reference_intent(operation_id, &intent, "repairing", None)?;
                 }
@@ -712,7 +718,8 @@ impl Library {
                 preview.change.track_id == record.track_id
                     && preview.change.to == main.destination.path()?
                     && preview.change.source_sha256 == main.original.sha256
-                    && digest(&preview.snapshot.target)? == entry.reference.known.key,
+                    && digest(&preview.snapshot.target.identity_target())?
+                        == entry.reference.known.key,
                 "Native path-repair journal has another captured destination"
             );
             let current = cuerithm_dj_sync::inspect_path_reference(
@@ -954,7 +961,7 @@ impl Library {
         Ok(())
     }
     pub(crate) fn ensure_organization_references_settled(&self, target: &SyncTarget) -> Result<()> {
-        let key = digest(target)?;
+        let key = digest(&target.identity_target())?;
         let rows = {
             let conn = self.conn()?;
             let mut query=conn.prepare("SELECT i.payload_json FROM organization_reference_intents i JOIN organization_operations o ON o.id=i.operation_id WHERE o.state NOT IN ('complete','undone','cancelled','unchanged')")?;

@@ -7,6 +7,20 @@ pub struct RekordboxSyncTarget {
     pub database: PathBuf,
     pub options_file: PathBuf,
     pub asset_root: PathBuf,
+    #[serde(default, skip_serializing_if = "TargetEnvironment::is_native")]
+    pub environment: TargetEnvironment,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RekordboxManualTarget {
+    pub executable: PathBuf,
+    pub version_hint: Option<String>,
+    pub database: PathBuf,
+    pub options_file: PathBuf,
+    pub asset_root: PathBuf,
+    #[serde(default)]
+    pub environment: TargetEnvironment,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "scope", rename_all = "snake_case", deny_unknown_fields)]
@@ -68,6 +82,8 @@ impl Default for RekordboxSyncOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RekordboxSyncRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration: Option<SyncConfigurationBinding>,
     pub target_id: String,
     pub scope: RekordboxSyncScope,
     pub options: RekordboxSyncOptions,
