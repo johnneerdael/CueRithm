@@ -24,6 +24,17 @@ home-DJ work before implementing this proposal.
 Origin: `docs/superpowers/specs/2026-10-21-home-dj-roadmap.md` and the user's
 request to plan additional powerful automation tools for home DJs.
 
+## Updated baseline after main integration
+
+Main now provides immutable preparation presets and explicit folder assignments,
+Curate pending/history, provider credential setup and packaged JSON automation
+commands for reports, preparation retry, metadata drafts and organization. Reuse
+those capabilities; a second preset store or duplicate command runner is not part
+of this proposal. The remaining work is a desktop attention queue, readiness
+policy/reporting, durable higher-level workflow runs and opt-in scheduling.
+Direct rekordbox now has two accepted macOS profiles; reuse their exact-build,
+closed-process, preview and recovery checks for any proposed sync workflow.
+
 ## Tools and priorities
 
 | Order | Tool | Example result | Automatic effect |
@@ -47,7 +58,8 @@ separate design; the current backup does not provide it.
   source/target facts. Preserve mandatory preparation validation. Missing data
   and unavailable sources remain unknown or actionable, not silently ready.
 - **R3:** Store named preparation configurations as immutable snapshots. Invoking
-  one captures its version and scope; later edits never change a running job.
+  one captures its version and scope; later edits never change a running job. Reuse
+  the existing preparation-preset revision and folder-assignment authorities.
 - **R4:** Make every automatic trigger disabled by default. Saving and enabling
   must say precisely what future work it permits. Manual Run remains available
   without enabling future triggers; pausing blocks new dispatches.
@@ -65,7 +77,8 @@ separate design; the current backup does not provide it.
 - **R9:** Show local activity and partial-run results. Never promise whole-run
   Undo when the component operations have independent recovery histories.
 - **R10:** Reuse existing preparation, smart playlists, maintenance and five
-  external-player adapters. Direct rekordbox depends on its separate completion.
+  external-player adapters and accepted native rekordbox profiles. Unsupported
+  platforms/builds remain unavailable to automated publication.
 
 ## Product decisions
 
@@ -74,7 +87,7 @@ visual workflow language. Start with manual invocation and durable preparation
 completion; add explicit interval scheduling only for read-only health scans.
 No shell hooks, arbitrary network requests or provider-credential fields.
 
-Recipes initially capture the complete relevant preparation settings snapshot;
+Recipes reuse the existing immutable preparation preset and capture its complete relevant settings snapshot;
 they do not infer analysis from tags, filenames or reference labels. A manual
 preview identifies affected tracks and configured tag/cleanup/cue effects before
 starting. A folder rule explicitly enables the same effects for future arrivals.
@@ -114,6 +127,10 @@ steps with independent journal histories: one successful target does not make
 the others successful or permit automatic reversal of that first target.
 
 ## Existing contracts to follow
+
+- `crates/cuerithm-library/src/preparation_presets/`, `automation.rs` and
+  `apps/desktop/src-tauri/src/headless.rs`: existing preset authorities and
+  explicit command/report services. Extend these rather than replacing them.
 
 - `crates/cuerithm-library/src/settings.rs` and `store.rs`: content-addressed
   immutable settings snapshots. Existing save selects a snapshot; it is not an
@@ -218,14 +235,15 @@ worker to settle. It does not silently undo completed steps.
 
   **Requirements:** R3, R4, R5, R6, R9. Depends on Units 1 and 2.
 
-  **Files:** Create `crates/cuerithm-library/src/automation/mod.rs`,
-  `automation/model.rs`, `automation/store.rs`,
+  **Files:** Create `crates/cuerithm-library/src/automation_workflows/mod.rs`,
+  `automation_workflows/model.rs`, `automation_workflows/store.rs`,
   `crates/cuerithm-library/tests/automation_runs.rs`,
   `apps/desktop/src/views/PreparationRecipes.tsx` and
   `apps/desktop/src/test/preparation-recipes.test.tsx`. Add a new numbered
   migration at the then-current schema head and typed bridge/command methods.
 
-  **Approach:** Implement manual named recipe invocation first, with explicit
+  **Approach:** Reuse preparation presets and the existing JSON command services.
+  Add manual named recipe invocation first, with explicit
   scope/effect preview and optimistic definition revisions. Store a settings
   snapshot and selected IDs with each run; avoid changing global settings just
   to apply a recipe. Reuse preparation job creation and cache identity.
@@ -242,8 +260,8 @@ worker to settle. It does not silently undo completed steps.
 
   **Requirements:** R4, R5, R6, R7, R9. Depends on Unit 3.
 
-  **Files:** Create `crates/cuerithm-library/src/automation/service.rs`,
-  `automation/schedule.rs`, `crates/cuerithm-library/tests/automation_service.rs`,
+  **Files:** Create `crates/cuerithm-library/src/automation_workflows/service.rs`,
+  `automation_workflows/schedule.rs`, `crates/cuerithm-library/tests/automation_service.rs`,
   `apps/desktop/src/views/AutomationRules.tsx` and
   `apps/desktop/src/test/automation-rules.test.tsx`; integrate service ownership
   into `apps/desktop/src-tauri/src/host.rs`.

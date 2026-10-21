@@ -426,7 +426,7 @@ fn pending_entities(
     }
     if options.my_tags {
         let tags = connection
-            .prepare("SELECT id,name FROM custom_tags ORDER BY category_id,id")?
+            .prepare("SELECT t.id,t.name FROM custom_tags t LEFT JOIN curation_value_properties v ON v.tag_id=t.id LEFT JOIN curation_group_properties g ON g.category_id=t.category_id WHERE COALESCE(v.deleted,0)=0 AND COALESCE(g.deleted,0)=0 ORDER BY t.category_id,t.id")?
             .query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?

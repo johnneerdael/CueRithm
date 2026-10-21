@@ -1580,7 +1580,17 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
     );
     assert_eq!(removed.tracks.len(), 2);
 
-    f.library.conn().unwrap().execute_batch("DELETE FROM track_custom_tags WHERE tag_id='tag'; DELETE FROM custom_tags WHERE id='tag'; DELETE FROM custom_tag_categories WHERE id='category';").unwrap();
+    let curate = crate::CurationService::new(f.library.clone(), None);
+    curate
+        .edit_taxonomy(crate::CurationTaxonomyRequest {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            expected_revision: curate.catalog().unwrap().revision,
+            change: crate::CurationTaxonomyChange::DeleteGroup {
+                id: "category".into(),
+                replacement_id: None,
+            },
+        })
+        .unwrap();
     let tags = planning::preview(
         &f.library,
         repeat,
@@ -2659,7 +2669,17 @@ fn importing_recreated_playlist_and_mytag_links_never_reclaims_their_owned_ids()
         )
         .is_err()
     );
-    f.library.conn().unwrap().execute_batch("DELETE FROM track_custom_tags WHERE tag_id='tag'; DELETE FROM custom_tags WHERE id='tag'; DELETE FROM custom_tag_categories WHERE id='category';").unwrap();
+    let curate = crate::CurationService::new(f.library.clone(), None);
+    curate
+        .edit_taxonomy(crate::CurationTaxonomyRequest {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            expected_revision: curate.catalog().unwrap().revision,
+            change: crate::CurationTaxonomyChange::DeleteGroup {
+                id: "category".into(),
+                replacement_id: None,
+            },
+        })
+        .unwrap();
     request.options.playlists = false;
     assert!(
         planning::preview(

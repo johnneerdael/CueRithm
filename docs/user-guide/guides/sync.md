@@ -36,10 +36,10 @@ Native sync discovers installed rekordbox 6 and 7 libraries on macOS and Windows
 The installed version and database location appear under **Installed library**.
 Linux does not support a native desktop rekordbox installation.
 
-**Current acceptance status:** native writes remain unavailable for application
-builds that have not passed isolated acceptance in rekordbox. A readable library
-can appear as **Read only**. Review its availability notice; previewing a library
-does not enable writes. Support is checked against the actual installed build.
+**Supported native writes:** macOS builds **6.8.7.0303** and **7.2.19.0342**.
+Other builds and Windows libraries remain **Read only** until tested. Review the
+availability notice; support is checked against the actual installed build and
+library. Linux cannot run a local desktop rekordbox target.
 
 1. Close rekordbox and **rekordbox Agent**. The Agent can remain running after
    closing the main application.
@@ -69,6 +69,12 @@ the native value; it does not rewrite source music tags. **Clear in rekordbox** 
 an explicit removal. An **Empty** or **Unavailable** observation never requests a
 removal automatically. Beatgrids can be retained or replaced; clearing a complete
 beatgrid is unavailable.
+
+CueRithm sends a constant BPM and first-beat grid. Choose **Keep rekordbox** to
+retain an existing variable-tempo grid. When reopening newly synced tracks,
+rekordbox may offer its own analysis. Cancel that analysis to retain the reviewed
+CueRithm grid; reanalysis is a separate edit in rekordbox. To audition an active
+loop automatically, enable **Active Loop Playback** in rekordbox's player menu.
 
 **Create compatible WAV copies for unsupported audio** is off by default. Enable
 it to sync formats that rekordbox cannot play directly. CueRithm creates separate

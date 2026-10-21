@@ -83,9 +83,9 @@ You can check an installation at any time:
 /Applications/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
 ```
 
-## Not available yet
+## Current limits
 
-CueRithm is early software. Current source includes maintenance screens, manual cue/loop/grid corrections and templates, compatible-track search, playlist flow, text/CSV tracklist matching and local library backup. Direct rekordbox sync remains unavailable. Playback uses the system default output. Check a download’s release notes for its included features; native application/device acceptance is separate from implementation tests. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
+CueRithm is early software. Current source includes maintenance screens, manual cue/loop/grid corrections and templates, compatible-track search, playlist flow, text/CSV tracklist matching and local library backup. Direct rekordbox sync supports the tested macOS builds 6.8.7.0303 and 7.2.19.0342; other builds and Windows remain read-only. Playback uses the system default output. Check a download’s release notes for its included features; native application/device acceptance is separate from implementation tests. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
 
 ## Documentation
 

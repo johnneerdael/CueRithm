@@ -3,13 +3,15 @@
 ![Reviewed restore preview with explicit acknowledgement and the player still visible](../assets/screens/library-backup.png)
 
 Library backup saves your CueRithm preparation: playlists, cues, analysis and
-library settings. Appearance preferences are not included. Music files are excluded. Keep a separate backup of your music.
+library settings, preparation presets and Curate history. Appearance preferences
+and provider credentials are not included. Music files are excluded. Keep a
+separate backup of your music.
 The backup folder contains a SQLite database and a private location manifest;
 keep both files together. The manifest records source locations and file hashes.
 
 ## Create a backup
 
-1. Finish preparation, file organization and any cleanup, maintenance or DJ sync work. Resolve
+1. Finish preparation, metadata/Curate writes, file organization and any cleanup, maintenance or DJ sync work. Resolve
    recovery warnings and discard unused sync previews.
 2. Open **Library backup** and choose **Create backup**.
 3. Choose a destination. CueRithm creates a dated folder and shows its location.
@@ -30,8 +32,8 @@ Missing source files stay listed as unavailable; their audio is not recovered.
 Restore applies before the library opens. CueRithm checks compatibility and file
 consistency again and keeps a pre-restore backup in the application's data folder
 under `library-backups/pre-restore-<request-id>-<attempt-id>/`. The backup folder inside it can
-be inspected and scheduled for restore in the same way. Staged and pre-restore
-folders are retained; this delivery does not manage their retention.
+be inspected and scheduled for restore in the same way. Cancelling a scheduled restore removes its owned staged copies. Completed
+pre-restore backups remain available; this delivery does not manage their retention.
 
 If startup checks block the restore, CueRithm opens your current library and keeps
 that restore request visible with its reason. Choose **Cancel scheduled restore**

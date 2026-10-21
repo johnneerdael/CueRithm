@@ -6,7 +6,9 @@ Status: feature scope and delivery order approved in conversation. The first
 delivery design and implementation plan were also approved on 2026-10-21.
 The six home-DJ workflows below are implemented on the feature branch, with
 local validation recorded in the pull request. They have not been released.
-Direct rekordbox completion remains unfinished and disabled.
+Direct rekordbox writes are now enabled on the branch for exact macOS builds
+6.8.7.0303 and 7.2.19.0342 after isolated application acceptance; other profiles
+remain read-only. Final PR checks and release publication remain separate.
 
 ## Intended outcome
 
@@ -21,8 +23,9 @@ desktop Sync workspace are implemented. Do not rebuild these integrations.
 Native application and physical-player acceptance remain distinct from their
 implementation and fixture validation.
 
-Direct rekordbox 6/7 synchronization is a separate unfinished requirement. Its
-copied-database import and observations are foundations, not an enabled writer.
+Direct rekordbox 6/7 synchronization now has accepted native macOS profiles,
+reviewed field decisions and coordinated database/assets publication. See the
+current acceptance matrix in `docs/research/rekordbox-direct-contract.md`.
 Duplicate review, merge, donor transfer, missing/unused scans and recovery also
 exist as backend operations and now have dedicated maintenance screens.
 

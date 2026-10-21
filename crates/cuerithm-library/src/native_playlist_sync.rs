@@ -204,7 +204,7 @@ fn tag_local(conn: &Connection, kind: &str, id: &str) -> Result<Option<Value>> {
     if kind == "category" {
         return Ok(conn
             .query_row(
-                "SELECT name FROM custom_tag_categories WHERE id=?1",
+                "SELECT c.name FROM custom_tag_categories c LEFT JOIN curation_group_properties g ON g.category_id=c.id WHERE c.id=?1 AND COALESCE(g.deleted,0)=0",
                 [id],
                 |r| r.get::<_, String>(0),
             )
@@ -213,7 +213,7 @@ fn tag_local(conn: &Connection, kind: &str, id: &str) -> Result<Option<Value>> {
     }
     let row = conn
         .query_row(
-            "SELECT category_id,name FROM custom_tags WHERE id=?1",
+            "SELECT t.category_id,t.name FROM custom_tags t LEFT JOIN curation_value_properties v ON v.tag_id=t.id LEFT JOIN curation_group_properties g ON g.category_id=t.category_id WHERE t.id=?1 AND COALESCE(v.deleted,0)=0 AND COALESCE(g.deleted,0)=0",
             [id],
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
         )
@@ -1194,7 +1194,7 @@ impl Library {
                     });
                 }
                 let tag_ids = tx
-                    .prepare("SELECT id FROM custom_tags WHERE category_id=?1 ORDER BY id")?
+                    .prepare("SELECT t.id FROM custom_tags t LEFT JOIN curation_value_properties v ON v.tag_id=t.id WHERE t.category_id=?1 AND COALESCE(v.deleted,0)=0 ORDER BY t.id")?
                     .query_map([&category], |r| r.get::<_, String>(0))?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
                 let mut next_tag_position = saved

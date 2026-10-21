@@ -729,10 +729,10 @@ fn request(case: &Case) -> RekordboxSyncRequest {
             decisions.insert("bpm".into(), NativeFieldDecision::UseLocal);
         }
     }
-    if std::env::var("CUERITHM_NATIVE_ACCEPTANCE_CLEAR_ARTWORK").as_deref() == Ok("1") {
-        if let Some(decisions) = request.decisions.get_mut(SECOND_TRACK) {
-            decisions.insert("artwork".into(), NativeFieldDecision::ClearRemote);
-        }
+    if std::env::var("CUERITHM_NATIVE_ACCEPTANCE_CLEAR_ARTWORK").as_deref() == Ok("1")
+        && let Some(decisions) = request.decisions.get_mut(SECOND_TRACK)
+    {
+        decisions.insert("artwork".into(), NativeFieldDecision::ClearRemote);
     }
     request
 }
@@ -1060,7 +1060,11 @@ fn verify_authored_analysis(dat: &AnlzFile, ext: &AnlzFile, duration: f64) -> Re
 
 fn is_later_native_edit_refusal(error: &anyhow::Error) -> bool {
     error.chain().any(|cause| {
-        cause.to_string() == "Native database changed after publication; restore refused"
+        matches!(
+            cause.to_string().as_str(),
+            "Native database changed after publication; restore refused"
+                | "Original native assets changed; restoring old references would be unsafe"
+        )
     })
 }
 
@@ -1727,10 +1731,15 @@ fn later_native_edit_refusal_does_not_accept_generic_restore_errors() {
         &anyhow::anyhow!("Native database changed after publication; restore refused")
             .context("outer")
     ));
+    assert!(is_later_native_edit_refusal(&anyhow::anyhow!(
+        "Original native assets changed; restoring old references would be unsafe"
+    )));
     for message in [
         "Native synchronization ownership changed after publication; restore refused",
         "Application is open",
         "Missing native before-image",
+        "A synced audio source changed after publication; restore refused",
+        "Native before-image proof changed",
         "Native database changed after publication; restore refused: arbitrary detail",
     ] {
         assert!(!is_later_native_edit_refusal(&anyhow::anyhow!(
@@ -1749,6 +1758,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 | "noop"
                 | "restore"
                 | "refuse-restore"
+                | "public-noop"
                 | "interrupt"
                 | "recover"
                 | "edit-local"
@@ -1766,8 +1776,9 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
         "Private native schema changed"
     );
     ensure!(
-        !accepted_write_capability(&case.target.installation, &schema)?.can_write(),
-        "Private fixture acceptance must not rely on a production promotion"
+        accepted_write_capability(&case.target.installation, &schema)?.can_write()
+            == (phase == "public-noop"),
+        "Fixture phases require an unpromoted profile; public-noop requires an accepted production profile"
     );
     let collection = database.read_collection(Default::default(), &cancel)?;
     let native_paths = validate_native_sources(case, &collection, &cancel)?;
@@ -1780,6 +1791,96 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
     let _lock = lock(&library)?;
     let mut state = case.state()?;
     let mut summary = json!({"phase":phase,"native_major":case.target.installation.major,"tables":schema.objects.iter().filter(|o|o.kind=="table").count(),"schema_objects":schema.objects.len(),"production_write_enabled":false});
+    if phase == "public-noop" {
+        drop(_lock);
+        let before = native_proof(case, &cancel)?;
+        let discovered: Vec<_> = library
+            .discover_rekordbox_targets()?
+            .into_iter()
+            .filter(|target| {
+                target.database == case.target.database
+                    && target.options_file == case.target.options_file
+                    && target.installation.executable == case.target.installation.executable
+            })
+            .collect();
+        ensure!(
+            discovered.len() == 1,
+            "Public discovery did not uniquely match the exact private database, options, and executable"
+        );
+        let target = &discovered[0];
+        let preflight = library.preflight_rekordbox_sync(&target.id, &cancel)?;
+        ensure!(
+            preflight.readable
+                && preflight.writable
+                && preflight.restrictions.is_empty()
+                && preflight.schema_fingerprint.as_deref()
+                    == Some(case.schema_fingerprint.as_str())
+                && digest(&preflight.target)? == digest(target)?,
+            "Public preflight did not accept the exact discovered native profile"
+        );
+        let media = cuerithm_media::MediaRuntime::from_bundle(&PathBuf::from(
+            std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+                .context("Explicit bundled media runtime is required")?,
+        ))?;
+        let runtime = RekordboxSyncRuntime::current(Some(media))?;
+        let mut selected = request(case);
+        selected.target_id = target.id.clone();
+        let preview = library.preview_rekordbox_sync(selected, &runtime, &cancel)?;
+        let op = load(&library, &preview.id)?;
+        let authored = case.sources();
+        ensure!(
+            digest(&op.target)? == digest(target)?
+                && op.sources.len() == authored.len()
+                && op.sources.iter().all(|source| authored
+                    .iter()
+                    .any(|(id, path)| source.id == *id && source.path == *path))
+                && op.resolved.len() == 2
+                && authored.len() == 2
+                && op
+                    .resolved
+                    .iter()
+                    .map(|track| track.local_id.as_str())
+                    .collect::<BTreeSet<_>>()
+                    == authored.iter().map(|(id, _)| *id).collect(),
+            "Public preview escaped the two explicitly authored sources or discovered target"
+        );
+        ensure!(
+            preview.can_apply && preview.changed_rows == 0 && op.plan.rows.is_empty(),
+            "Public preview is not an applicable native row no-op"
+        );
+        ensure!(
+            native_proof(case, &cancel)? == before,
+            "Public discovery/preflight/preview changed native bytes or modification times"
+        );
+        let applied = library.apply_rekordbox_sync(&preview.id, &cancel)?;
+        ensure!(
+            applied.status == "applied"
+                && applied.changed_rows == 0
+                && load(&library, &preview.id)?.status == "applied",
+            "Public no-op apply did not complete without native row changes"
+        );
+        ensure!(
+            native_proof(case, &cancel)? == before,
+            "Public no-op apply changed native bytes or modification times"
+        );
+        let restored = library.restore_rekordbox_sync(&preview.id, &cancel)?;
+        ensure!(
+            restored.status == "restored"
+                && restored.changed_rows == 0
+                && load(&library, &preview.id)?.status == "restored",
+            "Public no-op restore did not complete without native row changes"
+        );
+        ensure!(
+            native_proof(case, &cancel)? == before,
+            "Public no-op restore changed native bytes or modification times"
+        );
+        summary["operation_id"] = json!(preview.id);
+        summary["status"] = json!("noop_applied_and_restored");
+        summary["changed_rows"] = json!(0);
+        summary["production_write_enabled"] = json!(true);
+        summary["public_api_verified"] = json!(true);
+        return Ok(summary);
+    }
     if phase == "edit-local" {
         ensure!(
             case.second_source.is_some(),
@@ -1990,10 +2091,11 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             let error = publication::fixture_restore(&library, id, &key, &cancel, &|| case.guard())
                 .err()
                 .context("Later native edit unexpectedly allowed restore")?;
-            ensure!(
-                is_later_native_edit_refusal(&error),
-                "Restore failed without the expected stale native-database proof refusal"
-            );
+            if !is_later_native_edit_refusal(&error) {
+                return Err(error.context(
+                    "Restore failed without an exact later native database or asset refusal",
+                ));
+            }
             ensure!(
                 load(&library, id)?.status == operation.status,
                 "Refused restore changed the operation status"
@@ -2004,6 +2106,13 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             );
             summary["operation_id"] = json!(id);
             summary["status"] = json!("restore_refused_later_native_edit");
+            summary["refusal_guard"] = json!(if error.chain().any(|cause| cause.to_string()
+                == "Original native assets changed; restoring old references would be unsafe")
+            {
+                "native_asset"
+            } else {
+                "native_database"
+            });
             summary["native_write"] = json!(false);
             return Ok(summary);
         }
@@ -2110,6 +2219,7 @@ fn private_native_acceptance() {
                     | "noop"
                     | "restore"
                     | "refuse-restore"
+                    | "public-noop"
                     | "interrupt"
                     | "recover"
                     | "edit-local"

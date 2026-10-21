@@ -75,6 +75,148 @@ fn export(lib: &Library, target: &str, ids: Vec<String>) -> NativePlaylistPlan {
     )
     .unwrap()
 }
+
+fn taxonomy_edit(
+    service: &CurationService,
+    change: CurationTaxonomyChange,
+) -> CurationTaxonomyReceipt {
+    service
+        .edit_taxonomy(CurationTaxonomyRequest {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            expected_revision: service.catalog().unwrap().revision,
+            change,
+        })
+        .unwrap()
+}
+
+fn export_category(lib: &Library, target: &str, category: &str) -> NativePlaylistPlan {
+    lib.plan_native_playlists(
+        target,
+        NativePlaylistExportOptions {
+            native_revision: lib.native_target(target).unwrap().revision,
+            playlist_ids: vec![],
+            category_ids: vec![category.into()],
+            materialize_smart_playlists: BTreeSet::new(),
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn retired_curate_values_and_groups_are_excluded_from_native_exports() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let seen = observe(&lib, &collection());
+    let service = CurationService::new(lib.clone(), None);
+    let group = taxonomy_edit(
+        &service,
+        CurationTaxonomyChange::CreateGroup {
+            name: "Curated mood".into(),
+            mode: CurationGroupMode::Multiple,
+        },
+    )
+    .created_id
+    .unwrap();
+    let value = taxonomy_edit(
+        &service,
+        CurationTaxonomyChange::CreateValue {
+            group_id: group.clone(),
+            name: "Warm".into(),
+        },
+    )
+    .created_id
+    .unwrap();
+    let before = export_category(&lib, &seen.target_id, &group);
+    assert_eq!(before.tags.len(), 2);
+    taxonomy_edit(
+        &service,
+        CurationTaxonomyChange::DeleteValue {
+            id: value,
+            replacement_id: None,
+        },
+    );
+    assert!(lib.validate_native_playlist_plan(&before).is_err());
+    let active = export_category(&lib, &seen.target_id, &group);
+    assert_eq!(active.tags.len(), 1);
+    assert!(
+        matches!(&active.tags[0], NativeTagMutation::Upsert { local_id, category_local_id: None, .. } if local_id == &group)
+    );
+    taxonomy_edit(
+        &service,
+        CurationTaxonomyChange::DeleteGroup {
+            id: group.clone(),
+            replacement_id: None,
+        },
+    );
+    assert!(
+        export_category(&lib, &seen.target_id, &group)
+            .tags
+            .is_empty()
+    );
+}
+
+#[test]
+fn retired_imported_mytags_require_explicit_restore_before_importing() {
+    for retire_group in [false, true] {
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("db")).unwrap();
+        let mut input = collection();
+        import(&lib, &input);
+        let service = CurationService::new(lib.clone(), None);
+        let group = service.catalog().unwrap().groups[0].clone();
+        let value = group.values[0].clone();
+        let change = if retire_group {
+            CurationTaxonomyChange::DeleteGroup {
+                id: group.id.clone(),
+                replacement_id: None,
+            }
+        } else {
+            CurationTaxonomyChange::DeleteValue {
+                id: value.id.clone(),
+                replacement_id: None,
+            }
+        };
+        taxonomy_edit(&service, change);
+        let before = lib.playlist_state().unwrap();
+        input.playlists[1].name = "Remote edit".into();
+        let seen = observe(&lib, &input);
+        let error = lib
+            .import_native_playlists(
+                &seen.target_id,
+                &input,
+                NativePlaylistImportOptions {
+                    native_revision: seen.revision,
+                    playlist_revision: before.revision,
+                    materialize_native_ids: BTreeSet::new(),
+                },
+            )
+            .expect_err("Import must not implicitly restore retired local MyTags");
+        assert!(error.to_string().contains("Local MyTag changed"));
+        assert_eq!(lib.playlist_state().unwrap().nodes, before.nodes);
+        let restored = taxonomy_edit(
+            &service,
+            if retire_group {
+                CurationTaxonomyChange::CreateGroup {
+                    name: group.name.clone(),
+                    mode: group.mode,
+                }
+            } else {
+                CurationTaxonomyChange::CreateValue {
+                    group_id: group.id.clone(),
+                    name: value.name.clone(),
+                }
+            },
+        );
+        assert_eq!(
+            restored.created_id.as_deref(),
+            Some(if retire_group { &group.id } else { &value.id }.as_str())
+        );
+        import(&lib, &input);
+        let catalog = service.catalog().unwrap();
+        assert_eq!(catalog.groups[0].id, group.id);
+        assert_eq!(catalog.groups[0].values[0].id, value.id);
+    }
+}
 fn add_tracks(input: &mut RekordboxCollection, dir: &std::path::Path) {
     for id in ["a", "b"] {
         let path = dir.join(format!("{id}.flac"));

@@ -1,9 +1,10 @@
-# Direct rekordbox contract: research revision 2
+# Direct rekordbox contract: research revision 3
 
-This is the contract and progress record for the native Rust adapter. The desktop
-Sync workflow is implemented, but production writes remain unavailable until the
-actual application acceptance below passes. No collection XML transport or
-fallback is planned.
+This is the contract and progress record for the native Rust adapter. Desktop
+Sync writes are enabled only for the two tested macOS builds listed under
+[accepted native profiles](#accepted-native-profiles). Other builds remain
+read-only. Earlier sections retain historical research checkpoints. No collection
+XML transport or fallback is provided.
 
 ## Evidence and limits
 
@@ -397,22 +398,70 @@ separate. Fixture checks cover publication interruptions, process guards,
 identity reuse, repeated no-op exports, source replacement and later-edit
 conflicts. These checks do not establish actual application compatibility.
 
-### Actual application acceptance still required
+### Accepted native profiles
 
-The official signed/notarized rekordbox 6.8.7.0303 application payload is now
-available privately for isolated testing. Its data-only key-provider path can
-read a coherent private copy of the observed version 7 database. This proves
-neither a version 6-created schema nor a version 6 write/playback round trip.
-The installed version 7 remains 7.2.19.0342. Neither build has passed the full
-isolated application acceptance matrix, so the production profile allowlist is
-still empty.
+| Platform | Exact application build | Schema fingerprint | SQLite user_version / application_id |
+| --- | --- | --- | --- |
+| macOS | 6.8.7.0303 | `ddc512c75d38fb50ca9688b8bca2e179130b482f001b9df9272c0bd21ff9baaf` | 0 / 0 |
+| macOS | 7.2.19.0342 | `6bd02ac0a3f9cadfd3ae9b4c95e1ca0663fd3e7717a74e89a4c153834611d2eb` | 0 / 0 |
 
-Enable each exact application/build, platform and schema profile only after
-isolated native reopen, cue/loop/grid playback, metadata/artwork/MyTag and ordered
-playlist inspection, repeat no-op, edits in both applications, interrupted
-publication recovery and guarded restore pass. Retain unsupported builds as
-read-only. Record release publication separately from local implementation,
-authored tests and native acceptance.
+Version 6 executable SHA-256:
+`aab4838b9768860da941f232db3f31cfa397a7a79f6052cde1aa6584f2d5dc3c`.
+Version 7 executable SHA-256:
+`07dcecbaf304f777e435539c83c7dcc02e41de1eaf2e0a75e8a9852e4411a244`.
+Both schemas were measured in fresh, application-created private libraries.
+Version 6 has 42 tables and 303 schema objects; version 7 has 48 and 336.
+Integrity checks pass with no foreign-key violations. Acceptance binds platform,
+exact build, executable digest, complete schema and both SQLite header markers.
+Schema recognition alone never authorizes writing. Windows and other builds
+remain read-only until their own application acceptance passes.
+
+Each private exercise retains an application-imported authored WAV and creates
+a second authored FLAC through CueRithm. Native readback verifies exact cue
+slots/intervals, the active-loop memory marker, the complete constant grid,
+three normalized cover images, MyTags, folder relationships, ordered manual
+membership and a whole materialized Smart Playlist. Repeated syncs leave native
+rows, database/resource bytes and modification times unchanged. Reverse-order
+restore and recovery after injected post-commit interruptions pass. Local playlist
+reorders are published and recovered without claiming retained links as new.
+Native-added bundled demo tracks and unplanned rows/assets are preserved.
+
+Both applications reopen and display the CueRithm-published cover, metadata,
+grid, cue and loop. The created FLAC plays with advancing transport/output meters
+and repeats its authored four-beat loop. The version 6 active-loop check includes
+user confirmation; version 7 hot-loop playback was observed across repeated
+cycles. MyTag checkboxes display correctly. Version 7 additionally displays the
+reordered manual playlist and complete materialized Smart Playlist in its native
+browser; version 6 hierarchy is visible in native menus and exact order is
+verified in native readback.
+
+A tag reload inside each application changes target metadata. CueRithm detects
+the resulting conflicts and refuses an older restore without changing the
+native database/assets or operation status. Version 6 reaches the database-state
+guard; version 7 first reaches the native-asset guard because the application
+also changed a referenced analysis asset. Source-audio changes and generic
+restore errors do not qualify as this later-native-edit acceptance.
+
+After promotion, the public version 7 API discovers the exact private target,
+passes writable preflight, previews/applies a zero-row sync and restores that
+acknowledgement. Native database and resource bytes and modification times remain
+unchanged throughout. The privately expanded version 6 artifact exercises the
+same planner/publisher with explicit test-only routing, rather than claiming
+normal installation discovery for that artifact location.
+
+These checks exposed and repaired an artwork-reference error: `ImagePath` begins
+`/PIONEER/Artwork/` and resolves relative to `share`. Native tag reload supplied
+the reference/filesystem evidence. Corrected CueRithm publication displays its
+own cover after reopening. Native 6's extended-grid microsecond dialect is
+recognized only when it agrees with the companion DAT. Loop-size conversion uses
+the selected cue/grid tempo even when BPM metadata is excluded.
+
+The local editor currently publishes one constant BPM/first-beat anchor. Existing
+native variable grids can be retained; this acceptance does not claim native
+variable-grid publication through the editor. Native reanalysis remains an
+explicit target-side operation: the private playback checks retain CueRithm's
+saved analysis. Physical-player playback, Windows native execution, genuine
+power loss and release publication remain separate evidence boundaries.
 
 ### Lexicon artifact revalidation
 
