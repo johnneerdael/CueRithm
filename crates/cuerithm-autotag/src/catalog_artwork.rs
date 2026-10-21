@@ -51,15 +51,19 @@ fn read_bounded(mut reader: impl Read, cancel: &CancellationToken) -> Result<Vec
     Ok(bytes)
 }
 
-fn artwork_request(provider: ProviderId, url: Url) -> Result<reqwest::blocking::RequestBuilder> {
+/// Fetch only an explicitly selected catalog cover. No credentials are sent.
+pub fn fetch_catalog_artwork(
+    provider: ProviderId,
+    value: &str,
+    cancel: &CancellationToken,
+) -> Result<Vec<u8>> {
+    cancel.check()?;
+    let url = approved_url(provider, value)?;
     let origin = url.origin();
-    let traxsource = provider == ProviderId::Traxsource;
     let client = reqwest::blocking::Client::builder()
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(30))
         .user_agent("CueRithm catalog artwork (https://github.com/johnneerdael/CueRithm)")
-        // Keep Traxsource's site Referer fixed across permitted image redirects.
-        .referer(!traxsource)
         .redirect(reqwest::redirect::Policy::custom(move |attempt| {
             if attempt.previous().len() >= 3 {
                 attempt.error("Too many artwork redirects")
@@ -72,23 +76,7 @@ fn artwork_request(provider: ProviderId, url: Url) -> Result<reqwest::blocking::
             }
         }))
         .build()?;
-    let request = client.get(url);
-    Ok(if traxsource {
-        request.header(reqwest::header::REFERER, "https://www.traxsource.com/")
-    } else {
-        request
-    })
-}
-
-/// Fetch only an explicitly selected catalog cover. No credentials are sent.
-pub fn fetch_catalog_artwork(
-    provider: ProviderId,
-    value: &str,
-    cancel: &CancellationToken,
-) -> Result<Vec<u8>> {
-    cancel.check()?;
-    let url = approved_url(provider, value)?;
-    let response = artwork_request(provider, url)?.send().map_err(|error| {
+    let response = client.get(url).send().map_err(|error| {
         // Reqwest errors can embed signed image URLs. Report only classification.
         if error.is_timeout() {
             anyhow::anyhow!("Catalog artwork request timed out")
@@ -114,40 +102,6 @@ pub fn fetch_catalog_artwork(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn selected_traxsource_cover_uses_its_fixed_site_referer_only() {
-        let beatport = artwork_request(
-            ProviderId::Beatport,
-            approved_url(
-                ProviderId::Beatport,
-                "https://geo-media.beatport.com/cover.jpg",
-            )
-            .unwrap(),
-        )
-        .unwrap()
-        .build()
-        .unwrap();
-        assert!(!beatport.headers().contains_key(reqwest::header::REFERER));
-        let traxsource = artwork_request(
-            ProviderId::Traxsource,
-            approved_url(
-                ProviderId::Traxsource,
-                "https://geo-static.traxsource.com/cover.jpg",
-            )
-            .unwrap(),
-        )
-        .unwrap()
-        .build()
-        .unwrap();
-        assert_eq!(
-            traxsource
-                .headers()
-                .get(reqwest::header::REFERER)
-                .and_then(|value| value.to_str().ok()),
-            Some("https://www.traxsource.com/")
-        );
-    }
-
     #[test]
     fn selected_catalog_origin_excludes_insecure_private_and_credential_urls() {
         for value in [

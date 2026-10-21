@@ -260,6 +260,56 @@ fn batch_undo_refuses_external_edits_without_overwriting_them() {
 }
 
 #[test]
+fn batch_undo_blocks_changed_or_missing_managed_files_without_aborting_the_rest() {
+    let f = Fixture::new(3);
+    let preview = f.preview();
+    let batch = f
+        .library
+        .apply_organization_preview(
+            &preview.id,
+            &preview.revision,
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!(batch.totals.completed, 3);
+    let managed = |index: usize| f.root.join(format!("managed/Artist - Title {index}.flac"));
+    std::fs::write(managed(0), b"edited after organization").unwrap();
+    std::fs::remove_file(managed(1)).unwrap();
+    let undone = f
+        .library
+        .undo_organization_batch(&batch.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "partial");
+    assert_eq!(undone.totals.blocked, 2);
+    assert_eq!(undone.totals.completed, 1);
+    assert!(
+        f.sources[2].exists(),
+        "the unaffected track returns to its original path"
+    );
+    assert!(!f.sources[0].exists() && !f.sources[1].exists());
+    assert_eq!(
+        std::fs::read(managed(0)).unwrap(),
+        b"edited after organization"
+    );
+    assert_eq!(f.library.track_path(&f.tracks[0]).unwrap(), managed(0));
+    let blocked = f
+        .library
+        .organization_batch_page(&undone.id, 0, 10)
+        .unwrap()
+        .rows
+        .into_iter()
+        .filter(|row| row.outcome == "blocked")
+        .map(|row| row.reason.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(blocked.len(), 2);
+    assert!(
+        blocked
+            .iter()
+            .all(|reason| reason.starts_with("Undo blocked because the track changed"))
+    );
+}
+
+#[test]
 fn batch_reserves_full_scope_before_first_publication() {
     let f = Fixture::new(2);
     let preview = f.preview();
