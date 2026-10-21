@@ -225,3 +225,73 @@ fn solver_retry_does_not_reuse_analysis_after_engine_or_source_changes() {
         assert_eq!(f.lib.conn().unwrap().query_row("SELECT COUNT(*) FROM preparation_analysis WHERE source_hash=?1 AND settings_revision=?2",params![run.source_sha256,run.settings_revision],|r|r.get::<_,u64>(0)).unwrap(),0);
     }
 }
+
+#[test]
+fn verified_reuse_remains_available_for_another_metadata_only_revision() {
+    let f = Fixture::new();
+    let original = f.run.source_sha256.clone();
+    let mut run = f.run;
+    replace_metadata_fixture(&f.lib, &f.runtime, &f.source, "metadata revision one");
+    let audio = f.runtime.decode(&f.source, f.lib.data_dir()).unwrap();
+    run.source_sha256 = audio.source_sha256.clone();
+    f.lib.conn().unwrap().execute("INSERT INTO preparation_reuse(job_id,source_hash,analysis_source_hash,analysis_settings_revision) VALUES(?1,?2,?3,?4)",params![run.id,run.source_sha256,original,run.settings_revision]).unwrap();
+    assert_eq!(
+        f.lib
+            .cached_analysis(&run, "fixture-engine", &audio)
+            .unwrap()
+            .unwrap()
+            .elapsed_seconds,
+        918.25
+    );
+    let previous = run.source_sha256.clone();
+    replace_metadata_fixture(&f.lib, &f.runtime, &f.source, "metadata revision two");
+    let audio = f.runtime.decode(&f.source, f.lib.data_dir()).unwrap();
+    run.source_sha256 = audio.source_sha256.clone();
+    f.lib
+        .conn()
+        .unwrap()
+        .execute(
+            "UPDATE preparation_reuse SET source_hash=?1,analysis_source_hash=?2 WHERE job_id=?3",
+            params![run.source_sha256, previous, run.id],
+        )
+        .unwrap();
+    let again=f.lib.cached_analysis(&run,"fixture-engine",&audio).unwrap().expect("a second protected metadata-only edit must retain the previously verified measured result");
+    assert_eq!(again.elapsed_seconds, 918.25);
+}
+
+fn replace_metadata_fixture(lib: &Library, runtime: &MediaRuntime, source: &Path, title: &str) {
+    use cuerithm_autotag::*;
+    let audio = runtime.decode(source, lib.data_dir()).unwrap();
+    let input = TagInput {
+        path: source.to_owned(),
+        source_sha256: audio.source_sha256.clone(),
+        media: audio.info.clone(),
+        duration_seconds: audio.clock.duration_seconds(),
+    };
+    let mut config = AutotagConfig {
+        no_match: NoMatchPolicy::KeepExisting,
+        ..Default::default()
+    };
+    config.options.tags.clear();
+    config.required_tags.clear();
+    let outcome = TagMatchOutcome {
+        status: MatchStatus::NoMatch,
+        matches: vec![],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    let mut patch = MetadataPatch::default();
+    patch.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec![title.into()],
+        },
+    );
+    let staged = TagWritePlan::build(input, &outcome, &config, &AnalysisTags::default())
+        .unwrap()
+        .with_editor_patch(patch)
+        .unwrap()
+        .stage_prepared(runtime, &audio, lib.data_dir())
+        .unwrap();
+    std::fs::copy(&staged.path, source).unwrap();
+}

@@ -1,5 +1,5 @@
-//! Internal recoverable file organization, intentionally not exposed through
-//! desktop commands. Publication pauses for explicit local/native-reference
+//! Internal recoverable file organization. Desktop commands use the guarded
+//! service rather than raw coordinator acknowledgements. Publication pauses for local/native-reference
 //! acknowledgement; this engine never marks an Incoming track Ready.
 mod coordinator;
 mod copy_conflicts;
@@ -8,6 +8,8 @@ pub(crate) use copy_conflicts::OrganizationReferenceSourceProof;
 mod copy_conflicts_tests;
 mod journal;
 mod native;
+#[cfg(feature = "autotag")]
+pub(crate) use native::{Parent as NativeParent, matches as same_native_file};
 mod publish;
 mod recovery;
 pub(crate) mod service;
@@ -37,3 +39,17 @@ pub struct OrganizationRequest {
 }
 #[cfg(test)]
 mod tests;
+
+/// Capture a no-follow native source identity for a higher-level frozen preview.
+#[cfg(feature = "autotag")]
+pub(crate) fn capture_regular_source(
+    path: &std::path::Path,
+) -> anyhow::Result<(Authority, Fingerprint)> {
+    use anyhow::Context;
+    let (parent, authority) =
+        native::Parent::capture(path.parent().context("Missing source parent")?)?;
+    let fingerprint = parent.fingerprint(std::path::Path::new(
+        path.file_name().context("Missing source name")?,
+    ))?;
+    Ok((authority, fingerprint))
+}

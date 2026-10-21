@@ -1,0 +1,61 @@
+import {act,renderHook,waitFor} from "@testing-library/react";
+import {describe,expect,it,vi} from "vitest";
+import {useMetadataDraft} from "../use-metadata-draft";
+import {emptyMetadataPatch,type MetadataDraft} from "../editor-types";
+import {fakeBridge} from "./bridge";
+const draft:MetadataDraft={id:"draft",revision:1,track_ids:["a"],patch:emptyMetadataPatch(),state:"editing",created:1,updated:1,error:null};
+describe("durable native metadata drafts",()=>{
+ it("discards only unsaved local input and preserves the last acknowledged draft without another write",async()=>{
+  const bridge=fakeBridge([]),savedPatch=emptyMetadataPatch();savedPatch.fields.text.title={kind:"set",values:["Saved choice"]};
+  bridge.updateMetadataDraft=vi.fn().mockResolvedValueOnce({...draft,revision:2,patch:savedPatch}).mockRejectedValueOnce(Error("Disk unavailable"));
+  const {result}=renderHook(()=>useMetadataDraft(bridge,draft));
+  act(()=>result.current.edit(savedPatch));await act(async()=>{await result.current.flush();});
+  const local=structuredClone(savedPatch);local.form_values.release_date="2026-";act(()=>result.current.edit(local));
+  await waitFor(()=>expect(result.current.error).toContain("Disk unavailable"));
+  await act(async()=>{await result.current.discardUnsaved();});
+  expect(result.current.patch).toEqual(savedPatch);expect(result.current.dirty).toBe(false);
+  expect((await result.current.flush()).revision).toBe(2);expect(bridge.updateMetadataDraft).toHaveBeenCalledTimes(2);
+ });
+ it("serializes revisions and never lets an old acknowledgement save a newer edit",async()=>{
+  const bridge=fakeBridge([]);let first!:(value:MetadataDraft)=>void,second!:(value:MetadataDraft)=>void;
+  bridge.updateMetadataDraft=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{first=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{second=resolve;}));
+  const {result}=renderHook(()=>useMetadataDraft(bridge,draft));
+  const a={...emptyMetadataPatch(),fields:{...emptyMetadataPatch().fields,text:{title:{kind:"set" as const,values:["A"]}}}};
+  const ab={...a,fields:{...a.fields,text:{title:{kind:"set" as const,values:["AB"]}}}};
+  act(()=>{result.current.edit(a);result.current.edit(ab);});
+  await waitFor(()=>expect(bridge.updateMetadataDraft).toHaveBeenCalledTimes(1));
+  await act(async()=>{first({...draft,revision:2,patch:a});});
+  await waitFor(()=>expect(bridge.updateMetadataDraft).toHaveBeenCalledTimes(2));
+  expect(bridge.updateMetadataDraft).toHaveBeenLastCalledWith("draft",2,ab);
+  expect(result.current.patch.fields.text.title).toEqual({kind:"set",values:["AB"]});
+  expect(result.current.pending).toBe(true);
+  await act(async()=>{second({...draft,revision:3,patch:ab});await result.current.flush();});
+  expect(result.current.pending).toBe(false);
+  expect(result.current.draft.revision).toBe(3);
+ });
+ it("retains failed edits and refuses navigation until the exact draft is durable",async()=>{
+  const bridge=fakeBridge([]);bridge.updateMetadataDraft=vi.fn(async()=>{throw Error("Disk unavailable");});
+  const {result}=renderHook(()=>useMetadataDraft(bridge,draft));
+  const patch=emptyMetadataPatch();patch.form_values.release_date="2026-";
+  act(()=>result.current.edit(patch));
+  await waitFor(()=>expect(result.current.error).toContain("Disk unavailable"));
+  expect(result.current.patch.form_values.release_date).toBe("2026-");
+  await expect(result.current.flush()).rejects.toThrow("Disk unavailable");
+ });
+ it("includes edits typed while a navigation flush is waiting",async()=>{
+  const bridge=fakeBridge([]);let first!:(value:MetadataDraft)=>void,second!:(value:MetadataDraft)=>void;
+  bridge.updateMetadataDraft=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{first=resolve;})).mockImplementationOnce(()=>new Promise(resolve=>{second=resolve;}));
+  const {result}=renderHook(()=>useMetadataDraft(bridge,draft));
+  const a=emptyMetadataPatch();a.form_values.release_date="2026-";
+  const b=emptyMetadataPatch();b.form_values.release_date="2026-1";
+  act(()=>result.current.edit(a));
+  await waitFor(()=>expect(bridge.updateMetadataDraft).toHaveBeenCalledTimes(1));
+  const closed=vi.fn();const closing=result.current.flush().then(closed);
+  act(()=>result.current.edit(b));
+  await act(async()=>{first({...draft,revision:2,patch:a});});
+  await waitFor(()=>expect(bridge.updateMetadataDraft).toHaveBeenCalledTimes(2));
+  expect(closed).not.toHaveBeenCalled();
+  await act(async()=>{second({...draft,revision:3,patch:b});await closing;});
+  expect(closed).toHaveBeenCalledTimes(1);
+ });
+});

@@ -12,6 +12,36 @@ use cuerithm_autotag::{
 use cuerithm_library::{JobRun, Library, PreparationSettings};
 use cuerithm_media::{MediaRuntime, file_sha256};
 use std::path::{Path, PathBuf};
+
+// Model the crash gap after an owned in-place output and its durable receipt.
+// The source identity comes from the pre-write journal, never a fresh same-byte adoption.
+fn simulate_owned_output(db: &Path, journal: &str, staged: &StagedTagWrite, source: &Path) {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    let encoded: String = conn
+        .query_row(
+            "SELECT artifact_authorities_json FROM tag_writes WHERE id=?1",
+            [journal],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let mut authorities: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    let mut published = authorities[0]["before"].clone();
+    published["sha256"] = serde_json::json!(staged.source_after_sha256);
+    published["bytes"] = serde_json::json!(std::fs::metadata(&staged.path).unwrap().len());
+    conn.execute(
+        "UPDATE tag_writes SET artifact_authorities_json=?1 WHERE id=?2",
+        rusqlite::params![
+            {
+                authorities[0]["published"] = published;
+                serde_json::to_string(&authorities).unwrap()
+            },
+            journal
+        ],
+    )
+    .unwrap();
+    std::fs::write(source, std::fs::read(&staged.path).unwrap()).unwrap();
+}
+
 struct Fixture {
     _dir: tempfile::TempDir,
     db: PathBuf,
@@ -22,8 +52,9 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let db = dir.path().join("app/library.sqlite");
-        let source = dir.path().join("music/source.flac");
+        let native_root = dir.path().canonicalize().unwrap();
+        let db = native_root.join("app/library.sqlite");
+        let source = native_root.join("music/source.flac");
         std::fs::create_dir_all(source.parent().unwrap()).unwrap();
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         std::fs::copy(
@@ -233,9 +264,9 @@ fn restart_before_or_after_replacement_rolls_back_and_requeues() {
     for replaced in [false, true] {
         let f = Fixture::new();
         let (run, mut staged, result) = f.prepare("New title");
-        let _journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+        let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
         if replaced {
-            std::fs::copy(&staged.path, &f.source).unwrap();
+            simulate_owned_output(&f.db, &journal, &staged, &f.source);
         }
         let db = f.db.clone();
         let source = f.source.clone();
@@ -251,8 +282,8 @@ fn restart_before_or_after_replacement_rolls_back_and_requeues() {
 fn recovery_preserves_later_user_edits_and_backups() {
     let f = Fixture::new();
     let (run, mut staged, result) = f.prepare("New title");
-    let _journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
-    std::fs::copy(&staged.path, &f.source).unwrap();
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    simulate_owned_output(&f.db, &journal, &staged, &f.source);
     std::fs::write(&f.source, b"later user edit").unwrap();
     let backup = staged.backup_path.clone();
     let db = f.db.clone();
@@ -322,6 +353,40 @@ fn rollback_restores_audio_and_cover_together_and_keeps_earlier_cues() {
     assert!(f.lib.analysis(&run.track_id).unwrap().is_some());
 }
 #[test]
+fn newly_created_sidecar_rollback_is_journaled_and_retired_across_reopen() {
+    let f = Fixture::new();
+    let (run, mut staged, result) = f.prepare_with_art("New sidecar", true);
+    assert!(
+        staged
+            .sidecars
+            .iter()
+            .all(|sidecar| sidecar.before_sha256.is_none())
+    );
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    rusqlite::Connection::open(&f.db).unwrap().execute_batch("CREATE TRIGGER fail_sidecar BEFORE INSERT ON cue_revisions BEGIN SELECT RAISE(ABORT,'injected sidecar rollback');END;").unwrap();
+    assert!(f.lib.publish_preparation(&run, &journal).is_err());
+    let source_parent = f.source.parent().unwrap().to_owned();
+    let assert_clean = || {
+        let entries: Vec<_> = std::fs::read_dir(&source_parent)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(
+            entries,
+            vec![std::ffi::OsString::from("source.flac")],
+            "owned sidecar rollback copies must not remain unjournaled in the source folder"
+        );
+    };
+    assert_clean();
+    assert_eq!(f.lib.tagging_storage().unwrap().pending_cleanup, 0);
+    let db = f.db.clone();
+    drop(f.lib);
+    let lib = Library::open(&db).unwrap();
+    assert_clean();
+    assert_eq!(lib.tagging_storage().unwrap().pending_cleanup, 0);
+    assert_eq!(file_sha256(&f.source).unwrap(), run.source_sha256);
+}
+#[test]
 fn archive_and_damaged_backup_reject_publication() {
     let f = Fixture::new();
     let (run, mut staged, result) = f.prepare("New title");
@@ -362,7 +427,7 @@ fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 18);
+        assert_eq!(version, 20);
         let title: String = conn
             .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
             .unwrap();
@@ -374,8 +439,8 @@ fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
 fn watcher_does_not_enqueue_an_owned_intermediate_tag_write() {
     let f = Fixture::new();
     let (run, mut staged, result) = f.prepare("New title");
-    f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
-    std::fs::copy(&staged.path, &f.source).unwrap();
+    let journal = f.lib.begin_tag_write(&run, &mut staged, &result).unwrap();
+    simulate_owned_output(&f.db, &journal, &staged, &f.source);
     let ids = f
         .lib
         .enqueue_discovered(
@@ -494,7 +559,7 @@ fn organization_tag_checkpoint_survives_every_tag_publication_restart_gap() {
         );
         drop(sql);
         if gap == 1 {
-            std::fs::copy(&staged.path, &f.source).unwrap();
+            simulate_owned_output(&f.db, &journal, &staged, &f.source);
         }
         if gap == 3 {
             let sql = rusqlite::Connection::open(&f.db).unwrap();

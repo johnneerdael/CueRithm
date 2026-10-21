@@ -59,7 +59,27 @@ impl Library {
         audio: &PreparedAudio,
     ) -> Result<Option<FileAnalysis>> {
         let encoded:Option<String>=self.conn()?.query_row("SELECT analysis_json FROM preparation_analysis WHERE source_hash=?1 AND settings_revision=?2 AND engine_identity=?3 AND decoder=?4",params![run.source_sha256,run.settings_revision,engine,audio.decoder_identity],|r|r.get(0)).optional()?;
-        let Some(result) = encoded.and_then(|s| serde_json::from_str::<FileAnalysis>(&s).ok())
+        #[cfg(feature = "autotag")]
+        let mut encoded = encoded;
+        #[cfg(feature = "autotag")]
+        let mut reused = false;
+        #[cfg(not(feature = "autotag"))]
+        let reused = false;
+        #[cfg(feature = "autotag")]
+        if encoded.is_none() {
+            let previous:Option<(String,String)>=self.conn()?.query_row("SELECT analysis_source_hash,analysis_settings_revision FROM preparation_reuse WHERE job_id=?1 AND source_hash=?2",params![run.id,run.source_sha256],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+            if let Some((hash, revision)) = previous {
+                let old = self.settings_revision(&revision)?;
+                if old.models == run.snapshot.models
+                    && serde_json::to_value(&old.settings.engine)?
+                        == serde_json::to_value(&run.snapshot.settings.engine)?
+                {
+                    encoded=self.conn()?.query_row("SELECT analysis_json FROM preparation_analysis WHERE source_hash=?1 AND settings_revision=?2 AND engine_identity=?3 AND decoder=?4",params![hash,revision,engine,audio.decoder_identity],|r|r.get(0)).optional()?;
+                    reused = encoded.is_some();
+                }
+            }
+        }
+        let Some(mut result) = encoded.and_then(|s| serde_json::from_str::<FileAnalysis>(&s).ok())
         else {
             return Ok(None);
         };
@@ -68,13 +88,21 @@ impl Library {
         };
         if Self::validate_analysis(&result).is_err()
             || result.analysis.models != run.snapshot.models
-            || media.source_sha256 != audio.source_sha256
+            || (!reused && media.source_sha256 != audio.source_sha256)
             || media.decoder != audio.decoder_identity
             || media.clock.frames != audio.clock.frames
             || media.clock.sample_rate != audio.clock.sample_rate
             || media.pcm_sha256 != audio.pcm_sha256()?
         {
             return Ok(None);
+        }
+        if reused && let Some(media) = result.media.as_mut() {
+            media.source_sha256 = audio.source_sha256.clone();
+        }
+        // Retain the fully revalidated result under this input revision so a
+        // later explicit metadata edit can reuse it without losing the chain.
+        if reused {
+            self.cache_analysis(run, engine, &result)?;
         }
         Ok(Some(result))
     }

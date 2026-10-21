@@ -13,6 +13,24 @@ export function fakeBridge(rows:Track[]) {
   let listener:((e:PreparationEvent)=>void)|null=null;
   let playback:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:0.65,error:null};
   const bridge:Bridge&{rows:Track[];jobs:Job[];changed:(e:PreparationEvent)=>void}={
+    trackMatchReview:vi.fn(async()=>{throw Error("Match review not provided by this fixture");}),
+    previewMatchReview:vi.fn(async()=>{throw Error("Match review not provided by this fixture");}),
+    applyMatchReview:vi.fn(async()=>{throw Error("Match review not provided by this fixture");}),
+    requeryMatches:vi.fn(async()=>{throw Error("Match review not provided by this fixture");}),
+    matchReviewArtwork:vi.fn(async()=>{throw Error("Review artwork not provided by this fixture");}),onMatchReviewChange:vi.fn(async()=>()=>{}),
+    onCatalogAccessChange:vi.fn(async()=>()=>{}),
+    onMetadataEditChange:vi.fn(async()=>()=>{}),metadataDrafts:vi.fn(async()=>[]),metadataEditHistoryPage:vi.fn(async(offset,limit)=>({total:0,offset,limit,batches:[]})),metadataEditBatch:vi.fn(async()=>{throw Error("Metadata history not provided by this fixture");}),
+    metadataEditorSnapshot:vi.fn(async()=>{throw Error("Metadata snapshot not provided by this fixture");}),
+    createMetadataDraft:vi.fn(async()=>{throw Error("Metadata draft not provided by this fixture");}),
+    metadataDraft:vi.fn(async()=>{throw Error("Metadata draft not provided by this fixture");}),
+    updateMetadataDraft:vi.fn(async()=>{throw Error("Metadata draft not provided by this fixture");}),
+    previewMetadataEdits:vi.fn(async()=>{throw Error("Metadata preview not provided by this fixture");}),
+    applyMetadataEdits:vi.fn(async()=>{throw Error("Metadata publication not provided by this fixture");}),
+    recoverMetadataEdits:vi.fn(async()=>{throw Error("Metadata recovery not provided by this fixture");}),
+    undoMetadataEdits:vi.fn(async()=>{throw Error("Metadata history not provided by this fixture");}),
+    discardMetadataDraft:vi.fn(async()=>{}),chooseMetadataArtwork:vi.fn(async()=>null),
+    extractMetadataArtwork:vi.fn(async()=>{throw Error("Artwork not provided by this fixture");}),
+    metadataArtworkAsset:vi.fn(async()=>{throw Error("Artwork not provided by this fixture");}),cancelMetadataOperation:vi.fn(async()=>true),
     organizationRoots:vi.fn(async()=>[]),
     chooseOrganizationRoot:vi.fn(async()=>null),
     organizationExample:vi.fn(async()=>({valid:true,error:null,tokens:["artist","title","version"],examples:[{label:"Example",original_name:"input.flac",result:"Artist - Title.flac",outcome:"ready",reason:null}]})),
@@ -70,7 +88,7 @@ export function fakeBridge(rows:Track[]) {
     getWaveform:vi.fn(async()=>({duration_seconds:240,bins:[]})),
     onPreparation:vi.fn(async handler=>{listener=handler;return ()=>{listener=null;};}),
     onPlayback:vi.fn(async()=>()=>{}),onDrop:vi.fn(async()=>()=>{}),
-    chooseFiles:vi.fn(async()=>[]),chooseFolder:vi.fn(async()=>null),
+    chooseFiles:vi.fn(async()=>[]),chooseFolder:vi.fn(async()=>null),onCloseRequest:vi.fn(async()=>()=>{}),registerExitGuard:vi.fn(async()=>null),unregisterExitGuard:vi.fn(async()=>{}),completeExit:vi.fn(async()=>{}),cancelExit:vi.fn(async()=>true),onAppExitRequested:vi.fn(async()=>()=>{}),
   };
   return bridge;
 }

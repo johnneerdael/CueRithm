@@ -2,6 +2,12 @@
 mod asf;
 mod config;
 mod evidence;
+mod review;
+pub use review::{review_catalog_url, validate_review_required_fields};
+mod catalog_artwork;
+pub use catalog_artwork::fetch_catalog_artwork;
+mod editing;
+pub use editing::*;
 mod fields;
 mod id3_integrity;
 pub use fields::{FieldWriteOutcome, FieldWriteStatus};

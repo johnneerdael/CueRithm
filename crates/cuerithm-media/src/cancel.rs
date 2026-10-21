@@ -10,6 +10,10 @@ impl CancellationToken {
     pub fn as_atomic(&self) -> &AtomicBool {
         &self.0
     }
+    /// Share the same cancellation authority with synchronous provider gates.
+    pub fn shared_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.0)
+    }
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Release);
     }
@@ -40,3 +44,19 @@ impl std::fmt::Display for MediaTaskError {
     }
 }
 impl std::error::Error for MediaTaskError {}
+
+#[cfg(test)]
+mod sharing_tests {
+    use super::*;
+    #[test]
+    fn provider_flag_and_token_share_cancellation_authority() {
+        let token = CancellationToken::default();
+        let flag = token.shared_flag();
+        assert!(std::ptr::eq(flag.as_ref(), token.as_atomic()));
+        token.cancel();
+        assert!(flag.load(Ordering::Acquire));
+        let token = CancellationToken::default();
+        token.shared_flag().store(true, Ordering::Release);
+        assert!(token.check().is_err());
+    }
+}

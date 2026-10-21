@@ -17,6 +17,14 @@ pub struct MP4Tag {
 }
 
 impl MP4Tag {
+    /// Exact native records for reviewed edits on private staged copies.
+    pub fn editor_tag(&self) -> &mp4ameta::Tag {
+        &self.tag
+    }
+    pub fn editor_tag_mut(&mut self) -> &mut mp4ameta::Tag {
+        &mut self.tag
+    }
+
     pub fn load_file(path: impl AsRef<Path>) -> Result<MP4Tag, Error> {
         let tag = Tag::read_from_path(&path)?;
         Ok(MP4Tag {
