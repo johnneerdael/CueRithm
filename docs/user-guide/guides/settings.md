@@ -8,7 +8,7 @@ Open **Settings** at the bottom of the sidebar, or the sliders button at the top
 | --- | --- | --- |
 | **Add watch folder** | `Music/Cuerithm/Incoming` on a new library | Files that appear in these folders are prepared automatically. Remove one with the **×** beside it. |
 
-The page explains: *Completed tracks move into Tracks automatically. Original audio files stay in place.* The file-stability wait (2 seconds) is not adjustable in the interface.
+Completed tracks enter Tracks automatically. Original audio files stay in place unless a saved **File organization** mode is enabled. The file-stability wait (2 seconds) is not adjustable in the interface.
 
 ## Cue generation { #cue-generation }
 
@@ -37,6 +37,10 @@ See [Automatic tagging settings](tagging-settings.md).
 | --- | --- | --- |
 | **Clean incoming tracks automatically** | off | Apply the saved rules to each new track after tagging and before it enters Tracks. |
 | Smart Fixes, Genres, Artists | empty | The same editors as the Cleanup tool. See [Cleanup rules](cleanup-rules.md). |
+
+## File organization { #file-organization }
+
+The default is **Leave files in place**. Choose Rename in place, Move to folder or Copy to folder, a filename pattern, missing-value handling and collision policy. Move and copy use a destination selected with the native folder picker. **Save settings** applies the rule to future Incoming preparation. Examples use invented metadata; the complete actual scope is checked before publication. See [File organization](file-organization.md) for manual previews, linked libraries, recovery and Undo.
 
 ## Library preferences { #library-preferences }
 

@@ -2,15 +2,21 @@
 //! desktop commands. Publication pauses for explicit local/native-reference
 //! acknowledgement; this engine never marks an Incoming track Ready.
 mod coordinator;
+mod copy_conflicts;
+pub(crate) use copy_conflicts::OrganizationReferenceSourceProof;
+#[cfg(test)]
+mod copy_conflicts_tests;
 mod journal;
 mod native;
 mod publish;
 mod recovery;
+pub(crate) mod service;
 use crate::Library;
 pub use journal::{OrganizationFile, OrganizationPhase, OrganizationRecord};
 pub use native::{Authority, Fingerprint, Identity, NativePath};
 pub use recovery::{AlternateResolution, AlternateSourceRecord, AlternateSourceState};
 use serde::{Deserialize, Serialize};
+pub use service::*;
 use std::path::PathBuf;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

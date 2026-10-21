@@ -5,6 +5,53 @@ use cuerithm_media::PreparedAudio;
 use rusqlite::{OptionalExtension, params};
 
 impl Library {
+    /// Transport settings cannot change an already measured or accepted output.
+    /// Keep all other settings, optional-config shape and model identities strict.
+    pub(crate) fn settings_equal_except_solver(
+        before: &crate::SettingsSnapshot,
+        after: &crate::SettingsSnapshot,
+    ) -> Result<bool> {
+        if before.models != after.models
+            || before.settings.tagging.is_some() != after.settings.tagging.is_some()
+        {
+            return Ok(false);
+        }
+        let mut before = serde_json::to_value(&before.settings)?;
+        let mut after = serde_json::to_value(&after.settings)?;
+        if let (Some(before), Some(after)) = (
+            before
+                .get_mut("tagging")
+                .and_then(serde_json::Value::as_object_mut),
+            after
+                .get_mut("tagging")
+                .and_then(serde_json::Value::as_object_mut),
+        ) {
+            before.remove("solver");
+            after.remove("solver");
+        }
+        Ok(before == after)
+    }
+    /// Seed the new transport revision before its queued job becomes visible.
+    /// Copy only the original content hash; cached_analysis still verifies the
+    /// actual decoded source, PCM, clock, model and decoder on every read.
+    pub(crate) fn alias_solver_retry_analysis(
+        &self,
+        source: &str,
+        before: &str,
+        after: &str,
+    ) -> Result<()> {
+        if before == after {
+            return Ok(());
+        }
+        if !Self::settings_equal_except_solver(
+            &self.settings_revision(before)?,
+            &self.settings_revision(after)?,
+        )? {
+            return Ok(());
+        }
+        self.conn()?.execute("INSERT OR IGNORE INTO preparation_analysis(source_hash,settings_revision,engine_identity,decoder,analysis_json) SELECT source_hash,?1,engine_identity,decoder,analysis_json FROM preparation_analysis WHERE source_hash=?2 AND settings_revision=?3",params![after,source,before])?;
+        Ok(())
+    }
     pub(crate) fn cached_analysis(
         &self,
         run: &JobRun,
@@ -62,5 +109,41 @@ impl Library {
     pub(crate) fn clear_track_analysis_cache(&self, track: &str) -> Result<()> {
         self.conn()?.execute("DELETE FROM preparation_analysis WHERE source_hash IN (SELECT source_hash FROM jobs WHERE track_id=?1)",[track])?;
         Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "autotag"))]
+mod solver_retry_tests;
+
+#[cfg(test)]
+mod equivalence_tests {
+    use super::*;
+    #[test]
+    fn solver_normalization_keeps_optional_shape_all_other_fields_and_models_strict() {
+        let settings: crate::PreparationSettings = serde_json::from_value(
+            serde_json::json!({"tagging":{"solver":{"endpoint":null,"timeout_seconds":120}}}),
+        )
+        .unwrap();
+        let before = crate::SettingsSnapshot {
+            revision: "before".into(),
+            settings,
+            models: Default::default(),
+        };
+        let mut after = before.clone();
+        after.revision = "after".into();
+        let mut tagging = serde_json::to_value(&after.settings.tagging).unwrap();
+        tagging["solver"] =
+            serde_json::json!({"endpoint":"http://127.0.0.1:8191","timeout_seconds":41});
+        after.settings.tagging = Some(serde_json::from_value(tagging.clone()).unwrap());
+        assert!(Library::settings_equal_except_solver(&before, &after).unwrap());
+        after.settings.tagging = None;
+        assert!(!Library::settings_equal_except_solver(&before, &after).unwrap());
+        assert!(!Library::settings_equal_except_solver(&after, &before).unwrap());
+        tagging["write_energy"] = serde_json::json!(false);
+        after.settings.tagging = Some(serde_json::from_value(tagging).unwrap());
+        assert!(!Library::settings_equal_except_solver(&before, &after).unwrap());
+        after = before.clone();
+        after.models.insert("changed".into(), "model hash".into());
+        assert!(!Library::settings_equal_except_solver(&before, &after).unwrap());
     }
 }

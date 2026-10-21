@@ -178,6 +178,7 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        self.library.invalidate_unpublished_preparation(&track)?;
         self.library.clear_track_analysis_cache(&track)?;
         let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
@@ -379,6 +380,16 @@ impl Worker {
     fn process(&mut self, job: JobRun) {
         let mut stage = "setup";
         let outcome = (|| -> Result<()> {
+            // Resume before source-hash comparison or decoder/model/provider work: tags and
+            // organization can legitimately have changed this logical job's source path/hash.
+            if self.library.has_preparation_checkpoint(&job.id)? {
+                stage = "organizing";
+                self.emit(&job, stage, "running");
+                self.library
+                    .continue_preparation_organization(&job, &self.stop)?;
+                self.emit(&job, "completed", "completed");
+                return Ok(());
+            }
             job.snapshot.settings.ready()?;
             stage = "waiting";
             self.emit(&job, stage, "running");
@@ -625,6 +636,12 @@ impl Worker {
                 crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
+            }
+            if job.snapshot.settings.organization.enabled() {
+                stage = "organizing";
+                self.emit(&job, stage, "running");
+                self.library
+                    .continue_preparation_organization(&job, &self.stop)?;
             }
             self.emit(&job, "completed", "completed");
             Ok(())

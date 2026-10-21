@@ -969,6 +969,18 @@ pub fn verify_sync_restored(journal_root: &Path, id: &str) -> Result<FileJournal
     Ok(journal)
 }
 
+/// Classify exports which own an independent media copy rather than a source path.
+pub fn export_media_is_independent(target: &SyncTarget, options: &SyncOptions) -> bool {
+    target.software == DjSoftware::PioneerUsb
+        || (target.software == DjSoftware::EngineDj
+            && (options.engine_copy_audio
+                || target
+                    .path
+                    .parent()
+                    .and_then(Path::parent)
+                    .is_some_and(engine_device_library)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

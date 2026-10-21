@@ -24,7 +24,8 @@ pub struct AlternateSourceRecord {
     pub observed_sha256: Option<String>,
     pub ignored_sha256: Option<String>,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AlternateResolution {
     IgnoreThisRevision,
     AddAsNewIncoming,
@@ -40,12 +41,19 @@ impl Library {
                 record.phase,
                 OrganizationPhase::Publishing | OrganizationPhase::Cleanup
             ) {
+                // Service-owned recovery must obtain current reference receipts
+                // before any remaining source quarantine after a restart.
+                if self.organization_service_owned(&record.id)?
+                    || self.organization_has_required_references(&record.id)?
+                {
+                    continue;
+                }
                 let _preserved_error = self.execute_organization(&record.id);
             }
         }
         self.organization_history()
     }
-    pub fn organization_alternates(&self) -> Result<Vec<AlternateSourceRecord>> {
+    pub(crate) fn organization_alternate_records(&self) -> Result<Vec<AlternateSourceRecord>> {
         let conn = self.conn()?;
         let mut statement=conn.prepare("SELECT operation_id,track_id,path,source_hash,state,observed_hash,ignored_hash FROM organization_alternates ORDER BY rowid")?;
         Ok(statement
@@ -96,9 +104,12 @@ impl Library {
                 } => {
                     let operation: OrganizationRecord = serde_json::from_str(payload)?;
                     let owned = validate(&operation, path, hash).unwrap_or(false);
-                    let result = if (hash == expected && owned)
-                        || (state == "ignored" && ignored.as_deref() == Some(hash))
-                    {
+                    let ignored_revision = state == "ignored"
+                        && ignored.as_deref() == Some(hash)
+                        && self
+                            .organization_ignored_copy_revision(&operation, path, hash)
+                            .unwrap_or(false);
+                    let result = if (hash == expected && owned) || ignored_revision {
                         AlternateSourceState::Owned {
                             track_id: track_id.clone(),
                         }
@@ -151,6 +162,17 @@ impl Library {
         id: &str,
         resolution: AlternateResolution,
     ) -> Result<Option<crate::JobId>> {
+        self.resolve_organization_alternate_cancellable(
+            id,
+            resolution,
+            &cuerithm_media::CancellationToken::default(),
+        )
+    }
+    pub(super) fn resolve_completed_organization_alternate(
+        &self,
+        id: &str,
+        resolution: AlternateResolution,
+    ) -> Result<Option<crate::JobId>> {
         let _gate = self
             .inner
             .organization_gate
@@ -162,13 +184,13 @@ impl Library {
             "Only completed copy alternates can be resolved"
         );
         let source = &record.files[0];
+        super::publish::verify_destination(source)?;
         let parent = Parent::reopen(&source.source_parent)?;
         let path = source.source.path()?;
-        let hash = parent
-            .fingerprint(Path::new(
-                path.file_name().context("Missing alternate name")?,
-            ))?
-            .sha256;
+        let fingerprint = parent.fingerprint(Path::new(
+            path.file_name().context("Missing alternate name")?,
+        ))?;
+        let hash = &fingerprint.sha256;
         let revision = self.settings()?.revision;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
@@ -191,9 +213,17 @@ impl Library {
                     "UPDATE organization_alternates SET state='retired' WHERE operation_id=?1",
                     [id],
                 )?;
-                Some(Self::enqueue_one(&tx, &path, &hash, &revision)?)
+                Some(Self::enqueue_one(&tx, &path, hash, &revision)?)
             }
         };
+        self.record_completed_copy_choice_tx(
+            &tx,
+            &record,
+            resolution,
+            &fingerprint,
+            &revision,
+            job.as_deref(),
+        )?;
         Self::bump(&tx)?;
         tx.commit()?;
         Ok(job)
@@ -248,6 +278,7 @@ enum OwnershipSnapshot {
         state: String,
         ignored: Option<String>,
         observed: Option<String>,
+        decision_digest: Option<String>,
         payload: String,
     },
     Reserved {
@@ -257,6 +288,6 @@ enum OwnershipSnapshot {
     },
 }
 fn ownership_snapshot(conn: &rusqlite::Connection, path: &[u8]) -> Result<OwnershipSnapshot> {
-    if let Some(alternate)=conn.query_row("SELECT a.operation_id,a.track_id,a.source_hash,a.state,a.ignored_hash,a.observed_hash,o.payload_json FROM organization_alternates a JOIN organization_operations o ON o.id=a.operation_id WHERE a.path=?1 AND a.state!='retired' ORDER BY a.rowid DESC LIMIT 1",[path],|r|Ok(OwnershipSnapshot::Alternate{operation_id:r.get(0)?,track_id:r.get(1)?,expected:r.get(2)?,state:r.get(3)?,ignored:r.get(4)?,observed:r.get(5)?,payload:r.get(6)?})).optional()? {return Ok(alternate)}
+    if let Some(alternate)=conn.query_row("SELECT a.operation_id,a.track_id,a.source_hash,a.state,a.ignored_hash,a.observed_hash,o.payload_json,(SELECT c.digest FROM organization_copy_conflicts c WHERE c.operation_id=a.operation_id) FROM organization_alternates a JOIN organization_operations o ON o.id=a.operation_id WHERE a.path=?1 AND a.state!='retired' ORDER BY a.rowid DESC LIMIT 1",[path],|r|Ok(OwnershipSnapshot::Alternate{operation_id:r.get(0)?,track_id:r.get(1)?,expected:r.get(2)?,state:r.get(3)?,ignored:r.get(4)?,observed:r.get(5)?,payload:r.get(6)?,decision_digest:r.get(7)?})).optional()? {return Ok(alternate)}
     Ok(conn.query_row("SELECT o.id,o.track_id,o.payload_json FROM organization_reservations r JOIN organization_operations o ON o.id=r.operation_id WHERE r.path=?1",[path],|r|Ok(OwnershipSnapshot::Reserved{operation_id:r.get(0)?,track_id:r.get(1)?,payload:r.get(2)?})).optional()?.unwrap_or(OwnershipSnapshot::Unowned))
 }

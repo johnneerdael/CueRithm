@@ -1232,3 +1232,69 @@ fn decode(bytes: &[u8]) -> Result<Object> {
 #[cfg(test)]
 #[path = "djay_pro/tests.rs"]
 mod tests;
+
+fn reference_objects(tx: &Transaction<'_>, source: &Path) -> Result<Vec<(String, Object)>> {
+    let uri = file_uri(source)?;
+    Ok(objects(tx,"localMediaItemLocations")?.into_iter().filter(|(_,object)| matches!(object.get("sourceURIs"),Some(Value::Array(values)) if values.iter().any(|v|matches!(v,Value::Uri(v)|Value::String(v) if v==&uri)))).collect())
+}
+pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
+    let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let tx = conn.transaction()?;
+    let found = reference_objects(&tx, source)?;
+    ensure!(
+        found.len() == 1,
+        "djay source reference is missing or ambiguous"
+    );
+    Ok(found[0].0.clone())
+}
+pub(crate) fn repair_reference(
+    database: &Path,
+    source: &Path,
+    destination: &Path,
+    expected: &str,
+) -> Result<()> {
+    let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    let tx = conn.transaction()?;
+    let mut found = reference_objects(&tx, source)?;
+    ensure!(
+        found.len() == 1 && found[0].0 == expected,
+        "djay source reference changed"
+    );
+    ensure!(
+        reference_objects(&tx, destination)?
+            .iter()
+            .all(|(id, _)| id == expected),
+        "djay destination already has a native track"
+    );
+    let (id, mut object) = found.remove(0);
+    let from = file_uri(source)?;
+    let to = file_uri(destination)?;
+    let Some(Value::Array(previous)) = object.get("sourceURIs") else {
+        anyhow::bail!("djay source URI record is missing")
+    };
+    let mut changed = previous.clone();
+    for value in &mut changed {
+        match value {
+            Value::Uri(uri) | Value::String(uri) if *uri == from => *uri = to.clone(),
+            _ => {}
+        }
+    }
+    object.set("sourceURIs", Value::Array(changed));
+    upsert(&tx, "localMediaItemLocations", &id, &object)?;
+    let index:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='secondaryIndex_mediaItemLocationIndex')",[],|row|row.get(0))?;
+    if index {
+        let filename = destination
+            .file_name()
+            .and_then(|s| s.to_str())
+            .context("djay requires a Unicode filename")?;
+        tx.execute("UPDATE secondaryIndex_mediaItemLocationIndex SET fileName=?1 WHERE rowid=(SELECT rowid FROM database2 WHERE collection='localMediaItemLocations' AND key=?2)",params![filename,id])?;
+    }
+    for extension in INDEXES {
+        tx.execute(
+            "UPDATE yap2 SET data=0 WHERE extension=?1 AND key='versionTag'",
+            [extension],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
