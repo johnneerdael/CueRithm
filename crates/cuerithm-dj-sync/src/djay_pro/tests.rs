@@ -1166,3 +1166,250 @@ fn invalid_optional_numeric_metadata_does_not_commit_djay_changes() {
         assert_eq!(get(&path, "mediaItems", &id), before);
     }
 }
+
+fn seed_location(path: &Path, id: &str, uris: Vec<Value>) {
+    let mut conn = Connection::open(path).unwrap();
+    let tx = conn.transaction().unwrap();
+    let mut location = Object::new("ADCMediaItemLocation");
+    location.set("uuid", text(id));
+    location.set("sourceURIs", Value::Array(uris));
+    location.set("nativeFact", text("keep"));
+    location.set("urlBookmarkData", Value::Binary(vec![1, 7, 19, 0, 4]));
+    upsert(&tx, "localMediaItemLocations", id, &location).unwrap();
+    tx.commit().unwrap();
+}
+#[test]
+fn windows_uri_aliases_reuse_native_uuid_and_preserve_complete_uri_array() {
+    for (source, native) in [
+        (
+            r"C:\Music\Track One.mp3",
+            "file:///c:%5cMusic%5CTrack%20One.mp3",
+        ),
+        (
+            r"\\Server\share\Track One.mp3",
+            "file:///%5C%5Cserver%5Cshare%5CTrack%20One.mp3",
+        ),
+        (
+            "//Server/share/Track One.mp3",
+            "file://server/share/Track%20One.mp3",
+        ),
+    ] {
+        let (_folder, path) = database();
+        let uris = vec![
+            Value::String("file:///unrelated/primary.mp3".into()),
+            Value::Uri(native.into()),
+            Value::Uri("spotify:track:retained".into()),
+        ];
+        seed_location(&path, "native-windows", uris.clone());
+        let mut input = library();
+        input.tracks[0].path = source.into();
+        write(&path, &input, &SyncOptions::default()).unwrap();
+        let location = get(&path, "localMediaItemLocations", "native-windows");
+        assert_eq!(location.get("sourceURIs"), Some(&Value::Array(uris)));
+        assert_eq!(location.get("nativeFact"), Some(&text("keep")));
+        assert_eq!(
+            location.get("urlBookmarkData"),
+            Some(&Value::Binary(vec![1, 7, 19, 0, 4]))
+        );
+        assert_eq!(
+            get(&path, "mediaItems", "native-windows").get("title"),
+            Some(&text("Café"))
+        );
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                [],
+                |row| row.get::<_, u32>(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
+}
+#[test]
+fn equivalent_selected_windows_native_uuids_reject_without_writes() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "encoded",
+        vec![Value::Uri("file:///C:%5CMusic%5CTrack.mp3".into())],
+    );
+    seed_location(
+        &path,
+        "slash",
+        vec![Value::Uri("file:///c:/Music/Track.mp3".into())],
+    );
+    let input = library();
+    // Unrelated native duplicates are outside the selected identity scope.
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let mut selected = input.clone();
+    selected.tracks[0].path = "C:/Music/Track.mp3".into();
+    assert!(write(&path, &selected, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+#[test]
+fn duplicate_selected_windows_identities_reject_before_native_writes() {
+    let (_folder, path) = database();
+    let before = std::fs::read(&path).unwrap();
+    let mut input = library();
+    input.tracks[0].path = r"C:\Music\Track.mp3".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "c:/Music/Track.mp3".into();
+    input.tracks.push(second);
+    assert!(write(&path, &input, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+#[test]
+fn posix_backslash_filenames_remain_distinct_from_directory_separators() {
+    let (_folder, path) = database();
+    let conn = Connection::open(&path).unwrap();
+    conn.execute_batch("CREATE TABLE secondaryIndex_mediaItemLocationIndex(rowid INTEGER PRIMARY KEY,fileName TEXT);").unwrap();
+    let mut input = library();
+    input.tracks[0].path = r"/music/a\b.mp3".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "/music/a/b.mp3".into();
+    input.tracks.push(second);
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let first = stable_id("track", "one", false);
+    let second = stable_id("track", "two", false);
+    assert_eq!(
+        get(&path, "localMediaItemLocations", &first).get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///music/a%5Cb.mp3".into()
+        )]))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", &second).get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///music/a/b.mp3".into()
+        )]))
+    );
+    let filenames = conn
+        .prepare("SELECT fileName FROM secondaryIndex_mediaItemLocationIndex ORDER BY fileName")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(filenames, [r"a\b.mp3", "b.mp3"]);
+}
+#[test]
+fn windows_uri_reference_repair_uses_equivalent_identity_and_preserves_other_aliases() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "native",
+        vec![
+            Value::Uri("file:///C:%5CMusic%5CTrack.mp3".into()),
+            Value::Uri("stream:keep".into()),
+        ],
+    );
+    let source = Path::new("c:/Music/Track.mp3");
+    let destination = Path::new(r"C:\Moved\Track.mp3");
+    assert_eq!(reference_id(&path, source).unwrap(), "native");
+    repair_reference(&path, source, destination, "native").unwrap();
+    let location = get(&path, "localMediaItemLocations", "native");
+    assert_eq!(
+        location.get("sourceURIs"),
+        Some(&Value::Array(vec![
+            Value::Uri("file:///C:/Moved/Track.mp3".into()),
+            Value::Uri("stream:keep".into())
+        ]))
+    );
+    assert_eq!(location.get("nativeFact"), Some(&text("keep")));
+    seed_location(
+        &path,
+        "conflict",
+        vec![Value::Uri("file:///C:%5CElsewhere%5CTrack.mp3".into())],
+    );
+    let before = std::fs::read(&path).unwrap();
+    assert!(
+        repair_reference(
+            &path,
+            destination,
+            Path::new("c:/Elsewhere/Track.mp3"),
+            "native"
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn windows_uri_identity_does_not_claim_malformed_or_distinct_paths() {
+    for uri in [
+        "file:///music/a%5Cb.mp3",
+        "file:///C:/Music/%GG.mp3",
+        "file:///C:/Music/%00.mp3",
+        "file:///C:/Music/%FF.mp3",
+        "file:///C:/Music/Track.mp3#other",
+        "file:///C:/Music/Track.mp3?other",
+        "file://user@server/share/Track.mp3",
+        "file://server:42/share/Track.mp3",
+        "file://server/",
+        "file:///C:/Music/../Track.mp3",
+        "file:///%5C%5C%3F%5CUNC%5Cserver%5Cshare%5CTrack.mp3",
+        "spotify:track:retained",
+    ] {
+        assert!(windows_uri_identity(uri).is_none(), "{uri}");
+    }
+    for (left, right) in [
+        ("file:///music/a%5Cb.mp3", "file:///music/a/b.mp3"),
+        ("file:///C:/Music/a%255Cb.mp3", "file:///C:/Music/a/b.mp3"),
+        ("file:///C:/Music/a.mp3", "file:///C:/music/a.mp3"),
+        ("file://server/Share/a.mp3", "file://server/share/a.mp3"),
+    ] {
+        assert_ne!(uri_identity(left), uri_identity(right));
+    }
+}
+
+#[test]
+fn distinct_selected_sources_cannot_overwrite_one_native_alias_identity() {
+    let (_folder, path) = database();
+    seed_location(
+        &path,
+        "native",
+        vec![
+            Value::Uri("file:///C:%5CMusic%5CFirst.mp3".into()),
+            Value::Uri("file:///C:%5CMusic%5CSecond.mp3".into()),
+        ],
+    );
+    seed_location(
+        &path,
+        "unselected",
+        vec![Value::Uri("file:///C:/Other/Untouched.mp3".into())],
+    );
+    let mut input = library();
+    input.tracks[0].path = "C:/Music/First.mp3".into();
+    input.tracks[0].title = "First selected metadata".into();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = "C:/Music/Second.mp3".into();
+    second.title = "Second selected metadata".into();
+    input.tracks.push(second);
+    let before = std::fs::read(&path).unwrap();
+    assert!(write(&path, &input, &SyncOptions::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    // One selected source may legitimately have several native aliases.
+    input.tracks.pop();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    assert_eq!(
+        get(&path, "mediaItems", "native").get("title"),
+        Some(&text("First selected metadata"))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", "native").get("sourceURIs"),
+        Some(&Value::Array(vec![
+            Value::Uri("file:///C:%5CMusic%5CFirst.mp3".into()),
+            Value::Uri("file:///C:%5CMusic%5CSecond.mp3".into()),
+        ]))
+    );
+    assert_eq!(
+        get(&path, "localMediaItemLocations", "unselected").get("nativeFact"),
+        Some(&text("keep"))
+    );
+}

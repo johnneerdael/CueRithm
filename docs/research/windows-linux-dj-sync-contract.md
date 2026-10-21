@@ -26,7 +26,7 @@ source music, identifying library records or credentials are published.
 | --- | --- | --- |
 | VirtualDJ | Windows includes `virtualdj8.exe`, a configurable home folder, per-drive databases, and modern versus legacy playlist layouts. | Process aliases, native Windows HomeFolder discovery and matched POI payload preservation corrected; Wine setup, routing and layout work remain. |
 | Engine DJ | Windows relative paths can require cross-drive absolute references. Copying audio remains a distinct option. | Current cross-drive restriction needs target-context handling. |
-| djay | Windows file URI encoding differs from a simple POSIX URI. Bitrate and album track number are represented in native records. | Numeric fields corrected; native URI matching and explicit Windows context remain. |
+| djay | Windows file URI encoding differs from a simple POSIX URI. Bitrate and album track number are represented in native records. | Numeric fields and equivalent Windows URI matching corrected; explicit Windows context remains. |
 | Serato 4 | Root, external and network library routing is distinct; native play counts have no current local producer. | Retain existing routing and native play history; explicit drive context remains. |
 | Pioneer USB | Legacy ANLZ and modern SQL encode loop activation independently. Both catalogs carry bitrate and track number. | Activation and numeric fields corrected; converted PCM copies use output bitrate. |
 | Native rekordbox 6/7 | Windows settings use roaming Pioneer directories and the same desktop data/asset families. | Replace exact-build restriction with supported schema/protocol checks and add manual Windows/Wine configuration. |
@@ -44,6 +44,15 @@ Seen djay metadata transfers bitrate in kilobits/second and album track number.
 CueRithm now writes valid available values, preserves existing values for missing
 or synthesized Null metadata, and rejects invalid values. Existing native play
 counts are preserved because the normal local snapshot does not supply one.
+
+djay now reuses native track identities across equivalent Windows drive and UNC
+file URI encodings. If an existing alias represents the selected source, ordinary
+sync preserves its complete native URI array. Reference repair uses the same
+comparison and preserves unrelated aliases. Ambiguous selected identities refuse
+writes. POSIX filenames containing a literal backslash remain distinct from
+directory paths. New Windows records retain the existing slash-form URI output;
+the observed vendor encoding alone does not establish a native requirement to
+change that output. These checks do not yet map Linux host paths to Wine drives.
 
 Seen Device Library Plus has an independent active-loop flag. CueRithm previously
 wrote it as zero while its legacy memory-loop ANLZ flag could be active. The new
