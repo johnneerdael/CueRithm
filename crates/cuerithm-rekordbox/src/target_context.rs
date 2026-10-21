@@ -61,7 +61,9 @@ impl TargetPathSnapshot {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct RootObservation {
+    #[serde(with = "crate::path_serde")]
     selected: PathBuf,
+    #[serde(with = "crate::path_serde")]
     canonical: PathBuf,
     identity: PhysicalIdentity,
 }
@@ -90,6 +92,7 @@ impl TargetEnvironment {
             mappings,
         } = self
         {
+            path_text(prefix)?;
             directory_root(prefix)?;
             ensure!(
                 !mappings.is_empty(),
@@ -99,6 +102,7 @@ impl TargetEnvironment {
             let mut hosts: Vec<PathBuf> = Vec::new();
             for mapping in mappings {
                 let native = WindowsPath::parse(&mapping.windows_root)?;
+                path_text(&mapping.host_root)?;
                 let physical = directory_root(&mapping.host_root)?;
                 ensure!(
                     !windows.contains(&native.folded()),
@@ -123,6 +127,7 @@ impl TargetEnvironment {
                 hosts.push(physical);
             }
             if let Some(path) = installation {
+                path_text(path)?;
                 validate_host_absolute(path)?;
                 let metadata =
                     fs::metadata(path).context("Selected installation is unavailable")?;
@@ -143,6 +148,7 @@ impl TargetEnvironment {
         };
         self.validate()?;
         validate_host_absolute(path)?;
+        path_text(path)?;
         // Select by physical ancestry, never by an alias's selected spelling:
         // both spellings of the same source must choose the same nested root.
         let physical_source = physical_path(path)?;
@@ -382,7 +388,6 @@ fn validate_host_absolute(path: &Path) -> Result<()> {
         path.is_absolute() && !path.components().any(|p| matches!(p, Component::ParentDir)),
         "Choose an absolute host path without traversal"
     );
-    path_text(path)?;
     Ok(())
 }
 fn host_components(path: &Path) -> Result<Vec<String>> {
@@ -893,6 +898,12 @@ mod tests {
         let database = root.path().join("database.sqlite");
         fs::write(&database, b"first database").unwrap();
         let snapshot = TargetPathSnapshot::capture(root.path()).unwrap();
+        let json = serde_json::to_value(&snapshot).unwrap();
+        assert_eq!(json["root"]["selected"], root.path().to_str().unwrap());
+        assert_eq!(
+            json["root"]["canonical"],
+            root.path().canonicalize().unwrap().to_str().unwrap()
+        );
         let snapshot: TargetPathSnapshot =
             serde_json::from_slice(&serde_json::to_vec(&snapshot).unwrap()).unwrap();
         fs::rename(&database, root.path().join("retired.sqlite")).unwrap();
@@ -922,5 +933,97 @@ mod tests {
         fs::rename(&first, root.path().join("retired")).unwrap();
         fs::create_dir(&first).unwrap();
         assert!(snapshot.verify().is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_raw_directory_snapshot_roundtrips_and_allows_database_replacement() {
+        use std::os::unix::ffi::OsStringExt;
+        let root = tempfile::tempdir().unwrap();
+        let raw = root
+            .path()
+            .join(std::ffi::OsString::from_vec(b"native-\xff".to_vec()));
+        fs::create_dir(&raw).unwrap();
+        let database = raw.join("database.sqlite");
+        fs::write(&database, b"first database").unwrap();
+        let snapshot = TargetPathSnapshot::capture(&raw).unwrap();
+        let bytes = serde_json::to_vec(&snapshot).unwrap();
+        let reopened: TargetPathSnapshot = serde_json::from_slice(&bytes).unwrap();
+        fs::rename(&database, raw.join("retired.sqlite")).unwrap();
+        fs::write(&database, b"replacement database").unwrap();
+        reopened.verify().unwrap();
+        assert_eq!(
+            TargetEnvironment::Native.to_native(&database).unwrap(),
+            database
+        );
+        assert!(
+            environment(root.path(), &[("C:\\", root.path())])
+                .to_native(&database)
+                .is_err()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn raw_selected_and_canonical_paths_serialize_losslessly_in_directory_evidence() {
+        use std::os::unix::ffi::OsStringExt;
+        let root = tempfile::tempdir().unwrap();
+        let raw = root
+            .path()
+            .join(std::ffi::OsString::from_vec(b"evidence-\xfe".to_vec()));
+        // macOS volumes reject raw directory names. Exercise the lossless DTO
+        // independently here; Linux tests cover capture/reopen/verification.
+        let snapshot = TargetPathSnapshot {
+            root: RootObservation {
+                selected: raw.clone(),
+                canonical: raw.clone(),
+                identity: physical_identity(root.path()).unwrap(),
+            },
+        };
+        let bytes = serde_json::to_vec(&snapshot).unwrap();
+        let reopened: TargetPathSnapshot = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(reopened.root.selected, raw);
+        assert_eq!(reopened.root.canonical, raw);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_absolute_path_validation_accepts_raw_bytes_without_a_windows_projection() {
+        use std::os::unix::ffi::OsStringExt;
+        let root = tempfile::tempdir().unwrap();
+        let raw = root
+            .path()
+            .join(std::ffi::OsString::from_vec(b"native-\xff".to_vec()));
+        validate_host_absolute(&raw).unwrap();
+        assert_eq!(TargetEnvironment::Native.to_native(&raw).unwrap(), raw);
+        assert!(
+            environment(root.path(), &[("C:\\", root.path())])
+                .to_native(&raw)
+                .is_err()
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_raw_directory_symlink_proof_reopens_and_rejects_retargeting() {
+        use std::os::unix::{ffi::OsStringExt, fs::symlink};
+        let root = tempfile::tempdir().unwrap();
+        let raw = root
+            .path()
+            .join(std::ffi::OsString::from_vec(b"physical-\xff".to_vec()));
+        let other = root.path().join("other");
+        fs::create_dir(&raw).unwrap();
+        fs::create_dir(&other).unwrap();
+        let selected = root
+            .path()
+            .join(std::ffi::OsString::from_vec(b"selected-\xfe".to_vec()));
+        symlink(&raw, &selected).unwrap();
+        let snapshot = TargetPathSnapshot::capture(&selected).unwrap();
+        let reopened: TargetPathSnapshot =
+            serde_json::from_slice(&serde_json::to_vec(&snapshot).unwrap()).unwrap();
+        reopened.verify().unwrap();
+        fs::remove_file(&selected).unwrap();
+        symlink(&other, &selected).unwrap();
+        assert!(reopened.verify().is_err());
     }
 }

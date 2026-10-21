@@ -1771,13 +1771,18 @@ fn explicit_source_only_relocation_rewrites_complete_bundle_paths_and_preserves_
 #[test]
 fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_import_or_clock_shift()
  {
-    compatible_audio_copy_roundtrip(false);
+    compatible_audio_copy_roundtrip(false, false);
 }
 #[test]
 fn windows_compatible_audio_copy_uses_native_references_and_repeats_without_duplicates() {
-    compatible_audio_copy_roundtrip(true);
+    compatible_audio_copy_roundtrip(true, false);
 }
-fn compatible_audio_copy_roundtrip(windows: bool) {
+#[cfg(unix)]
+#[test]
+fn unmapped_reserved_opus_source_publishes_mapped_copy_with_original_source_proofs() {
+    compatible_audio_copy_roundtrip(true, true);
+}
+fn compatible_audio_copy_roundtrip(windows: bool, unmapped_source: bool) {
     let f = if windows {
         windows_fixture(false)
     } else {
@@ -1785,7 +1790,12 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
     };
     cue_fixture(&f);
     creation_columns(&f);
-    let sources = f._dir.path().join("media");
+    let external_sources = tempfile::tempdir().unwrap();
+    let sources = if unmapped_source {
+        external_sources.path().join("media")
+    } else {
+        f._dir.path().join("media")
+    };
     fs::create_dir(&sources).unwrap();
     let archive =
         File::open(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/fixtures/media.tar.gz"))
@@ -1799,12 +1809,23 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
         .as_array()
         .unwrap()
         .iter()
-        .find(|case| case["file"].as_str().unwrap().ends_with(".wma"))
+        .find(|case| {
+            case["file"]
+                .as_str()
+                .unwrap()
+                .ends_with(if unmapped_source { ".opus" } else { ".wma" })
+        })
         .unwrap();
-    let original = sources
+    let mut original = sources
         .join(case["file"].as_str().unwrap())
         .canonicalize()
         .unwrap();
+    if unmapped_source {
+        let renamed = sources.join("CON.opus");
+        fs::rename(&original, &renamed).unwrap();
+        original = renamed.canonicalize().unwrap();
+    }
+    let original_bytes = fs::read(&original).unwrap();
     let runtime = runtime();
     let decoded = runtime.decode(&original, &sources).unwrap();
     let hash = file_hash(&original).unwrap().unwrap();
@@ -1819,7 +1840,18 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
             }],
         )
         .unwrap();
-    let prior = load(&f.library, &f.id).unwrap();
+    let mut prior = load(&f.library, &f.id).unwrap();
+    if unmapped_source {
+        prior.target.environment = TargetEnvironment::WindowsCompatibility {
+            prefix: f._dir.path().canonicalize().unwrap(),
+            installation: None,
+            mappings: vec![DriveMapping {
+                windows_root: "C:\\".into(),
+                host_root: prior.target.asset_root.clone(),
+            }],
+        };
+        assert!(prior.target.environment.to_native(&original).is_err());
+    }
     f.library.discard_rekordbox_sync(&f.id).unwrap();
     let options = RekordboxSyncOptions {
         metadata_fields: BTreeSet::from(["title".into()]),
@@ -1846,29 +1878,31 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
             ]),
         )]),
     };
-    assert!(
-        planning::preview(
-            &f.library,
-            request.clone(),
-            prior.target.clone(),
-            &key(),
-            Some(&runtime),
-            &CancellationToken::default(),
-            planning::PreviewPermit::AuthoredFixture
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("compatible audio copies")
-    );
-    assert_eq!(
-        f.library
-            .conn()
-            .unwrap()
-            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, u64>(0))
-            .unwrap(),
-        1,
-        "Preview does not implicitly import unrelated native-only audio"
-    );
+    if !unmapped_source {
+        assert!(
+            planning::preview(
+                &f.library,
+                request.clone(),
+                prior.target.clone(),
+                &key(),
+                Some(&runtime),
+                &CancellationToken::default(),
+                planning::PreviewPermit::AuthoredFixture
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("compatible audio copies")
+        );
+        assert_eq!(
+            f.library
+                .conn()
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, u64>(0))
+                .unwrap(),
+            1,
+            "Preview does not implicitly import unrelated native-only audio"
+        );
+    }
     request.options.convert_incompatible_audio = true;
     let preview = planning::preview(
         &f.library,
@@ -1888,7 +1922,29 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
     assert!(proof.converted);
     assert_eq!(proof.native_file_type, 11);
     assert_eq!(proof.original.sha256, hash);
+    assert_eq!(proof.original.path, original);
+    assert_eq!(op.sources[0].path, original);
+    assert_eq!(op.sources[0].hash, hash);
     assert!(!proof.native_path.exists());
+    if unmapped_source {
+        let before_native = fs::read(&f.native).unwrap();
+        fs::write(&original, b"changed authored source after preview").unwrap();
+        assert!(
+            publication::fixture_apply(
+                &f.library,
+                &preview.id,
+                &key(),
+                &CancellationToken::default(),
+                &|| Ok(())
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("source changed")
+        );
+        assert_eq!(fs::read(&f.native).unwrap(), before_native);
+        assert!(!proof.native_path.exists());
+        fs::write(&original, &original_bytes).unwrap();
+    }
     publication::fixture_apply(
         &f.library,
         &preview.id,
@@ -1914,6 +1970,16 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
             .unwrap(),
     );
     assert_eq!(native.source.path.as_deref(), native_reference.to_str());
+    if unmapped_source {
+        assert!(
+            native_reference
+                .to_str()
+                .unwrap()
+                .starts_with(r"C:\Contents\CUERITHM\")
+        );
+        assert!(native_reference.to_str().unwrap().ends_with(".wav"));
+        assert!(!native_reference.to_str().unwrap().contains("CON.opus"));
+    }
     assert_eq!(native.source.file_type, Some(11));
     assert_eq!(native.cues[0].start_seconds, Some(0.2));
     assert!(proof.native_path.is_file());
@@ -1959,8 +2025,8 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
     );
     let repeat = planning::preview(
         &f.library,
-        request,
-        prior.target,
+        request.clone(),
+        prior.target.clone(),
         &key(),
         Some(&runtime),
         &CancellationToken::default(),
@@ -1977,6 +2043,42 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
         "The owned compatible-copy relationship is not a new source conflict"
     );
     f.library.discard_rekordbox_sync(&repeat.id).unwrap();
+    if unmapped_source {
+        let mut metadata_request = request;
+        metadata_request.options.cues = false;
+        metadata_request.options.beat_grid = false;
+        metadata_request.decisions.clear();
+        let metadata_repeat = planning::preview(
+            &f.library,
+            metadata_request,
+            prior.target,
+            &key(),
+            Some(&runtime),
+            &CancellationToken::default(),
+            planning::PreviewPermit::AuthoredFixture,
+        )
+        .unwrap();
+        assert_eq!(metadata_repeat.media_copies, 0);
+        assert_eq!(metadata_repeat.changed_rows, 0);
+        f.library
+            .discard_rekordbox_sync(&metadata_repeat.id)
+            .unwrap();
+        fs::write(&original, b"changed authored source after publication").unwrap();
+        assert!(
+            publication::fixture_restore(
+                &f.library,
+                &preview.id,
+                &key(),
+                &CancellationToken::default(),
+                &|| Ok(())
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("source changed")
+        );
+        assert!(proof.native_path.exists());
+        fs::write(&original, &original_bytes).unwrap();
+    }
     publication::fixture_restore(
         &f.library,
         &preview.id,
@@ -1986,6 +2088,7 @@ fn compatible_audio_copy_roundtrip(windows: bool) {
     )
     .unwrap();
     assert!(!proof.native_path.exists());
+    assert_eq!(fs::read(&original).unwrap(), original_bytes);
     assert_eq!(
         file_hash(&original).unwrap().as_deref(),
         Some(hash.as_str())
@@ -3717,4 +3820,70 @@ fn native_preflight_uses_selected_saved_executable_when_library_ids_are_equal() 
     assert!(readable.readable, "{:?}", readable.restrictions);
     // Authored schemas remain read-only even when the selected key source works.
     assert!(!readable.writable);
+}
+
+#[cfg(unix)]
+#[test]
+fn unmapped_direct_audio_source_is_refused_when_compatible_audio_needs_no_copy() {
+    let f = windows_fixture(false);
+    cue_fixture(&f);
+    creation_columns(&f);
+    let external = tempfile::tempdir().unwrap();
+    let original = external.path().canonicalize().unwrap().join("authored.wav");
+    fs::copy(f._dir.path().join("authored.wav"), &original).unwrap();
+    f.library
+        .conn()
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET path=?1 WHERE id='local'",
+            [crate::model::path_bytes(&original)],
+        )
+        .unwrap();
+    let mut prior = load(&f.library, &f.id).unwrap();
+    prior.target.environment = TargetEnvironment::WindowsCompatibility {
+        prefix: f._dir.path().canonicalize().unwrap(),
+        installation: None,
+        mappings: vec![DriveMapping {
+            windows_root: "C:\\".into(),
+            host_root: prior.target.asset_root.clone(),
+        }],
+    };
+    f.library.discard_rekordbox_sync(&f.id).unwrap();
+    let before_native = fs::read(&f.native).unwrap();
+    let before_assets = directory_manifest(&prior.target.asset_root).unwrap();
+    let request = RekordboxSyncRequest {
+        configuration: None,
+        target_id: prior.target.id.clone(),
+        scope: RekordboxSyncScope::Full,
+        options: RekordboxSyncOptions {
+            metadata_fields: BTreeSet::from(["title".into()]),
+            cues: false,
+            beat_grid: false,
+            artwork: false,
+            playlists: false,
+            my_tags: false,
+            convert_incompatible_audio: true,
+            ..Default::default()
+        },
+        decisions: BTreeMap::from([(
+            "local".into(),
+            BTreeMap::from([("title".into(), NativeFieldDecision::UseLocal)]),
+        )]),
+    };
+    let error = planning::preview(
+        &f.library,
+        request,
+        prior.target.clone(),
+        &key(),
+        Some(&runtime()),
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("mapping"), "{error:#}");
+    assert_eq!(fs::read(&f.native).unwrap(), before_native);
+    assert_eq!(
+        directory_manifest(&prior.target.asset_root).unwrap(),
+        before_assets
+    );
 }

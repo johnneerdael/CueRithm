@@ -741,19 +741,6 @@ pub(super) fn preview(
     let mut pending_creation_choice = false;
     let mut projected_sources = BTreeMap::new();
     for track in &mut local_library.tracks {
-        let projected = target.environment.to_native(&track.path)?;
-        let key = if target.environment.is_native() {
-            projected.to_string_lossy().into_owned()
-        } else {
-            projected.to_string_lossy().to_lowercase()
-        };
-        let physical = track.path.canonicalize()?;
-        if let Some(prior) = projected_sources.insert(key, physical.clone()) {
-            ensure!(
-                prior == physical,
-                "Selected audio sources collide under destination path semantics"
-            );
-        }
         cancel.check()?;
         let (local, epoch, link) = {
             let connection = library.conn()?;
@@ -1021,7 +1008,24 @@ pub(super) fn preview(
         }
         let mut regenerate_waveforms = false;
         let mut export_track = track.clone();
-        let mut native_audio_path = track.path.clone();
+        // An existing compatible copy remains the destination for metadata-only
+        // edits; the original source can be outside the Windows namespace.
+        let previous_copy = if relocate_audio {
+            None
+        } else {
+            remote
+                .map(|remote| previous_native_media(library, &native_target_id, track, remote))
+                .transpose()?
+                .flatten()
+                .filter(|media| {
+                    media.converted
+                        && media.original.path == track.path
+                        && media.original.sha256 == sources.last().unwrap().hash
+                })
+        };
+        let mut native_audio_path = previous_copy
+            .map(|media| media.native_path)
+            .unwrap_or_else(|| track.path.clone());
         if remote.is_none() || write_cues || write_grid || relocate_audio {
             let runtime =
                 runtime.context("Native audio compatibility requires the bundled media runtime")?;
@@ -1154,6 +1158,25 @@ pub(super) fn preview(
             proof.native_path = native_audio_path.clone();
             sources.last_mut().unwrap().native_media = Some(proof);
             prepared_audio.push(audio);
+        }
+        // Validate the file rekordbox will reference, after an explicitly
+        // requested compatible copy has selected its publication location.
+        let projected = target.environment.to_native(&native_audio_path)?;
+        let key = if target.environment.is_native() {
+            projected.to_string_lossy().into_owned()
+        } else {
+            projected.to_string_lossy().to_lowercase()
+        };
+        let physical = match native_audio_path.canonicalize() {
+            Ok(physical) => physical,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => native_audio_path.clone(),
+            Err(error) => return Err(error).context("Native audio location is unavailable"),
+        };
+        if let Some(prior) = projected_sources.insert(key, physical.clone()) {
+            ensure!(
+                prior == physical,
+                "Selected audio sources collide under destination path semantics"
+            );
         }
         let mut owned = prior_owned_cues;
         // An explicit reviewed choice authorizes replacing the currently listed,

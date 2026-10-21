@@ -1461,3 +1461,249 @@ fn windows_context_djay_uses_windows_uri_and_retains_equivalent_native_identity(
     drop(conn);
     crate::restore_sync(&journals, &preview.id).unwrap();
 }
+
+fn mapped_case_fixture(
+    windows_root: &str,
+    native_uri: &str,
+) -> (
+    tempfile::TempDir,
+    PathBuf,
+    PathBuf,
+    crate::SyncTarget,
+    SyncLibrary,
+    Vec<Value>,
+) {
+    let (folder, database) = database();
+    let database = database.canonicalize().unwrap();
+    let root = folder.path().canonicalize().unwrap();
+    let music = root.join("Music");
+    std::fs::create_dir(&music).unwrap();
+    let source = music.join("a.mp3");
+    std::fs::write(&source, b"authored mp3 placeholder; no decoding").unwrap();
+    let uris = vec![
+        Value::String(native_uri.into()),
+        Value::Uri("spotify:track:keep".into()),
+        Value::Uri("file:///Z:/unresolved.mp3".into()),
+    ];
+    seed_location(&database, "native-case", uris.clone());
+    seed_location(
+        &database,
+        "foreign-malformed",
+        vec![
+            Value::Uri("file:///C:/Music/%ZZbad.mp3".into()),
+            Value::Uri("file:///Q:/unresolved.mp3".into()),
+        ],
+    );
+    let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"djay_pro","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":windows_root,"host_root":root}]}})).unwrap();
+    let mut input = library();
+    input.tracks[0].path = source.clone();
+    input.tracks[0].title = "Updated from physical source".into();
+    (folder, database, source, target, input, uris)
+}
+#[test]
+fn mapped_djay_case_aliases_reuse_physical_native_identity_and_preserve_all_uri_values() {
+    for (mapping, uri) in [
+        (r"C:\", "file:///C:/music/A.MP3"),
+        (r"\\nas\music", "file://NAS/MuSiC/music/A.MP3"),
+    ] {
+        let (folder, database, source, target, input, uris) = mapped_case_fixture(mapping, uri);
+        let foreign = get(&database, "localMediaItemLocations", "foreign-malformed");
+        let journals = folder.path().join("journals");
+        let preview =
+            crate::prepare_sync(&journals, target.clone(), &input, &SyncOptions::default())
+                .unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+            Some(&Value::Array(uris.clone()))
+        );
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "foreign-malformed"),
+            foreign
+        );
+        assert_eq!(
+            get(&database, "mediaItems", "native-case").get("title"),
+            Some(&text("Updated from physical source"))
+        );
+        assert_eq!(
+            Connection::open(&database)
+                .unwrap()
+                .query_row(
+                    "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            2
+        );
+        let snapshot = crate::inspect_path_reference(&target, &source).unwrap();
+        assert_eq!(snapshot.external_id, "native-case");
+        let destination = source.with_file_name("renamed.mp3");
+        std::fs::copy(&source, &destination).unwrap();
+        let plan = crate::prepare_path_repair(
+            &folder.path().join("repairs"),
+            &snapshot,
+            &crate::SourcePathChange {
+                track_id: "one".into(),
+                from: source.clone(),
+                to: destination.clone(),
+                source_sha256: crate::transaction::file_hash(&source).unwrap().unwrap(),
+                approved_from_sha256: None,
+            },
+        )
+        .unwrap();
+        crate::apply_path_repair(&folder.path().join("repairs"), &plan.id).unwrap();
+        let after = get(&database, "localMediaItemLocations", "native-case");
+        let Some(Value::Array(after_uris)) = after.get("sourceURIs") else {
+            panic!()
+        };
+        assert_eq!(&after_uris[1..], &uris[1..]);
+        assert_eq!(
+            after_uris[0],
+            Value::String(file_uri(&target.environment.to_native(&destination).unwrap()).unwrap())
+        );
+        crate::restore_path_repair(&folder.path().join("repairs"), &plan.id).unwrap();
+        assert_eq!(
+            get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+            Some(&Value::Array(uris))
+        );
+        crate::restore_sync(&journals, &preview.id).unwrap();
+    }
+}
+#[test]
+fn mapped_djay_multiple_native_uuids_for_one_physical_source_are_rejected_before_write() {
+    let (_folder, database, _source, target, input, _uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    seed_location(
+        &database,
+        "second-native",
+        vec![Value::Uri("file:///C:/MUSIC/a.mp3".into())],
+    );
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        crate::prepare_sync(
+            &database.parent().unwrap().join("journals"),
+            target,
+            &input,
+            &SyncOptions::default()
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn mapped_djay_multiple_local_paths_to_one_physical_source_are_rejected_before_write() {
+    let (_folder, database, source, target, mut input, _uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    let linked = source.with_file_name("linked.mp3");
+    std::fs::hard_link(&source, &linked).unwrap();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = linked;
+    input.tracks.push(second);
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        crate::prepare_sync(
+            &database.parent().unwrap().join("journals"),
+            target,
+            &input,
+            &SyncOptions::default()
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn native_djay_distinct_case_sensitive_host_paths_keep_separate_native_uuids() {
+    let (folder, database) = database();
+    let root = folder.path().canonicalize().unwrap();
+    let lower = root.join("lower.mp3");
+    let upper = root.join("LOWER.mp3");
+    std::fs::write(&lower, b"authored lower").unwrap();
+    std::fs::write(&upper, b"authored upper").unwrap();
+    if same_file::is_same_file(&lower, &upper).unwrap() {
+        return;
+    }
+    seed_location(
+        &database,
+        "native-lower",
+        vec![Value::Uri(file_uri(&lower).unwrap())],
+    );
+    seed_location(
+        &database,
+        "native-upper",
+        vec![Value::Uri(file_uri(&upper).unwrap())],
+    );
+    let mut input = library();
+    input.playlists.clear();
+    input.tracks[0].path = lower;
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = upper;
+    input.tracks.push(second);
+    write(&database, &input, &SyncOptions::default()).unwrap();
+    assert_eq!(
+        Connection::open(&database)
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM database2 WHERE collection='localMediaItemLocations'",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+        2
+    );
+    get(&database, "mediaItems", "native-lower");
+    get(&database, "mediaItems", "native-upper");
+}
+
+#[test]
+fn mapped_djay_direct_writer_refuses_globally_aliased_selected_sources() {
+    let (_folder, database, source, target, mut input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    input.playlists.clear();
+    let linked = source.with_file_name("linked.mp3");
+    std::fs::hard_link(&source, &linked).unwrap();
+    let mut second = input.tracks[0].clone();
+    second.id = "two".into();
+    second.path = linked;
+    input.tracks.push(second);
+    let before = std::fs::read(&database).unwrap();
+    let error = write_owned_in_environment(
+        &database,
+        &input,
+        &SyncOptions::default(),
+        &Default::default(),
+        &target.environment,
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("same physical source"),
+        "{error:#}"
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+#[test]
+fn mapped_djay_native_hardlink_aliases_cannot_select_an_arbitrary_uuid() {
+    let (_folder, database, source, target, mut input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    input.playlists.clear();
+    std::fs::hard_link(&source, source.with_file_name("linked.mp3")).unwrap();
+    seed_location(
+        &database,
+        "another-native",
+        vec![Value::Uri("file:///C:/Music/linked.mp3".into())],
+    );
+    let before = std::fs::read(&database).unwrap();
+    assert!(
+        write_owned_in_environment(
+            &database,
+            &input,
+            &SyncOptions::default(),
+            &Default::default(),
+            &target.environment
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}

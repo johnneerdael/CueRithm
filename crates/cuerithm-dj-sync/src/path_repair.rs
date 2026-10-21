@@ -146,7 +146,12 @@ fn external_id_at(
         DjSoftware::EngineDj => {
             crate::engine_dj::reference_id(database, &engine_root(target)?, &native)
         }
-        DjSoftware::DjayPro => crate::djay_pro::reference_id(database, &native),
+        DjSoftware::DjayPro if target.environment.is_native() => {
+            crate::djay_pro::reference_id(database, &native)
+        }
+        DjSoftware::DjayPro => {
+            crate::djay_pro::reference_id_in_environment(database, source, &target.environment)
+        }
         DjSoftware::Serato4 if target.environment.is_native() => {
             crate::serato4::reference_id(database, root, source)
         }
@@ -499,11 +504,20 @@ pub fn prepare_path_repair(
             &native_to,
             &snapshot.external_id,
         )?,
-        DjSoftware::DjayPro => crate::djay_pro::repair_reference(
+        DjSoftware::DjayPro if snapshot.target.environment.is_native() => {
+            crate::djay_pro::repair_reference(
+                &staged,
+                &native_from,
+                &native_to,
+                &snapshot.external_id,
+            )?
+        }
+        DjSoftware::DjayPro => crate::djay_pro::repair_reference_in_environment(
             &staged,
-            &native_from,
-            &native_to,
+            &change.from,
+            &change.to,
             &snapshot.external_id,
+            &snapshot.target.environment,
         )?,
         DjSoftware::Serato4 if snapshot.target.environment.is_native() => {
             crate::serato4::repair_reference(

@@ -52,7 +52,9 @@ comparison and preserves unrelated aliases. Ambiguous selected identities refuse
 writes. POSIX filenames containing a literal backslash remain distinct from
 directory paths. New Windows records retain the existing slash-form URI output;
 the observed vendor encoding alone does not establish a native requirement to
-change that output. These checks do not yet map Linux host paths to Wine drives.
+change that output. With a selected Windows environment, mapped references are
+resolved to physical files before equivalent aliases reuse an identity; distinct
+files on a case-sensitive host remain distinct.
 
 Seen Device Library Plus has an independent active-loop flag. CueRithm previously
 wrote it as zero while its legacy memory-loop ANLZ flag could be active. The new

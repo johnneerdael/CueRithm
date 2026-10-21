@@ -799,13 +799,14 @@ pub fn prepare_sync_owned_with_runtime(
             };
             let stage = build.join("djay/MediaLibrary.db");
             sqlite_snapshot(&database, &stage, &mut before)?;
-            let report = crate::djay_pro::write_owned(
+            let report = crate::djay_pro::write_owned_in_environment(
                 &stage,
                 library,
                 options,
                 contexts
                     .get(&database)
                     .map_or(&empty_ownership, |(_, request)| request),
+                &target.environment,
             )?;
             ownership.insert(database.clone(), (None, report));
             replacements.insert(database, stage);

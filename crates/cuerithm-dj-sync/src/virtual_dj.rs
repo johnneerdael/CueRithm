@@ -133,6 +133,20 @@ fn path_key(path: &str) -> String {
     // VirtualDJ treats paths case-insensitively on its supported platforms.
     path.replace('\\', "/").to_lowercase()
 }
+fn numeric_fact(track: &SyncTrack, field: &str, integer: bool) -> Result<Option<f64>> {
+    use cuerithm_smartlists::FieldValue;
+    match track.attributes.get(field) {
+        None | Some(FieldValue::Null) => Ok(None),
+        Some(FieldValue::Number(value)) => {
+            ensure!(
+                value.is_finite() && *value >= 0.0 && (!integer || value.fract() == 0.0),
+                "Invalid VirtualDJ {field}"
+            );
+            Ok(Some(*value))
+        }
+        Some(_) => bail!("Invalid VirtualDJ {field}"),
+    }
+}
 fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Result<()> {
     let reference = track
         .reference_path()
@@ -148,11 +162,7 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
     if let Ok(meta) = fs::metadata(&track.path) {
         song.attr("FileSize", meta.len());
     }
-    if let Some(number) = track.attribute_number("sizeBytes") {
-        ensure!(
-            number >= 0.0 && number.fract() == 0.0,
-            "Invalid VirtualDJ file size"
-        );
+    if let Some(number) = numeric_fact(track, "sizeBytes", true)? {
         song.attr("FileSize", format!("{number:.0}"));
     }
     let key = crate::formatting::format_key(&track.key, crate::KeyNotation::Musical)?;
@@ -185,14 +195,8 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
             tags.attrs.remove(attribute);
         }
     }
-    if let Some(number) = track.attribute_number("trackNumber") {
-        ensure!(
-            number >= 0.0 && number.fract() == 0.0,
-            "Invalid VirtualDJ track number"
-        );
+    if let Some(number) = numeric_fact(track, "trackNumber", true)? {
         tags.attr("TrackNumber", format!("{number:.0}"));
-    } else if track.attributes.contains_key("trackNumber") {
-        tags.attrs.remove("TrackNumber");
     }
     tags.attr("Stars", track.rating);
     if let Some(year) = track.year {
@@ -204,11 +208,8 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
         tags.attr("Bpm", format!("{:.6}", 60. / base_bpm));
     }
     let infos = song.child("Infos");
-    if let Some(number) = track.attribute_number("bitrate") {
-        ensure!(number >= 0.0, "Invalid VirtualDJ bitrate");
+    if let Some(number) = numeric_fact(track, "bitrate", false)? {
         infos.attr("Bitrate", number);
-    } else if track.attributes.contains_key("bitrate") {
-        infos.attrs.remove("Bitrate");
     }
     if let Some(date) = track.attribute_date("dateAdded") {
         infos.attr("FirstSeen", date.div_euclid(1000));
@@ -809,6 +810,59 @@ mod native_smart_tests {
 mod prepared_attribute_tests {
     use super::*;
     use cuerithm_smartlists::FieldValue;
+    #[test]
+    fn unknown_numeric_facts_preserve_known_native_values() {
+        let mut track = SyncTrack {
+            path: "/synthetic/missing.flac".into(),
+            ..Default::default()
+        };
+        let mut song = Node::new("Song");
+        song.attr("FileSize", "12345");
+        song.child("Tags").attr("TrackNumber", "07");
+        song.child("Infos").attr("Bitrate", "320");
+        for field in ["trackNumber", "bitrate", "sizeBytes"] {
+            track.attributes.insert(field.into(), FieldValue::Null);
+        }
+        track_xml(&mut song, &track, &SyncOptions::default()).unwrap();
+        assert_eq!(song.attrs["FileSize"], "12345");
+        assert_eq!(song.child("Tags").attrs["TrackNumber"], "07");
+        assert_eq!(song.child("Infos").attrs["Bitrate"], "320");
+    }
+    #[test]
+    fn invalid_numeric_facts_refuse_native_publication() {
+        let folder = tempfile::tempdir().unwrap();
+        let database = folder.path().join("database.xml");
+        let original = br#"<VirtualDJ_Database Version="8.5"><Song FilePath="/synthetic/missing.flac" FileSize="12345"><Tags TrackNumber="07"/><Infos Bitrate="320" Native="keep"/></Song></VirtualDJ_Database>"#;
+        fs::write(&database, original).unwrap();
+        for field in ["trackNumber", "bitrate", "sizeBytes"] {
+            for value in [
+                FieldValue::Text("invalid".into()),
+                FieldValue::Date(1),
+                FieldValue::Number(-1.0),
+                FieldValue::Number(f64::NAN),
+                FieldValue::Number(f64::INFINITY),
+            ] {
+                let mut track = SyncTrack {
+                    id: "selected".into(),
+                    path: "/synthetic/missing.flac".into(),
+                    duration_seconds: 10.0,
+                    sample_rate: 48000,
+                    bpm: 120.0,
+                    ..Default::default()
+                };
+                track.attributes.insert(field.into(), value);
+                let library = SyncLibrary {
+                    tracks: vec![track],
+                    ..Default::default()
+                };
+                assert!(
+                    write(folder.path(), &library, &SyncOptions::default()).is_err(),
+                    "{field}"
+                );
+                assert_eq!(fs::read(&database).unwrap(), original);
+            }
+        }
+    }
     #[test]
     fn exports_prepared_metadata_used_by_native_rules() {
         let mut track = SyncTrack {

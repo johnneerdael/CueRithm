@@ -298,14 +298,13 @@ fn relative_path(base: &Path, target: &Path) -> Result<String> {
         let (root, rest) =
             if text.as_bytes().get(1) == Some(&b':') && text.as_bytes().get(2) == Some(&b'/') {
                 (text[..2].to_owned(), text[3..].to_owned())
-            } else if let Some(unc) = text.strip_prefix("//") {
+            } else {
+                let unc = text.strip_prefix("//")?;
                 let mut parts = unc.splitn(3, '/');
                 (
                     format!("//{}/{}", parts.next()?, parts.next()?),
                     parts.next().unwrap_or("").to_owned(),
                 )
-            } else {
-                return None;
             };
         Some((
             root,
@@ -465,17 +464,16 @@ fn write_track(
         ],
     )?;
     // Source bitrate is in kbps and sizeBytes is a byte count, matching Engine's
-    // integer columns. Missing facts preserve native values; explicit null clears.
+    // integer columns. Missing or unknown facts preserve native values.
     for (source, native) in [("bitrate", "bitrate"), ("sizeBytes", "fileBytes")] {
         let value = match track.attributes.get(source) {
-            None => continue,
-            Some(cuerithm_smartlists::FieldValue::Null) => None,
+            None | Some(cuerithm_smartlists::FieldValue::Null) => continue,
             Some(cuerithm_smartlists::FieldValue::Number(value)) => {
                 ensure!(
                     value.is_finite() && *value >= 0. && value.round() < i64::MAX as f64,
                     "Invalid Engine DJ source {source}"
                 );
-                Some(value.round() as i64)
+                value.round() as i64
             }
             Some(_) => anyhow::bail!("Invalid Engine DJ source {source}"),
         };
@@ -1365,7 +1363,20 @@ mod tests {
                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?))
             )
             .unwrap(),
-            (256, None)
+            (256, Some(12_345_678))
+        );
+        library.tracks[0]
+            .attributes
+            .insert("bitrate".into(), FieldValue::Null);
+        write_staged(&database, base, &library, &SyncOptions::default()).unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT bitrate,fileBytes FROM Track WHERE title='Synthetic'",
+                [],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))
+            )
+            .unwrap(),
+            (256, 12_345_678)
         );
     }
     #[test]
