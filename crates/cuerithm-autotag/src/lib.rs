@@ -304,7 +304,26 @@ impl Tagger {
             attempted: vec![],
             warnings: vec![],
         };
-        for id in &config.options.platforms {
+        let hint = hint.filter(|hint| {
+            config.options.album_tagging
+                && config
+                    .options
+                    .platforms
+                    .iter()
+                    .any(|id| id == hint.provider.as_str())
+        });
+        let mut album_candidates =
+            hint.map(|hint| Self::match_candidates(input, hint.album.tracks.clone(), config));
+        let mut platforms = config.options.platforms.iter().collect::<Vec<_>>();
+        // A matching selected release takes precedence over single-track search.
+        // Preserve configured search order on a miss and for multiplatform writes.
+        if !config.options.multiplatform
+            && let (Some(hint), Some(Ok(found))) = (hint, &album_candidates)
+            && !found.is_empty()
+        {
+            platforms.sort_by_key(|id| id.as_str() != hint.provider.as_str());
+        }
+        for id in platforms {
             let b = self
                 .backends
                 .iter()
@@ -319,17 +338,12 @@ impl Tagger {
             };
             let result = (|| -> Result<Option<CatalogMatch>> {
                 let _permit = b.gate.acquire(limit, cancel)?;
-                let mut found = if config.options.album_tagging {
-                    if let Some(hint) = hint.filter(|h| h.provider == provider) {
-                        let mut found =
-                            Self::match_candidates(input, hint.album.tracks.clone(), config)?;
-                        for item in &mut found {
-                            item.reason = onetagger_tagger::MatchReason::Album;
-                        }
-                        found
-                    } else {
-                        vec![]
+                let mut found = if hint.is_some_and(|hint| hint.provider == provider) {
+                    let mut found = album_candidates.take().transpose()?.unwrap_or_default();
+                    for item in &mut found {
+                        item.reason = onetagger_tagger::MatchReason::Album;
                     }
+                    found
                 } else {
                     vec![]
                 };

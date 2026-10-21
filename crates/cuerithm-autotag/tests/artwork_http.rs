@@ -117,7 +117,7 @@ fn cached_traxsource_album_downloads_artwork_with_referer_and_no_catalog_refetch
     )
     .unwrap();
     let mut config = AutotagConfig::default();
-    config.options.platforms = vec!["traxsource".into()];
+    assert_eq!(config.options.platforms, ["beatport", "traxsource"]);
     config.options.album_tagging = true;
     config.options.tags = vec![SupportedTag::AlbumArt];
     config.options.overwrite = true;
