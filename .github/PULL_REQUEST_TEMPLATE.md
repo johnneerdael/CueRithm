@@ -1,6 +1,6 @@
 <!--
 Merging needs a completed @codex review of the latest commit, resolved review threads and the sections below.
-Full cross-platform builds run after the merge, not on the PR (add the `full-ci` label to run them early).
+Full cross-platform builds start once the gate passes (a completed Codex review of the latest commit), not on every push, and again after the merge.
 -->
 
 ## Summary
