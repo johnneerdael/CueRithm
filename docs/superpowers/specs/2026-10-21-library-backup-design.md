@@ -14,15 +14,24 @@ The first delivery restores only on the same platform, application version and
 library installation. Each existing source must still match its saved hash;
 missing sources must remain missing. Engine models and the complete retained
 tagging, cleanup, maintenance and DJ-sync resource trees must be unchanged.
-Reject unsettled jobs/journals and unavailable dependencies, preserving history.
+Reject unsettled jobs/journals, organization reservations, incomplete preparation
+checkpoints and Copy conflicts. Include owned sidecars, exact native object/ancestor
+identities for Copy originals, source quarantines, abandoned/partial stages and
+native reference receipts/recovery files. Keep settled cancelled/partial histories,
+pre-proof ignored Copy decisions and historical moved/undone paths useful; bind
+their actual current state rather than assuming obsolete destinations remain.
+Reject unavailable required dependencies without pruning history.
 Do not promise portable backups or recovery after external file edits.
 
 ## Publication and restoration
 
-Use the existing lock order: DJ-sync service lease, metadata publication gate,
+Use the existing lock order: DJ-sync service lease, organization gate, metadata publication gate,
 library connection. Reject queued/running preparation and unsettled publication,
-maintenance/disposal and sync journals. The connection mutex prevents new jobs
-being claimed while checking and snapshotting. Desktop maintenance lease blocks
+maintenance/disposal and sync journals. Capture a private SQLite snapshot under the connection mutex, then release it
+before all source/model/resource hashing. Recheck same-connection changes, external
+SQLite data version, schema and quiet state before publishing the bundle or
+restore intent. Ordinary reads remain available and concurrent edits reject stale
+results. Desktop maintenance lease blocks
 parallel maintenance. Use SQLite backup API for coherent WAL snapshots.
 
 Inspect only two regular bundle files with fixed names; reject links, extra

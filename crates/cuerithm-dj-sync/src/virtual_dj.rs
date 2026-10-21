@@ -643,3 +643,141 @@ mod prepared_attribute_tests {
         assert_eq!(infos.attrs["FirstSeen"], "1792447200");
     }
 }
+
+pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
+    let source = source
+        .to_str()
+        .context("VirtualDJ requires a Unicode source path")?;
+    let root = parse(&fs::read(database)?)?;
+    let found = root
+        .children
+        .iter()
+        .filter_map(|part| match part {
+            Part::Node(node) if node.name == "Song" => node
+                .attrs
+                .get("FilePath")
+                .filter(|path| path_key(path) == path_key(source)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    ensure!(
+        found.len() == 1,
+        "VirtualDJ source reference is missing or ambiguous"
+    );
+    if found[0] != source {
+        ensure!(
+            same_file::is_same_file(Path::new(found[0]), Path::new(source))?,
+            "VirtualDJ normalized source path identifies another physical file"
+        );
+    }
+    Ok(path_key(source))
+}
+pub(crate) fn repair_reference_bytes(
+    bytes: &[u8],
+    source: &Path,
+    destination: &Path,
+    database: bool,
+) -> Result<Option<Vec<u8>>> {
+    let source = source
+        .to_str()
+        .context("VirtualDJ requires a Unicode source path")?;
+    let destination = destination
+        .to_str()
+        .context("VirtualDJ requires a Unicode destination path")?;
+    let mut root = parse(bytes)?;
+    if database {
+        let target = path_key(destination);
+        let old = path_key(source);
+        ensure!(!root.children.iter().any(|part| matches!(part,Part::Node(node) if node.name=="Song" && node.attrs.get("FilePath").is_some_and(|p|path_key(p)==target && path_key(p)!=old))),"VirtualDJ destination already has a native track");
+    }
+    fn replace(node: &mut Node, source: &str, destination: &str, count: &mut usize) -> Result<()> {
+        if node.name.eq_ignore_ascii_case("song") {
+            for key in ["FilePath", "path"] {
+                let matches = match node.attrs.get(key) {
+                    Some(path) if path_key(path) == path_key(source) => {
+                        path == source || same_file::is_same_file(Path::new(path), Path::new(source))
+                            .context("Unresolvable normalized VirtualDJ reference; restore its source or repair this alias before organization")?
+                    }
+                    _ => false,
+                };
+                if matches {
+                    node.attr(key, destination);
+                    *count += 1;
+                }
+            }
+        }
+        for child in &mut node.children {
+            if let Part::Node(child) = child {
+                replace(child, source, destination, count)?;
+            }
+        }
+        Ok(())
+    }
+    let mut count = 0;
+    replace(&mut root, source, destination, &mut count)?;
+    if database {
+        ensure!(
+            count == 1,
+            "VirtualDJ source reference changed or is ambiguous"
+        );
+    }
+    if count == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(root.bytes()?))
+    }
+}
+
+#[cfg(test)]
+mod path_reference_tests {
+    use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn a_proven_distinct_normalized_playlist_path_is_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("Music")).unwrap();
+        let source = dir.path().join("Music/song.wav");
+        let distinct = dir.path().join("Music\\song.wav");
+        fs::write(&source, b"source").unwrap();
+        fs::write(&distinct, b"distinct").unwrap();
+        assert_eq!(
+            path_key(source.to_str().unwrap()),
+            path_key(distinct.to_str().unwrap())
+        );
+        let playlist = format!(
+            r#"<VirtualFolder><song path="{}"/></VirtualFolder>"#,
+            distinct.display()
+        );
+        assert!(
+            repair_reference_bytes(
+                playlist.as_bytes(),
+                &source,
+                &dir.path().join("managed.wav"),
+                false
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+    #[test]
+    fn an_unproven_case_alias_in_a_playlist_blocks_repair() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("missing-original.wav");
+        let alias = dir.path().join("MISSING-ORIGINAL.wav");
+        let playlist = format!(
+            r#"<VirtualFolder><song path="{}"/></VirtualFolder>"#,
+            alias.display()
+        );
+        assert!(
+            repair_reference_bytes(
+                playlist.as_bytes(),
+                &source,
+                &dir.path().join("managed.wav"),
+                false
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("Unresolvable normalized VirtualDJ reference")
+        );
+    }
+}

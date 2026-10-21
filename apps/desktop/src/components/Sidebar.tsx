@@ -1,4 +1,4 @@
-import {Archive,ShieldCheck,ChevronRight,ChevronDown,Plus,Zap,Star,MoreHorizontal,Undo2,Trash2,ListMusic,Folder,Music2,PanelLeftClose,PanelLeftOpen} from "lucide-react";
+import {Archive,ShieldCheck,ChevronRight,ChevronDown,Plus,Zap,Star,MoreHorizontal,Undo2,Trash2,ListMusic,Folder,Music2,PanelLeftClose,PanelLeftOpen,FolderInput} from "lucide-react";
 import {useState,useEffect,useMemo,useCallback,useRef} from "react";
 import type {PlaylistWorkspace,PlaylistNode,PlaylistEdit} from "../playlist-types";
 import {playlistIndex,visiblePlaylistNodes} from "../playlist-tree";
@@ -62,6 +62,7 @@ export default function Sidebar({view,onView,state,playlists,activePlaylistId,on
     <button className={view==="cleanup"?"nav active":"nav"} title="Cleanup" onClick={()=>onView("cleanup")}><Glyph name="cleanup"/><span className="nav-label">Cleanup</span></button>
     <button className={view==="maintenance"?"nav active":"nav"} title="Maintenance" onClick={()=>onView("maintenance")}><ShieldCheck size={18}/><span className="nav-label">Maintenance</span></button>
     <button className={view==="backup"?"nav active":"nav"} title="Library backup" onClick={()=>onView("backup")}><Archive size={18}/><span className="nav-label">Library backup</span></button>
+    <button className={view==="organize"?"nav active":"nav"} title="Organize files" onClick={()=>onView("organize")}><FolderInput size={18}/><span className="nav-label">Organize files</span></button>
     <button className={view==="sync"?"nav active":"nav"} title="Sync" onClick={()=>onView("sync")}><Glyph name="sync"/><span className="nav-label">Sync</span></button>
     <div className="sidebar-bottom"><div className="offline-label"><i/><span>LOCAL LIBRARY</span></div><button className={view==="settings"?"nav active":"nav"} title="Settings" onClick={()=>onView("settings")}><Glyph name="settings"/><span className="nav-label">Settings</span></button><div className="build-label">CUERITHM <span>0.1</span></div></div>
     {menu&&menuNode&&!menuNode.deleted?<PlaylistMenu node={menuNode} nodes={nodes} x={menu.x} y={menu.y} onClose={closeMenu} onEdit={()=>onEdit(menuNode)} onMove={()=>setMoving(menuNode)} onAction={edit=>void onAction(edit,menu.revision)}/>:null}

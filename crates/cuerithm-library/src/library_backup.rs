@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use rusqlite::{
-    Connection, OpenFlags,
+    Connection, OpenFlags, OptionalExtension,
     backup::{Backup, StepResult},
 };
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,13 @@ const MAX_DATABASE: u64 = 1024 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 16 * 1024 * 1024;
 const MAX_ENTRIES: usize = 50_000;
 const MAX_DEPENDENCY_BYTES: u64 = 1024 * 1024 * 1024 * 1024;
-const RESOURCE_DIRS: [&str; 4] = ["tagging", "cleanup", "maintenance", "sync"];
+const RESOURCE_DIRS: [&str; 5] = [
+    "tagging",
+    "cleanup",
+    "maintenance",
+    "sync",
+    "organization-references",
+];
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryBackupPreview {
     pub path: PathBuf,
@@ -82,6 +88,7 @@ struct Manifest {
     sources: Vec<Location>,
     models: Vec<Location>,
     resources: Vec<Location>,
+    organization: Vec<OrganizationLocation>,
 }
 fn root_identity(root: &Path) -> Result<Vec<u8>> {
     Ok(path_bytes(&root.canonicalize()?))
@@ -157,13 +164,15 @@ fn schema(conn: &Connection) -> Result<i64> {
     let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    ensure!(
-        (14..=15).contains(&version),
-        "Unsupported library backup schema"
-    );
+    ensure!(version == 20, "Unsupported library backup schema");
     Ok(version)
 }
 fn quiet_database(conn: &Connection) -> Result<()> {
+    let organization_pending:i64=conn.query_row("SELECT (SELECT COUNT(*) FROM organization_operations WHERE state NOT IN ('complete','unchanged','cancelled','undone') OR error IS NOT NULL)+(SELECT COUNT(*) FROM organization_reservations)+(SELECT COUNT(*) FROM organization_batches WHERE state NOT IN ('complete','partial','cancelled','undone'))+(SELECT COUNT(*) FROM organization_batch_rows WHERE outcome NOT IN ('completed','unchanged','skipped','blocked','failed','cancelled'))+(SELECT COUNT(*) FROM preparation_checkpoints WHERE state!='complete')+(SELECT COUNT(*) FROM organization_copy_conflicts WHERE state NOT IN ('committed','original_restored'))+(SELECT COUNT(*) FROM organization_alternates WHERE state='conflict')+(SELECT COUNT(*) FROM organization_reference_intents i JOIN organization_operations o ON o.id=i.operation_id WHERE i.error IS NOT NULL OR i.state IN ('repairing','repaired') OR (o.state!='cancelled' AND i.state!='acknowledged' AND EXISTS(SELECT 1 FROM json_each(i.payload_json,'$.entries') e WHERE json_extract(e.value,'$.reference.known.independent')=0)))",[],|row|row.get(0))?;
+    ensure!(
+        organization_pending == 0,
+        "Finish organization and resolve its preparation, Copy-source or native-reference recovery before using a library backup"
+    );
     let pending:i64=conn.query_row("SELECT (SELECT COUNT(*) FROM jobs WHERE state IN ('queued','running'))+(SELECT COUNT(*) FROM tag_writes WHERE state NOT IN ('committed','rolled_back') OR cleanup_complete=0)+(SELECT COUNT(*) FROM cleanup_writes WHERE state NOT IN ('committed','undone','rolled_back') OR cleanup_complete=0)+(SELECT COUNT(*) FROM maintenance_writes WHERE state NOT IN ('committed','undone','rolled_back') OR cleanup_complete=0)+(SELECT COUNT(*) FROM maintenance_scans WHERE (kind='unused_removal_operation' AND (json_extract(payload_json,'$.state') NOT IN ('committed','undone','rolled_back') OR COALESCE(json_extract(payload_json,'$.cleanup_complete'),0)=0)) OR (kind='unused_backup_disposal' AND (json_extract(payload_json,'$.result.state') NOT IN ('committed','rolled_back') OR COALESCE(json_extract(payload_json,'$.result.cleanup_pending'),1)=1)))",[],|r|r.get(0))?;
     ensure!(
         pending == 0,
@@ -291,10 +300,13 @@ fn budget(items: &[Location]) -> Result<()> {
     );
     Ok(())
 }
-fn inventory(
-    conn: &Connection,
-    root: &Path,
-) -> Result<(Vec<Location>, Vec<Location>, Vec<Location>)> {
+type BackupInventory = (
+    Vec<Location>,
+    Vec<Location>,
+    Vec<Location>,
+    Vec<OrganizationLocation>,
+);
+fn inventory(conn: &Connection, root: &Path) -> Result<BackupInventory> {
     #[cfg(test)]
     inventory_phase_tests::run_hook();
     let mut sources = BTreeMap::new();
@@ -365,8 +377,477 @@ fn inventory(
     }
     resources.sort_by(|a, b| a.path.cmp(&b.path));
     budget(&resources)?;
-    Ok((sources, models, resources))
+    Ok((
+        sources,
+        models,
+        resources,
+        organization_inventory(conn, root)?,
+    ))
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OrganizationLocation {
+    path: Vec<u8>,
+    parent: Vec<u8>,
+    ancestors: Vec<crate::organization::Identity>,
+    identity: Option<crate::organization::Identity>,
+    sha256: Option<String>,
+    bytes: u64,
+    kind: String,
+}
+struct OrganizationLocations {
+    entries: BTreeMap<(Vec<u8>, bool), OrganizationLocation>,
+    bytes: u64,
+    limit: u64,
+}
+impl OrganizationLocations {
+    fn new() -> Self {
+        Self {
+            entries: BTreeMap::new(),
+            bytes: 0,
+            limit: MAX_DEPENDENCY_BYTES,
+        }
+    }
+}
+fn organization_location(
+    path: &Path,
+    directory: bool,
+    namespace: bool,
+    max_bytes: u64,
+) -> Result<OrganizationLocation> {
+    use crate::organization::Parent;
+    ensure!(
+        path.is_absolute()
+            && !path.components().any(|part| matches!(
+                part,
+                std::path::Component::ParentDir | std::path::Component::CurDir
+            )),
+        "Invalid organization dependency path"
+    );
+    let wanted = if directory {
+        path
+    } else {
+        path.parent()
+            .context("Organization dependency has no parent")?
+    };
+    let mut existing = wanted.to_path_buf();
+    let (parent, authority) = loop {
+        match Parent::capture(&existing) {
+            Ok(value) => break value,
+            Err(error)
+                if error
+                    .downcast_ref::<std::io::Error>()
+                    .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) =>
+            {
+                ensure!(
+                    existing.pop(),
+                    "Organization dependency volume is unavailable"
+                )
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    let mut value = OrganizationLocation {
+        path: path_bytes(path),
+        parent: authority.path.0,
+        ancestors: authority.ancestors,
+        identity: None,
+        sha256: None,
+        bytes: 0,
+        kind: "missing".into(),
+    };
+    if existing == wanted {
+        if directory {
+            value.identity = value.ancestors.last().cloned();
+            value.kind = "directory".into();
+            if namespace {
+                use sha2::Digest;
+                value.sha256 = Some(format!(
+                    "{:x}",
+                    sha2::Sha256::digest(serde_json::to_vec(
+                        &cuerithm_dj_sync::transaction::directory_manifest(path)?
+                    )?)
+                ));
+            }
+        } else {
+            match parent.read(Path::new(
+                path.file_name()
+                    .context("Organization dependency has no name")?,
+            )) {
+                Ok(mut input) => {
+                    let actual = crate::organization::fingerprint_bounded(&mut input, max_bytes)?;
+                    value.identity = Some(actual.identity);
+                    value.sha256 = Some(actual.sha256);
+                    value.bytes = actual.bytes;
+                    value.kind = "file".into();
+                }
+                Err(error)
+                    if error
+                        .downcast_ref::<std::io::Error>()
+                        .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) => {}
+                Err(error) => return Err(error),
+            }
+        }
+    }
+    Ok(value)
+}
+fn remember_organization_path<'a>(
+    locations: &'a mut OrganizationLocations,
+    path: &Path,
+    directory: bool,
+    namespace: bool,
+) -> Result<&'a OrganizationLocation> {
+    let key = (path_bytes(path), namespace);
+    if !locations.entries.contains_key(&key) {
+        ensure!(
+            locations.entries.len() < MAX_ENTRIES,
+            "Too many organization backup dependencies"
+        );
+        let remaining = locations
+            .limit
+            .checked_sub(locations.bytes)
+            .context("Organization backup byte budget exhausted")?;
+        let value = organization_location(path, directory, namespace, remaining)?;
+        locations.bytes = locations
+            .bytes
+            .checked_add(value.bytes)
+            .context("Organization backup size overflow")?;
+        ensure!(
+            locations.bytes <= locations.limit,
+            "Organization dependency exceeds remaining byte budget"
+        );
+        locations.entries.insert(key.clone(), value);
+    }
+    Ok(locations.entries.get(&key).unwrap())
+}
+fn required_organization_file(
+    locations: &mut OrganizationLocations,
+    path: &Path,
+    parent: &crate::organization::Authority,
+    expected: &crate::organization::Fingerprint,
+    complete: bool,
+) -> Result<()> {
+    let observed = remember_organization_path(locations, path, false, false)?;
+    ensure!(
+        observed.parent == parent.path.0
+            && observed.ancestors == parent.ancestors
+            && observed.identity.as_ref() == Some(&expected.identity)
+            && (!complete
+                || (observed.sha256.as_deref() == Some(expected.sha256.as_str())
+                    && observed.bytes == expected.bytes)),
+        "An organization original, sidecar or recovery stage is missing, changed or replaced"
+    );
+    Ok(())
+}
+#[derive(Deserialize)]
+struct BackupReferenceIntent {
+    version: u8,
+    entries: Vec<BackupReferenceEntry>,
+}
+#[derive(Deserialize)]
+struct BackupReferenceEntry {
+    journal: Option<String>,
+    #[serde(default)]
+    abandoned: Vec<String>,
+    receipt: Option<BackupReferenceReceipt>,
+}
+#[derive(Deserialize)]
+struct BackupReferenceReceipt {
+    #[serde(with = "cuerithm_dj_sync::path_serde::map")]
+    after_files: BTreeMap<PathBuf, Option<String>>,
+    before: BackupReferenceBefore,
+}
+#[derive(Deserialize)]
+struct BackupReferenceBefore {
+    #[serde(default, with = "cuerithm_dj_sync::path_serde::map")]
+    directories: BTreeMap<PathBuf, Option<Vec<cuerithm_dj_sync::transaction::DirectoryEntry>>>,
+}
+fn organization_transaction_resources(
+    locations: &mut OrganizationLocations,
+    root: &Path,
+    id: &str,
+    expected: cuerithm_dj_sync::transaction::JournalState,
+) -> Result<()> {
+    use cuerithm_dj_sync::transaction::FileTransaction;
+    ensure!(
+        uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == id),
+        "Invalid organization native recovery journal ID"
+    );
+    let transaction = FileTransaction::open(root, id)?;
+    let journal = transaction.inspect()?;
+    ensure!(
+        journal.id == id && journal.state == expected,
+        "Organization native recovery is not settled"
+    );
+    for (index, change) in journal.changes.iter().enumerate() {
+        for (folder, hash) in [
+            ("backup", &change.before_sha256),
+            ("staged", &change.after_sha256),
+        ] {
+            if let Some(hash) = hash {
+                let path = transaction.path().join(folder).join(index.to_string());
+                let file = remember_organization_path(locations, &path, false, false)?;
+                ensure!(
+                    file.sha256.as_deref() == Some(hash.as_str()),
+                    "Organization native recovery bytes are missing or changed"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+fn organization_inventory(conn: &Connection, root: &Path) -> Result<Vec<OrganizationLocation>> {
+    use crate::organization::{
+        Authority, Fingerprint, OrganizationMode, OrganizationPhase, OrganizationRecord,
+    };
+    use cuerithm_dj_sync::transaction::JournalState;
+    let mut locations = OrganizationLocations::new();
+    let mut records = BTreeMap::new();
+    let mut query =
+        conn.prepare("SELECT id,state,payload_json FROM organization_operations ORDER BY id")?;
+    for row in query.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })? {
+        let (id, state, json) = row?;
+        let record: OrganizationRecord = serde_json::from_str(&json)?;
+        ensure!(
+            record.id == id && record.phase.key() == state && record.error.is_none(),
+            "Organization recovery history is inconsistent"
+        );
+        for file in &record.files {
+            for name in std::iter::once(&file.stage_name)
+                .chain(std::iter::once(&file.quarantine_name))
+                .chain(file.abandoned_stages.iter().map(|(name, _)| name))
+            {
+                ensure!(
+                    matches!(
+                        Path::new(name).components().next(),
+                        Some(std::path::Component::Normal(_))
+                    ) && Path::new(name).components().count() == 1,
+                    "Invalid organization recovery file name"
+                );
+            }
+            let source = file.source.path()?;
+            let destination = file.destination.path()?;
+            // Old destinations can legitimately be absent after subsequent moves
+            // or Undo. Their actual namespace state is still bound to the backup.
+            remember_organization_path(&mut locations, &source, false, false)?;
+            remember_organization_path(&mut locations, &destination, false, false)?;
+            let quarantine = file.source_parent.path.path()?.join(&file.quarantine_name);
+            let stage = file.destination_parent.path.path()?.join(&file.stage_name);
+            if file.quarantined {
+                required_organization_file(
+                    &mut locations,
+                    &quarantine,
+                    &file.source_parent,
+                    &file.original,
+                    true,
+                )?;
+            } else {
+                remember_organization_path(&mut locations, &quarantine, false, false)?;
+            }
+            if !file.published
+                && let Some(expected) = &file.staged
+            {
+                required_organization_file(
+                    &mut locations,
+                    &stage,
+                    &file.destination_parent,
+                    expected,
+                    file.stage_complete,
+                )?;
+            } else {
+                remember_organization_path(&mut locations, &stage, false, false)?;
+            }
+            for (name, expected) in &file.abandoned_stages {
+                required_organization_file(
+                    &mut locations,
+                    &file.destination_parent.path.path()?.join(name),
+                    &file.destination_parent,
+                    expected,
+                    true,
+                )?;
+            }
+            if record.mode == OrganizationMode::Copy
+                && record.phase == OrganizationPhase::Complete
+                && record.undo_of.is_none()
+            {
+                // Sidecar originals have no alternate row, but remain Copy Undo inputs.
+                if file.source != record.files[0].source {
+                    required_organization_file(
+                        &mut locations,
+                        &source,
+                        &file.source_parent,
+                        &file.original,
+                        true,
+                    )?;
+                }
+            }
+        }
+        for directory in &record.created_directories {
+            remember_organization_path(&mut locations, &directory.path.path()?, true, false)?;
+        }
+        records.insert(id, record);
+    }
+    let mut query = conn.prepare(
+        "SELECT path,source_hash FROM organization_owned_sidecars ORDER BY track_id,path",
+    )?;
+    for row in query.query_map([], |row| {
+        Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, String>(1)?))
+    })? {
+        let (path, hash) = row?;
+        let actual = remember_organization_path(&mut locations, &bytes_path(&path)?, false, false)?;
+        ensure!(
+            actual.sha256.as_deref() == Some(hash.as_str()),
+            "An owned organization sidecar is unavailable or changed"
+        );
+    }
+    let mut query=conn.prepare("SELECT operation_id,path,state,source_hash,ignored_hash FROM organization_alternates WHERE state!='retired' ORDER BY operation_id")?;
+    for row in query.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Vec<u8>>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, Option<String>>(4)?,
+        ))
+    })? {
+        let (id, path, state, hash, ignored) = row?;
+        let record = records
+            .get(&id)
+            .context("Copy original lost its organization history")?;
+        let file = record
+            .files
+            .first()
+            .context("Copy original has no file proof")?;
+        let path = bytes_path(&path)?;
+        if state == "active" {
+            required_organization_file(
+                &mut locations,
+                &path,
+                &file.source_parent,
+                &file.original,
+                true,
+            )?;
+            ensure!(
+                file.original.sha256 == hash,
+                "Copy source ownership hash is inconsistent"
+            );
+        } else if state == "ignored" {
+            #[derive(Deserialize)]
+            struct Choice {
+                source_parent: Authority,
+                source: Fingerprint,
+            }
+            let saved:Option<(String,String)>=conn.query_row("SELECT state,payload_json FROM organization_copy_conflicts WHERE operation_id=?1",[&id],|row|Ok((row.get(0)?,row.get(1)?))).optional()?;
+            if let Some((state, json)) = saved {
+                ensure!(
+                    state == "committed",
+                    "Ignored Copy revision is not committed"
+                );
+                let choice: Choice = serde_json::from_str(&json)?;
+                ensure!(
+                    ignored.as_deref() == Some(choice.source.sha256.as_str()),
+                    "Ignored Copy revision has inconsistent ownership proof"
+                );
+                required_organization_file(
+                    &mut locations,
+                    &path,
+                    &choice.source_parent,
+                    &choice.source,
+                    true,
+                )?;
+            } else {
+                // Match main's pre-proof ignored-Copy compatibility, while binding
+                // this backup to the exact currently observed native object.
+                let actual = remember_organization_path(&mut locations, &path, false, false)?;
+                ensure!(
+                    actual.kind == "file"
+                        && actual.sha256 == ignored
+                        && file.source.path()? == path,
+                    "Legacy ignored Copy revision changed or is unavailable"
+                );
+            }
+        } else {
+            anyhow::bail!("Resolve organization Copy-source conflicts before using this backup");
+        }
+    }
+    let mut query = conn.prepare("SELECT path FROM organization_roots ORDER BY id")?;
+    for row in query.query_map([], |row| row.get::<_, Vec<u8>>(0))? {
+        remember_organization_path(&mut locations, &bytes_path(&row?)?, true, false)?;
+    }
+    let mut query=conn.prepare("SELECT operation_id,state,payload_json FROM organization_reference_intents ORDER BY operation_id")?;
+    for row in query.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })? {
+        let (id, state, json) = row?;
+        ensure!(
+            uuid::Uuid::parse_str(&id).is_ok_and(|uuid| uuid.to_string() == id),
+            "Invalid organization reference operation ID"
+        );
+        let intent: BackupReferenceIntent = serde_json::from_str(&json)?;
+        ensure!(
+            intent.version == 1,
+            "Unsupported organization reference intent"
+        );
+        let journal_root = root.join("organization-references").join(&id);
+        for entry in intent.entries {
+            if let Some(journal) = entry.journal {
+                ensure!(
+                    state == "acknowledged",
+                    "Organization reference repair needs acknowledgement"
+                );
+                organization_transaction_resources(
+                    &mut locations,
+                    &journal_root,
+                    &journal,
+                    JournalState::Applied,
+                )?;
+            } else {
+                ensure!(
+                    entry.receipt.is_none(),
+                    "Organization reference receipt lost its recovery journal"
+                );
+            }
+            for journal in entry.abandoned {
+                organization_transaction_resources(
+                    &mut locations,
+                    &journal_root,
+                    &journal,
+                    JournalState::Restored,
+                )?;
+            }
+            if let Some(receipt) = entry.receipt {
+                for path in receipt.after_files.keys() {
+                    remember_organization_path(&mut locations, path, false, false)?;
+                }
+                for path in receipt.before.directories.keys() {
+                    remember_organization_path(&mut locations, path, true, true)?;
+                }
+            }
+        }
+    }
+    let values = locations.entries.into_values().collect::<Vec<_>>();
+    let bytes = values.iter().try_fold(0u64, |sum, value| {
+        sum.checked_add(value.bytes)
+            .context("Organization backup size overflow")
+    })?;
+    ensure!(
+        values.len() <= MAX_ENTRIES && bytes <= MAX_DEPENDENCY_BYTES,
+        "Organization dependencies exceed backup budget"
+    );
+    Ok(values)
+}
+
 fn copy_database(from: &Connection, destination: &Path) -> Result<()> {
     let mut to = Connection::open(destination)?;
     copy_connection(from, &mut to)?;
@@ -429,7 +910,7 @@ fn prepare_snapshot(
     settled(conn, root)?;
     let schema = schema(conn)?;
     let installation_id = installation_id(root, true)?;
-    let (sources, models, resources) = inventory(conn, root)?;
+    let (sources, models, resources, organization) = inventory(conn, root)?;
     fs::create_dir_all(destination)?;
     ensure!(
         !fs::symlink_metadata(destination)?.file_type().is_symlink(),
@@ -440,7 +921,12 @@ fn prepare_snapshot(
         .tempdir_in(destination)?;
     copy_database(conn, &temp.path().join("library.sqlite"))?;
     ensure!(
-        (sources.clone(), models.clone(), resources.clone()) == inventory(conn, root)?,
+        (
+            sources.clone(),
+            models.clone(),
+            resources.clone(),
+            organization.clone()
+        ) == inventory(conn, root)?,
         "Library dependencies changed while creating the backup; try again"
     );
     let created = now();
@@ -458,6 +944,7 @@ fn prepare_snapshot(
         sources,
         models,
         resources,
+        organization,
     };
     atomic_json(&temp.path().join("manifest.json"), &manifest)?;
     regular(&temp.path().join("manifest.json"), MAX_MANIFEST)?;
@@ -536,7 +1023,7 @@ fn inspect(bundle: &Path, root: &Path, current_schema: i64) -> Result<(Manifest,
     let violations: bool = conn.prepare("PRAGMA foreign_key_check")?.exists([])?;
     ensure!(!violations, "Backup has broken library references");
     settled(&conn, root)?;
-    let (sources, models, resources) = inventory(&conn, root)?;
+    let (sources, models, resources, organization) = inventory(&conn, root)?;
     ensure!(
         m.sources == sources,
         "Backup source locations have changed. Music files and tag edits are not restored"
@@ -544,6 +1031,10 @@ fn inspect(bundle: &Path, root: &Path, current_schema: i64) -> Result<(Manifest,
     ensure!(
         m.models == models && m.resources == resources,
         "Retained recovery resources or models have changed; this database-only backup cannot be restored safely"
+    );
+    ensure!(
+        m.organization == organization,
+        "Organization sidecars, retained originals, native identities or reference recovery resources changed; this backup cannot restore them"
     );
     Ok((m, conn))
 }
@@ -615,6 +1106,11 @@ impl Library {
     }
     pub fn create_library_backup(&self, destination: &Path) -> Result<LibraryBackupPreview> {
         let _sync = sync_lease(self.data_dir())?;
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
         #[cfg(feature = "autotag")]
         let _gate = self
             .inner
@@ -628,6 +1124,11 @@ impl Library {
     }
     pub fn inspect_library_backup(&self, bundle: &Path) -> Result<LibraryBackupPreview> {
         let _sync = sync_lease(self.data_dir())?;
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
         #[cfg(feature = "autotag")]
         let _gate = self
             .inner
@@ -647,6 +1148,11 @@ impl Library {
     ) -> Result<LibraryRestoreRequest> {
         let root = self.data_dir();
         let _sync = sync_lease(root)?;
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
         #[cfg(feature = "autotag")]
         let _gate = self
             .inner
@@ -700,6 +1206,11 @@ impl Library {
     pub fn retry_library_restore(&self) -> Result<LibraryRestoreRequest> {
         let root = self.data_dir();
         let _sync = sync_lease(root)?;
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
         #[cfg(feature = "autotag")]
         let _gate = self
             .inner
@@ -1052,5 +1563,163 @@ mod inventory_phase_tests {
                 .contains("Library changed")
         );
         assert_eq!(library.conn().unwrap().total_changes(), original_changes);
+    }
+    #[test]
+    fn organization_inventory_enforces_remaining_budget_before_each_unique_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let first = root.join("one");
+        let second = root.join("two");
+        fs::write(&first, b"12").unwrap();
+        fs::write(&second, b"34").unwrap();
+        let mut locations = OrganizationLocations::new();
+        locations.limit = 3;
+        remember_organization_path(&mut locations, &first, false, false).unwrap();
+        // Reusing a previously admitted file consumes no additional byte budget.
+        remember_organization_path(&mut locations, &first, false, false).unwrap();
+        assert_eq!(locations.bytes, 2);
+        assert!(
+            remember_organization_path(&mut locations, &second, false, false)
+                .unwrap_err()
+                .to_string()
+                .contains("budget")
+        );
+        assert_eq!(locations.bytes, 2);
+        assert_eq!(locations.entries.len(), 1);
+    }
+    #[test]
+    fn cancelled_partial_organization_stages_remain_bound_without_requiring_complete_bytes() {
+        use crate::organization::{OrganizationMode, OrganizationRequest};
+        let (d, library) = fixture();
+        let root = d.path().canonicalize().unwrap();
+        let source = root.join("authored.wav");
+        let destination = root.join("managed.wav");
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=?1 WHERE id='fixture'",
+                [path_bytes(&source)],
+            )
+            .unwrap();
+        let operation = library
+            .plan_organization(OrganizationRequest {
+                track_id: "fixture".into(),
+                mode: OrganizationMode::Move,
+                source_root: root.clone(),
+                destination_root: root,
+                files: vec![(source, destination)],
+            })
+            .unwrap();
+        assert!(
+            library
+                .execute_organization_with(&operation, |boundary| {
+                    let _ = boundary;
+                    let record = library
+                        .organization_history()?
+                        .into_iter()
+                        .find(|record| record.id == operation)
+                        .unwrap();
+                    let file = &record.files[0];
+                    let stage = file.destination_parent.path.path()?.join(&file.stage_name);
+                    ensure!(stage.is_file(), "Expected an owned reserved stage");
+                    fs::write(stage, b"authored partial stage bytes")?;
+                    anyhow::bail!("Authored cancellation")
+                })
+                .is_err()
+        );
+        library.cancel_unstarted_organization(&operation).unwrap();
+        let backup = library
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        library.inspect_library_backup(&backup.path).unwrap();
+    }
+    #[test]
+    fn native_path_repair_receipts_roundtrip_and_missing_recovery_bytes_are_refused() {
+        use crate::organization::{OrganizationMode, OrganizationRequest};
+        use cuerithm_dj_sync::{DjSoftware, SyncTarget};
+        let (d, library) = fixture();
+        let root = d.path().canonicalize().unwrap();
+        let source = root.join("authored.wav");
+        let destination = root.join("organized.wav");
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=?1 WHERE id='fixture'",
+                [path_bytes(&source)],
+            )
+            .unwrap();
+        let native = root.join("database.xml");
+        fs::write(&native,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Tags Author="Authored remote artist"/></Song></VirtualDJ_Database>"#,source.display())).unwrap();
+        library
+            .seed_organization_reference_fixture(
+                "fixture",
+                SyncTarget {
+                    software: DjSoftware::VirtualDj,
+                    path: native.clone(),
+                    source_root: None,
+                },
+                false,
+            )
+            .unwrap();
+        let references = library.organization_reference_snapshot("fixture").unwrap();
+        assert!(references.blockers.is_empty());
+        let operation = library
+            .plan_organization(OrganizationRequest {
+                track_id: "fixture".into(),
+                mode: OrganizationMode::Move,
+                source_root: root.clone(),
+                destination_root: root,
+                files: vec![(source, destination)],
+            })
+            .unwrap();
+        library
+            .bind_organization_references(&operation, &references.digest)
+            .unwrap();
+        library.execute_organization(&operation).unwrap();
+        let guard = library.repair_organization_references(&operation).unwrap();
+        library
+            .acknowledge_organization_references_checked(&operation, &guard)
+            .unwrap();
+        library
+            .execute_organization_checked(&operation, &guard)
+            .unwrap();
+        drop(guard);
+        let backup = library
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        library.inspect_library_backup(&backup.path).unwrap();
+        library
+            .stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        let database = library.data_dir().join("library.sqlite");
+        drop(library);
+        assert!(matches!(
+            apply_pending_library_restore(&database).unwrap(),
+            LibraryRestoreStartup::Applied { .. }
+        ));
+        let library = Library::open(&database).unwrap();
+        let baseline = fs::read(&native).unwrap();
+        fs::write(&native, b"changed authored native reference").unwrap();
+        assert!(library.inspect_library_backup(&backup.path).is_err());
+        fs::write(&native, baseline).unwrap();
+        let recovery_root = library
+            .data_dir()
+            .join("organization-references")
+            .join(operation);
+        let journal = fs::read_dir(recovery_root)
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .find(|entry| uuid::Uuid::parse_str(&entry.file_name().to_string_lossy()).is_ok())
+            .unwrap();
+        fs::remove_file(journal.path().join("backup/0")).unwrap();
+        assert!(
+            library
+                .create_library_backup(&d.path().join("fresh"))
+                .unwrap_err()
+                .to_string()
+                .contains("recovery bytes")
+        );
     }
 }

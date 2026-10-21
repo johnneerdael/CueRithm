@@ -65,6 +65,13 @@ impl TagWritePlan {
     ) -> Result<Self> {
         config.validate()?;
         ensure!(
+            !matches!(
+                outcome.status,
+                MatchStatus::Ambiguous | MatchStatus::Unavailable
+            ),
+            "Catalog identity or availability requires review"
+        );
+        ensure!(
             outcome.matches.is_empty() == (outcome.status != MatchStatus::Matched),
             "Invalid match outcome"
         );
@@ -83,13 +90,56 @@ impl TagWritePlan {
             analysis.energy.is_none_or(|v| (1..=10).contains(&v)),
             "Invalid track energy"
         );
+        if config.options.tag_enabled(SupportedTag::OtherTags) {
+            let format = input.audio_info(config)?.format;
+            for track in &outcome.matches {
+                for (name, values) in &track.track.other {
+                    let key = name.by_format(&format);
+                    ensure!(
+                        !crate::fields::protected_custom_target(&key, &format),
+                        "Provider custom tag targets protected native metadata: {key}"
+                    );
+                    ensure!(
+                        !crate::fields::custom_bypasses_field_policy(&key, &format, false),
+                        "Provider custom tag bypasses selected-field policy: {key}"
+                    );
+                    ensure!(
+                        key.len() <= 256
+                            && !key.chars().any(char::is_control)
+                            && values.len() <= 128
+                            && values.iter().all(|v| v.len() <= 65_536),
+                        "Provider custom tag exceeds native field limits"
+                    );
+                }
+            }
+        }
+        if config.options.tag_enabled(SupportedTag::Style)
+            && config.options.styles_options == StylesOptions::CustomTag
+        {
+            let name = config
+                .options
+                .styles_custom_tag
+                .as_ref()
+                .context("Missing custom style tag")?;
+            let format = input.audio_info(config)?.format;
+            let key = name.by_format(&format);
+            ensure!(
+                !crate::fields::custom_bypasses_field_policy(&key, &format, true)
+                    && !crate::fields::protected_custom_target(&key, &format)
+                    && key.len() <= 256
+                    && !key.chars().any(char::is_control),
+                "Custom style tag targets protected native metadata"
+            );
+        }
+        let mut provenance = serde_json::to_value(outcome)?;
+        provenance["evidence"] = serde_json::to_value(outcome.provenance(&input, config)?)?;
         Ok(Self {
             input,
             matches: outcome.matches.iter().map(|m| m.track.clone()).collect(),
             config: config.clone(),
             analysis: analysis.clone(),
             artwork: None,
-            provenance: serde_json::to_value(outcome)?,
+            provenance,
             cleanup: None,
             metadata_edits: vec![],
             custom_tags: vec![],
@@ -275,6 +325,27 @@ impl TagWritePlan {
             p.set_readonly(false);
             std::fs::set_permissions(&path, p)?;
         }
+        let other_bindings: Vec<String> = self
+            .matches
+            .iter()
+            .flat_map(|track| track.other.iter().map(|(name, _)| name.by_format(&format)))
+            .collect();
+        let custom_style = if self.config.options.styles_options == StylesOptions::CustomTag {
+            self.config
+                .options
+                .styles_custom_tag
+                .as_ref()
+                .map(|name| name.by_format(&format))
+        } else {
+            None
+        };
+        let fields_before = crate::fields::values(
+            &backup,
+            &audio.info,
+            &self.config.options.tags,
+            &other_bindings,
+            custom_style.as_deref(),
+        )?;
         let mut sidecars = Vec::new();
         let mut cleanup = None;
         let mut expected_metadata = None;
@@ -313,6 +384,8 @@ impl TagWritePlan {
                     }
                 }
                 _ => {
+                    crate::id3_integrity::validate_container(&path, &format)
+                        .context("Read existing metadata; refusing malformed ID3 reconstruction")?;
                     let mut wrapper = Tag::load_file(&path, true)
                         .context("Read existing metadata; refusing to discard an unreadable tag")?;
                     wrapper.set_separators(&self.config.options.separators);
@@ -355,6 +428,56 @@ impl TagWritePlan {
             .decode_cancellable(&path, cache, cancel)
             .context("Verify tagged audio")?;
         let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
+        let fields_after = crate::fields::values(
+            &path,
+            &after.info,
+            &self.config.options.tags,
+            &other_bindings,
+            custom_style.as_deref(),
+        )?;
+        let external_art_kept = sidecars.is_empty()
+            && self.config.options.tag_enabled(SupportedTag::AlbumArt)
+            && crate::fields::external_art_exists(&path, &after.info, &self.input, &self.config)?;
+        let fields: Vec<crate::FieldWriteOutcome> = self
+            .config
+            .options
+            .tags
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let external_art = *field == SupportedTag::AlbumArt && !sidecars.is_empty();
+                let represented_clean = *field == SupportedTag::Explicit
+                    && matches!(format, AudioFileFormat::FLAC | AudioFileFormat::OGG)
+                    && fields_after[i].is_none()
+                    && self.matches.iter().any(|m| m.explicit == Some(false));
+                let status = if external_art
+                    || represented_clean
+                    || (fields_after[i].is_some() && fields_after[i] != fields_before[i])
+                {
+                    crate::FieldWriteStatus::Written
+                } else if (*field == SupportedTag::AlbumArt && external_art_kept)
+                    || fields_after[i].is_some()
+                {
+                    crate::FieldWriteStatus::KeptExisting
+                } else {
+                    crate::FieldWriteStatus::Unavailable
+                };
+                crate::FieldWriteOutcome {
+                    field: *field,
+                    status,
+                    required: self.config.required_tags.contains(field),
+                }
+            })
+            .collect();
+        for field in &fields {
+            ensure!(
+                !field.required || field.status != crate::FieldWriteStatus::Unavailable,
+                "Required selected field unavailable after tagging: {:?}",
+                field.field
+            );
+        }
+        let mut provenance = self.provenance.clone();
+        provenance["fields"] = serde_json::to_value(&fields)?;
         if let Some(patch) = &self.transfer {
             patch.verify(&path, &after.info)?;
         }
@@ -392,7 +515,7 @@ impl TagWritePlan {
             pcm_sha256: pcm,
             frames: audio.frames,
             decoder_identity: runtime.identity.clone(),
-            provenance: self.provenance.clone(),
+            provenance,
             cleanup,
             native_metadata,
             workspace: private.path().to_owned(),
@@ -405,6 +528,7 @@ impl TagWritePlan {
         format: &AudioFileFormat,
     ) -> Result<Option<crate::sidecar::SidecarRequest>> {
         let config = &self.config.options;
+        let mut explicit_present = crate::fields::explicit_at(&self.input.path, format, tag)?;
         for original in &self.matches {
             let mut track = original.clone();
             let genres = track.genres.clone();
@@ -656,9 +780,11 @@ impl TagWritePlan {
                 );
             }
             if enabled(SupportedTag::Explicit)
+                && (overwrite(SupportedTag::Explicit) || !explicit_present)
                 && let Some(explicit) = track.explicit
             {
                 tag.set_explicit(explicit);
+                explicit_present = true;
             }
             if enabled(SupportedTag::DiscNumber)
                 && let Some(n) = track.disc_number
@@ -696,17 +822,26 @@ impl TagWritePlan {
             let preserve = target
                 .as_ref()
                 .is_some_and(|p| p.exists() && !config.overwrite_tag(SupportedTag::AlbumArt));
+            let mut artwork = self.matches.iter().filter_map(|track| {
+                track
+                    .art
+                    .as_deref()
+                    .map(|url| (url, track.platform.as_str()))
+            });
             let remote = if config.overwrite_tag(SupportedTag::AlbumArt) {
-                self.matches.iter().rev().find_map(|m| m.art.as_deref())
+                artwork.next_back()
             } else {
-                self.matches.iter().find_map(|m| m.art.as_deref())
+                artwork.next()
             };
             let art = if preserve {
                 None
             } else if let Some(image) = &self.artwork {
                 Some(image.clone())
             } else {
-                remote.map(crate::image::Artwork::fetch).transpose()?
+                remote
+                    .map(|(url, platform)| crate::image::Artwork::fetch(url, platform))
+                    .transpose()
+                    .context("Selected artwork could not be fetched or decoded")?
             };
             if let Some(art) = art {
                 if let Some(target) = target {

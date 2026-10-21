@@ -99,9 +99,17 @@ describe("native DJ sync",()=>{
   expect(bridge.previewDjSync).not.toHaveBeenCalled();expect(bridge.applyDjSync).not.toHaveBeenCalled();
  });
  it("opens from the sidebar, discovers a library and requires a current preview to apply",async()=>{
-  const bridge=fakeBridge([track("a")]);
+  const bridge=fakeBridge([track("a")]),snapshot=await bridge.getState();
+  let finishState!:(value:typeof snapshot)=>void;
+  const initialState=new Promise<typeof snapshot>(resolve=>{finishState=resolve;});
+  vi.mocked(bridge.getState).mockImplementation(()=>initialState);
   bridge.discoverDjTargets=vi.fn(async()=>[{software:"virtual_dj" as const,path:"/VirtualDJ/database.xml"}]);
   render(<App bridge={bridge}/>);await screen.findByText("Track a");
+  // Rows can arrive before the snapshot that supplies Sync's library revision.
+  // Complete startup before asserting the successful preview/apply workflow.
+  expect(screen.getByText("Opening library…")).toBeInTheDocument();
+  await act(async()=>{finishState(snapshot);});
+  await screen.findByText("All up to date");
   fireEvent.click(screen.getByRole("button",{name:"Sync"}));
   await waitFor(()=>expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/VirtualDJ/database.xml"));
   expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeDisabled();
@@ -117,6 +125,29 @@ describe("native DJ sync",()=>{
   await waitFor(()=>expect(bridge.applyDjSync).toHaveBeenCalledWith("sync"));
   await screen.findByText("Everything is already synced.");
  });
+ it("discards a preview started before the initial library revision arrives",async()=>{
+  const bridge=fakeBridge([track("a")]),snapshot=await bridge.getState();
+  let finishState!:(value:typeof snapshot)=>void,finishPreview!:(value:SyncPreview)=>void;
+  const initialState=new Promise<typeof snapshot>(resolve=>{finishState=resolve;});
+  vi.mocked(bridge.getState).mockImplementation(()=>initialState);
+  vi.mocked(bridge.previewDjSync).mockImplementationOnce(()=>new Promise(resolve=>{finishPreview=resolve;}));
+  bridge.discoverDjTargets=vi.fn(async()=>[{software:"virtual_dj" as const,path:"/VirtualDJ/database.xml"}]);
+  render(<App bridge={bridge}/>);await screen.findByText("Track a");
+  fireEvent.click(screen.getByRole("button",{name:"Sync"}));
+  await waitFor(()=>expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/VirtualDJ/database.xml"));
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(1));
+  await act(async()=>{finishState(snapshot);});
+  await act(async()=>{finishPreview(prepared("startup-preview"));});
+  await waitFor(()=>expect(bridge.discardDjSync).toHaveBeenCalledWith("startup-preview"));
+  expect(screen.queryByRole("region",{name:"Sync preview"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeDisabled();
+  expect(bridge.applyDjSync).not.toHaveBeenCalled();
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Preview sync"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await screen.findByRole("region",{name:"Sync preview"});
+ });
+
  it("passes Pioneer options, modified scope and mappings without reusing another target preview",async()=>{
   const bridge=fakeBridge([]);
   render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);

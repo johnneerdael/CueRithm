@@ -15,7 +15,9 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
 };
+mod organization;
 mod ownership;
+pub(crate) use organization::{KnownDjReference, OrganizationOwnershipTransition};
 #[cfg(test)]
 mod ownership_tests;
 
@@ -102,6 +104,7 @@ impl Library {
         let root = self.data_dir().join("sync");
         let _lease = service_lock(&root)?;
         request.target = canonical_target(request.target)?;
+        self.ensure_organization_references_settled(&request.target)?;
         let preview_registration = ownership::registration(&request.target)?;
         ownership::ensure_settled(&root, &request.target)?;
         let revision = self.revision()?;
@@ -308,6 +311,7 @@ impl Library {
         let _lease = service_lock(&root)?;
         let transaction = FileTransaction::open(&root, id)?;
         let mut saved = read_library_journal(&transaction)?;
+        self.ensure_organization_references_settled(&saved.request.target)?;
         let result = (|| -> Result<FileJournal> {
             #[cfg(feature = "autotag")]
             let _tag_gate = if saved.request.target.software == DjSoftware::Serato4 {
@@ -427,6 +431,7 @@ impl Library {
         let _lease = service_lock(&root)?;
         let transaction = FileTransaction::open(&root, id)?;
         let mut saved = read_library_journal(&transaction)?;
+        self.ensure_organization_references_settled(&saved.request.target)?;
         let result = (|| -> Result<FileJournal> {
             let current = transaction.inspect()?;
             let ledger = ownership::read(&root, &saved.request.target)?;

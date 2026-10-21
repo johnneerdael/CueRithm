@@ -78,6 +78,28 @@ describe("automatic tagging Settings",()=>{
     expect(screen.getByLabelText("No catalog match")).toHaveValue("attention");
     expect(screen.queryByLabelText(/Spotify|Shazam|Post command/)).not.toBeInTheDocument();
   },15_000);
+  it("retains unavailable source options and required fields when saving unrelated settings",async()=>{
+    const bridge=fakeBridge([]),available=structuredClone(catalog) as TaggingCatalog;
+    available.access=[{id:"traxsource",requires_solver:true}];
+    bridge.getTaggingCatalog=vi.fn(async()=>available);
+    const state=await bridge.getState();
+    await bridge.saveSettings({...state.settings.settings,tagging:{...available.defaults,required_tags:["title"],options:{...available.defaults.options,platforms:["traxsource","beatport"],custom:{...available.defaults.options.custom,traxsource:{private_option:"preserve"}}}}});
+    vi.mocked(bridge.saveSettings).mockClear();
+    render(<App bridge={bridge}/>);
+    await screen.findByText("Your library starts here");
+    fireEvent.click(screen.getByRole("button",{name:"Settings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Automatic tagging"}));
+    expect(await screen.findByLabelText("Use Traxsource")).toBeChecked();
+    expect(screen.getByLabelText("Use Traxsource")).toBeEnabled();
+    expect(screen.getByText("Unavailable · configure a solver")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Max pages"),{target:{value:"3"}});
+    fireEvent.click(screen.getByRole("button",{name:/Save settings/}));
+    await waitFor(()=>expect(bridge.saveSettings).toHaveBeenCalled());
+    const saved=vi.mocked(bridge.saveSettings).mock.calls.at(-1)![0];
+    expect(saved.tagging?.options.platforms).toEqual(["traxsource","beatport"]);
+    expect(saved.tagging?.options.custom.traxsource).toEqual({private_option:"preserve"});
+    expect(saved.tagging?.required_tags).toEqual(["title"]);
+  });
   it("ignores a catalog response after leaving Settings and can retry a load failure",async()=>{
     const bridge=fakeBridge([]);
     let release!:(value:TaggingCatalog)=>void;

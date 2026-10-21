@@ -6,6 +6,7 @@ mod host;
 mod maintenance;
 mod maintenance_commands;
 mod manual_publication_commands;
+mod organization_commands;
 mod sync_commands;
 mod tracklist_commands;
 use anyhow::Result;
@@ -96,6 +97,21 @@ pub fn run() {
             compatible_commands::save_compatible_playlist,
             tracklist_commands::match_tracklist,
             tracklist_commands::save_tracklist_playlist,
+            organization_commands::organization_roots,
+            organization_commands::choose_organization_root,
+            organization_commands::organization_example,
+            organization_commands::preview_organization,
+            organization_commands::organization_preview_page,
+            organization_commands::discard_organization_preview,
+            organization_commands::apply_organization,
+            organization_commands::cancel_organization,
+            organization_commands::cancel_organization_batch,
+            organization_commands::organization_history,
+            organization_commands::organization_batch_page,
+            organization_commands::recover_organization,
+            organization_commands::undo_organization,
+            organization_commands::organization_alternates,
+            organization_commands::resolve_organization_alternate,
             sync_commands::discover_dj_targets,
             sync_commands::preview_dj_sync,
             sync_commands::discard_dj_sync,

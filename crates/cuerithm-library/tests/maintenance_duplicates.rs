@@ -570,7 +570,7 @@ fn migration_from_v6_preserves_tracks_and_initializes_empty_maintenance() {
     assert_eq!(
         conn.query_row("pragma user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        15
+        20
     );
     assert_eq!(
         conn.query_row(
@@ -1668,6 +1668,19 @@ fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_
         rusqlite::params![f.ids[0], job],
     )
     .unwrap();
+    #[derive(Debug, PartialEq)]
+    struct LegacyTrackSnapshot {
+        analysis: Option<String>,
+        metadata: Option<String>,
+        native_metadata: Option<String>,
+        source_hash: String,
+        current_job: Option<String>,
+        path: Vec<u8>,
+    }
+    let snapshot = |conn: &rusqlite::Connection| {
+        conn.query_row("SELECT analysis_json,metadata_json,native_metadata_json,source_hash,current_job,path FROM tracks WHERE id=?1", [&f.ids[0]], |r| Ok(LegacyTrackSnapshot { analysis:r.get(0)?,metadata:r.get(1)?,native_metadata:r.get(2)?,source_hash:r.get(3)?,current_job:r.get(4)?,path:r.get(5)? })).unwrap()
+    };
+    let before = snapshot(&conn);
     drop(conn);
     let path = f.dir.path().join("legacy/library.sqlite");
     std::fs::create_dir(path.parent().unwrap()).unwrap();
@@ -1688,15 +1701,23 @@ fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_
         [f.db.to_string_lossy().to_string()],
     )
     .unwrap();
-    for table in [
-        "settings",
-        "selected_settings",
-        "tracks",
-        "jobs",
-        "cue_revisions",
+    // Explicit historical columns keep the fixture at schema 7 even when the
+    // current seed gains additional columns (such as organization revisions).
+    for (table, columns) in [
+        ("settings", "revision,json,created"),
+        ("selected_settings", "singleton,revision"),
+        (
+            "tracks",
+            "id,path,title,artist,album,genre,search_text,sort_title,sort_artist,source_hash,state,archived,current_job,analysis_json,metadata_json,musical_key,bpm,energy,duration,created,updated,tagging_json,cleanup_json,native_metadata_json",
+        ),
+        (
+            "jobs",
+            "id,track_id,source_hash,settings_revision,state,stage,error,attempts,created,updated",
+        ),
+        ("cue_revisions", "id,track_id,job_id,json,created"),
     ] {
         conn.execute(
-            &format!("INSERT INTO {table} SELECT * FROM seed.{table}"),
+            &format!("INSERT INTO {table} ({columns}) SELECT {columns} FROM seed.{table}"),
             [],
         )
         .unwrap();
@@ -1708,7 +1729,7 @@ fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        15
+        20
     );
     assert_eq!(
         conn.query_row(
@@ -1718,6 +1739,11 @@ fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_
         )
         .unwrap(),
         job
+    );
+    let after = snapshot(&conn);
+    assert_eq!(
+        after, before,
+        "migration must preserve legacy analysis, metadata, source and job identity"
     );
     conn.execute(
         "INSERT INTO cue_revisions VALUES('manual-cue',?1,NULL,'{\"cues\":[]}',2)",

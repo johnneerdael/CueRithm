@@ -217,3 +217,54 @@ fn reopening_waits_for_a_briefly_inherited_child_lease() {
         reopened.err()
     );
 }
+
+#[test]
+fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
+    let d = tempfile::tempdir().unwrap();
+    let db = d.path().join("app/library.sqlite");
+    let music = d.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    let music = music.canonicalize().unwrap();
+    let source = music.join("authored.flac");
+    std::fs::write(&source, b"authored migration source").unwrap();
+    let library = Library::open(&db).unwrap();
+    let root = library.register_organization_root(music).unwrap();
+    let settings = library.settings().unwrap().revision;
+    let job = library
+        .enqueue(std::slice::from_ref(&source), settings.clone())
+        .unwrap()[0]
+        .clone();
+    let track = library.jobs().unwrap()[0].track_id.clone();
+    drop(library);
+    // Recreate the schema-18 boundary without leaving either new feature table.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute_batch("DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; PRAGMA user_version=18;").unwrap();
+    drop(conn);
+    let library = Library::open(&db).unwrap();
+    assert_eq!(library.organization_roots().unwrap()[0].id, root.id);
+    assert_eq!(library.track_path(&track).unwrap(), source);
+    assert_eq!(library.jobs().unwrap()[0].id, job);
+    assert_eq!(library.settings().unwrap().revision, settings);
+    library
+        .save_cue_template(
+            None,
+            "Practice".into(),
+            Default::default(),
+            library.revision().unwrap(),
+        )
+        .unwrap();
+    assert_eq!(library.cue_templates().unwrap().len(), 1);
+    let conn = rusqlite::Connection::open(db).unwrap();
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 20);
+    let count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM native_reconciliation_plans",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 0);
+}

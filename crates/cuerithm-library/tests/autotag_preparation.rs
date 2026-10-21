@@ -200,6 +200,10 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
     });
     assert_eq!(lib.counts().unwrap().tracks, 0);
     assert_eq!(file_sha256(&source).unwrap(), original);
+    let evidence = lib.preparation_match_snapshot(&ids[0]).unwrap().unwrap();
+    assert_eq!(evidence.source_sha256, original);
+    assert_eq!(evidence.outcome["status"], "unavailable");
+    assert_eq!(evidence.outcome["warnings"][0]["provider"], "beatport");
     catalog.fail.store(false, Ordering::SeqCst);
     service.retry(ids[0].clone(), None).unwrap();
     until(&lib, || ready(&lib));
@@ -209,6 +213,67 @@ fn provider_failure_keeps_original_and_ready_history_recoverable() {
         events.try_iter().filter(|e| e.stage == "analysis").count(),
         1,
         "unchanged provider retry must reuse completed analysis"
+    );
+}
+
+#[test]
+fn ambiguous_recordings_keep_the_source_untouched_and_retain_review_evidence() {
+    struct AmbiguousCatalog;
+    impl ProviderBackend for AmbiguousCatalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            Ok(["Club Mix", "Dub Mix"]
+                .into_iter()
+                .enumerate()
+                .map(|(index, version)| {
+                    CatalogMatch::new(
+                        1.,
+                        CatalogTrack {
+                            platform: "beatport".into(),
+                            track_id: Some(index.to_string()),
+                            title: "Synthetic recording".into(),
+                            version: Some(version.into()),
+                            artists: vec!["Synthetic artist".into()],
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect())
+        }
+    }
+    let (_dir, library, source, runtime, settings) = setup();
+    library.save_settings(settings).unwrap();
+    let original = file_sha256(&source).unwrap();
+    let tagger = Arc::new(Tagger::with_backends(vec![Arc::new(AmbiguousCatalog)]).unwrap());
+    let service =
+        PreparationService::start_with_tagger(library.clone(), runtime, 1, tagger).unwrap();
+    let ids = service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap();
+    until(&library, || {
+        library
+            .jobs()
+            .unwrap()
+            .iter()
+            .any(|job| job.state == "attention")
+    });
+    service.shutdown();
+    assert_eq!(library.counts().unwrap().tracks, 0);
+    assert_eq!(file_sha256(&source).unwrap(), original);
+    let evidence = library
+        .preparation_match_snapshot(&ids[0])
+        .unwrap()
+        .unwrap();
+    assert_eq!(evidence.outcome["status"], "ambiguous");
+    assert_eq!(evidence.outcome["candidates"].as_array().unwrap().len(), 2);
+    assert!(
+        library.jobs().unwrap()[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("review")
     );
 }
 
@@ -647,4 +712,205 @@ fn reanalysis_with_tagging_disabled_clears_the_previous_tag_status() {
             .metadata
             .contains_key("library.tag_status")
     );
+}
+
+#[test]
+fn incoming_organization_uses_final_native_metadata_before_ready() {
+    let (d, lib, source, runtime, mut settings) = setup();
+    let folder = d.path().join("managed");
+    std::fs::create_dir(&folder).unwrap();
+    let folder = folder.canonicalize().unwrap();
+    let root = lib.register_organization_root(folder.clone()).unwrap();
+    settings.organization = cuerithm_library::OrganizationSettings {
+        mode: cuerithm_library::OrganizationSettingMode::Move,
+        destination_root_id: Some(root.id),
+        ..Default::default()
+    };
+    lib.save_settings(settings).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        runtime,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog]).unwrap()),
+    )
+    .unwrap();
+    let events = service.subscribe();
+    service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap();
+    until(&lib, || ready(&lib));
+    service.shutdown();
+    let row = lib.tracks(Default::default()).unwrap().rows.remove(0);
+    assert_eq!(
+        lib.track_path(&row.id).unwrap(),
+        folder.join("Catalog artist - Catalog title.flac"),
+        "Ready must wait for the configured final metadata path"
+    );
+    assert!(!source.exists());
+    assert_eq!(lib.cue_revision_count(&row.id).unwrap(), 1);
+    let stages = events
+        .try_iter()
+        .map(|event| event.stage)
+        .collect::<Vec<_>>();
+    assert!(stages.iter().any(|stage| stage == "organizing"));
+}
+
+#[test]
+fn blocked_organization_explicit_new_naming_rule_reuses_prepared_audio() {
+    let (d, lib, source, runtime, mut settings) = setup();
+    let folder = d.path().join("managed");
+    std::fs::create_dir(&folder).unwrap();
+    let folder = folder.canonicalize().unwrap();
+    let root = lib.register_organization_root(folder.clone()).unwrap();
+    settings.organization = cuerithm_library::OrganizationSettings {
+        mode: cuerithm_library::OrganizationSettingMode::Move,
+        pattern: "{label}".into(),
+        destination_root_id: Some(root.id),
+        ..Default::default()
+    };
+    lib.save_settings(settings.clone()).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        runtime,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap()),
+    )
+    .unwrap();
+    let job = service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap()
+        .remove(0);
+    until(&lib, || {
+        lib.jobs()
+            .unwrap()
+            .iter()
+            .any(|j| j.id == job && j.state == "attention")
+    });
+    let track = lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    assert_eq!(lib.track(&track).unwrap().state, "incoming");
+    assert_eq!(lib.cue_revision_count(&track).unwrap(), 1);
+    let output = file_sha256(&source).unwrap();
+    catalog.fail.store(true, Ordering::SeqCst);
+    let events = service.subscribe();
+    settings.organization.pattern = "{original_name}".into();
+    let revision = lib.save_settings(settings).unwrap();
+    service.retry(job.clone(), Some(revision)).unwrap();
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| {
+            j.id == job && j.attempts == 2 && matches!(j.state.as_str(), "completed" | "attention")
+        })
+    });
+    service.shutdown();
+    assert_eq!(
+        lib.track(&track).unwrap().state,
+        "ready",
+        "explicit naming correction must release prepared Incoming"
+    );
+    assert_eq!(lib.track_path(&track).unwrap(), folder.join("source.flac"));
+    assert_eq!(
+        file_sha256(&lib.track_path(&track).unwrap()).unwrap(),
+        output
+    );
+    assert_eq!(lib.cue_revision_count(&track).unwrap(), 1);
+    assert_eq!(catalog.calls.load(Ordering::SeqCst), 1);
+    assert!(
+        !events
+            .try_iter()
+            .any(|e| matches!(e.stage.as_str(), "decoding" | "analysis" | "matching"))
+    );
+}
+
+#[test]
+fn checkpoint_rejects_same_byte_source_replacement_before_naming_retry() {
+    let (d, lib, source, runtime, mut settings) = setup();
+    let folder = d.path().join("managed");
+    std::fs::create_dir(&folder).unwrap();
+    let root = lib
+        .register_organization_root(folder.canonicalize().unwrap())
+        .unwrap();
+    settings.organization = cuerithm_library::OrganizationSettings {
+        mode: cuerithm_library::OrganizationSettingMode::Move,
+        pattern: "{label}".into(),
+        destination_root_id: Some(root.id),
+        ..Default::default()
+    };
+    lib.save_settings(settings.clone()).unwrap();
+    let catalog = Arc::new(Catalog {
+        calls: AtomicUsize::new(0),
+        fail: AtomicBool::new(false),
+        empty: false,
+    });
+    let service = PreparationService::start_with_tagger(
+        lib.clone(),
+        runtime.clone(),
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap()),
+    )
+    .unwrap();
+    let job = service
+        .enqueue_paths(std::slice::from_ref(&source))
+        .unwrap()
+        .remove(0);
+    until(&lib, || {
+        lib.jobs()
+            .unwrap()
+            .iter()
+            .any(|j| j.id == job && j.state == "attention")
+    });
+    let replacement = d.path().join("replacement");
+    std::fs::copy(&source, &replacement).unwrap();
+    std::fs::remove_file(&source).unwrap();
+    std::fs::rename(replacement, &source).unwrap();
+    settings.organization.pattern = "{original_name}".into();
+    let revision = lib.save_settings(settings).unwrap();
+    service.retry(job.clone(), Some(revision)).unwrap();
+    until(&lib, || {
+        lib.jobs().unwrap().iter().any(|j| {
+            j.id == job && j.attempts == 2 && matches!(j.state.as_str(), "completed" | "attention")
+        })
+    });
+    service.shutdown();
+    let current = lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap();
+    assert_eq!(
+        current.state, "attention",
+        "same-byte replacement is new native authority, not owned checkpoint output"
+    );
+    assert!(source.exists());
+    assert_eq!(std::fs::read_dir(folder).unwrap().count(), 0);
+    assert_eq!(catalog.calls.load(Ordering::SeqCst), 1);
+    let fresh = PreparationService::start_with_tagger(
+        lib.clone(),
+        runtime,
+        1,
+        Arc::new(Tagger::with_backends(vec![catalog.clone()]).unwrap()),
+    )
+    .unwrap();
+    fresh
+        .reprepare(current.track_id.clone())
+        .expect("explicit fresh preparation can retire unpublished stale checkpoint");
+    until(&lib, || ready(&lib));
+    fresh.shutdown();
+    assert_eq!(catalog.calls.load(Ordering::SeqCst), 2);
+    assert_eq!(lib.cue_revision_count(&current.track_id).unwrap(), 2);
 }

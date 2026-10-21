@@ -368,3 +368,281 @@ fn durable_recovery_pointer_rejects_parent_traversal() {
     drop(lib);
     assert!(apply_pending_library_restore(&db).is_err());
 }
+
+fn organized_fixture(
+    mode: cuerithm_library::organization::OrganizationMode,
+) -> (
+    tempfile::TempDir,
+    Library,
+    std::path::PathBuf,
+    std::path::PathBuf,
+    std::path::PathBuf,
+    String,
+) {
+    use cuerithm_library::organization::OrganizationRequest;
+    let (d, lib, db) = fixture();
+    let root = d.path().canonicalize().unwrap();
+    let source_root = root.join("music");
+    let destination_root = if mode == cuerithm_library::organization::OrganizationMode::Rename {
+        source_root.clone()
+    } else {
+        root.join("managed")
+    };
+    fs::create_dir_all(&source_root).unwrap();
+    fs::create_dir_all(&destination_root).unwrap();
+    let source = source_root.join("authored.wav");
+    let sidecar = source_root.join("authored.jpg");
+    fs::write(&source, b"authored organization audio").unwrap();
+    fs::write(&sidecar, b"authored owned artwork").unwrap();
+    insert_source(
+        &lib,
+        &source,
+        &cuerithm_media::file_sha256(&source).unwrap(),
+    );
+    let conn = Connection::open(&db).unwrap();
+    #[cfg(unix)]
+    let encoded = {
+        use std::os::unix::ffi::OsStrExt;
+        [b"unix:".as_slice(), sidecar.as_os_str().as_bytes()].concat()
+    };
+    #[cfg(windows)]
+    let encoded = {
+        use std::os::windows::ffi::OsStrExt;
+        let mut b = b"windows:".to_vec();
+        for n in sidecar.as_os_str().encode_wide() {
+            b.extend(n.to_le_bytes());
+        }
+        b
+    };
+    conn.execute("INSERT INTO organization_owned_sidecars(track_id,path,source_hash,manifest_id,ordinal) VALUES('authored',?1,?2,'fixture',1)",rusqlite::params![encoded,cuerithm_media::file_sha256(&sidecar).unwrap()]).unwrap();
+    drop(conn);
+    let destination = destination_root.join("organized.wav");
+    let destination_sidecar = destination_root.join("organized.jpg");
+    let operation = lib
+        .plan_organization(OrganizationRequest {
+            track_id: "authored".into(),
+            mode,
+            source_root,
+            destination_root,
+            files: vec![
+                (source.clone(), destination.clone()),
+                (sidecar, destination_sidecar.clone()),
+            ],
+        })
+        .unwrap();
+    (d, lib, db, destination, destination_sidecar, operation)
+}
+fn finish_organization(lib: &Library, id: &str) {
+    lib.execute_organization(id).unwrap();
+    lib.acknowledge_organization_references(id).unwrap();
+    lib.execute_organization(id).unwrap();
+}
+#[test]
+fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
+    use cuerithm_library::organization::OrganizationMode;
+    for mode in [
+        OrganizationMode::Move,
+        OrganizationMode::Copy,
+        OrganizationMode::Rename,
+    ] {
+        let (d, lib, db, destination, sidecar, id) = organized_fixture(mode);
+        finish_organization(&lib, &id);
+        let backup = lib
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        assert_eq!(backup.schema, 20);
+        assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
+        lib.stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        drop(lib);
+        assert!(matches!(
+            apply_pending_library_restore(&db).unwrap(),
+            LibraryRestoreStartup::Applied { .. }
+        ));
+        let reopened = Library::open(&db).unwrap();
+        assert_eq!(reopened.track_path("authored").unwrap(), destination);
+        assert_eq!(fs::read(sidecar).unwrap(), b"authored owned artwork");
+        assert_eq!(reopened.organization_history().unwrap().len(), 1);
+    }
+}
+#[test]
+fn backup_rejects_unsettled_organization_boundaries_but_allows_completed_history() {
+    use cuerithm_library::organization::OrganizationMode;
+    let (d, lib, _, _, _, id) = organized_fixture(OrganizationMode::Move);
+    for step in 0..3 {
+        let error = lib
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap_err();
+        assert!(
+            error.to_string().to_lowercase().contains("organization"),
+            "{error:#}"
+        );
+        if step == 0 {
+            lib.execute_organization(&id).unwrap();
+        } else if step == 1 {
+            lib.acknowledge_organization_references(&id).unwrap();
+        }
+    }
+    lib.execute_organization(&id).unwrap();
+    assert!(lib.create_library_backup(&d.path().join("backups")).is_ok());
+}
+#[test]
+fn backup_manifest_binds_owned_sidecars_and_native_original_objects() {
+    use cuerithm_library::organization::OrganizationMode;
+    let (d, lib, _, _, sidecar, id) = organized_fixture(OrganizationMode::Move);
+    finish_organization(&lib, &id);
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    fs::write(&sidecar, b"changed sidecar").unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    fs::write(&sidecar, b"authored owned artwork").unwrap();
+    let record = lib.organization_history().unwrap().remove(0);
+    let file = &record.files[0];
+    let quarantine = file
+        .source
+        .path()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join(&file.quarantine_name);
+    let preserved = quarantine.with_extension("preserved-fixture");
+    fs::rename(&quarantine, &preserved).unwrap();
+    fs::write(&quarantine, fs::read(&preserved).unwrap()).unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    assert!(
+        lib.create_library_backup(&d.path().join("fresh")).is_err(),
+        "Equal bytes from a different native original cannot restore recovery authority"
+    );
+}
+#[test]
+fn completed_copy_originals_and_native_reference_resources_are_required() {
+    use cuerithm_library::organization::OrganizationMode;
+    let (d, lib, _, _, _, id) = organized_fixture(OrganizationMode::Copy);
+    finish_organization(&lib, &id);
+    let resource = lib
+        .data_dir()
+        .join("organization-references/authored-retained/backup");
+    fs::create_dir_all(resource.parent().unwrap()).unwrap();
+    fs::write(&resource, b"authored native recovery bytes").unwrap();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    fs::remove_file(&resource).unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    fs::write(&resource, b"authored native recovery bytes").unwrap();
+    let original = lib.organization_history().unwrap()[0].files[0]
+        .source
+        .path()
+        .unwrap();
+    let preserved = original.with_extension("preserved-fixture");
+    fs::rename(&original, &preserved).unwrap();
+    fs::write(&original, fs::read(preserved).unwrap()).unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    assert!(lib.create_library_backup(&d.path().join("fresh")).is_err());
+}
+#[test]
+fn repeated_moves_and_undo_do_not_require_obsolete_historical_destinations() {
+    use cuerithm_library::organization::{OrganizationMode, OrganizationRequest};
+    let (d, lib, _, destination, sidecar, first) = organized_fixture(OrganizationMode::Move);
+    finish_organization(&lib, &first);
+    let second_destination = destination.with_file_name("second.wav");
+    let second_sidecar = sidecar.with_file_name("second.jpg");
+    let second = lib
+        .plan_organization(OrganizationRequest {
+            track_id: "authored".into(),
+            mode: OrganizationMode::Move,
+            source_root: destination.parent().unwrap().into(),
+            destination_root: destination.parent().unwrap().into(),
+            files: vec![
+                (destination.clone(), second_destination),
+                (sidecar, second_sidecar),
+            ],
+        })
+        .unwrap();
+    finish_organization(&lib, &second);
+    assert!(!destination.exists());
+    assert!(lib.create_library_backup(&d.path().join("backups")).is_ok());
+    let undo = lib.plan_organization_undo(&second).unwrap();
+    finish_organization(&lib, &undo);
+    assert!(
+        lib.create_library_backup(&d.path().join("after-undo"))
+            .is_ok()
+    );
+}
+
+#[test]
+fn pre_proof_ignored_copy_history_is_preserved_and_bound_to_observed_native_identity() {
+    use cuerithm_library::organization::{AlternateResolution, OrganizationMode};
+    let (d, lib, db, _, _, id) = organized_fixture(OrganizationMode::Copy);
+    finish_organization(&lib, &id);
+    let source = lib.organization_history().unwrap()[0].files[0]
+        .source
+        .path()
+        .unwrap();
+    fs::write(&source, b"explicitly ignored authored revision").unwrap();
+    let hash = cuerithm_media::file_sha256(&source).unwrap();
+    lib.organization_source_state(&source, &hash).unwrap();
+    lib.resolve_organization_alternate(&id, AlternateResolution::IgnoreThisRevision)
+        .unwrap();
+    Connection::open(&db)
+        .unwrap()
+        .execute(
+            "DELETE FROM organization_copy_conflicts WHERE operation_id=?1",
+            [&id],
+        )
+        .unwrap();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    lib.inspect_library_backup(&backup.path).unwrap();
+    let preserved = source.with_extension("preserved-fixture");
+    fs::rename(&source, &preserved).unwrap();
+    fs::write(&source, fs::read(preserved).unwrap()).unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+}
+#[test]
+fn preparation_attention_checkpoints_are_unsettled_even_when_jobs_are_not_running() {
+    let (d, lib, db) = fixture();
+    let source = d.path().join("authored.wav");
+    fs::write(&source, b"checkpoint fixture").unwrap();
+    let hash = cuerithm_media::file_sha256(&source).unwrap();
+    insert_source(&lib, &source, &hash);
+    let connection = Connection::open(&db).unwrap();
+    let revision = lib.settings().unwrap().revision;
+    connection.execute("INSERT INTO jobs(id,track_id,source_hash,settings_revision,state,stage,created,updated) VALUES('checkpoint-job','authored',?1,?2,'attention','organizing',0,0)",rusqlite::params![hash,revision]).unwrap();
+    connection.execute("INSERT INTO preparation_checkpoints(job_id,track_id,settings_revision,input_hash,output_hash,attempt,payload_json,state,created,updated) VALUES('checkpoint-job','authored',?1,?2,?2,1,'{}','prepared',0,0)",rusqlite::params![revision,hash]).unwrap();
+    for state in ["tagging", "prepared", "organizing"] {
+        connection
+            .execute("UPDATE preparation_checkpoints SET state=?1", [state])
+            .unwrap();
+        assert!(
+            lib.create_library_backup(&d.path().join("backups"))
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("organization")
+        );
+    }
+}
+#[cfg(unix)]
+#[test]
+fn sparse_oversized_organization_original_is_rejected_before_reading_its_bytes() {
+    use cuerithm_library::organization::OrganizationMode;
+    let (d, lib, _, _, _, id) = organized_fixture(OrganizationMode::Move);
+    finish_organization(&lib, &id);
+    let record = lib.organization_history().unwrap().remove(0);
+    let file = &record.files[0];
+    let quarantine = file
+        .source_parent
+        .path
+        .path()
+        .unwrap()
+        .join(&file.quarantine_name);
+    let file = fs::OpenOptions::new().write(true).open(quarantine).unwrap();
+    file.set_len(1024_u64.pow(4) + 1).unwrap();
+    let result = lib.create_library_backup(&d.path().join("backups"));
+    // Reclaim the authored sparse fixture immediately, even if the assertion fails.
+    file.set_len(0).unwrap();
+    assert!(result.unwrap_err().to_string().contains("budget"));
+}

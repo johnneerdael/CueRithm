@@ -3,7 +3,9 @@ import {listen} from "@tauri-apps/api/event";
 import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {open} from "@tauri-apps/plugin-dialog";
 import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./types";
+import {nativeOrganization} from "./organization-api";
 export const nativeBridge:Bridge={
+  ...nativeOrganization,
   discoverDjTargets:()=>invoke("discover_dj_targets"),
   previewDjSync:request=>invoke("preview_dj_sync",{request}),
   discardDjSync:id=>invoke("discard_dj_sync",{id}),
@@ -41,7 +43,7 @@ export const nativeBridge:Bridge={
   resetCatalogAccess:()=>invoke("reset_catalog_access"),
   saveSettings:settings=>invoke("save_settings",{settings}),
   enqueuePaths:paths=>invoke("enqueue_paths",{paths}),
-  retryJob:jobId=>invoke("retry_job",{jobId}),
+  retryJob:(jobId,useCapturedSettings)=>invoke("retry_job",{jobId,...(useCapturedSettings?{useCapturedSettings:true}:{})}),
   reprepareTrack:trackId=>invoke("reprepare_track",{trackId}),
   archiveTrack:(trackId,archived)=>invoke("archive_track",{trackId,archived}),
   playerLoad:trackId=>invoke("player_load",{trackId}),

@@ -1,5 +1,63 @@
 //! Current Engine DJ Database2 writer. The caller owns backup and application preflight.
 mod owned;
+pub(crate) fn reference_id(database: &Path, base: &Path, source: &Path) -> Result<String> {
+    let conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let major: i64 = conn.query_row(
+        "SELECT schemaVersionMajor FROM Information LIMIT 1",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(major == 3, "Engine DJ path repair requires schema major 3");
+    let relative = relative_path(base, source)?;
+    let ids = conn
+        .prepare("SELECT id FROM Track WHERE path=?1")?
+        .query_map([relative], |row| row.get::<_, i64>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    ensure!(
+        ids.len() == 1,
+        "Engine DJ source reference is missing or ambiguous"
+    );
+    Ok(ids[0].to_string())
+}
+pub(crate) fn repair_reference(
+    database: &Path,
+    base: &Path,
+    source: &Path,
+    destination: &Path,
+    expected: &str,
+) -> Result<()> {
+    ensure!(
+        reference_id(database, base, source)? == expected,
+        "Engine DJ native track identity changed"
+    );
+    let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    let tx = conn.transaction()?;
+    let from = relative_path(base, source)?;
+    let to = relative_path(base, destination)?;
+    let exists: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM Track WHERE path=?1 AND path!=?2",
+        params![to, from],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        exists == 0,
+        "Engine DJ destination already has a native track"
+    );
+    let name = destination
+        .file_name()
+        .and_then(|s| s.to_str())
+        .context("Engine DJ requires a Unicode filename")?;
+    ensure!(
+        tx.execute(
+            "UPDATE Track SET path=?1,filename=?2 WHERE id=?3 AND path=?4",
+            params![to, name, expected, from]
+        )? == 1,
+        "Engine DJ source reference changed"
+    );
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "engine_dj/owned_tests.rs"]
 mod owned_tests;

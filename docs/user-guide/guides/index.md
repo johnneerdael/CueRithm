@@ -18,7 +18,8 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Library backup and restore](library-backup.md) | Local snapshots, consistency checks and restart-only restoration |
 | [Cleanup rules](cleanup-rules.md) | The eleven Smart Fixes, genres, artists, limits |
 | [Automatic tagging settings](tagging-settings.md) | Every option on the tagging page |
-| [Settings reference](settings.md) | All six settings pages |
+| [File organization](file-organization.md) | Naming, complete previews, reference repair, recovery and Undo |
+| [Settings reference](settings.md) | Saved preparation, library and appearance settings |
 
 For details of how CueRithm computes values, see [Under the hood](../technical/index.md).
 

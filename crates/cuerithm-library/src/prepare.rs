@@ -178,6 +178,7 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        self.library.invalidate_unpublished_preparation(&track)?;
         self.library.clear_track_analysis_cache(&track)?;
         let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
@@ -379,6 +380,16 @@ impl Worker {
     fn process(&mut self, job: JobRun) {
         let mut stage = "setup";
         let outcome = (|| -> Result<()> {
+            // Resume before source-hash comparison or decoder/model/provider work: tags and
+            // organization can legitimately have changed this logical job's source path/hash.
+            if self.library.has_preparation_checkpoint(&job.id)? {
+                stage = "organizing";
+                self.emit(&job, stage, "running");
+                self.library
+                    .continue_preparation_organization(&job, &self.stop)?;
+                self.emit(&job, "completed", "completed");
+                return Ok(());
+            }
             job.snapshot.settings.ready()?;
             stage = "waiting";
             self.emit(&job, stage, "running");
@@ -487,8 +498,29 @@ impl Worker {
                     None
                 };
                 let matched = if job.snapshot.settings.autotag_enabled {
-                    self.tagger
-                        .match_track_with_album(&input, config, &self.stop, hint.as_ref())?
+                    match self.tagger.match_track_with_album(
+                        &input,
+                        config,
+                        &self.stop,
+                        hint.as_ref(),
+                    ) {
+                        Ok(outcome) => {
+                            self.library.record_match_outcome(&job, &input, &outcome)?;
+                            outcome
+                        }
+                        Err(error) => {
+                            if let Some(failure) =
+                                error.downcast_ref::<cuerithm_autotag::CatalogLookupError>()
+                            {
+                                self.library.record_match_outcome(
+                                    &job,
+                                    &input,
+                                    &failure.outcome,
+                                )?;
+                            }
+                            return Err(error);
+                        }
+                    }
                 } else {
                     cuerithm_autotag::TagMatchOutcome {
                         status: cuerithm_autotag::MatchStatus::NoMatch,
@@ -557,11 +589,14 @@ impl Worker {
                 self.emit(&job, stage, "running");
                 self.library.publish_preparation(&job, &journal)?;
                 if job.snapshot.settings.autotag_enabled && config.options.album_tagging {
-                    let release = matched
-                        .matches
-                        .iter()
-                        .find(|m| m.track.platform == "beatport")
-                        .and_then(|m| m.track.release_id.as_deref());
+                    let release = matched.matches.iter().find_map(|m| {
+                        let provider = match m.track.platform.as_str() {
+                            "beatport" => cuerithm_autotag::ProviderId::Beatport,
+                            "traxsource" => cuerithm_autotag::ProviderId::Traxsource,
+                            _ => return None,
+                        };
+                        m.track.release_id.as_deref().map(|id| (provider, id))
+                    });
                     self.album_groups.observe(
                         folder,
                         &job.settings_revision,
@@ -601,6 +636,12 @@ impl Worker {
                 crate::publication::apply(&mut result, &job.snapshot.settings)?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
+            }
+            if job.snapshot.settings.organization.enabled() {
+                stage = "organizing";
+                self.emit(&job, stage, "running");
+                self.library
+                    .continue_preparation_organization(&job, &self.stop)?;
             }
             self.emit(&job, "completed", "completed");
             Ok(())

@@ -84,3 +84,56 @@ fn detected_source_requirement_survives_reopen_and_can_be_reset() {
     lib.reset_catalog_access().unwrap();
     assert!(!lib.requires_solver("traxsource").unwrap());
 }
+
+#[test]
+fn main_schema_thirteen_upgrades_without_losing_detected_restrictions() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("library.sqlite");
+    {
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        for migration in [
+            include_str!("../migrations/001_initial.sql"),
+            include_str!("../migrations/002_tag_writes.sql"),
+            include_str!("../migrations/003_preparation_cache.sql"),
+            include_str!("../migrations/004_cleanup.sql"),
+            include_str!("../migrations/005_cleanup_preparation.sql"),
+            include_str!("../migrations/006_playlists.sql"),
+            include_str!("../migrations/007_maintenance.sql"),
+            include_str!("../migrations/008_maintenance_writes.sql"),
+            include_str!("../migrations/009_unused_removal.sql"),
+            include_str!("../migrations/010_unused_retention.sql"),
+            include_str!("../migrations/011_native_import.sql"),
+            include_str!("../migrations/012_automatic_playlists.sql"),
+            include_str!("../migrations/013_catalog_access.sql"),
+        ] {
+            connection.execute_batch(migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO catalog_access(source,requires_solver) VALUES('traxsource',1)",
+                [],
+            )
+            .unwrap();
+    }
+    let library = Library::open(&path).unwrap();
+    assert!(library.requires_solver("traxsource").unwrap());
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    assert_eq!(
+        connection
+            .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        20
+    );
+    for table in ["organization_operations", "preparation_match_snapshots"] {
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                    [table],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+    }
+}

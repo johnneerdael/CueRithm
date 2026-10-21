@@ -1,13 +1,13 @@
 # The library database
 
-CueRithm keeps everything it knows in a single SQLite database, with a small set of caches beside it. Your music files stay where they are.
+CueRithm keeps its library state in a single SQLite database, with caches and recovery files beside it. Music files remain separate. Optional [File organization](../guides/file-organization.md) can rename, move or copy them.
 
 ## The engine
 
 - SQLite (bundled with the app, via `rusqlite`), file name `library.sqlite`, in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on, a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library (a non-empty SQLite file without it is rejected).
-- Schema version (`user_version`) is currently 15. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
+- Schema version (`user_version`) is currently 20. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live
 
@@ -19,6 +19,7 @@ CueRithm keeps everything it knows in a single SQLite database, with a small set
 | Extracted cover art | `cache/artwork/` |
 | Waveform caches | `cache/waveforms/` |
 | Original-file backups from tag writes and cleanup | `tagging/<workspace>/` |
+| Library preparation-state backups and scheduled restore requests | `library-backups/` |
 | Your music | Wherever you keep it. The database stores absolute paths. |
 
 On macOS the data folder is `~/Library/Application Support/com.cuerithm.app`. See [Install](../get-started/install.md#where-cuerithm-keeps-its-data).
@@ -31,7 +32,9 @@ If you move or delete a track outside CueRithm, its stored path breaks. Use [Mai
 | --- | --- |
 | `tracks` | One row per file: path, title, artist, album, genre, search text and sort keys, the file's SHA-256, `state` (*incoming* or *ready*), `archived`, the full analysis, measured key, BPM, energy, duration, tagging and cleanup provenance |
 | `jobs` | Preparation jobs: state (`queued`, `running`, `attention`, `completed`, `superseded`), stage, error, attempts, unique per track, source hash and settings revision |
-| `cue_revisions` | Append-only cue history. Each completed preparation inserts a new revision. |
+| `cue_revisions` | Cue publication history from preparation and saved manual corrections. |
+| `manual_publication_operations`, `manual_publication_state`, `cue_templates` | Correction previews/history, manual ownership and named templates |
+| Organization tables and preparation checkpoints | File plans, native path authority, publication/recovery history and required preparation stages |
 | `settings`, `selected_settings` | Immutable settings snapshots identified by a SHA-256, plus a pointer to the current one |
 | `preparation_analysis` | The analysis cache |
 | `tag_writes`, `tag_write_files` | The tag-write journal |

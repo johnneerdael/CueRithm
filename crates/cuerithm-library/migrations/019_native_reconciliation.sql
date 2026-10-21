@@ -11,4 +11,4 @@ CREATE TABLE native_reconciliation_plans (
  FOREIGN KEY(target_id,content_id) REFERENCES native_track_links(target_id,content_id)
 );
 CREATE INDEX native_reconciliation_target ON native_reconciliation_plans(target_id,content_id);
-PRAGMA user_version=14;
+PRAGMA user_version=19;

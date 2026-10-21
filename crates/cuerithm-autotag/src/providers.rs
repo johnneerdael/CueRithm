@@ -117,6 +117,26 @@ impl Native {
     }
 }
 impl ProviderBackend for Native {
+    fn search_releases(
+        &self,
+        query: &str,
+        page: u32,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<crate::CatalogRelease>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        ensure!(
+            self.id == ProviderId::Traxsource,
+            "Release search is unavailable for this provider"
+        );
+        Traxsource::with_endpoints(self.client.clone(), &self.endpoints.traxsource)
+            .with_http(
+                CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone()),
+                config.solver.clone(),
+                cancel.clone(),
+            )
+            .search_releases(query, page)
+    }
     fn album(&self, id: &str, config: &AutotagConfig) -> Result<Option<crate::CatalogAlbum>> {
         self.album_cancellable(id, config, &Arc::new(AtomicBool::new(false)))
     }
@@ -129,6 +149,24 @@ impl ProviderBackend for Native {
         ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
         self.source(cancel.clone(), config)
             .get_album(id, &config.options)
+            .map_err(|e| native_failure(self.id, e))
+    }
+    fn stage_timeout(&self, config: &AutotagConfig) -> Duration {
+        if self.id == ProviderId::Traxsource
+            && config
+                .solver
+                .endpoint
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+        {
+            // Search, track expansion and release expansion can each need two
+            // solver attempts. Solver errors are terminal to the outer retry
+            // layer, so these attempts are never multiplied by its retry count.
+            let page = 2 * (config.solver.timeout_seconds.min(300) + 10) + 1;
+            Duration::from_secs(95 + 3 * page)
+        } else {
+            Duration::from_secs(95)
+        }
     }
     fn id(&self) -> ProviderId {
         self.id
@@ -150,7 +188,8 @@ impl ProviderBackend for Native {
         }
         let mut found = self
             .source(cancel.clone(), config)
-            .match_track(&info, &config.options)?;
+            .match_track(&info, &config.options)
+            .map_err(|e| native_failure(self.id, e))?;
         found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));
         Ok(found)
     }
@@ -166,5 +205,55 @@ impl ProviderBackend for Native {
         ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
         self.source(cancel.clone(), config)
             .extend_track(track, &config.options)
+            .map_err(|e| native_failure(self.id, e))
+    }
+}
+
+// These exact parser messages belong to our pinned adapter; unknown errors stay unknown.
+fn native_failure(provider: ProviderId, error: anyhow::Error) -> anyhow::Error {
+    if provider == ProviderId::Traxsource
+        && crate::retry::classify(&error) == crate::ProviderFailureKind::Unknown
+    {
+        let message = error.to_string();
+        if message.starts_with("Malformed Traxsource page:")
+            || [
+                "Missing track title",
+                "Missing duration",
+                "Invalid track ID",
+                "Invalid release ID",
+                "Missing track ID",
+                "No results!",
+            ]
+            .contains(&message.as_str())
+        {
+            return crate::BackendFailure::new(crate::ProviderFailureKind::Parse, message).into();
+        }
+    }
+    error
+}
+
+#[cfg(test)]
+mod solver_budget_tests {
+    use super::*;
+    #[test]
+    fn solver_budget_covers_all_pages_without_changing_direct_api_deadline() {
+        let native = Native {
+            id: ProviderId::Traxsource,
+            client: Client::new(),
+            endpoints: CatalogEndpoints::default(),
+            token: Arc::new(BeatportTokenCache::default()),
+            store: Arc::new(crate::MemoryChallengeStore::default()),
+        };
+        let mut config = AutotagConfig::default();
+        assert_eq!(native.stage_timeout(&config), Duration::from_secs(95));
+        config.solver.endpoint = Some("http://localhost:8191".into());
+        assert_eq!(native.stage_timeout(&config), Duration::from_secs(878));
+        config.solver.timeout_seconds = 300;
+        assert_eq!(native.stage_timeout(&config), Duration::from_secs(1958));
+        let beatport = Native {
+            id: ProviderId::Beatport,
+            ..native
+        };
+        assert_eq!(beatport.stage_timeout(&config), Duration::from_secs(95));
     }
 }

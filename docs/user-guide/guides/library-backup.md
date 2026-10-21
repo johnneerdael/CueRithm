@@ -9,7 +9,7 @@ keep both files together. The manifest records source locations and file hashes.
 
 ## Create a backup
 
-1. Finish preparation and any cleanup, maintenance or DJ sync work. Resolve
+1. Finish preparation, file organization and any cleanup, maintenance or DJ sync work. Resolve
    recovery warnings and discard unused sync previews.
 2. Open **Library backup** and choose **Create backup**.
 3. Choose a destination. CueRithm creates a dated folder and shows its location.
@@ -46,8 +46,11 @@ This delivery supports the same CueRithm version, operating system and library
 installation. It does not move a library to another computer. The installation
 identity file in the application data folder must remain available.
 
-Music, analysis models and retained tagging, cleanup, maintenance and DJ sync
-resources must match their saved state. Later tagging, removal, backup disposal
+Music, owned sidecars, analysis models and retained tagging, cleanup, maintenance,
+organization and DJ sync resources must match their saved state. Organization
+originals, Copy-source ownership, partial stages and native reference recovery
+files keep their exact file and folder identities. They are checked in place;
+the backup does not copy their audio or restore external DJ databases. Later tagging, organization, removal, backup disposal
 or DJ sync can make an older database snapshot ineligible for restore.
 
 Restoring the database cannot reverse edits to music tags or changes in DJ
