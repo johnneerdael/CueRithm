@@ -338,7 +338,9 @@ fn token_waiter_fixture(cancel_during_request: bool) {
     let url = format!("http://{}", listener.local_addr().unwrap());
     let stop_server = Arc::new(AtomicBool::new(false));
     let requests = Arc::new(AtomicUsize::new(0));
+    let cancel = Arc::new(AtomicBool::new(false));
     let (server_stop, count) = (stop_server.clone(), requests.clone());
+    let server_cancel = cancel.clone();
     let server = thread::spawn(move || {
         while !server_stop.load(Ordering::SeqCst) {
             let (mut stream, _) = match listener.accept() {
@@ -356,6 +358,11 @@ fn token_waiter_fixture(cancel_during_request: bool) {
             let mut bytes = [0; 8192];
             let _ = stream.read(&mut bytes);
             count.fetch_add(1, Ordering::SeqCst);
+            if cancel_during_request {
+                // Cancel while the first request is in flight. A busy CI runner
+                // can delay the controller long enough for a legitimate retry.
+                server_cancel.store(true, Ordering::SeqCst);
+            }
             thread::sleep(Duration::from_millis(if cancel_during_request {
                 250
             } else {
@@ -372,7 +379,6 @@ fn token_waiter_fixture(cancel_during_request: bool) {
         )
         .unwrap(),
     );
-    let cancel = Arc::new(AtomicBool::new(false));
     let barrier = Arc::new(Barrier::new(9));
     let mut config = AutotagConfig::default();
     config.options.platforms = vec!["beatport".into()];
@@ -399,10 +405,6 @@ fn token_waiter_fixture(cancel_during_request: bool) {
     while requests.load(Ordering::SeqCst) == 0 {
         assert!(started.elapsed() < Duration::from_secs(2));
         thread::sleep(Duration::from_millis(2));
-    }
-    if cancel_during_request {
-        thread::sleep(Duration::from_millis(30));
-        cancel.store(true, Ordering::SeqCst);
     }
     for worker in workers {
         worker.join().unwrap();
