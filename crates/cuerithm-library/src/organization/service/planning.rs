@@ -177,9 +177,10 @@ impl Library {
                     reason = Some("Destination already exists or has an occupied ancestor".into());
                 }
                 if frozen.files.iter().any(|file| {
-                    file.destination
-                        .0
-                        .starts_with(self.data_dir().canonicalize().unwrap_or_default())
+                    cuerithm_organize::paths::is_within(
+                        &self.data_dir().canonicalize().unwrap_or_default(),
+                        &file.destination.0,
+                    )
                 }) {
                     outcome = "blocked";
                     reason = Some("Destination enters application data".into());
