@@ -176,17 +176,36 @@ impl Library {
         if record.phase != OrganizationPhase::Unchanged {
             // Destinations also carry a conservative case/Unicode-equivalent key so
             // two active plans cannot claim spellings of one name before either publishes.
+            // Sources carry their native identity instead: aliases of one file collide, while
+            // distinct files that differ only by case on a case-sensitive volume do not.
             let mut reserved = std::collections::BTreeMap::new();
             for file in &record.files {
                 reserved
                     .entry(&file.source.0)
-                    .or_insert((&file.source, false));
+                    .or_insert((&file.source, false, None))
+                    .2 = Some(format!(
+                    "{}:{}",
+                    file.original.identity.volume, file.original.identity.object
+                ));
                 reserved
                     .entry(&file.destination.0)
-                    .or_insert((&file.destination, true))
+                    .or_insert((&file.destination, true, None))
                     .1 = true;
             }
-            for (bytes, (path, destination)) in reserved {
+            for (bytes, (path, destination, identity)) in reserved {
+                if let Some(identity) = &identity {
+                    let owner: Option<String> = tx
+                        .query_row(
+                            "SELECT operation_id FROM organization_reservations WHERE source_identity=?1 AND operation_id!=?2 LIMIT 1",
+                            params![identity, record.id],
+                            |r| r.get(0),
+                        )
+                        .optional()?;
+                    ensure!(
+                        owner.is_none(),
+                        "Another active organization already reserves this source file under another name"
+                    );
+                }
                 let key = if destination {
                     let key = cuerithm_organize::paths::collision_key(&path.path()?)
                         .map_err(|error| anyhow::anyhow!(error))?;
@@ -205,7 +224,7 @@ impl Library {
                 } else {
                     None
                 };
-                tx.execute("INSERT INTO organization_reservations(path,collision_key,operation_id) VALUES(?1,?2,?3)",params![bytes,key,record.id])?;
+                tx.execute("INSERT INTO organization_reservations(path,collision_key,source_identity,operation_id) VALUES(?1,?2,?3,?4)",params![bytes,key,identity,record.id])?;
             }
         }
         tx.commit()?;
