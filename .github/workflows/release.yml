@@ -50,10 +50,7 @@ jobs:
         id: ready
         run: |
           ok=true
-          for wf in ci.yml desktop.yml; do
-            run=$(gh run list --workflow "$wf" --commit "$SHA" --status success --json databaseId,event --jq '[.[] | select(.event=="push" or .event=="workflow_dispatch")][0].databaseId')
-            if [ -z "$run" ] || [ "$run" = null ]; then ok=false; fi
-          done
+          [ "$(python3 .github/scripts/checks_ready.py --repo "$GITHUB_REPOSITORY" --sha "$SHA")" = true ] || ok=false
           # Skip when this commit is already released or an equal/newer main commit was.
           if [ -n "$(git tag --points-at "$SHA")" ]; then ok=false; fi
           latest=$(git tag --list 'v*' --sort=-v:refname | head -1)
