@@ -160,6 +160,90 @@ fn a_row_blocked_for_another_reason_does_not_block_a_valid_row_with_the_same_aud
     assert_eq!(row("2").outcome, RowOutcome::Ready);
     assert!(plan.can_apply());
 }
+fn sidecar(path: &str, id: &str, destination: &str) -> Sidecar {
+    Sidecar {
+        source: file(path, id),
+        destination_name: destination.into(),
+    }
+}
+fn only_row_outcome(req: PlanInput) -> RowOutcome {
+    build_plan(req, || false).unwrap().rows.remove(0).outcome
+}
+fn blocked_with(outcome: &RowOutcome, text: &str) -> bool {
+    matches!(outcome, RowOutcome::Blocked { reason } if reason.contains(text))
+}
+// The coordinator's `plan_organization` rejects each of these requests, so the
+// planner must block the row instead of advertising it as applicable.
+#[test]
+fn rename_in_place_blocks_sidecars_that_live_in_another_folder() {
+    let mut owner = track("1", "Title");
+    owner
+        .sidecars
+        .push(sidecar("/artwork/cover-source.jpg", "art", "cover.jpg"));
+    let mut req = request(vec![owner]);
+    req.config.mode = OrganizationMode::RenameInPlace;
+    let outcome = only_row_outcome(req.clone());
+    assert!(blocked_with(&outcome, "another folder"), "{outcome:?}");
+    // Beside the audio it still renames.
+    req.tracks[0].sidecars[0].source = file("/incoming/cover-source.jpg", "art");
+    assert_eq!(only_row_outcome(req), RowOutcome::Ready);
+}
+#[test]
+fn a_row_cannot_list_the_same_source_file_twice() {
+    let mut twice = track("1", "Title");
+    twice
+        .sidecars
+        .push(sidecar("/incoming/art.jpg", "art", "cover.jpg"));
+    twice
+        .sidecars
+        .push(sidecar("/incoming/art.jpg", "art", "back.jpg"));
+    let outcome = only_row_outcome(request(vec![twice]));
+    assert!(blocked_with(&outcome, "more than once"), "{outcome:?}");
+    let mut audio_again = track("1", "Title");
+    audio_again
+        .sidecars
+        .push(sidecar("/incoming/1.flac", "1", "copy.flac"));
+    let outcome = only_row_outcome(request(vec![audio_again]));
+    assert!(blocked_with(&outcome, "more than once"), "{outcome:?}");
+}
+#[test]
+fn a_row_cannot_hold_more_than_the_coordinator_accepts() {
+    let mut crowded = track("1", "Title");
+    for index in 0..256 {
+        crowded.sidecars.push(sidecar(
+            &format!("/incoming/{index}.jpg"),
+            "art",
+            &format!("{index}.jpg"),
+        ));
+    }
+    let outcome = only_row_outcome(request(vec![crowded.clone()]));
+    assert!(blocked_with(&outcome, "255 owned sidecars"), "{outcome:?}");
+    crowded.sidecars.pop();
+    assert_eq!(only_row_outcome(request(vec![crowded])), RowOutcome::Ready);
+}
+#[test]
+fn a_destination_cannot_be_another_owned_files_current_path() {
+    let mut owner = track("1", "Title");
+    // Renaming in place, the sidecar would be written over the audio's current name.
+    owner
+        .sidecars
+        .push(sidecar("/incoming/art.jpg", "art", "1.flac"));
+    let mut req = request(vec![owner]);
+    req.config.mode = OrganizationMode::RenameInPlace;
+    let outcome = only_row_outcome(req);
+    assert!(blocked_with(&outcome, "current path"), "{outcome:?}");
+}
+#[test]
+fn copy_cannot_publish_to_a_case_alias_of_its_own_source() {
+    let mut req = request(vec![track("A", "a")]);
+    req.config.mode = OrganizationMode::Copy;
+    req.config.managed_root = Some(RootSnapshot {
+        path: NativePath(native("/incoming")),
+        identity: "root-2".into(),
+    });
+    let outcome = only_row_outcome(req);
+    assert!(matches!(outcome, RowOutcome::Blocked { .. }), "{outcome:?}");
+}
 #[test]
 fn cancellation_never_returns_partial_plan() {
     assert_eq!(

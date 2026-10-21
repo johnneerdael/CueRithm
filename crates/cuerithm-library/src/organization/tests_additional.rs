@@ -302,6 +302,68 @@ fn one_plan_cannot_contain_case_equivalent_destinations() {
     assert_eq!(operations, 0, "nothing is journaled for a rejected request");
 }
 #[test]
+fn active_plans_cannot_reserve_two_names_of_one_native_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let library = Library::open(&root.join("library.sqlite")).unwrap();
+    let track = |name: &str| {
+        let source = root.join(name);
+        std::fs::write(&source, name.as_bytes()).unwrap();
+        let job = library
+            .enqueue(
+                std::slice::from_ref(&source),
+                library.settings().unwrap().revision,
+            )
+            .unwrap()
+            .remove(0);
+        let track_id = library
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|j| j.id == job)
+            .unwrap()
+            .track_id;
+        (track_id, source)
+    };
+    // One cover file under two names, on every platform.
+    let cover = root.join("cover.jpg");
+    std::fs::write(&cover, b"shared cover").unwrap();
+    let alias = root.join("cover-alias.jpg");
+    std::fs::hard_link(&cover, &alias).unwrap();
+    let plan = |(track_id, source): (String, std::path::PathBuf),
+                art: &std::path::Path,
+                stem: &str| {
+        library.plan_organization(OrganizationRequest {
+            track_id,
+            mode: OrganizationMode::Move,
+            source_root: root.clone(),
+            destination_root: root.clone(),
+            files: vec![
+                (source, root.join(format!("{stem}.wav"))),
+                (art.to_path_buf(), root.join(format!("{stem}.jpg"))),
+            ],
+        })
+    };
+    plan(track("one.wav"), &cover, "One").unwrap();
+    let error = plan(track("two.wav"), &alias, "Two").unwrap_err();
+    assert!(
+        format!("{error:#}").contains("already reserves this source"),
+        "{error:#}"
+    );
+    let operations: i64 = library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM organization_operations", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(operations, 1, "the rejected plan leaves no reservation");
+    // A different native file is unaffected.
+    let other = root.join("other.jpg");
+    std::fs::write(&other, b"another cover").unwrap();
+    plan(track("three.wav"), &other, "Three").unwrap();
+}
+#[test]
 fn one_plan_cannot_list_the_same_native_source_twice() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().canonicalize().unwrap();

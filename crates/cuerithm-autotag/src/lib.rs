@@ -462,7 +462,6 @@ impl Tagger {
                     Ok(vec![matched])
                 },
             );
-
             match result {
                 Ok(found) if !found.is_empty() => {
                     let ambiguous = found.len() > 1

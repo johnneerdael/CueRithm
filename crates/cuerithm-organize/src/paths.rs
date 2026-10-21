@@ -1,6 +1,6 @@
 //! Lexical policy only. Native authority and no-follow checks belong to publication.
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 use unicode_normalization::UnicodeNormalization;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PathRules {
@@ -56,12 +56,30 @@ pub fn validate_relative(path: &str, rules: PathRules) -> Result<(), String> {
     }
     Ok(())
 }
+/// Win32 spells one volume several ways (`C:`, `\\?\C:`, `\\server\share`, `\\?\UNC\server\share`),
+/// so the prefix is keyed by what it names rather than by its text.
+fn prefix_key(prefix: Prefix<'_>) -> String {
+    let lower = |name: &std::ffi::OsStr| name.to_string_lossy().to_lowercase();
+    match prefix {
+        Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => {
+            format!("disk:{}", letter.to_ascii_lowercase() as char)
+        }
+        Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => {
+            format!("unc:{}\\{}", lower(server), lower(share))
+        }
+        Prefix::Verbatim(name) => format!("verbatim:{}", lower(name)),
+        Prefix::DeviceNS(name) => format!("device:{}", lower(name)),
+    }
+}
 /// Conservative NFC/caseless reservations, even on case-sensitive volumes.
 /// Unicode lowercase is deliberate; actual volume equivalence still requires native checks.
 pub fn collision_key(path: &Path) -> Result<String, String> {
     let parts: Vec<String> = path
         .components()
         .map(|part| {
+            if let Component::Prefix(prefix) = part {
+                return format!("p:{}", prefix_key(prefix.kind()));
+            }
             if let Some(text) = part.as_os_str().to_str() {
                 return format!(
                     "u:{}",
@@ -147,5 +165,39 @@ impl<'de> Deserialize<'de> for NativePath {
                 }
             }
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{ffi::OsStr, path::Prefix};
+    #[test]
+    fn win32_namespace_prefixes_of_one_volume_share_a_key() {
+        let key = |prefix| prefix_key(prefix);
+        assert_eq!(key(Prefix::Disk(b'C')), key(Prefix::VerbatimDisk(b'c')));
+        assert_eq!(
+            key(Prefix::UNC(OsStr::new("Server"), OsStr::new("Share"))),
+            key(Prefix::VerbatimUNC(
+                OsStr::new("server"),
+                OsStr::new("SHARE")
+            ))
+        );
+        assert_ne!(key(Prefix::Disk(b'C')), key(Prefix::Disk(b'D')));
+        assert_ne!(
+            key(Prefix::UNC(OsStr::new("a"), OsStr::new("b"))),
+            key(Prefix::UNC(OsStr::new("a"), OsStr::new("c")))
+        );
+        assert_ne!(
+            key(Prefix::Disk(b'C')),
+            key(Prefix::DeviceNS(OsStr::new("C")))
+        );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn verbatim_and_plain_windows_paths_collide() {
+        assert_eq!(
+            collision_key(Path::new(r"C:\Music\Foo.wav")),
+            collision_key(Path::new(r"\\?\C:\Music\foo.WAV"))
+        );
     }
 }

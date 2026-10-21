@@ -35,6 +35,17 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
             (2..=4).contains(&version),
             "Unsupported existing ID3 version"
         );
+        // Each version defines only its leading header flag bits; the rest are reserved
+        // and would be dropped when the tolerant reader rewrites the tag.
+        let defined = match version {
+            2 => 0xc0,
+            3 => 0xe0,
+            _ => 0xf0,
+        };
+        ensure!(
+            header[5] & !defined == 0,
+            "Existing ID3 header uses reserved flags; refusing metadata reconstruction"
+        );
         let len = syncsafe(&header[6..10])?;
         ensure!(
             len <= MAX_TAG,
@@ -94,6 +105,24 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
                     .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit()),
                 "Malformed existing ID3 frame identifier; refusing metadata reconstruction"
             );
+            if version >= 3 {
+                // The reader keeps only the flags it defines and rejects encrypted or
+                // grouped frames, so a rewrite would silently change or drop them.
+                let flags = u16::from_be_bytes([body[offset + 8], body[offset + 9]]);
+                let (defined, unsupported) = if version == 3 {
+                    (0xe0e0, 0x0060)
+                } else {
+                    (0x704f, 0x0044)
+                };
+                ensure!(
+                    flags & !defined == 0,
+                    "Existing ID3 frame uses undefined flags; refusing metadata reconstruction"
+                );
+                ensure!(
+                    flags & unsupported == 0,
+                    "Encrypted or grouped existing ID3 frames cannot be rewritten safely"
+                );
+            }
             let size = if version == 4 {
                 syncsafe(&body[offset + 4..offset + 8])?
             } else if version == 3 {
@@ -189,6 +218,68 @@ mod tests {
         ]
         .concat();
         assert!(validate_reader(&mut std::io::Cursor::new(v23)).is_ok());
+    }
+    fn flagged_tag(version: u8, flags: [u8; 2]) -> Vec<u8> {
+        // One TIT2 frame with a single payload byte and the given frame flags.
+        let mut frame = b"TIT2\x00\x00\x00\x01".to_vec();
+        frame.extend_from_slice(&flags);
+        frame.push(0);
+        let mut tag = vec![b'I', b'D', b'3', version, 0, 0, 0, 0, 0, frame.len() as u8];
+        tag.extend(frame);
+        tag
+    }
+    #[test]
+    fn frame_flags_must_be_defined_and_supported_by_the_rewriting_reader() {
+        let accepts = |version, flags| {
+            validate_reader(&mut std::io::Cursor::new(flagged_tag(version, flags))).is_ok()
+        };
+        // v2.3: preservation and read-only status bits, compression format bit.
+        assert!(accepts(3, [0x00, 0x00]));
+        assert!(accepts(3, [0xe0, 0x00]));
+        assert!(accepts(3, [0x00, 0x80]));
+        // v2.3: undefined bits, encryption and grouping identity.
+        for flags in [[0x00, 0x01], [0x01, 0x00], [0x00, 0x40], [0x00, 0x20]] {
+            assert!(!accepts(3, flags), "v2.3 {flags:?}");
+        }
+        // v2.4: status bits, unsynchronisation and compression format bits.
+        assert!(accepts(4, [0x00, 0x00]));
+        assert!(accepts(4, [0x70, 0x00]));
+        assert!(accepts(4, [0x00, 0x0a]));
+        // v2.4: undefined bits, encryption and grouping identity.
+        for flags in [
+            [0x80, 0x00],
+            [0x00, 0x80],
+            [0x00, 0x20],
+            [0x00, 0x04],
+            [0x00, 0x40],
+        ] {
+            assert!(!accepts(4, flags), "v2.4 {flags:?}");
+        }
+    }
+    #[test]
+    fn reserved_tag_header_flags_are_refused_for_every_version() {
+        let empty =
+            |version: u8, flags: u8| [b'I', b'D', b'3', version, 0, flags, 0, 0, 0, 0].to_vec();
+        let accepts = |version, flags| {
+            validate_reader(&mut std::io::Cursor::new(empty(version, flags))).is_ok()
+        };
+        // Defined bits: v2.2 unsynchronisation, v2.3 adds extended header and experimental,
+        // v2.4 adds the footer (an empty body with a footer is covered separately).
+        assert!(accepts(2, 0x80));
+        assert!(accepts(3, 0x80));
+        assert!(accepts(4, 0x80));
+        assert!(accepts(4, 0x20));
+        // Reserved bits.
+        for (version, flags) in [
+            (2, 0x01),
+            (2, 0x20),
+            (3, 0x01),
+            (3, 0x10),
+            (4, 0x01),
+            (4, 0x08),
+        ] {
+            assert!(!accepts(version, flags), "v2.{version} flags {flags:#04x}");
+        }
     }
     fn footer_tag(footer: &[u8]) -> Vec<u8> {
         // An empty ID3v2.4 tag whose header sets the footer flag.
