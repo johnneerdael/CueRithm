@@ -26,5 +26,33 @@ class Release(unittest.TestCase):
         self.assertEqual(public, ["Z"])
 
 
+class Page(unittest.TestCase):
+    def test_users_see_their_changes_first_and_developer_detail_is_collapsed(self):
+        text = rn.render(["Organize your files"], ["tidy CI"], ["test(autotag): reset sockets"])
+        visible, collapsed = text.split("<details>")
+        self.assertIn("## What's new", visible)
+        self.assertIn("- Organize your files", visible)
+        self.assertNotIn("tidy CI", visible)
+        self.assertNotIn("test(autotag)", visible)
+        self.assertIn("<summary>", collapsed)
+        self.assertIn("tidy CI", collapsed)
+        self.assertIn("test(autotag): reset sockets", collapsed)
+        self.assertTrue(text.rstrip().endswith("</details>"))
+
+    def test_no_developer_block_when_there_is_nothing_for_developers(self):
+        text = rn.render(["Organize your files"], [], [])
+        self.assertNotIn("<details>", text)
+        self.assertIn("- Organize your files", text)
+
+    def test_a_release_without_user_facing_changes_says_so_before_the_detail(self):
+        text = rn.render([], ["tidy CI"], [])
+        visible = text.split("<details>")[0]
+        self.assertIn("No user-facing changes.", visible)
+        self.assertNotIn("tidy CI", visible)
+
+    def test_nothing_at_all_still_says_no_user_facing_changes(self):
+        self.assertIn("No user-facing changes.", rn.render([], [], []))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -40,11 +40,17 @@ def entries(commits, bodies):
 
 def render(public, internal, other):
     out = ["macOS builds are signed with a Developer ID and notarized. Windows and Linux builds are unsigned: Windows SmartScreen may warn on first launch.", ""]
-    for title, items in [("Changes", public), ("Internal", internal), ("Direct commits", other)]:
-        if items:
-            out += [f"## {title}", ""] + [f"- {item}" for item in items] + [""]
-    if not (public or internal or other):
+    # People using the app read the top; developer detail stays available but collapsed.
+    if public:
+        out += ["## What's new", ""] + [f"- {item}" for item in public] + [""]
+    else:
         out += ["No user-facing changes.", ""]
+    developer = [(title, items) for title, items in [("Internal", internal), ("Direct commits", other)] if items]
+    if developer:
+        out += ["<details>", "<summary>For developers</summary>", ""]
+        for title, items in developer:
+            out += [f"**{title}**", ""] + [f"- {item}" for item in items] + [""]
+        out += ["</details>"]
     return "\n".join(out).rstrip() + "\n"
 
 
