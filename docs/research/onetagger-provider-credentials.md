@@ -62,3 +62,5 @@ SonoVault is separate from the twelve pinned adapters: users choosing it provide
 The user subsequently excluded Beatsource after its merger into Beatport. Historical adapter and issue records remain evidence, not a shipped provider. See [the operator announcement](https://www.beatsource.com/) and [PR5 acceptance](pr5-provider-acceptance.md).
 
 Juno Download is also excluded by the final user decision after failed live access and closure reports, as recorded in [PR5 acceptance](pr5-provider-acceptance.md).
+
+Volumo is an additional user-approved provider, outside the twelve OneTagger adapters. Its [documented public API](https://volumo.com/api-doc/) requires a personal bearer token, available from the [account token page](https://volumo.com/profile/api-tokens). The two documented routes resolve an ISRC or album UPC/EAN to store links. CueRithm combines ISRC resolution with identity-checked public track metadata, and supports known Volumo track IDs; no free-text API search is claimed. Tokens remain optional for CueRithm and required only when choosing Volumo. See [current acceptance](pr5-provider-acceptance.md).

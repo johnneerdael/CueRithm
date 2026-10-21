@@ -41,6 +41,8 @@ mod catalog_ports;
 mod recognition;
 pub use recognition::*;
 pub mod discogs;
+pub mod volumo;
+pub use volumo::VolumoBackend;
 pub mod sonovault;
 use anyhow::{Result, ensure};
 pub use catalog_ports::test_pool_account;
@@ -68,18 +70,20 @@ pub enum ProviderId {
     Musicbrainz,
     Sonovault,
     Discogs,
+    Volumo,
     Itunes,
     Bpmsupreme,
     Bandcamp,
     Deezer,
 }
 impl ProviderId {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Beatport,
         Self::Traxsource,
         Self::Musicbrainz,
         Self::Sonovault,
         Self::Discogs,
+        Self::Volumo,
         Self::Itunes,
         Self::Bpmsupreme,
         Self::Bandcamp,
@@ -92,6 +96,7 @@ impl ProviderId {
             Self::Musicbrainz => "musicbrainz",
             Self::Sonovault => "sonovault",
             Self::Discogs => "discogs",
+            Self::Volumo => "volumo",
             Self::Itunes => "itunes",
             Self::Bpmsupreme => "bpmsupreme",
             Self::Bandcamp => "bandcamp",

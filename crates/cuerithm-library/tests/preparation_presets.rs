@@ -41,7 +41,7 @@ fn every_accepted_provider_is_portable_without_credentials_or_transmission_conse
             .options
             .platforms
             .len(),
-        9
+        10
     );
     let preset = lib
         .save_preparation_preset(PreparationPresetSave {
@@ -91,6 +91,13 @@ fn every_accepted_provider_is_portable_without_credentials_or_transmission_conse
     );
     unsafe_import = serde_json::from_str(&exported.document).unwrap();
     unsafe_import["rules"]["tagging"]["options"]["platforms"] = serde_json::json!(["beatsource"]);
+    assert!(
+        lib.import_preparation_preset(&unsafe_import.to_string(), None)
+            .is_err()
+    );
+    unsafe_import = serde_json::from_str(&exported.document).unwrap();
+    unsafe_import["rules"]["tagging"]["options"]["custom"]["volumo"] =
+        serde_json::json!({"api_key":"fixture-volumo-private"});
     assert!(
         lib.import_preparation_preset(&unsafe_import.to_string(), None)
             .is_err()

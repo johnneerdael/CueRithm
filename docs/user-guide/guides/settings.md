@@ -27,8 +27,8 @@ Completed tracks enter Tracks automatically. Original audio files stay in place 
 
 See [Automatic tagging settings](tagging-settings.md).
 
-Nine catalog providers are listed. Additional providers are opt-in; SonoVault
-requires an optional personal API key and BPM Supreme uses an optional account.
+Ten catalog providers are listed. Additional providers are opt-in; SonoVault and
+Volumo require personal API keys when chosen, and BPM Supreme uses an optional account.
 MusicBrainz needs no key, and Discogs supports anonymous access. Provider **Save**,
 **Test**, **Replace** and **Remove** affect the system credential store immediately.
 They do not save your global preparation draft or enable a provider. **Save

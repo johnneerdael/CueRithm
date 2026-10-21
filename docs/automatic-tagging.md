@@ -14,7 +14,7 @@ results in the library remain measured analysis, independently of catalog tags.
 ## Providers and matching
 
 Choose from Beatport, Traxsource, MusicBrainz, SonoVault, Discogs,
-iTunes, BPM Supreme, Bandcamp and Deezer. Beatport and Traxsource
+iTunes, BPM Supreme, Bandcamp, Deezer and Volumo. Beatport and Traxsource
 remain the default selection; additional providers are opt-in. Move providers
 earlier or later to set their order. A source marked as restricted that has no working solver shows as
 unavailable and cannot be newly selected; a saved selection stays visible so you
@@ -23,7 +23,8 @@ can clear it.
 MusicBrainz needs no account. Discogs works anonymously at CueRithm's limit of
 25 requests/minute; an optional token verified against the account allows up to
 60. End users do not need to register a developer application. SonoVault is
-optional and requires a personal API key; BPM Supreme requires an account.
+optional and requires a personal API key; Volumo also requires a personal API key
+when selected, and BPM Supreme requires an account.
 The other listed providers have no end-user credential setup in CueRithm.
 Provider availability and supplied fields can differ.
 
@@ -36,6 +37,12 @@ one metadata credit. A test key's mock response does not prove live access.
 Unknown allowance or reset times stay unknown; rate or quota errors are not
 reported as no match. CueRithm does not discover credentials from user key files.
 See the [provider setup steps](user-guide/learn/auto-tagging.md#provider-setup).
+
+Volumo tokens are created in the account's [API-token settings](https://volumo.com/profile/api-tokens).
+Its official API resolves an ISRC to links; CueRithm can read public track-page
+metadata from the returned Volumo link. This is not a full free catalog-search
+API. Connection testing checks one sample ISRC, without uploading audio. An
+unavailable sample leaves the key unverified rather than declaring it invalid.
 
 With Combine providers off, the first successful selected provider supplies metadata.
 With it on, every selected provider is consulted and matches apply in order.

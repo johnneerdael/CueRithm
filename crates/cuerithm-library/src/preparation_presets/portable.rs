@@ -57,7 +57,7 @@ pub(super) fn validate(rules: &PreparationPresetRules) -> Result<()> {
             "Unsupported analysis-tag source"
         );
         ensure!(
-            !options.platforms.is_empty() && options.platforms.len() <= 9,
+            !options.platforms.is_empty() && options.platforms.len() <= 10,
             "Choose at least one supported metadata provider"
         );
         let mut seen = std::collections::BTreeSet::new();
@@ -74,6 +74,7 @@ pub(super) fn validate(rules: &PreparationPresetRules) -> Result<()> {
                         | "bpmsupreme"
                         | "bandcamp"
                         | "deezer"
+                        | "volumo"
                 ) && seen.insert(provider),
                 "Unsupported or duplicate preset provider"
             );
@@ -301,7 +302,7 @@ pub(super) fn project(settings: &PreparationSettings) -> Result<PreparationPrese
         let custom=options.remove("custom").unwrap_or_else(||json!({}));
         let beatport=custom.get("beatport").filter(|value|value.is_object()).map(|value|json!({"max_pages":value["max_pages"],"art_resolution":value["art_resolution"],"ignore_version":value["ignore_version"]}));
         let mut safe_custom=json!({"beatport":beatport,"traxsource":custom.get("traxsource").map(|_|json!({}))});
-        for provider in ["musicbrainz","sonovault","discogs","itunes","bpmsupreme","bandcamp","deezer"] {
+        for provider in ["musicbrainz","sonovault","discogs","itunes","bpmsupreme","bandcamp","deezer","volumo"] {
             safe_custom[provider]=custom.get(provider).map(|_|json!({})).unwrap_or(Value::Null);
         }
         options.insert("custom".into(),safe_custom);

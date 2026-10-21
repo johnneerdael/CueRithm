@@ -1,5 +1,5 @@
-export type CatalogProviderId = "beatport"|"traxsource"|"musicbrainz"|"sonovault"|"discogs"|"itunes"|"bpmsupreme"|"bandcamp"|"deezer";
-export type CredentialProviderId = "sonovault"|"discogs"|"bpm_supreme";
+export type CatalogProviderId = "beatport"|"traxsource"|"musicbrainz"|"sonovault"|"discogs"|"itunes"|"bpmsupreme"|"bandcamp"|"deezer"|"volumo";
+export type CredentialProviderId = "sonovault"|"discogs"|"bpm_supreme"|"volumo";
 export interface CredentialRef {provider:CredentialProviderId;generation:string;session:string}
 export interface CredentialStatus {
  reference:CredentialRef;

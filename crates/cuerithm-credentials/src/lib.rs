@@ -13,6 +13,7 @@ pub mod state;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderId {
+    Volumo,
     Discogs,
     BpmSupreme,
     Spotify,
@@ -193,6 +194,7 @@ impl<V: Vault> CredentialService<V> {
             ProviderId::SonoVault,
             ProviderId::AudD,
             ProviderId::RapidApi,
+            ProviderId::Volumo,
             ProviderId::Discogs,
             ProviderId::BpmSupreme,
             ProviderId::Spotify,

@@ -388,6 +388,7 @@ pub fn fetch_catalog_artwork_with_runtime(
         ProviderId::Beatport => crate::CatalogService::Beatport,
         ProviderId::Traxsource => crate::CatalogService::Traxsource,
         ProviderId::Discogs => crate::CatalogService::Discogs,
+        ProviderId::Volumo => crate::CatalogService::Volumo,
         ProviderId::Itunes => crate::CatalogService::ITunes,
         ProviderId::Bandcamp => crate::CatalogService::Bandcamp,
         ProviderId::Deezer => crate::CatalogService::Deezer,

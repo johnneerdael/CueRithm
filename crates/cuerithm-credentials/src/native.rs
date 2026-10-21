@@ -24,6 +24,7 @@ impl NativeVault {
     }
     fn entry(&self, provider: ProviderId) -> Result<keyring_core::Entry, VaultError> {
         let account = match provider {
+            ProviderId::Volumo => "volumo",
             ProviderId::SonoVault => "sonovault",
             ProviderId::AudD => "audd",
             ProviderId::RapidApi => "rapidapi",

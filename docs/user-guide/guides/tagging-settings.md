@@ -29,6 +29,7 @@ Open **Settings > Automatic tagging** to configure tagging for new tracks, watch
 | BPM Supreme | `bpmsupreme` | Optional account email and password. |
 | Bandcamp | `bandcamp` | No account; source restrictions can affect access. |
 | Deezer | `deezer` | No account. |
+| Volumo | `volumo` | Optional personal API key; official ISRC-to-links lookup and public track metadata. |
 
 **Set up** and **Manage** open credential controls for the optional providers.
 **Save**, **Test**, **Replace** and **Remove** act immediately on the system
@@ -45,6 +46,14 @@ without uploading audio or invoking recognition. Mock/test keys do not establish
 live access. Rate or quota messages show known timing only; unknown remaining
 allowance and reset times are not estimated. If no reset is known after a quota
 error, check the allowance before explicitly testing again.
+
+For Volumo, use **Create a Volumo API token** to open
+[account token settings](https://volumo.com/profile/api-tokens). A personal key is
+required only when choosing this provider. **Test saved Volumo connection** checks
+one sample ISRC lookup. Volumo's official API resolves ISRCs to links, with public
+track-page metadata available from the returned link; it is not a full free
+catalog-search API. Missing or withdrawn sample data leaves the key unverified,
+not invalid. Unknown rate or quota details are not estimated.
 
 Discogs needs no developer application registration. Anonymous access is capped
 at 25 requests/minute; a successfully verified account token allows up to 60.

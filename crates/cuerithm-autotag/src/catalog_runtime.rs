@@ -19,6 +19,7 @@ pub const MAX_CATALOG_CACHE_ENTRIES: usize = 256;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CatalogService {
+    Volumo,
     #[serde(rename = "musicbrainz")]
     MusicBrainz,
     CoverArtArchive,
@@ -43,6 +44,7 @@ pub enum CatalogService {
 impl CatalogService {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Volumo => "volumo",
             Self::MusicBrainz => "musicbrainz",
             Self::CoverArtArchive => "cover_art_archive",
             Self::SonoVault => "sonovault",
@@ -227,6 +229,7 @@ pub enum CatalogErrorKind {
     ForbiddenOrigin,
     CloudflareProtected,
     NotFound,
+    Gone,
     Unavailable,
     Busy,
 }
@@ -313,6 +316,11 @@ impl CatalogRuntime {
         );
         self.fixture_origin = Some(base.trim_end_matches('/').into());
         Ok(self)
+    }
+    /// Trusted Rust acceptance tooling may wrap the ordinary transport with a strict request budget.
+    /// Constructing it does not read credentials or start any request.
+    pub fn native_http_transport() -> Arc<dyn CatalogTransport> {
+        Arc::new(transport::HttpTransport)
     }
     pub fn with_transport(mut self, transport: Arc<dyn CatalogTransport>) -> Self {
         self.transport = transport;
@@ -403,6 +411,7 @@ impl CatalogRuntime {
         let service = match r.provider {
             CredentialProviderId::SonoVault => CatalogService::SonoVault,
             CredentialProviderId::Discogs => CatalogService::Discogs,
+            CredentialProviderId::Volumo => CatalogService::Volumo,
             _ => {
                 return Err(CatalogError::new(
                     CatalogService::Discogs,
@@ -453,10 +462,10 @@ impl CatalogRuntime {
                 retry_at_ms: None,
             });
         }
-        let url = if service == CatalogService::Discogs {
-            "https://api.discogs.com/oauth/identity"
-        } else {
-            "https://api.sonovault.now/v1/genres"
+        let url = match service {
+            CatalogService::Discogs => "https://api.discogs.com/oauth/identity",
+            CatalogService::Volumo => "https://volumo.com/api/pub/track_by_isrc/GBKQU2599555",
+            _ => "https://api.sonovault.now/v1/genres",
         };
         self.state.observe(&RateObservation {
             service,
@@ -506,6 +515,8 @@ impl CatalogRuntime {
                             .get("username")
                             .and_then(Value::as_str)
                             .is_some_and(|s| !s.is_empty() && s.len() <= 256)
+                } else if service == CatalogService::Volumo {
+                    requests::volumo_probe_valid(&value)
                 } else {
                     value.get("genres").and_then(Value::as_array).is_some()
                 };

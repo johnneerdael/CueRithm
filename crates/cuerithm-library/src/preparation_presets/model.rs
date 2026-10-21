@@ -96,6 +96,7 @@ pub struct PreparationPresetProviderOptions {
     pub bpmsupreme: Option<PreparationPresetNoOptions>,
     pub bandcamp: Option<PreparationPresetNoOptions>,
     pub deezer: Option<PreparationPresetNoOptions>,
+    pub volumo: Option<PreparationPresetNoOptions>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

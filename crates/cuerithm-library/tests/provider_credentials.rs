@@ -120,6 +120,25 @@ fn native_setup_does_not_enable_providers_change_settings_or_return_secrets() {
     );
     assert_eq!(library.settings().unwrap().revision, before.revision);
     assert_eq!(library.revision().unwrap(), revision);
+    let volumo = setup.status(ProviderId::Volumo).unwrap();
+    assert!(!volumo.can_use);
+    assert!(matches!(volumo.setup_kind, ProviderSetupKind::ApiKey));
+    let saved_volumo = setup
+        .save(
+            &volumo.credential.unwrap().reference,
+            ProviderCredentialInput::ApiKey {
+                secret: "fixture-volumo-private-key".into(),
+            },
+        )
+        .unwrap();
+    assert!(setup.status(ProviderId::Volumo).unwrap().can_use);
+    assert!(
+        !serde_json::to_string(&saved_volumo)
+            .unwrap()
+            .contains("fixture-volumo-private-key")
+    );
+    assert_eq!(library.settings().unwrap().revision, before.revision);
+    assert_eq!(library.revision().unwrap(), revision);
     let account = setup
         .status(ProviderId::Bpmsupreme)
         .unwrap()
@@ -143,6 +162,11 @@ fn native_setup_does_not_enable_providers_change_settings_or_return_secrets() {
         !serde_json::to_string(&setup.statuses().unwrap())
             .unwrap()
             .contains("fixture password")
+    );
+    assert!(
+        !serde_json::to_string(&setup.statuses().unwrap())
+            .unwrap()
+            .contains("fixture-volumo-private-key")
     );
     drop(setup);
     drop(catalog);

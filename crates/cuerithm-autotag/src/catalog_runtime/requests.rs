@@ -56,6 +56,61 @@ fn suffix(host: &str, root: &str) -> bool {
             .strip_suffix(root)
             .is_some_and(|prefix| prefix.ends_with('.'))
 }
+fn volumo_api_path(url: &reqwest::Url) -> bool {
+    let parts = url
+        .path()
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
+    if parts.len() != 4 || parts[0] != "api" || parts[1] != "pub" {
+        return false;
+    }
+    match parts[2] {
+        "track_by_isrc" => {
+            parts[3].len() == 12 && parts[3].bytes().all(|b| b.is_ascii_alphanumeric())
+        }
+        "album_by_icpn" => {
+            (5..=128).contains(&parts[3].len())
+                && parts[3].bytes().all(|b| b.is_ascii_alphanumeric())
+        }
+        _ => false,
+    }
+}
+fn volumo_public_path(url: &reqwest::Url) -> bool {
+    url.path().strip_prefix("/track/").is_some_and(|path| {
+        !path.trim_end_matches('/').is_empty() && !path.trim_end_matches('/').contains('/')
+    }) || url.path().starts_with("/img/")
+}
+pub(super) fn volumo_probe_valid(value: &Value) -> bool {
+    let isrc = value
+        .get("isrc")
+        .and_then(Value::as_str)
+        .is_some_and(|s| s.replace('-', "").eq_ignore_ascii_case("GBKQU2599555"));
+    let link = value
+        .get("url")
+        .and_then(Value::as_str)
+        .and_then(|s| reqwest::Url::parse(s).ok())
+        .is_some_and(|url| {
+            url.scheme() == "https"
+                && url.host_str() == Some("volumo.com")
+                && url.port_or_known_default() == Some(443)
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.fragment().is_none()
+                && url
+                    .path()
+                    .strip_prefix("/track/")
+                    .and_then(|path| path.split('-').next())
+                    .is_some_and(|id| id.parse::<u64>().is_ok_and(|n| n > 0))
+        });
+    isrc && link
+        && matches!(
+            value.get("status").and_then(Value::as_str),
+            Some("live" | "scheduled")
+        )
+        && value.get("embed_html").is_some_and(Value::is_string)
+        && value.get("embed_src").is_some_and(Value::is_string)
+}
 impl CatalogRuntime {
     pub(super) fn allowed(
         &self,
@@ -73,6 +128,7 @@ impl CatalogRuntime {
             .is_some_and(|f| raw.starts_with(&format!("{f}/")));
         let allowed = if image {
             match service {
+                CatalogService::Volumo => h == "volumo.com" && u.path().starts_with("/img/"),
                 CatalogService::Beatport => suffix(h, "beatport.com"),
                 CatalogService::Traxsource => suffix(h, "traxsource.com"),
                 CatalogService::CoverArtArchive => h == "coverartarchive.org",
@@ -85,6 +141,12 @@ impl CatalogRuntime {
             }
         } else {
             match service {
+                CatalogService::Volumo => {
+                    h == "volumo.com"
+                        && (u.path().starts_with("/api/pub/")
+                            || u.path().starts_with("/track/")
+                            || u.path().starts_with("/img/"))
+                }
                 CatalogService::MusicBrainz => h == "musicbrainz.org",
                 CatalogService::CoverArtArchive => h == "coverartarchive.org",
                 CatalogService::SonoVault => h == "api.sonovault.now",
@@ -117,6 +179,17 @@ impl CatalogRuntime {
                 CatalogError::new(service, CatalogErrorKind::ForbiddenOrigin, None, None).into(),
             );
         }
+        if service == CatalogService::Volumo
+            && !(if image {
+                u.path().starts_with("/img/")
+            } else {
+                volumo_api_path(&u) || volumo_public_path(&u)
+            })
+        {
+            return Err(
+                CatalogError::new(service, CatalogErrorKind::ForbiddenOrigin, None, None).into(),
+            );
+        }
         if service == CatalogService::CoverArtArchive && !fixture {
             let parts = u
                 .path()
@@ -143,7 +216,9 @@ impl CatalogRuntime {
                 return Ok(());
             }
             let (interval, max) = match service {
-                CatalogService::SonoVault | CatalogService::ITunes => (3000, 20),
+                CatalogService::SonoVault | CatalogService::ITunes | CatalogService::Volumo => {
+                    (3000, 20)
+                }
                 CatalogService::Discogs => {
                     let valid = self
                         .control
@@ -249,6 +324,29 @@ impl CatalogRuntime {
             headers.push(("Content-Language".into(), "en-US".into()));
         }
         let cache_allowed = matches!(auth.as_ref(), None | Some(CatalogAuth::None));
+        if service == CatalogService::Volumo {
+            if method != CatalogMethod::Get {
+                return Err(CatalogError::new(
+                    service,
+                    CatalogErrorKind::ForbiddenOrigin,
+                    None,
+                    None,
+                )
+                .into());
+            }
+            if volumo_api_path(&url)
+                && !matches!(auth.as_ref(),Some(CatalogAuth::Credential(r))if r.provider==CredentialProviderId::Volumo)
+            {
+                return Err(CatalogError::new(
+                    service,
+                    CatalogErrorKind::CredentialMissing,
+                    None,
+                    None,
+                )
+                .into());
+            }
+        }
+
         let execute = |headers: Vec<(String, String)>,
                        revocation: Option<Revocation>,
                        reference: Option<&CredentialRef>|
@@ -415,7 +513,12 @@ impl CatalogRuntime {
                     .and_then(|s| s.parse().ok()),
                     observed_ms: now,
                 })?;
-                if service == CatalogService::Bandcamp {
+                if service == CatalogService::Bandcamp
+                    || (service == CatalogService::Volumo
+                        && !image
+                        && !volumo_api_path(&url)
+                        && cache_allowed)
+                {
                     let challenge = header("cf-mitigated")
                         .is_some_and(|v| v.trim().eq_ignore_ascii_case("challenge"))
                         || (header("server")
@@ -434,6 +537,37 @@ impl CatalogRuntime {
                         )
                         .into());
                     }
+                }
+                if matches!(response.status, 301 | 302 | 303 | 307 | 308)
+                    && service == CatalogService::Volumo
+                    && cache_allowed
+                    && volumo_public_path(&url)
+                {
+                    let target = header("Location")
+                        .and_then(|location| actual.join(location).ok())
+                        .ok_or_else(|| {
+                            CatalogError::new(
+                                service,
+                                CatalogErrorKind::ForbiddenOrigin,
+                                Some(response.status),
+                                None,
+                            )
+                        })?;
+                    if hop == 3
+                        || target.origin() != url.origin()
+                        || !volumo_public_path(&target)
+                        || self.allowed(service, target.as_str(), image).is_err()
+                    {
+                        return Err(CatalogError::new(
+                            service,
+                            CatalogErrorKind::ForbiddenOrigin,
+                            Some(response.status),
+                            None,
+                        )
+                        .into());
+                    }
+                    actual = target;
+                    continue;
                 }
                 if matches!(response.status, 301 | 302 | 303 | 307 | 308)
                     && image
@@ -531,6 +665,7 @@ impl CatalogRuntime {
                         }
                         403 => CatalogErrorKind::Restricted,
                         404 => CatalogErrorKind::NotFound,
+                        410 => CatalogErrorKind::Gone,
                         429 if service == CatalogService::SonoVault => {
                             CatalogErrorKind::RateOrQuotaLimited
                         }
@@ -550,7 +685,7 @@ impl CatalogRuntime {
                             .credentials
                             .record_verification(r, Verification::Invalid);
                     }
-                    if service == CatalogService::SonoVault
+                    if matches!(service, CatalogService::SonoVault | CatalogService::Volumo)
                         && let Some(r) = reference
                     {
                         let verification = match kind {
@@ -608,16 +743,19 @@ impl CatalogRuntime {
                         (service, r.provider),
                         (CatalogService::SonoVault, CredentialProviderId::SonoVault)
                             | (CatalogService::Discogs, CredentialProviderId::Discogs)
+                            | (CatalogService::Volumo, CredentialProviderId::Volumo)
                     ),
                     "Credential belongs to another provider"
                 );
                 ensure!(
                     !image
+                        && (service != CatalogService::Volumo || volumo_api_path(&url))
                         && (self.fixture_origin.is_some()
                             || matches!(
                                 (service, url.host_str()),
                                 (CatalogService::SonoVault, Some("api.sonovault.now"))
                                     | (CatalogService::Discogs, Some("api.discogs.com"))
+                                    | (CatalogService::Volumo, Some("volumo.com"))
                             )),
                     "API credentials require their exact API origin"
                 );
@@ -631,6 +769,8 @@ impl CatalogRuntime {
                         .into(),
                         if service == CatalogService::SonoVault {
                             secret.into()
+                        } else if service == CatalogService::Volumo {
+                            format!("Bearer {secret}")
                         } else {
                             format!("Discogs token={secret}")
                         },

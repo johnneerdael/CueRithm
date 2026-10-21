@@ -97,6 +97,7 @@ fn credential_provider(provider: ProviderId) -> Option<CredentialProviderId> {
         ProviderId::Sonovault => CredentialProviderId::SonoVault,
         ProviderId::Discogs => CredentialProviderId::Discogs,
         ProviderId::Bpmsupreme => CredentialProviderId::BpmSupreme,
+        ProviderId::Volumo => CredentialProviderId::Volumo,
         _ => return None,
     })
 }
@@ -105,6 +106,7 @@ fn catalog_provider(provider: CredentialProviderId) -> Result<ProviderId> {
         CredentialProviderId::SonoVault => ProviderId::Sonovault,
         CredentialProviderId::Discogs => ProviderId::Discogs,
         CredentialProviderId::BpmSupreme => ProviderId::Bpmsupreme,
+        CredentialProviderId::Volumo => ProviderId::Volumo,
         _ => anyhow::bail!("This credential is not an enabled metadata provider"),
     })
 }
@@ -119,6 +121,7 @@ fn service(provider: ProviderId) -> CatalogService {
         ProviderId::Bpmsupreme => CatalogService::BpmSupreme,
         ProviderId::Bandcamp => CatalogService::Bandcamp,
         ProviderId::Deezer => CatalogService::Deezer,
+        ProviderId::Volumo => CatalogService::Volumo,
     }
 }
 impl ProviderSetupService {
@@ -152,7 +155,7 @@ impl ProviderSetupService {
                         || self.runtime.is_authenticated(&s.reference).unwrap_or(false))
             });
         let mut can_use = match provider {
-            ProviderId::Sonovault => present,
+            ProviderId::Sonovault | ProviderId::Volumo => present,
             ProviderId::Bpmsupreme => verified,
             _ => true,
         };
@@ -175,7 +178,11 @@ impl ProviderSetupService {
                         }
                         problem = reason(
                             "invalid_credential",
-                            "The credential was rejected. Replace it or remove it; Discogs public access remains available anonymously.",
+                            if provider == ProviderId::Discogs {
+                                "The credential was rejected. Replace it or remove it; Discogs public access remains available anonymously."
+                            } else {
+                                "The credential was rejected. Replace it or remove it before using this provider."
+                            },
                         );
                     }
                     Verification::EmailUnverified => {
@@ -240,12 +247,18 @@ impl ProviderSetupService {
                             "The connection test did not finish. This does not prove the saved credential is invalid.",
                         )
                     }
+                    CatalogErrorKind::NotFound | CatalogErrorKind::Gone => {
+                        problem = reason(
+                            "verification_sample_unavailable",
+                            "The connection test could not resolve its sample track. The saved key remains unverified; this does not prove it is invalid.",
+                        )
+                    }
                     _ => {}
                 }
             }
         }
         let setup_kind = match provider {
-            ProviderId::Sonovault => ProviderSetupKind::ApiKey,
+            ProviderId::Sonovault | ProviderId::Volumo => ProviderSetupKind::ApiKey,
             ProviderId::Discogs => ProviderSetupKind::PersonalToken,
             ProviderId::Bpmsupreme => ProviderSetupKind::EmailPassword,
             _ => ProviderSetupKind::None,
@@ -318,7 +331,10 @@ impl ProviderSetupService {
     ) -> Result<CredentialStatus> {
         catalog_provider(expected.provider)?;
         let secret = match (expected.provider, input) {
-            (CredentialProviderId::SonoVault, ProviderCredentialInput::ApiKey { secret })
+            (
+                CredentialProviderId::SonoVault | CredentialProviderId::Volumo,
+                ProviderCredentialInput::ApiKey { secret },
+            )
             | (CredentialProviderId::Discogs, ProviderCredentialInput::PersonalToken { secret }) => {
                 Secret::new(secret)?
             }

@@ -770,3 +770,124 @@ fn production_legacy_artwork_with_runtime_keeps_origins_referer_and_no_credentia
         assert_eq!(bytes, expected);
     }
 }
+
+struct VolumoProbeResponse(u16);
+impl CatalogTransport for VolumoProbeResponse {
+    fn execute(
+        &self,
+        r: CatalogHttpRequest,
+        _: &Arc<AtomicBool>,
+        _: Option<&Revocation>,
+    ) -> Result<CatalogHttpResponse> {
+        assert_eq!(r.service, CatalogService::Volumo);
+        assert!(r.url.ends_with("/api/pub/track_by_isrc/GBKQU2599555"));
+        assert!(r.method == CatalogMethod::Get);
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| k == "Authorization" && v == "Bearer fixture-personal")
+        );
+        Ok(CatalogHttpResponse {
+            status: self.0,
+            headers: vec![],
+            body: if self.0 == 200 {
+                br#"{"isrc":"GBKQU2599555","url":"https://volumo.com/track/5644962-dump-original-mix","status":"live","embed_html":"unused","embed_src":"https://volumo.com/player/track/5644962"}"#.to_vec()
+            } else {
+                vec![]
+            },
+        })
+    }
+}
+fn volumo_runtime(
+    transport: Arc<dyn CatalogTransport>,
+) -> (tempfile::TempDir, CatalogRuntime, CredentialRef) {
+    let temp = tempfile::tempdir().unwrap();
+    let service = CredentialService::new(
+        VaultFixture::default(),
+        Arc::new(cuerithm_credentials::state::FileStateStore::open(temp.path()).unwrap()),
+    )
+    .unwrap();
+    let before = service.status(CredentialProviderId::Volumo).unwrap();
+    let saved = service
+        .save(
+            &before.reference,
+            Secret::new("fixture-personal".into()).unwrap(),
+        )
+        .unwrap();
+    let r = CatalogRuntime::new(
+        CatalogIdentity::new("test").unwrap(),
+        Arc::new(MemoryCatalogState::default()),
+        Arc::new(service),
+    )
+    .unwrap()
+    .with_transport(transport);
+    (temp, r, saved.reference)
+}
+#[test]
+fn volumo_connection_uses_only_the_documented_bearer_metadata_probe() {
+    let (_temp, r, reference) = volumo_runtime(Arc::new(VolumoProbeResponse(200)));
+    let probe = r
+        .test_connection(&reference, &Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert!(probe.live);
+    assert!(!probe.authenticated_account);
+    assert_eq!(probe.credential.verification, Verification::Valid);
+}
+#[test]
+fn volumo_missing_and_gone_probe_resources_do_not_invalidate_a_key() {
+    for (status, kind) in [
+        (404, CatalogErrorKind::NotFound),
+        (410, CatalogErrorKind::Gone),
+    ] {
+        let (_temp, r, reference) = volumo_runtime(Arc::new(VolumoProbeResponse(status)));
+        let probe = r
+            .test_connection(&reference, &Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        assert!(!probe.live);
+        assert_eq!(probe.credential.verification, Verification::Untested);
+        assert_eq!(probe.kind, Some(kind));
+    }
+}
+#[test]
+fn volumo_credentials_and_unknown_routes_never_reach_public_transport() {
+    struct Never;
+    impl CatalogTransport for Never {
+        fn execute(
+            &self,
+            _: CatalogHttpRequest,
+            _: &Arc<AtomicBool>,
+            _: Option<&Revocation>,
+        ) -> Result<CatalogHttpResponse> {
+            panic!("Unapproved Volumo request reached transport")
+        }
+    }
+    let (_temp, r, reference) = volumo_runtime(Arc::new(Never));
+    let cancel = Arc::new(AtomicBool::new(false));
+    for url in [
+        "https://volumo.com/track/5644962-dump-original-mix",
+        "https://volumo.com/img/640/image.jpg",
+        "https://volumo.com/api/pub/identify/audio",
+        "https://volumo.com/api/private/account",
+    ] {
+        assert!(
+            r.get_json(
+                CatalogService::Volumo,
+                url,
+                &[],
+                CatalogAuth::Credential(reference.clone()),
+                &cancel
+            )
+            .is_err()
+        );
+    }
+    assert!(
+        r.get_json(
+            CatalogService::Volumo,
+            "https://volumo.com/api/pub/track_by_isrc/GBKQU2599555",
+            &[],
+            None,
+            &cancel
+        )
+        .is_err()
+    );
+}

@@ -43,6 +43,8 @@ or **Manage**. Credential actions are separate from **Save settings**. Rejected
 keys, unverified email, rate/quota limits and unavailable sources are provider
 failures, not successful no-match results. The [setup guide](../learn/auto-tagging.md#provider-setup)
 explains the available actions and request limits.
+Volumo requires a personal API key when selected and uses an existing ISRC to
+resolve catalog links; it does not provide a full free catalog-search API.
 
 With fingerprint identification enabled and consent saved, unresolved readable
 tracks may receive AcoustID/MusicBrainz candidates. Those candidates require

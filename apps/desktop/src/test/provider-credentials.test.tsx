@@ -8,15 +8,20 @@ import type {TaggingCatalog} from "../types";
 
 function fixture(){
  const bridge=fakeBridge([]),base=structuredClone(catalog) as TaggingCatalog;
- const names={musicbrainz:"MusicBrainz",sonovault:"SonoVault",discogs:"Discogs",bpmsupreme:"BPM Supreme"};
+ const names={musicbrainz:"MusicBrainz",sonovault:"SonoVault",discogs:"Discogs",bpmsupreme:"BPM Supreme",volumo:"Volumo"};
  base.providers.push(...Object.entries(names).map(([id,name])=>({id,name,maxThreads:1,supportedTags:["title","artist","albumArt"],customOptions:{options:[]}})));
  bridge.getTaggingCatalog=vi.fn(async()=>base);
  const missing=(provider:CredentialProviderId):CredentialStatus=>({reference:{provider,generation:"g1",session:"s1"},presence:"missing",vault:"ready",verification:"untested"});
- const statuses:ProviderSetupStatus[]=Object.entries(names).map(([id])=>({id:id as CatalogProviderId,revision:"r1",setup_kind:id==="sonovault"?"api_key":id==="discogs"?"personal_token":id==="bpmsupreme"?"email_password":"none",credential:id==="musicbrainz"?null:missing(id==="bpmsupreme"?"bpm_supreme":id as CredentialProviderId),auth_mode:id==="discogs"?"anonymous":id==="musicbrainz"?"public":"unavailable",can_use:["musicbrainz","discogs"].includes(id),reason:null,rate_limit_per_minute:id==="discogs"?25:null,min_request_interval_ms:id==="musicbrainz"?1000:null,retry_at_ms:null,quota:null}));
+ const statuses:ProviderSetupStatus[]=Object.entries(names).map(([id])=>({id:id as CatalogProviderId,revision:"r1",setup_kind:["sonovault","volumo"].includes(id)?"api_key":id==="discogs"?"personal_token":id==="bpmsupreme"?"email_password":"none",credential:id==="musicbrainz"?null:missing(id==="bpmsupreme"?"bpm_supreme":id as CredentialProviderId),auth_mode:id==="discogs"?"anonymous":id==="musicbrainz"?"public":"unavailable",can_use:["musicbrainz","discogs"].includes(id),reason:null,rate_limit_per_minute:id==="discogs"?25:null,min_request_interval_ms:id==="musicbrainz"?1000:null,retry_at_ms:null,quota:null}));
  const native=Object.assign(bridge,{providerSetupStatuses:vi.fn(async()=>structuredClone(statuses)),saveProviderCredential:vi.fn(async(expected:CredentialRef,_input:ProviderCredentialInput):Promise<CredentialStatus>=>({reference:{...expected,generation:"g2"},presence:"present",vault:"ready",verification:"untested"})),testProviderCredential:vi.fn(async()=>statuses[1]),removeProviderCredential:vi.fn(async()=>missing("sonovault"))});
  return {bridge:native,config:base.defaults,statuses};
 }
 describe("native provider credentials",()=>{
+ it("requires optional Volumo setup and saves a masked personal key separately from provider selection",async()=>{
+  const {bridge,config}=fixture(),change=vi.fn();render(<TaggingSettings bridge={bridge} config={config} enabled onChange={change}/>);expect(await screen.findByLabelText("Use Volumo")).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:"Set up Volumo"}));
+  expect(screen.getByRole("link",{name:"Create a Volumo API token"})).toHaveAttribute("href","https://volumo.com/profile/api-tokens");expect(screen.getByText(/ISRC links and public track metadata/)).toBeInTheDocument();
+  const key=screen.getByLabelText("Volumo API key");expect(key).toHaveAttribute("type","password");fireEvent.change(key,{target:{value:"invented-volumo-key"}});fireEvent.click(screen.getByRole("button",{name:"Save Volumo key"}));await waitFor(()=>expect(bridge.saveProviderCredential).toHaveBeenCalledWith({provider:"volumo",generation:"g1",session:"s1"},{kind:"api_key",secret:"invented-volumo-key"}));expect(key).toHaveValue("");expect(change).not.toHaveBeenCalled();expect(bridge.saveSettings).not.toHaveBeenCalled();
+ });
  it("shows cancellation while a connection test is still pending and preserves saved settings",async()=>{
   const {bridge,config,statuses}=fixture(),change=vi.fn();statuses[1].credential!.presence="present";let complete!:(value:ProviderSetupStatus)=>void,requestedId:unknown;
   bridge.testProviderCredential=vi.fn((...args:unknown[])=>{requestedId=args[0];return new Promise<ProviderSetupStatus>(resolve=>{complete=resolve;});});

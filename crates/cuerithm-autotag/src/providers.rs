@@ -66,6 +66,7 @@ pub(crate) fn options() -> Vec<PlatformInfo> {
         (ProviderId::Musicbrainz, "MusicBrainz", false),
         (ProviderId::Sonovault, "SonoVault", true),
         (ProviderId::Discogs, "Discogs", false),
+        (ProviderId::Volumo, "Volumo", true),
         (ProviderId::Itunes, "iTunes", false),
         (ProviderId::Bpmsupreme, "BPM Supreme", true),
         (ProviderId::Bandcamp, "Bandcamp", false),
@@ -97,6 +98,7 @@ pub(crate) fn options() -> Vec<PlatformInfo> {
                 ProviderId::Discogs => {
                     "Public catalog: 25 requests/minute; verified account: up to 60"
                 }
+                ProviderId::Volumo => "Personal API token; ISRC or Volumo track-ID metadata lookup",
                 ProviderId::Bpmsupreme => {
                     "Optional personal account; edition-aware catalog matching"
                 }
@@ -153,6 +155,10 @@ pub(crate) fn backends(
     out.push(Arc::new(crate::discogs::DiscogsBackend::new(
         runtime.clone(),
     )));
+    out.push(Arc::new(crate::VolumoBackend::new(
+        runtime.clone(),
+        store.clone(),
+    )?));
     for id in [
         ProviderId::Itunes,
         ProviderId::Bpmsupreme,

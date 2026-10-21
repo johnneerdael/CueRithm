@@ -619,3 +619,25 @@ fn discogs_account_verification_cas_is_revoked_by_remove() {
         Verification::Untested
     );
 }
+
+#[test]
+fn volumo_uses_opaque_generation_bound_credentials_without_secret_dtos() {
+    let service = new_service(Fake::default());
+    let first = service.status(ProviderId::Volumo).unwrap();
+    assert_eq!(first.presence, Presence::Missing);
+    let saved = service
+        .save(
+            &first.reference,
+            Secret::new("fixture-volumo-token".into()).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(saved.presence, Presence::Present);
+    let dto = serde_json::to_string(&saved).unwrap();
+    assert!(dto.contains("volumo"));
+    assert!(!dto.contains("fixture-volumo-token"));
+    service.remove(ProviderId::Volumo).unwrap();
+    assert_eq!(
+        service.run(&saved.reference, |_, _| ()),
+        Err(CredentialError::Stale)
+    );
+}

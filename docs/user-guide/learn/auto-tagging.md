@@ -21,7 +21,7 @@ Tick **Automatic tagging**. Note the line beneath: *Catalog lookups use an inter
 
 Select providers with their checkboxes and arrange them with the up and down
 arrows. Beatport and Traxsource remain selected by default. MusicBrainz, SonoVault,
-Discogs, iTunes, BPM Supreme, Bandcamp and Deezer are
+Discogs, iTunes, BPM Supreme, Bandcamp, Deezer and Volumo are
 additional opt-in choices. See the [provider list](../guides/tagging-settings.md#provider-setup)
 for their IDs and setup requirements. A listed source is not a promise that its
 service is reachable; source errors leave an actionable result in Incoming.
@@ -35,11 +35,12 @@ MusicBrainz is keyless. Beatport, Traxsource, iTunes,
 Bandcamp and Deezer have no end-user account setup in CueRithm. A detected source
 challenge may still need the [optional solver](../guides/catalog-solver.md).
 
-For SonoVault, Discogs or BPM Supreme:
+For SonoVault, Discogs, Volumo or BPM Supreme:
 
 1. Open **Set up** beside the provider. Use **Manage** for an existing credential.
 2. For SonoVault, follow **Get a free API key**, verify the account email, then
-   enter the personal key. Discogs accepts an optional personal token. BPM Supreme
+   enter the personal key. Volumo links to **Create a Volumo API token** in
+   [account token settings](https://volumo.com/profile/api-tokens). Discogs accepts an optional personal token. BPM Supreme
    uses separate email and password fields.
 3. Press the provider's **Save** button. This stores the credential immediately
    in the system credential store; it does not enable the provider or save your
@@ -55,6 +56,12 @@ Discogs works without an account at up to 25 requests/minute. A valid account
 token verified by CueRithm allows up to 60; no developer application registration
 is required. SonoVault requires a personal key only if you choose to use it.
 The signup link is [sonovault.now/signup](https://sonovault.now/signup).
+
+Volumo also needs a personal key only when you select it. It uses the official
+ISRC-to-links API and public metadata on returned track pages, without promising
+a full free catalog-search API. Its connection test checks one sample ISRC.
+If that sample is unavailable, the key stays unverified rather than being marked
+invalid. Tests do not upload audio.
 
 If a test reports an unverified email, rejected credential or exhausted allowance,
 resolve that condition before retrying. Unknown quota counts or reset times stay
