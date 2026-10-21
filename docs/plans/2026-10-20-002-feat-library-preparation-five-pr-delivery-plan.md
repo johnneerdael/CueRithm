@@ -29,11 +29,11 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 ## Execution status
 
-- [ ] PR1: implemented and ready for review in #13 — metadata integrity, planner and recoverable internal organization engine, refreshed onto main's global solver feature. The user manages review and merge; hosted checks remain merge gates.
-- [ ] PR2: implemented and ready for review in #14, stacked on #13 — automatic/manual organization and reference repair with solver-only retry continuity. The user manages review and merge; hosted checks remain merge gates.
-- [ ] PR3: implemented and ready for review in #16, stacked on #14 — source-bound review, typed metadata/artwork editing, durable drafts, guarded publication/recovery/Undo and Incoming analysis reuse. Packaged native-window acceptance remains separate.
-- [ ] PR4: implemented and ready for review — Curate, durable mapped publication/recovery and immutable preparation presets/folder assignments, refreshed onto main's complete Traxsource release support and the fetched preparation-integrity review fixes. See the [implementation detail](2026-10-21-feat-curate-and-preparation-presets-implementation-plan.md). The user manages review and merge; packaged native-window acceptance remains separate.
-- [ ] PR5: port and validate OneTagger’s iTunes, BPM Supreme, Bandcamp and Deezer metadata adapters alongside MusicBrainz, optional personal-key SonoVault, optional-auth Discogs, accepted identification and shared automation.
+- [x] PR1: merged in #13 — metadata integrity, planner and recoverable internal organization engine.
+- [x] PR2: merged in #14 — automatic/manual organization, reference repair and the final preparation/Windows-path review fixes.
+- [ ] PR3: implemented in #16 and refreshed onto current main — source-bound review, typed metadata/artwork editing, durable drafts, guarded publication/recovery/Undo and Incoming analysis reuse. The user manages review and merge; packaged native-window acceptance remains separate.
+- [ ] PR4: implemented in #19, stacked on refreshed #16 — Curate, durable mapped publication/recovery and immutable preparation presets/folder assignments. The user manages review and merge; packaged native-window acceptance remains separate.
+- [ ] PR5: implemented and ready for review; local workspace, affected follow-up, frontend and release validation passed — MusicBrainz, optional SonoVault/Volumo/BPM Supreme, accountless or optional-auth Discogs, iTunes, Bandcamp, Deezer, consented AcoustID identification and shared automation. Beatsource, Juno Download and Spotify are excluded by user decision. Bounded live Volumo acceptance passed.
 
 ## PR1 — Preparation integrity and organization engine
 

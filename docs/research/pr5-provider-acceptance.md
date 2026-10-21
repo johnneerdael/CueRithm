@@ -46,3 +46,23 @@ The native vault namespace and rate/cache authority are application-wide across 
 Private acceptance inputs/results remain outside Git. No user library was processed for these provider checks. Native window lifecycle, real OS-vault integration on all three platforms, signed installers, full known-song recognition accuracy and physical DJ playback are not established by local tests.
 
 Volumo acceptance used three API metadata requests in total: an initial native URL-validation failure, one bounded diagnostic HTTP200, and the final successful native path. A separate unsupported development-file label failed before any request. Nine synthetic Volumo mapping/transport/canonical-URL tests pass. The successful sample establishes that path, not catalog-wide coverage or artwork-image download acceptance.
+
+## Local validation
+
+On macOS/Apple Silicon, the complete workspace gate passed at `57dc30f`:
+1,583 tests passed and seven existing tests were ignored. Later PR16 review
+fixes and native browser-link wiring were checked through the affected library
+suites (272 tests), override-state cases (six), metadata editor cases (nine)
+and desktop targets (24 passed, one existing ignore). These follow-ups passed.
+The final frontend suite passed all 433 tests; typecheck and production build,
+strict documentation, workspace Clippy, offline-only library checks,
+desktop custom-protocol checks and the workspace release build also passed.
+Four process checks on the release executable covered status, an empty report,
+organization history and rejected unexpected JSON fields using an isolated
+empty library. No user library or OS browser was opened by those checks.
+
+Native signup links use the official Tauri opener with two exact HTTPS scopes.
+Review source pages use the existing native provider URL policy before browser
+handoff; they cannot open arbitrary files or custom applications. Policy and
+UI event-routing tests passed; an actual OS-browser launch remains part of
+native-window acceptance.
