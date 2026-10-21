@@ -14,6 +14,7 @@ describe("Windows library setup",()=>{
   fireEvent.click(screen.getByRole("button",{name:"Choose Wine or Proton prefix"}));
   await waitFor(()=>expect(screen.getByRole("textbox",{name:"Wine or Proton prefix"})).toHaveValue("/games/prefix"));
   fireEvent.click(screen.getByRole("button",{name:"Add drive mapping"}));
+  expect(screen.getByRole("textbox",{name:"Windows root 1"})).toHaveAttribute("placeholder",String.raw`D:\Music`);
   fireEvent.change(screen.getByRole("textbox",{name:"Windows root 1"}),{target:{value:"D:\\Music"}});
   fireEvent.change(screen.getByRole("textbox",{name:"Host folder 1"}),{target:{value:"/mnt/music"}});
   expect(changed.mock.lastCall?.[0]).toMatchObject({kind:"windows_compatibility",prefix:"/games/prefix",mappings:[{windows_root:"D:\\Music",host_root:"/mnt/music"}]});
