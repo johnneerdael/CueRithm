@@ -29,6 +29,22 @@ pub struct SourcePathChange {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathReferenceSnapshot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<cuerithm_rekordbox::TargetEnvironmentSnapshot>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roots: Vec<cuerithm_rekordbox::TargetPathSnapshot>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::path_serde::option"
+    )]
+    pub database: Option<PathBuf>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::path_serde::option"
+    )]
+    pub reference_root: Option<PathBuf>,
     pub target: SyncTarget,
     #[serde(with = "crate::path_serde::map")]
     pub files: BTreeMap<PathBuf, Option<String>>,
@@ -68,21 +84,78 @@ fn resolved(target: &SyncTarget) -> Result<SyncTarget> {
     );
     Ok(target)
 }
-fn external_id(target: &SyncTarget, source: &Path) -> Result<String> {
-    match target.software {
-        DjSoftware::VirtualDj => crate::virtual_dj::reference_id(&target.path, source),
-        DjSoftware::EngineDj => crate::engine_dj::reference_id(
-            &target.path,
+fn reference_location(
+    target: &SyncTarget,
+    source: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<(PathBuf, Option<PathBuf>)> {
+    if target.software == DjSoftware::VirtualDj {
+        let native = crate::destination_reference(&resolver.to_native(source)?);
+        let primary = crate::sync::windows_volume_root(&crate::destination_reference(
+            &resolver.to_native(&target.path)?,
+        ));
+        if let Some(root) = crate::sync::windows_volume_root(&native).filter(|root| {
+            primary
+                .as_ref()
+                .is_some_and(|primary| !primary.eq_ignore_ascii_case(root))
+        }) {
+            let path = resolver.to_host(Path::new(&format!(
+                "{}/VirtualDJ/database.xml",
+                root.trim_end_matches('/')
+            )))?;
+            ensure!(
+                path.is_file(),
+                "Initialize the destination drive in VirtualDJ before organizing its tracks"
+            );
+            return Ok((fs::canonicalize(path)?, None));
+        }
+    }
+    if target.software == DjSoftware::Serato4 && target.source_root.is_none() {
+        return crate::serato4::location_for_track_with_resolver(
+            target
+                .path
+                .parent()
+                .context("Serato local library missing")?,
+            source,
+            resolver,
+        );
+    }
+    Ok((target.path.clone(), target.source_root.clone()))
+}
+fn engine_root(
+    target: &SyncTarget,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<PathBuf> {
+    Ok(crate::destination_reference(
+        &resolver.to_native(
             target
                 .path
                 .parent()
                 .and_then(Path::parent)
                 .context("Engine Library root missing")?,
-            source,
-        ),
-        DjSoftware::DjayPro => crate::djay_pro::reference_id(&target.path, source),
+        )?,
+    ))
+}
+fn external_id_at(
+    target: &SyncTarget,
+    database: &Path,
+    root: Option<&Path>,
+    source: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<String> {
+    let native = crate::destination_reference(&resolver.to_native(source)?);
+    match target.software {
+        DjSoftware::VirtualDj => {
+            crate::virtual_dj::reference_id_with_resolver(database, source, resolver)
+        }
+        DjSoftware::EngineDj => {
+            crate::engine_dj::reference_id(database, &engine_root(target, resolver)?, &native)
+        }
+        DjSoftware::DjayPro => {
+            crate::djay_pro::reference_id_with_resolver(database, source, resolver)
+        }
         DjSoftware::Serato4 => {
-            crate::serato4::reference_id(&target.path, target.source_root.as_deref(), source)
+            crate::serato4::reference_id_with_resolver(database, root, source, resolver)
         }
         DjSoftware::PioneerUsb => {
             anyhow::bail!("Independent device copy has no desktop source-path reference")
@@ -91,6 +164,69 @@ fn external_id(target: &SyncTarget, source: &Path) -> Result<String> {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }
     }
+}
+fn external_id(
+    target: &SyncTarget,
+    source: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<String> {
+    let (database, root) = reference_location(target, source, resolver)?;
+    external_id_at(target, &database, root.as_deref(), source, resolver)
+}
+fn snapshot_database(snapshot: &PathReferenceSnapshot) -> &Path {
+    snapshot
+        .database
+        .as_deref()
+        .unwrap_or(&snapshot.target.path)
+}
+fn verify_context(snapshot: &PathReferenceSnapshot) -> Result<()> {
+    if let Some(environment) = &snapshot.environment {
+        ensure!(
+            environment.environment == snapshot.target.environment,
+            "Native reference environment changed after preview"
+        );
+        environment.verify()?;
+    } else {
+        ensure!(
+            snapshot.target.environment.is_native(),
+            "Native reference snapshot has no captured Windows context"
+        );
+    }
+    for root in &snapshot.roots {
+        root.verify()?;
+    }
+    Ok(())
+}
+fn virtualdj_databases(
+    target: &SyncTarget,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<BTreeSet<PathBuf>> {
+    let mut databases = BTreeSet::from([target.path.clone()]);
+    if let cuerithm_rekordbox::TargetEnvironment::WindowsCompatibility { mappings, .. } =
+        &target.environment
+    {
+        for mapping in mappings {
+            if let Some(root) = crate::sync::windows_volume_root(Path::new(&mapping.windows_root))
+                && let Ok(path) = resolver.to_host(Path::new(&format!(
+                    "{}/VirtualDJ/database.xml",
+                    root.trim_end_matches('/')
+                )))
+                && path.is_file()
+            {
+                databases.insert(fs::canonicalize(path)?);
+            }
+        }
+    }
+    #[cfg(windows)]
+    if target.environment.is_native() {
+        for drive in b'A'..=b'Z' {
+            let path = PathBuf::from(format!("{}:\\VirtualDJ\\database.xml", char::from(drive)));
+            if path.is_file() {
+                databases.insert(fs::canonicalize(path)?);
+            }
+        }
+    }
+    Ok(databases)
 }
 fn playlists(
     directory: &Path,
@@ -110,13 +246,24 @@ fn playlists(
         let path = directory.join(item.name);
         match item.kind {
             crate::transaction::DirectoryEntryKind::Directory => {
-                playlists(&path, files, directories)?
+                if directory.file_name().is_none_or(|name| name != "Filters") {
+                    playlists(&path, files, directories)?;
+                }
             }
             crate::transaction::DirectoryEntryKind::File => {
+                if directory.file_name().is_some_and(|name| name == "Filters")
+                    && path
+                        .file_name()
+                        .is_none_or(|name| !name.to_string_lossy().starts_with("CueRithm-"))
+                {
+                    continue;
+                }
                 ensure!(
                     path.file_name()
                         .is_some_and(|s| s == "order" || s == ".DS_Store")
-                        || path.extension().is_some_and(|s| s == "vdjfolder"),
+                        || path
+                            .extension()
+                            .is_some_and(|s| s == "vdjfolder" || s == "m3u"),
                     "Unsupported managed VirtualDJ playlist file"
                 );
                 files.insert(path.clone(), file_hash(&path)?);
@@ -129,27 +276,42 @@ fn playlists(
 pub fn inspect_path_reference(target: &SyncTarget, source: &Path) -> Result<PathReferenceSnapshot> {
     let target = resolved(target)?;
     crate::discovery::ensure_closed(target.software)?;
-    let mut files = BTreeMap::from([(target.path.clone(), file_hash(&target.path)?)]);
+    let environment = target.environment.freeze()?;
+    let resolver = target.environment.resolver()?;
+    let (database, reference_root) = reference_location(&target, source, &resolver)?;
+    let mut files = BTreeMap::from([
+        (target.path.clone(), file_hash(&target.path)?),
+        (database.clone(), file_hash(&database)?),
+    ]);
     let mut directories = BTreeMap::new();
     if target.software == DjSoftware::VirtualDj {
-        playlists(
-            &target
-                .path
-                .parent()
-                .context("VirtualDJ home missing")?
-                .join("MyLists/CueRithm.subfolders"),
-            &mut files,
-            &mut directories,
-        )?;
+        for database in virtualdj_databases(&target, &resolver)? {
+            files.insert(database.clone(), file_hash(&database)?);
+        }
+        let home = target.path.parent().context("VirtualDJ home missing")?;
+        for root in crate::virtual_dj::playlist_roots(home) {
+            playlists(&root, &mut files, &mut directories)?;
+        }
     } else {
         for suffix in ["-wal", "-shm", "-journal"] {
-            let mut path = target.path.as_os_str().to_owned();
+            let mut path = database.as_os_str().to_owned();
             path.push(suffix);
             let path = PathBuf::from(path);
             files.insert(path.clone(), file_hash(&path)?);
         }
     }
-    let external_id = external_id(&target, source)?;
+    let roots = files
+        .keys()
+        .filter_map(|path| {
+            path.parent()
+                .filter(|parent| parent.is_dir())
+                .map(Path::to_owned)
+        })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|path| cuerithm_rekordbox::TargetPathSnapshot::capture(&path))
+        .collect::<Result<Vec<_>>>()?;
+    let external_id = external_id(&target, source, &resolver)?;
     let bytes = files
         .iter()
         .try_fold(0_u64, |sum, (path, hash)| -> Result<u64> {
@@ -165,7 +327,13 @@ pub fn inspect_path_reference(target: &SyncTarget, source: &Path) -> Result<Path
         .checked_mul(4)
         .and_then(|n| n.checked_add(65536))
         .context("Native reference storage estimate overflow")?;
+    resolver.verify()?;
+    drop(resolver);
     let snapshot = PathReferenceSnapshot {
+        environment: Some(environment),
+        roots,
+        database: (database != target.path).then_some(database),
+        reference_root,
         target,
         files,
         directories,
@@ -176,6 +344,7 @@ pub fn inspect_path_reference(target: &SyncTarget, source: &Path) -> Result<Path
     Ok(snapshot)
 }
 fn validate_snapshot(snapshot: &PathReferenceSnapshot) -> Result<()> {
+    verify_context(snapshot)?;
     for (path, hash) in &snapshot.files {
         crate::transaction::safe_ancestors(path)?;
         ensure!(
@@ -220,11 +389,18 @@ pub fn prepare_path_repair(
 ) -> Result<PathRepairPreview> {
     validate_snapshot(snapshot)?;
     verify_audio(change)?;
+    let resolver = snapshot.target.environment.resolver()?;
     if snapshot.target.software == DjSoftware::Serato4 {
+        let root = snapshot
+            .reference_root
+            .as_ref()
+            .or(snapshot.target.source_root.as_ref())
+            .map(|root| resolver.to_native(root))
+            .transpose()?;
         crate::serato4::validate_reference_location(
-            &change.from,
-            &change.to,
-            snapshot.target.source_root.as_deref(),
+            &resolver.to_native(&change.from)?,
+            &resolver.to_native(&change.to)?,
+            root.as_deref(),
         )?;
         #[cfg(unix)]
         {
@@ -242,6 +418,8 @@ pub fn prepare_path_repair(
             );
         }
     }
+    resolver.verify()?;
+    drop(resolver);
     crate::discovery::ensure_closed(snapshot.target.software)?;
     fs::create_dir_all(root)?;
     for path in [
@@ -258,58 +436,95 @@ pub fn prepare_path_repair(
         );
     }
     for path in [&change.from, &change.to] {
-        ensure!(
-            !same_file::is_same_file(path, &snapshot.target.path)?,
-            "Native database aliases organization audio"
-        );
+        for (native, hash) in &snapshot.files {
+            if hash.is_some() {
+                ensure!(
+                    !same_file::is_same_file(path, native)?,
+                    "Native database or playlist aliases organization audio"
+                );
+            }
+        }
     }
     let transaction = FileTransaction::create(root)?;
     let build = tempfile::tempdir_in(transaction.path())?;
     let staged = build.path().join("database");
     if snapshot.target.software == DjSoftware::VirtualDj {
-        fs::copy(&snapshot.target.path, &staged)?;
+        fs::copy(snapshot_database(snapshot), &staged)?;
     } else {
         let db = rusqlite::Connection::open_with_flags(
-            &snapshot.target.path,
+            snapshot_database(snapshot),
             rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
         )?;
         db.backup("main", &staged, None)?;
     }
+    // Journal creation and SQLite backup can change mapped directory entries.
+    // Begin the next read-only resolution phase only after those owned writes.
+    let resolver = snapshot.target.environment.resolver()?;
+    let native_from = crate::destination_reference(&resolver.to_native(&change.from)?);
+    let native_to = crate::destination_reference(&resolver.to_native(&change.to)?);
+    let mut extra_publications = Vec::new();
+    let destination_location = if snapshot.target.software == DjSoftware::VirtualDj {
+        reference_location(&snapshot.target, &change.to, &resolver)?.0
+    } else {
+        snapshot_database(snapshot).to_owned()
+    };
     match snapshot.target.software {
+        DjSoftware::VirtualDj if destination_location != snapshot_database(snapshot) => {
+            ensure!(
+                snapshot.files.contains_key(&destination_location),
+                "Destination VirtualDJ drive changed since inspection; preview again"
+            );
+            let (from, to) = crate::virtual_dj::move_reference_between_databases(
+                &fs::read(&staged)?,
+                &fs::read(&destination_location)?,
+                &change.from,
+                &change.to,
+                &resolver,
+            )?;
+            fs::write(&staged, from)?;
+            let destination_stage = build.path().join("destination-database");
+            fs::write(&destination_stage, to)?;
+            extra_publications.push(FilePublication {
+                target: destination_location.clone(),
+                before_sha256: snapshot.files[&destination_location].clone(),
+                staged: Some(destination_stage),
+            });
+        }
         DjSoftware::VirtualDj => {
-            let output = crate::virtual_dj::repair_reference_bytes(
+            let output = crate::virtual_dj::repair_reference_bytes_with_resolver(
                 &fs::read(&staged)?,
                 &change.from,
                 &change.to,
                 true,
+                &resolver,
             )?
             .context("VirtualDJ source reference vanished")?;
             fs::write(&staged, output)?;
         }
         DjSoftware::EngineDj => crate::engine_dj::repair_reference(
             &staged,
+            &engine_root(&snapshot.target, &resolver)?,
+            &native_from,
+            &native_to,
+            &snapshot.external_id,
+        )?,
+        DjSoftware::DjayPro => crate::djay_pro::repair_reference_with_resolver(
+            &staged,
+            &change.from,
+            &change.to,
+            &snapshot.external_id,
+            &resolver,
+        )?,
+        DjSoftware::Serato4 => crate::serato4::repair_reference_with_resolver(
+            &staged,
             snapshot
-                .target
-                .path
-                .parent()
-                .and_then(Path::parent)
-                .context("Engine Library root missing")?,
+                .reference_root
+                .as_deref()
+                .or(snapshot.target.source_root.as_deref()),
             &change.from,
             &change.to,
             &snapshot.external_id,
-        )?,
-        DjSoftware::DjayPro => crate::djay_pro::repair_reference(
-            &staged,
-            &change.from,
-            &change.to,
-            &snapshot.external_id,
-        )?,
-        DjSoftware::Serato4 => crate::serato4::repair_reference(
-            &staged,
-            snapshot.target.source_root.as_deref(),
-            &change.from,
-            &change.to,
-            &snapshot.external_id,
+            &resolver,
         )?,
         DjSoftware::PioneerUsb => anyhow::bail!("Independent device copy cannot be path-repaired"),
         DjSoftware::Rekordbox => {
@@ -320,23 +535,21 @@ pub fn prepare_path_repair(
         let db = rusqlite::Connection::open(&staged)?;
         db.pragma_update(None, "journal_mode", "DELETE")?;
     }
-    let mut staged_target = snapshot.target.clone();
-    staged_target.path = staged.clone();
-    // Engine relative coordinates belong to the original library, not the private stage.
-    let after_external_id = if snapshot.target.software == DjSoftware::EngineDj {
-        crate::engine_dj::reference_id(
-            &staged,
-            snapshot
-                .target
-                .path
-                .parent()
-                .and_then(Path::parent)
-                .unwrap(),
-            &change.to,
-        )?
+    let after_database = if let Some(publication) = extra_publications.first() {
+        publication.staged.as_deref().unwrap()
     } else {
-        external_id(&staged_target, &change.to)?
+        &staged
     };
+    let after_external_id = external_id_at(
+        &snapshot.target,
+        after_database,
+        snapshot
+            .reference_root
+            .as_deref()
+            .or(snapshot.target.source_root.as_deref()),
+        &change.to,
+        &resolver,
+    )?;
     if snapshot.target.software != DjSoftware::VirtualDj {
         ensure!(
             after_external_id == snapshot.external_id,
@@ -344,20 +557,35 @@ pub fn prepare_path_repair(
         );
     }
     let mut publications = vec![FilePublication {
-        target: snapshot.target.path.clone(),
-        before_sha256: snapshot.files[&snapshot.target.path].clone(),
+        target: snapshot_database(snapshot).to_owned(),
+        before_sha256: snapshot.files[snapshot_database(snapshot)].clone(),
         staged: Some(staged),
     }];
+    publications.extend(extra_publications);
     if snapshot.target.software == DjSoftware::VirtualDj {
         for (index, (path, hash)) in snapshot.files.iter().enumerate() {
-            if path.extension().is_some_and(|s| s == "vdjfolder")
-                && let Some(bytes) = crate::virtual_dj::repair_reference_bytes(
+            let bytes = if path.extension().is_some_and(|extension| extension == "m3u") {
+                crate::virtual_dj::repair_legacy_playlist_bytes(
+                    &fs::read(path)?,
+                    &change.from,
+                    &change.to,
+                    &resolver,
+                )?
+            } else if path
+                .extension()
+                .is_some_and(|extension| extension == "vdjfolder")
+            {
+                crate::virtual_dj::repair_reference_bytes_with_resolver(
                     &fs::read(path)?,
                     &change.from,
                     &change.to,
                     false,
+                    &resolver,
                 )?
-            {
+            } else {
+                None
+            };
+            if let Some(bytes) = bytes {
                 let stage = build.path().join(format!("playlist-{index}"));
                 fs::write(&stage, bytes)?;
                 publications.push(FilePublication {
@@ -369,7 +597,10 @@ pub fn prepare_path_repair(
         }
     } else {
         for (path, hash) in &snapshot.files {
-            if *path != snapshot.target.path && hash.is_some() {
+            if *path != snapshot_database(snapshot)
+                && crate::sync::is_sqlite_sidecar(path)
+                && hash.is_some()
+            {
                 publications.push(FilePublication {
                     target: path.clone(),
                     before_sha256: hash.clone(),
@@ -383,6 +614,7 @@ pub fn prepare_path_repair(
     }
     validate_snapshot(snapshot)?;
     verify_audio(change)?;
+    resolver.verify()?;
     transaction.add_batch(&publications, &[])?;
     let preview = PathRepairPreview {
         id: transaction.inspect()?.id,
@@ -428,6 +660,7 @@ pub fn apply_path_repair(root: &Path, id: &str) -> Result<FileJournal> {
         .collect();
     let first = std::cell::Cell::new(true);
     tx.apply(|| {
+        verify_context(&preview.snapshot)?;
         crate::discovery::ensure_closed(preview.snapshot.target.software)?;
         verify_audio(&preview.change)?;
         for (path, hash) in &preview.snapshot.files {
@@ -451,6 +684,8 @@ pub fn apply_path_repair(root: &Path, id: &str) -> Result<FileJournal> {
 }
 pub fn verify_path_repair(root: &Path, id: &str) -> Result<FileJournal> {
     let (tx, preview) = saved(root, id)?;
+    verify_context(&preview.snapshot)?;
+    let resolver = preview.snapshot.target.environment.resolver()?;
     crate::discovery::ensure_closed(preview.snapshot.target.software)?;
     let journal = tx.verify_applied()?;
     let changed: BTreeSet<_> = journal.changes.iter().map(|c| &c.target).collect();
@@ -469,9 +704,11 @@ pub fn verify_path_repair(root: &Path, id: &str) -> Result<FileJournal> {
         );
     }
     ensure!(
-        external_id(&preview.snapshot.target, &preview.change.to)? == preview.after_external_id,
+        external_id(&preview.snapshot.target, &preview.change.to, &resolver)?
+            == preview.after_external_id,
         "Repaired native reference changed before acknowledgement"
     );
+    resolver.verify()?;
     Ok(journal)
 }
 
@@ -481,18 +718,22 @@ pub fn restore_path_repair(root: &Path, id: &str) -> Result<FileJournal> {
     verify_audio(&preview.change)?;
     if tx.inspect()?.state != crate::transaction::JournalState::Restored {
         tx.restore(|| {
+            verify_context(&preview.snapshot)?;
             crate::discovery::ensure_closed(preview.snapshot.target.software)?;
             verify_audio(&preview.change)?;
             Ok(())
         })?;
     }
     let journal = tx.verify_restored()?;
+    let resolver = preview.snapshot.target.environment.resolver()?;
+    verify_context(&preview.snapshot)?;
     crate::discovery::ensure_closed(preview.snapshot.target.software)?;
     ensure!(
-        external_id(&preview.snapshot.target, &preview.change.from)?
+        external_id(&preview.snapshot.target, &preview.change.from, &resolver)?
             == preview.snapshot.external_id,
         "Restored native source identity changed"
     );
+    resolver.verify()?;
     Ok(journal)
 }
 

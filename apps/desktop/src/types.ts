@@ -5,6 +5,7 @@ import type {PreparationPresetsBridge,PreparationFolderChange} from "./preset-ty
 import type {OrganizationBridge} from "./organization-types";
 import type {MetadataEditorBridge} from "./editor-types";
 import type {MatchReviewBridge} from "./match-review-types";
+import type {SyncConfigurationBridge} from "./sync-target-types";
 export type View="tracks"|"incoming"|"archive";
 export type WorkspaceView=View|"settings"|"cleanup"|"sync"|"maintenance"|"compatible"|"tracklist"|"backup"|"organize";
 export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order"|"user_rating";
@@ -70,7 +71,7 @@ export interface Playback {track_id:string|null;duration_seconds:number;position
 export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][];rms?:number[];levels?:[number,number,number][]}
-export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge,PreparationPresetsBridge,CurationBridge,ProviderSetupBridge {
+export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge,PreparationPresetsBridge,CurationBridge,ProviderSetupBridge,SyncConfigurationBridge {
   discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
   previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
   discardDjSync(id:string):Promise<void>;

@@ -31,6 +31,7 @@ fn every_source_layout_gets_measured_native_waveforms_and_all_required_sections(
         let path = d.path().join(row["file"].as_str().unwrap());
         let audio = runtime.decode(&path, d.path()).unwrap();
         let track = SyncTrack {
+            native_path: None,
             id: "fixture".into(),
             path: path.clone(),
             sample_rate: audio.info.sample_rate,
@@ -108,6 +109,7 @@ fn explicit_native_target_rejects_the_generic_writer_before_any_staging() {
     let error = prepare_sync(
         d.path(),
         SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::Rekordbox,
             path: d.path().join("missing.db"),
             source_root: None,

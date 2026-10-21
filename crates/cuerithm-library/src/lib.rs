@@ -80,6 +80,8 @@ mod dj_sync;
 pub use dj_sync::*;
 mod dj_sync_service;
 pub use dj_sync_service::{DjSyncHistoryEntry, DjSyncRequest};
+mod sync_target_configurations;
+pub use sync_target_configurations::*;
 
 mod compatible;
 pub use compatible::*;

@@ -450,7 +450,7 @@ fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
         let backup = lib
             .create_library_backup(&d.path().join("backups"))
             .unwrap();
-        assert_eq!(backup.schema, 27);
+        assert_eq!(backup.schema, 28);
         assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
         lib.stage_library_restore(&backup.path, &backup.database_sha256)
             .unwrap();
@@ -1216,7 +1216,7 @@ fn backup_restores_curate_presets_folder_assignments_and_library_catalog_state()
     let backup = lib
         .create_library_backup(&d.path().join("backups"))
         .unwrap();
-    assert_eq!(backup.schema, 27);
+    assert_eq!(backup.schema, 28);
     lib.save_preparation_preset(PreparationPresetSave {
         id: Some(preset.id.clone()),
         expected_revision: Some(preset.revision.clone()),

@@ -331,6 +331,7 @@ fn project_track(row: RawTrack) -> Result<SyncTrack> {
         "Prepared track duration is invalid"
     );
     Ok(SyncTrack {
+        native_path: None,
         id: row.id,
         path: crate::model::bytes_path(&row.path)?,
         title: row.title,

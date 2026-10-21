@@ -14,6 +14,7 @@ use anyhow::{Context, Result, bail, ensure};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Transaction, params};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 const ROOT: &str = "mediaItemPlaylist-root";
@@ -56,6 +57,34 @@ pub fn write_owned(
     options: &SyncOptions,
     request: &crate::ownership::PlaylistOwnershipRequest,
 ) -> Result<crate::ownership::PlaylistOwnershipReport> {
+    write_owned_in_environment(
+        path,
+        library,
+        options,
+        request,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+
+/// Match destination references through the selected environment without using
+/// destination path spelling as a substitute for physical source identity.
+pub fn write_owned_in_environment(
+    path: &Path,
+    library: &SyncLibrary,
+    options: &SyncOptions,
+    request: &crate::ownership::PlaylistOwnershipRequest,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<crate::ownership::PlaylistOwnershipReport> {
+    let resolver = environment.resolver()?;
+    write_owned_with_resolver(path, library, options, request, &resolver)
+}
+pub(crate) fn write_owned_with_resolver(
+    path: &Path,
+    library: &SyncLibrary,
+    options: &SyncOptions,
+    request: &crate::ownership::PlaylistOwnershipRequest,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<crate::ownership::PlaylistOwnershipReport> {
     let path = database_path(path);
     ensure!(
         path.is_file(),
@@ -78,22 +107,34 @@ pub fn write_owned(
         .context("destination has no current YapDatabase index registry")?;
     let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let ownership = owned::Plan::prepare(&tx, library, request)?;
-    let reviewed_uris = library
-        .tracks
-        .iter()
-        .map(|track| file_uri(&track.path))
-        .collect::<Result<HashSet<_>>>()?;
+    let mut lookup = SourceLookup::new(
+        library
+            .tracks
+            .iter()
+            .map(|track| {
+                let uri = if resolver.is_native() {
+                    file_uri(track.reference_path())
+                } else {
+                    file_uri(&crate::destination_reference(
+                        &resolver.to_native(&track.path)?,
+                    ))
+                };
+                Ok((track.path.clone(), uri?))
+            })
+            .collect::<Result<Vec<_>>>()?,
+        resolver,
+    )?;
     let mut source_ids = HashMap::new();
     let mut bookmark_ids = HashMap::new();
     for (id, object) in objects(&tx, "localMediaItemLocations")? {
         if let Some(Value::Array(values)) = object.get("sourceURIs") {
             for value in values {
                 if let Value::Uri(uri) | Value::String(uri) = value
-                    && reviewed_uris.contains(uri)
+                    && let Some(identity) = lookup.resolve(uri)?
                 {
                     ensure!(
                         source_ids
-                            .insert(uri.clone(), id.clone())
+                            .insert(identity, id.clone())
                             .is_none_or(|previous| previous == id),
                         "Ambiguous djay source URI identity"
                     );
@@ -105,8 +146,7 @@ pub fn write_owned(
             // This never resolves OS aliases or searches by filename.
             match bookmark::stored_path(bytes) {
                 Ok(Some(path)) => {
-                    let uri = file_uri(&path)?;
-                    if reviewed_uris.contains(&uri) {
+                    if let Some(uri) = lookup.resolve(&file_uri(&path)?)? {
                         ensure!(
                             bookmark_ids
                                 .insert(uri, id.clone())
@@ -131,10 +171,15 @@ pub fn write_owned(
             }
         }
     }
-    for track in &library.tracks {
-        let uri = file_uri(&track.path)?;
-        let primary = source_ids.get(&uri);
-        let stored = bookmark_ids.get(&uri);
+    let mut resolved_ids = HashSet::new();
+    let mut represented = HashSet::new();
+    for (index, track) in library.tracks.iter().enumerate() {
+        let identity = lookup.selected[index].identity.clone();
+        let primary = source_ids.get(&identity);
+        let stored = bookmark_ids.get(&identity);
+        if primary.is_some() {
+            represented.insert(track.id.clone());
+        }
         ensure!(
             primary.zip(stored).is_none_or(|(a, b)| a == b),
             "Conflicting djay URI and bookmark identities"
@@ -143,10 +188,27 @@ pub fn write_owned(
             .or(stored)
             .cloned()
             .unwrap_or_else(|| stable_id("track", &track.id, false));
-        source_ids.insert(uri.clone(), id.clone());
-        ids.insert(track.id.clone(), id.clone());
+        ensure!(
+            resolved_ids.insert(id.clone()),
+            "Multiple selected djay sources resolve to one native track"
+        );
+        source_ids.insert(identity, id.clone());
+        ids.insert(track.id.clone(), id);
+    }
+    resolver.verify()?;
+    // Resolve every selected identity before any native track is changed.
+    for (index, track) in library.tracks.iter().enumerate() {
+        let uri = &lookup.selected[index].uri;
         let entity_ids = entity_ids(&tx, track, &mut entities)?;
-        write_track(&tx, &id, track, &uri, &entity_ids, options)?;
+        write_track(
+            &tx,
+            &ids[&track.id],
+            track,
+            uri,
+            &entity_ids,
+            options,
+            represented.contains(&track.id),
+        )?;
     }
     write_playlists(&tx, library, &ids, options)?;
     let removed = ownership.remove(&tx)?;
@@ -231,7 +293,7 @@ fn validate(library: &SyncLibrary) -> Result<()> {
             );
             previous = Some(beat.seconds);
         }
-        file_uri(&track.path)?;
+        file_uri(track.reference_path())?;
     }
     let mut playlists = HashMap::new();
     for playlist in &library.playlists {
@@ -325,6 +387,7 @@ fn write_track(
     uri: &str,
     entity_ids: &[(String, Value)],
     options: &SyncOptions,
+    represented: bool,
 ) -> Result<()> {
     let mut item = existing(tx, "mediaItems", id, "ADCMediaItem")?;
     item.set("uuid", text(id));
@@ -348,6 +411,23 @@ fn write_track(
     item.set("bpm", Value::Double(track.bpm));
     item.set("duration", Value::Double(track.duration_seconds));
     item.set("sampleRate", Value::U32(track.sample_rate));
+    for (source, native) in [("bitrate", "bitRate"), ("trackNumber", "albumTrackNumber")] {
+        match track.attributes.get(source) {
+            None | Some(cuerithm_smartlists::FieldValue::Null) => {}
+            Some(cuerithm_smartlists::FieldValue::Number(value)) => {
+                ensure!(
+                    value.is_finite()
+                        && *value >= 0.
+                        && *value <= f64::from(u16::MAX)
+                        && (source == "bitrate" || value.fract() == 0.),
+                    "Invalid djay source {source}"
+                );
+                // Native UInt16 bitrate truncates fractional kilobits/second.
+                item.set(native, Value::U16(value.trunc() as u16));
+            }
+            Some(_) => bail!("Invalid djay source {source}"),
+        }
+    }
     if let Some(year) = track.year {
         item.set("year", Value::U16(year));
     } else {
@@ -428,15 +508,17 @@ fn write_track(
 
     let mut location = existing(tx, "localMediaItemLocations", id, "ADCMediaItemLocation")?;
     title_ids(&mut location, id, track);
-    let mut uris = vec![Value::Uri(uri.to_owned())];
-    if let Some(Value::Array(previous)) = location.get("sourceURIs") {
-        for value in previous.iter().skip(1) {
-            if !uris.contains(value) {
-                uris.push(value.clone());
+    if !represented {
+        let mut uris = vec![Value::Uri(uri.to_owned())];
+        if let Some(Value::Array(previous)) = location.get("sourceURIs") {
+            for value in previous.iter().skip(1) {
+                if !uris.contains(value) {
+                    uris.push(value.clone());
+                }
             }
         }
+        location.set("sourceURIs", Value::Array(uris));
     }
-    location.set("sourceURIs", Value::Array(uris));
     upsert(tx, "localMediaItemLocations", id, &location)?;
     // Current macOS libraries retain this filename index across the normal
     // version-tag resets. Populate it alongside its local-location record.
@@ -451,13 +533,7 @@ fn write_track(
             [id],
             |row| row.get(0),
         )?;
-        let filename = track
-            .path
-            .to_str()
-            .context("djay requires a UTF-8 path")?
-            .rsplit(['/', '\\'])
-            .next()
-            .context("djay source path has no filename")?;
+        let filename = source_filename(&track.path)?;
         tx.execute(
             "INSERT INTO secondaryIndex_mediaItemLocationIndex(rowid,fileName) VALUES(?1,?2) ON CONFLICT(rowid) DO UPDATE SET fileName=excluded.fileName",
             params![rowid, filename],
@@ -745,10 +821,220 @@ fn stable_id(namespace: &str, value: &str, hyphens: bool) -> String {
         uuid.simple().to_string()
     }
 }
+struct SelectedSource {
+    path: PathBuf,
+    uri: String,
+    identity: UriIdentity,
+}
+struct SourceLookup<'a, 'e> {
+    resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
+    selected: Vec<SelectedSource>,
+    exact: HashMap<UriIdentity, usize>,
+    physical: HashMap<u64, Vec<usize>>,
+    resolved: HashMap<String, Option<UriIdentity>>,
+}
+fn physical_bucket(path: &Path) -> std::io::Result<u64> {
+    let handle = same_file::Handle::from_path(path)?;
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    handle.hash(&mut hash);
+    Ok(hash.finish())
+}
+fn uri_path(uri: &str) -> Option<PathBuf> {
+    if let Some(path) = windows_uri_identity(uri) {
+        return Some(PathBuf::from(path));
+    }
+    if !uri.get(..7)?.eq_ignore_ascii_case("file://") {
+        return None;
+    }
+    let raw = &uri[7..];
+    if !raw.starts_with('/') || raw.starts_with("//") || raw.contains(['?', '#']) {
+        return None;
+    }
+    let path = percent_decoded(raw)?;
+    // A malformed Windows reference must not become a POSIX fallback.
+    if path.get(1..).is_some_and(|path| {
+        windows_drive(path) || path.starts_with("\\\\") || path.starts_with("//")
+    }) {
+        return None;
+    }
+    Some(PathBuf::from(path))
+}
+impl<'a, 'e> SourceLookup<'a, 'e> {
+    fn new(
+        sources: Vec<(PathBuf, String)>,
+        resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
+    ) -> Result<Self> {
+        let mut result = Self {
+            resolver,
+            selected: vec![],
+            exact: HashMap::new(),
+            physical: HashMap::new(),
+            resolved: HashMap::new(),
+        };
+        for (path, uri) in sources {
+            let identity = uri_identity(&uri);
+            let index = result.selected.len();
+            ensure!(
+                !result.exact.contains_key(&identity),
+                "Duplicate selected djay source URI identity"
+            );
+            let bucket = match physical_bucket(&path) {
+                Ok(bucket) => Some(bucket),
+                Err(_) if resolver.is_native() => None,
+                Err(error) => return Err(error).context("Mapped djay source is unavailable"),
+            };
+            if let Some(bucket) = bucket {
+                if let Some(previous) = result.physical.get(&bucket) {
+                    for previous in previous {
+                        ensure!(
+                            !same_file::is_same_file(&result.selected[*previous].path, &path)?,
+                            "Multiple selected djay paths identify the same physical source"
+                        );
+                    }
+                }
+                result.physical.entry(bucket).or_default().push(index);
+            }
+            result.exact.insert(identity.clone(), index);
+            result.selected.push(SelectedSource {
+                path,
+                uri,
+                identity,
+            });
+        }
+        Ok(result)
+    }
+    fn resolve(&mut self, uri: &str) -> Result<Option<UriIdentity>> {
+        if let Some(previous) = self.resolved.get(uri) {
+            return Ok(previous.clone());
+        }
+        let identity = uri_identity(uri);
+        // Native callers have historically been allowed to supply lexical paths
+        // for libraries on another machine. Retain that exact URI contract.
+        let mut found = if self.resolver.is_native() && self.exact.contains_key(&identity) {
+            Some(identity)
+        } else {
+            None
+        };
+        if found.is_none()
+            && !self.physical.is_empty()
+            && let Some(native) = uri_path(uri)
+            && let Ok(host) = self.resolver.to_host(&native)
+            && host.is_absolute()
+            && let Ok(bucket) = physical_bucket(&host)
+            && let Some(candidates) = self.physical.get(&bucket)
+        {
+            for candidate in candidates {
+                let source = &self.selected[*candidate];
+                if same_file::is_same_file(&host, &source.path)? {
+                    ensure!(found.is_none(), "Ambiguous selected djay physical source");
+                    found = Some(source.identity.clone());
+                }
+            }
+        }
+        self.resolved.insert(uri.to_owned(), found.clone());
+        Ok(found)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum UriIdentity {
+    Windows(String),
+    Literal(String),
+}
+fn windows_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1) == Some(&b':')
+        && matches!(bytes.get(2), Some(b'/' | b'\\'))
+}
+fn windows_path(path: &str) -> bool {
+    windows_drive(path) || path.starts_with("\\\\") || path.starts_with("//")
+}
+fn source_filename(path: &Path) -> Result<&str> {
+    let path = path.to_str().context("djay requires a Unicode filename")?;
+    let name = if windows_path(path) {
+        path.rsplit(['/', '\\']).next()
+    } else {
+        path.rsplit('/').next()
+    };
+    name.filter(|name| !name.is_empty())
+        .context("djay source path has no filename")
+}
+fn percent_decoded(value: &str) -> Option<String> {
+    let mut bytes = Vec::with_capacity(value.len());
+    let mut input = value.bytes();
+    while let Some(byte) = input.next() {
+        let decoded = if byte == b'%' {
+            let high = char::from(input.next()?).to_digit(16)?;
+            let low = char::from(input.next()?).to_digit(16)?;
+            (high * 16 + low) as u8
+        } else {
+            byte
+        };
+        if decoded == 0 {
+            return None;
+        }
+        bytes.push(decoded);
+    }
+    String::from_utf8(bytes).ok()
+}
+fn windows_uri_identity(uri: &str) -> Option<String> {
+    if !uri.get(..7)?.eq_ignore_ascii_case("file://") {
+        return None;
+    }
+    let raw = &uri[7..];
+    if raw.contains(['?', '#']) {
+        return None;
+    }
+    let decoded = percent_decoded(raw)?;
+    let normalized = if raw.starts_with('/') {
+        let local = decoded.strip_prefix('/')?;
+        if !windows_drive(local) && !local.starts_with("\\\\") && !local.starts_with("//") {
+            return None;
+        }
+        local.replace('\\', "/")
+    } else {
+        let (authority, _) = raw.split_once('/')?;
+        if authority.is_empty() || authority.contains(['@', ':', '\\', '%']) {
+            return None;
+        }
+        format!("//{}", decoded.replace('\\', "/"))
+    };
+    if normalized.split('/').any(|part| matches!(part, "." | "..")) {
+        return None;
+    }
+    if windows_drive(&normalized) {
+        return Some(format!(
+            "{}{}",
+            normalized[..1].to_ascii_uppercase(),
+            &normalized[1..]
+        ));
+    }
+    let unc = normalized.strip_prefix("//")?;
+    let (host, path) = unc.split_once('/')?;
+    let share = path.split('/').next()?;
+    if host.is_empty()
+        || host.contains(['@', ':', '%', '?', '#', '*', '"', '<', '>', '|'])
+        || share.is_empty()
+        || share.contains(':')
+    {
+        return None;
+    }
+    Some(format!("//{}/{path}", host.to_ascii_lowercase()))
+}
+fn uri_identity(uri: &str) -> UriIdentity {
+    windows_uri_identity(uri)
+        .map(UriIdentity::Windows)
+        .unwrap_or_else(|| UriIdentity::Literal(uri.to_owned()))
+}
 fn file_uri(path: &Path) -> Result<String> {
     let path = path.to_str().context("djay requires a UTF-8 path")?;
     ensure!(!path.contains('\0'), "NUL in djay source path");
-    let normalized = path.replace('\\', "/");
+    let normalized = if windows_path(path) {
+        path.replace('\\', "/")
+    } else {
+        path.to_owned()
+    };
     ensure!(
         !normalized.starts_with("//./"),
         "djay cannot export Windows device namespace paths"
@@ -1271,60 +1557,140 @@ fn decode(bytes: &[u8]) -> Result<Object> {
 #[path = "djay_pro/tests.rs"]
 mod tests;
 
-fn reference_objects(tx: &Transaction<'_>, source: &Path) -> Result<Vec<(String, Object)>> {
-    let uri = file_uri(source)?;
-    Ok(objects(tx,"localMediaItemLocations")?.into_iter().filter(|(_,object)| matches!(object.get("sourceURIs"),Some(Value::Array(values)) if values.iter().any(|v|matches!(v,Value::Uri(v)|Value::String(v) if v==&uri)))).collect())
+fn reference_objects(
+    tx: &Transaction<'_>,
+    lookup: &mut SourceLookup<'_, '_>,
+) -> Result<Vec<(String, Object)>> {
+    let mut found = Vec::new();
+    for (id, object) in objects(tx, "localMediaItemLocations")? {
+        let mut matches = false;
+        if let Some(Value::Array(values)) = object.get("sourceURIs") {
+            for value in values {
+                if let Value::Uri(uri) | Value::String(uri) = value
+                    && lookup.resolve(uri)?.is_some()
+                {
+                    matches = true;
+                }
+            }
+        }
+        if matches {
+            found.push((id, object));
+        }
+    }
+    Ok(found)
 }
+fn reference_lookup<'a, 'e>(
+    source: &Path,
+    resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
+) -> Result<SourceLookup<'a, 'e>> {
+    let uri = file_uri(&crate::destination_reference(&resolver.to_native(source)?))?;
+    SourceLookup::new(vec![(source.to_owned(), uri)], resolver)
+}
+#[cfg(test)]
 pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
+    reference_id_in_environment(
+        database,
+        source,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+#[cfg(test)]
+pub(crate) fn reference_id_in_environment(
+    database: &Path,
+    source: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<String> {
+    let resolver = environment.resolver()?;
+    let result = reference_id_with_resolver(database, source, &resolver)?;
+    resolver.verify()?;
+    Ok(result)
+}
+pub(crate) fn reference_id_with_resolver(
+    database: &Path,
+    source: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<String> {
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let tx = conn.transaction()?;
-    let found = reference_objects(&tx, source)?;
+    let mut lookup = reference_lookup(source, resolver)?;
+    let found = reference_objects(&tx, &mut lookup)?;
     ensure!(
         found.len() == 1,
         "djay source reference is missing or ambiguous"
     );
     Ok(found[0].0.clone())
 }
+#[cfg(test)]
 pub(crate) fn repair_reference(
     database: &Path,
     source: &Path,
     destination: &Path,
     expected: &str,
 ) -> Result<()> {
+    repair_reference_in_environment(
+        database,
+        source,
+        destination,
+        expected,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+#[cfg(test)]
+pub(crate) fn repair_reference_in_environment(
+    database: &Path,
+    source: &Path,
+    destination: &Path,
+    expected: &str,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<()> {
+    let resolver = environment.resolver()?;
+    repair_reference_with_resolver(database, source, destination, expected, &resolver)
+}
+pub(crate) fn repair_reference_with_resolver(
+    database: &Path,
+    source: &Path,
+    destination: &Path,
+    expected: &str,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<()> {
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     let tx = conn.transaction()?;
-    let mut found = reference_objects(&tx, source)?;
+    let mut from = reference_lookup(source, resolver)?;
+    let mut to = reference_lookup(destination, resolver)?;
+    let mut found = reference_objects(&tx, &mut from)?;
     ensure!(
         found.len() == 1 && found[0].0 == expected,
         "djay source reference changed"
     );
     ensure!(
-        reference_objects(&tx, destination)?
+        reference_objects(&tx, &mut to)?
             .iter()
             .all(|(id, _)| id == expected),
         "djay destination already has a native track"
     );
+    resolver.verify()?;
     let (id, mut object) = found.remove(0);
-    let from = file_uri(source)?;
-    let to = file_uri(destination)?;
+    let destination_uri = to.selected[0].uri.clone();
     let Some(Value::Array(previous)) = object.get("sourceURIs") else {
-        anyhow::bail!("djay source URI record is missing")
+        bail!("djay source URI record is missing")
     };
     let mut changed = previous.clone();
     for value in &mut changed {
-        match value {
-            Value::Uri(uri) | Value::String(uri) if *uri == from => *uri = to.clone(),
-            _ => {}
+        if let Value::Uri(uri) | Value::String(uri) = value
+            && from.resolve(uri)?.is_some()
+        {
+            *uri = destination_uri.clone();
         }
     }
     object.set("sourceURIs", Value::Array(changed));
     upsert(&tx, "localMediaItemLocations", &id, &object)?;
     let index:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='secondaryIndex_mediaItemLocationIndex')",[],|row|row.get(0))?;
     if index {
-        let filename = destination
-            .file_name()
-            .and_then(|s| s.to_str())
-            .context("djay requires a Unicode filename")?;
+        let filename = source_filename(&PathBuf::from(
+            windows_uri_identity(&destination_uri)
+                .unwrap_or_else(|| destination.to_string_lossy().into_owned()),
+        ))?
+        .to_owned();
         tx.execute("UPDATE secondaryIndex_mediaItemLocationIndex SET fileName=?1 WHERE rowid=(SELECT rowid FROM database2 WHERE collection='localMediaItemLocations' AND key=?2)",params![filename,id])?;
     }
     for extension in INDEXES {

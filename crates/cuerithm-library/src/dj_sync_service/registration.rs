@@ -626,6 +626,7 @@ mod tests {
 
     fn target(root: &Path, software: DjSoftware) -> SyncTarget {
         SyncTarget {
+            environment: Default::default(),
             software,
             path: root.into(),
             source_root: None,

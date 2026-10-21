@@ -56,6 +56,7 @@ fn independent_copy_history_keeps_raw_source_paths_losslessly() {
         .seed_organization_reference_fixture(
             "track",
             SyncTarget {
+                environment: Default::default(),
                 software: cuerithm_dj_sync::DjSoftware::PioneerUsb,
                 path: usb,
                 source_root: None,
@@ -155,6 +156,7 @@ fn linked_reference_repairs_only_path_before_local_ack_and_preserves_remote_edit
     );
     fs::write(&database, &original).unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: cuerithm_dj_sync::DjSoftware::VirtualDj,
         path: database.clone(),
         source_root: None,
@@ -217,6 +219,7 @@ fn linked_target(
     );
     fs::write(path, body).unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: cuerithm_dj_sync::DjSoftware::VirtualDj,
         path: path.into(),
         source_root: None,
@@ -350,6 +353,7 @@ fn independent_device_copy_does_not_require_a_mounted_or_closed_target() {
     fs::create_dir(&usb).unwrap();
     fs::write(usb.join("owned-media.bin"), b"independent device bytes").unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: cuerithm_dj_sync::DjSoftware::PioneerUsb,
         path: usb.clone(),
         source_root: None,
@@ -485,6 +489,7 @@ fn a_verified_own_receipt_can_rebase_another_frozen_track_snapshot() {
     let database = root.join("database.xml");
     fs::write(&database,format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/><Song FilePath="{}"/></VirtualDJ_Database>"#,source.display(),second.display())).unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: cuerithm_dj_sync::DjSoftware::VirtualDj,
         path: database.clone(),
         source_root: None,
@@ -678,4 +683,44 @@ fn pending_copy_source_edit_requires_an_explicit_choice_and_preserves_native_met
             i64::from(resolution == crate::organization::AlternateResolution::AddAsNewIncoming)
         );
     }
+}
+
+#[test]
+fn windows_configuration_organization_repairs_native_refs_and_legacy_membership() {
+    let (dir, library, source, destination) = fixture();
+    let root = dir.path().canonicalize().unwrap();
+    let home = root.join("VirtualDJ");
+    fs::create_dir_all(home.join("Playlists/CueRithm")).unwrap();
+    let database = home.join("database.xml");
+    fs::write(&database,br#"<VirtualDJ_Database Version="8.5"><Song FilePath="C:\old.wav" Custom="native"/></VirtualDJ_Database>"#).unwrap();
+    let playlist = home.join("Playlists/CueRithm/Owned.m3u");
+    fs::write(&playlist, b"#EXTVDJ:\nC:\\old.wav\n").unwrap();
+    let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":database,"source_root":null,
+      "environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":root}]}})).unwrap();
+    library
+        .seed_organization_reference_fixture("track", target, false)
+        .unwrap();
+    let operation = planned(&library, &source, &destination);
+    let guard = library.repair_organization_references(&operation).unwrap();
+    library
+        .acknowledge_organization_references_checked(&operation, &guard)
+        .unwrap();
+    assert_eq!(library.track_path("track").unwrap(), destination);
+    assert!(
+        fs::read_to_string(&database)
+            .unwrap()
+            .contains(r"C:\managed\new.wav")
+    );
+    assert_eq!(
+        fs::read_to_string(&playlist).unwrap(),
+        "#EXTVDJ:\nC:\\managed\\new.wav\n"
+    );
+    assert!(
+        library
+            .organization_reference_snapshot("track")
+            .unwrap()
+            .blockers
+            .is_empty()
+    );
+    assert!(source.is_file());
 }

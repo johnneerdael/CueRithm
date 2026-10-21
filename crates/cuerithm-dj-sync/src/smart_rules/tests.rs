@@ -569,18 +569,21 @@ fn semantic_gaps_keep_whole_membership_instead_of_emitting_approximate_native_ru
     let library = SyncLibrary {
         tracks: vec![
             SyncTrack {
+                native_path: None,
                 id: "upper".into(),
                 artist: "Artist".into(),
                 bpm: 120.0049,
                 ..Default::default()
             },
             SyncTrack {
+                native_path: None,
                 id: "spaced".into(),
                 artist: " artist ".into(),
                 bpm: 120.0,
                 ..Default::default()
             },
             SyncTrack {
+                native_path: None,
                 id: "lower".into(),
                 artist: "artist".into(),
                 bpm: 120.0,

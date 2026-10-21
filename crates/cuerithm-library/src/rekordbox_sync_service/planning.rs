@@ -166,11 +166,11 @@ fn previous_native_media(
     let source: cuerithm_dj_sync::NativeSourceDescriptor = serde_json::from_str(&source)?;
     Ok(
         (!crate::native_sync::changed_identity(&identity, &remote.identity)
-            && remote
-                .source
-                .path
-                .as_deref()
-                .is_some_and(|path| Path::new(path) == source.native_path))
+            && remote.source.resolved_path.as_deref().is_some_and(|path| {
+                Path::new(path).canonicalize().ok().is_some_and(|physical| {
+                    source.native_path.canonicalize().ok() == Some(physical)
+                })
+            }))
         .then_some(source),
     )
 }
@@ -193,6 +193,7 @@ fn owned_audio_relationship(
 fn native_media_offset(source: &cuerithm_dj_sync::NativeSourceDescriptor) -> Result<f64> {
     cuerithm_dj_sync::timing::offset_seconds(
         &SyncTrack {
+            native_path: None,
             path: source.native_path.clone(),
             sample_rate: source.sample_rate,
             export_timing: Some(source.export_timing.clone()),
@@ -665,6 +666,10 @@ pub(super) fn preview(
     permit: PreviewPermit,
 ) -> Result<RekordboxSyncPreview> {
     cancel.check()?;
+    let environment_snapshot = target.environment.freeze()?;
+    let target_roots = capture_target_roots(&target)?;
+    let (configuration, configuration_target) = selected_configuration(library, &request, &target)?;
+    let installation_hash = file_sha256_cancellable(&target.installation.executable, cancel)?;
     ensure!(
         request
             .options
@@ -684,13 +689,24 @@ pub(super) fn preview(
         asset_journal: None,
         committed: false,
     };
-    let (collection, before, snapshot) = {
+    let (mut collection, before, snapshot) = {
         let lease = NativeDatabaseLease::acquire(&target.database, key, cancel)?;
         let before = lease.state(cancel)?;
         let collection = lease.read_collection(CollectionReadOptions::default(), cancel)?;
         let snapshot = lease.snapshot(&workspace, key, cancel)?;
         (collection, before, snapshot)
     };
+    // Observe mapped references before the local observation transaction can
+    // create/remove SQLite journals in a mapped ancestor shared by test setups.
+    {
+        let paths = target.environment.resolver()?;
+        project_collection(&paths, &mut collection)?;
+        paths.verify()?;
+        environment_snapshot.verify()?;
+        for root in &target_roots {
+            root.verify()?;
+        }
+    }
     let mut warnings = vec![];
     let capability = require_capability(&target, &snapshot.schema, cancel);
     let fixture_permit = match permit {
@@ -722,6 +738,9 @@ pub(super) fn preview(
     let revision = library.revision()?;
     let settings_revision = library.settings()?.revision;
     let mut local_library = library.native_sync_library(scope(&request.scope), runtime)?;
+    // All following path loops share one read-only directory-index phase.
+    // Journal writes above have completed; cached evidence is never refreshed.
+    let paths = target.environment.resolver()?;
     let mut sources = vec![];
     let mut reviews = vec![];
     let mut acknowledgements = vec![];
@@ -733,6 +752,7 @@ pub(super) fn preview(
     let mut copied_audio_bytes = 0u64;
     let mut seen_decisions = BTreeSet::new();
     let mut pending_creation_choice = false;
+    let mut projected_sources = BTreeMap::new();
     for track in &mut local_library.tracks {
         cancel.check()?;
         let (local, epoch, link) = {
@@ -784,7 +804,13 @@ pub(super) fn preview(
         let mut selected = request.options.metadata_fields.clone();
         let source_differs = remote
             .and_then(|r| r.source.path.as_deref())
-            .is_some_and(|path| Path::new(path) != track.path)
+            .is_some_and(|path| {
+                paths
+                    .to_host(Path::new(path))
+                    .ok()
+                    .and_then(|p| p.canonicalize().ok())
+                    != track.path.canonicalize().ok()
+            })
             && !remote
                 .map(|r| owned_audio_relationship(library, &native_target_id, track, r))
                 .transpose()?
@@ -819,7 +845,7 @@ pub(super) fn preview(
                 "beat_grid" => remote
                     .and_then(|r| r.source.analysis_path.as_deref())
                     .filter(|v| !v.is_empty())
-                    .map(|path| assets::grid_observation(&target, path))
+                    .map(|path| assets::grid_observation_resolved(&target, &paths, path))
                     .transpose()?,
                 "artwork" => remote
                     .map(|r| {
@@ -827,7 +853,9 @@ pub(super) fn preview(
                             .artwork_path
                             .as_deref()
                             .filter(|v| !v.is_empty())
-                            .map(|path| assets::artwork_observation(&target, path, cancel))
+                            .map(|path| {
+                                assets::artwork_observation_resolved(&target, &paths, path, cancel)
+                            })
                             .transpose()
                             .map(|value| value.unwrap_or(Value::Null))
                     })
@@ -994,7 +1022,24 @@ pub(super) fn preview(
         }
         let mut regenerate_waveforms = false;
         let mut export_track = track.clone();
-        let mut native_audio_path = track.path.clone();
+        // An existing compatible copy remains the destination for metadata-only
+        // edits; the original source can be outside the Windows namespace.
+        let previous_copy = if relocate_audio {
+            None
+        } else {
+            remote
+                .map(|remote| previous_native_media(library, &native_target_id, track, remote))
+                .transpose()?
+                .flatten()
+                .filter(|media| {
+                    media.converted
+                        && media.original.path == track.path
+                        && media.original.sha256 == sources.last().unwrap().hash
+                })
+        };
+        let mut native_audio_path = previous_copy
+            .map(|media| media.native_path)
+            .unwrap_or_else(|| track.path.clone());
         if remote.is_none() || write_cues || write_grid || relocate_audio {
             let runtime =
                 runtime.context("Native audio compatibility requires the bundled media runtime")?;
@@ -1128,6 +1173,25 @@ pub(super) fn preview(
             sources.last_mut().unwrap().native_media = Some(proof);
             prepared_audio.push(audio);
         }
+        // Validate the file rekordbox will reference, after an explicitly
+        // requested compatible copy has selected its publication location.
+        let projected = paths.to_native(&native_audio_path)?;
+        let key = if target.environment.is_native() {
+            projected.to_string_lossy().into_owned()
+        } else {
+            projected.to_string_lossy().to_lowercase()
+        };
+        let physical = match native_audio_path.canonicalize() {
+            Ok(physical) => physical,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => native_audio_path.clone(),
+            Err(error) => return Err(error).context("Native audio location is unavailable"),
+        };
+        if let Some(prior) = projected_sources.insert(key, physical.clone()) {
+            ensure!(
+                prior == physical,
+                "Selected audio sources collide under destination path semantics"
+            );
+        }
         let mut owned = prior_owned_cues;
         // An explicit reviewed choice authorizes replacing the currently listed,
         // understood cue records. Observation or an automatic proposal does not.
@@ -1187,6 +1251,7 @@ pub(super) fn preview(
             let bundle = assets::build(
                 library,
                 &target,
+                &paths,
                 &id,
                 &timed,
                 &native_audio_path,
@@ -1227,11 +1292,24 @@ pub(super) fn preview(
             })
             .collect();
         let cue_colors = write_cues.then_some(cue_colors);
+        let destination_audio_path =
+            audio_reference_resolved(&paths, &native_audio_path, remote, relocate_audio)?;
+        if fields.contains_key("source_path") {
+            fields.insert(
+                "source_path".into(),
+                TargetValue::Text(
+                    destination_audio_path
+                        .to_str()
+                        .context("Native audio path is not Unicode")?
+                        .to_owned(),
+                ),
+            );
+        }
         drafts.push(NativeTrackDraft {
             local_id: track.id.clone(),
             identity: remote.map(|r| r.identity.clone()),
             expected_raw_hash: remote.map(|r| r.raw_hash.clone()),
-            source_path: native_audio_path,
+            source_path: destination_audio_path,
             fields,
             cues: write_cues.then_some(native_cues),
             cue_bpm,
@@ -1410,6 +1488,11 @@ pub(super) fn preview(
                 .collect(),
         })
         .collect();
+    // Finish case/root verification before writing the prepared asset journal
+    // or the final local operation row. No mapped paths cross this boundary
+    // without their operation-scoped evidence being checked.
+    paths.verify()?;
+    drop(paths);
     cancel.check()?;
     let transaction = FileTransaction::create(&root(library).join("assets"))?;
     let asset_journal_id = transaction.inspect()?.id;
@@ -1454,6 +1537,11 @@ pub(super) fn preview(
     let now = crate::model::now();
     let op = Operation {
         version: 1,
+        environment_snapshot: Some(environment_snapshot),
+        installation_hash: Some(installation_hash),
+        target_roots,
+        configuration,
+        configuration_target,
         id: id.clone(),
         target,
         native_target_id,
@@ -1482,6 +1570,7 @@ pub(super) fn preview(
         outcome: None,
     };
     cancel.check()?;
+    verify_environment(&op, cancel)?;
     {
         let connection = library.conn()?;
         save(&connection, &op)?;

@@ -3,14 +3,25 @@ use crate::{
     host::Host,
 };
 use cuerithm_library::{
-    RekordboxSyncHistoryEntry, RekordboxSyncOutcome, RekordboxSyncPreflight, RekordboxSyncPreview,
-    RekordboxSyncRequest, RekordboxSyncRuntime, RekordboxSyncTarget,
+    RekordboxManualTarget, RekordboxSyncHistoryEntry, RekordboxSyncOutcome, RekordboxSyncPreflight,
+    RekordboxSyncPreview, RekordboxSyncRequest, RekordboxSyncRuntime, RekordboxSyncTarget,
+    SyncConfigurationBinding,
 };
 use std::sync::Arc;
 use tauri::{Emitter, State};
 
 type Managed<'a> = State<'a, Arc<Host>>;
 type Ipc<T> = Result<T, AppError>;
+#[tauri::command]
+pub async fn configure_rekordbox_sync_target(
+    host: Managed<'_>,
+    request: RekordboxManualTarget,
+) -> Ipc<RekordboxSyncTarget> {
+    let library = host.library.clone();
+    work(move || library.configure_rekordbox_sync_target(request))
+        .await
+        .map_err(native_error)
+}
 
 // Keep the shared IPC envelope while exposing the native workflow's actionable
 // states. The SDK supplies already-redacted messages; never attach key sources.
@@ -29,6 +40,7 @@ fn native_error(mut error: AppError) -> AppError {
         "recovery_conflict"
     } else if message.contains("not passed native write acceptance")
         || message.contains("no accepted native write capability")
+        || message.contains("not supported for syncing changes")
     {
         "read_only_profile"
     } else if message.contains("discard the existing preview")
@@ -76,9 +88,11 @@ pub async fn preflight_rekordbox_sync(
     host: Managed<'_>,
     operation_id: String,
     target_id: String,
+    configuration: Option<SyncConfigurationBinding>,
 ) -> Ipc<RekordboxSyncPreflight> {
     run(host.inner().clone(), operation_id, move |host, cancel| {
-        host.library.preflight_rekordbox_sync(&target_id, cancel)
+        host.library
+            .preflight_rekordbox_sync_configured(&target_id, configuration, cancel)
     })
     .await
 }
@@ -187,6 +201,10 @@ mod tests {
             ),
             (
                 "This installed rekordbox application and database profile has not passed native write acceptance",
+                "read_only_profile",
+            ),
+            (
+                "This rekordbox library format is not supported for syncing changes",
                 "read_only_profile",
             ),
             (

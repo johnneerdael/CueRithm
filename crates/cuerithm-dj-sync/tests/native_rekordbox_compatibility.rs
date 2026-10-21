@@ -120,6 +120,7 @@ fn native_compatibility_preserves_supported_sources_and_requires_owned_opt_in_co
             assert_eq!(descriptor.pcm_sha256, derivative.pcm_sha256().unwrap());
             let timed = timing::export_track(
                 &SyncTrack {
+                    native_path: None,
                     path: descriptor.native_path.clone(),
                     sample_rate: descriptor.sample_rate,
                     export_timing: Some(descriptor.export_timing.clone()),
