@@ -1943,7 +1943,7 @@ fn recognized_candidate_uses_source_bound_consent_without_enabling_musicbrainz_g
         allow_id3_upgrade: false,
     };
     let preview = lib
-        .preview_match_review_with(&tagger, &runtime, request, &cancel)
+        .preview_match_review_with(&tagger, &runtime, request.clone(), &cancel)
         .expect("consented source-bound recognition must expand despite default provider list");
     assert!(preview.can_apply, "{:?}", preview.blockers);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
@@ -1956,6 +1956,27 @@ fn recognized_candidate_uses_source_bound_consent_without_enabling_musicbrainz_g
             .platforms,
         ["beatport", "traxsource"]
     );
+    let original_settings = lib.settings().unwrap().settings;
+    let mut revoked = original_settings.clone();
+    revoked.tagging.as_mut().unwrap().recognition = Default::default();
+    lib.save_settings(revoked).unwrap();
+    let revoked_state = lib.track_match_review(&run.track_id).unwrap().unwrap();
+    assert!(
+        !revoked_state
+            .providers
+            .iter()
+            .any(|p| p.id == "musicbrainz")
+    );
+    let denied = lib
+        .preview_match_review_with(&tagger, &runtime, request, &cancel)
+        .expect_err("retained source-bound permission cannot override current revoked consent");
+    assert!(denied.to_string().contains("not enabled"));
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "revoked consent must not perform candidate expansion"
+    );
+    lib.save_settings(original_settings).unwrap();
     lib.apply_match_review_with(&runtime, &preview.id, &preview.revision, &cancel)
         .unwrap();
     let retry = lib.claim_next().unwrap().unwrap();
@@ -2223,4 +2244,111 @@ fn saved_incoming_artwork_counts_and_cannot_be_replaced_by_a_review() {
         "{:?}",
         blocked.artwork
     );
+}
+
+#[test]
+fn recognition_lookup_uses_live_consent_without_elevating_captured_permission() {
+    use cuerithm_autotag::{
+        CatalogAuth, CatalogHttpRequest, CatalogHttpResponse, CatalogRuntime, CatalogService,
+        CatalogTransport,
+    };
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    struct CountRequests(AtomicUsize);
+    impl CatalogTransport for CountRequests {
+        fn execute(
+            &self,
+            _: CatalogHttpRequest,
+            _: &Arc<AtomicBool>,
+            _: Option<&cuerithm_credentials::Revocation>,
+        ) -> anyhow::Result<CatalogHttpResponse> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            anyhow::bail!("unexpected request after consent revocation")
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let lib = Library::open(&temp.path().join("data/library.sqlite")).unwrap();
+    let source = temp.path().join("source.flac");
+    std::fs::write(&source, b"frozen source fixture").unwrap();
+    let mut config = AutotagConfig::default();
+    config.recognition.enabled = true;
+    config.recognition.fingerprint_consent = true;
+    let mut settings = crate::PreparationSettings {
+        autotag_enabled: true,
+        tagging: Some(config.clone()),
+        ..Default::default()
+    };
+    lib.save_settings(settings.clone()).unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&source),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let run = lib.claim_next().unwrap().unwrap();
+    let guard = lib.recognition_request_guard(&run, &config);
+    guard().unwrap();
+    settings.tagging.as_mut().unwrap().recognition = Default::default();
+    lib.save_settings(settings.clone()).unwrap();
+    let live = lib.current_catalog_lookup_config(&config).unwrap();
+    assert!(!live.recognition.enabled);
+    assert!(!live.recognition.fingerprint_consent);
+    assert_eq!(live.options.platforms, config.options.platforms);
+    let requests = Arc::new(CountRequests(AtomicUsize::new(0)));
+    let runtime = CatalogRuntime::development()
+        .unwrap()
+        .with_transport(requests.clone());
+    let error = runtime
+        .post_form(
+            CatalogService::AcoustId,
+            "https://api.acoustid.org/v2/lookup",
+            &[("fingerprint".into(), "synthetic".into())],
+            CatalogAuth::RequestGuard(guard),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("consent was revoked"));
+    assert_eq!(requests.0.load(Ordering::SeqCst), 0);
+    settings.tagging = Some(config);
+    lib.save_settings(settings).unwrap();
+    let never_consented = AutotagConfig::default();
+    let live = lib.current_catalog_lookup_config(&never_consented).unwrap();
+    assert!(
+        !live.recognition.enabled && !live.recognition.fingerprint_consent,
+        "enabling global recognition cannot grant permission to an older disabled capture"
+    );
+    assert!(lib.recognition_request_guard(&run, &never_consented)().is_err());
+}
+
+#[test]
+fn recognition_request_guard_rejects_a_superseded_preparation_attempt() {
+    let temp = tempfile::tempdir().unwrap();
+    let lib = Library::open(&temp.path().join("data/library.sqlite")).unwrap();
+    let source = temp.path().join("source.flac");
+    std::fs::write(&source, b"frozen source fixture").unwrap();
+    let mut config = AutotagConfig::default();
+    config.recognition.enabled = true;
+    config.recognition.fingerprint_consent = true;
+    lib.save_settings(crate::PreparationSettings {
+        autotag_enabled: true,
+        tagging: Some(config.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&source),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let first = lib.claim_next().unwrap().unwrap();
+    let guard = lib.recognition_request_guard(&first, &config);
+    guard().unwrap();
+    lib.retry_for_run(&first).unwrap();
+    let second = lib.claim_next().unwrap().unwrap();
+    assert!(second.attempt > first.attempt || second.id != first.id);
+    let error = guard().unwrap_err();
+    assert!(error.to_string().contains("superseded"));
+    lib.validate_catalog_run(&second).unwrap();
+    lib.recognition_request_guard(&second, &config)().unwrap();
 }

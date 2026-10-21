@@ -216,11 +216,24 @@ pub fn recognize_prepared(
     config: &RecognitionConfig,
     cancel: &Arc<AtomicBool>,
 ) -> Result<RecognitionCandidates> {
+    recognize_prepared_guarded(runtime, audio, config, cancel, None)
+}
+
+pub(crate) fn recognize_prepared_guarded(
+    runtime: Arc<CatalogRuntime>,
+    audio: &PreparedAudio,
+    config: &RecognitionConfig,
+    cancel: &Arc<AtomicBool>,
+    guard: Option<crate::CatalogRequestGuard>,
+) -> Result<RecognitionCandidates> {
     config.validate()?;
     ensure!(
         config.enabled && config.fingerprint_consent,
         "Identification is disabled"
     );
+    if let Some(guard) = &guard {
+        guard()?;
+    }
     let key =
         application_key().context("This build has no registered AcoustID application identity")?;
     ensure!(
@@ -245,7 +258,7 @@ pub fn recognize_prepared(
             ("meta".into(), "recordings".into()),
             ("format".into(), "json".into()),
         ],
-        CatalogAuth::None,
+        guard.map_or(CatalogAuth::None, CatalogAuth::RequestGuard),
         cancel,
     )?;
     let backend = MusicBrainzBackend::new(runtime);
@@ -334,6 +347,69 @@ mod tests {
         assert_eq!(
             cuerithm_media::file_sha256(&source).unwrap(),
             audio.source_sha256
+        );
+    }
+    #[test]
+    fn recognition_guard_rechecks_consent_after_catalog_matching() {
+        use crate::{AutotagConfig, ProviderBackend, ProviderId, TagInput, Tagger};
+        struct RevokingCatalog(Arc<AtomicBool>);
+        impl ProviderBackend for RevokingCatalog {
+            fn id(&self) -> ProviderId {
+                ProviderId::Beatport
+            }
+            fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+                self.0.store(false, Ordering::SeqCst);
+                Ok(vec![])
+            }
+        }
+        let allowed = Arc::new(AtomicBool::new(true));
+        let temp = tempfile::tempdir().unwrap();
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let source = temp.path().join("source.flac");
+        std::fs::copy(
+            repo.join("crates/cuerithm-media/tests/fixtures/metadata.flac"),
+            &source,
+        )
+        .unwrap();
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin"))
+                .unwrap();
+        let audio = runtime.decode(&source, temp.path()).unwrap();
+        let input = TagInput {
+            path: source,
+            source_sha256: audio.source_sha256.clone(),
+            duration_seconds: audio.clock.duration_seconds(),
+            media: audio.info.clone(),
+        };
+        let tagger =
+            Tagger::with_backends(vec![Arc::new(RevokingCatalog(allowed.clone()))]).unwrap();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["beatport".into()];
+        config.recognition.enabled = true;
+        config.recognition.fingerprint_consent = true;
+        let guard = Arc::new(move || {
+            ensure!(
+                allowed.load(Ordering::SeqCst),
+                "Consent revoked during catalog matching"
+            );
+            Ok(())
+        });
+        let error = tagger
+            .match_prepared_with_album_guarded(
+                &input,
+                &audio,
+                &config,
+                &Arc::new(AtomicBool::new(false)),
+                None,
+                Some(guard),
+            )
+            .expect_err(
+                "revoked consent must reject the fallback before fingerprinting/runtime setup",
+            );
+        assert!(
+            error
+                .to_string()
+                .contains("Consent revoked during catalog matching")
         );
     }
     #[test]

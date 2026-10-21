@@ -319,21 +319,47 @@ impl Library {
         );
         Ok(())
     }
-    /// Network access is a global machine setting, never accepted metadata policy.
+    /// Transport and privacy permission are live machine settings, never accepted metadata policy.
     pub(crate) fn current_catalog_lookup_config(
         &self,
         captured: &AutotagConfig,
     ) -> Result<AutotagConfig> {
-        let solver = self
-            .settings()?
-            .settings
-            .tagging
-            .map(|config| config.solver)
-            .unwrap_or_default();
+        let live = self.settings()?.settings.tagging.unwrap_or_default();
+        let solver = live.solver;
         let mut current = captured.clone();
         current.solver.endpoint = solver.endpoint;
         current.solver.timeout_seconds = solver.timeout_seconds;
+        current.recognition.fingerprint_consent &= live.recognition.fingerprint_consent;
+        current.recognition.enabled &=
+            live.recognition.enabled && current.recognition.fingerprint_consent;
         Ok(current)
+    }
+    pub(crate) fn validate_catalog_run(&self, job: &JobRun) -> Result<()> {
+        let current: bool = self.conn()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM jobs j JOIN tracks t ON t.id=j.track_id WHERE j.id=?1 AND j.track_id=?2 AND j.state='running' AND j.attempts=?3 AND j.settings_revision=?4 AND j.source_hash=?5 AND t.current_job=j.id AND t.archived=0 AND t.source_hash=j.source_hash AND t.path=?6)",
+            params![job.id, job.track_id, job.attempt, job.settings_revision, job.source_sha256, path_bytes(&job.path)],
+            |row| row.get(0),
+        )?;
+        ensure!(current, "Preparation was superseded before catalog lookup");
+        Ok(())
+    }
+    pub(crate) fn recognition_request_guard(
+        &self,
+        job: &JobRun,
+        captured: &AutotagConfig,
+    ) -> cuerithm_autotag::CatalogRequestGuard {
+        let library = self.clone();
+        let job = job.clone();
+        let captured = captured.clone();
+        std::sync::Arc::new(move || {
+            library.validate_catalog_run(&job)?;
+            let config = library.current_catalog_lookup_config(&captured)?;
+            ensure!(
+                config.recognition.enabled && config.recognition.fingerprint_consent,
+                "Fingerprint transmission consent was revoked or identification is disabled"
+            );
+            Ok(())
+        })
     }
     pub(super) fn recognized_review_access(
         &self,
@@ -348,6 +374,7 @@ impl Library {
             return Ok(None);
         }
         let input = capture.input()?;
+        let mut access_config = self.current_catalog_lookup_config(&capture.config)?;
         let recognized = capture
             .candidates
             .iter()
@@ -357,14 +384,13 @@ impl Library {
                     && cuerithm_autotag::Tagger::review_candidate_provider_enabled(
                         &input,
                         candidate,
-                        &capture.config,
+                        &access_config,
                     )
                     .unwrap_or(false)
             });
         if !recognized {
             return Ok(None);
         }
-        let mut access_config = self.current_catalog_lookup_config(&capture.config)?;
         access_config.options.platforms = vec!["musicbrainz".into()];
         Ok(self.review_access_for_lookup(&access_config)?.pop())
     }

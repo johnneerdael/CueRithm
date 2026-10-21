@@ -446,6 +446,20 @@ impl Tagger {
         cancel: &Arc<AtomicBool>,
         hint: Option<&AlbumHint>,
     ) -> Result<TagMatchOutcome> {
+        self.match_prepared_with_album_guarded(input, audio, config, cancel, hint, None)
+    }
+
+    /// The guard is checked after catalog matching, before fingerprinting and at the paced HTTP start.
+    #[allow(clippy::too_many_arguments)]
+    pub fn match_prepared_with_album_guarded(
+        &self,
+        input: &TagInput,
+        audio: &cuerithm_media::PreparedAudio,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+        hint: Option<&AlbumHint>,
+        guard: Option<CatalogRequestGuard>,
+    ) -> Result<TagMatchOutcome> {
         let initial = self.match_track_with_album(input, config, cancel, hint);
         if !config.recognition.enabled {
             return initial;
@@ -459,6 +473,9 @@ impl Tagger {
         };
         if !unresolved {
             return initial;
+        }
+        if let Some(guard) = &guard {
+            guard()?;
         }
         if let Some(reason) = recognition::recognition_skip_reason(audio) {
             return initial.map(|mut outcome| {
@@ -474,7 +491,13 @@ impl Tagger {
             .runtime
             .clone()
             .ok_or_else(|| anyhow::anyhow!("Identification runtime is unavailable"))?;
-        let recognized = recognize_prepared(runtime, audio, &config.recognition, cancel)?;
+        let recognized = recognition::recognize_prepared_guarded(
+            runtime,
+            audio,
+            &config.recognition,
+            cancel,
+            guard,
+        )?;
         let mut found = recognized.matches;
         let info = input.audio_info(config)?;
         found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));

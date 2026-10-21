@@ -156,9 +156,14 @@ impl<V: Vault> CatalogCredentials for CredentialService<V> {
         Ok(CredentialService::record_verification(self, r, v)?)
     }
 }
+/// Revalidate operation ownership and live permission immediately before an HTTP start.
+pub type CatalogRequestGuard = Arc<dyn Fn() -> Result<()> + Send + Sync>;
+
 /// Secrets are native-only and deliberately neither Debug nor serializable.
 pub enum CatalogAuth {
     None,
+    /// No credential headers; the operation must still have current transmission permission.
+    RequestGuard(CatalogRequestGuard),
     Credential(CredentialRef),
     Bearer {
         token: Secret,

@@ -97,6 +97,7 @@ pub struct JobSummary {
     pub error: Option<String>,
     pub attempts: u32,
 }
+#[derive(Clone)]
 pub struct JobRun {
     pub attempt: u32,
     pub id: JobId,

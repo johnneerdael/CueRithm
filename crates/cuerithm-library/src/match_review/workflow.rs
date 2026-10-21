@@ -620,6 +620,7 @@ impl Library {
             .tagging
             .clone()
             .context("Configure catalog providers before Requery")?;
+        config = self.current_catalog_lookup_config(&config)?;
         config.options.skip_tagged = false;
         config.validate()?;
         if let Some(job) = before.public.job_id.as_deref() {

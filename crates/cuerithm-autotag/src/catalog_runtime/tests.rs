@@ -891,3 +891,74 @@ fn volumo_credentials_and_unknown_routes_never_reach_public_transport() {
         .is_err()
     );
 }
+
+#[test]
+fn request_guard_rechecks_consent_after_pacing_before_transport() {
+    use std::sync::atomic::{AtomicI64, AtomicUsize};
+    struct RevokeDuringWait {
+        now: AtomicI64,
+        allowed: Arc<AtomicBool>,
+    }
+    impl CatalogClock for RevokeDuringWait {
+        fn now_ms(&self) -> i64 {
+            self.now.load(Ordering::SeqCst)
+        }
+        fn wait_until(
+            &self,
+            until: i64,
+            _: &Arc<AtomicBool>,
+            _: Option<&Revocation>,
+        ) -> Result<()> {
+            self.allowed.store(false, Ordering::SeqCst);
+            self.now.store(until, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+    struct CountRequests(AtomicUsize);
+    impl CatalogTransport for CountRequests {
+        fn execute(
+            &self,
+            _: CatalogHttpRequest,
+            _: &Arc<AtomicBool>,
+            _: Option<&Revocation>,
+        ) -> Result<CatalogHttpResponse> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(CatalogHttpResponse {
+                status: 200,
+                body: br#"{"status":"ok","results":[]}"#.to_vec(),
+                headers: vec![],
+            })
+        }
+    }
+    let allowed = Arc::new(AtomicBool::new(true));
+    let calls = Arc::new(CountRequests(AtomicUsize::new(0)));
+    let runtime = CatalogRuntime::development()
+        .unwrap()
+        .with_transport(calls.clone())
+        .with_clock(Arc::new(RevokeDuringWait {
+            now: AtomicI64::new(1000),
+            allowed: allowed.clone(),
+        }));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let guard: CatalogRequestGuard = Arc::new(move || {
+        ensure!(allowed.load(Ordering::SeqCst), "Consent revoked");
+        Ok(())
+    });
+    let lookup = || {
+        runtime.post_form(
+            CatalogService::AcoustId,
+            "https://api.acoustid.org/v2/lookup",
+            &[("fingerprint".into(), "synthetic".into())],
+            CatalogAuth::RequestGuard(guard.clone()),
+            &cancel,
+        )
+    };
+    lookup().unwrap();
+    let error = lookup().unwrap_err();
+    assert!(error.to_string().contains("Consent revoked"));
+    assert_eq!(
+        calls.0.load(Ordering::SeqCst),
+        1,
+        "revocation during the second request's pacing must prevent its transport call"
+    );
+}

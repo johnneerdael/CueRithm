@@ -549,6 +549,7 @@ impl Worker {
                 // Protected catalog decisions do not perform another lookup.
                 let lookup_config =
                     if protected_review.is_none() && job.snapshot.settings.autotag_enabled {
+                        self.library.validate_catalog_run(&job)?;
                         self.library.current_catalog_lookup_config(config)?
                     } else {
                         config.clone()
@@ -578,12 +579,13 @@ impl Worker {
                         warnings: vec![],
                     }
                 } else if job.snapshot.settings.autotag_enabled {
-                    match self.tagger.match_prepared_with_album(
+                    match self.tagger.match_prepared_with_album_guarded(
                         &query,
                         &audio,
                         &lookup_config,
                         &self.stop,
                         hint.as_ref(),
+                        Some(self.library.recognition_request_guard(&job, config)),
                     ) {
                         Ok(outcome) => {
                             self.library.record_match_outcome(&job, &query, &outcome)?;

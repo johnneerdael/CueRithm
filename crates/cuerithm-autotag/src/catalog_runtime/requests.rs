@@ -347,11 +347,18 @@ impl CatalogRuntime {
             }
         }
 
+        let request_guard = match auth.as_ref() {
+            Some(CatalogAuth::RequestGuard(guard)) => Some(guard.clone()),
+            _ => None,
+        };
         let execute = |headers: Vec<(String, String)>,
                        revocation: Option<Revocation>,
                        reference: Option<&CredentialRef>|
          -> Result<Vec<u8>> {
             check(service, cancel, revocation.as_ref())?;
+            if let Some(guard) = &request_guard {
+                guard()?;
+            }
             let mut digest = Sha256::new();
             digest.update(service.as_str());
             digest.update(url.as_str());
@@ -423,6 +430,10 @@ impl CatalogRuntime {
             for hop in 0..=3 {
                 self.start(service, cancel, revocation.as_ref())?;
                 check(service, cancel, revocation.as_ref())?;
+                // A saved setting or owner may change while request pacing waits.
+                if let Some(guard) = &request_guard {
+                    guard()?;
+                }
                 let response = self
                     .transport
                     .execute(
@@ -736,7 +747,7 @@ impl CatalogRuntime {
             unreachable!()
         };
         match auth.unwrap_or(CatalogAuth::None) {
-            CatalogAuth::None => execute(headers, None, None),
+            CatalogAuth::None | CatalogAuth::RequestGuard(_) => execute(headers, None, None),
             CatalogAuth::Credential(r) => {
                 ensure!(
                     matches!(
