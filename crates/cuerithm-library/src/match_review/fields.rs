@@ -43,8 +43,53 @@ fn candidate_date(track: &CatalogTrack) -> Vec<String> {
         .into_iter()
         .collect()
 }
+/// What a saved Incoming edit leaves in a field. Preparation applies that edit over any accepted
+/// review, so the review must start from, and cannot replace, the value it will produce.
+fn held_value(
+    saved: &MetadataPatch,
+    id: &str,
+    field: Option<F>,
+    before: &[String],
+) -> Option<Vec<String>> {
+    fn one<T: ToString>(edit: &ValueEdit<T>) -> Option<Vec<String>> {
+        match edit {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(vec![value.to_string()]),
+            ValueEdit::Clear => Some(vec![]),
+        }
+    }
+    if let Some(field) = field {
+        return match saved.text.get(&field)? {
+            TextEdit::Keep => None,
+            TextEdit::Set { values } => Some(values.clone()),
+            TextEdit::Clear => Some(vec![]),
+            TextEdit::Append { values } => {
+                let mut out = before.to_vec();
+                for value in values {
+                    if !out.contains(value) {
+                        out.push(value.clone());
+                    }
+                }
+                Some(out)
+            }
+        };
+    }
+    match id {
+        "releaseDate" => match &saved.release_date {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(date(Some(value))),
+            ValueEdit::Clear => Some(vec![]),
+        },
+        "trackNumber" => one(&saved.track_number),
+        "trackTotal" => one(&saved.track_total),
+        "discNumber" => one(&saved.disc_number),
+        "bpm" => one(&saved.bpm),
+        _ => None,
+    }
+}
 pub(super) fn make_fields(
     native: &MetadataSnapshot,
+    saved: Option<&MetadataPatch>,
     track: Option<&CatalogTrack>,
     request: &MatchReviewRequest,
     short_title: bool,
@@ -174,6 +219,8 @@ pub(super) fn make_fields(
     let mut fields = vec![];
     let mut blockers = vec![];
     for (id, label, native_field, multi, before, proposed) in specs {
+        let held = saved.and_then(|saved| held_value(saved, id, native_field, &before));
+        let before = held.clone().unwrap_or(before);
         let action = request
             .fields
             .iter()
@@ -181,7 +228,7 @@ pub(super) fn make_fields(
             .map(|d| d.action)
             .unwrap_or(MatchReviewFieldAction::Keep);
         let mut allowed_actions = vec![MatchReviewFieldAction::Keep];
-        if track.is_some() {
+        if track.is_some() && held.is_none() {
             allowed_actions.push(MatchReviewFieldAction::Replace);
             if multi {
                 allowed_actions.push(MatchReviewFieldAction::Append);
@@ -189,7 +236,12 @@ pub(super) fn make_fields(
         }
         let mut reason = None;
         let after = if !allowed_actions.contains(&action) {
-            reason = Some("This action is not supported for this field".to_owned());
+            reason = Some(if held.is_some() {
+                "Your saved Incoming edit sets this field and takes priority; edit the metadata again to change it"
+            } else {
+                "This action is not supported for this field"
+            }
+            .to_owned());
             before.clone()
         } else if action != MatchReviewFieldAction::Keep && proposed.is_empty() {
             reason = Some(

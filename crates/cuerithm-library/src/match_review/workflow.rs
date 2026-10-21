@@ -121,8 +121,23 @@ impl Library {
             .next()
             .context("Missing native metadata source")?
             .native;
+        // Preparation applies a saved Incoming edit over the accepted review, so preview that result.
+        let saved = capture
+            .public
+            .job_id
+            .as_deref()
+            .map(|job| {
+                self.metadata_override_for_query(
+                    &request.track_id,
+                    job,
+                    &capture.public.source_sha256,
+                )
+            })
+            .transpose()?
+            .flatten();
         let (fields, mut patch, field_blockers) = super::fields::make_fields(
             &native,
+            saved.as_ref(),
             selected.as_ref().map(|c| &c.track),
             &request,
             capture.config.options.short_title,
