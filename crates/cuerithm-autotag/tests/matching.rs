@@ -910,3 +910,35 @@ fn actual_ambiguous_pipeline_retains_bounded_overflow_evidence() {
     assert_eq!(evidence.candidates.len(), 10);
     assert!(evidence.truncated);
 }
+
+#[test]
+fn missing_track_id_keeps_distinct_native_positions_ambiguous() {
+    struct Positions;
+    impl ProviderBackend for Positions {
+        fn id(&self) -> ProviderId {
+            ProviderId::Bandcamp
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> Result<Vec<CatalogMatch>> {
+            Ok([1, 2]
+                .into_iter()
+                .map(|position| {
+                    CatalogMatch::new(
+                        1.,
+                        CatalogTrack {
+                            release_id: Some("same-release".into()),
+                            track_number: Some(position.into()),
+                            disc_number: Some(1),
+                            ..track(ProviderId::Bandcamp, "Signal")
+                        },
+                    )
+                })
+                .collect())
+        }
+    }
+    let tagger = Tagger::with_backends(vec![Arc::new(Positions)]).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["bandcamp".into()];
+    let outcome = tagger.match_track(&input(), &config).unwrap();
+    assert_eq!(outcome.status, MatchStatus::Ambiguous);
+    assert_eq!(outcome.matches.len(), 2);
+}

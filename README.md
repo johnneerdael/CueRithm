@@ -38,7 +38,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 | **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
 | **Waveform** | Three frequency bands in six colour palettes, with a default 32-second zoom for checking the grid. |
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
-| **Tagging** | Optional Beatport and Traxsource lookups, with staged tag writes that verify your audio is unchanged. |
+| **Tagging** | Optional DJ-store and public-catalog providers, private account setup, match review and staged writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
 | **DJ sync** | Send prepared tracks, cues, grids and playlists to VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4 or Pioneer USB, with a preview and recoverable backups. See the [Sync guide](docs/user-guide/guides/sync.md). |
@@ -59,7 +59,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 
 ## Analysis and file handling
 
-Key, tempo, energy and cues are computed on your computer from the decoded audio. Only the optional catalog tagging uses the network.
+Key, tempo, energy and cues are computed on your computer from the decoded audio. Optional catalog tagging and consented recording identification use the network. Identification sends an audio fingerprint; raw audio recognition uploads are not enabled.
 
 CueRithm never moves your audio. Tagging and cleanup write to a staged copy, then decode it again to verify that the playable audio is identical. The original is kept, and an atomic swap with a journal allows recovery after a crash.
 
@@ -99,7 +99,7 @@ The [user guide](https://johnneerdael.github.io/CueRithm/) covers:
 
 ## Credits
 
-CueRithm uses [OneTagger](https://github.com/Marekkon5/onetagger) by Marekkon5 for Beatport and Traxsource tagging (GPL v3), [OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer) for the key network (MIT), and FFmpeg for decoding (LGPL). Other components include TagLib, libsoxr, Tauri and React. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+CueRithm uses [OneTagger](https://github.com/Marekkon5/onetagger) by Marekkon5 for selected metadata providers, matching and tag writing (GPL v3), [OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer) for the key network (MIT), and FFmpeg for decoding (LGPL). Other components include TagLib, libsoxr, Tauri and React. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Mixed In Key and Lexicon DJ shaped how CueRithm behaves. I studied them using copies I own, and CueRithm is my own independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://johnneerdael.github.io/CueRithm/about/provenance/).
 
@@ -119,3 +119,5 @@ Pull requests need a completed `@codex review` and the checks in the [pull reque
 ## Licence
 
 The independent analysis engine is MIT licensed ([`LICENSE`](LICENSE)). The desktop application and the OneTagger integration are GPL-3.0-only ([`apps/desktop/LICENSE`](apps/desktop/LICENSE)). See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Developer automation: [headless library commands](docs/automation.md). Provider evidence: [PR5 acceptance and remaining limits](docs/research/pr5-provider-acceptance.md).

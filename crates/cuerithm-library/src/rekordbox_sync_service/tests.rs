@@ -1938,7 +1938,36 @@ fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_i
 }
 
 #[test]
-fn artwork_publishes_three_native_sizes_and_repeated_source_choice_is_a_byte_no_op() {
+fn artwork_observation_uses_native_pioneer_root_and_retains_escape_guards() {
+    let f = fixture(false);
+    let target = load(&f.library, &f.id).unwrap().target;
+    let artwork = target.asset_root.join("PIONEER/Artwork");
+    fs::create_dir_all(&artwork).unwrap();
+    fs::write(artwork.join("cover.jpg"), b"native artwork").unwrap();
+    fs::create_dir_all(target.asset_root.join("Artwork")).unwrap();
+    fs::write(target.asset_root.join("Artwork/cover.jpg"), b"wrong root").unwrap();
+    let cancel = CancellationToken::default();
+    assert_eq!(
+        assets::artwork_observation(&target, "/PIONEER/Artwork/cover.jpg", &cancel).unwrap(),
+        json!(file_hash(&artwork.join("cover.jpg")).unwrap().unwrap())
+    );
+    assert!(assets::artwork_observation(&target, "/Artwork/cover.jpg", &cancel).is_err());
+    assert!(
+        assets::artwork_observation(&target, "/PIONEER/Artwork/../cover.jpg", &cancel).is_err()
+    );
+    #[cfg(unix)]
+    {
+        let outside = f._dir.path().join("outside.jpg");
+        fs::write(&outside, b"outside asset root").unwrap();
+        std::os::unix::fs::symlink(outside, artwork.join("escaped.jpg")).unwrap();
+        assert!(
+            assets::artwork_observation(&target, "/PIONEER/Artwork/escaped.jpg", &cancel).is_err()
+        );
+    }
+}
+
+#[test]
+fn artwork_uses_pioneer_root_for_native_references_and_repeated_source_choice_is_a_byte_no_op() {
     let f = fixture(false);
     cue_fixture(&f);
     creation_columns(&f);
@@ -1970,6 +1999,19 @@ fn artwork_publishes_three_native_sizes_and_repeated_source_choice_is_a_byte_no_
         )
         .unwrap();
     let prior = load(&f.library, &f.id).unwrap();
+    let existing_artwork = prior.target.asset_root.join("PIONEER/Artwork/Existing");
+    fs::create_dir_all(&existing_artwork).unwrap();
+    let preserved =
+        ["cover.jpg", "cover_m.jpg", "cover_s.jpg"].map(|name| existing_artwork.join(name));
+    for path in &preserved {
+        fs::write(path, b"native-owned artwork").unwrap();
+    }
+    open(&f.native)
+        .execute(
+            "UPDATE djmdContent SET ImagePath='/PIONEER/Artwork/Existing/cover.jpg' WHERE ID='1'",
+            [],
+        )
+        .unwrap();
     f.library.discard_rekordbox_sync(&f.id).unwrap();
     let options = RekordboxSyncOptions {
         metadata_fields: BTreeSet::new(),
@@ -2003,6 +2045,14 @@ fn artwork_publishes_three_native_sizes_and_repeated_source_choice_is_a_byte_no_
     )
     .unwrap();
     let op = load(&f.library, &preview.id).unwrap();
+    assert_eq!(op.asset_sources.len(), preserved.len());
+    assert_eq!(
+        op.asset_sources
+            .iter()
+            .map(|source| source.path.clone())
+            .collect::<BTreeSet<_>>(),
+        preserved.iter().cloned().collect()
+    );
     assert_eq!(
         FileTransaction::open(&root(&f.library).join("assets"), &op.asset_journal_id)
             .unwrap()
@@ -2017,13 +2067,23 @@ fn artwork_publishes_three_native_sizes_and_repeated_source_choice_is_a_byte_no_
         .unwrap()
         .read_collection(Default::default(), &cancel)
         .unwrap();
-    let main = prior.target.asset_root.join(
-        published.tracks[0]
-            .source
-            .artwork_path
-            .as_deref()
-            .unwrap()
-            .trim_start_matches('/'),
+    let image_path = published.tracks[0].source.artwork_path.as_deref().unwrap();
+    assert!(image_path.starts_with("/PIONEER/Artwork/CUERITHM/"));
+    let main = prior
+        .target
+        .asset_root
+        .join(image_path.trim_start_matches('/'));
+    assert!(
+        main.is_file(),
+        "native ImagePath must resolve relative to share"
+    );
+    assert!(
+        !prior
+            .target
+            .asset_root
+            .join("PIONEER")
+            .join(image_path.trim_start_matches('/'))
+            .exists()
     );
     let stem = main.file_stem().unwrap().to_str().unwrap();
     let expected = cuerithm_dj_sync::native_rekordbox_artwork(&original, &runtime, &cancel)
@@ -2063,6 +2123,33 @@ fn artwork_publishes_three_native_sizes_and_repeated_source_choice_is_a_byte_no_
         .unwrap()
         .changes
         .is_empty()
+    );
+    f.library.discard_rekordbox_sync(&repeat.id).unwrap();
+    fs::write(&preserved[0], b"later native artwork edit").unwrap();
+    assert!(
+        publication::fixture_restore(&f.library, &preview.id, &key(), &cancel, &|| Ok(())).is_err(),
+        "restore must validate the original artwork under share/PIONEER"
+    );
+    assert!(main.is_file());
+    fs::write(&preserved[0], b"native-owned artwork").unwrap();
+    publication::fixture_restore(&f.library, &preview.id, &key(), &cancel, &|| Ok(())).unwrap();
+    for suffix in ["", "_m", "_s"] {
+        assert!(!main.with_file_name(format!("{stem}{suffix}.jpg")).exists());
+    }
+    for path in preserved {
+        assert_eq!(fs::read(path).unwrap(), b"native-owned artwork");
+    }
+    let restored = ReadOnlyDatabase::open(&f.native, &key())
+        .unwrap()
+        .read_collection(Default::default(), &cancel)
+        .unwrap();
+    assert_eq!(
+        restored.tracks[0].source.artwork_path.as_deref(),
+        Some("/PIONEER/Artwork/Existing/cover.jpg")
+    );
+    assert_eq!(
+        file_hash(&original).unwrap().as_deref(),
+        Some(hash.as_str())
     );
 }
 

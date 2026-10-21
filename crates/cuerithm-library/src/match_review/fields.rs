@@ -1,7 +1,7 @@
 use super::*;
 use anyhow::{Result, ensure};
 use cuerithm_autotag::{
-    CatalogTrack, MetadataPatch, MetadataSnapshot, MetadataTextField as F, TextEdit, TransferDate,
+    CatalogMatch, MetadataPatch, MetadataSnapshot, MetadataTextField as F, TextEdit, TransferDate,
     ValueEdit,
 };
 fn values(value: Option<&String>) -> Vec<String> {
@@ -35,7 +35,11 @@ fn parse_date(value: &str) -> Result<TransferDate> {
     cuerithm_autotag::validate_date(&value)?;
     Ok(value)
 }
-fn candidate_date(track: &CatalogTrack) -> Vec<String> {
+fn candidate_date(candidate: &CatalogMatch) -> Vec<String> {
+    if candidate.facts.is_some() {
+        return date(candidate.selected_release_date());
+    }
+    let track = &candidate.track;
     track
         .release_date
         .map(|d| d.to_string())
@@ -80,6 +84,11 @@ fn held_value(
             ValueEdit::Set { value } => Some(date(Some(value))),
             ValueEdit::Clear => Some(vec![]),
         },
+        "publishDate" => match &saved.original_date {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(date(Some(value))),
+            ValueEdit::Clear => Some(vec![]),
+        },
         "trackNumber" => one(&saved.track_number),
         "trackTotal" => one(&saved.track_total),
         "discNumber" => one(&saved.disc_number),
@@ -90,10 +99,11 @@ fn held_value(
 pub(super) fn make_fields(
     native: &MetadataSnapshot,
     saved: Option<&MetadataPatch>,
-    track: Option<&CatalogTrack>,
+    candidate: Option<&CatalogMatch>,
     request: &MatchReviewRequest,
     short_title: bool,
 ) -> Result<(Vec<MatchReviewFieldDiff>, MetadataPatch, Vec<String>)> {
+    let track = candidate.map(|matched| &matched.track);
     ensure!(
         request.fields.len() <= 64,
         "Too many review field decisions"
@@ -152,7 +162,36 @@ pub(super) fn make_fields(
             None,
             false,
             date(native.release_date.as_ref()),
-            track.map(candidate_date).unwrap_or_default(),
+            candidate.map(candidate_date).unwrap_or_default(),
+        ),
+        (
+            "publishDate",
+            "Original release date",
+            None,
+            false,
+            date(native.original_date.as_ref()),
+            candidate
+                .map(|candidate| {
+                    if let Some(facts) = candidate.musicbrainz() {
+                        date(facts.recording_first_release_date.as_ref())
+                    } else if candidate.facts.is_some() {
+                        vec![]
+                    } else {
+                        candidate
+                            .track
+                            .publish_date
+                            .map(|value| value.to_string())
+                            .or_else(|| {
+                                candidate
+                                    .track
+                                    .publish_year
+                                    .map(|year| format!("{year:04}"))
+                            })
+                            .into_iter()
+                            .collect()
+                    }
+                })
+                .unwrap_or_default(),
         ),
         (
             "trackNumber",
@@ -215,6 +254,29 @@ pub(super) fn make_fields(
                 .collect(),
         ),
     ]);
+    if let Some(facts) = candidate.and_then(CatalogMatch::musicbrainz) {
+        specs.push((
+            "trackId",
+            "MusicBrainz recording ID",
+            None,
+            false,
+            vec![],
+            vec![facts.recording_id.to_string()],
+        ));
+        specs.push((
+            "releaseId",
+            "MusicBrainz release ID",
+            None,
+            false,
+            vec![],
+            facts
+                .release_id
+                .as_ref()
+                .map(ToString::to_string)
+                .into_iter()
+                .collect(),
+        ));
+    }
     let mut patch = MetadataPatch::default();
     let mut fields = vec![];
     let mut blockers = vec![];
@@ -227,21 +289,43 @@ pub(super) fn make_fields(
             .find(|d| d.field.eq_ignore_ascii_case(id))
             .map(|d| d.action)
             .unwrap_or(MatchReviewFieldAction::Keep);
+        let read_only_id = matches!(id, "trackId" | "releaseId")
+            && candidate.and_then(CatalogMatch::musicbrainz).is_some();
+        let policy_allows = candidate.is_none_or(|candidate| {
+            serde_json::from_value::<cuerithm_autotag::SupportedTag>(serde_json::Value::String(
+                id.into(),
+            ))
+            .is_ok_and(|field| {
+                cuerithm_autotag::provider_native_field_allowed(&candidate.track.platform, field)
+            })
+        });
+        let capability_reason = if read_only_id {
+            Some("Scoped identifiers are read-only review evidence. Native ID editing is not supported here.".to_owned())
+        } else if !policy_allows {
+            Some(
+                "This source does not permit writing this native field; keep the existing value."
+                    .to_owned(),
+            )
+        } else {
+            None
+        };
         let mut allowed_actions = vec![MatchReviewFieldAction::Keep];
-        if track.is_some() && held.is_none() {
+        if track.is_some() && capability_reason.is_none() && held.is_none() {
             allowed_actions.push(MatchReviewFieldAction::Replace);
             if multi {
                 allowed_actions.push(MatchReviewFieldAction::Append);
             }
         }
-        let mut reason = None;
+        let mut reason = capability_reason;
         let after = if !allowed_actions.contains(&action) {
-            reason = Some(if held.is_some() {
-                "Your saved Incoming edit sets this field and takes priority; edit the metadata again to change it"
-            } else {
-                "This action is not supported for this field"
-            }
-            .to_owned());
+            reason.get_or_insert_with(|| {
+                if held.is_some() {
+                    "Your saved Incoming edit sets this field and takes priority; edit the metadata again to change it"
+                } else {
+                    "This action is not supported for this field"
+                }
+                .to_owned()
+            });
             before.clone()
         } else if action != MatchReviewFieldAction::Keep && proposed.is_empty() {
             reason = Some(
@@ -283,6 +367,11 @@ pub(super) fn make_fields(
                                 value: parse_date(value)?,
                             }
                         }
+                        "publishDate" => {
+                            patch.original_date = ValueEdit::Set {
+                                value: parse_date(value)?,
+                            }
+                        }
                         "trackNumber" => {
                             patch.track_number = ValueEdit::Set {
                                 value: value.parse()?,
@@ -314,7 +403,9 @@ pub(super) fn make_fields(
                 ));
             }
         }
-        if let Some(reason) = &reason {
+        if action != MatchReviewFieldAction::Keep
+            && let Some(reason) = &reason
+        {
             blockers.push(format!("{label}: {reason}"));
         }
         fields.push(MatchReviewFieldDiff {
@@ -344,4 +435,134 @@ pub(super) fn make_fields(
         blockers.push(format!("Selected metadata is invalid: {error:#}"));
     }
     Ok((fields, patch, blockers))
+}
+
+#[cfg(test)]
+mod catalog_facts_tests {
+    use super::*;
+    use cuerithm_autotag::{CatalogFacts, CatalogMatch, CatalogTrack};
+    fn candidate() -> CatalogMatch {
+        let mut candidate = CatalogMatch::new(
+            1.,
+            CatalogTrack {
+                platform: "musicbrainz".into(),
+                title: "Signal".into(),
+                artists: vec!["Artist".into()],
+                track_id: Some("11111111-1111-4111-8111-111111111111".into()),
+                release_id: Some("22222222-2222-4222-8222-222222222222".into()),
+                release_year: Some(2024),
+                ..Default::default()
+            },
+        );
+        candidate.facts=Some(CatalogFacts::MusicBrainz(serde_json::from_value(serde_json::json!({
+            "schema_version":1,"recording_id":"11111111-1111-4111-8111-111111111111","release_id":"22222222-2222-4222-8222-222222222222","release_group_id":null,"release_track_id":"33333333-3333-4333-8333-333333333333","scope":"release_track",
+            "recording_title":"Signal","track_title":"Signal","recording_disambiguation":null,
+            "recording_credit":[],"track_credit":[],"release_credit":[],"isrcs":[],"recording_length_ms":null,"track_length_ms":null,
+            "selected_release_date":{"year":2024,"month":6,"day":null},"recording_first_release_date":{"year":2020,"month":null,"day":null},"release_group_first_release_date":null,"release_events":[],
+            "position":{"medium_position":1,"track_position":1,"printed_number":"A1","medium_track_count":2,"medium_count":1},
+            "release":{"title":"Signal EP","status":"Official","country":null,"barcode":null,"media_format":"Vinyl","labels":[]},"cover":null,
+            "source_policy":{"adapter_revision":"fixture","policy_revision":"fixture","data_class":"core"}
+        })).unwrap()));
+        candidate.validate().unwrap();
+        candidate
+    }
+    fn request() -> MatchReviewRequest {
+        MatchReviewRequest {
+            track_id: "fixture".into(),
+            generation: "generation".into(),
+            action: MatchReviewAction::UseSelected,
+            candidate_id: Some("candidate".into()),
+            fields: vec![MatchReviewFieldDecision {
+                field: "releaseDate".into(),
+                action: MatchReviewFieldAction::Replace,
+            }],
+            acknowledge_conflicts: false,
+            allow_id3_upgrade: false,
+        }
+    }
+    #[test]
+    fn selected_release_month_survives_review_without_inventing_a_day() {
+        let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
+        let candidate = candidate();
+        let (fields, patch, blockers) =
+            make_fields(&native, None, Some(&candidate), &request(), false).unwrap();
+        assert!(blockers.is_empty());
+        assert_eq!(
+            fields
+                .iter()
+                .find(|field| field.field == "releaseDate")
+                .unwrap()
+                .proposed,
+            vec!["2024-06"]
+        );
+        assert!(matches!(
+            patch.release_date,
+            ValueEdit::Set {
+                value: TransferDate {
+                    year: 2024,
+                    month: Some(6),
+                    day: None
+                }
+            }
+        ));
+    }
+    #[test]
+    fn saved_original_date_takes_priority_over_selected_recording_date() {
+        let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
+        let candidate = candidate();
+        let mut saved = MetadataPatch::default();
+        saved.original_date = ValueEdit::Set {
+            value: TransferDate {
+                year: 2018,
+                month: Some(3),
+                day: None,
+            },
+        };
+        let mut request = request();
+        request.fields = vec![MatchReviewFieldDecision {
+            field: "publishDate".into(),
+            action: MatchReviewFieldAction::Replace,
+        }];
+        let (fields, patch, blockers) =
+            make_fields(&native, Some(&saved), Some(&candidate), &request, false).unwrap();
+        let field = fields
+            .iter()
+            .find(|field| field.field == "publishDate")
+            .unwrap();
+        assert_eq!(field.before, vec!["2018-03"]);
+        assert_eq!(field.after, vec!["2018-03"]);
+        assert_eq!(field.proposed, vec!["2020"]);
+        assert_eq!(field.allowed_actions, vec![MatchReviewFieldAction::Keep]);
+        assert!(
+            field
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("saved Incoming edit")
+        );
+        assert!(!blockers.is_empty());
+        assert!(patch.is_noop());
+        request.fields.clear();
+        let (_, patch, blockers) =
+            make_fields(&native, Some(&saved), Some(&candidate), &request, false).unwrap();
+        assert!(blockers.is_empty());
+        assert!(patch.is_noop());
+    }
+    #[test]
+    fn musicbrainz_identifier_choices_are_explicitly_read_only_in_review() {
+        let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
+        let candidate = candidate();
+        let mut request = request();
+        request.fields.clear();
+        let (fields, patch, blockers) =
+            make_fields(&native, None, Some(&candidate), &request, false).unwrap();
+        assert!(blockers.is_empty());
+        let id = fields
+            .iter()
+            .find(|field| field.field == "trackId")
+            .expect("Scoped IDs must explain their read-only capability");
+        assert_eq!(id.allowed_actions, vec![MatchReviewFieldAction::Keep]);
+        assert!(id.reason.as_deref().unwrap().contains("read-only"));
+        assert!(patch.is_noop());
+    }
 }

@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       os:
-        description: 'Run only this runner, for example windows-2025. Ignored on main, which always runs every runner.'
+        description: 'Run only this runner, for example windows-2025. Omit for every runner; set this to retry only the failed platform, including on main.'
         required: false
         type: string
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.ref }}
+  group: desktop-${{ github.ref }}-${{ inputs.os || 'all' }}
   cancel-in-progress: true
 env:
   CARGO_PROFILE_RELEASE_DEBUG: 0
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os && github.ref != 'refs/heads/main' && format('["{0}"]', inputs.os) || (vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]')) }}
+        os: ${{ fromJSON(inputs.os && format('["{0}"]', inputs.os) || (vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]')) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

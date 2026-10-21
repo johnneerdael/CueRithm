@@ -28,9 +28,33 @@ The release page shows these bullets under "What's new". Internal bullets and di
 
 Escape hatches:
 - Run the full builds earlier, before a review has finished, with `gh workflow run ci.yml --ref <branch>` and `gh workflow run desktop.yml --ref <branch>`. Only same-repository branches can be dispatched.
-- Rerun one runner on a PR branch, for example after fixing a Windows-only failure, with `gh workflow run desktop.yml --ref <branch> -f os=windows-2025`. A rerun of the old run cannot pick up a fix, because it checks out the same commit. The input is ignored on `main`, which always runs every runner.
-- A failed post-merge build is fixed by pushing directly to `main`; repository admins bypass the PR requirement. Docs-only pushes skip the builds.
+- Run only a failed runner with `gh workflow run desktop.yml --ref <branch> -f os=windows-2025`. This also works on `main`; omitting `os` runs every configured platform. Targeted runs have separate concurrency groups and do not cancel a full run still finishing.
+- Fix a failed post-merge build directly on `main`, using the process below to retain passing checks. Docs-only pushes skip the builds.
 - Force a release (even for internal-only changes) or re-run a failed one with the `Release` workflow's manual dispatch on a green commit.
 - Test packaging without releasing by dispatching `Package desktop builds` with a commit SHA; the packages are kept as artifacts for 7 days.
+
+## Retaining passing checks after a build fix
+
+For a transient failure with no source change, wait for the workflow to finish and use `gh run rerun RUN_ID --job JOB_ID` for the failed job. That retry uses the original commit.
+
+For a source fix, first review which components the patch invalidates. Push the repair with `[skip ci]` to prevent a fresh full matrix, and record the checked ancestor and the components that must run again in commit trailers. For a Windows-only repair:
+
+```text
+fix(ci): correct Windows-only lint [skip ci]
+
+CI-Baseline: <full 40-character checked ancestor commit>
+CI-Retry: engine/windows-2025 desktop/windows-2025
+```
+
+Then run only those failed platform components against the corrected `main`:
+
+```sh
+gh workflow run ci.yml --ref main -f os=windows-2025
+gh workflow run desktop.yml --ref main -f os=windows-2025
+```
+
+The release gate checks all seven logical components: the Rust floor plus engine and desktop checks for Linux, macOS and Windows. A combined Windows job can satisfy both Windows components. For an explicitly declared repair, the gate verifies the ancestor's retained job results and requires fresh success for every component listed in `CI-Retry`. Missing, failed, cancelled or unfinished checks block publication; a retry cannot inherit an older success. A newer failure also supersedes an older passing attempt.
+
+The trailers are the maintainer's assertion that the other results remain valid. Never retain a component affected by the patch. The release log records the exact checked commits, workflow runs and jobs used. Packaging still builds the selected release source on every platform.
 
 `.github/scripts/` holds the gate and release-note logic; run its tests with `python3 -m unittest discover -s .github/scripts`.

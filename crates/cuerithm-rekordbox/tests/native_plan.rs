@@ -169,13 +169,13 @@ fn native_field_types_are_checked_before_staging_and_integral_reals_are_canonica
 }
 
 #[test]
-fn reviewed_artwork_add_clear_and_repeat_are_native_content_changes() {
+fn reviewed_artwork_uses_observed_native_prefix_for_add_clear_and_repeat() {
     let mut collection = collection();
     let mut request = request();
     let mut track = draft();
     track.fields.insert(
         "artwork_path".into(),
-        text("/Artwork/CUERITHM/run/cover.jpg"),
+        text("/PIONEER/Artwork/CUERITHM/run/cover.jpg"),
     );
     request.tracks.push(track);
     let added = prepare_native_rows(&collection, &request).unwrap();
@@ -187,7 +187,7 @@ fn reviewed_artwork_add_clear_and_repeat_are_native_content_changes() {
         .unwrap();
     assert_eq!(
         content.values["ImagePath"],
-        text("/Artwork/CUERITHM/run/cover.jpg")
+        text("/PIONEER/Artwork/CUERITHM/run/cover.jpg")
     );
     assert!(!added.plan.rows.iter().any(|r| r.table == "djmdAlbum"));
     fold(&mut collection, &added.plan);
@@ -238,16 +238,17 @@ fn invalid_artwork_references_are_rejected_before_planning() {
         "/Users/dj/cover.jpg",
         "C:\\Users\\dj\\cover.jpg",
         "file:///tmp/cover.jpg",
-        "Artwork/cover.jpg",
-        "//Artwork/cover.jpg",
-        "/Artwork/../cover.jpg",
-        "/Artwork/./cover.jpg",
-        "/Artwork//cover.jpg",
-        "/Artwork/cover.jpg\0",
-        "/Artwork\\cover.jpg",
-        "/Artwork/",
-        "/Artwork/cover.jpg?raw=1",
-        "/Artwork/cover.jpg#part",
+        "PIONEER/Artwork/cover.jpg",
+        "/Artwork/cover.jpg",
+        "//PIONEER/Artwork/cover.jpg",
+        "/PIONEER/Artwork/../cover.jpg",
+        "/PIONEER/Artwork/./cover.jpg",
+        "/PIONEER/Artwork//cover.jpg",
+        "/PIONEER/Artwork/cover.jpg\0",
+        "/PIONEER/Artwork\\cover.jpg",
+        "/PIONEER/Artwork/",
+        "/PIONEER/Artwork/cover.jpg?raw=1",
+        "/PIONEER/Artwork/cover.jpg#part",
     ] {
         let mut request = request();
         let mut track = draft();

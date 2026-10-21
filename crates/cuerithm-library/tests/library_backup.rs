@@ -450,7 +450,7 @@ fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
         let backup = lib
             .create_library_backup(&d.path().join("backups"))
             .unwrap();
-        assert_eq!(backup.schema, 24);
+        assert_eq!(backup.schema, 27);
         assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
         lib.stage_library_restore(&backup.path, &backup.database_sha256)
             .unwrap();
@@ -1033,4 +1033,312 @@ fn fresh_installation_without_data_directory_has_no_pending_restore() {
         LibraryRestoreStartup::NoPending
     ));
     assert!(!data.exists());
+}
+
+#[test]
+fn mapped_curation_without_a_metadata_child_blocks_every_backup_boundary() {
+    use cuerithm_library::*;
+    for phase in ["create", "inspect", "stage", "retry", "startup"] {
+        let (d, lib, db) = fixture();
+        let source = d.path().join("authored.wav");
+        fs::write(&source, b"opaque authored curation fixture").unwrap();
+        insert_source(
+            &lib,
+            &source,
+            &cuerithm_media::file_sha256(&source).unwrap(),
+        );
+        let backup = lib
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        if matches!(phase, "retry" | "startup") {
+            lib.stage_library_restore(&backup.path, &backup.database_sha256)
+                .unwrap();
+        }
+        let service = CurationService::new(lib.clone(), None);
+        service
+            .edit_taxonomy(CurationTaxonomyRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                expected_revision: service.catalog().unwrap().revision,
+                change: CurationTaxonomyChange::PutMapping {
+                    mapping: CurationMapping {
+                        id: "notes".into(),
+                        source: CurationMappingSource::Notes,
+                        target: CurationMappingTarget::Comment {
+                            language: "eng".into(),
+                            description: "CueRithm notes".into(),
+                            encoding: CurationEncoding::Values,
+                        },
+                        containers: vec![CurationContainer::Id3],
+                        enabled: true,
+                        allow_id3_upgrade: false,
+                    },
+                },
+            })
+            .unwrap();
+        service
+            .update(CurationUpdateRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                taxonomy_revision: service.catalog().unwrap().revision,
+                tracks: vec![CurationExpectedRevision {
+                    track_id: "authored".into(),
+                    revision: 0,
+                }],
+                patch: CurationPatch {
+                    notes: CurationValueEdit::Set {
+                        value: "mapped intent".into(),
+                    },
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+        let conn = Connection::open(&db).unwrap();
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM metadata_edit_batches", [], |r| r
+                .get::<_, u64>(0))
+                .unwrap(),
+            0
+        );
+        drop(conn);
+        let result = match phase {
+            "create" => lib
+                .create_library_backup(&d.path().join("blocked"))
+                .map(|_| ()),
+            "inspect" => lib.inspect_library_backup(&backup.path).map(|_| ()),
+            "stage" => lib
+                .stage_library_restore(&backup.path, &backup.database_sha256)
+                .map(|_| ()),
+            "retry" => lib.retry_library_restore().map(|_| ()),
+            "startup" => {
+                drop(service);
+                drop(lib);
+                let result = apply_pending_library_restore(&db).unwrap();
+                assert!(matches!(
+                    result,
+                    LibraryRestoreStartup::BlockedBeforeMutation { .. }
+                ));
+                let conn = Connection::open(&db).unwrap();
+                assert_eq!(conn.query_row("SELECT COUNT(*) FROM curation_tracks WHERE revision!=acknowledged_revision", [], |r| r.get::<_, u64>(0)).unwrap(), 1);
+                assert_eq!(
+                    fs::read(&source).unwrap(),
+                    b"opaque authored curation fixture"
+                );
+                continue;
+            }
+            _ => unreachable!(),
+        };
+        assert!(
+            result.is_err(),
+            "{phase} must preserve physical Curate publication ownership before child allocation"
+        );
+        assert_eq!(
+            fs::read(&source).unwrap(),
+            b"opaque authored curation fixture"
+        );
+    }
+}
+
+#[test]
+fn backup_restores_curate_presets_folder_assignments_and_library_catalog_state() {
+    use cuerithm_library::*;
+    let (d, lib, db) = fixture();
+    let incoming = d.path().canonicalize().unwrap().join("incoming");
+    fs::create_dir(&incoming).unwrap();
+    let source = incoming.join("authored.flac");
+    fs::write(&source, b"opaque authored local curation fixture").unwrap();
+    insert_source(
+        &lib,
+        &source,
+        &cuerithm_media::file_sha256(&source).unwrap(),
+    );
+    let service = CurationService::new(lib.clone(), None);
+    service
+        .update(CurationUpdateRequest {
+            request_id: "authored-local-curation".into(),
+            taxonomy_revision: service.catalog().unwrap().revision,
+            tracks: vec![CurationExpectedRevision {
+                track_id: "authored".into(),
+                revision: 0,
+            }],
+            patch: CurationPatch {
+                notes: CurationValueEdit::Set {
+                    value: "warm opener".into(),
+                },
+                user_rating: CurationValueEdit::Set { value: 4 },
+                ..Default::default()
+            },
+        })
+        .unwrap();
+    service
+        .flush_pending(10, &cuerithm_media::CancellationToken::default())
+        .unwrap();
+    let mut settings = lib.settings().unwrap().settings;
+    settings.watch_folders = vec![incoming.clone()];
+    let projection = lib.project_preparation_preset(&settings).unwrap();
+    let preset = lib
+        .save_preparation_preset(PreparationPresetSave {
+            id: None,
+            expected_revision: None,
+            name: "Warmup".into(),
+            rules: projection.rules,
+            connections: projection.connections,
+        })
+        .unwrap();
+    let selected = lib.save_settings(settings.clone()).unwrap();
+    let folders = lib
+        .preparation_preset_folders_for_settings(&settings)
+        .unwrap();
+    lib.save_settings_with_preparation_assignments(
+        settings,
+        &selected,
+        &[PreparationFolderChange {
+            folder_id: folders[0].folder_id.clone(),
+            expected_revision: None,
+            choice: PreparationFolderChoice::Preset {
+                preset_id: preset.id.clone(),
+            },
+        }],
+    )
+    .unwrap();
+    let capture = lib.current_preparation_snapshot_for_path(&source).unwrap();
+    assert_eq!(
+        capture
+            .preset_capture
+            .as_ref()
+            .unwrap()
+            .preset_id
+            .as_deref(),
+        Some(preset.id.as_str())
+    );
+    let conn = Connection::open(&db).unwrap();
+    conn.execute("INSERT INTO catalog_rate_state(service,manual_hold,not_before_ms) VALUES('musicbrainz',1,12345)", []).unwrap();
+    conn.execute("INSERT INTO catalog_response_cache(key,body,expires_ms,used_ms) VALUES(?1,X'7B7D',99999,123)", ["a".repeat(64)]).unwrap();
+    drop(conn);
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    assert_eq!(backup.schema, 27);
+    lib.save_preparation_preset(PreparationPresetSave {
+        id: Some(preset.id.clone()),
+        expected_revision: Some(preset.revision.clone()),
+        name: "Later rules".into(),
+        rules: preset.rules.clone(),
+        connections: preset.connections.clone(),
+    })
+    .unwrap();
+    service
+        .update(CurationUpdateRequest {
+            request_id: "later-local-curation".into(),
+            taxonomy_revision: service.catalog().unwrap().revision,
+            tracks: vec![CurationExpectedRevision {
+                track_id: "authored".into(),
+                revision: 1,
+            }],
+            patch: CurationPatch {
+                notes: CurationValueEdit::Set {
+                    value: "later note".into(),
+                },
+                ..Default::default()
+            },
+        })
+        .unwrap();
+    service
+        .flush_pending(10, &cuerithm_media::CancellationToken::default())
+        .unwrap();
+    Connection::open(&db)
+        .unwrap()
+        .execute_batch("DELETE FROM catalog_rate_state; DELETE FROM catalog_response_cache;")
+        .unwrap();
+    lib.stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    drop(service);
+    drop(lib);
+    assert!(matches!(
+        apply_pending_library_restore(&db).unwrap(),
+        LibraryRestoreStartup::Applied { .. }
+    ));
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        lib.preparation_preset(&preset.id).unwrap().revision,
+        preset.revision
+    );
+    assert_eq!(
+        lib.current_preparation_snapshot_for_path(&source)
+            .unwrap()
+            .revision,
+        capture.revision
+    );
+    let service = CurationService::new(lib.clone(), None);
+    let track = &service.snapshot(&["authored".into()]).unwrap().tracks[0];
+    assert_eq!(track.committed.notes, "warm opener");
+    assert_eq!(track.committed.user_rating, Some(4));
+    assert_eq!(service.history_page(0, 10).unwrap().total, 1);
+    let conn = Connection::open(&db).unwrap();
+    assert!(
+        conn.query_row(
+            "SELECT manual_hold FROM catalog_rate_state WHERE service='musicbrainz'",
+            [],
+            |r| r.get::<_, bool>(0)
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        conn.query_row("SELECT body FROM catalog_response_cache", [], |r| r
+            .get::<_, Vec<u8>>(0))
+            .unwrap(),
+        b"{}"
+    );
+    assert_eq!(
+        fs::read(&source).unwrap(),
+        b"opaque authored local curation fixture"
+    );
+}
+
+#[test]
+fn preparation_folder_replacement_invalidates_backup_without_reconnecting_assignment() {
+    let (d, lib, _) = fixture();
+    let folder = d.path().canonicalize().unwrap().join("incoming");
+    fs::create_dir(&folder).unwrap();
+    let mut settings = lib.settings().unwrap().settings;
+    settings.watch_folders = vec![folder.clone()];
+    lib.save_settings(settings.clone()).unwrap();
+    lib.preparation_preset_folders_for_settings(&settings)
+        .unwrap();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    fs::rename(&folder, folder.with_extension("retained")).unwrap();
+    fs::create_dir(&folder).unwrap();
+    assert!(lib.inspect_library_backup(&backup.path).is_err());
+    assert!(
+        lib.stage_library_restore(&backup.path, &backup.database_sha256)
+            .is_err()
+    );
+    let folders = lib
+        .preparation_preset_folders_for_settings(&settings)
+        .unwrap();
+    assert_ne!(folders[0].status, "ready");
+}
+
+#[test]
+fn direct_library_open_refuses_interrupted_restore_mutation() {
+    let (d, lib, db) = fixture();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    lib.stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    let pending = lib.data_dir().join("library-backups/pending.json");
+    let mut intent: serde_json::Value =
+        serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
+    intent["mutation_started"] = true.into();
+    fs::write(&pending, serde_json::to_vec(&intent).unwrap()).unwrap();
+    drop(lib);
+    let error = Library::open(&db)
+        .err()
+        .expect("all direct callers must stop for restore recovery");
+    assert!(
+        error
+            .to_string()
+            .contains("restore stopped during database update")
+    );
 }

@@ -195,30 +195,26 @@ pub(super) fn set_custom_tags(
     id: &str,
     tags: &[cuerithm_cleanup::CustomTag],
 ) -> Result<()> {
-    conn.execute("DELETE FROM track_custom_tags WHERE track_id=?1", [id])?;
+    let mut groups =
+        std::collections::BTreeMap::<String, std::collections::BTreeSet<String>>::new();
     for tag in tags {
-        conn.execute(
-            "INSERT INTO custom_tag_categories VALUES(?1,?2) ON CONFLICT(name) DO NOTHING",
-            params![uuid::Uuid::new_v4().to_string(), tag.category],
-        )?;
-        let category: String = conn.query_row(
-            "SELECT id FROM custom_tag_categories WHERE name=?1",
-            [&tag.category],
-            |r| r.get(0),
-        )?;
-        conn.execute(
-            "INSERT INTO custom_tags VALUES(?1,?2,?3) ON CONFLICT(category_id,name) DO NOTHING",
-            params![uuid::Uuid::new_v4().to_string(), category, tag.value],
-        )?;
-        let tag_id: String = conn.query_row(
-            "SELECT id FROM custom_tags WHERE category_id=?1 AND name=?2",
-            params![category, tag.value],
-            |r| r.get(0),
-        )?;
-        conn.execute(
-            "INSERT INTO track_custom_tags VALUES(?1,?2) ON CONFLICT DO NOTHING",
-            params![id, tag_id],
-        )?;
+        let (group, tag_id) =
+            crate::curation::resolve_category_value(conn, &tag.category, &tag.value, true)?;
+        groups.entry(group.clone()).or_default().insert(tag_id);
+        let single: bool = conn.query_row("SELECT COALESCE((SELECT mode='single' FROM curation_group_properties WHERE category_id=?1),0)",[&group],|row|row.get(0))?;
+        ensure!(
+            !single || groups[&group].len() <= 1,
+            "Cleanup output contains multiple values for a single-select Curate category"
+        );
+    }
+    conn.execute("DELETE FROM track_custom_tags WHERE track_id=?1", [id])?;
+    for tags in groups.values() {
+        for tag_id in tags {
+            conn.execute(
+                "INSERT INTO track_custom_tags VALUES(?1,?2) ON CONFLICT DO NOTHING",
+                params![id, tag_id],
+            )?;
+        }
     }
     Ok(())
 }

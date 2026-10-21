@@ -8,24 +8,39 @@ on:
         description: 'Commit to package'
         required: true
         type: string
+      version:
+        description: Release version selected by the release gate
+        required: false
+        default: '0.1.0'
+        type: string
+    secrets:
+      CUERITHM_ACOUSTID_CLIENT_KEY:
+        description: Registered application lookup identity for bundled AcoustID
+        required: false
   # Manual dry run: builds the packages as artifacts without publishing a release.
   workflow_dispatch:
     inputs:
       sha:
         description: 'Commit to package'
         required: true
+      version:
+        description: Version embedded in this dry-run build
+        required: false
+        default: '0.1.0'
 
 permissions:
   contents: read
 
 env:
   CARGO_PROFILE_RELEASE_DEBUG: 0
+  CUERITHM_ACOUSTID_CLIENT_KEY: ${{ secrets.CUERITHM_ACOUSTID_CLIENT_KEY }}
+  CUERITHM_RELEASE_VERSION: ${{ inputs.version || '0.1.0' }}
 
 jobs:
   package:
     timeout-minutes: 90
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os == 'windows-2025' && vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","windows","x64","cloudrunner","cuerithm"]') || matrix.os }}
@@ -57,15 +72,20 @@ jobs:
         run: pnpm --dir apps/desktop install --frozen-lockfile
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal
+      - name: Stamp selected application identity
+        shell: bash
+        run: |
+          python3 -m unittest discover -s tools/release -v
+          python3 tools/release/stamp-version.py "$CUERITHM_RELEASE_VERSION" .superpowers/release/tauri-version.json
       - name: Package macOS app
         if: runner.os == 'macOS'
-        run: pnpm --dir apps/desktop tauri build --bundles app
+        run: pnpm --dir apps/desktop tauri build --config "$GITHUB_WORKSPACE/.superpowers/release/tauri-version.json" --bundles app
       - name: Verify macOS bundled resources
         if: runner.os == 'macOS'
         run: target/release/bundle/macos/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
       - name: Package Linux app
         if: runner.os == 'Linux'
-        run: pnpm --dir apps/desktop tauri build --bundles deb
+        run: pnpm --dir apps/desktop tauri build --config "$GITHUB_WORKSPACE/.superpowers/release/tauri-version.json" --bundles deb
       - name: Verify extracted Linux resources
         if: runner.os == 'Linux'
         run: |
@@ -74,7 +94,8 @@ jobs:
           .superpowers/linux-package/usr/bin/cuerithm-desktop --diagnostics
       - name: Build Windows portable app
         if: runner.os == 'Windows'
-        run: pnpm --dir apps/desktop tauri build --no-bundle
+        shell: bash
+        run: pnpm --dir apps/desktop tauri build --config "$GITHUB_WORKSPACE/.superpowers/release/tauri-version.json" --no-bundle
       - name: Stage and verify Windows portable resources
         if: runner.os == 'Windows'
         shell: pwsh

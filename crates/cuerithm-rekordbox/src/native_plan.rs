@@ -1579,7 +1579,7 @@ fn native_artwork_path(value: &TargetValue) -> Result<&str> {
     }
     ensure!(
         path.len() <= 4096
-            && path.starts_with("/Artwork/")
+            && path.starts_with("/PIONEER/Artwork/")
             && !path.contains(['\\', ':', '?', '#', '%'])
             && !path.chars().any(char::is_control),
         "Invalid native artwork resource reference"

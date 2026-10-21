@@ -72,6 +72,11 @@ implemented Rust acoustic DSP; no proprietary code or energy model is embedded. 
 reference labels and licensed reference applications are not bundled.
 
 
+The official `tauri-plugin-opener` 2.7.2 declares Apache-2.0 OR MIT licensing.
+Its dependency identities and checksums are retained in `Cargo.lock`. CueRithm
+uses it for approved HTTPS signup and catalog links in the system browser;
+file opening and custom-application access are not granted.
+
 ## Selected OneTagger integration (GPLv3 desktop)
 
 The user approved reuse of Marekkon5/onetagger code at commit
@@ -161,3 +166,19 @@ upstream dependency notices with corresponding source/build materials.
 
 Reference application code, binaries, user music, personal database records and
 license credentials are not included in this implementation or its fixtures.
+
+## Recording identification
+
+The GPL desktop integrates `rusty-chromaprint` 0.3.0 from
+[darksv/rusty-chromaprint](https://github.com/darksv/rusty-chromaprint).
+Its published Cargo manifest declares MIT licensing. The exact package checksum
+is pinned in `Cargo.lock`. This Rust port of Chromaprint links into the
+application; it does not require users to install `fpcalc`, a C++ runtime or a
+Python interpreter. A local generated-signal comparison against Chromaprint's
+`fpcalc` established fingerprint compatibility for that fixture, not recognition
+accuracy on a music collection.
+
+AcoustID and MusicBrainz are optional network services, not embedded databases.
+Their application identification, rate limits and data capabilities are enforced
+separately. No personal provider token or private music is included in the
+application source, presets or reports.

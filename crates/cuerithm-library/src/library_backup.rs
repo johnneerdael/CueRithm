@@ -179,7 +179,7 @@ fn schema(conn: &Connection) -> Result<i64> {
     let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    ensure!(version == 24, "Unsupported library backup schema");
+    ensure!(version == 27, "Unsupported library backup schema");
     Ok(version)
 }
 fn quiet_database(conn: &Connection) -> Result<()> {
@@ -198,6 +198,17 @@ fn quiet_database(conn: &Connection) -> Result<()> {
     ensure!(
         !metadata_pending,
         "Finish metadata saves, accepted preparation reviews and auxiliary artifact cleanup before using a library backup"
+    );
+    // A mapped Curate head can own future physical writes before its metadata
+    // child exists. Preserve that parent outbox through every restore boundary.
+    let curation_pending: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM curation_tracks WHERE native_required=1 AND (revision!=acknowledged_revision OR active_publication_id IS NOT NULL))
+         OR EXISTS(SELECT 1 FROM curation_publications WHERE native_required=1 AND state NOT IN ('saved','undone','discarded'))",
+        [], |row| row.get(0),
+    )?;
+    ensure!(
+        !curation_pending,
+        "Finish or recover mapped Curate publications before using a library backup"
     );
     let native_pending: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM rekordbox_sync_operations WHERE status NOT IN ('applied','restored','discarded','rolled_back'))",
@@ -773,6 +784,65 @@ fn metadata_inventory(
     Ok(())
 }
 
+fn preparation_inventory(conn: &Connection, locations: &mut OrganizationLocations) -> Result<()> {
+    // Preset rules, revisions, folder assignments and captured authorities are
+    // in SQLite. Bind the external directories without adopting new authorities.
+    let mut query = conn.prepare("SELECT path FROM preparation_preset_folders ORDER BY id")?;
+    for path in query.query_map([], |row| row.get::<_, Vec<u8>>(0))? {
+        remember_organization_path(locations, &bytes_path(&path?)?, true, false)?;
+    }
+    // Current native Curate source proofs authorize later mapped edits and Undo.
+    // Old proofs after an unrelated edit stay historical; they grant no authority.
+    let mut query = conn.prepare(
+        "SELECT c.input_proof_json,c.input_json,t.path,t.source_hash,t.path_revision,t.metadata_revision
+         FROM curation_tracks c JOIN tracks t ON t.id=c.track_id WHERE c.input_proof_json IS NOT NULL",
+    )?;
+    #[derive(Deserialize)]
+    struct Proof {
+        path: crate::organization::NativePath,
+        parent: crate::organization::Authority,
+        fingerprint: crate::organization::Fingerprint,
+    }
+    #[derive(Deserialize)]
+    struct Input {
+        path: Vec<u8>,
+        source_hash: String,
+        path_revision: u64,
+        metadata_revision: u64,
+    }
+    for row in query.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Vec<u8>>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, u64>(4)?,
+            row.get::<_, u64>(5)?,
+        ))
+    })? {
+        let (proof, input, path, hash, path_revision, metadata_revision) = row?;
+        let input: Input = serde_json::from_str(&input)?;
+        if input.path != path
+            || input.source_hash != hash
+            || input.path_revision != path_revision
+            || input.metadata_revision != metadata_revision
+        {
+            continue;
+        }
+        let proof: Proof = serde_json::from_str(&proof)?;
+        ensure!(
+            proof.path.0 == path && proof.fingerprint.sha256 == hash,
+            "Curate source proof does not match its saved input"
+        );
+        let path = proof.path.path()?;
+        let observed = remember_organization_path(locations, &path, false, false)?;
+        if observed.kind != "missing" {
+            required_organization_file(locations, &path, &proof.parent, &proof.fingerprint, true)?;
+        }
+    }
+    Ok(())
+}
+
 fn organization_inventory(conn: &Connection, root: &Path) -> Result<Vec<OrganizationLocation>> {
     use crate::organization::{
         Authority, Fingerprint, OrganizationMode, OrganizationPhase, OrganizationRecord,
@@ -780,6 +850,7 @@ fn organization_inventory(conn: &Connection, root: &Path) -> Result<Vec<Organiza
     use cuerithm_dj_sync::transaction::JournalState;
     let mut locations = OrganizationLocations::new();
     metadata_inventory(conn, root, &mut locations)?;
+    preparation_inventory(conn, &mut locations)?;
     let mut records = BTreeMap::new();
     let mut query =
         conn.prepare("SELECT id,state,payload_json FROM organization_operations ORDER BY id")?;
@@ -1501,6 +1572,13 @@ fn pending(root: &Path) -> Result<Option<LibraryRestoreRequest>> {
     );
     Ok(Some(request))
 }
+pub(crate) fn ensure_library_open_safe(root: &Path) -> Result<()> {
+    ensure!(
+        pending(root)?.is_none_or(|request| !request.mutation_started),
+        "Library restore stopped during database update; apply its pending restore before opening this library"
+    );
+    Ok(())
+}
 /// Call before `Library::open` or starting workers. A blocked preflight leaves the
 /// original untouched and permits normal startup with a visible cancellable intent.
 /// An error after durable mutation intent must stop startup for recovery.
@@ -1993,5 +2071,55 @@ mod inventory_phase_tests {
                 .to_string()
                 .contains("recovery bytes")
         );
+    }
+    #[test]
+    fn current_curate_native_source_proof_rejects_equal_bytes_replacement() {
+        use crate::*;
+        let (d, lib) = fixture();
+        let source = d.path().canonicalize().unwrap().join("authored.wav");
+        let hash = cuerithm_media::file_sha256(&source).unwrap();
+        lib.conn()
+            .unwrap()
+            .execute("UPDATE tracks SET path=?1", [path_bytes(&source)])
+            .unwrap();
+        let service = CurationService::new(lib.clone(), None);
+        service
+            .update(CurationUpdateRequest {
+                request_id: "authored-native-proof".into(),
+                taxonomy_revision: service.catalog().unwrap().revision,
+                tracks: vec![CurationExpectedRevision {
+                    track_id: "fixture".into(),
+                    revision: 0,
+                }],
+                patch: CurationPatch {
+                    notes: CurationValueEdit::Set {
+                        value: "authored proof".into(),
+                    },
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+        service
+            .flush_pending(10, &cuerithm_media::CancellationToken::default())
+            .unwrap();
+        let (native_parent, parent) =
+            organization::NativeParent::capture(source.parent().unwrap()).unwrap();
+        let fingerprint = native_parent
+            .fingerprint(Path::new(source.file_name().unwrap()))
+            .unwrap();
+        let proof = serde_json::json!({"path":organization::NativePath::new(&source), "parent":parent, "fingerprint":fingerprint}).to_string();
+        lib.conn()
+            .unwrap()
+            .execute("UPDATE curation_tracks SET input_proof_json=?1", [&proof])
+            .unwrap();
+        let backup = lib
+            .create_library_backup(&d.path().join("backups"))
+            .unwrap();
+        let replacement = source.with_extension("new");
+        fs::write(&replacement, fs::read(&source).unwrap()).unwrap();
+        fs::rename(&replacement, &source).unwrap();
+        assert_eq!(cuerithm_media::file_sha256(&source).unwrap(), hash);
+        assert!(lib.inspect_library_backup(&backup.path).is_err());
+        assert!(lib.create_library_backup(&d.path().join("fresh")).is_err());
     }
 }

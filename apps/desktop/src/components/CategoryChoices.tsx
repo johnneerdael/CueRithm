@@ -1,0 +1,5 @@
+import {Check,Minus} from "lucide-react";
+export type ChoiceSelection="all"|"some"|"none";
+export default function CategoryChoices({name,mode,choices,selected,onToggle,disabled=false}:{name:string;mode:"single"|"multi";choices:{id:string;name:string;shortcut?:number}[];selected:Record<string,ChoiceSelection>;onToggle:(id:string,selected:boolean)=>void;disabled?:boolean}){
+ return <fieldset className="curate-category" disabled={disabled}><legend>{name}<small>{mode==="single"?"Choose one":"Choose any"}</small></legend><div className="curate-choices">{choices.map(choice=>{const state=selected[choice.id]??"none";return <button key={choice.id} type="button" role="checkbox" aria-label={choice.name} aria-checked={state==="some"?"mixed":state==="all"} title={state==="some"?"Some selected tracks · apply to all":undefined} className={"curate-choice "+state} disabled={disabled} onClick={()=>onToggle(choice.id,state!=="all")}>{state==="all"?<Check size={12}/>:state==="some"?<Minus size={12}/>:null}{choice.name}{choice.shortcut?<kbd>{choice.shortcut}</kbd>:null}</button>;})}</div></fieldset>;
+}

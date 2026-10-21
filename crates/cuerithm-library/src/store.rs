@@ -15,6 +15,8 @@ pub(crate) struct Inner {
     #[cfg(feature = "autotag")]
     pub tag_gate: Mutex<()>,
     #[cfg(feature = "autotag")]
+    pub catalog_runtime: Mutex<Option<std::sync::Weak<cuerithm_autotag::CatalogRuntime>>>,
+    #[cfg(feature = "autotag")]
     pub artifact_cleanup_gate: Mutex<()>,
     pub _lease: File,
     pub root: PathBuf,
@@ -58,11 +60,12 @@ impl Library {
                 Err(error) => return Err(error).context("This library is already open"),
             }
         }
+        crate::library_backup::ensure_library_open_safe(&root)?;
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=24).contains(&version),
+            (0..=27).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -192,25 +195,43 @@ impl Library {
         if version < 21 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/021_native_reconciliation.sql")
+                include_str!("../migrations/021_preparation_presets.sql")
             ))?;
         }
         if version < 22 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/022_manual_publication.sql")
+                include_str!("../migrations/022_curation.sql")
             ))?;
         }
         if version < 23 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/023_native_playlist_sync.sql")
+                include_str!("../migrations/023_catalog_runtime.sql")
             ))?;
         }
         if version < 24 {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
-                include_str!("../migrations/024_rekordbox_sync.sql")
+                include_str!("../migrations/024_native_reconciliation.sql")
+            ))?;
+        }
+        if version < 25 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/025_manual_publication.sql")
+            ))?;
+        }
+        if version < 26 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/026_native_playlist_sync.sql")
+            ))?;
+        }
+        if version < 27 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/027_rekordbox_sync.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]
@@ -220,8 +241,13 @@ impl Library {
                 [],
                 |r| r.get(0),
             )?;
+            let curation_pending: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM curation_tracks c WHERE (c.native_required=1 AND c.revision!=c.acknowledged_revision) OR EXISTS(SELECT 1 FROM curation_publications p WHERE p.track_id=c.track_id AND p.native_required=1 AND p.state IN ('saving','waiting_incoming','recovery_required','error'))",
+                [],
+                |row| row.get(0),
+            )?;
             ensure!(
-                pending == 0,
+                pending == 0 && curation_pending == 0,
                 "Pending metadata writes require a tagging-enabled build for recovery"
             );
         }
@@ -243,6 +269,8 @@ impl Library {
                 organization_gate: Mutex::new(()),
                 #[cfg(feature = "autotag")]
                 tag_gate: Mutex::new(()),
+                #[cfg(feature = "autotag")]
+                catalog_runtime: Mutex::new(None),
                 #[cfg(feature = "autotag")]
                 artifact_cleanup_gate: Mutex::new(()),
                 _lease: lease,
@@ -269,6 +297,7 @@ impl Library {
             lib.recover_metadata_edits()?;
             lib.recover_artifact_cleanup(100)?;
         }
+        lib.recover_curation()?;
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {
@@ -288,7 +317,29 @@ impl Library {
         settings: PreparationSettings,
         obsolete: &[SettingsRevision],
     ) -> Result<SettingsRevision> {
+        self.save_settings_with_assignments_inner(settings, obsolete, None, &[])
+    }
+    pub fn save_settings_with_preparation_assignments(
+        &self,
+        settings: PreparationSettings,
+        expected_revision: &str,
+        changes: &[crate::PreparationFolderChange],
+    ) -> Result<SettingsRevision> {
+        self.save_settings_with_assignments_inner(settings, &[], Some(expected_revision), changes)
+    }
+    fn save_settings_with_assignments_inner(
+        &self,
+        settings: PreparationSettings,
+        obsolete: &[SettingsRevision],
+        expected_revision: Option<&str>,
+        changes: &[crate::PreparationFolderChange],
+    ) -> Result<SettingsRevision> {
         settings.validate()?;
+        let assignments: Option<crate::PreparedPreparationAssignments> = if changes.is_empty() {
+            None
+        } else {
+            Some(self.prepare_preparation_assignment_changes(&settings, changes)?)
+        };
         if settings.organization.enabled()
             && matches!(
                 settings.organization.mode,
@@ -314,17 +365,33 @@ impl Library {
             revision: revision.clone(),
             settings,
             models,
+            preset_capture: None,
         };
+        let encoded = serde_json::to_string(&snapshot)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
+        if let Some(expected) = expected_revision {
+            let current: String = tx.query_row(
+                "SELECT revision FROM selected_settings WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )?;
+            ensure!(
+                current == expected,
+                "Settings changed; reload before saving folder assignments"
+            );
+        }
         tx.execute(
             "INSERT OR IGNORE INTO settings VALUES (?1,?2,?3)",
-            params![revision, serde_json::to_string(&snapshot)?, now()],
+            params![revision, encoded, now()],
         )?;
         tx.execute(
             "INSERT INTO selected_settings VALUES (1,?1) ON CONFLICT(singleton) DO UPDATE SET revision=excluded.revision",
             params![revision],
         )?;
+        if let Some(assignments) = assignments.as_ref() {
+            Self::apply_preparation_assignment_changes_tx(&tx, assignments)?;
+        }
         Self::requeue_unfinished_tx(&tx, &revision, Some(obsolete))?;
         tx.commit()?;
         Ok(revision)
@@ -370,7 +437,10 @@ impl Library {
         crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        Ok(self.conn()?.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,json_extract(tagging_json,'$.status') FROM tracks WHERE id=?1",[id],summary_row)?)
+        let conn = self.conn()?;
+        let mut track = conn.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,json_extract(tagging_json,'$.status') FROM tracks WHERE id=?1",[id],summary_row)?;
+        crate::curation::project_summary(&conn, &mut track)?;
+        Ok(track)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
         Ok(self
@@ -416,6 +486,22 @@ impl Library {
         if current == archived {
             return Ok(());
         }
+        let _organization = self.inner.organization_gate.try_lock().map_err(|_| {
+            anyhow::anyhow!("File publication is running; wait before changing archive status")
+        })?;
+        #[cfg(feature = "autotag")]
+        let _tag = self.inner.tag_gate.try_lock().map_err(|_| {
+            anyhow::anyhow!("File publication is running; wait before changing archive status")
+        })?;
+        let pending_publication: bool = self.conn()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE track_id=?1 AND state IN ('prepared','publishing','recovery_required','conflict') AND json_type(payload_json,'$.publication')='object')",
+            [id],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            !pending_publication,
+            "Recover the pending metadata publication before changing archive status"
+        );
         let restore = if archived {
             None
         } else {

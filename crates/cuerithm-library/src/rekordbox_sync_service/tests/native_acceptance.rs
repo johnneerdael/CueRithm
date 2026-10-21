@@ -8,6 +8,7 @@
 //! publication. `CUERITHM_NATIVE_ACCEPTANCE_INCLUDE_BPM=1` explicitly selects BPM
 //! for newly generated requests; the default request leaves BPM unselected.
 use super::super::*;
+use cuerithm_rekordbox::anlz::{AnlzFile, Beat, ParseLimits};
 use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
 use std::{cell::Cell, process::Command};
 
@@ -35,6 +36,74 @@ struct Sentinel {
     schema_fingerprint: String,
     #[serde(default)]
     owner_marker: String,
+    /// Exact source proofs for native-owned demo media in this selected signed
+    /// application's Resources directory or copied into this private case
+    /// outside authored-media. Empty preserves authored-only scope.
+    #[serde(default)]
+    native_owned_extra_sources: Vec<NativeOwnedExtraSource>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeOwnedExtraSource {
+    content_id: String,
+    uuid: String,
+    source: PathBuf,
+    source_sha256: String,
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn validate_extra_sources(
+    extras: &[NativeOwnedExtraSource],
+    resources: &Path,
+    case_root: &Path,
+    cancel: &CancellationToken,
+) -> Result<()> {
+    if extras.is_empty() {
+        return Ok(());
+    }
+    let canonical_resources = resources
+        .canonicalize()
+        .ok()
+        .filter(|path| path == resources);
+    ensure!(
+        case_root.canonicalize()? == case_root,
+        "Private case root must be canonical"
+    );
+    let mut ids = BTreeSet::new();
+    let mut uuids = BTreeSet::new();
+    let mut paths = BTreeSet::new();
+    for extra in extras {
+        ensure!(
+            !extra.content_id.is_empty()
+                && !extra.uuid.is_empty()
+                && valid_sha256(&extra.source_sha256)
+                && extra.source.is_absolute()
+                && ids.insert(&extra.content_id)
+                && uuids.insert(&extra.uuid)
+                && paths.insert(&extra.source),
+            "Native-owned extras need unique exact identity, path and SHA256 proofs"
+        );
+        regular(&extra.source)?;
+        let source = extra.source.canonicalize()?;
+        ensure!(
+            source == extra.source
+                && ((source.starts_with(case_root)
+                    && !source.starts_with(case_root.join("authored-media")))
+                    || canonical_resources
+                        .as_ref()
+                        .is_some_and(|resources| source.starts_with(resources))),
+            "Native-owned extra source must be canonical and inside the private case outside authored-media or the selected signed app Resources"
+        );
+        ensure!(
+            file_sha256_cancellable(&source, cancel)? == extra.source_sha256,
+            "Native-owned bundled source no longer matches its explicit proof"
+        );
+    }
+    Ok(())
 }
 
 struct Case {
@@ -43,6 +112,7 @@ struct Case {
     source: PathBuf,
     second_source: Option<PathBuf>,
     schema_fingerprint: String,
+    native_owned_extra_sources: Vec<NativeOwnedExtraSource>,
     target: RekordboxSyncTarget,
 }
 
@@ -67,7 +137,8 @@ impl CaseState {
     fn permits_operation(&self, id: &str, phase: &str) -> bool {
         self.operation_id.as_deref() == Some(id)
             || self.earlier_operation_ids.iter().any(|saved| saved == id)
-            || (matches!(phase, "restore" | "verify") && self.noop_id.as_deref() == Some(id))
+            || (matches!(phase, "restore" | "refuse-restore" | "verify")
+                && self.noop_id.as_deref() == Some(id))
     }
 }
 
@@ -80,6 +151,7 @@ fn private_history_retains_noop_operations_without_admitting_unrelated_ids() {
     state.remember_noop("noop-one".into());
     assert!(state.permits_operation("noop-one", "restore"));
     assert!(state.permits_operation("noop-one", "verify"));
+    assert!(state.permits_operation("noop-one", "refuse-restore"));
     assert!(!state.permits_operation("noop-one", "apply"));
     state.remember_noop("noop-two".into());
     state.remember_noop("noop-two".into());
@@ -279,6 +351,12 @@ impl Case {
                     == Some(sentinel.application_major),
             "Selected native application version differs from the private sentinel"
         );
+        validate_extra_sources(
+            &sentinel.native_owned_extra_sources,
+            &app.join("Contents/Resources"),
+            &root,
+            &CancellationToken::default(),
+        )?;
         let installation = TargetInstallation {
             root: app,
             executable,
@@ -306,6 +384,7 @@ impl Case {
             source,
             second_source,
             schema_fingerprint: sentinel.schema_fingerprint,
+            native_owned_extra_sources: sentinel.native_owned_extra_sources,
             target,
         })
     }
@@ -345,6 +424,34 @@ impl Case {
                     || (s.id == SECOND_TRACK && self.second_source.as_ref() == Some(&s.path))),
             "Persisted operation contains non-authored sources"
         );
+        ensure!(
+            op.resolved.iter().all(|resolved| self
+                .sources()
+                .iter()
+                .any(|(id, _)| *id == resolved.local_id)
+                && !self
+                    .native_owned_extra_sources
+                    .iter()
+                    .any(|extra| extra.content_id == resolved.identity.content_id)),
+            "Persisted operation resolves outside the authored sources"
+        );
+        ensure!(
+            op.plan
+                .rows
+                .iter()
+                .all(|row| !self
+                    .native_owned_extra_sources
+                    .iter()
+                    .any(
+                        |extra| (row.table == "djmdContent" && row.id == extra.content_id)
+                            || (row.table == "contentCue" && row.id == extra.uuid)
+                            || row.values.get("ContentID")
+                                == Some(&TargetValue::Text(extra.content_id.clone()))
+                            || row.values.get("ContentUUID")
+                                == Some(&TargetValue::Text(extra.uuid.clone()))
+                    )),
+            "Persisted operation attempts to mutate a native-owned extra track"
+        );
         Ok(op)
     }
 
@@ -355,6 +462,73 @@ impl Case {
         }
         sources
     }
+}
+
+fn validate_native_sources<'a>(
+    case: &Case,
+    collection: &'a RekordboxCollection,
+    cancel: &CancellationToken,
+) -> Result<BTreeSet<Option<&'a Path>>> {
+    validate_extra_sources(
+        &case.native_owned_extra_sources,
+        &case.target.installation.root.join("Contents/Resources"),
+        &case.root,
+        cancel,
+    )?;
+    let mut ids = BTreeSet::new();
+    let mut uuids = BTreeSet::new();
+    let mut paths = BTreeSet::new();
+    let mut extras_seen = BTreeSet::new();
+    for track in &collection.tracks {
+        let path = track.source.resolved_path.as_deref().map(Path::new);
+        ensure!(
+            ids.insert(&track.identity.content_id)
+                && track
+                    .identity
+                    .uuid
+                    .as_deref()
+                    .is_some_and(|uuid| !uuid.is_empty() && uuids.insert(uuid))
+                && path.is_some()
+                && paths.insert(path),
+            "Native case contains a missing or duplicate source or track identity"
+        );
+        if case
+            .sources()
+            .iter()
+            .any(|(_, source)| Some(*source) == path)
+        {
+            ensure!(
+                !case
+                    .native_owned_extra_sources
+                    .iter()
+                    .any(|extra| extra.content_id == track.identity.content_id
+                        || Some(extra.uuid.as_str()) == track.identity.uuid.as_deref()),
+                "Authored source collides with a native-owned extra identity"
+            );
+            continue;
+        }
+        let extra = case
+            .native_owned_extra_sources
+            .iter()
+            .find(|extra| {
+                extra.content_id == track.identity.content_id
+                    && Some(extra.uuid.as_str()) == track.identity.uuid.as_deref()
+                    && Some(extra.source.as_path()) == path
+            })
+            .context(
+                "Native case contains an unrelated source without an exact bundled identity proof",
+            )?;
+        ensure!(
+            extras_seen.insert(&extra.content_id),
+            "Duplicate native-owned extra source"
+        );
+    }
+    ensure!(
+        paths.contains(&Some(case.source.as_path()))
+            && extras_seen.len() == case.native_owned_extra_sources.len(),
+        "Native case is missing its authored source or an explicitly proved native-owned extra"
+    );
+    Ok(paths)
 }
 
 fn initialize_local(
@@ -555,6 +729,11 @@ fn request(case: &Case) -> RekordboxSyncRequest {
             decisions.insert("bpm".into(), NativeFieldDecision::UseLocal);
         }
     }
+    if std::env::var("CUERITHM_NATIVE_ACCEPTANCE_CLEAR_ARTWORK").as_deref() == Ok("1") {
+        if let Some(decisions) = request.decisions.get_mut(SECOND_TRACK) {
+            decisions.insert("artwork".into(), NativeFieldDecision::ClearRemote);
+        }
+    }
     request
 }
 
@@ -592,6 +771,297 @@ fn native_proof(
     append(&case.target.database, cancel, &mut proof)?;
     append(&case.target.asset_root, cancel, &mut proof)?;
     Ok(proof)
+}
+
+#[derive(PartialEq, Eq)]
+struct UnownedNativeProof {
+    records: BTreeMap<(String, String), String>,
+    extras: String,
+    assets: BTreeMap<PathBuf, (String, std::time::SystemTime)>,
+}
+
+fn unowned_native_proof(
+    case: &Case,
+    library: &Library,
+    op: &Operation,
+    key: &DatabaseKey,
+    cancel: &CancellationToken,
+) -> Result<UnownedNativeProof> {
+    let database = ReadOnlyDatabase::open(&case.target.database, key)?;
+    let collection = database.read_collection(Default::default(), cancel)?;
+    let asset_records = database.read_asset_records(2_000_000, cancel)?;
+    validate_native_sources(case, &collection, cancel)?;
+    let planned: BTreeSet<_> = op
+        .plan
+        .rows
+        .iter()
+        .map(|row| (&row.table, &row.id))
+        .collect();
+    let records = collection
+        .records
+        .values()
+        .flatten()
+        .chain(&asset_records)
+        .filter(|row| !planned.contains(&(&row.table, &row.id)))
+        .map(|row| ((row.table.clone(), row.id.clone()), row.fingerprint.clone()))
+        .collect();
+    let extras = digest(
+        &collection
+            .tracks
+            .iter()
+            .filter(|track| {
+                case.native_owned_extra_sources
+                    .iter()
+                    .any(|extra| extra.content_id == track.identity.content_id)
+            })
+            .map(|track| (&track.identity.content_id, track))
+            .collect::<BTreeMap<_, _>>(),
+    )?;
+    let journal =
+        FileTransaction::open(&root(library).join("assets"), &op.asset_journal_id)?.inspect()?;
+    let owned_assets: BTreeSet<_> = journal
+        .changes
+        .iter()
+        .map(|change| change.target.as_path())
+        .collect();
+    let assets = native_proof(case, cancel)?
+        .into_iter()
+        .filter(|(path, _)| path != &case.target.database && !owned_assets.contains(path.as_path()))
+        .collect();
+    Ok(UnownedNativeProof {
+        records,
+        extras,
+        assets,
+    })
+}
+
+fn require_unowned_native_preserved(
+    before: &UnownedNativeProof,
+    case: &Case,
+    library: &Library,
+    op: &Operation,
+    key: &DatabaseKey,
+    cancel: &CancellationToken,
+) -> Result<()> {
+    ensure!(
+        before == &unowned_native_proof(case, library, op, key, cancel)?,
+        "Native operation changed unowned raw records, bundled tracks, or asset bytes/modification times"
+    );
+    Ok(())
+}
+
+fn require_frozen_native_state(
+    case: &Case,
+    key: &DatabaseKey,
+    cancel: &CancellationToken,
+    expected: &NativeDatabaseState,
+) -> Result<()> {
+    ensure!(
+        NativeDatabaseLease::acquire(&case.target.database, key, cancel)?.state(cancel)?
+            == *expected,
+        "Native operation differs from its frozen whole-database proof, including unknown rows"
+    );
+    Ok(())
+}
+
+fn verify_authored_sql_cues(
+    native: &ImportedTrack,
+    owned: &[String],
+    records: &[TargetRecord],
+) -> Result<()> {
+    let cues: Vec<_> = native
+        .cues
+        .iter()
+        .filter(|cue| owned.contains(&cue.id))
+        .collect();
+    ensure!(
+        cues.len() == 3 && owned.len() == 3 && owned.iter().collect::<BTreeSet<_>>().len() == 3,
+        "Authored publication must own exactly its two hot cues and synthesized active memory marker"
+    );
+    for (kind, slot, memory, start, end, active, sql_active, name, loop_size) in [
+        (
+            1,
+            Some(0),
+            false,
+            0.937,
+            None,
+            false,
+            0,
+            "Authored cue",
+            None,
+        ),
+        (
+            2,
+            Some(1),
+            false,
+            1.875,
+            Some(3.75),
+            true,
+            1,
+            "Authored four-beat loop",
+            Some(262145),
+        ),
+        (
+            4,
+            None,
+            true,
+            1.875,
+            Some(3.75),
+            true,
+            0,
+            "Authored four-beat loop",
+            Some(262145),
+        ),
+    ] {
+        let matching: Vec<_> = cues.iter().filter(|cue| cue.kind == kind).collect();
+        ensure!(
+            matching.len() == 1,
+            "Authored native cue kind is missing or ambiguous"
+        );
+        let cue = matching[0];
+        ensure!(
+            cue.slot == slot
+                && cue.memory == memory
+                && cue.start_seconds == Some(start)
+                && cue.end_seconds == end
+                && cue.active_loop == active
+                && cue.comment == name
+                && cue.content_uuid == native.identity.uuid
+                && cue.beat_loop_size == loop_size,
+            "Authored hot cue or synthesized memory marker interval, slot, activity, size, or identity differs"
+        );
+        let raw = records
+            .iter()
+            .find(|record| record.id == cue.id)
+            .context("Authored native cue raw row is missing")?;
+        ensure!(
+            raw.values.get("ActiveLoop") == Some(&TargetValue::Integer(sql_active))
+                && raw.values.get("ContentID")
+                    == Some(&TargetValue::Text(native.identity.content_id.clone()))
+                && raw.values.get("ContentUUID")
+                    == native
+                        .identity
+                        .uuid
+                        .as_ref()
+                        .map(|uuid| TargetValue::Text(uuid.clone()))
+                        .as_ref(),
+            "Authored native raw cue activation or track identity differs"
+        );
+    }
+    Ok(())
+}
+
+fn verify_authored_grid(beats: &[Beat], duration: f64) -> Result<()> {
+    ensure!(
+        duration.is_finite() && duration > 8.,
+        "Authored duration is unavailable"
+    );
+    let count = (duration / (60. / 128.)).ceil() as usize;
+    ensure!(
+        beats.len() == count,
+        "Authored grid does not span the full playable source"
+    );
+    for (index, beat) in beats.iter().enumerate() {
+        ensure!(
+            beat.number == (index % 4 + 1) as u16
+                && beat.tempo == 12800
+                && beat.time_ms == (index as f64 * 468.75).floor() as u32,
+            "Authored native grid differs from 128 BPM with origin zero"
+        );
+    }
+    Ok(())
+}
+
+fn verify_authored_analysis(dat: &AnlzFile, ext: &AnlzFile, duration: f64) -> Result<()> {
+    let grids: Vec<_> = dat
+        .tags()
+        .iter()
+        .filter(|tag| tag.fourcc() == *b"PQTZ")
+        .collect();
+    ensure!(
+        grids.len() == 1,
+        "Authored DAT grid is missing or ambiguous"
+    );
+    let beats = grids[0].beats()?;
+    verify_authored_grid(&beats, duration)?;
+    for tag in ext.tags() {
+        match &tag.fourcc() {
+            b"PQTZ" => ensure!(tag.beats()? == beats, "EXT grid differs from companion DAT"),
+            b"PQT2" => {
+                let grid = tag.native_microsecond_grid(&beats)?;
+                ensure!(
+                    !grid.variable
+                        && grid
+                            .fractions
+                            .iter()
+                            .enumerate()
+                            .all(|(index, value)| *value == ((index % 4) * 750 % 1000) as u16),
+                    "EXT fractional grid differs from 128 BPM companion DAT"
+                );
+            }
+            _ => {}
+        }
+    }
+    for (file, extended) in [(dat, false), (ext, true)] {
+        for fourcc in if extended {
+            vec![*b"PCOB", *b"PCO2"]
+        } else {
+            vec![*b"PCOB"]
+        } {
+            let tags = file
+                .tags()
+                .iter()
+                .filter(|tag| tag.fourcc() == fourcc)
+                .map(|tag| tag.cues())
+                .collect::<Result<Vec<_>>>()?;
+            let lists: Vec<_> = tags.iter().filter(|list| list.kind == 1).collect();
+            ensure!(
+                lists.len() == 1,
+                "Authored hot cue ANLZ list is missing or ambiguous"
+            );
+            for (slot, kind, start, end, active, name) in [
+                (1, 1, 937, 0, false, "Authored cue"),
+                (2, 2, 1875, 3750, true, "Authored four-beat loop"),
+            ] {
+                let cues: Vec<_> = lists[0]
+                    .entries
+                    .iter()
+                    .filter(|cue| cue.hot_cue == slot)
+                    .collect();
+                ensure!(
+                    cues.len() == 1,
+                    "Authored ANLZ hot cue slot is missing or ambiguous"
+                );
+                let cue = cues[0];
+                ensure!(
+                    cue.cue_type == kind && cue.time_ms == start && cue.loop_time_ms == end,
+                    "Authored ANLZ cue/loop interval differs from native SQL semantics"
+                );
+                if fourcc == *b"PCOB" {
+                    ensure!(
+                        cue.legacy
+                            .as_ref()
+                            .is_some_and(|details| details.status == if active { 4 } else { 0 }),
+                        "Authored DAT/EXT loop activity differs from native SQL semantics"
+                    );
+                } else {
+                    ensure!(
+                        cue.extended
+                            .as_ref()
+                            .is_some_and(|details| details.comment.as_deref() == Some(name)),
+                        "Authored EXT cue comment differs from native SQL semantics"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn is_later_native_edit_refusal(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause.to_string() == "Native database changed after publication; restore refused"
+    })
 }
 
 fn frozen_entity_id<'a>(
@@ -773,27 +1243,38 @@ fn verify_native_publication(
             .iter()
             .find(|track| track.identity.content_id == resolved.identity.content_id)
             .context("Authored native track disappeared")?;
-        ensure!(
-            native
-                .cues
-                .iter()
-                .any(|cue| resolved.owned_cue_ids.contains(&cue.id)
-                    && cue.end_seconds.is_some()
-                    && cue.active_loop
-                    && cue.beat_loop_size == Some(262145)),
-            "Authored active loop did not survive native readback"
-        );
+        verify_authored_sql_cues(
+            native,
+            &resolved.owned_cue_ids,
+            &collection.records["djmdCue"],
+        )?;
         let analysis = native
             .source
             .analysis_path
             .as_deref()
             .context("Authored native analysis reference is missing")?;
+        let dat_path = relative_child(
+            &case.target.asset_root,
+            Path::new(analysis.trim_start_matches('/')),
+        )?;
         ensure!(
-            assets::grid_observation(&case.target, analysis)?
-                .as_array()
-                .is_some_and(|beats| beats.len() > 1),
-            "Authored native grid did not survive readback"
+            dat_path
+                .extension()
+                .is_some_and(|extension| extension == "DAT"),
+            "Authored analysis must reference DAT"
         );
+        let ext_path = dat_path.with_extension("EXT");
+        regular(&ext_path)?;
+        let duration: f64 = library.conn()?.query_row(
+            "SELECT duration FROM tracks WHERE id=?1",
+            [&resolved.local_id],
+            |row| row.get(0),
+        )?;
+        verify_authored_analysis(
+            &AnlzFile::parse(&fs::read(dat_path)?, ParseLimits::default())?,
+            &AnlzFile::parse(&fs::read(ext_path)?, ParseLimits::default())?,
+            duration,
+        )?;
         if resolved.local_id == SECOND_TRACK {
             let proof = op
                 .sources
@@ -807,6 +1288,23 @@ fn verify_native_publication(
                     && native.source.file_size == Some(proof.size_bytes),
                 "Authored FLAC native descriptor differs from its measured source"
             );
+            if op
+                .request
+                .decisions
+                .get(SECOND_TRACK)
+                .and_then(|decisions| decisions.get("artwork"))
+                == Some(&NativeFieldDecision::ClearRemote)
+            {
+                ensure!(
+                    native
+                        .source
+                        .artwork_path
+                        .as_deref()
+                        .is_none_or(str::is_empty),
+                    "Authored clear-artwork publication retained a native artwork reference"
+                );
+                continue;
+            }
             let runtime = cuerithm_media::MediaRuntime::from_bundle(&PathBuf::from(
                 std::env::var_os("CUERITHM_MEDIA_RUNTIME")
                     .context("Explicit media runtime is required")?,
@@ -851,6 +1349,396 @@ fn verify_native_publication(
     )
 }
 
+#[test]
+fn bundled_extra_authorization_requires_exact_containment_hash_and_unique_identity() {
+    let temporary = tempfile::tempdir().unwrap();
+    let home = temporary.path().canonicalize().unwrap();
+    let resources = home.join("Authored.app/Contents/Resources");
+    fs::create_dir_all(&resources).unwrap();
+    let case_root = home.join("private-case");
+    fs::create_dir(&case_root).unwrap();
+    let source = resources.join("authored-demo.wav");
+    fs::write(&source, b"synthetic source bytes, not music").unwrap();
+    let cancel = CancellationToken::default();
+    let extra = NativeOwnedExtraSource {
+        content_id: "native-demo".into(),
+        uuid: "demo-uuid".into(),
+        source: source.clone(),
+        source_sha256: file_sha256_cancellable(&source, &cancel).unwrap(),
+    };
+    validate_extra_sources(
+        std::slice::from_ref(&extra),
+        &resources,
+        &case_root,
+        &cancel,
+    )
+    .unwrap();
+    assert!(
+        validate_extra_sources(
+            &[extra.clone(), extra.clone()],
+            &resources,
+            &case_root,
+            &cancel
+        )
+        .is_err()
+    );
+    let mut changed = extra.clone();
+    changed.uuid.clear();
+    assert!(validate_extra_sources(&[changed], &resources, &case_root, &cancel).is_err());
+    let outside = home.join("arbitrary.wav");
+    fs::write(&outside, b"synthetic source bytes, not music").unwrap();
+    let mut changed = extra.clone();
+    changed.source = outside;
+    assert!(validate_extra_sources(&[changed], &resources, &case_root, &cancel).is_err());
+    let copied = case_root.join("Music/native-demo.wav");
+    fs::create_dir(copied.parent().unwrap()).unwrap();
+    fs::copy(&source, &copied).unwrap();
+    let mut copied_extra = extra.clone();
+    copied_extra.source = copied;
+    validate_extra_sources(&[copied_extra.clone()], &resources, &case_root, &cancel).unwrap();
+    let authored = case_root.join("authored-media/unrelated.wav");
+    fs::create_dir(authored.parent().unwrap()).unwrap();
+    fs::copy(&source, &authored).unwrap();
+    copied_extra.source = authored;
+    assert!(validate_extra_sources(&[copied_extra], &resources, &case_root, &cancel).is_err());
+    fs::write(&source, b"later source bytes").unwrap();
+    assert!(validate_extra_sources(&[extra], &resources, &case_root, &cancel).is_err());
+}
+
+#[test]
+fn native_source_authorization_keeps_authored_only_default_and_exact_extra_identity() {
+    let fixture = super::fixture(false);
+    let op = load(&fixture.library, &fixture.id).unwrap();
+    let cancel = CancellationToken::default();
+    let mut collection = ReadOnlyDatabase::open(&fixture.native, &super::key())
+        .unwrap()
+        .read_collection(Default::default(), &cancel)
+        .unwrap();
+    let mut case = Case {
+        root: fixture._dir.path().canonicalize().unwrap(),
+        work: fixture.library.data_dir().to_path_buf(),
+        source: PathBuf::from("/missing/authored.flac"),
+        second_source: None,
+        schema_fingerprint: collection.schema_fingerprint.clone(),
+        native_owned_extra_sources: vec![],
+        target: op.target,
+    };
+    validate_native_sources(&case, &collection, &cancel).unwrap();
+    let resources = case.target.installation.root.join("Contents/Resources");
+    fs::create_dir_all(&resources).unwrap();
+    let source = resources.join("authored-demo.wav");
+    fs::write(&source, b"synthetic bundled bytes").unwrap();
+    let mut extra = collection.tracks[0].clone();
+    extra.identity.content_id = "demo".into();
+    extra.identity.uuid = Some("demo-uuid".into());
+    extra.source.resolved_path = Some(source.to_str().unwrap().into());
+    collection.tracks.push(extra);
+    assert!(validate_native_sources(&case, &collection, &cancel).is_err());
+    case.native_owned_extra_sources
+        .push(NativeOwnedExtraSource {
+            content_id: "demo".into(),
+            uuid: "demo-uuid".into(),
+            source: source.clone(),
+            source_sha256: file_sha256_cancellable(&source, &cancel).unwrap(),
+        });
+    validate_native_sources(&case, &collection, &cancel).unwrap();
+    // Native app playback can update rows between separate closed-app phases.
+    collection.tracks[1].raw_hash = "later-native-playback-row".into();
+    validate_native_sources(&case, &collection, &cancel).unwrap();
+    for field in ["id", "uuid", "path"] {
+        let mut changed = collection.clone();
+        match field {
+            "id" => changed.tracks[1].identity.content_id = "another-id".into(),
+            "uuid" => changed.tracks[1].identity.uuid = Some("another-uuid".into()),
+            _ => {
+                changed.tracks[1].source.resolved_path = Some(case.source.to_str().unwrap().into())
+            }
+        }
+        assert!(validate_native_sources(&case, &changed, &cancel).is_err());
+    }
+    collection.tracks.pop();
+    assert!(validate_native_sources(&case, &collection, &cancel).is_err());
+}
+
+fn authored_test_beats(duration: f64) -> Vec<Beat> {
+    (0..(duration / (60. / 128.)).ceil() as usize)
+        .map(|index| Beat {
+            number: (index % 4 + 1) as u16,
+            tempo: 12800,
+            time_ms: (index as f64 * 468.75).floor() as u32,
+        })
+        .collect()
+}
+
+fn authored_test_cues() -> Vec<NativeCue> {
+    [
+        (0, 0.9375, None, false, "Authored cue"),
+        (1, 1.875, Some(3.75), true, "Authored four-beat loop"),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (slot, start, end, active_loop, name))| NativeCue {
+        slot: NativeCueSlot::Hot(slot),
+        start: NativeTime::from_seconds(start).unwrap(),
+        end: end.map(|seconds| NativeTime::from_seconds(seconds).unwrap()),
+        active_loop,
+        order_first: index as u16,
+        order_last: index as u16,
+        comment: name.into(),
+        memory_color: 0,
+        color: [0; 4],
+        loop_fraction: (0, 0),
+    })
+    .collect()
+}
+
+#[test]
+fn authored_analysis_checks_full_grid_and_paired_native_cue_semantics() {
+    use cuerithm_rekordbox::anlz::AnlzTag;
+    let beats = authored_test_beats(10.);
+    let cues = authored_test_cues();
+    let make = |beats: &[Beat], cues: &[NativeCue], kind| {
+        AnlzFile::parse(
+            &new_native_analysis("/synthetic/authored.wav", beats, cues, kind).unwrap(),
+            ParseLimits::default(),
+        )
+        .unwrap()
+    };
+    let dat = make(&beats, &cues, NativeAnalysisKind::Dat);
+    let ext = make(&beats, &cues, NativeAnalysisKind::Ext);
+    verify_authored_analysis(&dat, &ext, 10.).unwrap();
+    let mut tags = ext.tags().to_vec();
+    let fractions: Vec<_> = (0..beats.len())
+        .map(|index| ((index % 4) * 750 % 1000) as u16)
+        .collect();
+    let mut native_grid = AnlzTag::microsecond_grid(&beats, &fractions, false, 0)
+        .unwrap()
+        .bytes()
+        .to_vec();
+    // Native rekordbox reserves this word; the Lexicon constructor writes its
+    // one-based downbeat index instead. Author only this synthetic test tag.
+    native_grid[48..52].copy_from_slice(&0u32.to_be_bytes());
+    tags.push(AnlzTag::parse(&native_grid, ParseLimits::default()).unwrap());
+    verify_authored_analysis(&dat, &AnlzFile::new(tags).unwrap(), 10.).unwrap();
+    for field in ["origin", "tempo", "bar", "span"] {
+        let mut changed = beats.clone();
+        match field {
+            "origin" => changed[0].time_ms = 1,
+            "tempo" => changed[1].tempo = 12700,
+            "bar" => changed[1].number = 3,
+            _ => {
+                changed.pop();
+            }
+        }
+        assert!(verify_authored_grid(&changed, 10.).is_err());
+    }
+    for field in ["point", "slot", "loop-end", "active"] {
+        let mut changed = cues.clone();
+        match field {
+            "point" => changed[0].start = NativeTime::from_seconds(0.938).unwrap(),
+            "slot" => changed[0].slot = NativeCueSlot::Hot(2),
+            "loop-end" => changed[1].end = Some(NativeTime::from_seconds(4.).unwrap()),
+            _ => changed[1].active_loop = false,
+        }
+        assert!(
+            verify_authored_analysis(&dat, &make(&beats, &changed, NativeAnalysisKind::Ext), 10.)
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn authored_sql_readback_checks_sdk_generated_hot_cues_and_synthesized_memory_marker() {
+    let fixture = super::fixture(false);
+    let collection = ReadOnlyDatabase::open(&fixture.native, &super::key())
+        .unwrap()
+        .read_collection(Default::default(), &CancellationToken::default())
+        .unwrap();
+    let mut track = collection.tracks[0].clone();
+    let prepared = prepare_native_rows(
+        &collection,
+        &NativePlanRequest {
+            source: fixture.native.clone(),
+            now: "2026-10-21 12:00:00.000 +00:00".into(),
+            iso_now: "2026-10-21T12:00:00.000Z".into(),
+            id_seed: [7; 32],
+            tracks: vec![NativeTrackDraft {
+                local_id: TRACK.into(),
+                identity: Some(track.identity.clone()),
+                expected_raw_hash: Some(track.raw_hash.clone()),
+                source_path: PathBuf::from("/missing/authored.flac"),
+                fields: BTreeMap::new(),
+                cues: Some(authored_test_cues()),
+                cue_bpm: Some(128.),
+                cue_colors: None,
+                replace_cues: vec![],
+                analysis_path: None,
+            }],
+            entities: vec![],
+            auxiliary_records: vec![],
+            share_root: None,
+        },
+    )
+    .unwrap();
+    let records: Vec<_> = prepared
+        .plan
+        .rows
+        .iter()
+        .filter(|row| row.table == "djmdCue")
+        .map(|row| TargetRecord {
+            table: row.table.clone(),
+            id: row.id.clone(),
+            values: row.values.clone(),
+            fingerprint: digest(&row.values).unwrap(),
+        })
+        .collect();
+    let integer = |row: &TargetRecord, name: &str| match row.values.get(name) {
+        Some(TargetValue::Integer(value)) => Some(*value),
+        Some(TargetValue::Null) | None => None,
+        _ => panic!("Synthetic native cue integer field has wrong type"),
+    };
+    let text = |row: &TargetRecord, name: &str| match row.values.get(name) {
+        Some(TargetValue::Text(value)) => Some(value.clone()),
+        Some(TargetValue::Null) | None => None,
+        _ => panic!("Synthetic native cue text field has wrong type"),
+    };
+    track.cues = records
+        .iter()
+        .map(|row| {
+            let kind = integer(row, "Kind").unwrap();
+            ImportedCue {
+                id: row.id.clone(),
+                uuid: text(row, "UUID"),
+                content_uuid: text(row, "ContentUUID"),
+                kind,
+                slot: if (1..=3).contains(&kind) {
+                    Some((kind - 1) as u8)
+                } else {
+                    None
+                },
+                memory: kind == 0 || kind == 4,
+                start_seconds: integer(row, "InMsec").map(|value| value as f64 / 1000.),
+                end_seconds: integer(row, "OutMsec")
+                    .filter(|value| *value >= 0)
+                    .map(|value| value as f64 / 1000.),
+                active_loop: kind == 4
+                    || integer(row, "ActiveLoop").is_some_and(|value| value != 0),
+                comment: text(row, "Comment").unwrap(),
+                color: integer(row, "Color"),
+                color_table_index: integer(row, "ColorTableIndex"),
+                beat_loop_size: integer(row, "BeatLoopSize"),
+                raw_hash: row.fingerprint.clone(),
+            }
+        })
+        .collect();
+    let owned = &prepared.tracks[0].owned_cue_ids;
+    verify_authored_sql_cues(&track, owned, &records).unwrap();
+    for field in [
+        "point",
+        "end",
+        "slot",
+        "active",
+        "size",
+        "uuid",
+        "missing-marker",
+        "marker-interval",
+        "marker-activation",
+    ] {
+        let mut changed = track.clone();
+        let mut changed_records = records.clone();
+        let marker = changed.cues.iter().position(|cue| cue.kind == 4).unwrap();
+        let point = changed.cues.iter().position(|cue| cue.kind == 1).unwrap();
+        let hot_loop = changed.cues.iter().position(|cue| cue.kind == 2).unwrap();
+        match field {
+            "point" => changed.cues[point].start_seconds = Some(0.938),
+            "end" => changed.cues[hot_loop].end_seconds = Some(4.),
+            "slot" => changed.cues[hot_loop].slot = Some(2),
+            "active" => changed.cues[hot_loop].active_loop = false,
+            "size" => changed.cues[marker].beat_loop_size = Some(131073),
+            "uuid" => changed.cues[marker].content_uuid = Some("foreign".into()),
+            "missing-marker" => {
+                changed.cues.remove(marker);
+            }
+            "marker-interval" => changed.cues[marker].end_seconds = Some(4.),
+            _ => changed_records
+                .iter_mut()
+                .find(|row| row.id == changed.cues[marker].id)
+                .unwrap()
+                .values
+                .insert("ActiveLoop".into(), TargetValue::Integer(1))
+                .map(|_| ())
+                .unwrap(),
+        }
+        assert!(verify_authored_sql_cues(&changed, owned, &changed_records).is_err());
+    }
+}
+
+#[test]
+fn operation_preservation_detects_unplanned_raw_rows_and_unowned_asset_changes() {
+    let fixture = super::fixture(true);
+    let op = load(&fixture.library, &fixture.id).unwrap();
+    let case = Case {
+        root: fixture._dir.path().canonicalize().unwrap(),
+        work: fixture.library.data_dir().to_path_buf(),
+        source: PathBuf::from("/missing/authored.flac"),
+        second_source: None,
+        schema_fingerprint: op.plan.schema_fingerprint.clone(),
+        native_owned_extra_sources: vec![],
+        target: op.target.clone(),
+    };
+    let cancel = CancellationToken::default();
+    let key = super::key();
+    let before = unowned_native_proof(&case, &fixture.library, &op, &key, &cancel).unwrap();
+    publication::fixture_apply(&fixture.library, &fixture.id, &key, &cancel, &|| Ok(())).unwrap();
+    require_unowned_native_preserved(&before, &case, &fixture.library, &op, &key, &cancel).unwrap();
+    let connection = super::open(&fixture.native);
+    connection
+        .execute("INSERT INTO djmdArtist(ID) VALUES('unowned-new-row')", [])
+        .unwrap();
+    assert!(
+        require_unowned_native_preserved(&before, &case, &fixture.library, &op, &key, &cancel)
+            .is_err()
+    );
+    connection
+        .execute("DELETE FROM djmdArtist WHERE ID='unowned-new-row'", [])
+        .unwrap();
+    drop(connection);
+    require_unowned_native_preserved(&before, &case, &fixture.library, &op, &key, &cancel).unwrap();
+    require_frozen_native_state(&case, &key, &cancel, &op.after).unwrap();
+    let connection = super::open(&fixture.native);
+    connection
+        .execute(
+            "UPDATE unknownRows SET payload=X'CAFE' WHERE id='external'",
+            [],
+        )
+        .unwrap();
+    assert!(require_frozen_native_state(&case, &key, &cancel, &op.after).is_err());
+    drop(connection);
+    fs::write(&fixture.old_asset, b"unexpected asset change").unwrap();
+    assert!(
+        require_unowned_native_preserved(&before, &case, &fixture.library, &op, &key, &cancel)
+            .is_err()
+    );
+}
+
+#[test]
+fn later_native_edit_refusal_does_not_accept_generic_restore_errors() {
+    assert!(is_later_native_edit_refusal(
+        &anyhow::anyhow!("Native database changed after publication; restore refused")
+            .context("outer")
+    ));
+    for message in [
+        "Native synchronization ownership changed after publication; restore refused",
+        "Application is open",
+        "Missing native before-image",
+        "Native database changed after publication; restore refused: arbitrary detail",
+    ] {
+        assert!(!is_later_native_edit_refusal(&anyhow::anyhow!(
+            message.to_owned()
+        )));
+    }
+}
+
 fn run_phase(case: &Case, phase: &str) -> Result<Value> {
     ensure!(
         matches!(
@@ -860,6 +1748,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 | "apply"
                 | "noop"
                 | "restore"
+                | "refuse-restore"
                 | "interrupt"
                 | "recover"
                 | "edit-local"
@@ -881,22 +1770,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
         "Private fixture acceptance must not rely on a production promotion"
     );
     let collection = database.read_collection(Default::default(), &cancel)?;
-    let native_paths: BTreeSet<_> = collection
-        .tracks
-        .iter()
-        .map(|track| track.source.resolved_path.as_deref().map(Path::new))
-        .collect();
-    let allowed_paths: BTreeSet<_> = case
-        .sources()
-        .into_iter()
-        .map(|(_, path)| Some(path))
-        .collect();
-    ensure!(
-        native_paths.contains(&Some(case.source.as_path()))
-            && native_paths.is_subset(&allowed_paths)
-            && native_paths.len() == collection.tracks.len(),
-        "Native case contains a missing, duplicate, or unrelated authored source"
-    );
+    let native_paths = validate_native_sources(case, &collection, &cancel)?;
     let creating_second = case
         .second_source
         .as_ref()
@@ -1107,6 +1981,33 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             summary["native_write"] = json!(false);
             return Ok(summary);
         }
+        if phase == "refuse-restore" {
+            ensure!(
+                operation.status == "applied",
+                "Restore-refusal acceptance requires an applied operation"
+            );
+            let before = native_proof(case, &cancel)?;
+            let error = publication::fixture_restore(&library, id, &key, &cancel, &|| case.guard())
+                .err()
+                .context("Later native edit unexpectedly allowed restore")?;
+            ensure!(
+                is_later_native_edit_refusal(&error),
+                "Restore failed without the expected stale native-database proof refusal"
+            );
+            ensure!(
+                load(&library, id)?.status == operation.status,
+                "Refused restore changed the operation status"
+            );
+            ensure!(
+                native_proof(case, &cancel)? == before,
+                "Refused restore changed native bytes or modification times"
+            );
+            summary["operation_id"] = json!(id);
+            summary["status"] = json!("restore_refused_later_native_edit");
+            summary["native_write"] = json!(false);
+            return Ok(summary);
+        }
+        let unowned_before = unowned_native_proof(case, &library, &operation, &key, &cancel)?;
         let result = match phase {
             "apply" => publication::fixture_apply(&library, id, &key, &cancel, &|| case.guard())?,
             "restore" => {
@@ -1139,12 +2040,36 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                         && load(&library, id)?.status == "native_published",
                     "Authored interruption did not reach the recoverable native boundary"
                 );
+                require_unowned_native_preserved(
+                    &unowned_before,
+                    case,
+                    &library,
+                    &operation,
+                    &key,
+                    &cancel,
+                )?;
                 summary["operation_id"] = json!(id);
+                require_frozen_native_state(case, &key, &cancel, &operation.after)?;
                 summary["status"] = json!("interrupted_native_published");
                 return Ok(summary);
             }
             _ => unreachable!(),
         };
+        require_unowned_native_preserved(
+            &unowned_before,
+            case,
+            &library,
+            &operation,
+            &key,
+            &cancel,
+        )?;
+        let expected_state = if result.status == "restored" || result.status == "rolled_back" {
+            &operation.before
+        } else {
+            &operation.after
+        };
+        require_frozen_native_state(case, &key, &cancel, expected_state)?;
+        summary["unowned_native_preserved"] = json!(true);
         summary["operation_id"] = json!(result.id);
         summary["status"] = json!(result.status);
         summary["changed_rows"] = json!(result.changed_rows);
@@ -1184,6 +2109,7 @@ fn private_native_acceptance() {
                     | "apply"
                     | "noop"
                     | "restore"
+                    | "refuse-restore"
                     | "interrupt"
                     | "recover"
                     | "edit-local"

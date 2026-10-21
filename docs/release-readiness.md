@@ -16,6 +16,8 @@ claim complete Lexicon or OneTagger parity.
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
 | File organization | Opt-in Incoming naming/move/copy and manual complete-scope preview/apply/history/recovery/Undo use the same native coordinator. Required file/reference stages gate Ready; unchanged bytes retain analysis and playback snapshots. Native acceptance gates below remain distinct. |
 | Match review and metadata | Source-bound catalog review, protected Incoming choices, typed common-field/artwork editing, durable drafts, guarded Save/Undo and recovery, with measured analysis/cues preserved. Temporary publication artifacts use native ownership and recoverable quarantine; unknown replacements remain visible for cleanup. |
+| Curate | Stable categories, a separate user rating and notes are library-only by default. Durable desired revisions, background publication, pending/history and guarded Undo preserve later edits; optional file mappings use the metadata writer. |
+| Preparation presets | Immutable portable rule revisions, local folder assignments and per-source capture extend Settings. Import/export excludes credentials, global transport and native destination grants; disconnected folders and destinations require explicit reconnection. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens now expose scanning, review, apply, Undo/Restore and recovery; final packaged/native acceptance remains separate. |
 | DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
@@ -32,7 +34,7 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 24. Migration preserves existing tracks, jobs,
+The library upgrades to schema 27. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
@@ -53,6 +55,7 @@ Direct rekordbox reconciliation reviews and encrypted copied-row staging are int
 | Provider acceptance | Direct Traxsource requests returned HTTP 403. A read-only native probe with the configured Trawl transport fetched and matched a live track including release metadata, and correctly returned no-match for an empty search. No end-to-end file write or packaged-app acceptance is established. Beatport has a native successful probe, not universal catalog coverage. | A real native Traxsource match/write and representative provider coverage checks without bypassing failed required stages. |
 | Organization acceptance | Known linked references require path-only repair. Rekordbox references without a supported registered writer block organization; arbitrary external references cannot be discovered. Per-track native database backups can amplify storage and are included in conservative preflight. | Current-head native fixtures for publication/recovery/reference repair, plus separate native application reopen and large-library storage checks. Physical DJ player acceptance is not implied. |
 | Metadata acceptance | Generated native fixtures cover supported formats, exact rating/comment/picture identities, staged interruptions, Incoming Move/Ready/Undo and unchanged PCM/analysis/cues. Synthetic browser captures validate both themes and compact layouts; controller tests cover draft flush and Quit receipts. | Final packaged native-window quit/reopen acceptance and broader representative user-library runs remain separate. Full binary-tag parity is not claimed. |
+| Curate and preset acceptance | Local outbox, mapped publication and immutable source-rule capture have native regression coverage. Browser/controller checks cover both themes, compact layouts, complete filtered selections and local-save receipts. | Final packaged native-window restart and representative large-library acceptance remain separate. Local categories are not automatically exported as native DJ categories. |
 | Energy acceptance | The local formula matches the recorded usable synthetic helper cases. Real-music scalar-energy agreement and exact WebAudio resampling equivalence remain unmeasured. | A frozen real-music comparison with identical inputs/configuration and separately reported missing/unrated results. |
 | Analysis acceptance | Development-set timing/cue agreement does not prove unseen-track musical correctness or all cue configurations. | Independent held-out evaluation and broader native GUI comparisons, with raw detection and saved publication evaluated separately. |
 | Platform acceptance | Hosted builds/tests and generated fixtures do not establish every native interaction on all desktops. No Intel macOS release artifact is configured. | Final Windows/Linux native playback, import/settings/restart/recovery acceptance and representative common-format checks; a separate Intel build if added later. |
@@ -93,6 +96,10 @@ acceptance and release-publication gates.
   helper comparisons and explicit rule/rounding policy differences.
 - [Maintenance API](development/maintenance-api.md) documents publication,
   recovery, disposal and the remaining UI handoff.
+- [Curation and presets](development/curation-and-presets-api.md) documents
+  desired/publication revisions, shared metadata journals and per-source settings
+  capture. The [Curate](user-guide/guides/curating.md) and
+  [preset](user-guide/guides/preparation-presets.md) guides describe the controls.
 - [Direct Rekordbox contract](research/rekordbox-direct-contract.md) records the
   copied-data boundary. Initial per-field observations remain unacknowledged;
   storing an import baseline is not proof that either library was synchronized.
@@ -101,12 +108,14 @@ acceptance and release-publication gates.
 
 The release PR must include current-head local verification, the outstanding
 limits above, resolved review findings and a completed Codex review of its
-latest commit. Require the repository PR gate and full cross-platform checks
-before squash-merging. Do not use an older approval or an earlier green run as
+latest commit. Require the repository PR gate and Linux checks
+before squash-merging; the other platforms run on main. Do not use an older approval or an earlier green run as
 approval of a changed head.
 
 After merge, [the release workflow](development/pr-workflow.md) builds and
-publishes automatically only after both main-commit build workflows succeed.
+publishes automatically only after every platform component succeeds. An explicitly declared
+build repair may retain unaffected checks from a checked ancestor, with fresh results required
+for the repaired components; see the linked workflow guide.
 Check the resulting signing/notarization, publishing job and downloadable assets
 before reporting a release as available. A merged PR or unsigned local app is
 not publication evidence. No manual version bump or release tag is part of this

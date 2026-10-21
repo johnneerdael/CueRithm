@@ -20,6 +20,8 @@ Reference pages for every screen and setting. Use these when you know what you w
 | [Automatic tagging settings](tagging-settings.md) | Every option on the tagging page |
 | [File organization](file-organization.md) | Naming, complete previews, reference repair, recovery and Undo |
 | [Match review and metadata editing](metadata-editing.md) | Candidate decisions, typed tags/artwork, durable drafts, save and Undo |
+| [Curate tracks](curating.md) | Categories, user rating, notes, autosave, pending work and mappings |
+| [Preparation presets](preparation-presets.md) | Named rules, folder precedence, portable import/export and reconnection |
 | [Settings reference](settings.md) | Saved preparation, library and appearance settings |
 
 For details of how CueRithm computes values, see [Under the hood](../technical/index.md).

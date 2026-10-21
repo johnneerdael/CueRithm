@@ -2,6 +2,7 @@ mod backup_commands;
 mod builtin;
 mod commands;
 mod compatible_commands;
+mod curation_commands;
 mod exit;
 mod exit_commands;
 mod host;
@@ -11,6 +12,8 @@ mod manual_publication_commands;
 mod match_review_commands;
 mod metadata_commands;
 mod organization_commands;
+mod preparation_preset_commands;
+mod provider_commands;
 mod rekordbox_sync_commands;
 mod sync_commands;
 mod tracklist_commands;
@@ -22,6 +25,23 @@ fn context() -> tauri::Context<tauri::Wry> {
     tauri::generate_context!()
 }
 
+/// Native automation shares packaged resources and provider identity without opening a window.
+pub fn automation_context(
+    library: &cuerithm_library::Library,
+) -> Result<(
+    cuerithm_media::MediaRuntime,
+    Arc<cuerithm_autotag::CatalogRuntime>,
+)> {
+    let context = context();
+    let resources =
+        tauri::utils::platform::resource_dir(context.package_info(), &Default::default())?
+            .join("media");
+    let runtime = cuerithm_media::MediaRuntime::from_bundle(&resources)?;
+    builtin::BuiltinModels::install(library.data_dir())?.configure_library(library)?;
+    let providers = library.provider_runtime(&context.package_info().version.to_string())?;
+    Ok((runtime, providers.runtime().clone()))
+}
+
 pub fn diagnostics() -> Result<()> {
     let context = context();
     let folder = tauri::utils::platform::resource_dir(context.package_info(), &Default::default())?
@@ -30,7 +50,7 @@ pub fn diagnostics() -> Result<()> {
     builtin::BuiltinModels::verify()?;
     println!(
         "{}",
-        serde_json::json!({"application":"Cuerithm","version":env!("CARGO_PKG_VERSION"),"decoder":runtime.identity,"resources_verified":true,"built_in_analysis_verified":true})
+        serde_json::json!({"application":"Cuerithm","version":context.package_info().version.to_string(),"decoder":runtime.identity,"resources_verified":true,"built_in_analysis_verified":true})
     );
     Ok(())
 }
@@ -43,7 +63,13 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
         if let Ok(mut player) = host.player.lock() {
             let _ = player.pause();
         }
+        if let Ok(worker) = host.curation_worker.lock() {
+            worker.request_shutdown();
+        }
         host.preparation.shutdown();
+        if let Ok(mut worker) = host.curation_worker.lock() {
+            worker.shutdown();
+        }
         host.smart_playlists.shutdown();
         host.maintenance.wait_until_idle();
         app.exit(0);
@@ -52,6 +78,7 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let root = if let Some(root) = std::env::var_os("CUERITHM_DATA_DIR") {
                 PathBuf::from(root)
@@ -75,7 +102,12 @@ pub fn run() {
             // Blocked-before-mutation restore intents leave the current DB safe to open.
             // Errors after mutation intent stop startup and retain the recovery snapshot.
             cuerithm_library::apply_pending_library_restore(&root.join("library.sqlite"))?;
-            let host = Arc::new(host::Host::open(&root, &runtime, initial_folder)?);
+            let host = Arc::new(host::Host::open_with_release(
+                &root,
+                &runtime,
+                initial_folder,
+                &app.package_info().version.to_string(),
+            )?);
             let events = host.preparation.subscribe();
             let handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -92,6 +124,21 @@ pub fn run() {
                         let _ = handle.emit("metadata-edit-change", ());
                         let _ = handle.emit("catalog-access-change", ());
                     }
+                }
+            });
+            let events = host.curation.subscribe();
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                for event in events {
+                    let track_ids = event
+                        .track_id
+                        .as_ref()
+                        .map(|id| vec![id.clone()])
+                        .unwrap_or_default();
+                    let _ = handle.emit("curation-change", &event);
+                    let _ = handle.emit("metadata-edit-change", ());
+                    let _ =
+                        handle.emit("library-change", serde_json::json!({"track_ids":track_ids}));
                 }
             });
             let state = host.clone();
@@ -140,6 +187,35 @@ pub fn run() {
             compatible_commands::save_compatible_playlist,
             tracklist_commands::match_tracklist,
             tracklist_commands::save_tracklist_playlist,
+            provider_commands::provider_setup_statuses,
+            provider_commands::save_provider_credential,
+            provider_commands::remove_provider_credential,
+            provider_commands::test_provider_credential,
+            provider_commands::open_catalog_source,
+            curation_commands::curation_catalog,
+            curation_commands::edit_curation_taxonomy,
+            curation_commands::curation_snapshot,
+            curation_commands::update_curation,
+            curation_commands::reexport_curation,
+            curation_commands::curation_pending_page,
+            curation_commands::curation_history_page,
+            curation_commands::curation_publication,
+            curation_commands::retry_curation,
+            curation_commands::discard_curation,
+            curation_commands::undo_curation,
+            preparation_preset_commands::preparation_presets,
+            preparation_preset_commands::preparation_preset,
+            preparation_preset_commands::save_preparation_preset,
+            preparation_preset_commands::duplicate_preparation_preset,
+            preparation_preset_commands::delete_preparation_preset,
+            preparation_preset_commands::preview_preparation_preset_import,
+            preparation_preset_commands::import_preparation_preset,
+            preparation_preset_commands::export_preparation_preset,
+            preparation_preset_commands::project_preparation_preset,
+            preparation_preset_commands::overlay_preparation_preset,
+            preparation_preset_commands::preparation_preset_folders,
+            preparation_preset_commands::choose_preparation_preset_import,
+            preparation_preset_commands::save_preparation_preset_export,
             exit_commands::register_exit_guard,
             exit_commands::unregister_exit_guard,
             exit_commands::complete_exit,

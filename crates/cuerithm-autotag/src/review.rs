@@ -7,6 +7,28 @@ use std::sync::{
 };
 const MAX_EXPANDED_BYTES: usize = 2 * 1024 * 1024;
 impl Tagger {
+    /// Captured provider permission; recognition capability remains tied to its original source.
+    pub fn review_candidate_provider_enabled(
+        input: &TagInput,
+        candidate: &CatalogMatch,
+        config: &AutotagConfig,
+    ) -> Result<bool> {
+        candidate.validate()?;
+        if let Some(origin) = &candidate.recognition {
+            return Ok(config.recognition.enabled
+                && config.recognition.fingerprint_consent
+                && origin.service == crate::CatalogRecognitionService::AcoustId
+                && origin.source_sha256 == input.source_sha256
+                && candidate
+                    .musicbrainz()
+                    .is_some_and(|facts| facts.recording_id == origin.recording_id));
+        }
+        Ok(config
+            .options
+            .platforms
+            .iter()
+            .any(|id| id == &candidate.track.platform))
+    }
     pub fn review_candidate_conflicts(
         input: &TagInput,
         track: &crate::CatalogTrack,
@@ -15,6 +37,18 @@ impl Tagger {
         config.validate()?;
         input.audio_info(config)?;
         Ok(crate::evidence::identity_conflicts(input, track, config))
+    }
+
+    pub fn review_match_conflicts(
+        input: &TagInput,
+        candidate: &CatalogMatch,
+        config: &AutotagConfig,
+    ) -> Result<Vec<String>> {
+        candidate.validate()?;
+        config.validate()?;
+        Ok(crate::evidence::match_identity_conflicts(
+            input, candidate, config,
+        ))
     }
 
     pub fn expand_review_candidate(
@@ -40,11 +74,7 @@ impl Tagger {
             .find(|b| b.source.id().as_str() == candidate.track.platform)
             .ok_or_else(|| anyhow::anyhow!("Candidate provider is unavailable"))?;
         ensure!(
-            config
-                .options
-                .platforms
-                .iter()
-                .any(|p| p == backend.source.id().as_str()),
+            Self::review_candidate_provider_enabled(input, candidate, config)?,
             "Candidate provider is not enabled in this captured configuration"
         );
         let limit = if backend.source.id() == ProviderId::Traxsource {
@@ -60,7 +90,8 @@ impl Tagger {
                     let mut expanded = candidate.clone();
                     backend
                         .source
-                        .extend_cancellable(&mut expanded.track, config, cancel)?;
+                        .extend_candidate_cancellable(&mut expanded, config, cancel)?;
+                    expanded.validate_extension_from(candidate)?;
                     ensure!(
                         !cancel.load(Ordering::Acquire),
                         "Catalog review was cancelled"
@@ -121,14 +152,55 @@ pub fn review_catalog_url(provider: ProviderId, value: &str, artwork: bool) -> O
         return None;
     }
     let host = url.host_str()?;
-    let domain = match provider {
-        ProviderId::Beatport => "beatport.com",
-        ProviderId::Traxsource => "traxsource.com",
+    let under = |domain: &str| host == domain || host.ends_with(&format!(".{domain}"));
+    let allowed = if artwork {
+        match provider {
+            ProviderId::Beatport => under("beatport.com"),
+            ProviderId::Traxsource => under("traxsource.com"),
+            ProviderId::Musicbrainz => host == "coverartarchive.org",
+            ProviderId::Sonovault => false,
+            ProviderId::Discogs => matches!(host, "img.discogs.com" | "i.discogs.com"),
+            ProviderId::Volumo => host == "volumo.com" && url.path().starts_with("/img/"),
+            ProviderId::Itunes => under("mzstatic.com"),
+            ProviderId::Bpmsupreme => false,
+            ProviderId::Bandcamp => host == "f4.bcbits.com",
+            ProviderId::Deezer => under("dzcdn.net"),
+        }
+    } else {
+        match provider {
+            ProviderId::Beatport => matches!(host, "beatport.com" | "www.beatport.com"),
+            ProviderId::Traxsource => matches!(host, "traxsource.com" | "www.traxsource.com"),
+            ProviderId::Musicbrainz => host == "musicbrainz.org",
+            ProviderId::Sonovault => false,
+            ProviderId::Discogs => matches!(host, "discogs.com" | "www.discogs.com"),
+            ProviderId::Volumo => host == "volumo.com",
+            ProviderId::Itunes => matches!(host, "music.apple.com" | "itunes.apple.com"),
+            ProviderId::Bpmsupreme => host == "app.bpmsupreme.com",
+            ProviderId::Bandcamp => under("bandcamp.com"),
+            ProviderId::Deezer => matches!(host, "deezer.com" | "www.deezer.com"),
+        }
     };
-    if !(host == domain || host.ends_with(&format!(".{domain}")))
-        || (!artwork && host != domain && host != format!("www.{domain}"))
-    {
+    if !allowed {
         return None;
+    }
+    if provider == ProviderId::Musicbrainz {
+        let segments: Vec<_> = url.path_segments()?.filter(|s| !s.is_empty()).collect();
+        if artwork {
+            if segments.len() < 2
+                || segments[0] != "release"
+                || crate::Mbid::new(segments[1]).is_err()
+            {
+                return None;
+            }
+        } else if segments.len() != 2
+            || !matches!(
+                segments[0],
+                "recording" | "release" | "release-group" | "artist"
+            )
+            || crate::Mbid::new(segments[1]).is_err()
+        {
+            return None;
+        }
     }
     Some(url.to_string())
 }

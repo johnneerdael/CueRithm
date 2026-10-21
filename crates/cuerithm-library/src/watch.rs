@@ -83,6 +83,13 @@ pub(crate) struct Discovery {
     seen: HashMap<PathBuf, (u64, SystemTime)>,
 }
 impl Discovery {
+    /// A filesystem stamp is not a durable admission receipt. Retrying on the
+    /// next scan lets configuration reconnection admit unchanged source bytes.
+    pub(crate) fn admission_failed(&mut self, paths: &[PathBuf]) {
+        for path in paths {
+            self.seen.remove(path);
+        }
+    }
     pub fn scan(&mut self, folders: &[PathBuf], exclude: &Path, recursive: bool) -> Vec<PathBuf> {
         let mut paths = Vec::new();
         for folder in folders {

@@ -18,6 +18,15 @@ fn relative(path: &str) -> Result<PathBuf> {
     );
     Ok(path)
 }
+// Native ImagePath includes /PIONEER and resolves relative to share, as does
+// AnalysisDataPath. Do not accept the unshipped /Artwork-only reference.
+fn artwork_relative(path: &str) -> Result<PathBuf> {
+    ensure!(
+        path.starts_with("/PIONEER/Artwork/"),
+        "Invalid native artwork resource reference"
+    );
+    relative(path)
+}
 fn source(root: &Path, path: &Path) -> Result<PathBuf> {
     let joined = root.join(path);
     let resolved = joined
@@ -430,7 +439,7 @@ pub(super) fn build(
                 .and_then(|r| r.source.artwork_path.as_deref())
                 .filter(|p| !p.is_empty())
             {
-                let old = relative(old)?;
+                let old = artwork_relative(old)?;
                 let mut equal = true;
                 for (suffix, bytes) in [("", &art.main), ("_m", &art.medium), ("_s", &art.small)] {
                     let relative = artwork_sibling(&old, suffix)?;
@@ -447,7 +456,7 @@ pub(super) fn build(
                 same = equal;
             }
             if !same {
-                let main = PathBuf::from(format!("Artwork/CUERITHM/{id}/{component}.jpg"));
+                let main = PathBuf::from(format!("PIONEER/Artwork/CUERITHM/{id}/{component}.jpg"));
                 for (suffix, bytes) in [("", art.main), ("_m", art.medium), ("_s", art.small)] {
                     let relative = artwork_sibling(&main, suffix)?;
                     let staged = workspace.join(format!("artwork{suffix}.jpg"));
@@ -523,7 +532,7 @@ pub(super) fn artwork_observation(
     path: &str,
     cancel: &CancellationToken,
 ) -> Result<Value> {
-    let file = source(&target.asset_root, &relative(path)?)?;
+    let file = source(&target.asset_root, &artwork_relative(path)?)?;
     ensure_not_native_file(&target.database, &file)?;
     Ok(json!(file_sha256_cancellable(&file, cancel)?))
 }

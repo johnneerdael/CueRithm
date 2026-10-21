@@ -11,4 +11,4 @@ CREATE TABLE native_sync_track_ownership (
  cue_ids_json TEXT NOT NULL DEFAULT '[]', cue_proofs_json TEXT NOT NULL DEFAULT '{}', source_json TEXT,
  PRIMARY KEY(target_id,local_track_id)
 );
-PRAGMA user_version=24;
+PRAGMA user_version=27;

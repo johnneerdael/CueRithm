@@ -13,4 +13,4 @@ CREATE TABLE native_playlist_acknowledgements (
  plan_hash TEXT NOT NULL,receipt_hash TEXT NOT NULL,
  PRIMARY KEY(target_id,plan_hash)
 );
-PRAGMA user_version=23;
+PRAGMA user_version=26;

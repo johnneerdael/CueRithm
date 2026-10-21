@@ -2,5 +2,15 @@
   "identifier":"main",
   "description":"Local library window and user-selected file dialogs",
   "windows":["main"],
-  "permissions":["core:default","dialog:allow-open"]
+  "permissions":[
+    "core:default",
+    "dialog:allow-open",
+    {
+      "identifier":"opener:allow-open-url",
+      "allow":[
+        {"url":"https://sonovault.now/signup"},
+        {"url":"https://volumo.com/profile/api-tokens"}
+      ]
+    }
+  ]
 }
