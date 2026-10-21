@@ -1,17 +1,9 @@
 use super::*;
 use crate::{Library, MetadataEditorPatch};
 use cuerithm_autotag::{MetadataTextField, TextEdit};
-fn fixture() -> (
-    tempfile::TempDir,
-    MetadataEditService,
-    String,
-    std::path::PathBuf,
-) {
-    let temp = tempfile::tempdir().unwrap();
-    let root = temp.path().canonicalize().unwrap();
-    let path = root.join("source.wav");
+fn add_ready_track(lib: &Library, path: &std::path::Path, step: f64) -> String {
     let mut wav = hound::WavWriter::create(
-        &path,
+        path,
         hound::WavSpec {
             channels: 1,
             sample_rate: 44100,
@@ -21,14 +13,13 @@ fn fixture() -> (
     )
     .unwrap();
     for n in 0..44100 {
-        wav.write_sample(((n as f64 * 0.1).sin() * 4000.) as i16)
+        wav.write_sample(((n as f64 * step).sin() * 4000.) as i16)
             .unwrap();
     }
     wav.finalize().unwrap();
-    let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
     let job = lib
         .enqueue(
-            std::slice::from_ref(&path),
+            std::slice::from_ref(&path.to_path_buf()),
             lib.settings().unwrap().revision,
         )
         .unwrap()
@@ -41,6 +32,19 @@ fn fixture() -> (
         .unwrap()
         .track_id;
     lib.conn().unwrap().execute("UPDATE tracks SET state='ready',analysis_json='{}',musical_key='8A',bpm=128,energy=7 WHERE id=?1",[&track]).unwrap();
+    track
+}
+fn fixture() -> (
+    tempfile::TempDir,
+    MetadataEditService,
+    String,
+    std::path::PathBuf,
+) {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let path = root.join("source.wav");
+    let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+    let track = add_ready_track(&lib, &path, 0.1);
     let runtime = cuerithm_media::MediaRuntime::from_bundle(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
     )
@@ -111,7 +115,7 @@ fn reserved(service: &MetadataEditService, track: &str) -> (String, String) {
         )
         .unwrap();
     let write = service
-        .begin_write(&batch.id, &row, &frozen.rows[0], None)
+        .begin_write_owned(&batch.id, &row, &frozen.rows[0], None, None)
         .unwrap();
     (batch.id, write)
 }
@@ -347,4 +351,107 @@ fn committed_cleanup_retains_a_same_byte_replaced_temporary_and_keeps_undo() {
         .1;
     assert_eq!(actual.identity, unknown.identity);
     assert_eq!(actual.sha256, unknown.sha256);
+}
+
+#[test]
+fn undo_journals_every_row_before_restoring_any_file_and_recovery_finishes_them() {
+    let (temp, service, first, first_path) = fixture();
+    let second_path = temp.path().canonicalize().unwrap().join("second.wav");
+    let second = add_ready_track(&service.library, &second_path, 0.2);
+    let original = [
+        file_sha256(&first_path).unwrap(),
+        file_sha256(&second_path).unwrap(),
+    ];
+    let draft = service
+        .create_draft(&[first.clone(), second.clone()])
+        .unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec!["Edited".into()],
+        },
+    );
+    let draft = service
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    let preview = service
+        .preview(&draft.id, draft.revision, &CancellationToken::default())
+        .unwrap();
+    let saved = service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    let edited = [
+        file_sha256(&first_path).unwrap(),
+        file_sha256(&second_path).unwrap(),
+    ];
+    assert_ne!(edited, original);
+
+    let undo = service
+        .journal_undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    let states: Vec<String> = {
+        let conn = service.library.conn().unwrap();
+        let mut q = conn
+            .prepare("SELECT state FROM metadata_edit_rows WHERE batch_id=?1 ORDER BY ordinal")
+            .unwrap();
+        q.query_map([&undo], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap()
+    };
+    assert_eq!(
+        states,
+        ["ready", "ready"],
+        "every row is journaled up front"
+    );
+    let writes: i64 = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_writes WHERE batch_id=?1",
+            [&undo],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(writes, 0);
+    assert_eq!(file_sha256(&first_path).unwrap(), edited[0]);
+    assert_eq!(file_sha256(&second_path).unwrap(), edited[1]);
+
+    let root = service.library.data_dir().to_path_buf();
+    let runtime = service.runtime.clone();
+    drop(service);
+    let lib = Library::open(&root.join("library.sqlite")).unwrap();
+    lib.recover_metadata_edits().unwrap();
+    let service = MetadataEditService::new(lib, runtime);
+    let batch = service
+        .recover(&undo, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(batch.state, "undone", "{batch:?}");
+    assert_eq!(file_sha256(&first_path).unwrap(), original[0]);
+    assert_eq!(file_sha256(&second_path).unwrap(), original[1]);
+    let conn = service.library.conn().unwrap();
+    let linked: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_writes w JOIN metadata_edit_writes o ON o.id=w.undo_of WHERE w.batch_id=?1 AND o.batch_id=?2 AND o.state='undone'",
+            [&undo, &saved.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        linked, 2,
+        "resumed rows are recorded as undoing the original writes"
+    );
+    drop(conn);
+    assert!(
+        !service
+            .history()
+            .unwrap()
+            .into_iter()
+            .find(|b| b.id == saved.id)
+            .unwrap()
+            .can_undo
+    );
 }

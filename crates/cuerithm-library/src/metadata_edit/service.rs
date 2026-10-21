@@ -30,11 +30,19 @@ pub(super) struct StoredStage {
     pub staged_fingerprint: crate::organization::Fingerprint,
     pub backup_fingerprint: crate::organization::Fingerprint,
 }
+/// What an Undo row reverses, journaled with the row so recovery can resume it.
+#[derive(Clone, Serialize, Deserialize)]
+pub(super) enum UndoLink {
+    Write(String),
+    Override(String),
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct FrozenRow {
     pub public: MetadataEditRow,
     pub capture: Capture,
     pub stage: Option<StoredStage>,
+    #[serde(default)]
+    pub undo: Option<UndoLink>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct FrozenPreview {
@@ -324,6 +332,7 @@ impl MetadataEditService {
                 },
                 capture,
                 stage: None,
+                undo: None,
             };
             match self.stage_row(&row.capture, &patch, cancel) {
                 Ok((stage, after)) => {
