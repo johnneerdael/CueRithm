@@ -131,7 +131,7 @@ impl MetadataEditService {
     pub fn drafts(&self) -> Result<Vec<MetadataDraft>> {
         let ids = {
             let conn = self.library.conn()?;
-            let mut q=conn.prepare("SELECT id FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') ORDER BY updated DESC,id")?;
+            let mut q=conn.prepare("SELECT id FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') AND NOT EXISTS(SELECT 1 FROM curation_metadata_drafts c WHERE c.draft_id=metadata_edit_drafts.id) ORDER BY updated DESC,id")?;
             q.query_map([], |r| r.get::<_, String>(0))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         };

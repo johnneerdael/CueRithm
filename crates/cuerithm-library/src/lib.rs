@@ -1,8 +1,14 @@
 //! Durable local library and background preparation.
 #[cfg(feature = "autotag")]
+mod provider_setup;
+#[cfg(feature = "autotag")]
+pub use provider_setup::*;
+#[cfg(feature = "autotag")]
 mod artifact_cleanup;
 #[cfg(feature = "autotag")]
 mod artifacts;
+#[cfg(feature = "autotag")]
+mod catalog_state;
 #[cfg(feature = "autotag")]
 mod cleanup;
 #[cfg(feature = "autotag")]
@@ -13,11 +19,16 @@ pub use cleanup::{
 #[cfg(feature = "autotag")]
 mod album_context;
 mod analysis_cache;
+mod automation;
 mod jobs;
 mod metadata;
 mod native_sync;
 pub use native_sync::*;
+mod preparation_presets;
 mod prepare;
+pub use preparation_presets::*;
+mod curation;
+pub use curation::*;
 mod publication;
 mod publish_files;
 #[cfg(feature = "autotag")]

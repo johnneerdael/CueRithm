@@ -31,6 +31,7 @@ jobs:
       ok: ${{ steps.ready.outputs.ok }}
       sha: ${{ env.SHA }}
       target: ${{ steps.ready.outputs.target }}
+      version: ${{ steps.version.outputs.version }}
     env:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
@@ -70,6 +71,14 @@ jobs:
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
 
+      - name: Select release version before building
+        if: steps.ready.outputs.ok == 'true'
+        id: version
+        run: |
+          base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
+          version=$(python3 .github/scripts/release_notes.py version --base "$base")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   package:
     needs: gate
     if: needs.gate.outputs.ok == 'true'
@@ -78,6 +87,9 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       sha: ${{ needs.gate.outputs.sha }}
+      version: ${{ needs.gate.outputs.version }}
+    secrets:
+      CUERITHM_ACOUSTID_CLIENT_KEY: ${{ secrets.CUERITHM_ACOUSTID_CLIENT_KEY }}
 
   publish:
     needs: [gate, package]
@@ -133,9 +145,9 @@ jobs:
       - name: Publish release
         env:
           TARGET: ${{ needs.gate.outputs.target }}
+          VERSION: ${{ needs.gate.outputs.version }}
         run: |
-          base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
-          version=$(python3 .github/scripts/release_notes.py version --base "$base")
+          version="$VERSION"
           python3 .github/scripts/release_notes.py notes --head "$TARGET" --repo "$GITHUB_REPOSITORY" --version "$version" > notes.md
           for f in release/Cuerithm-*.dmg release/Cuerithm-*.deb release/Cuerithm-*.zip; do mv "$f" "${f%.*}-$version.${f##*.}"; done
           gh release create "v$version" release/* --target "$TARGET" --title "Cuerithm $version" --notes-file notes.md --latest

@@ -27,6 +27,8 @@ The central workflow remains automatic Incoming preparation. Configure tagging a
 - **R11 — Five-PR delivery:** organize the approved scope into five sequential design/implementation PRs, retaining all U0–U11 contracts and individual provider/recognition acceptance. Scope approval does not mean those features are already implemented or shipped.
 - **R12 — Recognition candidates:** evaluate Eipiai Music Identify, Tipsters Shazam Core, API Dojo Shazam and AudD direct (private development token in `.audd`) as PR5 alternatives. Distinguish recurring free allowances from initial trial credits, recording identification from audio descriptors, and documented endpoints from demonstrated behavior. Keep keys private and accept adapters individually.
 
+- **R13 — Existing OneTagger metadata providers:** PR5 includes ports and validation of iTunes, BPM Supreme (personal account), Bandcamp and Deezer. Reuse existing upstream adapters and repair issue-audited defects. Per-provider technical acceptance does not require another scope approval; report specific current blockers. Keep Spotify Audio Features excluded.
+
 ## Existing product contracts carried forward
 
 - Keep measured key, BPM, canonical beatgrid, structural cues and one whole-track energy rating independent of catalog metadata. Do not introduce energy labels on structural cues.
@@ -59,3 +61,9 @@ The user approved the feature program and continuing implementation on 2026-10-2
 - Visual proposal: `docs/design/onetagger-preparation/`.
 
 No live-provider health, actual recording-match accuracy, metadata-write preservation on user music, or runtime behavior of the installed OneTagger app is claimed by static inspection. Those require the implementation acceptance work identified in the plan.
+
+Implementation scope update (2026-10-21): the user excluded Beatsource after its merger into Beatport. No Beatsource provider, setup entry or placeholder is shipped. Spotify remains excluded by user decision.
+
+Implementation scope update (2026-10-21): the user also excluded Juno Download after failed live access and reports of store closure. No Juno Download provider or disabled placeholder is shipped.
+
+Volumo scope addition (2026-10-21): the user accepted Volumo in place of the excluded Beatsource/Juno providers, retaining Traxsource. Add an optional personal-token provider through the existing native setup, shared scheduler, field policy, review and preparation services. The official public API resolves an ISRC to a store link; metadata comes from the identity-checked public track page. Support ISRC and known Volumo track IDs, without claiming undocumented free-text API search. Require exact ISRC/track/release binding, precise release dates, bounded anonymous page/artwork reads, separate bearer-authenticated API requests and existing detected-Cloudflare behavior. Default off; portable presets contain no tokens. Start conservatively at 20 requests/minute and honor stricter remote waits; this is a CueRithm ceiling, not a published vendor allowance. Validate synthetic malformed/swap/auth/cancel fixtures and a single explicit public metadata lookup using the private development token. [Official API](https://volumo.com/api-doc/).

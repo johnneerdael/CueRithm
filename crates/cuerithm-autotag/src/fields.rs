@@ -34,6 +34,7 @@ fn value(
     selected: SupportedTag,
     format: &AudioFileFormat,
     other_bindings: &[String],
+    typed_catalog_dates: bool,
 ) -> Option<Vec<String>> {
     let field = match selected {
         SupportedTag::Title => Some(Field::Title),
@@ -62,7 +63,32 @@ fn value(
             .filter(|v| v.iter().any(|s| !s.trim().is_empty()));
     }
     match selected {
-        SupportedTag::ReleaseDate => tag.get_date().map(|d| vec![format!("{d:?}")]),
+        SupportedTag::ReleaseDate => {
+            let keys: &[&str] = match format {
+                // Read the same canonical fields as the typed editor. In particular, MP4's
+                // legacy get_date() cannot represent a valid month-only value in ©day.
+                AudioFileFormat::FLAC | AudioFileFormat::OGG => {
+                    &["DATE", "RELEASETIME", "RELEASEDATE", "RELEASE_DATE"]
+                }
+                AudioFileFormat::MP4 => &["©day", "----:com.apple.iTunes:RELEASETIME"],
+                AudioFileFormat::WMA => &["RELEASETIME", "WM/Year"],
+                _ => &["TDRC", "TDRL"],
+            };
+            keys.iter()
+                .find_map(|key| tag.get_native(key))
+                .or_else(|| tag.get_date().map(|d| vec![format!("{d:?}")]))
+        }
+        // Typed catalog facts carry the recording's original release date, matching the
+        // native editor. Legacy provider publish dates keep their distinct historical field.
+        SupportedTag::PublishDate if typed_catalog_dates => {
+            let keys: &[&str] = match format {
+                AudioFileFormat::FLAC | AudioFileFormat::OGG => &["ORIGINALDATE"],
+                AudioFileFormat::MP4 => &["----:com.apple.iTunes:ORIGINALDATE"],
+                AudioFileFormat::WMA => &["WM/OriginalReleaseTime"],
+                _ => &["TDOR", "TORY"],
+            };
+            keys.iter().find_map(|key| tag.get_native(key))
+        }
         SupportedTag::PublishDate => tag.get_raw(match format {
             AudioFileFormat::FLAC | AudioFileFormat::OGG => "ORIGINALDATE",
             AudioFileFormat::MP4 => "com.apple.iTunes:PUBLISHTIME",
@@ -100,7 +126,25 @@ fn value(
             let mut values: Vec<_> = tag
                 .all_tags()
                 .into_iter()
-                .filter(|(k, _)| k.to_uppercase().ends_with(suffix))
+                .filter(|(k, _)| {
+                    let canonical = k
+                        .chars()
+                        .filter(|c| c.is_ascii_alphanumeric())
+                        .flat_map(char::to_lowercase)
+                        .collect::<String>();
+                    k.to_uppercase().ends_with(suffix)
+                        || match selected {
+                            SupportedTag::TrackId => {
+                                canonical.ends_with("musicbrainztrackid")
+                                    || canonical.ends_with("musicbrainzreleasetrackid")
+                            }
+                            SupportedTag::ReleaseId => {
+                                canonical.ends_with("musicbrainzalbumid")
+                                    || canonical.ends_with("musicbrainzreleasegroupid")
+                            }
+                            _ => false,
+                        }
+                })
                 .collect();
             values.sort_by(|a, b| a.0.cmp(&b.0));
             (!values.is_empty()).then(|| {
@@ -129,6 +173,17 @@ pub(crate) fn values(
     other_bindings: &[String],
     custom_style: Option<&str>,
 ) -> Result<Vec<Option<Vec<String>>>> {
+    values_for_catalog(path, info, selected, other_bindings, custom_style, false)
+}
+
+pub(crate) fn values_for_catalog(
+    path: &Path,
+    info: &MediaInfo,
+    selected: &[SupportedTag],
+    other_bindings: &[String],
+    custom_style: Option<&str>,
+    typed_catalog_dates: bool,
+) -> Result<Vec<Option<Vec<String>>>> {
     let format = audio_format(info)?;
     if format == AudioFileFormat::WMA {
         let tag = AsfTag::open(path)?;
@@ -140,7 +195,7 @@ pub(crate) fn values(
                 {
                     tag.get_raw(custom)
                 } else {
-                    value(&tag, *s, &format, other_bindings)
+                    value(&tag, *s, &format, other_bindings, typed_catalog_dates)
                 }
             })
             .collect())
@@ -160,10 +215,37 @@ pub(crate) fn values(
                     && let Some(custom) = custom_style
                 {
                     wrapper.tag().get_raw(custom)
+                } else if *s == SupportedTag::TrackId && matches!(&wrapper, Tag::ID3(_)) {
+                    let mut values = value(
+                        &**wrapper.tag(),
+                        *s,
+                        &format,
+                        other_bindings,
+                        typed_catalog_dates,
+                    )
+                    .unwrap_or_default();
+                    if let Tag::ID3(tag) = &wrapper {
+                        for id in tag
+                            .editor_tag()
+                            .unique_file_identifiers()
+                            .filter(|id| id.owner_identifier == "http://musicbrainz.org")
+                        {
+                            if let Ok(value) = std::str::from_utf8(&id.identifier) {
+                                values.push(format!("UFID:http://musicbrainz.org={value}"));
+                            }
+                        }
+                    }
+                    (!values.is_empty()).then_some(values)
                 } else if format == AudioFileFormat::MP4 && *s == SupportedTag::Explicit {
                     advisory.clone()
                 } else {
-                    value(*wrapper.tag(), *s, &format, other_bindings)
+                    value(
+                        *wrapper.tag(),
+                        *s,
+                        &format,
+                        other_bindings,
+                        typed_catalog_dates,
+                    )
                 }
             })
             .collect())
@@ -270,6 +352,7 @@ pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bo
     let leaf = custom_leaf(key, format);
     [
         "GEOB",
+        "UFID",
         "PRIV",
         "POPM",
         "COMM",
@@ -335,6 +418,12 @@ pub(crate) fn custom_bypasses_field_policy(
                 .any(|alias| alias.eq_ignore_ascii_case(key) || alias.eq_ignore_ascii_case(&leaf))
     });
     bound
+        || (leaf
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect::<String>()
+            .contains("MUSICBRAINZ")
+            && leaf.ends_with("ID"))
         || leaf.ends_with("_TRACK_ID")
         || leaf.ends_with("_RELEASE_ID")
         || leaf.ends_with("_TAGGEDDATE")

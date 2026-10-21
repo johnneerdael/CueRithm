@@ -139,7 +139,9 @@ impl Library {
             .context("Protected metadata override was not applied to staged output")?;
         tx.execute("UPDATE metadata_edit_overrides SET state='committed',updated=?1,receipt_json=?4 WHERE job_id=?2 AND claimed_attempt=?3",params![now(),run.id,run.attempt,receipt])?;
         tx.execute("UPDATE metadata_edit_rows SET state='written',error=NULL,result_json=?1 WHERE batch_id=?2 AND track_id=?3 AND state='queued'",params![receipt,batch,run.track_id])?;
-        Self::settle_override_batch_tx(tx, &batch, &draft, revision)
+        Self::settle_override_batch_tx(tx, &batch, &draft, revision)?;
+        Self::ack_curation_child_tx(tx, &batch, &run.track_id)?;
+        Ok(())
     }
     /// A newer saved override replaced a queued row. Any other batch left with nothing waiting
     /// becomes `partial`, and its draft follows so Pending stops listing it as queued.
@@ -182,6 +184,7 @@ impl Library {
         parent: &crate::organization::Authority,
         fingerprint: &crate::organization::Fingerprint,
     ) -> Result<()> {
+        Self::finalize_curation_preparation_tx(tx, run, path, parent, fingerprint)?;
         let pending:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides WHERE job_id=?1 AND state='committed' AND claimed_attempt=?2 AND final_json IS NULL)",params![run.id,run.attempt],|r|r.get(0))?;
         if !pending {
             return Ok(());

@@ -20,6 +20,7 @@ pub enum AnalysisTagSource {
 #[serde(default)]
 pub struct AutotagConfig {
     pub solver: crate::SolverConfig,
+    pub recognition: crate::RecognitionConfig,
     pub options: TaggerConfig,
     pub no_match: NoMatchPolicy,
     pub analysis_tag_source: AnalysisTagSource,
@@ -41,6 +42,7 @@ impl Default for AutotagConfig {
         }
         Self {
             solver: crate::SolverConfig::default(),
+            recognition: crate::RecognitionConfig::default(),
             options,
             no_match: NoMatchPolicy::default(),
             analysis_tag_source: AnalysisTagSource::default(),
@@ -52,6 +54,7 @@ impl Default for AutotagConfig {
 impl AutotagConfig {
     pub fn validate(&self) -> Result<()> {
         self.solver.validate()?;
+        self.recognition.validate()?;
         let c = &self.options;
         ensure!(
             self.required_tags.iter().all(|t| c.tags.contains(t)),
@@ -79,15 +82,31 @@ impl AutotagConfig {
             "Invalid album matching ratio"
         );
         ensure!(
-            !c.platforms.is_empty() && c.platforms.len() <= 2,
-            "Choose Beatport and/or Traxsource"
+            !c.platforms.is_empty() && c.platforms.len() <= crate::ProviderId::ALL.len(),
+            "Choose at least one supported metadata provider"
         );
         let mut seen = std::collections::HashSet::new();
         for id in &c.platforms {
             ensure!(
-                (id == "beatport" || id == "traxsource") && seen.insert(id),
+                crate::ProviderId::parse(id).is_some() && seen.insert(id),
                 "Unsupported or duplicate provider"
             );
+        }
+        for (id, value) in &c.custom.0 {
+            let provider = crate::ProviderId::parse(id)
+                .ok_or_else(|| anyhow::anyhow!("Unsupported provider options"))?;
+            let values = value
+                .as_object()
+                .ok_or_else(|| anyhow::anyhow!("Provider options must be an object"))?;
+            if !matches!(
+                provider,
+                crate::ProviderId::Beatport | crate::ProviderId::Traxsource
+            ) {
+                ensure!(
+                    values.is_empty(),
+                    "Provider credentials and unsupported options cannot be saved in preparation settings"
+                );
+            }
         }
         ensure!(
             c.strictness.is_finite() && (0.0..=1.0).contains(&c.strictness),
@@ -158,4 +177,25 @@ pub(crate) fn filename_template(template: &str) -> Result<regex::Regex> {
         "{}\\.[a-zA-Z0-9]{{2,4}}$",
         text.trim()
     ))?)
+}
+
+#[cfg(test)]
+mod credential_settings_tests {
+    use super::*;
+    #[test]
+    fn personal_secrets_are_not_accepted_as_provider_settings() {
+        let mut c = AutotagConfig::default();
+        c.options.custom.0.insert(
+            "sonovault".into(),
+            serde_json::json!({"api_key":"synthetic-do-not-save"}),
+        );
+        assert!(c.validate().is_err());
+        c.options
+            .custom
+            .0
+            .insert("sonovault".into(), serde_json::json!({}));
+        assert!(c.validate().is_ok());
+        c.options.platforms = vec!["spotify".into()];
+        assert!(c.validate().is_err());
+    }
 }

@@ -29,8 +29,9 @@ pub(crate) fn validate_report(
             expected == *report,
             "Cleanup result differs from the configured rules"
         );
+        let stable=|tags:&[cuerithm_cleanup::CustomTag]|->Result<std::collections::BTreeSet<(String,String)>>{tags.iter().map(|tag|crate::curation::resolve_category_value(conn,&tag.category,&tag.value,false)).collect()};
         ensure!(
-            super::custom_tags(conn, track)? == report.original.custom_tags,
+            stable(&super::custom_tags(conn, track)?)? == stable(&report.original.custom_tags)?,
             "Categorized tags changed during preparation"
         );
     }

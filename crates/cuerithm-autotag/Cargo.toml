@@ -6,6 +6,11 @@ rust-version = "1.90"
 license = "GPL-3.0-only"
 
 [dependencies]
+cuerithm-credentials = { path = "../cuerithm-credentials" }
+scraper = "0.23"
+base64.workspace = true
+rusty-chromaprint = "=0.3.0"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "macros", "sync"] }
 id3 = "1.17"
 metaflac = "0.2.8"
 lofty = "0.22"
@@ -18,7 +23,7 @@ cuerithm-cleanup = { path = "../cuerithm-cleanup" }
 cuerithm-media = { path = "../cuerithm-media" }
 onetagger-tag = { path = "../../vendor/onetagger/onetagger-tag", features = ["tag"] }
 onetagger-tagger = { path = "../../vendor/onetagger/onetagger-tagger" }
-reqwest = { version = "0.12", default-features = false, features = ["blocking","json","rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking","json","rustls-tls","stream"] }
 regex = "1"
 onetagger-selected-providers = { path = "../../vendor/onetagger/providers" }
 

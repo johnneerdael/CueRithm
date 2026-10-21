@@ -103,11 +103,13 @@ impl ChallengeStore for MemoryChallengeStore {
     }
 }
 
+type StartGate = Arc<dyn Fn(&Arc<AtomicBool>) -> Result<()> + Send + Sync>;
 #[derive(Clone)]
 pub struct CatalogHttp {
     client: Client,
     source: String,
     store: Arc<dyn ChallengeStore>,
+    start_gate: Option<StartGate>,
 }
 impl CatalogHttp {
     pub fn new(client: Client, source: &str, store: Arc<dyn ChallengeStore>) -> Self {
@@ -115,7 +117,12 @@ impl CatalogHttp {
             client,
             source: source.into(),
             store,
+            start_gate: None,
         }
+    }
+    pub fn with_start_gate(mut self, gate: StartGate) -> Self {
+        self.start_gate = Some(gate);
+        self
     }
     pub fn get_text(
         &self,
@@ -133,6 +140,9 @@ impl CatalogHttp {
             "Invalid catalog URL"
         );
         if !self.store.requires_solver(&self.source)? {
+            if let Some(gate) = &self.start_gate {
+                gate(cancel)?;
+            }
             let response = self
                 .client
                 .get(target.clone())
@@ -178,6 +188,9 @@ impl CatalogHttp {
         // solver fetches every page for a marked source and owns clearance reuse.
         for attempt in 0..2 {
             ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+            if let Some(gate) = &self.start_gate {
+                gate(cancel)?;
+            }
             let result = solve(&endpoint, &target, config.timeout_seconds, cancel);
             match result {
                 Err(error)

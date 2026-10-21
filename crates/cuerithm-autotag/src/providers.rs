@@ -34,6 +34,9 @@ impl Default for CatalogEndpoints {
     }
 }
 impl CatalogEndpoints {
+    pub(crate) fn fixture_origin(&self) -> Option<&str> {
+        self.api.starts_with("http://").then_some(self.api.as_str())
+    }
     /// Local HTTP fixtures only; production addresses are fixed and never exposed as app settings.
     pub fn for_local_server(url: &str, timeout: Duration) -> Result<Self> {
         let parsed = reqwest::Url::parse(url)?;
@@ -54,16 +57,71 @@ impl CatalogEndpoints {
     }
 }
 pub(crate) fn options() -> Vec<PlatformInfo> {
-    vec![
+    use onetagger_tagger::{PlatformCustomOptions, SupportedTag::*};
+    let mut out = vec![
         BeatportBuilder::new().info(),
         TraxsourceBuilder::new().info(),
-    ]
+    ];
+    for (id, name, auth) in [
+        (ProviderId::Musicbrainz, "MusicBrainz", false),
+        (ProviderId::Sonovault, "SonoVault", true),
+        (ProviderId::Discogs, "Discogs", false),
+        (ProviderId::Volumo, "Volumo", true),
+        (ProviderId::Itunes, "iTunes", false),
+        (ProviderId::Bpmsupreme, "BPM Supreme", true),
+        (ProviderId::Bandcamp, "Bandcamp", false),
+        (ProviderId::Deezer, "Deezer", false),
+    ] {
+        let mut tags = vec![
+            Title,
+            Artist,
+            Album,
+            ReleaseDate,
+            AlbumArt,
+            TrackId,
+            ReleaseId,
+            Duration,
+            TrackNumber,
+            TrackTotal,
+            DiscNumber,
+            ISRC,
+            Genre,
+            Label,
+            URL,
+        ];
+        tags.retain(|field| crate::provider_native_field_allowed(id.as_str(), *field));
+        out.push(PlatformInfo {
+            id: id.as_str().into(),
+            name: name.into(),
+            description: match id {
+                ProviderId::Sonovault => "Optional personal API key; metadata allowance applies",
+                ProviderId::Discogs => {
+                    "Public catalog: 25 requests/minute; verified account: up to 60"
+                }
+                ProviderId::Volumo => "Personal API token; ISRC or Volumo track-ID metadata lookup",
+                ProviderId::Bpmsupreme => {
+                    "Optional personal account; edition-aware catalog matching"
+                }
+                _ => "Optional catalog metadata provider",
+            }
+            .into(),
+            version: "1.0.0".into(),
+            icon: &[],
+            max_threads: 1,
+            custom_options: PlatformCustomOptions::new(),
+            supported_tags: tags,
+            requires_auth: auth,
+        });
+    }
+    out
 }
 pub(crate) fn backends(
     endpoints: CatalogEndpoints,
     store: Arc<dyn ChallengeStore>,
+    runtime: Arc<crate::CatalogRuntime>,
 ) -> Result<Vec<Arc<dyn ProviderBackend>>> {
     let mut out: Vec<Arc<dyn ProviderBackend>> = Vec::new();
+    let token = Arc::new(BeatportTokenCache::default());
     for id in [ProviderId::Beatport, ProviderId::Traxsource] {
         let agent = if id == ProviderId::Beatport {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
@@ -75,17 +133,49 @@ pub(crate) fn backends(
             .timeout(endpoints.timeout)
             .redirect(reqwest::redirect::Policy::limited(5))
             .build()?;
+        let shared_runtime = runtime.clone();
+        let service = if id == ProviderId::Beatport {
+            crate::CatalogService::Beatport
+        } else {
+            crate::CatalogService::Traxsource
+        };
         out.push(Arc::new(Native {
+            start_gate: Arc::new(move |cancel| shared_runtime.wait_start(service, cancel)),
             id,
             client,
             endpoints: endpoints.clone(),
-            token: Arc::new(BeatportTokenCache::default()),
+            token: token.clone(),
             store: store.clone(),
         }));
     }
+    out.push(Arc::new(crate::MusicBrainzBackend::new(runtime.clone())));
+    out.push(Arc::new(crate::sonovault::SonoVaultBackend::new(
+        runtime.clone(),
+    )));
+    out.push(Arc::new(crate::discogs::DiscogsBackend::new(
+        runtime.clone(),
+    )));
+    out.push(Arc::new(crate::VolumoBackend::new(
+        runtime.clone(),
+        store.clone(),
+    )?));
+    for id in [
+        ProviderId::Itunes,
+        ProviderId::Bpmsupreme,
+        ProviderId::Bandcamp,
+        ProviderId::Deezer,
+    ] {
+        out.push(Arc::new(crate::catalog_ports::CatalogPort::new(
+            id,
+            runtime.clone(),
+            store.clone(),
+        )?));
+    }
     Ok(out)
 }
+type NativeStartGate = Arc<dyn Fn(&Arc<AtomicBool>) -> Result<()> + Send + Sync>;
 struct Native {
+    start_gate: NativeStartGate,
     id: ProviderId,
     client: Client,
     endpoints: CatalogEndpoints,
@@ -103,16 +193,19 @@ impl Native {
                     &self.endpoints.api,
                     &self.endpoints.auth,
                 )
-                .with_cancel(cancel),
+                .with_cancel(cancel)
+                .with_start_gate(self.start_gate.clone()),
             ),
             ProviderId::Traxsource => Box::new(
                 Traxsource::with_endpoints(self.client.clone(), &self.endpoints.traxsource)
                     .with_http(
-                        CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone()),
+                        CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone())
+                            .with_start_gate(self.start_gate.clone()),
                         config.solver.clone(),
                         cancel,
                     ),
             ),
+            _ => unreachable!("legacy backend constructed only for Beatport/Traxsource"),
         }
     }
 }
@@ -131,7 +224,8 @@ impl ProviderBackend for Native {
         );
         Traxsource::with_endpoints(self.client.clone(), &self.endpoints.traxsource)
             .with_http(
-                CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone()),
+                CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone())
+                    .with_start_gate(self.start_gate.clone()),
                 config.solver.clone(),
                 cancel.clone(),
             )
@@ -191,7 +285,7 @@ impl ProviderBackend for Native {
             .match_track(&info, &config.options)
             .map_err(|e| native_failure(self.id, e))?;
         found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));
-        Ok(found)
+        Ok(found.into_iter().map(CatalogMatch::from).collect())
     }
     fn extend(&self, track: &mut CatalogTrack, config: &AutotagConfig) -> Result<()> {
         self.extend_cancellable(track, config, &Arc::new(AtomicBool::new(false)))
@@ -238,6 +332,7 @@ mod solver_budget_tests {
     #[test]
     fn solver_budget_covers_all_pages_without_changing_direct_api_deadline() {
         let native = Native {
+            start_gate: Arc::new(|_| Ok(())),
             id: ProviderId::Traxsource,
             client: Client::new(),
             endpoints: CatalogEndpoints::default(),

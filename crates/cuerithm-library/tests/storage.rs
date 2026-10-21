@@ -242,6 +242,75 @@ fn reopening_waits_for_a_briefly_inherited_child_lease() {
 // editor/review work, even before a physical write journal has been created.
 #[cfg(not(feature = "autotag"))]
 #[test]
+fn untagged_build_preserves_native_curation_before_child_allocation() {
+    use cuerithm_library::*;
+    for native_required in [true, false] {
+        let temp = tempfile::tempdir().unwrap();
+        let db = temp.path().join("library.sqlite");
+        let source = temp.path().join("source.flac");
+        std::fs::write(&source, b"curation guard fixture; never decoded").unwrap();
+        let library = Library::open(&db).unwrap();
+        library
+            .enqueue(
+                std::slice::from_ref(&source),
+                library.settings().unwrap().revision,
+            )
+            .unwrap();
+        let run = library.claim_next().unwrap().unwrap();
+        let service = CurationService::new(library.clone(), None);
+        service
+            .update(CurationUpdateRequest {
+                request_id: format!("pending-{native_required}"),
+                taxonomy_revision: service.catalog().unwrap().revision,
+                tracks: vec![CurationExpectedRevision {
+                    track_id: run.track_id.clone(),
+                    revision: 0,
+                }],
+                patch: CurationPatch {
+                    notes: CurationValueEdit::Set {
+                        value: "Pending note".into(),
+                    },
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+        let sql = rusqlite::Connection::open(&db).unwrap();
+        // Simulate a desired head accepted by a tagging-enabled application,
+        // before its native child journal can have been allocated.
+        sql.execute(
+            "UPDATE curation_tracks SET native_required=?1 WHERE track_id=?2",
+            rusqlite::params![native_required, run.track_id],
+        )
+        .unwrap();
+        drop(service);
+        drop(library);
+        let opened = Library::open(&db);
+        if native_required {
+            let error = opened
+                .err()
+                .expect("accepted native curation needs the full writer build");
+            assert!(error.to_string().contains("tagging-enabled"));
+            let state: String = sql
+                .query_row("SELECT state FROM jobs WHERE id=?1", [&run.id], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_eq!(state, "running", "refusal must precede ownership recovery");
+        } else {
+            assert!(
+                opened.is_ok(),
+                "library-only pending curation remains available"
+            );
+        }
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            b"curation guard fixture; never decoded"
+        );
+    }
+}
+
+#[cfg(not(feature = "autotag"))]
+#[test]
 fn untagged_build_preserves_pending_native_decisions_before_recovery() {
     for (kind, state, completed) in [
         ("editor", "queued", false),

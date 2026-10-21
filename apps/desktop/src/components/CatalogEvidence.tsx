@@ -1,0 +1,17 @@
+import type {CatalogArtistCredit,CatalogFacts} from "../catalog-facts-types";
+import type {MetadataDate as TransferDate} from "../editor-types";
+const date=(value:TransferDate|null)=>value?String(value.year).padStart(4,"0")+(value.month===null?"":"-"+String(value.month).padStart(2,"0"))+(value.day===null?"":"-"+String(value.day).padStart(2,"0")):"Not supplied";
+const credits=(values:CatalogArtistCredit[])=>values.map(value=>value.credited_name+value.join_phrase).join("")||"Not supplied";
+export default function CatalogEvidence({facts}:{facts:CatalogFacts|null|undefined}){
+ if(!facts)return null;
+ return <section className="metadata-section catalog-evidence" aria-label="Recording and release evidence"><h3>Recording and release evidence</h3><p className="setting-note">Identifiers, scoped credits and printed positions are read-only evidence. Use the field choices below for supported metadata.</p>{facts.kind==="musicbrainz"?<>
+  <p className="setting-note">{facts.data.scope==="recording_only"?"Recording identified; release edition remains unresolved.":"Candidate is associated with a release track. Confirm that edition before applying its metadata."}</p>
+  <dl><div><dt>Recording ID</dt><dd>{facts.data.recording_id}</dd></div>{facts.data.release_id?<div><dt>Release ID</dt><dd>{facts.data.release_id}</dd></div>:null}{facts.data.release_group_id?<div><dt>Release group ID</dt><dd>{facts.data.release_group_id}</dd></div>:null}{facts.data.release_track_id?<div><dt>Release track ID</dt><dd>{facts.data.release_track_id}</dd></div>:null}
+   <div><dt>Recording credit</dt><dd>{credits(facts.data.recording_credit)}</dd></div><div><dt>Release-track credit</dt><dd>{credits(facts.data.track_credit)}</dd></div><div><dt>Release credit</dt><dd>{credits(facts.data.release_credit)}</dd></div>
+   <div><dt>Selected release date</dt><dd>{date(facts.data.selected_release_date)}</dd></div><div><dt>Recording first release</dt><dd>{date(facts.data.recording_first_release_date)}</dd></div><div><dt>Release-group first release</dt><dd>{date(facts.data.release_group_first_release_date)}</dd></div>
+   {facts.data.position.printed_number?<div><dt>Printed position</dt><dd>{facts.data.position.printed_number}</dd></div>:null}{facts.data.position.medium_position?<div><dt>Medium position</dt><dd>{facts.data.position.medium_position}{facts.data.position.medium_count?" / "+facts.data.position.medium_count:""}</dd></div>:null}
+   {facts.data.release?<div><dt>Release details</dt><dd>{[facts.data.release.title,facts.data.release.country,facts.data.release.media_format,facts.data.release.status].filter(Boolean).join(" · ")}</dd></div>:null}
+   {facts.data.isrcs.length?<div><dt>Recording ISRCs</dt><dd>{facts.data.isrcs.join(" · ")}</dd></div>:null}
+  </dl>{facts.data.cover?<p className="setting-note">Cover Art Archive artwork is bound to this release. Image rights are unspecified; loading a preview does not grant reuse rights.</p>:null}
+ </>:<dl><div><dt>Source</dt><dd>{facts.data.provider}</dd></div><div><dt>Selected release date</dt><dd>{date(facts.data.release_date)}</dd></div>{facts.data.release_id?<div><dt>Release ID</dt><dd>{facts.data.release_id}</dd></div>:null}{facts.data.raw_position?<div><dt>Printed position</dt><dd>{facts.data.raw_position}</dd></div>:null}{facts.data.identities.map((identity,index)=><div key={index}><dt>{identity.source} · {identity.kind.replaceAll("_"," ")}</dt><dd>{identity.id}</dd></div>)}</dl>}</section>;
+}

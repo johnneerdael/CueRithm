@@ -65,6 +65,24 @@ impl Library {
         discovered: bool,
         hash_source: impl Fn(&std::path::Path) -> Result<String>,
     ) -> Result<Vec<JobId>> {
+        self.enqueue_sources_using(paths, revision, discovered, hash_source, false)
+    }
+    pub(crate) fn enqueue_sources_with_current_rules(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+        discovered: bool,
+    ) -> Result<Vec<JobId>> {
+        self.enqueue_sources_using(paths, revision, discovered, file_sha256, true)
+    }
+    fn enqueue_sources_using(
+        &self,
+        paths: &[PathBuf],
+        revision: SettingsRevision,
+        discovered: bool,
+        hash_source: impl Fn(&std::path::Path) -> Result<String>,
+        current_rules: bool,
+    ) -> Result<Vec<JobId>> {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();
         for path in paths {
@@ -151,6 +169,16 @@ impl Library {
                     tx.commit()?;
                     continue;
                 }
+            }
+            if current_rules {
+                tx.commit()?;
+                drop(conn);
+                let snapshot = self.current_preparation_snapshot_for_path(&path)?;
+                let mut conn = self.conn()?;
+                let tx = conn.transaction()?;
+                ids.push(Self::enqueue_one(&tx, &path, &hash, &snapshot.revision)?);
+                tx.commit()?;
+                continue;
             }
             ids.push(Self::enqueue_one(&tx, &path, &hash, &revision)?);
             tx.commit()?;

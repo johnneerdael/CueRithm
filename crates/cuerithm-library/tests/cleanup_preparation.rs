@@ -295,16 +295,41 @@ fn custom_tag_race_rolls_back_and_retries_without_recomputing_analysis() {
     .unwrap();
     let track = lib.jobs().unwrap()[0].track_id.clone();
     let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
-    conn.execute_batch("INSERT INTO custom_tag_categories VALUES('mood','Mood');INSERT INTO custom_tags VALUES('peak','mood','Peak');CREATE TRIGGER mutate_tags AFTER INSERT ON tag_writes WHEN (SELECT COUNT(*) FROM tag_writes)=1 BEGIN UPDATE custom_tags SET name='Later value' WHERE id='peak'; END;").unwrap();
+    // A label rename retains the same categorized-tag identity under Curate.
+    // Replace the assigned value ID to exercise an actual concurrent input edit.
+    conn.execute_batch("INSERT INTO custom_tag_categories VALUES('mood','Mood');INSERT INTO custom_tags VALUES('peak','mood','Peak');INSERT INTO custom_tags VALUES('later','mood','Later value');CREATE TRIGGER mutate_tags AFTER INSERT ON tag_writes WHEN (SELECT COUNT(*) FROM tag_writes)=1 BEGIN DELETE FROM track_custom_tags WHERE track_id=NEW.track_id AND tag_id='peak'; INSERT INTO track_custom_tags(track_id,tag_id)VALUES(NEW.track_id,'later'); END;").unwrap();
     conn.execute("INSERT INTO track_custom_tags VALUES(?1,'peak')", [&track])
         .unwrap();
     drop(conn);
     let before = std::fs::read(&path).unwrap();
+    let pcm_before = rt
+        .decode(&path, lib.data_dir())
+        .unwrap()
+        .pcm_sha256()
+        .unwrap();
     let service = PreparationService::start_with_workers(lib.clone(), rt.clone(), 1).unwrap();
     let events = service.subscribe();
     service.enqueue_paths(std::slice::from_ref(&path)).unwrap();
-    until(|| lib.jobs().unwrap().iter().any(|j| j.state == "attention"));
+    until(|| {
+        lib.jobs()
+            .unwrap()
+            .iter()
+            .any(|j| matches!(j.state.as_str(), "attention" | "completed"))
+    });
     service.shutdown();
+    assert_eq!(
+        lib.jobs().unwrap()[0].state,
+        "attention",
+        "concurrent categorized-tag input must be checked before Ready: {:?}",
+        lib.jobs().unwrap()
+    );
+    assert!(
+        lib.jobs().unwrap()[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Categorized tags changed during preparation")
+    );
     assert_eq!(std::fs::read(&path).unwrap(), before);
     assert_eq!(lib.cue_revision_count(&track).unwrap(), 0);
     assert_eq!(
@@ -318,18 +343,121 @@ fn custom_tag_race_rolls_back_and_retries_without_recomputing_analysis() {
         .unwrap();
     let id = lib.jobs().unwrap()[0].id.clone();
     lib.retry(&id, None).unwrap();
-    let service = PreparationService::start_with_workers(lib.clone(), rt, 1).unwrap();
+    let service = PreparationService::start_with_workers(lib.clone(), rt.clone(), 1).unwrap();
     let events = service.subscribe();
     service.enqueue_paths(std::slice::from_ref(&path)).unwrap();
-    until(|| lib.counts().unwrap().tracks == 1);
+    until(|| {
+        lib.jobs()
+            .unwrap()
+            .iter()
+            .any(|j| matches!(j.state.as_str(), "attention" | "completed"))
+    });
     service.shutdown();
+    assert_eq!(
+        lib.jobs().unwrap()[0].state,
+        "completed",
+        "retry must finish its new membership: {:?}",
+        lib.jobs().unwrap()
+    );
+    assert_eq!(lib.counts().unwrap().tracks, 1);
     assert!(!events.try_iter().any(|e| e.stage == "analysis"));
     assert_eq!(lib.cue_revision_count(&track).unwrap(), 1);
+    assert_eq!(
+        rt.decode(&path, lib.data_dir())
+            .unwrap()
+            .pcm_sha256()
+            .unwrap(),
+        pcm_before
+    );
+    let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
+    let ids:Vec<String>=conn.prepare("SELECT tag_id FROM track_custom_tags WHERE track_id=?1 AND tag_id IN ('peak','later') ORDER BY tag_id").unwrap().query_map([&track],|row|row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+    assert_eq!(ids, ["later"]);
     assert!(
         lib.track_custom_tags(&track)
             .unwrap()
             .iter()
             .any(|t| t.value == "Later value")
+    );
+}
+#[test]
+fn label_rename_during_cleanup_keeps_stable_membership_and_later_display_value() {
+    let (_dir, lib, path, rt) = setup(false);
+    lib.enqueue(
+        std::slice::from_ref(&path),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let track = lib.jobs().unwrap()[0].track_id.clone();
+    let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
+    conn.execute_batch("INSERT INTO custom_tag_categories VALUES('mood','Mood');INSERT INTO custom_tags VALUES('peak','mood','Peak');CREATE TRIGGER rename_tag AFTER INSERT ON tag_writes WHEN (SELECT COUNT(*) FROM tag_writes)=1 BEGIN UPDATE custom_tags SET name='Later value' WHERE id='peak'; END;").unwrap();
+    conn.execute("INSERT INTO track_custom_tags VALUES(?1,'peak')", [&track])
+        .unwrap();
+    drop(conn);
+    let pcm = rt
+        .decode(&path, lib.data_dir())
+        .unwrap()
+        .pcm_sha256()
+        .unwrap();
+    let service = PreparationService::start_with_workers(lib.clone(), rt.clone(), 1).unwrap();
+    service.enqueue_paths(std::slice::from_ref(&path)).unwrap();
+    until(|| {
+        lib.jobs()
+            .unwrap()
+            .iter()
+            .any(|j| matches!(j.state.as_str(), "attention" | "completed"))
+    });
+    service.shutdown();
+    assert_eq!(
+        lib.jobs().unwrap()[0].state,
+        "completed",
+        "{:?}",
+        lib.jobs().unwrap()
+    );
+    assert_eq!(lib.cue_revision_count(&track).unwrap(), 1);
+    assert_eq!(
+        rt.decode(&path, lib.data_dir())
+            .unwrap()
+            .pcm_sha256()
+            .unwrap(),
+        pcm
+    );
+    assert!(
+        lib.track_custom_tags(&track)
+            .unwrap()
+            .iter()
+            .any(|tag| tag.category == "Mood" && tag.value == "Later value")
+    );
+    let conn = rusqlite::Connection::open(lib.data_dir().join("db")).unwrap();
+    let ids:Vec<String>=conn.prepare("SELECT l.tag_id FROM track_custom_tags l JOIN custom_tags t ON t.id=l.tag_id WHERE l.track_id=?1 AND t.category_id='mood' ORDER BY l.tag_id").unwrap().query_map([&track],|row|row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+    assert_eq!(
+        ids,
+        ["peak"],
+        "frozen cleanup must resolve the retained identity, without creating another value"
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM custom_tags WHERE category_id='mood'",
+            [],
+            |row| row.get::<_, u64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    let original: String = conn
+        .query_row(
+            "SELECT cleanup_json FROM tracks WHERE id=?1",
+            [&track],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let report: serde_json::Value = serde_json::from_str(&original).unwrap();
+    assert!(
+        report["original"]["custom_tags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tag| tag["category"] == "Mood" && tag["value"] == "Peak"),
+        "captured cleanup evidence retains its old label while the current display uses the rename"
     );
 }
 #[test]
