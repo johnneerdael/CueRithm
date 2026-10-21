@@ -136,7 +136,7 @@ jobs:
         run: |
           base=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
           version=$(python3 .github/scripts/release_notes.py version --base "$base")
-          python3 .github/scripts/release_notes.py notes --head "$TARGET" --repo "$GITHUB_REPOSITORY" > notes.md
+          python3 .github/scripts/release_notes.py notes --head "$TARGET" --repo "$GITHUB_REPOSITORY" --version "$version" > notes.md
           for f in release/Cuerithm-*.dmg release/Cuerithm-*.deb release/Cuerithm-*.zip; do mv "$f" "${f%.*}-$version.${f##*.}"; done
           gh release create "v$version" release/* --target "$TARGET" --title "Cuerithm $version" --notes-file notes.md --latest
       - name: Remove signing keychain
