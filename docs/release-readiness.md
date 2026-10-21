@@ -102,12 +102,14 @@ acceptance and release-publication gates.
 
 The release PR must include current-head local verification, the outstanding
 limits above, resolved review findings and a completed Codex review of its
-latest commit. Require the repository PR gate and full cross-platform checks
-before squash-merging. Do not use an older approval or an earlier green run as
+latest commit. Require the repository PR gate and Linux checks
+before squash-merging; the other platforms run on main. Do not use an older approval or an earlier green run as
 approval of a changed head.
 
 After merge, [the release workflow](development/pr-workflow.md) builds and
-publishes automatically only after both main-commit build workflows succeed.
+publishes automatically only after every platform component succeeds. An explicitly declared
+build repair may retain unaffected checks from a checked ancestor, with fresh results required
+for the repaired components; see the linked workflow guide.
 Check the resulting signing/notarization, publishing job and downloadable assets
 before reporting a release as available. A merged PR or unsigned local app is
 not publication evidence. No manual version bump or release tag is part of this
