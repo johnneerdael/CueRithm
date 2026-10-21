@@ -98,7 +98,7 @@ impl TagWritePlan {
                 for (name, values) in &track.track.other {
                     let key = name.by_format(&format);
                     ensure!(
-                        !crate::fields::protected_custom_target(&key),
+                        !crate::fields::protected_custom_target(&key, &format),
                         "Provider custom tag targets protected native metadata: {key}"
                     );
                     ensure!(
@@ -127,7 +127,7 @@ impl TagWritePlan {
             let key = name.by_format(&format);
             ensure!(
                 !crate::fields::custom_bypasses_field_policy(&key, &format, true)
-                    && !crate::fields::protected_custom_target(&key)
+                    && !crate::fields::protected_custom_target(&key, &format)
                     && key.len() <= 256
                     && !key.chars().any(char::is_control),
                 "Custom style tag targets protected native metadata"
@@ -884,10 +884,16 @@ impl TagWritePlan {
             let preserve = target
                 .as_ref()
                 .is_some_and(|p| p.exists() && !config.overwrite_tag(SupportedTag::AlbumArt));
+            let mut artwork = self.matches.iter().filter_map(|track| {
+                track
+                    .art
+                    .as_deref()
+                    .map(|url| (url, track.platform.as_str()))
+            });
             let remote = if config.overwrite_tag(SupportedTag::AlbumArt) {
-                self.matches.iter().rev().find_map(|m| m.art.as_deref())
+                artwork.next_back()
             } else {
-                self.matches.iter().find_map(|m| m.art.as_deref())
+                artwork.next()
             };
             let art = if preserve {
                 None
@@ -895,7 +901,7 @@ impl TagWritePlan {
                 Some(image.clone())
             } else {
                 remote
-                    .map(crate::image::Artwork::fetch)
+                    .map(|(url, platform)| crate::image::Artwork::fetch(url, platform))
                     .transpose()
                     .context("Selected artwork could not be fetched or decoded")?
             };

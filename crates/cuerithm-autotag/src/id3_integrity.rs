@@ -1,5 +1,5 @@
 //! Validate framing before handing native records to a deliberately tolerant tag reader.
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use std::{
     io::{Read, Seek, SeekFrom},
     path::Path,
@@ -35,6 +35,17 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
             (2..=4).contains(&version),
             "Unsupported existing ID3 version"
         );
+        // Each version defines only its leading header flag bits; the rest are reserved
+        // and would be dropped when the tolerant reader rewrites the tag.
+        let defined = match version {
+            2 => 0xc0,
+            3 => 0xe0,
+            _ => 0xf0,
+        };
+        ensure!(
+            header[5] & !defined == 0,
+            "Existing ID3 header uses reserved flags; refusing metadata reconstruction"
+        );
         let len = syncsafe(&header[6..10])?;
         ensure!(
             len <= MAX_TAG,
@@ -43,7 +54,9 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
         let mut body = vec![0; len];
         file.read_exact(&mut body)?;
         let footer = version == 4 && header[5] & 16 != 0;
-        if version == 3 && header[5] & 128 != 0 {
+        // v2.2 and v2.3 unsynchronize the whole tag, so frame sizes count decoded
+        // bytes. v2.4 sizes count the stored bytes and need no tag-level decoding.
+        if matches!(version, 2 | 3) && header[5] & 128 != 0 {
             let mut decoded = Vec::with_capacity(body.len());
             let mut i = 0;
             while i < body.len() {
@@ -92,6 +105,24 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
                     .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit()),
                 "Malformed existing ID3 frame identifier; refusing metadata reconstruction"
             );
+            if version >= 3 {
+                // The reader keeps only the flags it defines and rejects encrypted or
+                // grouped frames, so a rewrite would silently change or drop them.
+                let flags = u16::from_be_bytes([body[offset + 8], body[offset + 9]]);
+                let (defined, unsupported) = if version == 3 {
+                    (0xe0e0, 0x0060)
+                } else {
+                    (0x704f, 0x0044)
+                };
+                ensure!(
+                    flags & !defined == 0,
+                    "Existing ID3 frame uses undefined flags; refusing metadata reconstruction"
+                );
+                ensure!(
+                    flags & unsupported == 0,
+                    "Encrypted or grouped existing ID3 frames cannot be rewritten safely"
+                );
+            }
             let size = if version == 4 {
                 syncsafe(&body[offset + 4..offset + 8])?
             } else if version == 3 {
@@ -107,7 +138,14 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
             offset += header_len + size;
         }
         if footer {
-            file.seek(SeekFrom::Current(10))?;
+            // The footer repeats the header with "3DI" for the signature.
+            let mut tail = [0; 10];
+            file.read_exact(&mut tail)
+                .context("Truncated existing ID3 footer")?;
+            ensure!(
+                &tail[..3] == b"3DI" && tail[3..] == header[3..],
+                "Malformed existing ID3 footer"
+            );
         }
     }
 }
@@ -163,5 +201,107 @@ mod tests {
     #[test]
     fn truncated_claimed_id3_header_is_not_untagged_audio() {
         assert!(validate_reader(&mut std::io::Cursor::new(b"ID3".to_vec())).is_err());
+    }
+    #[test]
+    fn id3v22_and_v23_tag_level_unsynchronization_is_reversed_before_frame_sizes() {
+        // A frame holding [00 FF FB]; the FF FB pair is stored as FF 00 FB, so the
+        // stored body is one byte longer than the size in the frame header.
+        let v22 = [
+            &b"ID3\x02\x00\x80\x00\x00\x00\x0a"[..],
+            b"TT2\x00\x00\x03\x00\xff\x00\xfb",
+        ]
+        .concat();
+        assert!(validate_reader(&mut std::io::Cursor::new(v22)).is_ok());
+        let v23 = [
+            &b"ID3\x03\x00\x80\x00\x00\x00\x0e"[..],
+            b"TIT2\x00\x00\x00\x03\x00\x00\x00\xff\x00\xfb",
+        ]
+        .concat();
+        assert!(validate_reader(&mut std::io::Cursor::new(v23)).is_ok());
+    }
+    fn flagged_tag(version: u8, flags: [u8; 2]) -> Vec<u8> {
+        // One TIT2 frame with a single payload byte and the given frame flags.
+        let mut frame = b"TIT2\x00\x00\x00\x01".to_vec();
+        frame.extend_from_slice(&flags);
+        frame.push(0);
+        let mut tag = vec![b'I', b'D', b'3', version, 0, 0, 0, 0, 0, frame.len() as u8];
+        tag.extend(frame);
+        tag
+    }
+    #[test]
+    fn frame_flags_must_be_defined_and_supported_by_the_rewriting_reader() {
+        let accepts = |version, flags| {
+            validate_reader(&mut std::io::Cursor::new(flagged_tag(version, flags))).is_ok()
+        };
+        // v2.3: preservation and read-only status bits, compression format bit.
+        assert!(accepts(3, [0x00, 0x00]));
+        assert!(accepts(3, [0xe0, 0x00]));
+        assert!(accepts(3, [0x00, 0x80]));
+        // v2.3: undefined bits, encryption and grouping identity.
+        for flags in [[0x00, 0x01], [0x01, 0x00], [0x00, 0x40], [0x00, 0x20]] {
+            assert!(!accepts(3, flags), "v2.3 {flags:?}");
+        }
+        // v2.4: status bits, unsynchronisation and compression format bits.
+        assert!(accepts(4, [0x00, 0x00]));
+        assert!(accepts(4, [0x70, 0x00]));
+        assert!(accepts(4, [0x00, 0x0a]));
+        // v2.4: undefined bits, encryption and grouping identity.
+        for flags in [
+            [0x80, 0x00],
+            [0x00, 0x80],
+            [0x00, 0x20],
+            [0x00, 0x04],
+            [0x00, 0x40],
+        ] {
+            assert!(!accepts(4, flags), "v2.4 {flags:?}");
+        }
+    }
+    #[test]
+    fn reserved_tag_header_flags_are_refused_for_every_version() {
+        let empty =
+            |version: u8, flags: u8| [b'I', b'D', b'3', version, 0, flags, 0, 0, 0, 0].to_vec();
+        let accepts = |version, flags| {
+            validate_reader(&mut std::io::Cursor::new(empty(version, flags))).is_ok()
+        };
+        // Defined bits: v2.2 unsynchronisation, v2.3 adds extended header and experimental,
+        // v2.4 adds the footer (an empty body with a footer is covered separately).
+        assert!(accepts(2, 0x80));
+        assert!(accepts(3, 0x80));
+        assert!(accepts(4, 0x80));
+        assert!(accepts(4, 0x20));
+        // Reserved bits.
+        for (version, flags) in [
+            (2, 0x01),
+            (2, 0x20),
+            (3, 0x01),
+            (3, 0x10),
+            (4, 0x01),
+            (4, 0x08),
+        ] {
+            assert!(!accepts(version, flags), "v2.{version} flags {flags:#04x}");
+        }
+    }
+    fn footer_tag(footer: &[u8]) -> Vec<u8> {
+        // An empty ID3v2.4 tag whose header sets the footer flag.
+        let mut bytes = b"ID3\x04\x00\x10\x00\x00\x00\x00".to_vec();
+        bytes.extend_from_slice(footer);
+        bytes
+    }
+    #[test]
+    fn id3v24_footer_must_be_present_and_mirror_the_header() {
+        let valid = footer_tag(b"3DI\x04\x00\x10\x00\x00\x00\x00");
+        assert!(validate_reader(&mut std::io::Cursor::new(valid)).is_ok());
+        for (name, footer) in [
+            ("missing", &b""[..]),
+            ("truncated", b"3DI\x04\x00"),
+            ("wrong signature", b"XYZ\x04\x00\x10\x00\x00\x00\x00"),
+            ("different version", b"3DI\x03\x00\x10\x00\x00\x00\x00"),
+            ("different size", b"3DI\x04\x00\x10\x00\x00\x00\x05"),
+        ] {
+            assert!(
+                validate_reader(&mut std::io::Cursor::new(footer_tag(footer))).is_err(),
+                "{name} footer"
+            );
+        }
     }
 }

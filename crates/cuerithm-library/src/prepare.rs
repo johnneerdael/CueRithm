@@ -666,11 +666,14 @@ impl Worker {
                     && job.snapshot.settings.autotag_enabled
                     && config.options.album_tagging
                 {
-                    let release = matched
-                        .matches
-                        .iter()
-                        .find(|m| m.track.platform == "beatport")
-                        .and_then(|m| m.track.release_id.as_deref());
+                    let release = matched.matches.iter().find_map(|m| {
+                        let provider = match m.track.platform.as_str() {
+                            "beatport" => cuerithm_autotag::ProviderId::Beatport,
+                            "traxsource" => cuerithm_autotag::ProviderId::Traxsource,
+                            _ => return None,
+                        };
+                        m.track.release_id.as_deref().map(|id| (provider, id))
+                    });
                     self.album_groups.observe(
                         folder,
                         &job.settings_revision,

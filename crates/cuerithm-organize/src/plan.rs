@@ -220,7 +220,12 @@ pub fn build_plan(
             outcome: RowOutcome::Ready,
         };
         match files_for(&row.track, &input.config, &template) {
-            Ok(Some(files)) => row.files = files,
+            Ok(Some(files)) => {
+                if let Some(reason) = row_conflict(&files, input.config.mode) {
+                    row.outcome = RowOutcome::Blocked { reason };
+                }
+                row.files = files;
+            }
             Ok(None) => row.outcome = RowOutcome::Unchanged,
             Err(RowOutcome::Skipped { reason }) => row.outcome = RowOutcome::Skipped { reason },
             Err(outcome) => row.outcome = outcome,
@@ -274,16 +279,30 @@ pub fn build_plan(
                 row.outcome = RowOutcome::Unchanged;
             } else if row.outcome == RowOutcome::Ready && identical + unchanged == row.files.len() {
                 row.outcome = RowOutcome::IdenticalCopy;
+            } else if row.outcome == RowOutcome::Ready && identical > 0 {
+                // The coordinator rejects an existing destination and requires the
+                // audio first, so a request cannot express a partly present copy.
+                row.outcome = RowOutcome::Blocked {
+                    reason: "Part of this copy already exists at the destination; remove it or choose another destination".into(),
+                };
             }
         }
         rows.push(row);
     }
+    // A row already blocked for another reason cannot apply, so it neither claims a
+    // destination nor loses its own reason. Snapshot first so the result does not
+    // depend on the order the reservations are visited.
+    let live: Vec<bool> = rows
+        .iter()
+        .map(|row| !matches!(row.outcome, RowOutcome::Blocked { .. }))
+        .collect();
     for claimants in reservations.values() {
         if cancelled() {
             return Err(PlanError::Cancelled);
         }
+        let claimants: Vec<usize> = claimants.iter().copied().filter(|&i| live[i]).collect();
         if claimants.len() > 1 {
-            for &index in claimants {
+            for index in claimants {
                 rows[index].outcome = RowOutcome::Blocked {
                     reason: "Multiple selected files reserve the same destination".into(),
                 };
@@ -298,6 +317,34 @@ pub fn build_plan(
         digest: fingerprint,
         rows,
     })
+}
+/// Why one row's own files could never become a coordinator request. The coordinator
+/// accepts one audio file plus at most 255 sidecars, each source once, keeps every
+/// Rename file in its folder, and refuses a destination that is another file's path.
+fn row_conflict(files: &[PlannedFile], mode: OrganizationMode) -> Option<String> {
+    if files.len() > 256 {
+        return Some("An organization can include at most 255 owned sidecars".into());
+    }
+    let mut sources = std::collections::BTreeSet::new();
+    if !files.iter().all(|file| sources.insert(&file.source.path)) {
+        return Some("The same file is listed more than once".into());
+    }
+    if mode == OrganizationMode::RenameInPlace
+        && files
+            .iter()
+            .any(|file| file.source.path.0.parent() != file.destination.0.parent())
+    {
+        return Some("Rename in place cannot move an owned sidecar to another folder".into());
+    }
+    if files.iter().enumerate().any(|(index, file)| {
+        files
+            .iter()
+            .enumerate()
+            .any(|(other, owned)| other != index && owned.source.path == file.destination)
+    }) {
+        return Some("A destination is another owned file's current path".into());
+    }
+    None
 }
 fn files_for(
     track: &TrackInput,

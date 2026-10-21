@@ -1,7 +1,9 @@
 name: PR gate
 
 # Cheap merge gate: PR body sections plus a completed @codex review of the head commit.
-# Heavy builds run after the merge (ci.yml, desktop.yml); label a PR `full-ci` to run them early.
+# Pushes start no builds. Once the gate passes it dispatches the Linux checks (ci.yml, desktop.yml) for
+# that commit, and a newer commit cancels the old commit's unfinished runs. Every platform runs after the
+# merge, on main; a failure there is fixed on main.
 on:
   pull_request_target:
     branches: [main]
@@ -21,6 +23,7 @@ permissions:
   contents: read
   pull-requests: read
   statuses: write
+  actions: write
 
 concurrency:
   group: pr-gate-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number }}

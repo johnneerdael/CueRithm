@@ -38,13 +38,53 @@ def entries(commits, bodies):
     return public, internal, other
 
 
-def render(public, internal, other):
-    out = ["macOS builds are signed with a Developer ID and notarized. Windows and Linux builds are unsigned: Windows SmartScreen may warn on first launch.", ""]
-    for title, items in [("Changes", public), ("Internal", internal), ("Direct commits", other)]:
-        if items:
-            out += [f"## {title}", ""] + [f"- {item}" for item in items] + [""]
-    if not (public or internal or other):
+PRODUCT = "CueRithm"
+TAGLINE = "Know your music. Shape your set."
+BANNER_DIR = "docs/assets/brand"  # readme-light.png and readme-dark.png
+# One row per platform package that release.yml publishes; keep the two in step.
+DOWNLOADS = [
+    ("macOS DMG", "Apple Silicon (M1 and later); there is no Intel build", "Developer ID signed and Apple notarized"),
+    ("Windows portable ZIP", "x64", "unsigned; Windows SmartScreen may warn on first launch"),
+    ("Linux DEB", "x64", "unsigned package"),
+    ("Source and notices", "All platforms", "CueRithm and bundled decoder (FFmpeg) source, with third-party license notices"),
+]
+
+
+def banner(repo, sha):
+    """Theme-aware brand banner, pinned to the commit because the release tag does not exist yet."""
+    base = f"https://raw.githubusercontent.com/{repo}/{sha}/{BANNER_DIR}"
+    return ["<picture>",
+            f'  <source media="(prefers-color-scheme: dark)" srcset="{base}/readme-dark.png">',
+            f'  <img src="{base}/readme-light.png" alt="{PRODUCT}. {TAGLINE}" width="100%">',
+            "</picture>", ""]
+
+
+def status(repo, sha, version):
+    stage = " (pre-1.0)" if version and version.startswith("0.") else ""
+    return f"**Release{stage}.** Source: [{sha[:12]}](https://github.com/{repo}/commit/{sha})."
+
+
+def downloads():
+    rows = ["| Download | Platform | Signing / distribution |", "| --- | --- | --- |"]
+    return ["## Downloads", ""] + rows + [f"| {name} | {platform} | {signing} |" for name, platform, signing in DOWNLOADS] + [""]
+
+
+def render(public, internal, other, repo=None, sha=None, version=None):
+    branded = bool(repo and sha)
+    out = banner(repo, sha) + [status(repo, sha, version), ""] if branded else []
+    # People using the app read the top; developer detail stays available but collapsed.
+    if public:
+        out += ["## What's new", ""] + [f"- {item}" for item in public] + [""]
+    else:
         out += ["No user-facing changes.", ""]
+    if branded:
+        out += downloads()
+    developer = [(title, items) for title, items in [("Internal", internal), ("Direct commits", other)] if items]
+    if developer:
+        out += ["<details>", "<summary>For developers</summary>", ""]
+        for title, items in developer:
+            out += [f"**{title}**", ""] + [f"- {item}" for item in items] + [""]
+        out += ["</details>"]
     return "\n".join(out).rstrip() + "\n"
 
 
@@ -58,6 +98,7 @@ def main():
     parser.add_argument("--base", help="Cargo workspace version")
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--repo")
+    parser.add_argument("--version", help="Release version, used for the stage label on the page")
     args = parser.parse_args()
     tags = run("git", "tag", "--list", "v*").split()
     if args.command == "version":
@@ -77,7 +118,7 @@ def main():
     if args.command == "has-public":
         print("true" if result[0] else "false")
         return
-    print(render(*result))
+    print(render(*result, repo=args.repo, sha=run("git", "rev-parse", args.head).strip(), version=args.version))
 
 
 if __name__ == "__main__":
