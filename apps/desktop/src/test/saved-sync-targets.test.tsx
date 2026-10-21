@@ -1,6 +1,7 @@
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {expect,it,vi} from "vitest";
 import SavedSyncTargets from "../components/SavedSyncTargets";
+import type {SavedSyncTargetsProps} from "../components/SavedSyncTargets";
 import type {SyncConfigurationBridge,SavedSyncTarget,SyncTargetConfiguration} from "../sync-target-types";
 it("loads saved setups, saves explicit changes and deletes only the reviewed revision",async()=>{
  const target:SavedSyncTarget={kind:"dj_library",target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null}};
@@ -15,7 +16,7 @@ it("loads saved setups, saves explicit changes and deletes only the reviewed rev
  fireEvent.click(screen.getByRole("button",{name:"Delete saved setup"}));await waitFor(()=>expect(bridge.deleteSyncTargetConfiguration).toHaveBeenCalledWith("setup",4));
  expect(bridge.saveSyncTargetConfiguration).toHaveBeenCalledTimes(1);
 });
-it("ignores a late save from the previous DJ software",async()=>{
+it.each(["software","kind","bridge"] as const)("ignores a late save after changing %s",async(change)=>{
  const target:SavedSyncTarget={kind:"dj_library",target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null}};
  const engine:SavedSyncTarget={kind:"dj_library",target:{software:"engine_dj",path:"/Engine/Database2/m.db",source_root:null}};
  const saved:SyncTargetConfiguration={id:"old",revision:1,name:"Virtual decks",target};
@@ -24,8 +25,14 @@ it("ignores a late save from the previous DJ software",async()=>{
  const selected=vi.fn(),view=render(<SavedSyncTargets bridge={bridge} kind="dj_library" software="virtual_dj" value={target} onSelected={selected}/>);
  await screen.findByRole("option",{name:"Virtual decks"});fireEvent.change(screen.getByRole("combobox",{name:"Saved library setup"}),{target:{value:"old"}});fireEvent.click(screen.getByRole("button",{name:"Save setup"}));
  await waitFor(()=>expect(bridge.saveSyncTargetConfiguration).toHaveBeenCalled());
- view.rerender(<SavedSyncTargets bridge={bridge} kind="dj_library" software="engine_dj" value={engine} onSelected={selected}/>);
+ const next:SavedSyncTargetsProps={bridge,kind:"dj_library",software:"virtual_dj",value:target,onSelected:selected};
+ if(change==="software"){next.software="engine_dj";next.value=engine;}
+ if(change==="kind"){next.kind="rekordbox";next.software=undefined;next.value=null;}
+ if(change==="bridge")next.bridge={...bridge,syncTargetConfigurations:vi.fn(async()=>[])};
+ view.rerender(<SavedSyncTargets {...next}/>);
  await waitFor(()=>expect(screen.queryByRole("option",{name:"Virtual decks"})).not.toBeInTheDocument());
+ selected.mockClear();
  await act(async()=>finish({...saved,revision:2}));
+ expect(selected).not.toHaveBeenCalled();
  expect(screen.queryByRole("option",{name:"Virtual decks"})).not.toBeInTheDocument();
 });

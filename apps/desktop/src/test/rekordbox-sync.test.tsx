@@ -6,6 +6,7 @@ import RekordboxEntities from "../components/RekordboxEntities";
 import Sync from "../views/Sync";
 import {fakeBridge} from "./bridge";
 import {allowedDecisions,rekordboxValueText} from "../components/RekordboxConflicts";
+import type {SyncTargetConfiguration} from "../sync-target-types";
 import type {RekordboxBridge,RekordboxSyncFieldReview,RekordboxSyncPreview,RekordboxSyncTarget} from "../rekordbox-sync-types";
 
 const target:RekordboxSyncTarget={id:"native-6",installation:{version:"6.8.5",major:6,root:"/Applications/rekordbox 6",executable:"/Applications/rekordbox 6/rekordbox",version_source:"bundle"},database:"/Synthetic/rekordbox/master.db",options_file:"/Synthetic/options.json",asset_root:"/Synthetic/rekordbox"};
@@ -24,6 +25,12 @@ describe("native rekordbox sync",()=>{
   await waitFor(()=>expect(api.preflight).toHaveBeenCalledWith(expect.any(String),target.id,{id:"authored-setup",revision:4}));
   fireEvent.change(screen.getByRole("combobox",{name:"rekordbox library"}),{target:{value:other.id}});
   await waitFor(()=>expect(vi.mocked(api.preflight).mock.lastCall?.slice(1)).toEqual([other.id]));
+  expect(screen.getByRole("combobox",{name:"Saved library setup"})).toHaveValue("");
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
+  await waitFor(()=>expect(api.preview).toHaveBeenCalled());
+  expect(vi.mocked(api.preview).mock.lastCall?.[1]).toMatchObject({target_id:other.id});
+  expect(vi.mocked(api.preview).mock.lastCall?.[1]).not.toHaveProperty("configuration");
  });
  it("saves a manually selected Windows library without starting a sync",async()=>{
   const api=bridge();await open(api);
@@ -36,6 +43,32 @@ describe("native rekordbox sync",()=>{
   await waitFor(()=>expect(api.configure).toHaveBeenCalledWith(expect.objectContaining({executable:"/prefix/drive_c/rekordbox.exe",database:"/private/master.db",environment:{kind:"windows_compatibility",prefix:"/prefix",installation:null,mappings:[]}})));
   await waitFor(()=>expect(api.saveSyncTargetConfiguration).toHaveBeenCalledWith(expect.objectContaining({name:"Proton rekordbox",target:{kind:"rekordbox",target}})));
   expect(api.preview).not.toHaveBeenCalled();expect(api.apply).not.toHaveBeenCalled();
+ });
+ it("keeps a newly saved executable bound when its library ID matches an older setup",async()=>{
+  const api=bridge(),replacement={...target,installation:{...target.installation,version:"6.8.6",root:"/Synthetic/rekordbox-new",executable:"/Synthetic/rekordbox-new/rekordbox"}};
+  const older:SyncTargetConfiguration={id:"older-setup",name:"Older executable",revision:2,target:{kind:"rekordbox",target}};
+  const saved:SyncTargetConfiguration={id:"new-setup",name:"New executable",revision:1,target:{kind:"rekordbox",target:replacement}};
+  let finishRefresh!:(values:SyncTargetConfiguration[])=>void;
+  vi.mocked(api.configure).mockResolvedValue(replacement);
+  vi.mocked(api.saveSyncTargetConfiguration).mockResolvedValue(saved);
+  vi.mocked(api.syncTargetConfigurations).mockResolvedValueOnce([older]).mockImplementationOnce(()=>new Promise(resolve=>{finishRefresh=resolve;}));
+  vi.mocked(api.preflight).mockImplementation(async(_op,_id,configuration)=>({target:configuration?.id===saved.id?replacement:target,readable:true,writable:true,restrictions:[],schema_fingerprint:null,identity:null}));
+  await open(api);await screen.findByRole("option",{name:"Older executable"});
+  fireEvent.change(screen.getByRole("combobox",{name:"Saved library setup"}),{target:{value:older.id}});
+  await waitFor(()=>expect(vi.mocked(api.preflight).mock.lastCall?.[2]).toEqual({id:older.id,revision:2}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeEnabled());
+  fireEvent.click(screen.getByText("Set up another library"));
+  fireEvent.change(screen.getByRole("textbox",{name:"Library setup name"}),{target:{value:saved.name}});
+  for(const [name,value] of [["rekordbox executable",replacement.installation.executable],["rekordbox database",replacement.database],["rekordbox Agent options",replacement.options_file],["rekordbox asset folder",replacement.asset_root]])fireEvent.change(screen.getByRole("textbox",{name}),{target:{value}});
+  fireEvent.click(screen.getByRole("button",{name:"Save library setup"}));
+  await waitFor(()=>expect(api.syncTargetConfigurations).toHaveBeenCalledTimes(2));
+  await waitFor(()=>expect(vi.mocked(api.preflight).mock.lastCall?.slice(1)).toEqual([target.id,{id:saved.id,revision:1}]));
+  await act(async()=>finishRefresh([older,saved]));
+  await waitFor(()=>expect(screen.getByRole("combobox",{name:"Saved library setup"})).toHaveValue(saved.id));
+  expect(screen.getByRole("textbox",{name:"Setup name"})).toHaveValue(saved.name);
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
+  await waitFor(()=>expect(api.preview).toHaveBeenCalledWith(expect.any(String),expect.objectContaining({target_id:target.id,configuration:{id:saved.id,revision:1}})));
  });
  it("requires an explicit equal acknowledgement and a new server preview before applying its ID",async()=>{
   const api=bridge();await open(api);fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
