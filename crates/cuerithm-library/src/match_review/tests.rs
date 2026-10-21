@@ -655,22 +655,17 @@ impl ReviewFixture {
         lib.fail_for_run(run, "matching", "Recording edition requires review")
             .unwrap();
     }
-    /// The user saved a title edit for the Incoming track, and preparation stopped for review
-    /// again before publishing it.
-    fn with_saved_title_edit() -> Self {
-        use cuerithm_autotag::{MetadataTextField, TextEdit};
+    /// The user saved an edit for the Incoming track, and preparation stopped for review again
+    /// before publishing it.
+    fn with_saved_edit(
+        edit: impl FnOnce(&crate::MetadataEditService) -> crate::MetadataEditorPatch,
+    ) -> Self {
         let mut f = Self::new();
         let service = crate::MetadataEditService::new(f.lib.clone(), f.runtime.clone());
         let draft = service
             .create_draft(std::slice::from_ref(&f.run.track_id))
             .unwrap();
-        let mut patch = crate::MetadataEditorPatch::default();
-        patch.fields.text.insert(
-            MetadataTextField::Title,
-            TextEdit::Set {
-                values: vec!["Saved edit title".into()],
-            },
-        );
+        let patch = edit(&service);
         let draft = service
             .update_draft(&draft.id, draft.revision, patch)
             .unwrap();
@@ -681,6 +676,19 @@ impl ReviewFixture {
         f.run = f.lib.claim_next().unwrap().unwrap();
         Self::reach_attention(&f.lib, &f.runtime, &f.source, &f.run);
         f
+    }
+    fn with_saved_title_edit() -> Self {
+        use cuerithm_autotag::{MetadataTextField, TextEdit};
+        Self::with_saved_edit(|_| {
+            let mut patch = crate::MetadataEditorPatch::default();
+            patch.fields.text.insert(
+                MetadataTextField::Title,
+                TextEdit::Set {
+                    values: vec!["Saved edit title".into()],
+                },
+            );
+            patch
+        })
     }
     fn request(&self) -> super::MatchReviewRequest {
         let state = self
@@ -1318,4 +1326,60 @@ fn an_accepted_review_is_stored_for_its_job_without_a_write_only_history() {
         )
         .unwrap();
     assert_eq!(history, 0, "no write-only copy of every accepted decision");
+}
+
+#[test]
+fn saved_incoming_artwork_counts_and_cannot_be_replaced_by_a_review() {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let covered = repo.join("crates/cuerithm-media/tests/fixtures/covered.flac");
+    let f = ReviewFixture::with_saved_edit(|service| {
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin"))
+                .unwrap();
+        let info = runtime.probe(&covered).unwrap();
+        let picture = cuerithm_autotag::read_metadata_snapshot(&covered, &info)
+            .unwrap()
+            .artwork
+            .remove(0);
+        let bytes =
+            cuerithm_autotag::metadata_artwork_bytes(&covered, &info, &picture.identity).unwrap();
+        let asset = service.import_artwork(bytes).unwrap();
+        let mut patch = crate::MetadataEditorPatch::default();
+        patch.artwork.push(crate::MetadataArtworkChoice {
+            target: None,
+            asset_id: Some(asset.id),
+            kind: Some(3),
+            description: None,
+        });
+        patch
+    });
+    let cancel = cuerithm_media::CancellationToken::default();
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let kept = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request.clone(), &cancel)
+        .unwrap();
+    assert!(
+        kept.artwork.existing,
+        "the saved cover counts as the file's artwork"
+    );
+    request.fields.push(super::MatchReviewFieldDecision {
+        field: "albumArt".into(),
+        action: super::MatchReviewFieldAction::Replace,
+    });
+    let blocked = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    assert!(!blocked.can_apply);
+    assert!(
+        blocked
+            .artwork
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("saved Incoming edit")),
+        "{:?}",
+        blocked.artwork
+    );
 }

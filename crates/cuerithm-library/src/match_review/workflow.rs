@@ -135,6 +135,13 @@ impl Library {
             })
             .transpose()?
             .flatten();
+        // The saved edit's artwork is applied after the review's, so it decides what the file keeps.
+        let saved_artwork = saved.as_ref().map(|s| s.artwork.as_slice()).unwrap_or(&[]);
+        let has_artwork = native.artwork.iter().any(|picture| {
+            !saved_artwork.iter().any(|edit| {
+                edit.replacement.is_none() && edit.target.as_ref() == Some(&picture.identity)
+            })
+        }) || saved_artwork.iter().any(|edit| edit.replacement.is_some());
         let (fields, mut patch, field_blockers) = super::fields::make_fields(
             &native,
             saved.as_ref(),
@@ -216,7 +223,9 @@ impl Library {
         let mut artwork_target: Option<ArtworkIdentity> = None;
         let mut art_reason: Option<String> = None;
         if art_action != MatchReviewFieldAction::Keep {
-            if art_action != MatchReviewFieldAction::Replace {
+            if !saved_artwork.is_empty() {
+                art_reason = Some("Your saved Incoming edit changes the artwork and takes priority; edit the metadata again to change it".into());
+            } else if art_action != MatchReviewFieldAction::Replace {
                 art_reason=Some("Artwork supports Keep or Replace; choose exact additional covers in the metadata editor".into());
             } else if art_url.is_none() {
                 art_reason = Some("The selected candidate has no supported artwork URL".into());
@@ -251,7 +260,7 @@ impl Library {
                 .config
                 .required_tags
                 .contains(&cuerithm_autotag::SupportedTag::AlbumArt)
-            && native.artwork.is_empty()
+            && !has_artwork
             && asset.is_none()
         {
             blockers.push("Required artwork is absent; load and explicitly replace the front cover before accepting".into());
@@ -280,7 +289,7 @@ impl Library {
             candidate,
             fields,
             artwork: MatchReviewArtwork {
-                existing: !native.artwork.is_empty(),
+                existing: has_artwork,
                 candidate_url: art_url,
                 action: art_action,
                 reason: art_reason,
