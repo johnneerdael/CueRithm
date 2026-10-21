@@ -18,6 +18,10 @@ pub struct NativeTrackDraft {
     pub fields: BTreeMap<String, TargetValue>,
     /// Times must already use the shared export timing contract.
     pub cues: Option<Vec<NativeCue>>,
+    /// Tempo of the exported cue timeline, independent of selected metadata.
+    /// Omission retains the legacy fallback to selected/current native BPM.
+    #[serde(default)]
+    pub cue_bpm: Option<f64>,
     pub cue_colors: Option<Vec<NativeCueColor>>,
     pub replace_cues: Vec<NativeOwnedRow>,
     pub analysis_path: Option<String>,
@@ -731,6 +735,7 @@ impl<'a> Planner<'a> {
                 &id,
                 &uuid,
                 cues,
+                draft.cue_bpm,
                 draft.cue_colors.as_deref(),
                 &draft.replace_cues,
             )?;
@@ -956,6 +961,7 @@ impl<'a> Planner<'a> {
         content: &str,
         content_uuid: &str,
         cues: &[NativeCue],
+        cue_bpm: Option<f64>,
         colors: Option<&[NativeCueColor]>,
         owned: &[NativeOwnedRow],
     ) -> Result<(Vec<String>, bool)> {
@@ -972,14 +978,22 @@ impl<'a> Planner<'a> {
                 "Owned cue belongs to another native track"
             );
         }
-        let bpm = match self
-            .current("djmdContent", content)
-            .and_then(|r| r.get("BPM"))
-        {
-            Some(TargetValue::Integer(v)) if *v > 0 => Some(*v as f64 / 100.),
-            Some(TargetValue::Real(v)) if *v > 0. && v.is_finite() => Some(*v / 100.),
-            _ => None,
-        };
+        if cues.iter().any(|cue| cue.end.is_some()) {
+            ensure!(
+                cue_bpm.is_none_or(|bpm| bpm.is_finite() && bpm > 0.),
+                "Native cue tempo must be finite and positive"
+            );
+        }
+        let bpm = cue_bpm.or_else(|| {
+            match self
+                .current("djmdContent", content)
+                .and_then(|r| r.get("BPM"))
+            {
+                Some(TargetValue::Integer(v)) if *v > 0 => Some(*v as f64 / 100.),
+                Some(TargetValue::Real(v)) if *v > 0. && v.is_finite() => Some(*v / 100.),
+                _ => None,
+            }
+        });
         let mut slots = BTreeSet::new();
         let mut active_memory = 0;
         let mut first_active_hot = false;

@@ -130,6 +130,13 @@ pub fn native_rekordbox_analysis(
 }
 /// Expand the existing sparse tempo anchors using the shared tested grid logic.
 pub fn native_rekordbox_beats(track: &SyncTrack) -> Result<Vec<Beat>> {
+    Ok(native_rekordbox_grid(track)?.beats)
+}
+/// Expand once for both PQTZ milliseconds and PQT2 fractional microseconds.
+/// The shared grid expansion owns rounding and variable-tempo boundaries.
+pub fn native_rekordbox_grid(
+    track: &SyncTrack,
+) -> Result<cuerithm_rekordbox::anlz::NativeMicrosecondGrid> {
     validate_timeline(track)?;
     ensure!(
         track.duration_seconds.is_finite() && track.duration_seconds > 0.,
@@ -137,9 +144,13 @@ pub fn native_rekordbox_beats(track: &SyncTrack) -> Result<Vec<Beat>> {
     );
     let mut end = track.clone();
     end.duration_seconds += track.native_timeline.as_ref().unwrap().offset_seconds;
-    let (beats, _, _) = analysis::grid(&end)?;
+    let (beats, fractions, _) = analysis::grid(&end)?;
     ensure!(!beats.is_empty(), "Native beatgrid has no playable beats");
-    Ok(beats)
+    Ok(cuerithm_rekordbox::anlz::NativeMicrosecondGrid {
+        beats,
+        fractions,
+        variable: track.beatgrid.len() > 1,
+    })
 }
 fn validate_timeline(track: &SyncTrack) -> Result<()> {
     let applied = track

@@ -438,14 +438,43 @@ fn verify_ledger(library: &Library, op: &Operation) -> Result<()> {
 fn restore_finish(
     library: &Library,
     op: &mut Operation,
-    lease: &mut NativeDatabaseLease,
     key: &DatabaseKey,
     cancel: &CancellationToken,
     guard: &impl Fn() -> Result<()>,
 ) -> Result<RekordboxSyncOutcome> {
+    // Match apply's order: service lock -> organization -> tagging -> native
+    // lease/local connection. Retain both gates through the final local commit;
+    // a SQLite transaction alone cannot exclude workers changing physical files.
+    let _organization_gate = library
+        .inner
+        .organization_gate
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
+    #[cfg(feature = "autotag")]
+    let _tag_gate = library
+        .inner
+        .tag_gate
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
     guard()?;
     cancel.check()?;
     verify_restore_sources(op, cancel)?;
+    verify_ledger(library, op)?;
+    if op.status != "restoring" {
+        ensure!(
+            matches!(op.status.as_str(), "applied" | "native_published"),
+            "Recover the interrupted native operation before restoring"
+        );
+        transaction(library, op)?.verify_applied()?;
+    }
+    let mut lease = NativeDatabaseLease::acquire(&op.target.database, key, cancel)?;
+    if op.status != "restoring" {
+        ensure!(
+            lease.state(cancel)? == op.after,
+            "Native database changed after publication; restore refused"
+        );
+        mark(library, op, "restoring")?;
+    }
     let mut local_connection = library.conn()?;
     let local_tx =
         local_connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
@@ -505,12 +534,12 @@ fn recover(
     cancel: &CancellationToken,
     guard: &impl Fn() -> Result<()>,
 ) -> Result<RekordboxSyncOutcome> {
+    if op.status == "restoring" {
+        return restore_finish(library, op, key, cancel, guard);
+    }
     cancel.check()?;
     guard()?;
-    let mut lease = NativeDatabaseLease::acquire(&op.target.database, key, cancel)?;
-    if op.status == "restoring" {
-        return restore_finish(library, op, &mut lease, key, cancel, guard);
-    }
+    let lease = NativeDatabaseLease::acquire(&op.target.database, key, cancel)?;
     ensure!(
         matches!(op.status.as_str(), "publishing" | "native_published"),
         "Native operation does not require recovery"
@@ -571,17 +600,7 @@ impl Library {
             "Recover the interrupted native operation before restoring"
         );
         let (key, _) = current_target(&op, cancel)?;
-        ensure_closed()?;
-        verify_ledger(self, &op)?;
-        verify_restore_sources(&op, cancel)?;
-        transaction(self, &op)?.verify_applied()?;
-        let mut lease = NativeDatabaseLease::acquire(&op.target.database, &key, cancel)?;
-        ensure!(
-            lease.state(cancel)? == op.after,
-            "Native database changed after publication; restore refused"
-        );
-        mark(self, &mut op, "restoring")?;
-        restore_finish(self, &mut op, &mut lease, &key, cancel, &ensure_closed)
+        restore_finish(self, &mut op, &key, cancel, &ensure_closed)
     }
     pub fn recover_rekordbox_sync(
         &self,
@@ -628,14 +647,5 @@ pub(super) fn fixture_restore(
     guard: &impl Fn() -> Result<()>,
 ) -> Result<RekordboxSyncOutcome> {
     let mut op = load(library, id)?;
-    verify_ledger(library, &op)?;
-    verify_restore_sources(&op, cancel)?;
-    transaction(library, &op)?.verify_applied()?;
-    let mut lease = NativeDatabaseLease::acquire(&op.target.database, key, cancel)?;
-    ensure!(
-        lease.state(cancel)? == op.after,
-        "Native database changed after publication; restore refused"
-    );
-    mark(library, &mut op, "restoring")?;
-    restore_finish(library, &mut op, &mut lease, key, cancel, guard)
+    restore_finish(library, &mut op, key, cancel, guard)
 }

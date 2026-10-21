@@ -1161,6 +1161,7 @@ pub(super) fn preview(
             || relocate_audio
             || remote.is_none();
         let mut native_cues = vec![];
+        let mut cue_bpm = None;
         let mut cue_colors = vec![];
         let bundle = if need_assets {
             let timed = if remote.is_none() || write_cues || write_grid || relocate_audio {
@@ -1172,6 +1173,7 @@ pub(super) fn preview(
                 export_track.clone()
             };
             if write_cues && !matches!(chosen.get("cues"), Some(NativeFieldDecision::ClearRemote)) {
+                cue_bpm = Some(timed.bpm);
                 let projected = assets::cues(library, &timed, request.options.nearest_color)?;
                 native_cues = projected.cues;
                 cue_colors = projected.colors;
@@ -1232,6 +1234,7 @@ pub(super) fn preview(
             source_path: native_audio_path,
             fields,
             cues: write_cues.then_some(native_cues),
+            cue_bpm,
             cue_colors,
             replace_cues: if write_cues { replace_cues } else { vec![] },
             analysis_path: bundle.analysis_path,
@@ -1389,7 +1392,22 @@ pub(super) fn preview(
             },
             local_id: e.local_id.clone(),
             native_id: e.native_id.clone(),
-            created_link_ids: e.owned_link_ids.iter().cloned().collect(),
+            // Resolved ownership includes retained links. An insertion receipt
+            // must claim only rows absent from the frozen native before-image.
+            created_link_ids: e
+                .owned_link_ids
+                .iter()
+                .filter(|id| {
+                    let table = match e.kind {
+                        NativeEntityKind::Playlist => "djmdSongPlaylist",
+                        NativeEntityKind::MyTag => "djmdSongMyTag",
+                    };
+                    prepared.plan.rows.iter().any(|row| {
+                        row.table == table && &row.id == *id && row.expected_fingerprint.is_none()
+                    })
+                })
+                .cloned()
+                .collect(),
         })
         .collect();
     cancel.check()?;

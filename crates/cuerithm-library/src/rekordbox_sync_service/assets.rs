@@ -205,6 +205,10 @@ pub(super) fn build(
             } else {
                 None
             };
+            let replacement_grid = write_grid
+                .then(|| cuerithm_dj_sync::native_rekordbox_grid(track))
+                .transpose()?;
+            let mut primary_grid = None;
             let mut edits = vec![];
             for extension in ["DAT", "EXT", "2EX", "3EX"] {
                 let relative_path = old.with_extension(extension);
@@ -258,15 +262,33 @@ pub(super) fn build(
                                     replacement,
                                 });
                             }
-                            b"PQTZ" if write_grid => changes.push(NativeAnlzEdit::Grid {
-                                tag_index: index,
-                                beats: cuerithm_dj_sync::native_rekordbox_beats(track)?,
-                            }),
-                            // Unknown PQT2 dialects are intentionally rejected by the SDK
-                            // rather than replaced with a guessed clock conversion.
-                            b"PQT2" if write_grid => anyhow::bail!(
-                                "This native extended beatgrid dialect needs explicit compatibility support"
-                            ),
+                            b"PQTZ" if write_grid => {
+                                if extension == "DAT" {
+                                    ensure!(
+                                        primary_grid.is_none(),
+                                        "Ambiguous native primary beatgrid"
+                                    );
+                                    primary_grid = Some(tag.beats()?);
+                                }
+                                changes.push(NativeAnlzEdit::Grid {
+                                    tag_index: index,
+                                    beats: replacement_grid.as_ref().unwrap().beats.clone(),
+                                });
+                            }
+                            b"PQT2" if write_grid => {
+                                let primary = primary_grid.as_ref().context(
+                                    "Native extended beatgrid has no companion DAT grid",
+                                )?;
+                                tag.native_microsecond_grid(primary)?;
+                                let replacement = replacement_grid.as_ref().unwrap();
+                                changes.push(NativeAnlzEdit::NativeMicrosecondGrid {
+                                    tag_index: index,
+                                    primary: primary.clone(),
+                                    beats: replacement.beats.clone(),
+                                    fractions: replacement.fractions.clone(),
+                                    variable: replacement.variable,
+                                });
+                            }
                             _ => {}
                         }
                     }

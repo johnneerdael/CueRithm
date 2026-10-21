@@ -64,6 +64,7 @@ fn draft() -> NativeTrackDraft {
             ("artist".into(), text("Artist")),
         ]),
         cues: None,
+        cue_bpm: None,
         cue_colors: None,
         replace_cues: vec![],
         analysis_path: None,
@@ -881,6 +882,102 @@ fn cue_slots_active_marker_cache_and_repeat_noop() {
             .count(),
         3
     );
+}
+
+fn loop_draft_with_tempo(bpm: f64) -> NativeTrackDraft {
+    let mut track = draft();
+    let mut saved_loop = cue(NativeCueSlot::Hot(0), true);
+    saved_loop.start = NativeTime::from_seconds(1.875).unwrap();
+    saved_loop.end = Some(NativeTime::from_seconds(3.75).unwrap());
+    track.cues = Some(vec![saved_loop]);
+    // Exercise the optional SDK wire field, including old clients that omit it.
+    let mut json = serde_json::to_value(track).unwrap();
+    json["cue_bpm"] = serde_json::json!(bpm);
+    serde_json::from_value(json).unwrap()
+}
+
+fn assert_four_beat_loop_without_bpm_write(prepared: &PreparedNativeRows) {
+    let cues: Vec<_> = prepared
+        .plan
+        .rows
+        .iter()
+        .filter(|row| row.table == "djmdCue")
+        .collect();
+    assert_eq!(cues.len(), 2);
+    for cue in cues {
+        assert_eq!(cue.values["BeatLoopSize"], TargetValue::Integer(262145));
+    }
+    assert!(
+        prepared
+            .plan
+            .rows
+            .iter()
+            .filter(|row| row.table == "djmdContent")
+            .all(|row| !row.values.contains_key("BPM"))
+    );
+}
+
+#[test]
+fn cue_tempo_preserves_unselected_native_bpm_and_repeat_is_noop() {
+    let mut collection = collection();
+    let mut request = request();
+    let mut initial = draft();
+    initial
+        .fields
+        .insert("bpm".into(), TargetValue::Real(149.72));
+    request.tracks.push(initial);
+    let created = prepare_native_rows(&collection, &request).unwrap();
+    fold(&mut collection, &created.plan);
+    request.tracks[0] = loop_draft_with_tempo(128.);
+    bind(&mut request.tracks[0], &created, &collection);
+    let prepared = prepare_native_rows(&collection, &request).unwrap();
+    assert_four_beat_loop_without_bpm_write(&prepared);
+    fold(&mut collection, &prepared.plan);
+    assert_eq!(
+        collection.records["djmdContent"][0].values["BPM"],
+        TargetValue::Integer(14972)
+    );
+    bind(&mut request.tracks[0], &prepared, &collection);
+    let repeated = prepare_native_rows(&collection, &request).unwrap();
+    assert!(repeated.plan.rows.is_empty());
+    assert_eq!(repeated.local_usn, None);
+}
+
+#[test]
+fn cue_tempo_sets_loop_size_for_new_track_without_selecting_bpm() {
+    let mut request = request();
+    request.tracks.push(loop_draft_with_tempo(128.));
+    let prepared = prepare_native_rows(&collection(), &request).unwrap();
+    assert_four_beat_loop_without_bpm_write(&prepared);
+}
+
+#[test]
+fn invalid_explicit_cue_tempo_is_rejected_for_loops() {
+    for bpm in [0., -128., f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut request = request();
+        let mut track = loop_draft_with_tempo(128.);
+        track.cue_bpm = Some(bpm);
+        request.tracks.push(track);
+        assert!(prepare_native_rows(&collection(), &request).is_err());
+    }
+}
+
+#[test]
+fn legacy_cue_draft_without_tempo_uses_native_bpm() {
+    let mut collection = collection();
+    let mut request = request();
+    let mut initial = draft();
+    initial.fields.insert("bpm".into(), TargetValue::Real(128.));
+    request.tracks.push(initial);
+    let created = prepare_native_rows(&collection, &request).unwrap();
+    fold(&mut collection, &created.plan);
+    let mut json = serde_json::to_value(loop_draft_with_tempo(128.)).unwrap();
+    json.as_object_mut().unwrap().remove("cue_bpm");
+    request.tracks[0] = serde_json::from_value(json).unwrap();
+    assert!(request.tracks[0].cue_bpm.is_none());
+    bind(&mut request.tracks[0], &created, &collection);
+    let prepared = prepare_native_rows(&collection, &request).unwrap();
+    assert_four_beat_loop_without_bpm_write(&prepared);
 }
 
 #[test]

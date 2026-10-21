@@ -126,6 +126,8 @@ pub struct NativePlaylistPublicationReceipt {
     pub local_id: String,
     pub native_id: String,
     /// Supply only IDs whose insertion was verified in this publication.
+    /// Legacy coordinator receipts can include retained links; acknowledgement
+    /// requires their original binding and unchanged relationship generation.
     pub created_link_ids: BTreeSet<String>,
 }
 #[derive(Debug, Clone)]
@@ -504,6 +506,7 @@ fn verify_receipt_identity(
 fn receipt_links(
     plan: &NativePlaylistPlan,
     previous: Option<&NativePlaylistIdentity>,
+    binding: Option<&Binding>,
     receipt: &NativePlaylistPublicationReceipt,
     remote: &Value,
     table: &str,
@@ -515,9 +518,37 @@ fn receipt_links(
         .iter()
         .filter_map(|l| l["id"].as_str().map(str::to_owned))
         .collect();
+    // Retaining an ID is safe only when the frozen identity still matches its
+    // original ownership binding, and the relationship has the same generation
+    // and content. A reorder changes its raw hash but preserves its UUID.
+    let retained = match (previous, binding) {
+        (Some(previous), Some(binding)) if identity(binding) == *previous => {
+            retained_imported_links(binding, remote)
+                .into_iter()
+                .filter(|id| {
+                    let content = |value: &Value| {
+                        value["links"]
+                            .as_array()
+                            .and_then(|links| {
+                                links
+                                    .iter()
+                                    .find(|link| link["id"].as_str() == Some(id.as_str()))
+                            })
+                            .and_then(|link| link["content_id"].as_str())
+                            .map(str::to_owned)
+                    };
+                    content(&binding.remote)
+                        .is_some_and(|before| content(remote).as_ref() == Some(&before))
+                })
+                .collect::<BTreeSet<_>>()
+        }
+        _ => BTreeSet::new(),
+    };
     for id in &receipt.created_link_ids {
         ensure!(
-            present.contains(id) && !plan.existing_native_ids.contains(&format!("{table}:{id}")),
+            present.contains(id)
+                && (!plan.existing_native_ids.contains(&format!("{table}:{id}"))
+                    || retained.contains(id)),
             "Cannot claim an external or missing native member link"
         );
     }
@@ -539,12 +570,7 @@ fn receipt_links(
             }
         }
     }
-    let mut owned: BTreeSet<_> = previous
-        .into_iter()
-        .flat_map(|p| p.owned_link_ids.iter())
-        .filter(|id| present.contains(*id))
-        .cloned()
-        .collect();
+    let mut owned = retained;
     owned.extend(receipt.created_link_ids.iter().cloned());
     Ok(owned)
 }
@@ -722,6 +748,11 @@ impl Library {
                     let owned_links = receipt_links(
                         plan,
                         previous.as_ref(),
+                        old.iter().find(|binding| {
+                            binding.kind == "playlist"
+                                && binding.local_id == *local_id
+                                && binding.native_id == receipt.native_id
+                        }),
                         receipt,
                         &remote,
                         "djmdSongPlaylist",
@@ -834,6 +865,11 @@ impl Library {
                     let owned_links = receipt_links(
                         plan,
                         previous.as_ref(),
+                        old.iter().find(|binding| {
+                            binding.kind == kind
+                                && binding.local_id == *local_id
+                                && binding.native_id == receipt.native_id
+                        }),
                         receipt,
                         &remote,
                         "djmdSongMyTag",

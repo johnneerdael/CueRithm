@@ -1,6 +1,7 @@
 use super::*;
 use std::cell::Cell;
 mod native_acceptance;
+mod native_reorder_ack;
 const KEY: &[u8] = b"authored native coordinator fixture";
 fn key() -> DatabaseKey {
     DatabaseKey::new(KEY).unwrap()
@@ -2780,3 +2781,151 @@ fn concrete_entity_review_matches_staged_order_foreign_members_tags_and_material
     assert_eq!(wire[0]["after"]["members"][0]["position"], 1);
     assert_eq!(wire[1]["kind"], "category");
 }
+
+#[test]
+fn native_pqt2_grid_staging_keeps_dat_ext_consistent_and_foreign_sections_unchanged() {
+    use cuerithm_rekordbox::anlz::{AnlzFile, AnlzTag, Beat};
+    let f = fixture(false);
+    cue_fixture(&f);
+    let cancel = CancellationToken::default();
+    let prior = load(&f.library, &f.id).unwrap();
+    let local = f
+        .library
+        .native_sync_library(DjSyncScope::Full, Some(&runtime()))
+        .unwrap();
+    let mut timed = cuerithm_dj_sync::timing::export_track(
+        &local.tracks[0],
+        cuerithm_dj_sync::DjSoftware::Rekordbox,
+    )
+    .unwrap();
+    timed.beatgrid[0].bpm = 128.0;
+    timed.beatgrid[0].seconds = 0.125;
+    let original_beats = [
+        Beat {
+            number: 1,
+            tempo: 12000,
+            time_ms: 80,
+        },
+        Beat {
+            number: 2,
+            tempo: 12000,
+            time_ms: 580,
+        },
+    ];
+    let mut extended = AnlzTag::microsecond_grid(&original_beats, &[90, 90], false, 0)
+        .unwrap()
+        .bytes()
+        .to_vec();
+    extended[48..52].copy_from_slice(&0u32.to_be_bytes());
+    let mut originals = BTreeMap::new();
+    for extension in ["DAT", "EXT"] {
+        let file = AnlzFile::parse(
+            &fs::read(f.old_asset.with_extension(extension)).unwrap(),
+            Default::default(),
+        )
+        .unwrap();
+        let mut tags: Vec<_> = file
+            .tags()
+            .iter()
+            .filter(|tag| tag.fourcc() != *b"PQTZ")
+            .cloned()
+            .collect();
+        tags.push(if extension == "DAT" {
+            AnlzTag::grid(&original_beats).unwrap()
+        } else {
+            AnlzTag::parse(&extended, Default::default()).unwrap()
+        });
+        let bytes = AnlzFile::new(tags).unwrap().to_bytes().unwrap();
+        fs::write(f.old_asset.with_extension(extension), &bytes).unwrap();
+        originals.insert(extension, bytes);
+    }
+    let collection = ReadOnlyDatabase::open(&f.native, &key())
+        .unwrap()
+        .read_collection(Default::default(), &cancel)
+        .unwrap();
+    let bundle = assets::build(
+        &f.library,
+        &prior.target,
+        "native-pqt2-test",
+        &timed,
+        &timed.path,
+        &timed.path,
+        Some(&collection.tracks[0]),
+        &[],
+        &BTreeSet::new(),
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        None,
+        &cancel,
+    )
+    .unwrap();
+    let mut staged_grid = None;
+    let mut staged_extended = None;
+    for publication in &bundle.publications {
+        let extension = publication.target.extension().unwrap().to_str().unwrap();
+        if let Some(original) = originals.get(extension) {
+            assert_eq!(
+                &fs::read(f.old_asset.with_extension(extension)).unwrap(),
+                original
+            );
+            let before = AnlzFile::parse(original, Default::default()).unwrap();
+            let after = AnlzFile::parse(
+                &fs::read(publication.staged.as_ref().unwrap()).unwrap(),
+                Default::default(),
+            )
+            .unwrap();
+            for (old, new) in before.tags().iter().zip(after.tags()) {
+                match &new.fourcc() {
+                    b"PQTZ" => staged_grid = Some(new.beats().unwrap()),
+                    b"PQT2" => staged_extended = Some(new.clone()),
+                    _ => assert_eq!(old.bytes(), new.bytes()),
+                }
+            }
+        }
+    }
+    let beats = staged_grid.unwrap();
+    let extended = staged_extended.unwrap();
+    let read = extended.native_microsecond_grid(&beats).unwrap();
+    assert_eq!(
+        beats.iter().map(|beat| beat.time_ms).collect::<Vec<_>>(),
+        [125, 593]
+    );
+    assert_eq!(read.fractions, [0, 750]);
+    assert_eq!(
+        beats.iter().map(|beat| beat.tempo).collect::<Vec<_>>(),
+        [12800, 12800]
+    );
+    assert_eq!(extended.extended_grid().unwrap().downbeat, 0);
+    // An unrecognized producer layout must stop staging, with source files intact.
+    let mut bad = originals["EXT"].clone();
+    let offset = bad.windows(4).position(|value| value == b"PQT2").unwrap();
+    bad[offset + 48..offset + 52].copy_from_slice(&1u32.to_be_bytes());
+    fs::write(f.old_asset.with_extension("EXT"), &bad).unwrap();
+    let result = assets::build(
+        &f.library,
+        &prior.target,
+        "native-pqt2-unsupported",
+        &timed,
+        &timed.path,
+        &timed.path,
+        Some(&collection.tracks[0]),
+        &[],
+        &BTreeSet::new(),
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        None,
+        &cancel,
+    );
+    assert!(result.is_err());
+    assert_eq!(fs::read(f.old_asset.with_extension("EXT")).unwrap(), bad);
+}
+
+mod restore_gates;

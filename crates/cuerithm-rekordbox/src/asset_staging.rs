@@ -71,7 +71,15 @@ pub enum NativeAnlzEdit {
         tag_index: usize,
         beats: Vec<Beat>,
     },
-    /// Only the explicitly identified Lexicon microsecond PQT2 dialect is writable.
+    /// Native PQT2 must match the observed companion DAT grid before editing.
+    NativeMicrosecondGrid {
+        tag_index: usize,
+        primary: Vec<Beat>,
+        beats: Vec<Beat>,
+        fractions: Vec<u16>,
+        variable: bool,
+    },
+    /// Explicitly identified Lexicon microsecond PQT2 layout.
     MicrosecondGrid {
         tag_index: usize,
         beats: Vec<Beat>,
@@ -478,6 +486,7 @@ fn edit_analysis(before: &[u8], edits: &[NativeAnlzEdit], extension: &str) -> Re
             NativeAnlzEdit::Cues { tag_index, .. }
             | NativeAnlzEdit::Grid { tag_index, .. }
             | NativeAnlzEdit::MicrosecondGrid { tag_index, .. }
+            | NativeAnlzEdit::NativeMicrosecondGrid { tag_index, .. }
             | NativeAnlzEdit::AudioPath { tag_index, .. } => *tag_index,
             NativeAnlzEdit::Waveforms { .. } => unreachable!(),
         };
@@ -498,6 +507,13 @@ fn edit_analysis(before: &[u8], edits: &[NativeAnlzEdit], extension: &str) -> Re
                 ..
             } => edit_cues(tag, owned_record_sha256, replacement)?,
             NativeAnlzEdit::Grid { beats, .. } => tag.with_beats(beats)?,
+            NativeAnlzEdit::NativeMicrosecondGrid {
+                primary,
+                beats,
+                fractions,
+                variable,
+                ..
+            } => tag.with_native_microsecond_grid(primary, beats, fractions, *variable)?,
             NativeAnlzEdit::MicrosecondGrid {
                 beats,
                 fractions,

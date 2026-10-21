@@ -90,6 +90,14 @@ pub struct ExtendedGrid {
     pub checksum: u32,
     pub downbeat: u32,
 }
+/// A microsecond PQT2 validated against its companion PQTZ, including anchors
+/// and checksum. Native rekordbox's observed layout reserves the downbeat word.
+#[derive(Clone, Debug)]
+pub struct NativeMicrosecondGrid {
+    pub beats: Vec<Beat>,
+    pub fractions: Vec<u16>,
+    pub variable: bool,
+}
 #[derive(Clone, Debug)]
 pub struct AnlzTag {
     raw: Vec<u8>,
@@ -225,6 +233,48 @@ impl AnlzTag {
         for range in [16..20, 24..52] {
             tag.raw[range.clone()].copy_from_slice(&built.raw[range]);
         }
+        Ok(tag)
+    }
+    /// Recognize the native microsecond layout only with a matching primary
+    /// grid. A body of small words alone cannot distinguish PQT2 dialects.
+    pub fn native_microsecond_grid(&self, primary: &[Beat]) -> Result<NativeMicrosecondGrid> {
+        validate_beats(primary)?;
+        let grid = self.extended_grid()?;
+        ensure!(
+            !primary.is_empty()
+                && matches!(grid.flags, 0x01000002 | 0x02000002)
+                && grid.downbeat == 0
+                && grid.words.len() == primary.len()
+                && grid.words.iter().all(|value| *value < 1000)
+                && grid.first.as_ref() == primary.first()
+                && grid.last.as_ref() == primary.last()
+                && grid.checksum == beat_checksum(primary),
+            "Unsupported or inconsistent native extended-grid dialect"
+        );
+        Ok(NativeMicrosecondGrid {
+            beats: primary.to_vec(),
+            fractions: grid.words,
+            variable: grid.flags == 0x02000002,
+        })
+    }
+    /// Update the paired native dialect while retaining its reserved downbeat
+    /// word, producer fields, header extensions and trailing opaque bytes.
+    pub fn with_native_microsecond_grid(
+        &self,
+        primary: &[Beat],
+        beats: &[Beat],
+        fractions: &[u16],
+        variable: bool,
+    ) -> Result<Self> {
+        self.native_microsecond_grid(primary)?;
+        ensure!(!beats.is_empty(), "Native beatgrid has no playable beats");
+        ensure!(
+            beats.len() <= self.limits.max_entries,
+            "Grid exceeds entry budget"
+        );
+        let mut tag = self.with_microsecond_grid(beats, fractions, variable, 0)?;
+        put32(&mut tag.raw, 48, 0);
+        tag.native_microsecond_grid(beats)?;
         Ok(tag)
     }
     /// Change only the beat count/payload; retain header extensions and trailers.
@@ -540,12 +590,7 @@ impl AnlzTag {
             write_beat(&mut raw[32..40], last);
         }
         put32(&mut raw, 40, u32::try_from(beats.len())?);
-        let checksum = beats.iter().fold(0u32, |a, b| {
-            a.wrapping_add(b.number as u32)
-                .wrapping_add(b.tempo as u32)
-                .wrapping_add(b.time_ms)
-        });
-        put32(&mut raw, 44, checksum);
+        put32(&mut raw, 44, beat_checksum(beats));
         put32(
             &mut raw,
             48,
@@ -886,4 +931,12 @@ fn encode_utf16(value: &str) -> Result<Vec<u8>> {
         .chain([0])
         .flat_map(u16::to_be_bytes)
         .collect())
+}
+
+fn beat_checksum(beats: &[Beat]) -> u32 {
+    beats.iter().fold(0u32, |sum, beat| {
+        sum.wrapping_add(u32::from(beat.number))
+            .wrapping_add(u32::from(beat.tempo))
+            .wrapping_add(beat.time_ms)
+    })
 }

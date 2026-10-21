@@ -4,6 +4,9 @@
 //! authored media. This module never creates or changes its native SQL schema,
 //! edits global settings, or grants a production write capability. Native UI
 //! reopen, playback and visual inspection remain separate manual evidence.
+//! The `verify` phase reads an already-applied operation without recovery or
+//! publication. `CUERITHM_NATIVE_ACCEPTANCE_INCLUDE_BPM=1` explicitly selects BPM
+//! for newly generated requests; the default request leaves BPM unselected.
 use super::super::*;
 use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
 use std::{cell::Cell, process::Command};
@@ -470,7 +473,7 @@ fn request(case: &Case) -> RekordboxSyncRequest {
         convert_incompatible_audio: false,
         nearest_color: false,
     };
-    RekordboxSyncRequest {
+    let mut request = RekordboxSyncRequest {
         target_id: case.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -508,7 +511,14 @@ fn request(case: &Case) -> RekordboxSyncRequest {
                 )
             })
             .collect(),
+    };
+    if std::env::var("CUERITHM_NATIVE_ACCEPTANCE_INCLUDE_BPM").as_deref() == Ok("1") {
+        request.options.metadata_fields.insert("bpm".into());
+        for decisions in request.decisions.values_mut() {
+            decisions.insert("bpm".into(), NativeFieldDecision::UseLocal);
+        }
     }
+    request
 }
 
 fn native_proof(
@@ -547,6 +557,53 @@ fn native_proof(
     Ok(proof)
 }
 
+fn frozen_entity_id<'a>(
+    receipts: &'a [NativePlaylistPublicationReceipt],
+    bindings: Option<&'a BTreeMap<String, NativePlaylistIdentity>>,
+    local: &str,
+) -> Result<&'a str> {
+    receipts
+        .iter()
+        .find(|receipt| receipt.local_id == local)
+        .map(|receipt| receipt.native_id.as_str())
+        .or_else(|| {
+            bindings
+                .and_then(|bindings| bindings.get(local))
+                .map(|binding| binding.native_id.as_str())
+        })
+        .context("Authored entity has no publication receipt or frozen binding")
+}
+
+#[test]
+fn frozen_readback_identity_uses_receipt_then_exact_binding() {
+    let bindings = BTreeMap::from([(
+        "parent".into(),
+        NativePlaylistIdentity {
+            native_id: "stable-parent".into(),
+            uuid: None,
+            expected_raw_hash: "authored".into(),
+            owned: true,
+            owned_link_ids: BTreeSet::new(),
+        },
+    )]);
+    let receipts = vec![NativePlaylistPublicationReceipt {
+        kind: NativePlaylistObjectKind::Playlist,
+        local_id: "parent".into(),
+        native_id: "published-parent".into(),
+        created_link_ids: BTreeSet::new(),
+    }];
+    assert_eq!(
+        frozen_entity_id(&receipts, Some(&bindings), "parent").unwrap(),
+        "published-parent"
+    );
+    assert_eq!(
+        frozen_entity_id(&[], Some(&bindings), "parent").unwrap(),
+        "stable-parent"
+    );
+    assert!(frozen_entity_id(&[], Some(&bindings), "unknown").is_err());
+    assert!(frozen_entity_id(&[], None, "parent").is_err());
+}
+
 fn verify_native_publication(
     case: &Case,
     library: &Library,
@@ -558,12 +615,12 @@ fn verify_native_publication(
     let op = case.verify_operation(library, id)?;
     let collection = ReadOnlyDatabase::open(&case.target.database, key)?
         .read_collection(Default::default(), cancel)?;
-    let native_id = |local: &str| -> Result<&str> {
-        op.receipts
-            .iter()
-            .find(|receipt| receipt.local_id == local)
-            .map(|receipt| receipt.native_id.as_str())
-            .context("Authored entity receipt is missing")
+    let native_id = |local: &str| {
+        frozen_entity_id(
+            &op.receipts,
+            op.playlist_plan.as_ref().map(|plan| &plan.bindings),
+            local,
+        )
     };
     let mut checked_playlists = 0;
     let mut checked_tags = 0;
@@ -583,8 +640,18 @@ fn verify_native_publication(
                     .find(|playlist| playlist.id == id && playlist.deleted != Some(true))
                     .context("Authored native playlist is missing")?;
                 if let Some(parent) = parent_local_id {
+                    let parent_id = native_id(parent)?;
                     ensure!(
-                        actual.parent_id.as_deref() == Some(native_id(parent)?),
+                        collection
+                            .playlists
+                            .iter()
+                            .any(|playlist| playlist.id == parent_id
+                                && playlist.attribute == 1
+                                && playlist.deleted != Some(true)),
+                        "Authored native parent folder is missing"
+                    );
+                    ensure!(
+                        actual.parent_id.as_deref() == Some(parent_id),
                         "Authored native folder hierarchy differs from the frozen plan"
                     );
                 }
@@ -637,6 +704,12 @@ fn verify_native_publication(
                 let id = native_id(local_id)?;
                 let parent_id = native_id(parent)?;
                 ensure!(
+                    collection.tags.iter().any(|tag| tag.id == parent_id
+                        && tag.attribute == 1
+                        && tag.deleted != Some(true)),
+                    "Authored native MyTag category is missing"
+                );
+                ensure!(
                     collection.tags.iter().any(|tag| tag.id == id
                         && tag.parent_id.as_deref() == Some(parent_id)
                         && tag.deleted != Some(true)),
@@ -669,7 +742,8 @@ fn verify_native_publication(
                 .iter()
                 .any(|cue| resolved.owned_cue_ids.contains(&cue.id)
                     && cue.end_seconds.is_some()
-                    && cue.active_loop),
+                    && cue.active_loop
+                    && cue.beat_loop_size == Some(262145)),
             "Authored active loop did not survive native readback"
         );
         let analysis = native
@@ -752,6 +826,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 | "interrupt"
                 | "recover"
                 | "edit-local"
+                | "verify"
         ),
         "Unknown native acceptance phase"
     );
@@ -976,7 +1051,23 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
                 || state.earlier_operation_ids.iter().any(|saved| saved == id),
             "Operation is outside this private acceptance history"
         );
-        case.verify_operation(&library, id)?;
+        let operation = case.verify_operation(&library, id)?;
+        if phase == "verify" {
+            ensure!(
+                operation.status == "applied",
+                "Read-only verification requires an applied native operation"
+            );
+            let before = native_proof(case, &cancel)?;
+            summary["readback"] = verify_native_publication(case, &library, id, &key, &cancel)?;
+            ensure!(
+                native_proof(case, &cancel)? == before,
+                "Read-only verification modified native bytes or modification times"
+            );
+            summary["operation_id"] = json!(id);
+            summary["status"] = json!("verified_applied");
+            summary["native_write"] = json!(false);
+            return Ok(summary);
+        }
         let result = match phase {
             "apply" => publication::fixture_apply(&library, id, &key, &cancel, &|| case.guard())?,
             "restore" => {
@@ -1057,6 +1148,7 @@ fn private_native_acceptance() {
                     | "interrupt"
                     | "recover"
                     | "edit-local"
+                    | "verify"
             ) {
                 format!("report-{phase}.json")
             } else {
