@@ -593,7 +593,11 @@ impl Library {
             )?;
             tx.commit()?;
         }
-        let audio = runtime.decode(&before.path.path()?, &self.data_dir().join("cache/media"))?;
+        let audio = runtime.decode_cancellable(
+            &before.path.path()?,
+            &self.data_dir().join("cache/media"),
+            cancel,
+        )?;
         cancel.check()?;
         ensure!(
             audio.source_sha256 == before.public.source_sha256,
