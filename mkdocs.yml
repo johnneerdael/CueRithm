@@ -150,6 +150,8 @@ nav:
       - Cloudflare challenge solver: guides/catalog-solver.md
       - File organization: guides/file-organization.md
       - Match review and metadata editing: guides/metadata-editing.md
+      - Curate tracks: guides/curating.md
+      - Preparation presets: guides/preparation-presets.md
       - Settings reference: guides/settings.md
   - Under the hood:
       - technical/index.md
