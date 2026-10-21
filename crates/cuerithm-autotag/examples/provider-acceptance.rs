@@ -88,6 +88,19 @@ fn key_file(path: &Path) -> Result<Secret> {
     };
     Secret::new(value).map_err(|_| anyhow::anyhow!("Provider key format is invalid"))
 }
+// Keep the atomic budget compatible with the Rust floor and newer stable toolchains.
+fn reserve_budget(counter: &std::sync::atomic::AtomicUsize, limit: usize) -> bool {
+    use std::sync::atomic::Ordering;
+    let mut count = counter.load(Ordering::SeqCst);
+    while count < limit {
+        match counter.compare_exchange_weak(count, count + 1, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(_) => return true,
+            Err(current) => count = current,
+        }
+    }
+    false
+}
+
 struct VolumoBudget {
     native: Arc<dyn CatalogTransport>,
     api: std::sync::atomic::AtomicUsize,
@@ -116,15 +129,10 @@ impl CatalogTransport for VolumoBudget {
                 url.path() == "/api/pub/track_by_isrc/GBKQU2599555",
                 "Acceptance permits only the chosen public recording lookup"
             );
-            self.api
-                .fetch_update(
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                    |count| (count < 1).then_some(count + 1),
-                )
-                .map_err(|_| {
-                    anyhow::anyhow!("The sole authorized Volumo API attempt was already reserved")
-                })?;
+            ensure!(
+                reserve_budget(&self.api, 1),
+                "The sole authorized Volumo API attempt was already reserved"
+            );
         } else {
             ensure!(
                 url.path().starts_with("/track/") || url.path().starts_with("/img/"),
@@ -138,15 +146,10 @@ impl CatalogTransport for VolumoBudget {
                         || name.eq_ignore_ascii_case("Cookie")),
                 "Public acceptance requests cannot carry credentials"
             );
-            self.public
-                .fetch_update(
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                    |count| (count < 3).then_some(count + 1),
-                )
-                .map_err(|_| {
-                    anyhow::anyhow!("Public metadata acceptance request budget exhausted")
-                })?;
+            ensure!(
+                reserve_budget(&self.public, 3),
+                "Public metadata acceptance request budget exhausted"
+            );
         }
         let response = self.native.execute(request, cancel, revocation)?;
         if api_request {
@@ -377,4 +380,33 @@ fn main() -> Result<()> {
         _ => anyhow::bail!("Unknown acceptance mode"),
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::reserve_budget;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    #[test]
+    fn concurrent_reservations_never_exceed_the_authorized_request_count() {
+        for limit in [0, 1, 3] {
+            let counter = Arc::new(AtomicUsize::new(0));
+            let handles = (0..64)
+                .map(|_| {
+                    let counter = counter.clone();
+                    std::thread::spawn(move || reserve_budget(&counter, limit))
+                })
+                .collect::<Vec<_>>();
+            let accepted = handles
+                .into_iter()
+                .map(|handle| usize::from(handle.join().unwrap()))
+                .sum::<usize>();
+            assert_eq!(accepted, limit);
+            assert_eq!(counter.load(Ordering::SeqCst), limit);
+            assert!(!reserve_budget(&counter, limit));
+            assert_eq!(counter.load(Ordering::SeqCst), limit);
+        }
+    }
 }
