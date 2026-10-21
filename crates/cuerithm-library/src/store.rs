@@ -11,6 +11,7 @@ use std::{
 
 pub(crate) struct Inner {
     pub conn: Mutex<Connection>,
+    pub organization_gate: Mutex<()>,
     #[cfg(feature = "autotag")]
     pub tag_gate: Mutex<()>,
     pub _lease: File,
@@ -54,7 +55,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=13).contains(&version),
+            (0..=15).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -139,6 +140,18 @@ impl Library {
                 include_str!("../migrations/013_catalog_access.sql")
             ))?;
         }
+        if version < 14 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/014_organization.sql")
+            ))?;
+        }
+        if version < 15 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/015_match_evidence.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -162,6 +175,7 @@ impl Library {
         let lib = Self {
             inner: Arc::new(Inner {
                 conn: Mutex::new(conn),
+                organization_gate: Mutex::new(()),
                 #[cfg(feature = "autotag")]
                 tag_gate: Mutex::new(()),
                 _lease: lease,
@@ -182,6 +196,7 @@ impl Library {
         }
         lib.recover_unused_disposals()?;
         lib.recover_unused_removals()?;
+        lib.recover_organization()?;
         Ok(lib)
     }
     pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {

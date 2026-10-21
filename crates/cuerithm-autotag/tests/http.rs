@@ -412,12 +412,17 @@ fn token_waiter_fixture(cancel_during_request: bool) {
     server.join().unwrap();
     assert_eq!(
         requests.load(Ordering::SeqCst),
-        1,
-        "waiters must share one failed token refresh"
+        if cancel_during_request { 1 } else { 3 },
+        "concurrent callers must share each bounded refresh attempt, rather than issue one refresh per waiter"
     );
     assert!(
-        elapsed < Duration::from_millis(900),
-        "shutdown serialized refresh timeouts: {elapsed:?}"
+        elapsed
+            < if cancel_during_request {
+                Duration::from_millis(900)
+            } else {
+                Duration::from_secs(6)
+            },
+        "refresh retry/cancellation exceeded its shared bound: {elapsed:?}"
     );
 }
 #[test]
@@ -427,4 +432,137 @@ fn token_refresh_failure_is_shared_with_concurrent_waiters() {
 #[test]
 fn cancellation_does_not_serialize_token_timeout_requests() {
     token_waiter_fixture(true);
+}
+
+fn retry_script(
+    responses: Vec<(u16, &'static str, Option<usize>, Duration)>,
+) -> (
+    String,
+    std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread::JoinHandle<Vec<String>>,
+) {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let stop = Arc::new(AtomicBool::new(false));
+    let signal = stop.clone();
+    let task = thread::spawn(move || {
+        let mut requests = vec![];
+        let mut handlers = vec![];
+        while !signal.load(Ordering::SeqCst) {
+            let (mut stream, _) = match listener.accept() {
+                Ok(v) => v,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(2));
+                    continue;
+                }
+                Err(e) => panic!("{e}"),
+            };
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut bytes = [0; 8192];
+            let count = stream.read(&mut bytes).unwrap();
+            requests.push(
+                String::from_utf8_lossy(&bytes[..count])
+                    .lines()
+                    .next()
+                    .unwrap()
+                    .to_owned(),
+            );
+            let (status, body, declared, hold) = responses
+                .get(requests.len() - 1)
+                .copied()
+                .unwrap_or((500, "unexpected extra request", None, Duration::ZERO));
+            handlers.push(thread::spawn(move||{let _=stream.write_all(format!("HTTP/1.1 {status} Fixture\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",declared.unwrap_or(body.len())).as_bytes());let _=stream.flush();thread::sleep(hold);}));
+        }
+        for handler in handlers {
+            handler.join().unwrap();
+        }
+        requests
+    });
+    (url, stop, task)
+}
+#[test]
+fn interrupted_catalog_response_bodies_are_retried_as_transport_failures() {
+    use std::sync::atomic::Ordering;
+    for hold in [Duration::ZERO, Duration::from_millis(250)] {
+        let (url, stop, server) = retry_script(vec![
+            (200, "partial", Some(100), hold),
+            (
+                200,
+                "<div id='searchTrackList'></div>",
+                None,
+                Duration::ZERO,
+            ),
+        ]);
+        let tagger = Tagger::with_endpoints(
+            CatalogEndpoints::for_local_server(&url, Duration::from_millis(80)).unwrap(),
+        )
+        .unwrap();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["traxsource".into()];
+        let outcome = tagger.match_track(&input(), &config);
+        stop.store(true, Ordering::SeqCst);
+        let requests = server.join().unwrap();
+        assert_eq!(
+            outcome
+                .expect(
+                    "disconnected or stalled response body must retain retryable transport cause"
+                )
+                .status,
+            MatchStatus::NoMatch
+        );
+        assert_eq!(requests.len(), 2);
+    }
+}
+#[test]
+fn transient_beatport_token_refresh_failure_can_recover_within_the_provider_retry() {
+    use std::sync::atomic::Ordering;
+    let (url, stop, server) = retry_script(vec![
+        (503, "temporarily unavailable", None, Duration::ZERO),
+        (
+            200,
+            r#"{"access_token":"fixture-token","expires_in":3600}"#,
+            None,
+            Duration::ZERO,
+        ),
+        (200, r#"{"tracks":[]}"#, None, Duration::ZERO),
+    ]);
+    let tagger = Tagger::with_endpoints(
+        CatalogEndpoints::for_local_server(&url, Duration::from_secs(1)).unwrap(),
+    )
+    .unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.platforms = vec!["beatport".into()];
+    let outcome = tagger.match_track(&input(), &config);
+    stop.store(true, Ordering::SeqCst);
+    let requests = server.join().unwrap();
+    assert_eq!(
+        outcome
+            .expect(
+                "cached token refresh failure must retain its type and permit a bounded real retry"
+            )
+            .status,
+        MatchStatus::NoMatch
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.starts_with("POST /o/token/"))
+            .count(),
+        2
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.starts_with("GET /v4/catalog/search/"))
+            .count(),
+        1
+    );
 }

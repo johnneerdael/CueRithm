@@ -23,7 +23,29 @@ const INVALID_ART: &'static str = "ab2d1d04-233d-4b08-8234-9782b34dcab8";
 struct TokenState {
     token: Option<BeatportOAuth>,
     refreshing: bool,
-    failure: Option<(Instant, String)>,
+    failure: Option<TokenRefreshFailure>,
+}
+/// Share the exact refresh cause with concurrent callers and let the native
+/// retry scheduler honor the same coalescing window before another request.
+#[derive(Debug, Clone)]
+pub struct TokenRefreshFailure {
+    cause: Arc<anyhow::Error>,
+    retry_after: Instant,
+}
+impl TokenRefreshFailure {
+    pub fn retry_after(&self) -> Instant {
+        self.retry_after
+    }
+}
+impl std::fmt::Display for TokenRefreshFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Recent catalog token refresh failed: {}", self.cause)
+    }
+}
+impl std::error::Error for TokenRefreshFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.cause.as_ref().as_ref())
+    }
 }
 #[derive(Debug, Default)]
 pub struct BeatportTokenCache {
@@ -125,9 +147,9 @@ impl Beatport {
             if let Some(token) = state.token.as_ref().filter(|t| t.expires_in > timestamp!()) {
                 return Ok(token.access_token.clone());
             }
-            if let Some((at, message)) = &state.failure {
-                if at.elapsed() < Duration::from_secs(2) {
-                    return Err(anyhow!("Recent catalog token refresh failed: {message}"));
+            if let Some(failure) = &state.failure {
+                if Instant::now() < failure.retry_after {
+                    return Err(failure.clone().into());
                 }
             }
             if !state.refreshing {
@@ -163,16 +185,22 @@ impl Beatport {
             .lock()
             .map_err(|_| anyhow!("Token refresh interrupted"))?;
         state.refreshing = false;
-        match &fetched {
+        let fetched = match fetched {
             Ok(token) => {
                 state.token = Some(token.clone());
                 state.failure = None;
+                Ok(token)
             }
             Err(error) => {
                 state.token = None;
-                state.failure = Some((Instant::now(), error.to_string()));
+                let failure = TokenRefreshFailure {
+                    cause: Arc::new(error),
+                    retry_after: Instant::now() + Duration::from_secs(2),
+                };
+                state.failure = Some(failure.clone());
+                Err(Error::new(failure))
             }
-        }
+        };
         drop(state);
         self.access_token.changed.notify_all();
         if self.cancel.load(Ordering::Relaxed) {

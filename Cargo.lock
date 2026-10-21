@@ -965,6 +965,7 @@ dependencies = [
  "flate2",
  "id3",
  "image",
+ "mp4ameta",
  "onetagger-selected-providers",
  "onetagger-tag",
  "onetagger-tagger",
@@ -1051,6 +1052,7 @@ dependencies = [
  "cuerithm-dj-sync",
  "cuerithm-maintenance",
  "cuerithm-media",
+ "cuerithm-organize",
  "cuerithm-rekordbox",
  "cuerithm-smartlists",
  "flate2",
@@ -1098,6 +1100,16 @@ dependencies = [
  "sha2",
  "tar",
  "tempfile",
+]
+
+[[package]]
+name = "cuerithm-organize"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "unicode-normalization",
 ]
 
 [[package]]

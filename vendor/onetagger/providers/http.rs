@@ -69,6 +69,17 @@ impl SolverConfig {
     }
 }
 
+/// A required, unavailable, unsupported or unresolved solver is a provider
+/// availability failure. Its retries belong exclusively to this transport.
+#[derive(Debug)]
+pub struct SolverFailure(pub String);
+impl std::fmt::Display for SolverFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for SolverFailure {}
+
 pub trait ChallengeStore: Send + Sync {
     fn requires_solver(&self, source: &str) -> Result<bool>;
     fn mark_requires_solver(&self, source: &str) -> Result<()>;
@@ -162,7 +173,7 @@ impl CatalogHttp {
             }
             self.store.mark_requires_solver(&self.source)?;
         }
-        let endpoint = config.api_url()?.context("Source requires a FlareSolverr-compatible solver; configure it in Settings → Automatic tagging")?;
+        let endpoint = config.api_url()?.ok_or_else(|| SolverFailure("Source requires a FlareSolverr-compatible solver; configure it in Settings → Automatic tagging".into()))?;
         // No cookies or browser identities are imported into the native client. The
         // solver fetches every page for a marked source and owns clearance reuse.
         for attempt in 0..2 {
@@ -177,7 +188,15 @@ impl CatalogHttp {
                         std::thread::sleep(Duration::from_millis(50));
                     }
                 }
-                result => return result,
+                result => {
+                    return result.map_err(|error| {
+                        if cancel.load(Ordering::Relaxed) {
+                            error
+                        } else {
+                            SolverFailure(format!("{error:#}")).into()
+                        }
+                    });
+                }
             }
         }
         unreachable!()

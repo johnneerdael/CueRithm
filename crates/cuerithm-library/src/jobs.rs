@@ -65,8 +65,17 @@ impl Library {
         self.settings_revision(&revision)?;
         let mut ids = Vec::new();
         for path in paths {
+            let requested_path = std::path::absolute(path)?;
             let path = path.canonicalize().context("Incoming file is missing")?;
             ensure!(path.is_file(), "Only audio files can be queued");
+            // Keep ownership lookup and enqueue on the same side of a path
+            // publication/alternate resolution, including non-tagging builds.
+            // Acquire organization before tagging, matching coordinator order.
+            let _organization_gate = self
+                .inner
+                .organization_gate
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
             // Keep the hash and its enqueue decision on the same side of any
             // metadata replacement/commit. An old hash must not requeue a file
             // after a successful manual cleanup or catalog publication.
@@ -77,6 +86,33 @@ impl Library {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
             let hash = hash_source(&path)?;
+            let requested_owner = self.organization_source_state(&requested_path, &hash)?;
+            let owner = if matches!(
+                requested_owner,
+                crate::organization::AlternateSourceState::Unowned
+            ) && requested_path != path
+            {
+                self.organization_source_state(&path, &hash)?
+            } else {
+                requested_owner
+            };
+            match owner {
+                crate::organization::AlternateSourceState::Unowned => {}
+                crate::organization::AlternateSourceState::Owned { track_id } => {
+                    let job: Option<String> = self.conn()?.query_row(
+                        "SELECT current_job FROM tracks WHERE id=?1",
+                        [&track_id],
+                        |r| r.get(0),
+                    )?;
+                    ids.push(job.context("Organization owner has no preparation job")?);
+                    continue;
+                }
+                crate::organization::AlternateSourceState::Conflict { operation_id, .. } => {
+                    anyhow::bail!(
+                        "Organization source changed; resolve original revision for operation {operation_id} before adding it"
+                    );
+                }
+            }
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             if discovered {

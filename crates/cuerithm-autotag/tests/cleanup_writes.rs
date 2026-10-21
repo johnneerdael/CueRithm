@@ -93,6 +93,7 @@ fn all_formats_cleanup_native_values_without_changing_pcm_or_unselected_metadata
             change(&before, MetadataField::Grouping, &["Unchanged Group"]),
         ];
         let mut cfg = config();
+        cfg.write_energy = true;
         cfg.options.tags = vec![
             cuerithm_autotag::SupportedTag::OtherTags,
             cuerithm_autotag::SupportedTag::AlbumArt,
@@ -103,24 +104,29 @@ fn all_formats_cleanup_native_values_without_changing_pcm_or_unselected_metadata
                 1.,
                 CatalogTrack {
                     platform: "beatport".into(),
-                    other: vec![
-                        (FrameName::same("CUSTOM_KEEP"), vec!["Untouched".into()]),
-                        (FrameName::same("ENERGY"), vec!["7".into()]),
-                    ],
+                    other: vec![(FrameName::same("CUSTOM_KEEP"), vec!["Untouched".into()])],
                     ..Default::default()
                 },
             )],
             attempted: vec![],
             warnings: vec![],
         };
-        let staged = TagWritePlan::build(seed_input, &outcome, &cfg, &AnalysisTags::default())
-            .unwrap()
-            .with_metadata_edits(edits)
-            .unwrap()
-            .with_artwork(image.clone())
-            .unwrap()
-            .stage(&runtime, &cache)
-            .unwrap();
+        let staged = TagWritePlan::build(
+            seed_input,
+            &outcome,
+            &cfg,
+            &AnalysisTags {
+                energy: Some(7),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .with_metadata_edits(edits)
+        .unwrap()
+        .with_artwork(image.clone())
+        .unwrap()
+        .stage(&runtime, &cache)
+        .unwrap();
         std::fs::copy(&staged.path, &source).unwrap();
         let wrong = renamed.join(format!("track-{index}.bin"));
         std::fs::rename(source, &wrong).unwrap();

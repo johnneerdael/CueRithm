@@ -202,7 +202,7 @@ impl Library {
         staged.retain_for_journal();
         Ok(id)
     }
-    fn run_owns(conn: &Connection, run: &JobRun) -> Result<bool> {
+    pub(crate) fn run_owns(conn: &Connection, run: &JobRun) -> Result<bool> {
         Ok(conn.query_row("SELECT j.state='running' AND j.attempts=?2 AND j.settings_revision=?3 AND j.source_hash=?4 AND t.current_job=j.id AND t.archived=0 AND t.id=?5 AND t.path=?6 FROM jobs j JOIN tracks t ON t.id=j.track_id WHERE j.id=?1",params![run.id,run.attempt,run.settings_revision,run.source_sha256,run.track_id,path_bytes(&run.path)],|r|r.get(0))?)
     }
     fn load_tag_write(&self, id: &str) -> Result<Journal> {
