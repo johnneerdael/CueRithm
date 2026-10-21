@@ -1,8 +1,9 @@
 name: PR gate
 
 # Cheap merge gate: PR body sections plus a completed @codex review of the head commit.
-# Pushes start no builds. Once the gate passes it dispatches the hosted builds (ci.yml, desktop.yml) for
-# that commit, and a newer commit cancels the old commit's unfinished runs. They also run after the merge.
+# Pushes start no builds. Once the gate passes it dispatches the Linux checks (ci.yml, desktop.yml) for
+# that commit, and a newer commit cancels the old commit's unfinished runs. Every platform runs after the
+# merge, on main; a failure there is fixed on main.
 on:
   pull_request_target:
     branches: [main]
