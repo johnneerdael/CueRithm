@@ -298,8 +298,14 @@ impl Tagger {
         } else {
             usize::from(config.options.threads)
         };
-        let _permit = backend.gate.acquire(limit, cancel)?;
-        backend.source.search_releases(query, page, config, cancel)
+        retry::bounded(cancel, backend.source.stage_timeout(config), |cancel| {
+            let _permit = backend.gate.acquire(limit, cancel)?;
+            backend
+                .cooldown
+                .run(cancel, backend.source.stage_timeout(config), || {
+                    backend.source.search_releases(query, page, config, cancel)
+                })
+        })
     }
     pub fn get_album(
         &self,
@@ -439,8 +445,8 @@ impl Tagger {
                     }
                     ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
                     let mut matched = found.remove(0);
-                    // Traxsource album tracks already contain the full release metadata.
-                    // Re-extending would fetch the track page and that same release again.
+                    // Complete Traxsource release rows already contain their native
+                    // metadata. Do not reopen the track and same release pages.
                     if provider != ProviderId::Traxsource
                         || matched.reason != onetagger_tagger::MatchReason::Album
                     {
