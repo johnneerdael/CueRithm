@@ -13,11 +13,10 @@ results in the library remain measured analysis, independently of catalog tags.
 
 ## Providers and matching
 
-Beatport is currently visible in the provider controls. Traxsource selection,
-options and capability hints are temporarily hidden while its implementation and
-configuration support remain intact. New UI configurations select only visible
-providers; existing saved selections/options are retained, so hiding the controls
-does not itself disable previously configured backend use.
+Select Beatport and/or Traxsource. Move providers earlier or later to set their
+order. A source marked as restricted that has no working solver shows as
+unavailable and cannot be newly selected; a saved selection stays visible so you
+can clear it.
 
 With Combine providers off, the first successful selected provider supplies metadata.
 With it on, every selected provider is consulted and matches apply in order.

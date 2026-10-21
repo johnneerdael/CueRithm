@@ -2,7 +2,8 @@
 use crate::{SupportedTag, asf::AsfTag, input::audio_format};
 use anyhow::Result;
 use cuerithm_media::MediaInfo;
-use onetagger_tag::{AudioFileFormat, Field, Tag, TagImpl};
+use mp4ameta::ident::DataIdent;
+use onetagger_tag::{AudioFileFormat, Field, Tag, TagImpl, mp4::MP4Tag};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,8 +202,60 @@ pub(crate) fn explicit_at(
     }
 }
 
-pub(crate) fn protected_custom_target(key: &str) -> bool {
-    let leaf = key.rsplit(':').next().unwrap_or(key).to_uppercase();
+/// The name the native writer addresses for a custom key. MP4 freeform keys are
+/// resolved by `MP4Tag::string_to_ident`, which keeps only the first two `:`
+/// components, so `com.apple.iTunes:LABEL:ignored` still writes `LABEL`.
+fn custom_leaf(key: &str, format: &AudioFileFormat) -> String {
+    if *format == AudioFileFormat::MP4
+        && let DataIdent::Freeform { name, .. } = MP4Tag::string_to_ident(key)
+    {
+        return name.to_uppercase();
+    }
+    key.rsplit(':').next().unwrap_or(key).to_uppercase()
+}
+
+fn same_mp4_atom(a: &str, b: &str) -> bool {
+    let ident = |key| MP4Tag::ident_to_string(&MP4Tag::string_to_ident(key));
+    ident(a).eq_ignore_ascii_case(&ident(b))
+}
+
+/// Native MP4 atoms for the comment, lyrics, description, artwork and rating
+/// fields that the ID3/Vorbis names in `protected_custom_target` already cover.
+fn protected_mp4_atom(key: &str) -> bool {
+    use mp4ameta::ident;
+    matches!(
+        MP4Tag::string_to_ident(key),
+        DataIdent::Fourcc(code) if [
+            ident::COMMENT,
+            ident::LYRICS,
+            ident::DESCRIPTION,
+            ident::ARTWORK,
+            ident::ADVISORY_RATING,
+        ]
+        .contains(&code)
+    )
+}
+
+fn dj_namespace(upper: &str) -> bool {
+    ["SERATO", "REKORDBOX", "TRAKTOR"]
+        .iter()
+        .any(|vendor| upper.contains(vendor))
+}
+
+pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bool {
+    if *format == AudioFileFormat::MP4 {
+        if protected_mp4_atom(key) {
+            return true;
+        }
+        // Serato's cue and grid atoms are `com.serato.dj:markersv2` and `:beatgrid`,
+        // so the vendor appears only in the freeform mean.
+        if let DataIdent::Freeform { mean, .. } = MP4Tag::string_to_ident(key)
+            && dj_namespace(&mean.to_uppercase())
+        {
+            return true;
+        }
+    }
+    let leaf = custom_leaf(key, format);
     [
         "GEOB",
         "PRIV",
@@ -227,9 +280,7 @@ pub(crate) fn protected_custom_target(key: &str) -> bool {
         "SYLT",
     ]
     .contains(&leaf.as_str())
-        || leaf.contains("SERATO")
-        || leaf.contains("REKORDBOX")
-        || leaf.contains("TRAKTOR")
+        || dj_namespace(&leaf)
 }
 
 pub(crate) fn custom_bypasses_field_policy(
@@ -237,7 +288,7 @@ pub(crate) fn custom_bypasses_field_policy(
     format: &AudioFileFormat,
     allow_style: bool,
 ) -> bool {
-    let leaf = key.rsplit(':').next().unwrap_or(key).to_uppercase();
+    let leaf = custom_leaf(key, format);
     let bound = [
         Field::Title,
         Field::Artist,
@@ -264,7 +315,9 @@ pub(crate) fn custom_bypasses_field_policy(
             return false;
         }
         let binding = field.by_format(format);
-        binding.eq_ignore_ascii_case(key) || binding.eq_ignore_ascii_case(&leaf)
+        binding.eq_ignore_ascii_case(key)
+            || binding.eq_ignore_ascii_case(&leaf)
+            || (*format == AudioFileFormat::MP4 && same_mp4_atom(binding, key))
     });
     bound
         || leaf.ends_with("_TRACK_ID")

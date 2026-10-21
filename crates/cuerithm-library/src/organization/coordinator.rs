@@ -5,7 +5,7 @@ use super::{
     *,
 };
 use anyhow::{Context, Result, ensure};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -57,6 +57,8 @@ impl Library {
         let mut files = Vec::new();
         let mut sources = HashSet::new();
         let mut targets = HashSet::new();
+        let mut target_keys = HashSet::new();
+        let mut identities = HashSet::new();
         for (index, (source, destination)) in request.files.iter().enumerate() {
             ensure!(
                 source.starts_with(&request.source_root)
@@ -66,6 +68,13 @@ impl Library {
             ensure!(
                 sources.insert(source.clone()) && targets.insert(destination.clone()),
                 "Duplicate organization source or destination"
+            );
+            ensure!(
+                target_keys.insert(
+                    cuerithm_organize::paths::collision_key(destination)
+                        .map_err(|error| anyhow::anyhow!(error))?
+                ),
+                "Organization contains case-equivalent destinations"
             );
             let source_folder = source.parent().context("Missing source folder")?;
             let destination_folder = destination.parent().context("Missing destination folder")?;
@@ -78,6 +87,12 @@ impl Library {
             let (parent, source_parent) = Parent::capture(source_folder)?;
             let source_name = Path::new(source.file_name().context("Missing source file name")?);
             let original = parent.fingerprint(source_name)?;
+            // Two names can open one native file (case aliases, hard links), and
+            // cleanup of the first leaves the second without a source.
+            ensure!(
+                identities.insert((original.identity.volume, original.identity.object)),
+                "Organization lists the same native source file more than once"
+            );
             if index == 0 {
                 ensure!(
                     original.sha256 == current_hash,
@@ -173,13 +188,38 @@ impl Library {
         let now = crate::model::now();
         tx.execute("INSERT INTO organization_operations(id,track_id,state,payload_json,created,updated) VALUES(?1,?2,?3,?4,?5,?5)",params![record.id,record.track_id,record.phase.key(),serde_json::to_string(record)?,now])?;
         if record.phase != OrganizationPhase::Unchanged {
-            let mut reserved = HashSet::new();
+            // Destinations also carry a conservative case/Unicode-equivalent key so
+            // two active plans cannot claim spellings of one name before either publishes.
+            let mut reserved = std::collections::BTreeMap::new();
             for file in &record.files {
-                for path in [&file.source, &file.destination] {
-                    if reserved.insert(path.0.clone()) {
-                        tx.execute("INSERT INTO organization_reservations(path,operation_id) VALUES(?1,?2)",params![path.0,record.id])?;
-                    }
-                }
+                reserved
+                    .entry(&file.source.0)
+                    .or_insert((&file.source, false));
+                reserved
+                    .entry(&file.destination.0)
+                    .or_insert((&file.destination, true))
+                    .1 = true;
+            }
+            for (bytes, (path, destination)) in reserved {
+                let key = if destination {
+                    let key = cuerithm_organize::paths::collision_key(&path.path()?)
+                        .map_err(|error| anyhow::anyhow!(error))?;
+                    let owner: Option<String> = tx
+                        .query_row(
+                            "SELECT operation_id FROM organization_reservations WHERE collision_key=?1 AND operation_id!=?2 LIMIT 1",
+                            params![key, record.id],
+                            |r| r.get(0),
+                        )
+                        .optional()?;
+                    ensure!(
+                        owner.is_none(),
+                        "Another active organization already reserves this destination or a case-equivalent spelling of it"
+                    );
+                    Some(key)
+                } else {
+                    None
+                };
+                tx.execute("INSERT INTO organization_reservations(path,collision_key,operation_id) VALUES(?1,?2,?3)",params![bytes,key,record.id])?;
             }
         }
         if let Some(row) = &record.batch_row_id {

@@ -203,6 +203,158 @@ fn no_replace_publication_preserves_a_racing_destination_and_source() {
     );
 }
 #[test]
+fn active_plans_cannot_reserve_case_equivalent_destinations() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let library = Library::open(&root.join("library.sqlite")).unwrap();
+    let track = |name: &str| {
+        let source = root.join(name);
+        std::fs::write(&source, name.as_bytes()).unwrap();
+        let job = library
+            .enqueue(
+                std::slice::from_ref(&source),
+                library.settings().unwrap().revision,
+            )
+            .unwrap()
+            .remove(0);
+        let track_id = library
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|j| j.id == job)
+            .unwrap()
+            .track_id;
+        (track_id, source)
+    };
+    let request = |(track_id, source): (String, std::path::PathBuf), destination: &str| {
+        OrganizationRequest {
+            track_id,
+            mode: OrganizationMode::Move,
+            source_root: root.clone(),
+            destination_root: root.clone(),
+            files: vec![(source, root.join(destination))],
+        }
+    };
+    library
+        .plan_organization(request(track("one.wav"), "Foo.wav"))
+        .unwrap();
+    let error = library
+        .plan_organization(request(track("two.wav"), "foo.wav"))
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("case-equivalent"), "{error:#}");
+    let operations: i64 = library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM organization_operations", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(operations, 1, "the rejected plan leaves no reservation");
+    library
+        .plan_organization(request(track("three.wav"), "Bar.wav"))
+        .unwrap();
+}
+#[test]
+fn one_plan_cannot_contain_case_equivalent_destinations() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let library = Library::open(&root.join("library.sqlite")).unwrap();
+    let source = root.join("one.wav");
+    std::fs::write(&source, b"audio").unwrap();
+    let (first, second) = (root.join("a.jpg"), root.join("b.jpg"));
+    std::fs::write(&first, b"cover a").unwrap();
+    std::fs::write(&second, b"cover b").unwrap();
+    let job = library
+        .enqueue(
+            std::slice::from_ref(&source),
+            library.settings().unwrap().revision,
+        )
+        .unwrap()
+        .remove(0);
+    let track_id = library
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    let error = library
+        .plan_organization(OrganizationRequest {
+            track_id,
+            mode: OrganizationMode::Move,
+            source_root: root.clone(),
+            destination_root: root.clone(),
+            files: vec![
+                (source, root.join("Song.wav")),
+                (first, root.join("Cover.jpg")),
+                (second, root.join("cover.jpg")),
+            ],
+        })
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("case-equivalent"), "{error:#}");
+    let operations: i64 = library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM organization_operations", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(operations, 0, "nothing is journaled for a rejected request");
+}
+#[test]
+fn one_plan_cannot_list_the_same_native_source_twice() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let library = Library::open(&root.join("library.sqlite")).unwrap();
+    let source = root.join("one.wav");
+    std::fs::write(&source, b"audio").unwrap();
+    let job = library
+        .enqueue(
+            std::slice::from_ref(&source),
+            library.settings().unwrap().revision,
+        )
+        .unwrap()
+        .remove(0);
+    let track_id = library
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    let plan = |alias: std::path::PathBuf| {
+        library.plan_organization(OrganizationRequest {
+            track_id: track_id.clone(),
+            mode: OrganizationMode::Move,
+            source_root: root.clone(),
+            destination_root: root.clone(),
+            files: vec![
+                (source.clone(), root.join("Song.wav")),
+                (alias, root.join("Other.wav")),
+            ],
+        })
+    };
+    // A second name for the same native file, on every platform.
+    let link = root.join("link.wav");
+    std::fs::hard_link(&source, &link).unwrap();
+    let error = plan(link).unwrap_err();
+    assert!(format!("{error:#}").contains("same native source"), "{error:#}");
+    // The literal case alias, when this volume treats names case-insensitively.
+    let upper = root.join("ONE.wav");
+    if upper.exists() {
+        let error = plan(upper).unwrap_err();
+        assert!(format!("{error:#}").contains("same native source"), "{error:#}");
+    }
+    let operations: i64 = library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM organization_operations", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(operations, 0, "nothing is journaled for a rejected request");
+}
+#[test]
 fn changed_source_before_cleanup_is_never_deleted_or_marked_complete() {
     let f = Fixture::new(OrganizationMode::Move, false, false);
     f.library.execute_organization(&f.id).unwrap();

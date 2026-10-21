@@ -1,5 +1,5 @@
 //! Validate framing before handing native records to a deliberately tolerant tag reader.
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use std::{
     io::{Read, Seek, SeekFrom},
     path::Path,
@@ -43,7 +43,9 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
         let mut body = vec![0; len];
         file.read_exact(&mut body)?;
         let footer = version == 4 && header[5] & 16 != 0;
-        if version == 3 && header[5] & 128 != 0 {
+        // v2.2 and v2.3 unsynchronize the whole tag, so frame sizes count decoded
+        // bytes. v2.4 sizes count the stored bytes and need no tag-level decoding.
+        if matches!(version, 2 | 3) && header[5] & 128 != 0 {
             let mut decoded = Vec::with_capacity(body.len());
             let mut i = 0;
             while i < body.len() {
@@ -107,7 +109,14 @@ fn validate_reader(file: &mut (impl Read + Seek)) -> Result<()> {
             offset += header_len + size;
         }
         if footer {
-            file.seek(SeekFrom::Current(10))?;
+            // The footer repeats the header with "3DI" for the signature.
+            let mut tail = [0; 10];
+            file.read_exact(&mut tail)
+                .context("Truncated existing ID3 footer")?;
+            ensure!(
+                &tail[..3] == b"3DI" && tail[3..] == header[3..],
+                "Malformed existing ID3 footer"
+            );
         }
     }
 }
@@ -163,5 +172,45 @@ mod tests {
     #[test]
     fn truncated_claimed_id3_header_is_not_untagged_audio() {
         assert!(validate_reader(&mut std::io::Cursor::new(b"ID3".to_vec())).is_err());
+    }
+    #[test]
+    fn id3v22_and_v23_tag_level_unsynchronization_is_reversed_before_frame_sizes() {
+        // A frame holding [00 FF FB]; the FF FB pair is stored as FF 00 FB, so the
+        // stored body is one byte longer than the size in the frame header.
+        let v22 = [
+            &b"ID3\x02\x00\x80\x00\x00\x00\x0a"[..],
+            b"TT2\x00\x00\x03\x00\xff\x00\xfb",
+        ]
+        .concat();
+        assert!(validate_reader(&mut std::io::Cursor::new(v22)).is_ok());
+        let v23 = [
+            &b"ID3\x03\x00\x80\x00\x00\x00\x0e"[..],
+            b"TIT2\x00\x00\x00\x03\x00\x00\x00\xff\x00\xfb",
+        ]
+        .concat();
+        assert!(validate_reader(&mut std::io::Cursor::new(v23)).is_ok());
+    }
+    fn footer_tag(footer: &[u8]) -> Vec<u8> {
+        // An empty ID3v2.4 tag whose header sets the footer flag.
+        let mut bytes = b"ID3\x04\x00\x10\x00\x00\x00\x00".to_vec();
+        bytes.extend_from_slice(footer);
+        bytes
+    }
+    #[test]
+    fn id3v24_footer_must_be_present_and_mirror_the_header() {
+        let valid = footer_tag(b"3DI\x04\x00\x10\x00\x00\x00\x00");
+        assert!(validate_reader(&mut std::io::Cursor::new(valid)).is_ok());
+        for (name, footer) in [
+            ("missing", &b""[..]),
+            ("truncated", b"3DI\x04\x00"),
+            ("wrong signature", b"XYZ\x04\x00\x10\x00\x00\x00\x00"),
+            ("different version", b"3DI\x03\x00\x10\x00\x00\x00\x00"),
+            ("different size", b"3DI\x04\x00\x10\x00\x00\x00\x05"),
+        ] {
+            assert!(
+                validate_reader(&mut std::io::Cursor::new(footer_tag(footer))).is_err(),
+                "{name} footer"
+            );
+        }
     }
 }

@@ -551,6 +551,150 @@ fn provider_other_tags_cannot_bypass_explicit_or_native_record_protection() {
 }
 
 #[test]
+fn mp4_provider_other_tags_cannot_alias_protected_fields_through_extra_components() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::OtherTags];
+    for key in [
+        "com.apple.iTunes:LABEL:ignored",
+        "iTunes:LABEL",
+        "----:com.apple.iTunes:LABEL:ignored",
+        "com.apple.iTunes:RATING:ignored",
+        "com.apple.iTunes:SERATO_MARKERS:ignored",
+        "com.apple.iTunes:BEATPORT_TRACK_ID:ignored",
+    ] {
+        let mut source = input();
+        source.media.codec = "alac".into();
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        let output = TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        assert!(
+            TagWritePlan::build(source, &output, &config, &AnalysisTags::default()).is_err(),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn mp4_native_comment_lyrics_description_artwork_and_rating_atoms_are_protected() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    for key in ["©lyr", "©cmt", "desc", "covr", "rtng"] {
+        let output = |candidate| TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        let mut source = input();
+        source.media.codec = "alac".into();
+        let mut other = AutotagConfig::default();
+        other.options.tags = vec![SupportedTag::OtherTags];
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        assert!(
+            TagWritePlan::build(
+                source.clone(),
+                &output(candidate),
+                &other,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "other tags {key}"
+        );
+        let mut style = AutotagConfig::default();
+        style.options.tags = vec![SupportedTag::Style];
+        style.options.styles_options = onetagger_tagger::StylesOptions::CustomTag;
+        style.options.styles_custom_tag = Some(FrameName::same(key));
+        assert!(
+            TagWritePlan::build(
+                source,
+                &output(track(ProviderId::Beatport, "Signal")),
+                &style,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "style {key}"
+        );
+    }
+}
+
+#[test]
+fn mp4_dj_vendor_freeform_namespaces_are_protected_by_mean_as_well_as_name() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    // The Serato cue and beatgrid atoms name the vendor only in the freeform mean.
+    for key in [
+        "----:com.serato.dj:markersv2",
+        "----:com.serato.dj:beatgrid",
+        "com.serato.dj:markersv2",
+        "com.rekordbox.dj:cues",
+        "com.traktor.native:grid",
+    ] {
+        let output = |candidate| TagMatchOutcome {
+            status: MatchStatus::Matched,
+            matches: vec![CatalogMatch::new(1., candidate)],
+            attempted: vec![],
+            warnings: vec![],
+        };
+        let mut source = input();
+        source.media.codec = "alac".into();
+        let mut other = AutotagConfig::default();
+        other.options.tags = vec![SupportedTag::OtherTags];
+        let mut candidate = track(ProviderId::Beatport, "Signal");
+        candidate.other = vec![(FrameName::same(key), vec!["clobber".into()])];
+        assert!(
+            TagWritePlan::build(
+                source.clone(),
+                &output(candidate),
+                &other,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "other tags {key}"
+        );
+        let mut style = AutotagConfig::default();
+        style.options.tags = vec![SupportedTag::Style];
+        style.options.styles_options = onetagger_tagger::StylesOptions::CustomTag;
+        style.options.styles_custom_tag = Some(FrameName::same(key));
+        assert!(
+            TagWritePlan::build(
+                source,
+                &output(track(ProviderId::Beatport, "Signal")),
+                &style,
+                &AnalysisTags::default()
+            )
+            .is_err(),
+            "style {key}"
+        );
+    }
+}
+
+#[test]
+fn mp4_provider_other_tags_keep_unrelated_freeform_names() {
+    use cuerithm_autotag::{AnalysisTags, FrameName, SupportedTag, TagWritePlan};
+    let mut config = AutotagConfig::default();
+    config.options.tags = vec![SupportedTag::OtherTags];
+    let mut source = input();
+    source.media.codec = "alac".into();
+    let mut candidate = track(ProviderId::Beatport, "Signal");
+    candidate.other = vec![(
+        FrameName::same("com.apple.iTunes:CUERITHM_NOTE"),
+        vec!["kept".into()],
+    )];
+    let output = TagMatchOutcome {
+        status: MatchStatus::Matched,
+        matches: vec![CatalogMatch::new(1., candidate)],
+        attempted: vec![],
+        warnings: vec![],
+    };
+    TagWritePlan::build(source, &output, &config, &AnalysisTags::default()).unwrap();
+}
+
+#[test]
 fn explicit_release_preference_can_choose_reissues_but_never_conflicting_recordings() {
     struct Reissues {
         conflict: bool,
@@ -610,6 +754,10 @@ fn custom_style_binding_cannot_overwrite_unselected_native_fields() {
         ("alac", "©day"),
         ("mp3", "TYER"),
         ("flac", "CUERITHM_TAGGEDDATE"),
+        // The MP4 writer keeps only the first two `:` components of a freeform key.
+        ("alac", "com.apple.iTunes:LABEL:ignored"),
+        ("alac", "iTunes:LABEL"),
+        ("alac", "com.apple.iTunes:RATING:ignored"),
     ] {
         let mut config = AutotagConfig::default();
         config.options.tags = vec![SupportedTag::Style];

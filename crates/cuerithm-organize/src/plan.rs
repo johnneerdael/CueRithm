@@ -274,16 +274,30 @@ pub fn build_plan(
                 row.outcome = RowOutcome::Unchanged;
             } else if row.outcome == RowOutcome::Ready && identical + unchanged == row.files.len() {
                 row.outcome = RowOutcome::IdenticalCopy;
+            } else if row.outcome == RowOutcome::Ready && identical > 0 {
+                // The coordinator rejects an existing destination and requires the
+                // audio first, so a request cannot express a partly present copy.
+                row.outcome = RowOutcome::Blocked {
+                    reason: "Part of this copy already exists at the destination; remove it or choose another destination".into(),
+                };
             }
         }
         rows.push(row);
     }
+    // A row already blocked for another reason cannot apply, so it neither claims a
+    // destination nor loses its own reason. Snapshot first so the result does not
+    // depend on the order the reservations are visited.
+    let live: Vec<bool> = rows
+        .iter()
+        .map(|row| !matches!(row.outcome, RowOutcome::Blocked { .. }))
+        .collect();
     for claimants in reservations.values() {
         if cancelled() {
             return Err(PlanError::Cancelled);
         }
+        let claimants: Vec<usize> = claimants.iter().copied().filter(|&i| live[i]).collect();
         if claimants.len() > 1 {
-            for &index in claimants {
+            for index in claimants {
                 rows[index].outcome = RowOutcome::Blocked {
                     reason: "Multiple selected files reserve the same destination".into(),
                 };

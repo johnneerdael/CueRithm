@@ -98,7 +98,7 @@ impl TagWritePlan {
                 for (name, values) in &track.track.other {
                     let key = name.by_format(&format);
                     ensure!(
-                        !crate::fields::protected_custom_target(&key),
+                        !crate::fields::protected_custom_target(&key, &format),
                         "Provider custom tag targets protected native metadata: {key}"
                     );
                     ensure!(
@@ -127,7 +127,7 @@ impl TagWritePlan {
             let key = name.by_format(&format);
             ensure!(
                 !crate::fields::custom_bypasses_field_policy(&key, &format, true)
-                    && !crate::fields::protected_custom_target(&key)
+                    && !crate::fields::protected_custom_target(&key, &format)
                     && key.len() <= 256
                     && !key.chars().any(char::is_control),
                 "Custom style tag targets protected native metadata"
