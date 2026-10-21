@@ -390,12 +390,14 @@ impl TagWritePlan {
         } else {
             None
         };
-        let fields_before = crate::fields::values(
+        let typed_catalog_dates = self.matches.iter().any(|matched| matched.facts.is_some());
+        let fields_before = crate::fields::values_for_catalog(
             &backup,
             &audio.info,
             &self.config.options.tags,
             &other_bindings,
             custom_style.as_deref(),
+            typed_catalog_dates,
         )?;
         let mut sidecars = Vec::new();
         let mut catalog_cover = None;
@@ -530,12 +532,13 @@ impl TagWritePlan {
                 "Native container cannot preserve this exact typed metadata edit; source remains unchanged"
             );
         }
-        let fields_after = crate::fields::values(
+        let fields_after = crate::fields::values_for_catalog(
             &path,
             &after.info,
             &self.config.options.tags,
             &other_bindings,
             custom_style.as_deref(),
+            typed_catalog_dates,
         )?;
         let external_art_kept = sidecars.is_empty()
             && self.config.options.tag_enabled(SupportedTag::AlbumArt)

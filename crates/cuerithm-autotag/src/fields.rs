@@ -34,6 +34,7 @@ fn value(
     selected: SupportedTag,
     format: &AudioFileFormat,
     other_bindings: &[String],
+    typed_catalog_dates: bool,
 ) -> Option<Vec<String>> {
     let field = match selected {
         SupportedTag::Title => Some(Field::Title),
@@ -64,16 +65,29 @@ fn value(
     match selected {
         SupportedTag::ReleaseDate => {
             let keys: &[&str] = match format {
+                // Read the same canonical fields as the typed editor. In particular, MP4's
+                // legacy get_date() cannot represent a valid month-only value in ©day.
                 AudioFileFormat::FLAC | AudioFileFormat::OGG => {
-                    &["RELEASETIME", "RELEASEDATE", "RELEASE_DATE"]
+                    &["DATE", "RELEASETIME", "RELEASEDATE", "RELEASE_DATE"]
                 }
-                AudioFileFormat::MP4 => &["----:com.apple.iTunes:RELEASETIME"],
-                AudioFileFormat::WMA => &["RELEASETIME"],
-                _ => &["TDRL"],
+                AudioFileFormat::MP4 => &["©day", "----:com.apple.iTunes:RELEASETIME"],
+                AudioFileFormat::WMA => &["RELEASETIME", "WM/Year"],
+                _ => &["TDRC", "TDRL"],
             };
             keys.iter()
                 .find_map(|key| tag.get_native(key))
                 .or_else(|| tag.get_date().map(|d| vec![format!("{d:?}")]))
+        }
+        // Typed catalog facts carry the recording's original release date, matching the
+        // native editor. Legacy provider publish dates keep their distinct historical field.
+        SupportedTag::PublishDate if typed_catalog_dates => {
+            let keys: &[&str] = match format {
+                AudioFileFormat::FLAC | AudioFileFormat::OGG => &["ORIGINALDATE"],
+                AudioFileFormat::MP4 => &["----:com.apple.iTunes:ORIGINALDATE"],
+                AudioFileFormat::WMA => &["WM/OriginalReleaseTime"],
+                _ => &["TDOR", "TORY"],
+            };
+            keys.iter().find_map(|key| tag.get_native(key))
         }
         SupportedTag::PublishDate => tag.get_raw(match format {
             AudioFileFormat::FLAC | AudioFileFormat::OGG => "ORIGINALDATE",
@@ -159,6 +173,17 @@ pub(crate) fn values(
     other_bindings: &[String],
     custom_style: Option<&str>,
 ) -> Result<Vec<Option<Vec<String>>>> {
+    values_for_catalog(path, info, selected, other_bindings, custom_style, false)
+}
+
+pub(crate) fn values_for_catalog(
+    path: &Path,
+    info: &MediaInfo,
+    selected: &[SupportedTag],
+    other_bindings: &[String],
+    custom_style: Option<&str>,
+    typed_catalog_dates: bool,
+) -> Result<Vec<Option<Vec<String>>>> {
     let format = audio_format(info)?;
     if format == AudioFileFormat::WMA {
         let tag = AsfTag::open(path)?;
@@ -170,7 +195,7 @@ pub(crate) fn values(
                 {
                     tag.get_raw(custom)
                 } else {
-                    value(&tag, *s, &format, other_bindings)
+                    value(&tag, *s, &format, other_bindings, typed_catalog_dates)
                 }
             })
             .collect())
@@ -191,8 +216,14 @@ pub(crate) fn values(
                 {
                     wrapper.tag().get_raw(custom)
                 } else if *s == SupportedTag::TrackId && matches!(&wrapper, Tag::ID3(_)) {
-                    let mut values =
-                        value(&**wrapper.tag(), *s, &format, other_bindings).unwrap_or_default();
+                    let mut values = value(
+                        &**wrapper.tag(),
+                        *s,
+                        &format,
+                        other_bindings,
+                        typed_catalog_dates,
+                    )
+                    .unwrap_or_default();
                     if let Tag::ID3(tag) = &wrapper {
                         for id in tag
                             .editor_tag()
@@ -208,7 +239,13 @@ pub(crate) fn values(
                 } else if format == AudioFileFormat::MP4 && *s == SupportedTag::Explicit {
                     advisory.clone()
                 } else {
-                    value(*wrapper.tag(), *s, &format, other_bindings)
+                    value(
+                        *wrapper.tag(),
+                        *s,
+                        &format,
+                        other_bindings,
+                        typed_catalog_dates,
+                    )
                 }
             })
             .collect())

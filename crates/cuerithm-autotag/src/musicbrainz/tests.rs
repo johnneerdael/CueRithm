@@ -287,6 +287,7 @@ fn catalog_candidate_typed_date_and_ids_preserve_pcm_in_every_supported_containe
         config.options.platforms = vec!["musicbrainz".into()];
         config.options.tags = vec![
             SupportedTag::ReleaseDate,
+            SupportedTag::PublishDate,
             SupportedTag::TrackId,
             SupportedTag::ReleaseId,
         ];
@@ -304,6 +305,19 @@ fn catalog_candidate_typed_date_and_ids_preserve_pcm_in_every_supported_containe
             .unwrap()
             .stage_prepared(&rt, &audio, d.path())
             .unwrap_or_else(|e| panic!("{}: {e:#}", source.display()));
+        let fields: Vec<crate::FieldWriteOutcome> =
+            serde_json::from_value(staged.provenance["fields"].clone()).unwrap();
+        for date_field in [SupportedTag::ReleaseDate, SupportedTag::PublishDate] {
+            assert!(
+                fields.iter().any(|field| {
+                    field.field == date_field
+                        && field.required
+                        && field.status == crate::FieldWriteStatus::Written
+                }),
+                "{}: {date_field:?} is a written required field",
+                source.display()
+            );
+        }
         let after = rt.decode(&staged.path, d.path()).unwrap();
         assert_eq!(audio.frames, after.frames, "{}", source.display());
         assert_eq!(
@@ -323,6 +337,16 @@ fn catalog_candidate_typed_date_and_ids_preserve_pcm_in_every_supported_containe
                 year: 2021,
                 month: Some(7),
                 day: None
+            }),
+            "{}",
+            source.display()
+        );
+        assert_eq!(
+            metadata.original_date,
+            Some(TransferDate {
+                year: 1999,
+                month: None,
+                day: None,
             }),
             "{}",
             source.display()
