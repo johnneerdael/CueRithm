@@ -13,7 +13,7 @@
   <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey?style=flat-square">
 </p>
 
-CueRithm is a desktop library app for DJs. It analyses tracks offline, computing musical key, BPM and beatgrid, one whole-track energy rating, structural cues and a colour waveform. You can tag and clean up the library, create playlists, and set up smart playlists that update automatically.
+CueRithm is a desktop library app for DJs. It analyses tracks offline, computing musical key, BPM and beatgrid, one whole-track energy rating, structural cues and a colour waveform. You can automatically tag, rename and clean up the library, create playlists, and set up smart playlists that update automatically. All of this while offering direct sync with the DJ software of your choice.
 
 Your music stays where it is. Nothing is uploaded. There is no account.
 
