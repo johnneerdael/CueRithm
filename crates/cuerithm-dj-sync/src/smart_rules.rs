@@ -149,6 +149,9 @@ fn compile_platform(
         DjSoftware::DjayPro => NativeSmart::Djay(djay(&predicates, options)?),
         DjSoftware::Serato4 => NativeSmart::Serato4(serato(&predicates, all, library, options)?),
         DjSoftware::PioneerUsb => unreachable!(),
+        DjSoftware::Rekordbox => {
+            return Err("Rekordbox smart playlists require the native collection workflow".into());
+        }
     };
     Ok(Some(result))
 }

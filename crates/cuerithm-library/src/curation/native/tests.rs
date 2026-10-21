@@ -875,3 +875,48 @@ fn inverse_blocked_before_any_file_write_can_be_discarded_without_adopting_chang
         "saved"
     );
 }
+
+#[test]
+fn library_backup_preserves_mapped_curation_history_and_native_undo() {
+    let (temp, service, track, path, _) = fixture();
+    let before = std::fs::read(&path).unwrap();
+    service
+        .library
+        .conn()
+        .unwrap()
+        .execute("UPDATE jobs SET state='completed'", [])
+        .unwrap();
+    let result = service
+        .flush_pending(20, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.failed, 0);
+    let publication = service.history_page(0, 1).unwrap().rows.remove(0);
+    assert!(publication.can_undo);
+    let saved = std::fs::read(&path).unwrap();
+    assert_ne!(saved, before);
+    let database = service.library.data_dir().join("library.sqlite");
+    let backup = service
+        .library
+        .create_library_backup(&temp.path().join("backups"))
+        .unwrap();
+    service
+        .library
+        .stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    let runtime = service.runtime.clone();
+    drop(service);
+    assert!(matches!(
+        crate::apply_pending_library_restore(&database).unwrap(),
+        crate::LibraryRestoreStartup::Applied { .. }
+    ));
+    let service = CurationService::new(Library::open(&database).unwrap(), runtime);
+    let restored = service.publication(&publication.id).unwrap();
+    assert!(restored.summary.can_undo);
+    assert_eq!(std::fs::read(&path).unwrap(), saved);
+    service
+        .undo(&publication.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    let state = service.snapshot(&[track]).unwrap().tracks.remove(0);
+    assert!(state.committed.notes.is_empty());
+}

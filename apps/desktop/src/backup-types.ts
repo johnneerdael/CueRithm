@@ -1,0 +1,3 @@
+export interface LibraryBackupPreview {path:string;database_sha256:string;created:number;tracks:number;missing_sources:number;schema:number;music_included:false}
+export interface LibraryRestoreRequest {id:string;created:number;database_sha256:string;blocked_reason?:string|null}
+export interface LibraryBackupBridge {chooseFolder:(title:string)=>Promise<string|null>;create:(destination:string)=>Promise<LibraryBackupPreview>;inspect:(bundle:string)=>Promise<LibraryBackupPreview>;stage:(bundle:string,sha256:string)=>Promise<LibraryRestoreRequest>;pending:()=>Promise<LibraryRestoreRequest|null>;retry:()=>Promise<LibraryRestoreRequest>;cancel:()=>Promise<void>}

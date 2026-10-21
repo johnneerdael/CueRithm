@@ -1,7 +1,7 @@
 //! Removable Pioneer/AlphaTheta library export. Build under a staging root, then
 //! publish the returned relative paths with the caller's backup/rollback journal.
-mod analysis;
-mod compatibility;
+pub(crate) mod analysis;
+pub(crate) mod compatibility;
 mod database;
 mod ownership;
 mod paths;
@@ -471,6 +471,7 @@ mod tests {
                         ..Default::default()
                     },
                     SyncCue {
+                        active_loop: false,
                         index: 0,
                         name: "Loop".into(),
                         start_seconds: 0.5,
@@ -496,6 +497,60 @@ mod tests {
                 },
             ],
         }
+    }
+    #[test]
+    fn active_memory_loop_status_does_not_activate_hotcue_or_ordinary_memory() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("synthetic.wav");
+        audio(&source);
+        let mut input = library(&source, "active");
+        input.tracks[0].cues[1].active_loop = true;
+        input.tracks[0].cues.push(SyncCue {
+            index: 3,
+            start_seconds: 1.,
+            end_seconds: Some(1.5),
+            ..Default::default()
+        });
+        let output = dir.path().join("staged");
+        let report = write_staged_with_runtime(
+            &output,
+            &output,
+            &input,
+            &SyncOptions {
+                usb_cue_destination: UsbCueDestination::Both,
+                ..Default::default()
+            },
+            None,
+        )
+        .unwrap();
+        let dat = report
+            .files
+            .iter()
+            .find(|p| p.extension().is_some_and(|e| e == "DAT"))
+            .unwrap();
+        let parsed =
+            AnlzFile::parse(&fs::read(output.join(dat)).unwrap(), ParseLimits::default()).unwrap();
+        let lists: Vec<_> = parsed
+            .tags()
+            .iter()
+            .filter(|t| t.fourcc() == *b"PCOB")
+            .map(|t| t.cues().unwrap())
+            .collect();
+        let hot = lists.iter().find(|c| c.kind == 1).unwrap();
+        assert!(
+            hot.entries
+                .iter()
+                .all(|c| c.legacy.as_ref().unwrap().status == 0)
+        );
+        let memory = lists.iter().find(|c| c.kind == 0).unwrap();
+        assert_eq!(
+            memory
+                .entries
+                .iter()
+                .map(|c| (c.time_ms, c.legacy.as_ref().unwrap().status))
+                .collect::<Vec<_>>(),
+            [(1000, 0), (500, 4), (250, 0)]
+        );
     }
     #[test]
     fn exports_playable_media_encrypted_database_and_complete_analysis_assets() {

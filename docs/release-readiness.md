@@ -19,9 +19,9 @@ claim complete Lexicon or OneTagger parity.
 | Curate | Stable categories, a separate user rating and notes are library-only by default. Durable desired revisions, background publication, pending/history and guarded Undo preserve later edits; optional file mappings use the metadata writer. |
 | Preparation presets | Immutable portable rule revisions, local folder assignments and per-source capture extend Settings. Import/export excludes credentials, global transport and native destination grants; disconnected folders and destinations require explicit reconnection. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
-| Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens remain unfinished. |
+| Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens now expose scanning, review, apply, Undo/Restore and recovery; final packaged/native acceptance remains separate. |
 | DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
-| Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Rekordbox Sync action remains unavailable. The five other DJ targets use the native Sync workspace. |
+| Native rekordbox Sync | Direct desktop synchronization, explicit field/conflict decisions, native identities, database/assets publication, recovery/restore and playlist/MyTag previews. Exact macOS builds 6.8.7.0303 and 7.2.19.0342 are write-accepted after private application-created-library tests; other builds and Windows remain read-only. The five other DJ targets retain their Sync workspace. |
 
 No collection XML transport is part of the product. Plays, Last Played and
 Danceability and Mixed In Key segment-energy
@@ -34,18 +34,24 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 22. Migration preserves existing tracks, jobs,
+The library upgrades to schema 27. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
+
+## Home-DJ workflow additions
+
+Current source adds manual correction/template previews with durable Undo, compatible-track filtering, an ordered playlist flow view, text/CSV matching with explicit recording choices and atomic playlist creation, and same-installation library backup/guarded startup restoration. These additions preserve raw DSP results and source music. Local loops retain starts/ends and active-loop metadata, but local preview seeks rather than looping and active loops export to supported Engine DJ, VirtualDJ and Pioneer USB memory cues. Library restoration is separate from reversing external file-tag or DJ-software changes.
+
+Direct rekordbox writes are enabled only for the two tested macOS application/schema pairs. Both passed private new-track, metadata/artwork/MyTag, cue/constant-grid/loop playback, playlist, no-op, recovery and guarded-restore checks. The public version 7 API additionally passed discovery/preflight/no-op apply/restore without changing native bytes or modification times. See the [accepted profiles and evidence limits](research/rekordbox-direct-contract.md#accepted-native-profiles).
 
 ## Outstanding work after this release
 
 | Priority | Gap | Evidence needed to close it |
 | --- | --- | --- |
-| Next delivery | Direct rekordbox 6/7 sync: field reconciliation/conflicts, verified schema write profiles, native database and asset publication, IDs/update counters, recovery/restore, playlists/MyTags/native smart rules, and desktop preflight/preview/apply/history. | Closed-target/reopen acceptance in actual rekordbox 6 and 7, including metadata, artwork, ordered playlists, cues/loops/grid playback, no-op repeat sync, later edits and interrupted-write recovery. SDK fixtures or a successful SQL commit are insufficient. |
-| Next delivery | Dedicated duplicate/missing/unused-file maintenance screens and confirmations. Backend invoke commands are present, but the user-owned branded UI is not integrated here. | Review/apply/Undo/recovery through the final screens, explicit confirmation of removal and irreversible backup disposal, and large-library acceptance. |
-| Analysis parity | Complete cue-template/settings editor, custom-anchor extraction and equal tempo-bound options. Current preparation uses factory publication rows and the existing cue settings. | Equal-input comparisons of the remaining caller/settings paths and end-to-end saved results. |
+| More native profiles | Native rekordbox Windows execution and additional application builds remain read-only. The editor publishes one constant BPM/first-beat anchor; native variable-grid publication needs separate acceptance. | Repeat the isolated application-created-library write/reopen/playback/conflict/recovery/restore matrix for each exact platform/build/schema. Physical player playback remains separate. |
+| Native acceptance | Dedicated maintenance screens and confirmations are implemented with React workflow tests and authored screenshots. | Final packaged review/apply/Undo/recovery, removal/disposal confirmations and larger copied-library acceptance. |
+| Analysis parity | Manual cue/loop/constant-grid corrections, named templates and custom anchors are implemented. Automatic preparation still uses factory publication rows; equal tempo-bound options remain unavailable. | Equal-input comparisons of remaining automatic settings paths, final packaged manual editing/Undo and saved target playback. |
 | Provider acceptance | Direct Traxsource requests returned HTTP 403. A read-only native probe with the configured Trawl transport fetched and matched a live track including release metadata, and correctly returned no-match for an empty search. No end-to-end file write or packaged-app acceptance is established. Beatport has a native successful probe, not universal catalog coverage. | A real native Traxsource match/write and representative provider coverage checks without bypassing failed required stages. |
 | Organization acceptance | Known linked references require path-only repair. Rekordbox references without a supported registered writer block organization; arbitrary external references cannot be discovered. Per-track native database backups can amplify storage and are included in conservative preflight. | Current-head native fixtures for publication/recovery/reference repair, plus separate native application reopen and large-library storage checks. Physical DJ player acceptance is not implied. |
 | Metadata acceptance | Generated native fixtures cover supported formats, exact rating/comment/picture identities, staged interruptions, Incoming Move/Ready/Undo and unchanged PCM/analysis/cues. Synthetic browser captures validate both themes and compact layouts; controller tests cover draft flush and Quit receipts. | Final packaged native-window quit/reopen acceptance and broader representative user-library runs remain separate. Full binary-tag parity is not claimed. |
@@ -124,8 +130,8 @@ compilation with exact whole-list fallbacks, durable playlist ownership and owne
 removal propagation, batch staging, typed file/directory/case-rename journals and
 recoverable apply/restore acknowledgement. Extra prepared metadata and explicit
 calendar/key-mode context reach the compiler. Older Lexicon formats are excluded;
-existing direct rekordbox foundations remain separate and unavailable as a desktop
-sync target.
+direct rekordbox uses its own reviewed desktop workflow and the exact accepted
+macOS profiles documented above.
 
 Targeted final artifact review has resolved ANLZ path collisions, hidden catalog
 discovery, dotted VirtualDJ names, Serato explicit null clears, djay filename indexes

@@ -17,6 +17,7 @@ pub(crate) mod service;
 use crate::Library;
 pub use journal::{OrganizationFile, OrganizationPhase, OrganizationRecord};
 pub use native::{Authority, Fingerprint, Identity, NativePath};
+pub(crate) use native::{Parent, fingerprint_bounded};
 pub use recovery::{AlternateResolution, AlternateSourceRecord, AlternateSourceState};
 use serde::{Deserialize, Serialize};
 pub use service::*;

@@ -24,6 +24,12 @@ mod jobs;
 mod metadata;
 mod native_sync;
 pub use native_sync::*;
+mod native_reconcile;
+pub use native_reconcile::*;
+mod native_playlist_sync;
+pub use native_playlist_sync::*;
+mod rekordbox_sync_service;
+pub use rekordbox_sync_service::*;
 mod preparation_presets;
 mod prepare;
 pub use preparation_presets::*;
@@ -74,3 +80,15 @@ mod dj_sync;
 pub use dj_sync::*;
 mod dj_sync_service;
 pub use dj_sync_service::{DjSyncHistoryEntry, DjSyncRequest};
+
+mod compatible;
+pub use compatible::*;
+
+mod tracklist;
+pub use tracklist::*;
+
+mod manual_publication;
+pub use manual_publication::*;
+
+mod library_backup;
+pub use library_backup::*;

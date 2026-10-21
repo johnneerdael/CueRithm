@@ -64,6 +64,10 @@ pub fn validate_library(library: &SyncLibrary) -> Result<()> {
         );
         let mut slots = BTreeSet::new();
         for cue in &track.cues {
+            ensure!(
+                !cue.active_loop || cue.end_seconds.is_some(),
+                "Active loop requires a loop end time"
+            );
             ensure!(slots.insert(cue.index), "Duplicate sync cue slot");
             ensure!(
                 cue.start_seconds.is_finite()
@@ -154,6 +158,34 @@ pub fn validate_library(library: &SyncLibrary) -> Result<()> {
 mod tests {
     use super::*;
     use crate::{SyncCue, SyncPlaylist, SyncTrack};
+    #[test]
+    fn active_loop_requires_a_loop_end_before_native_writes() {
+        let mut library = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "track".into(),
+                path: std::env::temp_dir().join("synthetic-active.wav"),
+                duration_seconds: 10.,
+                cues: vec![SyncCue {
+                    start_seconds: 1.,
+                    active_loop: true,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert!(
+            validate_library(&library)
+                .unwrap_err()
+                .to_string()
+                .contains("Active loop requires")
+        );
+        library.tracks[0].cues[0].end_seconds = Some(2.);
+        validate_library(&library).unwrap();
+        library.tracks[0].cues[0].end_seconds = None;
+        library.tracks[0].cues[0].active_loop = false;
+        validate_library(&library).unwrap();
+    }
     #[test]
     fn rejects_two_identities_for_one_hardlinked_file_and_parent_aliases() {
         let dir = tempfile::tempdir().unwrap();

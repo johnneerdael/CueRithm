@@ -1,17 +1,22 @@
+mod backup_commands;
 mod builtin;
 mod commands;
+mod compatible_commands;
 mod curation_commands;
 mod exit;
 mod exit_commands;
 mod host;
 mod maintenance;
 mod maintenance_commands;
+mod manual_publication_commands;
 mod match_review_commands;
 mod metadata_commands;
 mod organization_commands;
 mod preparation_preset_commands;
 mod provider_commands;
+mod rekordbox_sync_commands;
 mod sync_commands;
+mod tracklist_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
@@ -94,6 +99,9 @@ pub fn run() {
                 .audio_dir()
                 .ok()
                 .map(|p| p.join("Cuerithm/Incoming"));
+            // Blocked-before-mutation restore intents leave the current DB safe to open.
+            // Errors after mutation intent stop startup and retain the recovery snapshot.
+            cuerithm_library::apply_pending_library_restore(&root.join("library.sqlite"))?;
             let host = Arc::new(host::Host::open_with_release(
                 &root,
                 &runtime,
@@ -152,6 +160,33 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            rekordbox_sync_commands::discover_rekordbox_targets,
+            rekordbox_sync_commands::preflight_rekordbox_sync,
+            rekordbox_sync_commands::preview_rekordbox_sync,
+            rekordbox_sync_commands::apply_rekordbox_sync,
+            rekordbox_sync_commands::restore_rekordbox_sync,
+            rekordbox_sync_commands::recover_rekordbox_sync,
+            rekordbox_sync_commands::discard_rekordbox_sync,
+            rekordbox_sync_commands::rekordbox_sync_history,
+            manual_publication_commands::manual_publication_snapshot,
+            manual_publication_commands::preview_manual_publication,
+            manual_publication_commands::apply_manual_publication,
+            manual_publication_commands::manual_publication_history,
+            manual_publication_commands::undo_manual_publication,
+            manual_publication_commands::list_cue_templates,
+            manual_publication_commands::save_cue_template,
+            manual_publication_commands::delete_cue_template,
+            manual_publication_commands::preview_cue_template,
+            backup_commands::create_library_backup,
+            backup_commands::inspect_library_backup,
+            backup_commands::stage_library_restore,
+            backup_commands::pending_library_restore,
+            backup_commands::retry_library_restore,
+            backup_commands::cancel_library_restore,
+            compatible_commands::find_compatible_tracks,
+            compatible_commands::save_compatible_playlist,
+            tracklist_commands::match_tracklist,
+            tracklist_commands::save_tracklist_playlist,
             provider_commands::provider_setup_statuses,
             provider_commands::save_provider_credential,
             provider_commands::remove_provider_credential,

@@ -7,10 +7,17 @@ import {pathKey,pathText} from "../native-paths";
 import {syncTargets} from "../sync-types";
 import {useSyncPreferences} from "../sync-preferences";
 import type {DjSoftware,DjSyncHistoryEntry,DiscoveredTarget,DjSyncRequest,SyncOptions,SyncPreview,SyncTextField} from "../sync-types";
+import type {RekordboxBridge} from "../rekordbox-sync-types";
+import RekordboxSync from "./RekordboxSync";
 
 const fields:SyncTextField[]=["title","artist","album","genre","label","comment","key"];
 function size(bytes:number){return bytes<1024?`${bytes} B`:bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(1)} MB`;}
-export default function Sync({bridge,workspace,revision,onChanged}:{bridge:Bridge;workspace:PlaylistWorkspace|null;revision:number;onChanged:()=>void}){
+type SyncProps={bridge:Bridge;workspace:PlaylistWorkspace|null;revision:number;onChanged:()=>void;rekordboxBridge?:RekordboxBridge};
+export default function Sync(props:SyncProps){
+ const [native,setNative]=useState(false);
+ return <div className="sync-workspace"><nav className="cleanup-tabs" aria-label="Sync destinations"><button className={!native?"active":""} aria-current={!native?"page":undefined} onClick={()=>setNative(false)}>DJ libraries and USB</button><button className={native?"active":""} aria-current={native?"page":undefined} onClick={()=>setNative(true)}>rekordbox 6 / 7</button></nav>{native?<RekordboxSync bridge={props.rekordboxBridge} workspace={props.workspace} revision={props.revision} onChanged={props.onChanged}/>:<AdapterSync {...props}/>}</div>;
+}
+function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
  const {software,choices,setSoftware,setChoices}=useSyncPreferences();
  const {path,scope,playlistId,options}=choices;
  const setPath=(path:string)=>setChoices(previous=>({...previous,path}));

@@ -344,6 +344,10 @@ pub fn prepare_sync_owned_with_runtime(
     contexts: &PlaylistOwnershipContexts,
     protected_sources: &std::collections::BTreeSet<PathBuf>,
 ) -> Result<SyncPreview> {
+    ensure!(
+        target.software != DjSoftware::Rekordbox,
+        "Use the native rekordbox collection workflow"
+    );
     let library = crate::formatting::format_library(library, options)?;
     validate_library(&library)?;
     // USB conversion happens after optional PCM transcoding, on the output's clock.
@@ -394,6 +398,7 @@ pub fn prepare_sync_owned_with_runtime(
     let mut ownership = PlaylistOwnershipReports::new();
     let empty_ownership = crate::ownership::PlaylistOwnershipRequest::default();
     match target.software {
+        DjSoftware::Rekordbox => anyhow::bail!("Use the native rekordbox collection workflow"),
         DjSoftware::VirtualDj => {
             let original = if target.path.is_dir() {
                 target.path.join("database.xml")

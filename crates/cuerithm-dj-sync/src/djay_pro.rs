@@ -4,6 +4,9 @@
 //! The destination must be an existing database created by djay Pro. Passing its
 //! containing directory is also supported. Index versions are invalidated inside
 //! the same transaction so djay rebuilds its derived views on its next launch.
+mod bookmark;
+#[cfg(test)]
+mod bookmark_tests;
 #[path = "djay_pro/owned.rs"]
 mod owned;
 use crate::{SyncBeat, SyncLibrary, SyncOptions, SyncTrack};
@@ -75,12 +78,46 @@ pub fn write_owned(
         .context("destination has no current YapDatabase index registry")?;
     let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let ownership = owned::Plan::prepare(&tx, library, request)?;
+    let reviewed_uris = library
+        .tracks
+        .iter()
+        .map(|track| file_uri(&track.path))
+        .collect::<Result<HashSet<_>>>()?;
     let mut source_ids = HashMap::new();
+    let mut bookmark_ids = HashMap::new();
     for (id, object) in objects(&tx, "localMediaItemLocations")? {
         if let Some(Value::Array(values)) = object.get("sourceURIs") {
             for value in values {
-                if let Value::Uri(uri) | Value::String(uri) = value {
-                    source_ids.insert(uri.clone(), id.clone());
+                if let Value::Uri(uri) | Value::String(uri) = value
+                    && reviewed_uris.contains(uri)
+                {
+                    ensure!(
+                        source_ids
+                            .insert(uri.clone(), id.clone())
+                            .is_none_or(|previous| previous == id),
+                        "Ambiguous djay source URI identity"
+                    );
+                }
+            }
+        }
+        if let Some(Value::Binary(bytes)) = object.get("urlBookmarkData") {
+            // Parse stored paths only; preserve unknown opaque bookmark bytes.
+            // This never resolves OS aliases or searches by filename.
+            match bookmark::stored_path(bytes) {
+                Ok(Some(path)) => {
+                    let uri = file_uri(&path)?;
+                    if reviewed_uris.contains(&uri) {
+                        ensure!(
+                            bookmark_ids
+                                .insert(uri, id.clone())
+                                .is_none_or(|previous| previous == id),
+                            "Ambiguous djay bookmark identity"
+                        );
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    return Err(error.context("Cannot establish djay bookmark identity safely"));
                 }
             }
         }
@@ -96,8 +133,14 @@ pub fn write_owned(
     }
     for track in &library.tracks {
         let uri = file_uri(&track.path)?;
-        let id = source_ids
-            .get(&uri)
+        let primary = source_ids.get(&uri);
+        let stored = bookmark_ids.get(&uri);
+        ensure!(
+            primary.zip(stored).is_none_or(|(a, b)| a == b),
+            "Conflicting djay URI and bookmark identities"
+        );
+        let id = primary
+            .or(stored)
             .cloned()
             .unwrap_or_else(|| stable_id("track", &track.id, false));
         source_ids.insert(uri.clone(), id.clone());
@@ -424,14 +467,9 @@ fn write_track(
 }
 
 fn beatgrid(beats: &[SyncBeat]) -> Result<(f64, Object)> {
-    // A marker describes the tempo until the next marker; coalesce redundant beats.
+    // Equal-tempo anchors can reset phase and must keep their positions.
     let base = beats[0].bpm;
-    let mut markers = vec![&beats[0]];
-    for beat in &beats[1..] {
-        if (beat.bpm - markers.last().expect("first marker").bpm).abs() > 1e-7 {
-            markers.push(beat);
-        }
-    }
+    let markers = beats;
     let mut grid = Object::new("ADCBeatGridEdits");
     grid.set("nrOfBeatShift", Value::Double(0.0));
     grid.set("fractionalBeatShift", Value::Float(0.0));

@@ -427,7 +427,7 @@ fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 23);
+        assert_eq!(version, 27);
         let title: String = conn
             .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
             .unwrap();

@@ -520,3 +520,114 @@ fn shipped_lexicon_builders_match_all_authored_reference_cases() {
         assert_eq!(tag.bytes(), wire, "reference case {index}");
     }
 }
+
+#[test]
+fn native_microsecond_grid_requires_paired_dat_and_preserves_opaque_bytes() {
+    let old = [
+        Beat {
+            number: 1,
+            tempo: 12000,
+            time_ms: 80,
+        },
+        Beat {
+            number: 2,
+            tempo: 12000,
+            time_ms: 580,
+        },
+    ];
+    let mut raw = AnlzTag::microsecond_grid(&old, &[90, 90], false, 0)
+        .unwrap()
+        .bytes()
+        .to_vec();
+    raw[48..52].copy_from_slice(&0u32.to_be_bytes());
+    raw[12..16].fill(0xa5);
+    raw[20..24].fill(0xb6);
+    raw[52..56].fill(0xc7);
+    raw.splice(56..56, [0xd8; 4]);
+    raw[4..8].copy_from_slice(&60u32.to_be_bytes());
+    raw.extend([0xe9; 3]);
+    let len = raw.len() as u32;
+    raw[8..12].copy_from_slice(&len.to_be_bytes());
+    let tag = AnlzTag::parse(&raw, ParseLimits::default()).unwrap();
+    let read = tag.native_microsecond_grid(&old).unwrap();
+    assert_eq!(read.beats, old);
+    assert_eq!(read.fractions, [90, 90]);
+    assert!(!read.variable);
+    let constant = [
+        Beat {
+            number: 3,
+            tempo: 12800,
+            time_ms: 125,
+        },
+        Beat {
+            number: 4,
+            tempo: 12800,
+            time_ms: 593,
+        },
+        Beat {
+            number: 1,
+            tempo: 12800,
+            time_ms: 1062,
+        },
+    ];
+    let changed = tag
+        .with_native_microsecond_grid(&old, &constant, &[0, 750, 500], false)
+        .unwrap();
+    let read = changed.native_microsecond_grid(&constant).unwrap();
+    assert_eq!(read.fractions, [0, 750, 500]);
+    assert_eq!(changed.extended_grid().unwrap().downbeat, 0);
+    assert_eq!(&changed.bytes()[24..32], &[0, 3, 0x32, 0, 0, 0, 0, 125]);
+    assert_eq!(&changed.bytes()[32..40], &[0, 1, 0x32, 0, 0, 0, 4, 38]);
+    assert_eq!(&changed.bytes()[60..66], &[0, 0, 2, 238, 1, 244]);
+    for range in [12..16, 20..24, 52..60] {
+        assert_eq!(&changed.bytes()[range.clone()], &raw[range]);
+    }
+    assert_eq!(&changed.bytes()[66..], &[0xe9; 3]);
+    let variable = [
+        constant[0],
+        Beat {
+            number: 4,
+            tempo: 10000,
+            time_ms: 625,
+        },
+        Beat {
+            number: 1,
+            tempo: 10000,
+            time_ms: 1225,
+        },
+    ];
+    let changed = changed
+        .with_native_microsecond_grid(&constant, &variable, &[10, 20, 30], true)
+        .unwrap();
+    assert!(changed.native_microsecond_grid(&variable).unwrap().variable);
+    assert_eq!(changed.extended_grid().unwrap().checksum, 34783);
+    for (offset, value) in [(16, 3u32), (40, 1), (44, 0), (48, 1)] {
+        let mut bad = raw.clone();
+        bad[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+        let bad = AnlzTag::parse(&bad, ParseLimits::default()).unwrap();
+        assert!(
+            bad.with_native_microsecond_grid(&old, &constant, &[0, 750, 500], false)
+                .is_err()
+        );
+        assert_eq!(bad.bytes()[offset..offset + 4], value.to_be_bytes());
+    }
+    let mut bad = raw.clone();
+    bad[60..62].copy_from_slice(&1000u16.to_be_bytes());
+    assert!(
+        AnlzTag::parse(&bad, ParseLimits::default())
+            .unwrap()
+            .native_microsecond_grid(&old)
+            .is_err()
+    );
+    let mut mismatched = old;
+    mismatched[0].time_ms += 1;
+    assert!(tag.native_microsecond_grid(&mismatched).is_err());
+    assert!(
+        tag.with_native_microsecond_grid(&old, &constant, &[0], false)
+            .is_err()
+    );
+    assert!(
+        tag.with_native_microsecond_grid(&old, &constant, &[0, 1000, 0], false)
+            .is_err()
+    );
+}

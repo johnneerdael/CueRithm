@@ -13,10 +13,13 @@ default = []
 autotag = ["dep:cuerithm-autotag", "dep:cuerithm-credentials", "dep:dirs"]
 
 [dependencies]
+csv = "=1.4.0"
+unicode-normalization = "=0.1.25"
 dirs = { version = "6", optional = true }
 cuerithm-dj-sync = { path = "../cuerithm-dj-sync" }
 cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
 iana-time-zone = "=0.1.65"
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] }
 cuerithm-smartlists = { path = "../cuerithm-smartlists" }
 cuerithm-cleanup = { path = "../cuerithm-cleanup" }

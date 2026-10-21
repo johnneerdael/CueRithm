@@ -9,6 +9,10 @@ import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
 import {useAppliedTheme} from "../theme";
 import WaveformArt from "./WaveformArt";
+import PublicationEditor from "./PublicationEditor";
+import type {ManualPublicationApi,ManualPublicationResult} from "../manual-publication-types";
+
+const cueSlot=(position:number)=>position<26?String.fromCharCode(65+position):String(position+1);
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
@@ -33,11 +37,12 @@ function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=fal
       {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line data-cue={c.name} key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
       {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
     </svg>
-    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{String.fromCharCode(65+(c.position??i))}</span>:null):null}
+    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{cueSlot(c.position??i)}</span>:null):null}
   </div>;
 }
-export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader}:{artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
+export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader,publicationApi,onPublicationChanged,selectedTrackIds}:{publicationApi?:ManualPublicationApi;onPublicationChanged?:(result:ManualPublicationResult)=>void|Promise<void>;selectedTrackIds?:string[];artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
   const [zoom,setZoom]=useState(32);
+  const [editing,setEditing]=useState(false);
   const duration=status.duration_seconds||data?.duration_seconds||0;
   const center=status.position_seconds;
   const span=zoom||duration;
@@ -66,9 +71,11 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}
     </div>
     <div className="cue-strip">
-      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{String.fromCharCode(65+(cue.position??i))}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
+      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{cueSlot(cue.position??i)}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
       {detail&&!cues?<span className="cue-empty">Cues appear here after preparation finishes.</span>:null}
+      {detail&&publicationApi?<button className="publication-toggle" aria-expanded={editing} onClick={()=>setEditing(value=>!value)}>{editing?"Close corrections":"Edit cues & grid"}</button>:null}
       {status.error?<span className="player-error" role="alert">{status.error}</span>:null}
     </div>
+    {editing&&detail&&publicationApi?<PublicationEditor key={detail.track.id+":"+detail.source_sha256} trackId={detail.track.id} api={publicationApi} position={status.position_seconds} onSeek={onSeek} onPublicationChanged={onPublicationChanged} selectedTrackIds={selectedTrackIds}/>:null}
   </section>;
 }

@@ -2,9 +2,10 @@ use crate::SyncTrack;
 use anyhow::{Context, Result, ensure};
 use cuerithm_media::MediaRuntime;
 use lofty::{file::AudioFile, probe::Probe};
+use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{Read, Seek, SeekFrom, Write},
+    io::{BufWriter, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 pub(super) struct Issue {
@@ -197,38 +198,7 @@ pub(super) fn fix_copy(runtime: &MediaRuntime, track: &mut SyncTrack, target: &P
         (audio.clock.duration_seconds() - track.duration_seconds).abs() <= 0.05,
         "Compatibility conversion changes the analyzed timeline; analyze the source again before USB sync"
     );
-    let payload = audio.frames.checked_mul(4).context("WAV size overflow")?;
-    ensure!(
-        payload + 36 <= u32::MAX as u64,
-        "Converted WAV exceeds the RIFF size limit"
-    );
-    let mut file = File::create(target)?;
-    file.write_all(b"RIFF")?;
-    file.write_all(&((payload + 36) as u32).to_le_bytes())?;
-    file.write_all(b"WAVEfmt ")?;
-    file.write_all(&16_u32.to_le_bytes())?;
-    file.write_all(&1_u16.to_le_bytes())?;
-    file.write_all(&2_u16.to_le_bytes())?;
-    file.write_all(&audio.clock.sample_rate.to_le_bytes())?;
-    file.write_all(&(audio.clock.sample_rate * 4).to_le_bytes())?;
-    file.write_all(&4_u16.to_le_bytes())?;
-    file.write_all(&16_u16.to_le_bytes())?;
-    file.write_all(b"data")?;
-    file.write_all(&(payload as u32).to_le_bytes())?;
-    let mut position = 0;
-    while position < audio.frames {
-        let samples = audio.read_frames(position, 65536)?;
-        for sample in &samples {
-            let value = (sample.clamp(-1.0, 32767.0 / 32768.0) * 32768.0).round() as i16;
-            file.write_all(&value.to_le_bytes())?;
-        }
-        position += samples.len() as u64 / 2;
-    }
-    file.sync_all()?;
-    ensure!(
-        audio.source_is_unchanged()?,
-        "Source changed during compatibility conversion"
-    );
+    write_playable_pcm_wav(&audio, target, &Default::default())?;
     ensure!(
         track.native_timeline.is_none(),
         "Transcoding requires canonical cue/grid input"
@@ -244,4 +214,52 @@ pub(super) fn fix_copy(runtime: &MediaRuntime, track: &mut SyncTrack, target: &P
     track.sample_rate = audio.clock.sample_rate;
     track.duration_seconds = audio.clock.duration_seconds();
     Ok(())
+}
+
+/// Write the existing stereo PCM16 compatibility format from playable PCM, and
+/// return the resulting normalized float-PCM hash. Callers own the output path.
+pub(crate) fn write_playable_pcm_wav(
+    audio: &cuerithm_media::PreparedAudio,
+    target: &Path,
+    cancel: &cuerithm_media::CancellationToken,
+) -> Result<String> {
+    cancel.check()?;
+    let payload = audio.frames.checked_mul(4).context("WAV size overflow")?;
+    ensure!(
+        payload + 36 <= u32::MAX as u64,
+        "Converted WAV exceeds the RIFF size limit"
+    );
+    let mut file = BufWriter::new(File::create(target)?);
+    file.write_all(b"RIFF")?;
+    file.write_all(&((payload + 36) as u32).to_le_bytes())?;
+    file.write_all(b"WAVEfmt ")?;
+    file.write_all(&16_u32.to_le_bytes())?;
+    file.write_all(&1_u16.to_le_bytes())?;
+    file.write_all(&2_u16.to_le_bytes())?;
+    file.write_all(&audio.clock.sample_rate.to_le_bytes())?;
+    file.write_all(&(audio.clock.sample_rate * 4).to_le_bytes())?;
+    file.write_all(&4_u16.to_le_bytes())?;
+    file.write_all(&16_u16.to_le_bytes())?;
+    file.write_all(b"data")?;
+    file.write_all(&(payload as u32).to_le_bytes())?;
+    let mut position = 0;
+    let mut pcm_hash = Sha256::new();
+    while position < audio.frames {
+        cancel.check()?;
+        let samples = audio.read_frames(position, 65536)?;
+        for sample in &samples {
+            let value = (sample.clamp(-1.0, 32767.0 / 32768.0) * 32768.0).round() as i16;
+            file.write_all(&value.to_le_bytes())?;
+            pcm_hash.update((f32::from(value) / 32768.).to_le_bytes());
+        }
+        position += samples.len() as u64 / 2;
+    }
+    file.flush()?;
+    file.get_ref().sync_all()?;
+    ensure!(
+        audio.source_is_unchanged_cancellable(cancel)?,
+        "Source changed during compatibility conversion"
+    );
+    cancel.check()?;
+    Ok(format!("{:x}", pcm_hash.finalize()))
 }

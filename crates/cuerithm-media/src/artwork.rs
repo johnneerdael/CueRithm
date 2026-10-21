@@ -1,6 +1,6 @@
-use crate::MediaRuntime;
+use crate::{CancellationToken, MediaRuntime};
 use anyhow::{Result, ensure};
-use std::{ffi::OsString, io::Read, path::Path};
+use std::{ffi::OsString, io::Read, path::Path, time::Duration};
 
 pub struct Artwork {
     pub mime: &'static str,
@@ -21,6 +21,14 @@ pub fn artwork_mime(bytes: &[u8]) -> Option<&'static str> {
 }
 impl MediaRuntime {
     pub fn artwork(&self, path: &Path) -> Result<Option<Artwork>> {
+        self.artwork_cancellable(path, &CancellationToken::default())
+    }
+    pub fn artwork_cancellable(
+        &self,
+        path: &Path,
+        cancel: &CancellationToken,
+    ) -> Result<Option<Artwork>> {
+        cancel.check()?;
         ensure!(path.is_file(), "Artwork source is missing");
         let path = path.canonicalize()?;
         let args: Vec<OsString> = [
@@ -39,9 +47,17 @@ impl MediaRuntime {
         .map(Into::into)
         .chain([path.as_os_str().to_owned()])
         .collect();
-        let mut probe = self.run(&self.ffprobe, &args, tempfile::tempfile()?, 1_048_576)?;
+        let mut probe = self.run_controlled(
+            &self.ffprobe,
+            &args,
+            tempfile::tempfile()?,
+            1_048_576,
+            Duration::from_secs(300),
+            cancel,
+        )?;
         let mut json = Vec::new();
         probe.read_to_end(&mut json)?;
+        cancel.check()?;
         let doc: serde_json::Value = serde_json::from_slice(&json)?;
         let Some(streams) = doc["streams"].as_array() else {
             return Ok(None);
@@ -85,9 +101,17 @@ impl MediaRuntime {
             "pipe:1".into(),
         ])
         .collect();
-        let mut output = self.run(&self.ffmpeg, &args, tempfile::tempfile()?, 8 * 1024 * 1024)?;
+        let mut output = self.run_controlled(
+            &self.ffmpeg,
+            &args,
+            tempfile::tempfile()?,
+            8 * 1024 * 1024,
+            Duration::from_secs(300),
+            cancel,
+        )?;
         let mut bytes = Vec::new();
         output.read_to_end(&mut bytes)?;
+        cancel.check()?;
         Ok(artwork_mime(&bytes).map(|mime| Artwork { mime, bytes }))
     }
 }
