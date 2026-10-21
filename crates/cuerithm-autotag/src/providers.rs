@@ -117,6 +117,26 @@ impl Native {
     }
 }
 impl ProviderBackend for Native {
+    fn search_releases(
+        &self,
+        query: &str,
+        page: u32,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<crate::CatalogRelease>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        ensure!(
+            self.id == ProviderId::Traxsource,
+            "Release search is unavailable for this provider"
+        );
+        Traxsource::with_endpoints(self.client.clone(), &self.endpoints.traxsource)
+            .with_http(
+                CatalogHttp::new(self.client.clone(), self.id.as_str(), self.store.clone()),
+                config.solver.clone(),
+                cancel.clone(),
+            )
+            .search_releases(query, page)
+    }
     fn album(&self, id: &str, config: &AutotagConfig) -> Result<Option<crate::CatalogAlbum>> {
         self.album_cancellable(id, config, &Arc::new(AtomicBool::new(false)))
     }

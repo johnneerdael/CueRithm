@@ -14,10 +14,11 @@ pub(crate) struct AlbumGroups {
 struct Group {
     members: HashSet<String>,
     done: HashSet<String>,
-    counts: HashMap<String, usize>,
+    counts: HashMap<(ProviderId, String), usize>,
     choice: Option<Arc<Choice>>,
 }
 pub(crate) struct Choice {
+    pub provider: ProviderId,
     pub id: String,
     album: Mutex<Option<Arc<CatalogAlbum>>>,
 }
@@ -33,10 +34,10 @@ impl Choice {
             .lock()
             .map_err(|_| anyhow::anyhow!("Album lookup interrupted"))?;
         if cached.is_none() {
-            *cached = tagger.get_album(ProviderId::Beatport, &self.id, config, cancel)?;
+            *cached = tagger.get_album(self.provider, &self.id, config, cancel)?;
         }
         Ok(cached.clone().map(|album| AlbumHint {
-            provider: ProviderId::Beatport,
+            provider: self.provider,
             album,
         }))
     }
@@ -65,7 +66,7 @@ impl AlbumGroups {
         folder: &Path,
         revision: &str,
         track: &str,
-        release: Option<&str>,
+        release: Option<(ProviderId, &str)>,
         ratio: f32,
     ) {
         let mut groups = self.groups.lock().unwrap();
@@ -75,11 +76,15 @@ impl AlbumGroups {
         if !group.done.insert(track.to_owned()) || group.choice.is_some() {
             return;
         }
-        if let Some(release) = release {
-            let count = group.counts.entry(release.to_owned()).or_default();
+        if let Some((provider, release)) = release {
+            let count = group
+                .counts
+                .entry((provider, release.to_owned()))
+                .or_default();
             *count += 1;
             if *count as f32 / group.members.len().max(1) as f32 >= ratio {
                 group.choice = Some(Arc::new(Choice {
+                    provider,
                     id: release.to_owned(),
                     album: Mutex::new(None),
                 }));
@@ -127,14 +132,63 @@ mod tests {
         let folder = std::path::Path::new("/fixture");
         let members = vec!["a".into(), "b".into(), "c".into()];
         groups.prepare(folder, "revision", &members);
-        groups.observe(folder, "revision", "a", Some("release"), 0.5);
+        groups.observe(
+            folder,
+            "revision",
+            "a",
+            Some((ProviderId::Beatport, "release")),
+            0.5,
+        );
         assert!(groups.selected(folder, "revision").is_none());
-        groups.observe(folder, "revision", "a", Some("release"), 0.5);
+        groups.observe(
+            folder,
+            "revision",
+            "a",
+            Some((ProviderId::Beatport, "release")),
+            0.5,
+        );
         assert!(groups.selected(folder, "revision").is_none());
-        groups.observe(folder, "revision", "b", Some("release"), 0.5);
+        groups.observe(
+            folder,
+            "revision",
+            "b",
+            Some((ProviderId::Beatport, "release")),
+            0.5,
+        );
         assert_eq!(groups.selected(folder, "revision").unwrap().id, "release");
         groups.observe(folder, "revision", "c", None, 0.5);
         groups.prepare(folder, "revision", &["d".into()]);
         assert!(groups.selected(folder, "revision").is_none());
+    }
+    #[test]
+    fn release_identity_includes_provider() {
+        let groups = AlbumGroups::default();
+        let folder = Path::new("/fixture");
+        groups.prepare(folder, "revision", &["a".into(), "b".into(), "c".into()]);
+        groups.observe(
+            folder,
+            "revision",
+            "a",
+            Some((ProviderId::Beatport, "456")),
+            0.6,
+        );
+        groups.observe(
+            folder,
+            "revision",
+            "b",
+            Some((ProviderId::Traxsource, "456")),
+            0.6,
+        );
+        assert!(groups.selected(folder, "revision").is_none());
+        groups.observe(
+            folder,
+            "revision",
+            "c",
+            Some((ProviderId::Traxsource, "456")),
+            0.6,
+        );
+        let selected = groups.selected(folder, "revision").unwrap();
+        assert_eq!(selected.provider, ProviderId::Traxsource);
+        assert_eq!(selected.id, "456");
     }
 }

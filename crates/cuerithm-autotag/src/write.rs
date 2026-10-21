@@ -696,17 +696,25 @@ impl TagWritePlan {
             let preserve = target
                 .as_ref()
                 .is_some_and(|p| p.exists() && !config.overwrite_tag(SupportedTag::AlbumArt));
+            let mut artwork = self.matches.iter().filter_map(|track| {
+                track
+                    .art
+                    .as_deref()
+                    .map(|url| (url, track.platform.as_str()))
+            });
             let remote = if config.overwrite_tag(SupportedTag::AlbumArt) {
-                self.matches.iter().rev().find_map(|m| m.art.as_deref())
+                artwork.next_back()
             } else {
-                self.matches.iter().find_map(|m| m.art.as_deref())
+                artwork.next()
             };
             let art = if preserve {
                 None
             } else if let Some(image) = &self.artwork {
                 Some(image.clone())
             } else {
-                remote.map(crate::image::Artwork::fetch).transpose()?
+                remote
+                    .map(|(url, platform)| crate::image::Artwork::fetch(url, platform))
+                    .transpose()?
             };
             if let Some(art) = art {
                 if let Some(target) = target {

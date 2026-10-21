@@ -21,19 +21,24 @@ impl Artwork {
             .context("Invalid or oversized artwork image")?;
         Ok(Self { mime, bytes })
     }
-    pub fn fetch(url: &str) -> Result<Self> {
+    pub fn fetch(url: &str, platform: &str) -> Result<Self> {
         let url = reqwest::Url::parse(url)?;
         ensure!(
             matches!(url.scheme(), "http" | "https"),
             "Artwork requires HTTP or HTTPS"
         );
-        let response = reqwest::blocking::Client::builder()
+        let traxsource = platform == "traxsource";
+        let mut request = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .redirect(reqwest::redirect::Policy::limited(5))
+            // Preserve Traxsource's required site Referer across artwork redirects.
+            .referer(!traxsource)
             .build()?
-            .get(url)
-            .send()?
-            .error_for_status()?;
+            .get(url);
+        if traxsource {
+            request = request.header(reqwest::header::REFERER, "https://www.traxsource.com/");
+        }
+        let response = request.send()?.error_for_status()?;
         ensure!(
             response.content_length().is_none_or(|n| n <= MAX as u64),
             "Artwork exceeds 8 MiB"

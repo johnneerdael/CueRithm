@@ -41,6 +41,20 @@ Scroll the page to **Fields to write**. By default CueRithm writes genre, BPM, s
 
 New tracks, tracks arriving in a watch folder and **Analyze again** use your settings. Existing tracks are not retagged just because you changed a setting.
 
+## Match a folder as a release
+
+With **Album tagging** enabled, matching tracks in the same Incoming folder can
+identify a release once the configured match ratio is reached. Both Beatport and
+Traxsource supply complete release tracklists for the remaining files. CueRithm
+keeps each provider's release identity separate and retains the original track
+position and total. Traxsource follows the release linked from a track match;
+it does not guess a release from its title.
+
+Traxsource release lookups use the same optional challenge solver as track
+lookups. Missing, malformed or blocked release pages are errors and leave the
+job in Incoming. These release paths are covered by offline fixtures; they have
+not been checked against the live catalog.
+
 ## The safeguards
 
 - CueRithm writes tags to a staged copy of the file.
