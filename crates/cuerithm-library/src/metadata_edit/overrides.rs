@@ -139,8 +139,19 @@ impl Library {
             .context("Protected metadata override was not applied to staged output")?;
         tx.execute("UPDATE metadata_edit_overrides SET state='committed',updated=?1,receipt_json=?4 WHERE job_id=?2 AND claimed_attempt=?3",params![now(),run.id,run.attempt,receipt])?;
         tx.execute("UPDATE metadata_edit_rows SET state='written',error=NULL,result_json=?1 WHERE batch_id=?2 AND track_id=?3 AND state='queued'",params![receipt,batch,run.track_id])?;
-        tx.execute("UPDATE metadata_edit_batches SET state='saved',updated=?1 WHERE id=?2 AND NOT EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?2 AND state IN ('queued','ready','recovery_required','failed'))",params![now(),batch])?;
-        tx.execute("UPDATE metadata_edit_drafts SET state='saved',updated=?1 WHERE id=?2 AND revision=?3 AND EXISTS(SELECT 1 FROM metadata_edit_batches WHERE id=?4 AND state='saved')",params![now(),draft,revision,batch])?;
+        Self::settle_override_batch_tx(tx, &batch, &draft, revision)
+    }
+    /// Settle a batch once no row is waiting, ranked as `finish_batch` ranks it: a failed,
+    /// cancelled or superseded row makes it `partial`, otherwise `saved`, and the draft follows.
+    /// Leaving a batch with a failed row `queued` would never be recomputed.
+    fn settle_override_batch_tx(
+        tx: &rusqlite::Transaction<'_>,
+        batch: &str,
+        draft: &str,
+        revision: u64,
+    ) -> Result<()> {
+        tx.execute("UPDATE metadata_edit_batches SET state=CASE WHEN EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?2 AND state IN ('failed','cancelled','superseded')) THEN 'partial' ELSE 'saved' END,updated=?1 WHERE id=?2 AND NOT EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?2 AND state IN ('queued','ready','recovery_required'))",params![now(),batch])?;
+        tx.execute("UPDATE metadata_edit_drafts SET state=(SELECT state FROM metadata_edit_batches WHERE id=?4),updated=?1 WHERE id=?2 AND revision=?3 AND EXISTS(SELECT 1 FROM metadata_edit_batches WHERE id=?4 AND state IN ('saved','partial'))",params![now(),draft,revision,batch])?;
         Ok(())
     }
 }
@@ -270,5 +281,101 @@ impl Library {
         );
         let patch: MetadataEditorPatch = serde_json::from_str(&payload)?;
         Ok(Some(super::service::resolve_patch(self, &patch)?))
+    }
+}
+
+#[cfg(test)]
+mod settle_tests {
+    use super::*;
+    /// A queued batch with one row per given state, each on its own track.
+    fn batch_with(states: &[&str]) -> (tempfile::TempDir, Library) {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let lib = Library::open(&root.join("library.sqlite")).unwrap();
+        {
+            let conn = lib.conn().unwrap();
+            conn.execute(
+                "INSERT INTO metadata_edit_drafts VALUES('d',1,'queued','{}',1,1)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO metadata_edit_batches VALUES('b','d',1,'save','queued','{}',NULL,1,1)",
+                [],
+            )
+            .unwrap();
+        }
+        for (index, state) in states.iter().enumerate() {
+            let file = root.join(format!("track-{index}.wav"));
+            std::fs::write(&file, format!("audio {index}")).unwrap();
+            let job = lib
+                .enqueue(
+                    std::slice::from_ref(&file),
+                    lib.settings().unwrap().revision,
+                )
+                .unwrap()
+                .remove(0);
+            let track = lib
+                .jobs()
+                .unwrap()
+                .into_iter()
+                .find(|j| j.id == job)
+                .unwrap()
+                .track_id;
+            lib.conn()
+                .unwrap()
+                .execute(
+                    "INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json) VALUES(?1,'b',?2,?3,?4,'{}')",
+                    params![format!("r{index}"), track, index, state],
+                )
+                .unwrap();
+        }
+        (temp, lib)
+    }
+    fn settle(lib: &Library) -> (String, String) {
+        let mut conn = lib.conn().unwrap();
+        let tx = conn.transaction().unwrap();
+        Library::settle_override_batch_tx(&tx, "b", "d", 1).unwrap();
+        tx.commit().unwrap();
+        let state = |table: &str, id: &str| {
+            conn.query_row(
+                &format!("SELECT state FROM {table} WHERE id=?1"),
+                [id],
+                |r| r.get::<_, String>(0),
+            )
+            .unwrap()
+        };
+        (
+            state("metadata_edit_batches", "b"),
+            state("metadata_edit_drafts", "d"),
+        )
+    }
+    #[test]
+    fn a_settled_batch_with_no_other_outcome_is_saved() {
+        let (_t, lib) = batch_with(&["written", "written"]);
+        assert_eq!(settle(&lib), ("saved".into(), "saved".into()));
+    }
+    #[test]
+    fn a_failed_cancelled_or_superseded_row_makes_the_settled_batch_partial_and_the_draft_follows()
+    {
+        for other in ["failed", "cancelled", "superseded"] {
+            let (_t, lib) = batch_with(&["written", other]);
+            assert_eq!(
+                settle(&lib),
+                ("partial".into(), "partial".into()),
+                "{other}"
+            );
+        }
+    }
+    #[test]
+    fn a_batch_still_waiting_on_a_row_does_not_settle() {
+        for waiting in ["queued", "ready", "recovery_required"] {
+            let (_t, lib) = batch_with(&["written", "failed", waiting]);
+            assert_eq!(
+                settle(&lib),
+                ("queued".into(), "queued".into()),
+                "{waiting}"
+            );
+        }
     }
 }
