@@ -602,12 +602,30 @@ impl ReviewFixture {
         )
         .unwrap();
         let run = lib.claim_next().unwrap().unwrap();
-        let mut media = runtime.probe(&source).unwrap();
+        Self::reach_attention(&lib, &runtime, &source, &run);
+        Self {
+            _temp: temp,
+            lib,
+            runtime,
+            source,
+            run,
+            tagger: cuerithm_autotag::Tagger::with_backends(vec![std::sync::Arc::new(Expansion)])
+                .unwrap(),
+        }
+    }
+    /// Preparation found an ambiguous recording and stopped for review.
+    fn reach_attention(
+        lib: &Library,
+        runtime: &cuerithm_media::MediaRuntime,
+        source: &std::path::Path,
+        run: &crate::JobRun,
+    ) {
+        let mut media = runtime.probe(source).unwrap();
         media.tags.insert("title".into(), "Selected title".into());
         media.tags.insert("artist".into(), "Selected artist".into());
         media.tags.insert("version".into(), "Radio Edit".into());
         let input = TagInput {
-            path: source.clone(),
+            path: source.to_path_buf(),
             source_sha256: run.source_sha256.clone(),
             media,
             duration_seconds: 64.,
@@ -624,7 +642,7 @@ impl ReviewFixture {
             ..Default::default()
         };
         lib.record_match_outcome(
-            &run,
+            run,
             &input,
             &TagMatchOutcome {
                 status: MatchStatus::Ambiguous,
@@ -634,17 +652,35 @@ impl ReviewFixture {
             },
         )
         .unwrap();
-        lib.fail_for_run(&run, "matching", "Recording edition requires review")
+        lib.fail_for_run(run, "matching", "Recording edition requires review")
             .unwrap();
-        Self {
-            _temp: temp,
-            lib,
-            runtime,
-            source,
-            run,
-            tagger: cuerithm_autotag::Tagger::with_backends(vec![std::sync::Arc::new(Expansion)])
-                .unwrap(),
-        }
+    }
+    /// The user saved a title edit for the Incoming track, and preparation stopped for review
+    /// again before publishing it.
+    fn with_saved_title_edit() -> Self {
+        use cuerithm_autotag::{MetadataTextField, TextEdit};
+        let mut f = Self::new();
+        let service = crate::MetadataEditService::new(f.lib.clone(), f.runtime.clone());
+        let draft = service
+            .create_draft(std::slice::from_ref(&f.run.track_id))
+            .unwrap();
+        let mut patch = crate::MetadataEditorPatch::default();
+        patch.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec!["Saved edit title".into()],
+            },
+        );
+        let draft = service
+            .update_draft(&draft.id, draft.revision, patch)
+            .unwrap();
+        let cancel = cuerithm_media::CancellationToken::default();
+        let preview = service.preview(&draft.id, draft.revision, &cancel).unwrap();
+        let queued = service.apply(&preview.id, &cancel).unwrap();
+        assert_eq!(queued.state, "queued", "{queued:?}");
+        f.run = f.lib.claim_next().unwrap().unwrap();
+        Self::reach_attention(&f.lib, &f.runtime, &f.source, &f.run);
+        f
     }
     fn request(&self) -> super::MatchReviewRequest {
         let state = self
@@ -1187,4 +1223,99 @@ fn only_the_active_review_preview_is_kept_and_a_consumed_one_is_reclaimed() {
             .contains("already consumed"),
         "a consumed preview still explains itself"
     );
+}
+
+#[test]
+fn a_saved_incoming_edit_is_shown_as_the_value_the_review_will_end_with() {
+    let f = ReviewFixture::with_saved_title_edit();
+    let cancel = cuerithm_media::CancellationToken::default();
+    let title = |preview: &super::MatchReviewPreview| {
+        preview
+            .fields
+            .iter()
+            .find(|field| field.field == "title")
+            .unwrap()
+            .clone()
+    };
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let blocked = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request.clone(), &cancel)
+        .unwrap();
+    let held = title(&blocked);
+    assert_eq!(held.before, vec!["Saved edit title"]);
+    assert_eq!(held.after, vec!["Saved edit title"]);
+    assert_eq!(
+        held.allowed_actions,
+        vec![super::MatchReviewFieldAction::Keep]
+    );
+    assert!(
+        !blocked.can_apply,
+        "replacing a field the saved edit sets cannot be promised: {:?}",
+        blocked.blockers
+    );
+    request.fields.retain(|decision| decision.field != "title");
+    let preview = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    assert!(preview.can_apply, "{:?}", preview.blockers);
+    assert_eq!(title(&preview).after, vec!["Saved edit title"]);
+    f.lib
+        .apply_match_review_with(&f.runtime, &preview.id, &preview.revision, &cancel)
+        .unwrap();
+    let service = crate::PreparationService::start_with_tagger(
+        f.lib.clone(),
+        f.runtime.clone(),
+        1,
+        std::sync::Arc::new(f.tagger),
+    )
+    .unwrap();
+    wait_for_job(&f.lib, &f.run.id, "completed");
+    service.shutdown();
+    let after =
+        cuerithm_autotag::read_metadata_snapshot(&f.source, &f.runtime.probe(&f.source).unwrap())
+            .unwrap();
+    assert_eq!(
+        after.text[&cuerithm_autotag::MetadataTextField::Title],
+        vec!["Saved edit title"],
+        "the file ends with what the preview showed"
+    );
+    assert_eq!(
+        after.text[&cuerithm_autotag::MetadataTextField::Label],
+        vec!["Expanded label"]
+    );
+}
+
+#[test]
+fn an_accepted_review_is_stored_for_its_job_without_a_write_only_history() {
+    let f = ReviewFixture::new();
+    let cancel = cuerithm_media::CancellationToken::default();
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let preview = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    f.lib
+        .apply_match_review_with(&f.runtime, &preview.id, &preview.revision, &cancel)
+        .unwrap();
+    let conn = f.lib.conn().unwrap();
+    let decisions: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM preparation_review_decisions WHERE job_id=?1",
+            [&f.run.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(decisions, 1);
+    let history: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '%decision_history%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(history, 0, "no write-only copy of every accepted decision");
 }
