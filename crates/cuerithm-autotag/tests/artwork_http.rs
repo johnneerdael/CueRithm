@@ -40,6 +40,9 @@ fn fixture(
                     Err(error) => panic!("Artwork fixture: {error}"),
                 }
             };
+            // Windows accepted sockets inherit the listener's nonblocking mode.
+            // Poll accept above, then use bounded blocking reads for the request.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(3)))
                 .unwrap();
