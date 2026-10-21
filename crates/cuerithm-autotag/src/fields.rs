@@ -242,6 +242,18 @@ fn dj_namespace(upper: &str) -> bool {
         .any(|vendor| upper.contains(vendor))
 }
 
+/// Second spellings the adapters read and write as the same logical field as its binding:
+/// FLAC and Ogg keep legacy `LABEL` and `VERSION` beside `PUBLISHER` and `SUBTITLE`, and
+/// WMA writes both `WM/Artist` and `Author` and reads `WM/Artist` first.
+fn field_aliases(field: &Field, format: &AudioFileFormat) -> &'static [&'static str] {
+    match (field, format) {
+        (Field::Label, AudioFileFormat::FLAC | AudioFileFormat::OGG) => &["LABEL"],
+        (Field::Version, AudioFileFormat::FLAC | AudioFileFormat::OGG) => &["VERSION"],
+        (Field::Artist, AudioFileFormat::WMA) => &["WM/Artist", "Author"],
+        _ => &[],
+    }
+}
+
 pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bool {
     if *format == AudioFileFormat::MP4 {
         if protected_mp4_atom(key) {
@@ -318,6 +330,9 @@ pub(crate) fn custom_bypasses_field_policy(
         binding.eq_ignore_ascii_case(key)
             || binding.eq_ignore_ascii_case(&leaf)
             || (*format == AudioFileFormat::MP4 && same_mp4_atom(binding, key))
+            || field_aliases(field, format)
+                .iter()
+                .any(|alias| alias.eq_ignore_ascii_case(key) || alias.eq_ignore_ascii_case(&leaf))
     });
     bound
         || leaf.ends_with("_TRACK_ID")
