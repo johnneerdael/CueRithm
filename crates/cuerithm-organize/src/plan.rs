@@ -220,7 +220,12 @@ pub fn build_plan(
             outcome: RowOutcome::Ready,
         };
         match files_for(&row.track, &input.config, &template) {
-            Ok(Some(files)) => row.files = files,
+            Ok(Some(files)) => {
+                if let Some(reason) = row_conflict(&files, input.config.mode) {
+                    row.outcome = RowOutcome::Blocked { reason };
+                }
+                row.files = files;
+            }
             Ok(None) => row.outcome = RowOutcome::Unchanged,
             Err(RowOutcome::Skipped { reason }) => row.outcome = RowOutcome::Skipped { reason },
             Err(outcome) => row.outcome = outcome,
@@ -312,6 +317,34 @@ pub fn build_plan(
         digest: fingerprint,
         rows,
     })
+}
+/// Why one row's own files could never become a coordinator request. The coordinator
+/// accepts one audio file plus at most 255 sidecars, each source once, keeps every
+/// Rename file in its folder, and refuses a destination that is another file's path.
+fn row_conflict(files: &[PlannedFile], mode: OrganizationMode) -> Option<String> {
+    if files.len() > 256 {
+        return Some("An organization can include at most 255 owned sidecars".into());
+    }
+    let mut sources = std::collections::BTreeSet::new();
+    if !files.iter().all(|file| sources.insert(&file.source.path)) {
+        return Some("The same file is listed more than once".into());
+    }
+    if mode == OrganizationMode::RenameInPlace
+        && files
+            .iter()
+            .any(|file| file.source.path.0.parent() != file.destination.0.parent())
+    {
+        return Some("Rename in place cannot move an owned sidecar to another folder".into());
+    }
+    if files.iter().enumerate().any(|(index, file)| {
+        files
+            .iter()
+            .enumerate()
+            .any(|(other, owned)| other != index && owned.source.path == file.destination)
+    }) {
+        return Some("A destination is another owned file's current path".into());
+    }
+    None
 }
 fn files_for(
     track: &TrackInput,
