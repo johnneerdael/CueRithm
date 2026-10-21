@@ -29,7 +29,9 @@ impl Vault for FakeVault {
 fn fixture() -> (tempfile::TempDir, PathBuf) {
     let t = tempfile::tempdir().unwrap();
     let root = t.path().canonicalize().unwrap().join("provider-state");
-    let mut builder = std::fs::DirBuilder::new();
+    let builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    let mut builder = builder;
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;

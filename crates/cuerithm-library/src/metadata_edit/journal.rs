@@ -915,7 +915,9 @@ impl MetadataEditService {
                     &old_stage.before,
                 )?;
                 let folder = self.library.data_dir().join("metadata-edits/staging");
-                let mut directory = tempfile::Builder::new();
+                let directory = tempfile::Builder::new();
+                #[cfg(unix)]
+                let mut directory = directory;
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
