@@ -1,6 +1,6 @@
 <!--
 Merging needs a completed @codex review of the latest commit, resolved review threads and the sections below.
-Full cross-platform builds start once the gate passes (a completed Codex review of the latest commit), not on every push, and again after the merge.
+Linux checks start once the gate passes (a completed Codex review of the latest commit), not on every push. Windows and macOS run after the merge, on main.
 -->
 
 ## Summary

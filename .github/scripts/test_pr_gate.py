@@ -95,5 +95,14 @@ class HostedChecks(unittest.TestCase):
         self.assertEqual(self.plan("success", pr=fork), [])
 
 
+class Dispatch(unittest.TestCase):
+    def test_before_the_merge_only_the_linux_runner_is_started(self):
+        self.assertEqual(pr_gate.dispatch_payload("feat/x"), {"ref": "feat/x", "inputs": {"os": "ubuntu-24.04"}})
+
+    def test_the_pre_merge_runner_is_linux(self):
+        # Windows and macOS runs are slow and run after the merge, on main.
+        self.assertTrue(pr_gate.PR_RUNNER.startswith("ubuntu-"))
+
+
 if __name__ == "__main__":
     unittest.main()
