@@ -23,7 +23,7 @@ PowerShell, with the executable and database in the current directory:
 
 ```powershell
 $process = Start-Process -FilePath .\cuerithm-desktop.exe -ArgumentList '--headless', 'library.sqlite' -RedirectStandardInput command.json -RedirectStandardOutput result.json -RedirectStandardError error.log -Wait -PassThru
-Get-Content result.json
+Get-Content -Encoding utf8 result.json
 $process.ExitCode
 ```
 

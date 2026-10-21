@@ -9,7 +9,7 @@ use std::{io::Read, path::Path};
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
-    Status,
+    Status {},
     Report {
         scope: ReportScope,
     },
@@ -31,7 +31,7 @@ enum Command {
     OrganizeRecover {
         batch_id: String,
     },
-    OrganizeHistory,
+    OrganizeHistory {},
     MetadataDraft {
         track_ids: Vec<String>,
     },
@@ -62,10 +62,10 @@ enum Command {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum ReportScope {
-    AllReady,
+    AllReady {},
     Selected { track_ids: Vec<String> },
-    Failed,
-    Review,
+    Failed {},
+    Review {},
 }
 
 /// Exit 0: complete, 2: partial/blocked, 3: busy, 1: invalid request/failure.
@@ -129,7 +129,7 @@ fn selected_ids(ids: Vec<String>) -> Result<Vec<String>> {
 fn execute(library: &Library, command: Command) -> Result<(Value, bool)> {
     let cancel = CancellationToken::default();
     match command {
-        Command::Status => Ok((
+        Command::Status {} => Ok((
             json!({"counts":library.counts()?,"revision":library.revision()?,"recent_jobs":library.jobs()?,"recent_jobs_limit":1000}),
             false,
         )),
@@ -163,7 +163,7 @@ fn execute(library: &Library, command: Command) -> Result<(Value, bool)> {
         Command::OrganizeRecover { batch_id } => {
             batch(library.recover_organization_batch(&batch_id, &cancel)?)
         }
-        Command::OrganizeHistory => Ok((
+        Command::OrganizeHistory {} => Ok((
             serde_json::to_value(library.organization_batches()?)?,
             false,
         )),
@@ -362,9 +362,9 @@ fn report(library: &Library, scope: ReportScope) -> Result<(Value, bool)> {
             let jobs = library.automation_jobs_for_tracks(&ids)?;
             (ids, jobs)
         }
-        ReportScope::Failed | ReportScope::Review => {
+        ReportScope::Failed {} | ReportScope::Review {} => {
             let jobs = library.automation_jobs()?;
-            let review = matches!(scope, ReportScope::Review);
+            let review = matches!(scope, ReportScope::Review {});
             let mut ids = Vec::new();
             let mut seen = std::collections::HashSet::new();
             for j in &jobs {
@@ -379,7 +379,7 @@ fn report(library: &Library, scope: ReportScope) -> Result<(Value, bool)> {
             }
             (ids, jobs)
         }
-        ReportScope::AllReady => {
+        ReportScope::AllReady {} => {
             let mut q = TrackQuery {
                 limit: 200,
                 ..Default::default()
@@ -429,6 +429,32 @@ mod tests {
         assert!(
             read_request(br#"{"command":"status","secret":"not-accepted"}"#.as_slice()).is_err()
         );
+        assert!(read_request(br#"{"command":"status"}"#.as_slice()).is_ok());
+        assert!(
+            read_request(br#"{"command":"organize_history","secret":"not-accepted"}"#.as_slice())
+                .is_err()
+        );
+        assert!(
+            read_request(
+                br#"{"command":"report","scope":{"kind":"all_ready","secret":"not-accepted"}}"#
+                    .as_slice()
+            )
+            .is_err()
+        );
+        assert!(
+            read_request(
+                br#"{"command":"report","scope":{"kind":"failed","secret":"not-accepted"}}"#
+                    .as_slice()
+            )
+            .is_err()
+        );
+        assert!(
+            read_request(
+                br#"{"command":"report","scope":{"kind":"review","secret":"not-accepted"}}"#
+                    .as_slice()
+            )
+            .is_err()
+        );
         assert!(selected_ids(vec!["a".into(), "a".into()]).is_err());
         assert!(read_request(vec![b' '; 1_048_577].as_slice()).is_err());
     }
@@ -454,7 +480,7 @@ mod tests {
         let (value, partial) = execute(
             &l,
             Command::Report {
-                scope: ReportScope::AllReady,
+                scope: ReportScope::AllReady {},
             },
         )
         .unwrap();
