@@ -636,6 +636,7 @@ impl MetadataEditService {
         tx.commit()?;
         drop(conn);
         self.library.retire_unwritten_metadata_stages(id)?;
+        self.library.retire_superseded_metadata_stages()?;
         self.batch(id)
     }
     pub fn history_page(&self, offset: usize, limit: usize) -> Result<MetadataEditHistoryPage> {
@@ -962,6 +963,7 @@ impl crate::Library {
             [],
         )?;
         self.retire_metadata_previews()?;
+        self.retire_superseded_metadata_stages()?;
         self.conn()?.execute("UPDATE metadata_edit_batches SET state='recovery_required',updated=?1 WHERE state='saving'",[now()])?;
         self.conn()?.execute("UPDATE metadata_edit_rows SET state='recovery_required',error='Metadata save interrupted; recover retained native evidence' WHERE state='ready' AND EXISTS(SELECT 1 FROM metadata_edit_writes w WHERE w.row_id=metadata_edit_rows.id AND w.state IN ('prepared','publishing','recovery_required'))",[])?;
         let _organization = self
