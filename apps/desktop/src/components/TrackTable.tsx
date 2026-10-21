@@ -5,6 +5,7 @@ import Artwork from "./Artwork";
 import Glyph from "./Glyph";
 import BrandMark from "./BrandMark";
 import RowPreview,{type PreviewLoader} from "./RowPreview";
+import type {CurationCatalog} from "../curation-types";
 import type {Track,Sort,Job,View,Bridge} from "../types";
 import {time} from "../display";
 import {columnLabel as label,metadataText} from "../columns";
@@ -15,7 +16,7 @@ const layoutVersion=2;
 const widths:Record<string,string>={title:"minmax(220px,2.4fr)",artist:"minmax(110px,1fr)",genre:"minmax(85px,.8fr)",bpm:"74px",key:"58px",energy:"96px",duration:"60px",artwork:"66px",preview:"minmax(150px,1fr)"};
 const stages:Record<string,string>={queued:"Queued",waiting:"Waiting for file",decoding:"Decoding",analysis:"Analyzing",matching:"Matching catalog",tagging:"Preparing tags",writing_tags:"Writing tags",organizing:"Organizing files",organization:"Organizing files",repairing_references:"Repairing linked references",committing:"Applying cues",setup:"Setup"};
 function preferences():{order:Column[];hidden:Column[]}{try{const v=JSON.parse(localStorage.getItem("track-columns")??"null");if(v&&v.version===layoutVersion&&Array.isArray(v.order)&&v.order.length&&v.order.every((c:unknown)=>typeof c==="string"))return {order:[...new Set<string>(v.order)],hidden:Array.isArray(v.hidden)?v.hidden.filter((c:unknown)=>typeof c==="string"):[]};}catch{}return {order:defaults,hidden:[]};}
-export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading,artworkLoader,metadataLoader,previewLoader,onTrackDragStart,onInspect,suspended=false}:{onInspect?:(row:Track,mode:"edit"|"review")=>void;suspended?:boolean;onTrackDragStart?:(row:Track,event:React.PointerEvent)=>void;previewLoader?:PreviewLoader;metadataLoader?:()=>Promise<string[]>;artworkLoader?:Bridge["getArtwork"];rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(row:Track)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
+export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort,descending,onSort,view,jobs,onRetry,onReprepare,onArchive,onMore,hasMore,loading,artworkLoader,metadataLoader,previewLoader,onTrackDragStart,onInspect,curationCatalog,suspended=false}:{curationCatalog?:CurationCatalog|null;onInspect?:(row:Track,mode:"edit"|"review"|"curate")=>void;suspended?:boolean;onTrackDragStart?:(row:Track,event:React.PointerEvent)=>void;previewLoader?:PreviewLoader;metadataLoader?:()=>Promise<string[]>;artworkLoader?:Bridge["getArtwork"];rows:Track[];selected:Set<string>;playingId:string|null;onSelect:(row:Track,event:React.MouseEvent)=>void;onPlay:(row:Track)=>void;sort:Sort;descending:boolean;onSort:(sort:Sort)=>void;view:View;jobs:Job[];onRetry:(id:string)=>void;onReprepare:(id:string)=>void;onArchive:(row:Track)=>void;onMore:()=>void;hasMore:boolean;loading:boolean}){
   const viewport=useRef<HTMLDivElement>(null),header=useRef<HTMLDivElement>(null);
   const [top,setTop]=useState(0),[prefs,setPrefs]=useState(preferences);
   const [menu,setMenu]=useState<{id:string;x:number;y:number}|null>(null);
@@ -32,7 +33,7 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
     const generation=++metadataRequest.current;setReadingMetadata(true);setMetadataError(null);
     void metadataLoader().then(fields=>{if(generation===metadataRequest.current)setMetadataFields(fields);}).catch(error=>{if(generation===metadataRequest.current)setMetadataError(String(error));}).finally(()=>{if(generation===metadataRequest.current)setReadingMetadata(false);});
   };
-  const availableColumns=useMemo(()=>Array.from(new Set([...prefs.order,"artist","artwork","album","display_path","state","filetype","library.date_added","library.date_modified",...metadataFields,...rows.flatMap(row=>Object.keys(row.metadata??{}))])),[prefs.order,metadataFields,rows]);
+  const availableColumns=useMemo(()=>Array.from(new Set([...prefs.order,"artist","artwork","album","display_path","state","filetype","library.date_added","library.date_modified","user_rating","curation_notes","categories",...metadataFields,...rows.flatMap(row=>Object.keys(row.metadata??{}))])),[prefs.order,metadataFields,rows]);
   const toggleColumn=(column:string)=>setPrefs(p=>p.order.includes(column)?{...p,hidden:p.hidden.includes(column)?p.hidden.filter(c=>c!==column):[...p.hidden,column]}:{order:[...p.order,column],hidden:p.hidden.filter(c=>c!==column)});
   const anchor=useRef<{id:string;offset:number}|null>(null),previous=useRef(rows);
   useEffect(()=>{try{localStorage.setItem("track-columns",JSON.stringify({...prefs,version:layoutVersion}));}catch{}},[prefs]);
@@ -50,7 +51,7 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
   const sortButton=(c:Sort,text:string)=><button onClick={()=>onSort(c)}>{text}{sort===c?(descending?<ChevronDown size={12}/>:<ChevronUp size={12}/>):null}</button>;
   const head=(c:Column)=>{
     if(c==="title")return <span className="track-head">{sortButton("title","TRACK")}<span aria-hidden="true">/</span>{sortButton("artist","ARTIST")}</span>;
-    if(c==="artist"||c==="bpm"||c==="energy")return sortButton(c,label(c).toUpperCase());
+    if(c==="artist"||c==="bpm"||c==="energy"||c==="user_rating")return sortButton(c,label(c).toUpperCase());
     return c==="preview"?"PREVIEW":label(c).toUpperCase();
   };
   const status=(row:Track,job:Job|undefined)=>{
@@ -67,6 +68,8 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
       case "title":return <div className="title-cell">{!visibleColumns.includes("artwork")?<span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/></span>:null}<span className={"title-content"+(view==="incoming"&&job?" has-status":"")}><span className="title-line"><strong title={row.title}>{row.title}</strong><small className="file-extension">{row.display_path.split(".").pop()?.toUpperCase()}</small></span>{view==="incoming"&&job?<small className={job.state==="attention"?"attention":"processing"}>{job.state==="attention"?job.error:stages[job.stage]??job.stage}</small>:<small className="artist-line" title={row.artist}>{row.artist||"—"}</small>}</span></div>;
       case "artwork":return <span className="file-mark"><Artwork id={row.id} identity={row.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/></span>;
       case "artist":return <span className="ellipsis muted">{row.artist||"—"}</span>;
+      case "user_rating":return <span className="number">{row.metadata.user_rating!=null?String(row.metadata.user_rating)+" / 5":"—"}</span>;
+      case "categories":{const categories=row.metadata.categories;const text=categories&&typeof categories==="object"&&!Array.isArray(categories)?Object.entries(categories).map(([id,values])=>{const group=curationCatalog?.groups.find(g=>g.id===id);return (group?.name??id)+": "+(Array.isArray(values)?values.map(value=>group?.values.find(v=>v.id===value)?.name??String(value)).join(" · "):"");}).filter(value=>!value.endsWith(": ")).join(" / "):"";return <span className="ellipsis muted" title={text}>{text||"—"}</span>;}
       case "genre":return <span className="ellipsis genre">{row.genre||"—"}</span>;
       case "bpm":return <span className="number">{row.bpm?.toFixed(2)??"—"}</span>;
       case "key":return row.key?<span className="key-chip">{row.key}</span>:<span className="dim">—</span>;
@@ -93,6 +96,6 @@ export default function TrackTable({rows,selected,playingId,onSelect,onPlay,sort
         </div>;})}
       </div>{loading&&rows.length>0?<div className="loading-more">Loading tracks…</div>:null}
     </div>
-    {menu&&menuTrack?createPortal(<div className="context-menu" role="menu" style={{position:"fixed",left:menu.x,top:menu.y}}>{onInspect?<><button role="menuitem" onClick={()=>{onInspect(menuTrack,"edit");setMenu(null);}}>Edit metadata</button><button role="menuitem" onClick={()=>{onInspect(menuTrack,"review");setMenu(null);}}>Review match</button></>:null}<button role="menuitem" onClick={()=>{onReprepare(menu.id);setMenu(null);}}><RotateCcw size={14}/>Analyze again</button><button role="menuitem" onClick={()=>{onArchive(menuTrack);setMenu(null);}}><Archive size={14}/>{menuTrack.archived?"Restore to library":"Archive track"}</button></div>,document.body):null}
+    {menu&&menuTrack?createPortal(<div className="context-menu" role="menu" style={{position:"fixed",left:menu.x,top:menu.y}}>{onInspect?<><button role="menuitem" onClick={()=>{onInspect(menuTrack,"edit");setMenu(null);}}>Edit metadata</button><button role="menuitem" onClick={()=>{onInspect(menuTrack,"review");setMenu(null);}}>Review match</button><button role="menuitem" onClick={()=>{onInspect(menuTrack,"curate");setMenu(null);}}>Curate</button></>:null}<button role="menuitem" onClick={()=>{onReprepare(menu.id);setMenu(null);}}><RotateCcw size={14}/>Analyze again</button><button role="menuitem" onClick={()=>{onArchive(menuTrack);setMenu(null);}}><Archive size={14}/>{menuTrack.archived?"Restore to library":"Archive track"}</button></div>,document.body):null}
   </div>;
 }

@@ -1,13 +1,17 @@
+import {nativeCuration} from "./curation-api";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {open} from "@tauri-apps/plugin-dialog";
 import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./types";
+import {nativePreparationPresets} from "./preset-api";
 import {nativeOrganization} from "./organization-api";
 import {nativeMetadataEditor} from "./editor-api";
 import {nativeMatchReview} from "./match-review-api";
 export const nativeBridge:Bridge={
   ...nativeOrganization,
+  ...nativePreparationPresets,
+  ...nativeCuration,
   ...nativeMetadataEditor,
   ...nativeMatchReview,
   discoverDjTargets:()=>invoke("discover_dj_targets"),
@@ -46,7 +50,7 @@ export const nativeBridge:Bridge={
   getTaggingStorage:()=>invoke("tagging_storage"),
   getTaggingCatalog:()=>invoke("tagging_catalog"),
   resetCatalogAccess:()=>invoke("reset_catalog_access"),
-  saveSettings:settings=>invoke("save_settings",{settings}),
+  saveSettings:(settings,folderChanges,expectedRevision)=>invoke("save_settings",{settings,...(folderChanges?{folderChanges,expectedRevision}:{})}),
   enqueuePaths:paths=>invoke("enqueue_paths",{paths}),
   retryJob:(jobId,useCapturedSettings)=>invoke("retry_job",{jobId,...(useCapturedSettings?{useCapturedSettings:true}:{})}),
   reprepareTrack:trackId=>invoke("reprepare_track",{trackId}),

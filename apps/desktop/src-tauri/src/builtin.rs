@@ -74,7 +74,12 @@ impl BuiltinModels {
         let obsolete: Vec<_> = library
             .unfinished_settings()?
             .into_iter()
-            .filter(|snapshot| self.needs_migration(snapshot, &expected))
+            // An accepted folder recipe must not become global rules during
+            // automatic model setup. Its existing setup guard can require an
+            // explicit current-rules retry if model resources have changed.
+            .filter(|snapshot| {
+                snapshot.preset_capture.is_none() && self.needs_migration(snapshot, &expected)
+            })
             .map(|snapshot| snapshot.revision)
             .collect();
         if !changed && selected.models == expected && obsolete.is_empty() {
@@ -97,6 +102,100 @@ impl BuiltinModels {
 mod tests {
     use super::*;
     use cuerithm_library::{Library, PreparationSettings};
+    #[test]
+    fn automatic_model_migration_preserves_captured_preset_rules_and_owner() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let library = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let folder = root.join("Music");
+        std::fs::create_dir(&folder).unwrap();
+        let mut settings = library.settings().unwrap().settings;
+        settings.watch_folders = vec![folder.clone()];
+        library.save_settings(settings).unwrap();
+        let global = library.settings().unwrap();
+        let global_cues = global
+            .settings
+            .engine
+            .lexicon_config
+            .as_ref()
+            .unwrap()
+            .min_cue_length_beats;
+        let mut projection = library
+            .project_preparation_preset(&global.settings)
+            .unwrap();
+        projection.rules.cue_generation.min_cue_length_beats = global_cues + 64;
+        let preset = library
+            .save_preparation_preset(cuerithm_library::PreparationPresetSave {
+                id: None,
+                expected_revision: None,
+                name: "Captured rules".into(),
+                rules: projection.rules,
+                connections: projection.connections,
+            })
+            .unwrap();
+        let assignment = library
+            .preparation_preset_folders_for_settings(&global.settings)
+            .unwrap()
+            .remove(0);
+        library
+            .save_settings_with_preparation_assignments(
+                global.settings,
+                &global.revision,
+                &[cuerithm_library::PreparationFolderChange {
+                    folder_id: assignment.folder_id,
+                    expected_revision: assignment.revision,
+                    choice: cuerithm_library::PreparationFolderChoice::Preset {
+                        preset_id: preset.id,
+                    },
+                }],
+            )
+            .unwrap();
+        let source = folder.join("source.flac");
+        std::fs::write(&source, b"unread source fixture").unwrap();
+        let job = library
+            .enqueue_with_current_preparation(std::slice::from_ref(&source), false)
+            .unwrap()
+            .remove(0);
+        let captured = library
+            .current_preparation_snapshot_for_path(&source)
+            .unwrap();
+        assert!(captured.preset_capture.is_some());
+        let before = cuerithm_media::file_sha256(&source).unwrap();
+        BuiltinModels::install(library.data_dir())
+            .unwrap()
+            .configure_library(&library)
+            .unwrap();
+        let jobs = library.jobs().unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(
+            jobs[0].id, job,
+            "model migration must not replace a captured preset operation with global rules"
+        );
+        let run = library.claim_next().unwrap().unwrap();
+        assert_eq!(run.settings_revision, captured.revision);
+        assert_eq!(
+            run.snapshot
+                .settings
+                .engine
+                .lexicon_config
+                .unwrap()
+                .min_cue_length_beats,
+            global_cues + 64
+        );
+        assert!(run.snapshot.preset_capture.is_some());
+        let selected = library.settings().unwrap();
+        assert!(selected.preset_capture.is_none());
+        assert_eq!(
+            selected
+                .settings
+                .engine
+                .lexicon_config
+                .unwrap()
+                .min_cue_length_beats,
+            global_cues
+        );
+        assert_eq!(cuerithm_media::file_sha256(&source).unwrap(), before);
+    }
     #[test]
     fn desktop_selects_complete_local_timing_and_clears_obsolete_backends() {
         let d = tempfile::tempdir().unwrap();
@@ -223,6 +322,7 @@ mod tests {
             revision: "old-build".into(),
             settings,
             models: Default::default(),
+            preset_capture: None,
         };
         assert!(models.needs_migration(&snapshot, &expected));
     }

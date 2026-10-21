@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, ensure};
 use cuerithm_library::{
-    Library, PreparationService, PreparationSettings, TrackSummary, playback::Player,
+    CurationService, CurationWorker, Library, PreparationService, PreparationSettings,
+    TrackSummary, playback::Player,
 };
 use cuerithm_media::{MediaRuntime, PreparedAudio};
 use serde::Serialize;
@@ -28,6 +29,8 @@ pub struct Host {
     pub runtime: MediaRuntime,
     pub preparation: PreparationService,
     pub smart_playlists: cuerithm_library::SmartPlaylistService,
+    pub curation: CurationService,
+    pub curation_worker: Mutex<CurationWorker>,
     pub player: Mutex<Player>,
     pub loaded: Mutex<Option<(String, Arc<PreparedAudio>)>>,
     artwork_gate: Mutex<()>,
@@ -68,6 +71,8 @@ impl Host {
         let runtime = MediaRuntime::from_bundle(runtime)?;
         let preparation = PreparationService::start(library.clone(), runtime.clone())?;
         let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
+        let curation = CurationService::new(library.clone(), Some(runtime.clone()));
+        let curation_worker = Mutex::new(curation.start_background()?);
         Ok(Self {
             exit: crate::exit::ExitCoordinator::default(),
             maintenance: Arc::new(crate::maintenance::MaintenanceTasks::default()),
@@ -76,6 +81,8 @@ impl Host {
             runtime,
             preparation,
             smart_playlists,
+            curation,
+            curation_worker,
             player: Mutex::new(Player::new()?),
             loaded: Mutex::new(None),
             artwork_gate: Mutex::new(()),

@@ -1,11 +1,13 @@
+import type {CurationBridge,CurationFilter} from "./curation-types";
+import type {PreparationPresetsBridge,PreparationFolderChange} from "./preset-types";
 import type {OrganizationBridge} from "./organization-types";
 import type {MetadataEditorBridge} from "./editor-types";
 import type {MatchReviewBridge} from "./match-review-types";
 export type View="tracks"|"incoming"|"archive";
 export type WorkspaceView=View|"settings"|"cleanup"|"sync"|"organize";
-export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order";
+export type Sort="title"|"artist"|"bpm"|"energy"|"added"|"playlist_order"|"user_rating";
 export interface Track {metadata:Record<string,unknown>;id:string;source_sha256:string;display_path:string;title:string;artist:string;album:string;genre:string;state:string;archived:boolean;key:string|null;bpm:number|null;energy:number|null;duration:number|null}
-export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null}
+export interface TrackQuery {view:View;search:string;sort:Sort;descending:boolean;limit:number;cursor:string|null;playlist_id?:string|null;curation?:CurationFilter|null;expected_revision?:number|null}
 export interface TrackPage {rows:Track[];total:number;revision:number;next_cursor:string|null}
 export interface Cue {time_seconds:number;name:string;color:string|null;position?:number}
 export interface PublishedCue {name:string;startTime:number;type:"1"|"5";position:number;color:string|null;endTime?:number;activeLoop?:boolean;data?:unknown}
@@ -66,7 +68,7 @@ export interface Playback {track_id:string|null;duration_seconds:number;position
 export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][];rms?:number[];levels?:[number,number,number][]}
-export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge {
+export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge,PreparationPresetsBridge,CurationBridge {
   discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
   previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
   discardDjSync(id:string):Promise<void>;
@@ -103,7 +105,7 @@ export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchRev
   selectTrackIds(query:TrackQuery):Promise<string[]>;
   getTrack(id:string):Promise<Detail>;
   getArtwork(id:string,sourceSha256:string):Promise<string|null>;
-  saveSettings(settings:Settings):Promise<Snapshot>;
+  saveSettings(settings:Settings,folderChanges?:PreparationFolderChange[],expectedRevision?:string):Promise<Snapshot>;
   enqueuePaths(paths:string[]):Promise<string[]>;
   retryJob(id:string,useCapturedSettings?:boolean):Promise<void>;
   reprepareTrack(id:string):Promise<void>;

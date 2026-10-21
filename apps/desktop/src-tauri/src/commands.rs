@@ -359,17 +359,28 @@ pub async fn save_settings(
     host: Managed<'_>,
     app: tauri::AppHandle,
     mut settings: PreparationSettings,
+    folder_changes: Option<Vec<PreparationFolderChange>>,
+    expected_revision: Option<String>,
 ) -> Ipc<SettingsSnapshot> {
     let host = host.inner().clone();
     let result = work(move || {
         host.builtin.apply(&mut settings);
-        host.library.save_settings(settings)?;
+        let revision = if let Some(changes) = folder_changes {
+            let revision = expected_revision.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("Reload settings before saving folder assignments")
+            })?;
+            host.library
+                .save_settings_with_preparation_assignments(settings, revision, &changes)?
+        } else {
+            host.library.save_settings(settings)?
+        };
         host.preparation.wake();
         let _ = host.preparation.retry_attention();
-        host.library.settings()
+        host.library.settings_revision(&revision)
     })
     .await;
     let _ = app.emit("catalog-access-change", ());
+    let _ = app.emit("preparation-presets-change", ());
     result
 }
 #[tauri::command]
