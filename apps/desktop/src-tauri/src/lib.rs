@@ -73,6 +73,7 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let root = if let Some(root) = std::env::var_os("CUERITHM_DATA_DIR") {
                 PathBuf::from(root)
@@ -155,6 +156,7 @@ pub fn run() {
             provider_commands::save_provider_credential,
             provider_commands::remove_provider_credential,
             provider_commands::test_provider_credential,
+            provider_commands::open_catalog_source,
             curation_commands::curation_catalog,
             curation_commands::edit_curation_taxonomy,
             curation_commands::curation_snapshot,

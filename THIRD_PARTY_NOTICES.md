@@ -72,6 +72,11 @@ implemented Rust acoustic DSP; no proprietary code or energy model is embedded. 
 reference labels and licensed reference applications are not bundled.
 
 
+The official `tauri-plugin-opener` 2.7.2 declares Apache-2.0 OR MIT licensing.
+Its dependency identities and checksums are retained in `Cargo.lock`. CueRithm
+uses it for approved HTTPS signup and catalog links in the system browser;
+file opening and custom-application access are not granted.
+
 ## Selected OneTagger integration (GPLv3 desktop)
 
 The user approved reuse of Marekkon5/onetagger code at commit

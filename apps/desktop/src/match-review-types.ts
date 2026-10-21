@@ -12,6 +12,7 @@ export interface MatchReviewFieldDiff{field:string;label:string;before:string[];
 export interface MatchReviewPreview{id:string;revision:string;track_id:string;job_id:string|null;attempt:number;generation:string;action:MatchReviewRequest["action"];candidate:MatchReviewCandidate|null;fields:MatchReviewFieldDiff[];artwork:{existing:boolean;candidate_url:string|null;action:MatchReviewFieldAction;reason:string|null};requires_id3_upgrade:boolean;can_apply:boolean;blockers:string[]}
 export interface MatchReviewApplyResult{state:string;job_id:string|null;metadata_batch:MetadataEditBatch|null}
 export interface MatchReviewBridge{
+ openCatalogSource(provider:string,url:string):Promise<void>;
  trackMatchReview(trackId:string):Promise<MatchReviewState>;
  previewMatchReview(operationId:string,request:MatchReviewRequest):Promise<MatchReviewPreview>;
  applyMatchReview(operationId:string,id:string,revision:string):Promise<MatchReviewApplyResult>;
