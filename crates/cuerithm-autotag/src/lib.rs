@@ -32,6 +32,7 @@ use anyhow::{Result, ensure};
 pub use config::{AnalysisTagSource, AutotagConfig, NoMatchPolicy};
 pub use input::TagInput;
 pub use onetagger_selected_providers::http::{ChallengeStore, MemoryChallengeStore, SolverConfig};
+pub use onetagger_selected_providers::traxsource::TraxsourceRelease as CatalogRelease;
 use onetagger_tagger::MatchingUtils;
 pub use onetagger_tagger::{
     Album as CatalogAlbum, FrameName, PlatformInfo, SupportedTag, TaggerConfig,
@@ -108,6 +109,16 @@ pub trait ProviderBackend: Send + Sync {
     /// Total provider-stage bound, including shared gate and retry waits.
     fn stage_timeout(&self, _config: &AutotagConfig) -> std::time::Duration {
         std::time::Duration::from_secs(95)
+    }
+    fn search_releases(
+        &self,
+        _query: &str,
+        _page: u32,
+        _config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<CatalogRelease>> {
+        ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
+        anyhow::bail!("Release search is unavailable for this provider")
     }
     fn album(&self, _id: &str, _config: &AutotagConfig) -> Result<Option<CatalogAlbum>> {
         Ok(None)
@@ -265,6 +276,37 @@ impl Tagger {
     ) -> Result<TagMatchOutcome> {
         self.match_track_with_album(input, config, cancel, None)
     }
+    /// Search an explicit release-results page using the provider's shared request gate.
+    pub fn search_releases(
+        &self,
+        provider: ProviderId,
+        query: &str,
+        page: u32,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<CatalogRelease>> {
+        config.validate()?;
+        ensure!(!query.trim().is_empty(), "Release query is empty");
+        ensure!(page > 0, "Catalog pages start at 1");
+        let backend = self
+            .backends
+            .iter()
+            .find(|b| b.source.id() == provider)
+            .ok_or_else(|| anyhow::anyhow!("Provider unavailable"))?;
+        let limit = if provider == ProviderId::Traxsource {
+            1
+        } else {
+            usize::from(config.options.threads)
+        };
+        retry::bounded(cancel, backend.source.stage_timeout(config), |cancel| {
+            let _permit = backend.gate.acquire(limit, cancel)?;
+            backend
+                .cooldown
+                .run(cancel, backend.source.stage_timeout(config), || {
+                    backend.source.search_releases(query, page, config, cancel)
+                })
+        })
+    }
     pub fn get_album(
         &self,
         provider: ProviderId,
@@ -316,7 +358,26 @@ impl Tagger {
             attempted: vec![],
             warnings: vec![],
         };
-        for id in &config.options.platforms {
+        let hint = hint.filter(|hint| {
+            config.options.album_tagging
+                && config
+                    .options
+                    .platforms
+                    .iter()
+                    .any(|id| id == hint.provider.as_str())
+        });
+        let mut album_candidates =
+            hint.map(|hint| Self::match_candidates(input, hint.album.tracks.clone(), config));
+        let mut platforms = config.options.platforms.iter().collect::<Vec<_>>();
+        // A matching selected release takes precedence over single-track search.
+        // Preserve configured search order on a miss and for multiplatform writes.
+        if !config.options.multiplatform
+            && let (Some(hint), Some(Ok(found))) = (hint, &album_candidates)
+            && !found.is_empty()
+        {
+            platforms.sort_by_key(|id| id.as_str() != hint.provider.as_str());
+        }
+        for id in platforms {
             let b = self
                 .backends
                 .iter()
@@ -334,17 +395,12 @@ impl Tagger {
                 b.source.stage_timeout(config),
                 |cancel| -> Result<Vec<CatalogMatch>> {
                     let _permit = b.gate.acquire(limit, cancel)?;
-                    let mut found = if config.options.album_tagging {
-                        if let Some(hint) = hint.filter(|h| h.provider == provider) {
-                            let mut found =
-                                Self::match_candidates(input, hint.album.tracks.clone(), config)?;
-                            for item in &mut found {
-                                item.reason = onetagger_tagger::MatchReason::Album;
-                            }
-                            found
-                        } else {
-                            vec![]
+                    let mut found = if hint.is_some_and(|hint| hint.provider == provider) {
+                        let mut found = album_candidates.take().transpose()?.unwrap_or_default();
+                        for item in &mut found {
+                            item.reason = onetagger_tagger::MatchReason::Album;
                         }
+                        found
                     } else {
                         vec![]
                     };
@@ -389,17 +445,24 @@ impl Tagger {
                     }
                     ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
                     let mut matched = found.remove(0);
-                    b.cooldown
-                        .run(cancel, b.source.stage_timeout(config), || {
-                            // Do not let a failed partial extension contaminate a retry.
-                            let mut track = matched.track.clone();
-                            b.source.extend_cancellable(&mut track, config, cancel)?;
-                            Ok(track)
-                        })
-                        .map(|track| matched.track = track)?;
+                    // Complete Traxsource release rows already contain their native
+                    // metadata. Do not reopen the track and same release pages.
+                    if provider != ProviderId::Traxsource
+                        || matched.reason != onetagger_tagger::MatchReason::Album
+                    {
+                        b.cooldown
+                            .run(cancel, b.source.stage_timeout(config), || {
+                                // Do not let a failed partial extension contaminate a retry.
+                                let mut track = matched.track.clone();
+                                b.source.extend_cancellable(&mut track, config, cancel)?;
+                                Ok(track)
+                            })
+                            .map(|track| matched.track = track)?;
+                    }
                     Ok(vec![matched])
                 },
             );
+
             match result {
                 Ok(found) if !found.is_empty() => {
                     let ambiguous = found.len() > 1

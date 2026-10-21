@@ -1,7 +1,7 @@
 use anyhow::Result;
 use cuerithm_autotag::{
-    AutotagConfig, CatalogMatch, CatalogTrack, MatchStatus, ProviderBackend, ProviderId, TagInput,
-    TagMatchOutcome, Tagger,
+    AlbumHint, AutotagConfig, CatalogAlbum, CatalogMatch, CatalogTrack, MatchStatus,
+    ProviderBackend, ProviderId, TagInput, TagMatchOutcome, Tagger,
 };
 use cuerithm_media::MediaInfo;
 use std::{
@@ -102,6 +102,117 @@ fn provider_order_first_success_and_multiplatform_are_explicit() {
     config.options.platforms.reverse();
     let result = tagger.match_track(&input(), &config).unwrap();
     assert_eq!(result.matches[0].track.platform, "traxsource");
+}
+
+fn selected_album() -> AlbumHint {
+    AlbumHint {
+        provider: ProviderId::Traxsource,
+        album: Arc::new(CatalogAlbum {
+            id: "selected-release".into(),
+            name: "Selected release".into(),
+            tracks: vec![CatalogTrack {
+                track_id: Some("selected-track".into()),
+                release_id: Some("selected-release".into()),
+                track_number: Some(2.into()),
+                track_total: Some(3),
+                ..track(ProviderId::Traxsource, "Signal")
+            }],
+        }),
+    }
+}
+
+#[test]
+fn selected_traxsource_album_wins_before_acceptable_beatport_search() {
+    let (tagger, calls) = tagger(true, true, false);
+    let mut config = AutotagConfig::default();
+    config.options.album_tagging = true;
+    assert_eq!(config.options.platforms, ["beatport", "traxsource"]);
+    assert!(!config.options.multiplatform);
+    let hint = selected_album();
+    let outcome = tagger
+        .match_track_with_album(
+            &input(),
+            &config,
+            &Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            Some(&hint),
+        )
+        .unwrap();
+    assert_eq!(outcome.matches.len(), 1);
+    assert_eq!(outcome.matches[0].track, hint.album.tracks[0]);
+    assert_eq!(
+        outcome.matches[0].reason,
+        onetagger_tagger::MatchReason::Album
+    );
+    assert_eq!(outcome.attempted, [ProviderId::Traxsource]);
+    // Both fake catalog searches return acceptable candidates; neither should run.
+    assert!(calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn absent_disabled_and_nonmatching_album_hints_preserve_configured_search_order() {
+    for case in [
+        "absent",
+        "album_disabled",
+        "provider_disabled",
+        "duration_mismatch",
+    ] {
+        let (tagger, calls) = tagger(true, true, false);
+        let mut config = AutotagConfig::default();
+        config.options.album_tagging = true;
+        let mut hint = Some(selected_album());
+        match case {
+            "absent" => hint = None,
+            "album_disabled" => config.options.album_tagging = false,
+            "provider_disabled" => config.options.platforms = vec!["beatport".into()],
+            "duration_mismatch" => {
+                config.options.match_duration = true;
+                Arc::make_mut(&mut hint.as_mut().unwrap().album).tracks[0].duration =
+                    Duration::from_secs(600);
+            }
+            _ => unreachable!(),
+        }
+        let outcome = tagger
+            .match_track_with_album(
+                &input(),
+                &config,
+                &Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                hint.as_ref(),
+            )
+            .unwrap();
+        assert_eq!(outcome.matches.len(), 1, "{case}");
+        assert_eq!(outcome.matches[0].track.platform, "beatport", "{case}");
+        assert_eq!(outcome.attempted, [ProviderId::Beatport], "{case}");
+        assert_eq!(*calls.lock().unwrap(), [ProviderId::Beatport], "{case}");
+    }
+}
+
+#[test]
+fn album_hint_preserves_multiplatform_collection_and_metadata_precedence() {
+    let (tagger, calls) = tagger(true, true, false);
+    let mut config = AutotagConfig::default();
+    config.options.album_tagging = true;
+    config.options.multiplatform = true;
+    let hint = selected_album();
+    let outcome = tagger
+        .match_track_with_album(
+            &input(),
+            &config,
+            &Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            Some(&hint),
+        )
+        .unwrap();
+    assert_eq!(outcome.matches.len(), 2);
+    assert_eq!(outcome.matches[0].track.platform, "beatport");
+    assert_eq!(outcome.matches[1].track, hint.album.tracks[0]);
+    assert_eq!(
+        outcome.matches[1].reason,
+        onetagger_tagger::MatchReason::Album
+    );
+    assert_eq!(
+        outcome.attempted,
+        [ProviderId::Beatport, ProviderId::Traxsource]
+    );
+    assert_eq!(*calls.lock().unwrap(), [ProviderId::Beatport]);
 }
 #[test]
 fn no_match_is_distinct_from_failed_catalogs_and_fallback_records_warnings() {
