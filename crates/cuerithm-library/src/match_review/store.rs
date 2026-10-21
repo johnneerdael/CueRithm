@@ -282,14 +282,36 @@ impl Library {
         );
         Ok(())
     }
+    /// Network access is a global machine setting, never accepted metadata policy.
+    pub(crate) fn current_catalog_lookup_config(
+        &self,
+        captured: &AutotagConfig,
+    ) -> Result<AutotagConfig> {
+        let solver = self
+            .settings()?
+            .settings
+            .tagging
+            .map(|config| config.solver)
+            .unwrap_or_default();
+        let mut current = captured.clone();
+        current.solver.endpoint = solver.endpoint;
+        current.solver.timeout_seconds = solver.timeout_seconds;
+        Ok(current)
+    }
     pub(super) fn review_access(
         &self,
         config: Option<&AutotagConfig>,
     ) -> Result<Vec<MatchReviewProviderAccess>> {
-        use cuerithm_autotag::ChallengeStore;
         let Some(config) = config else {
             return Ok(vec![]);
         };
+        self.review_access_for_lookup(&self.current_catalog_lookup_config(config)?)
+    }
+    pub(super) fn review_access_for_lookup(
+        &self,
+        config: &AutotagConfig,
+    ) -> Result<Vec<MatchReviewProviderAccess>> {
+        use cuerithm_autotag::ChallengeStore;
         let has_solver = config.solver.api_url()?.is_some();
         config.options.platforms.iter().map(|id|{let requires_solver=self.requires_solver(id)?;let available=!requires_solver||has_solver;Ok(MatchReviewProviderAccess{id:id.clone(),available,requires_solver,reason:(!available).then(||"Unavailable: configure a FlareSolverr-compatible solver in Automatic tagging settings".into())})}).collect()
     }
@@ -317,7 +339,14 @@ impl Library {
             fingerprint.sha256 == hash,
             "Source bytes changed; refresh the track before catalog review"
         );
-        let snapshot = self.settings()?;
+        let snapshot = match self.current_preparation_snapshot_for_path(&native_path.path()?) {
+            Ok(snapshot) => snapshot,
+            // A disconnected current preset must not hide an existing Incoming
+            // Keep-once capability. This placeholder never starts a query; the
+            // live capability projection below reports the connection blocker.
+            Err(_) if !job_revision.is_empty() => self.settings_revision(&job_revision)?,
+            Err(_) => self.settings()?,
+        };
         let config = snapshot.settings.tagging.clone().unwrap_or_default();
         let media: Option<MediaInfo> = metadata.and_then(|s| serde_json::from_str(&s).ok());
         let (pr, mr) = self.conn()?.query_row(
@@ -384,6 +413,7 @@ impl Library {
                 capture
             }
         };
+        let current = self.current_preparation_snapshot_for_path(&capture.path.path()?);
         let mut public = capture.public;
         let attention = public
             .job_id
@@ -400,10 +430,24 @@ impl Library {
             .transpose()?
             .unwrap_or(false);
         public.can_keep_existing_once = public.track_state == "incoming" && attention;
-        public.providers = self.review_access(self.settings()?.settings.tagging.as_ref())?;
-        public.can_requery = (public.track_state == "ready" || attention)
+        let current_error = match current {
+            Ok(snapshot) => {
+                public.providers = self.review_access(snapshot.settings.tagging.as_ref())?;
+                None
+            }
+            Err(error) => {
+                public.providers = self.review_access(Some(&capture.config))?;
+                Some(format!(
+                    "Current preparation preset is unavailable: {error:#}"
+                ))
+            }
+        };
+        public.can_requery = current_error.is_none()
+            && (public.track_state == "ready" || attention)
             && public.providers.iter().any(|p| p.available);
-        if public.providers.is_empty() {
+        if let Some(error) = current_error {
+            public.reason = Some(error);
+        } else if public.providers.is_empty() {
             public.reason = Some(
                 "Configure catalog providers in Automatic tagging settings before Requery".into(),
             );

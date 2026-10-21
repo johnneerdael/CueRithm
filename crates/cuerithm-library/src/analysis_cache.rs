@@ -156,6 +156,7 @@ mod equivalence_tests {
             revision: "before".into(),
             settings,
             models: Default::default(),
+            preset_capture: None,
         };
         let mut after = before.clone();
         after.revision = "after".into();

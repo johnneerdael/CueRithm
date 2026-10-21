@@ -32,4 +32,6 @@ pub(super) fn bounded_json<T: serde::Serialize>(value: &T) -> anyhow::Result<Str
 
 mod incoming_undo;
 
+mod curation;
 mod previews;
+pub(crate) use curation::child_undo_available as curation_child_undo_available;

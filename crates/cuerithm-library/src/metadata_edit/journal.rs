@@ -44,6 +44,23 @@ impl Write {
 }
 impl MetadataEditService {
     pub fn apply(&self, preview: &str, cancel: &CancellationToken) -> Result<MetadataEditBatch> {
+        self.apply_linked(preview, cancel, None)
+    }
+    pub(super) fn apply_linked(
+        &self,
+        preview: &str,
+        cancel: &CancellationToken,
+        curation: Option<&str>,
+    ) -> Result<MetadataEditBatch> {
+        self.apply_linked_with(preview, cancel, curation, || Ok(()))
+    }
+    pub(super) fn apply_linked_with(
+        &self,
+        preview: &str,
+        cancel: &CancellationToken,
+        curation: Option<&str>,
+        after_link: impl FnOnce() -> Result<()>,
+    ) -> Result<MetadataEditBatch> {
         cancel.check()?;
         let text: String = self.library.conn()?.query_row(
             "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
@@ -51,7 +68,16 @@ impl MetadataEditService {
             |r| r.get(0),
         )?;
         let plan: FrozenPreview = serde_json::from_str(&text)?;
-        ensure!(plan.public.can_apply, "No eligible metadata changes");
+        ensure!(
+            plan.public.can_apply
+                || (curation.is_some()
+                    && !plan.rows.is_empty()
+                    && plan
+                        .rows
+                        .iter()
+                        .all(|row| row.public.outcome == "unchanged")),
+            "No eligible metadata changes"
+        );
         for row in &plan.rows {
             Self::validate_capture(&*self.library.conn()?, &row.capture, None)?;
             Self::verify_source(&row.capture)?;
@@ -110,6 +136,16 @@ impl MetadataEditService {
                     public.created
                 ],
             )?;
+            if let Some(id) = curation {
+                ensure!(plan.rows.len() == 1, "Curate child must own one track");
+                crate::Library::link_curation_child_tx(
+                    &tx,
+                    id,
+                    Some(preview),
+                    &public.id,
+                    &plan.rows[0].public.track_id,
+                )?;
+            }
             for (ordinal, row) in plan.rows.iter().enumerate() {
                 let row_id = uuid::Uuid::new_v4().to_string();
                 tx.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json) VALUES(?1,?2,?3,?4,?5,?6)",params![row_id,public.id,row.public.track_id,ordinal,row.public.outcome,row_json[ordinal]])?;
@@ -119,6 +155,7 @@ impl MetadataEditService {
             }
             tx.commit()?;
         }
+        after_link()?;
         self.run_batch(&public.id, Some(&plan.patch), cancel)
     }
     fn run_batch(
@@ -154,7 +191,13 @@ impl MetadataEditService {
                 let write = if let Some(write) = existing {
                     write
                 } else {
-                    self.begin_write(batch, &id, &row, None)?
+                    self.begin_write_owned(
+                        batch,
+                        &id,
+                        &row,
+                        row.undo_of.clone(),
+                        row.override_of.clone(),
+                    )?
                 };
                 self.publish_write(&write, cancel)?;
                 row.public.outcome = "written".into();
@@ -205,6 +248,7 @@ impl MetadataEditService {
         self.library.conn()?.execute("UPDATE metadata_edit_rows SET state=?1,error=?2,result_json=COALESCE(?3,result_json) WHERE id=?4",params![state,error,result,id])?;
         Ok(())
     }
+    #[cfg(test)]
     fn begin_write(
         &self,
         batch: &str,
@@ -545,6 +589,7 @@ impl MetadataEditService {
                     write.row_id
                 ],
             )?;
+            crate::Library::ack_curation_child_tx(&tx, &write.batch, &write.row.public.track_id)?;
             if let Some(original) = &write.undo_of {
                 ensure!(tx.execute("UPDATE metadata_edit_writes SET state='undone',updated=?1 WHERE id=?2 AND state='committed'",params![now(),original])?==1,"Metadata save was already undone");
             }
@@ -780,8 +825,29 @@ impl MetadataEditService {
         Ok(batch)
     }
     pub fn undo(&self, batch: &str, cancel: &CancellationToken) -> Result<MetadataEditBatch> {
+        self.undo_linked(batch, cancel, None)
+    }
+    pub(super) fn undo_linked(
+        &self,
+        batch: &str,
+        cancel: &CancellationToken,
+        curation: Option<&str>,
+    ) -> Result<MetadataEditBatch> {
+        self.undo_linked_with(batch, cancel, curation, || Ok(()))
+    }
+    pub(super) fn undo_linked_with(
+        &self,
+        batch: &str,
+        cancel: &CancellationToken,
+        curation: Option<&str>,
+        after_link: impl FnOnce() -> Result<()>,
+    ) -> Result<MetadataEditBatch> {
         cancel.check()?;
-        let original = self.batch(batch)?;
+        let mut original = self.batch(batch)?;
+        if curation.is_some() {
+            original.can_undo =
+                curation_eligibility(&*self.library.conn()?, batch, &original.state)?;
+        }
         ensure!(
             original.can_undo,
             "No completed original metadata saves can be undone"
@@ -792,7 +858,7 @@ impl MetadataEditService {
             q.query_map([batch], |r| r.get::<_, String>(0))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         };
-        let mut undo = MetadataEditBatch {
+        let undo = MetadataEditBatch {
             id: uuid::Uuid::new_v4().to_string(),
             draft_id: original.draft_id,
             draft_revision: original.draft_revision,
@@ -803,21 +869,9 @@ impl MetadataEditService {
             can_recover: false,
             error: None,
         };
-        let json = bounded_json(&undo)?;
-        self.library.conn()?.execute(
-            "INSERT INTO metadata_edit_batches VALUES(?1,?2,?3,'undo','saving',?4,?5,?6,?6)",
-            params![
-                undo.id,
-                undo.draft_id,
-                undo.draft_revision,
-                json,
-                batch,
-                undo.created
-            ],
-        )?;
-        for (ordinal, id) in ids.iter().enumerate() {
+        let mut prepared = Vec::new();
+        for id in &ids {
             let (_, old) = self.load_write(id)?;
-            let row_id = uuid::Uuid::new_v4().to_string();
             let result = (|| -> Result<FrozenRow> {
                 cancel.check()?;
                 Self::validate_capture(
@@ -832,6 +886,13 @@ impl MetadataEditService {
                     ),
                 )?;
                 let capture = self.capture(&old.row.public.track_id, cancel)?;
+                ensure!(
+                    capture.parent.ancestors == old.row.capture.parent.ancestors
+                        && old.publication.as_ref().is_some_and(|known| {
+                            crate::organization::same_native_file(&capture.fingerprint, known)
+                        }),
+                    "Metadata Undo source native identity or bytes changed"
+                );
                 let old_stage = old.row.stage.as_ref().context("Missing original backup")?;
                 super::previews::verify_backup(&self.library, old_stage)?;
                 owned_file(
@@ -883,39 +944,65 @@ impl MetadataEditService {
                     },
                     capture,
                     stage: Some(stage),
+                    undo_of: Some(id.clone()),
+                    override_of: None,
                 })
             })();
-            match result {
-                Ok(row) => {
-                    let payload = bounded_json(&row)?;
-                    self.library.conn()?.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json) VALUES(?1,?2,?3,?4,'ready',?5)",params![row_id,undo.id,row.public.track_id,ordinal,payload])?;
-                    let apply = self
-                        .begin_write(&undo.id, &row_id, &row, Some(id.clone()))
-                        .and_then(|id| self.publish_write(&id, cancel));
-                    if let Err(error) = apply {
-                        let pending:bool=self.library.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE row_id=?1 AND state IN ('prepared','publishing','recovery_required','conflict'))",[&row_id],|r|r.get(0))?;
-                        self.row_state(
-                            &row_id,
-                            if pending {
-                                "recovery_required"
-                            } else {
-                                "failed"
-                            },
-                            Some(&format!("{error:#}")),
-                            None,
-                        )?;
-                    }
-                }
+            let row = match result {
+                Ok(row) => row,
                 Err(error) => {
-                    let mut row = old.row.clone();
+                    let mut row = old.row;
+                    row.stage = None;
+                    row.public.outcome = "failed".into();
                     row.public.error = Some(format!("{error:#}"));
-                    self.library.conn()?.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json,error) VALUES(?1,?2,?3,?4,'failed',?5,?6)",params![row_id,undo.id,row.public.track_id,ordinal,bounded_json(&row)?,row.public.error])?;
+                    row
                 }
-            }
+            };
+            prepared.push(row);
         }
-        self.append_incoming_undo(batch, &undo.id, ids.len(), cancel)?;
-        undo = self.finish_batch(&undo.id)?;
-        Ok(undo)
+        prepared.extend(self.prepare_incoming_undo(batch, cancel)?);
+        let mut bytes = 0usize;
+        let prepared = prepared
+            .into_iter()
+            .map(|row| {
+                let payload = bounded_json(&row)?;
+                bytes = bytes.saturating_add(payload.len());
+                ensure!(
+                    bytes <= MAX_METADATA_JSON,
+                    "Complete Undo exceeds64MiB; narrow the saved batch"
+                );
+                Ok((uuid::Uuid::new_v4().to_string(), row, payload))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        ensure!(
+            !prepared.is_empty(),
+            "Metadata Undo has no owned inverse rows"
+        );
+        let json = bounded_json(&undo)?;
+        let mut child_conn = self.library.conn()?;
+        let child_tx = child_conn.transaction()?;
+        child_tx.execute(
+            "INSERT INTO metadata_edit_batches VALUES(?1,?2,?3,'undo','saving',?4,?5,?6,?6)",
+            params![
+                undo.id,
+                undo.draft_id,
+                undo.draft_revision,
+                json,
+                batch,
+                undo.created
+            ],
+        )?;
+        for (ordinal, (row_id, row, payload)) in prepared.iter().enumerate() {
+            child_tx.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json,error) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![row_id,undo.id,row.public.track_id,ordinal,row.public.outcome,payload,row.public.error])?;
+        }
+        if let Some(id) = curation {
+            let track = &prepared[0].1.public.track_id;
+            crate::Library::link_curation_child_tx(&child_tx, id, None, &undo.id, track)?;
+        }
+        child_tx.commit()?;
+        drop(child_conn);
+        after_link()?;
+        self.run_batch(&undo.id, None, cancel)
     }
 }
 fn ensure_unreserved(
@@ -1015,7 +1102,7 @@ fn current_batch_error(conn: &rusqlite::Connection, id: &str) -> Result<Option<S
     }
     Ok(conn.query_row("SELECT error FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL ORDER BY created,id LIMIT 1",[id],|row|row.get(0)).optional()?)
 }
-fn eligibility(conn: &rusqlite::Connection, id: &str, state: &str) -> Result<(bool, bool)> {
+fn eligibility_inner(conn: &rusqlite::Connection, id: &str, state: &str) -> Result<(bool, bool)> {
     let ready:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes w JOIN tracks t ON t.id=w.track_id WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL AND t.state='ready' AND t.archived=0 AND t.path_revision=w.expected_path_revision AND t.metadata_revision=w.expected_metadata_revision+1 AND t.source_hash=w.output_hash AND NOT EXISTS(SELECT 1 FROM organization_reservations o WHERE o.path=t.path))",[id],|r|r.get(0))?;
     let incoming:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides o JOIN tracks t ON t.id=o.track_id WHERE o.batch_id=?1 AND o.state='committed' AND o.final_json IS NOT NULL AND o.undo_batch_id IS NULL AND t.state='ready' AND t.current_job=o.job_id AND t.path_revision=json_extract(o.final_json,'$.path_revision') AND t.metadata_revision=json_extract(o.final_json,'$.metadata_revision') AND NOT EXISTS(SELECT 1 FROM preparation_checkpoints c WHERE c.job_id=o.job_id AND c.state!='complete') AND NOT EXISTS(SELECT 1 FROM organization_reservations r WHERE r.path=t.path))",[id],|r|r.get(0))?;
     let cleanup_pending:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL)",[id],|r|r.get(0))?;
@@ -1130,4 +1217,25 @@ impl crate::Library {
         self.conn()?.execute("UPDATE metadata_edit_writes SET error=?1,updated=?2 WHERE id=?3 AND state IN ('committed','undone')",params![error,now(),id])?;
         result
     }
+}
+
+pub(super) fn curation_eligibility(
+    conn: &rusqlite::Connection,
+    id: &str,
+    state: &str,
+) -> Result<bool> {
+    Ok(eligibility_inner(conn, id, state)?.0)
+}
+
+fn eligibility(conn: &rusqlite::Connection, id: &str, state: &str) -> Result<(bool, bool)> {
+    let (mut undo, recover) = eligibility_inner(conn, id, state)?;
+    let linked: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM curation_publications WHERE child_batch_id=?1)",
+        [id],
+        |row| row.get(0),
+    )?;
+    if linked {
+        undo = false;
+    }
+    Ok((undo, recover))
 }

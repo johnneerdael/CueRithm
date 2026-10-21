@@ -141,6 +141,7 @@ impl Library {
         tx.execute("UPDATE metadata_edit_rows SET state='written',error=NULL,result_json=?1 WHERE batch_id=?2 AND track_id=?3 AND state='queued'",params![receipt,batch,run.track_id])?;
         tx.execute("UPDATE metadata_edit_batches SET state='saved',updated=?1 WHERE id=?2 AND NOT EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?2 AND state IN ('queued','ready','recovery_required','failed'))",params![now(),batch])?;
         tx.execute("UPDATE metadata_edit_drafts SET state='saved',updated=?1 WHERE id=?2 AND revision=?3 AND EXISTS(SELECT 1 FROM metadata_edit_batches WHERE id=?4 AND state='saved')",params![now(),draft,revision,batch])?;
+        Self::ack_curation_child_tx(tx, &batch, &run.track_id)?;
         Ok(())
     }
 }
@@ -161,6 +162,7 @@ impl Library {
         parent: &crate::organization::Authority,
         fingerprint: &crate::organization::Fingerprint,
     ) -> Result<()> {
+        Self::finalize_curation_preparation_tx(tx, run, path, parent, fingerprint)?;
         let pending:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides WHERE job_id=?1 AND state='committed' AND claimed_attempt=?2 AND final_json IS NULL)",params![run.id,run.attempt],|r|r.get(0))?;
         if !pending {
             return Ok(());

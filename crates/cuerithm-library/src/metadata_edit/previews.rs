@@ -96,7 +96,7 @@ fn retire_stage(library: &Library, stage: &StoredStage) -> Result<()> {
     Ok(())
 }
 impl Library {
-    pub(super) fn retire_unwritten_metadata_stages(&self, batch: &str) -> Result<()> {
+    pub(crate) fn retire_unwritten_metadata_stages(&self, batch: &str) -> Result<()> {
         let _organization = self
             .inner
             .organization_gate
@@ -173,10 +173,15 @@ impl Library {
             })();
             match result {
                 Ok(()) => {
-                    self.conn()?.execute(
-                        "DELETE FROM metadata_edit_previews WHERE id=?1 AND state!='applied'",
-                        [id],
-                    )?;
+                    let protected:bool=self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM curation_publications WHERE child_preview_id=?1 AND child_batch_id IS NULL AND state IN ('saving','error','recovery_required','waiting_incoming'))",[&id],|row|row.get(0))?;
+                    if protected {
+                        self.conn()?.execute("UPDATE metadata_edit_previews SET state='retired' WHERE id=?1 AND state!='applied'",[id])?;
+                    } else {
+                        self.conn()?.execute(
+                            "DELETE FROM metadata_edit_previews WHERE id=?1 AND state!='applied'",
+                            [id],
+                        )?;
+                    }
                 }
                 Err(error) => {
                     self.conn()?.execute("UPDATE metadata_edit_previews SET state='cleanup_required' WHERE id=?1 AND state!='applied'",[id])?;

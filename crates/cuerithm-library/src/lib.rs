@@ -17,7 +17,11 @@ mod jobs;
 mod metadata;
 mod native_sync;
 pub use native_sync::*;
+mod preparation_presets;
 mod prepare;
+pub use preparation_presets::*;
+mod curation;
+pub use curation::*;
 mod publication;
 mod publish_files;
 #[cfg(feature = "autotag")]

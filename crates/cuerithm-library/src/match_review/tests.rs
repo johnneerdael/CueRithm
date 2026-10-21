@@ -551,6 +551,9 @@ struct ReviewFixture {
 }
 impl ReviewFixture {
     fn new() -> Self {
+        Self::with_solver(None)
+    }
+    fn with_solver(endpoint: Option<&str>) -> Self {
         struct Expansion;
         impl cuerithm_autotag::ProviderBackend for Expansion {
             fn id(&self) -> cuerithm_autotag::ProviderId {
@@ -584,6 +587,7 @@ impl ReviewFixture {
         let mut tagging = AutotagConfig::default();
         tagging.options.platforms = vec!["beatport".into()];
         tagging.options.parse_filename = false;
+        tagging.solver.endpoint = endpoint.map(str::to_owned);
         let mut settings = crate::PreparationSettings {
             autotag_enabled: true,
             tagging: Some(tagging),
@@ -1084,4 +1088,669 @@ fn tag_temporary_rotation_keeps_path_and_native_receipts_atomic_on_database_fail
         std::fs::read(crate::model::bytes_path(&old).unwrap()).unwrap(),
         b"unproven interrupted copy"
     );
+}
+#[test]
+fn explicit_requery_uses_folder_preset_matching_and_current_global_transport_only() {
+    use cuerithm_autotag::{ChallengeStore, ProviderBackend, ProviderId};
+    use std::sync::{Arc, Mutex};
+    struct Catalog(Mutex<Vec<(f64, Option<String>)>>);
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Traxsource
+        }
+        fn candidates(
+            &self,
+            _input: &TagInput,
+            config: &AutotagConfig,
+        ) -> anyhow::Result<Vec<CatalogMatch>> {
+            self.0
+                .lock()
+                .unwrap()
+                .push((config.options.strictness, config.solver.endpoint.clone()));
+            Ok(vec![])
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+    let incoming = root.join("incoming");
+    std::fs::create_dir(&incoming).unwrap();
+    let source = incoming.join("source.flac");
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    std::fs::copy(
+        repo.join("crates/cuerithm-media/tests/fixtures/metadata.flac"),
+        &source,
+    )
+    .unwrap();
+    let runtime =
+        cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin")).unwrap();
+    let mut tagging = AutotagConfig::default();
+    tagging.options.platforms = vec!["beatport".into()];
+    tagging.solver.endpoint = Some("http://127.0.0.1:8191".into());
+    let mut settings = crate::PreparationSettings {
+        watch_folders: vec![incoming],
+        tagging: Some(tagging),
+        ..Default::default()
+    };
+    let base = lib.save_settings(settings.clone()).unwrap();
+    let mut preset_draft = settings.clone();
+    let config = preset_draft.tagging.as_mut().unwrap();
+    config.options.platforms = vec!["traxsource".into()];
+    config.options.strictness = 0.33;
+    config.solver.endpoint = Some("http://127.0.0.1:9999".into());
+    let projection = lib.project_preparation_preset(&preset_draft).unwrap();
+    let preset = lib
+        .save_preparation_preset(crate::PreparationPresetSave {
+            id: None,
+            expected_revision: None,
+            name: "Assigned review rules".into(),
+            rules: projection.rules,
+            connections: projection.connections,
+        })
+        .unwrap();
+    let folder = lib
+        .preparation_preset_folders_for_settings(&settings)
+        .unwrap()
+        .remove(0);
+    lib.save_settings_with_preparation_assignments(
+        settings.clone(),
+        &base,
+        &[crate::PreparationFolderChange {
+            folder_id: folder.folder_id,
+            expected_revision: None,
+            choice: crate::PreparationFolderChoice::Preset {
+                preset_id: preset.id.clone(),
+            },
+        }],
+    )
+    .unwrap();
+    let job = lib
+        .enqueue(std::slice::from_ref(&source), base)
+        .unwrap()
+        .remove(0);
+    let track: String = lib
+        .conn()
+        .unwrap()
+        .query_row("SELECT track_id FROM jobs WHERE id=?1", [&job], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    lib.conn()
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET state='ready',current_job=NULL WHERE id=?1",
+            [&track],
+        )
+        .unwrap();
+    lib.mark_requires_solver("traxsource").unwrap();
+    let before = std::fs::read(&source).unwrap();
+    let state = lib.track_match_review(&track).unwrap().unwrap();
+    assert_eq!(
+        state
+            .providers
+            .iter()
+            .map(|provider| provider.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["traxsource"],
+        "fresh capabilities must use the source's assigned preset, not the global fallback provider list"
+    );
+    assert!(state.providers[0].available && state.providers[0].requires_solver);
+    let backend = Arc::new(Catalog(Mutex::new(vec![])));
+    let tagger = cuerithm_autotag::Tagger::with_backends(vec![backend.clone()]).unwrap();
+    let first = lib
+        .requery_matches_with(
+            &tagger,
+            &runtime,
+            &track,
+            &state.generation,
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!(
+        *backend.0.lock().unwrap(),
+        vec![(0.33, Some("http://127.0.0.1:8191".into()))]
+    );
+    let mut rules = preset.rules;
+    rules.tagging.as_mut().unwrap().options.strictness = 0.55;
+    lib.save_preparation_preset(crate::PreparationPresetSave {
+        id: Some(preset.id),
+        expected_revision: Some(preset.revision),
+        name: preset.name,
+        rules,
+        connections: preset.connections,
+    })
+    .unwrap();
+    settings.tagging.as_mut().unwrap().solver.endpoint = Some("http://127.0.0.1:8192".into());
+    lib.save_settings(settings).unwrap();
+    assert_eq!(
+        lib.track_match_review(&track).unwrap().unwrap().generation,
+        first.generation,
+        "preset/settings edits must not replace retained catalog generations"
+    );
+    assert_eq!(backend.0.lock().unwrap().len(), 1);
+    lib.requery_matches_with(
+        &tagger,
+        &runtime,
+        &track,
+        &first.generation,
+        &cuerithm_media::CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        *backend.0.lock().unwrap(),
+        vec![
+            (0.33, Some("http://127.0.0.1:8191".into())),
+            (0.55, Some("http://127.0.0.1:8192".into()))
+        ]
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), before);
+    assert_eq!(lib.track(&track).unwrap().state, "ready");
+    assert_eq!(lib.cue_revision_count(&track).unwrap(), 0);
+}
+
+#[test]
+fn owned_keep_once_retry_survives_changed_or_disconnected_current_preset() {
+    use std::sync::Arc;
+    for disconnected in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let incoming = root.join("incoming");
+        std::fs::create_dir(&incoming).unwrap();
+        let source = incoming.join("source.flac");
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        std::fs::copy(
+            repo.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+            &source,
+        )
+        .unwrap();
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin"))
+                .unwrap();
+        let mut tagging = AutotagConfig::default();
+        tagging.options.platforms = vec!["beatport".into()];
+        tagging.options.parse_filename = false;
+        tagging.no_match = cuerithm_autotag::NoMatchPolicy::Attention;
+        let mut settings = crate::PreparationSettings {
+            watch_folders: vec![incoming],
+            autotag_enabled: true,
+            tagging: Some(tagging),
+            ..Default::default()
+        };
+        settings.engine.lexicon_energy = true;
+        let base = lib.save_settings(settings.clone()).unwrap();
+        let projection = lib.project_preparation_preset(&settings).unwrap();
+        let preset = lib
+            .save_preparation_preset(crate::PreparationPresetSave {
+                id: None,
+                expected_revision: None,
+                name: "Owned policy".into(),
+                rules: projection.rules,
+                connections: projection.connections,
+            })
+            .unwrap();
+        let folder = lib
+            .preparation_preset_folders_for_settings(&settings)
+            .unwrap()
+            .remove(0);
+        lib.save_settings_with_preparation_assignments(
+            settings,
+            &base,
+            &[crate::PreparationFolderChange {
+                folder_id: folder.folder_id,
+                expected_revision: None,
+                choice: crate::PreparationFolderChoice::Preset {
+                    preset_id: preset.id.clone(),
+                },
+            }],
+        )
+        .unwrap();
+        let job = lib
+            .enqueue_with_current_preparation(std::slice::from_ref(&source), false)
+            .unwrap()
+            .remove(0);
+        let original = lib.claim_next().unwrap().unwrap();
+        let input = TagInput {
+            path: source.clone(),
+            source_sha256: original.source_sha256.clone(),
+            duration_seconds: 64.,
+            media: runtime.probe(&source).unwrap(),
+        };
+        lib.record_match_outcome(
+            &original,
+            &input,
+            &TagMatchOutcome {
+                status: MatchStatus::NoMatch,
+                matches: vec![],
+                attempted: vec![],
+                warnings: vec![],
+            },
+        )
+        .unwrap();
+        lib.fail_for_run(&original, "matching", "No match").unwrap();
+        let state = lib.track_match_review(&original.track_id).unwrap().unwrap();
+        let tagger = Arc::new(cuerithm_autotag::Tagger::with_backends(vec![]).unwrap());
+        let preview = lib
+            .preview_match_review_with(
+                &tagger,
+                &runtime,
+                super::MatchReviewRequest {
+                    track_id: original.track_id.clone(),
+                    generation: state.generation,
+                    action: super::MatchReviewAction::KeepExistingOnce,
+                    candidate_id: None,
+                    fields: vec![],
+                    acknowledge_conflicts: false,
+                    allow_id3_upgrade: false,
+                },
+                &cuerithm_media::CancellationToken::default(),
+            )
+            .unwrap();
+        lib.apply_match_review_with(
+            &runtime,
+            &preview.id,
+            &preview.revision,
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap();
+        let owned = lib.claim_next().unwrap().unwrap();
+        let immutable: String = lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT payload_json FROM preparation_review_decisions WHERE job_id=?1",
+                [&job],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut rules = preset.rules;
+        rules.tagging.as_mut().unwrap().options.strictness = 0.99;
+        let mut connections = preset.connections;
+        if disconnected {
+            let destination = root.join("other-managed");
+            std::fs::create_dir(&destination).unwrap();
+            connections.destination_root_id = Some(
+                lib.register_organization_root(destination.clone())
+                    .unwrap()
+                    .id,
+            );
+            rules.organization.mode = crate::OrganizationSettingMode::Copy;
+            lib.save_preparation_preset(crate::PreparationPresetSave {
+                id: Some(preset.id.clone()),
+                expected_revision: Some(preset.revision.clone()),
+                name: preset.name.clone(),
+                rules: rules.clone(),
+                connections: connections.clone(),
+            })
+            .unwrap();
+            std::fs::rename(&destination, root.join("retained-other-managed")).unwrap();
+        } else {
+            lib.save_preparation_preset(crate::PreparationPresetSave {
+                id: Some(preset.id),
+                expected_revision: Some(preset.revision),
+                name: preset.name,
+                rules,
+                connections,
+            })
+            .unwrap();
+        }
+        // An owned running claim keeps the worker idle until this explicit retry.
+        let service =
+            crate::PreparationService::start_with_tagger(lib.clone(), runtime, 1, tagger).unwrap();
+        lib.fail_for_run(
+            &owned,
+            "matching",
+            "synthetic interruption before publication",
+        )
+        .unwrap();
+        let retried = service.retry(job.clone(), Some(lib.settings().unwrap().revision));
+        if let Err(error) = retried {
+            service.shutdown();
+            panic!(
+                "owned accepted recovery must remain usable after a current preset change (disconnected={disconnected}): {error:#}"
+            );
+        }
+        wait_for_job(&lib, &job, "completed");
+        service.shutdown();
+        let current = lib
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|row| row.id == job)
+            .unwrap();
+        assert_eq!(current.attempts, owned.attempt + 1);
+        let revision: String = lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT settings_revision FROM jobs WHERE id=?1",
+                [&job],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(revision, original.settings_revision);
+        let retained: String = lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT payload_json FROM preparation_review_decisions WHERE job_id=?1",
+                [&job],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            retained, immutable,
+            "current rules must not rewrite accepted provenance"
+        );
+        assert_eq!(lib.track_path(&original.track_id).unwrap(), source);
+        assert_eq!(lib.cue_revision_count(&original.track_id).unwrap(), 1);
+    }
+}
+
+#[test]
+fn incoming_editor_fresh_lookup_uses_current_global_solver_without_rebinding_accepted_evidence() {
+    use cuerithm_autotag::{MetadataTextField, ProviderBackend, ProviderId, TextEdit};
+    use cuerithm_media::CancellationToken;
+    use std::sync::{Arc, Mutex};
+    #[derive(Default)]
+    struct Catalog(Mutex<Vec<(Option<String>, u64, f64)>>);
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(
+            &self,
+            _: &TagInput,
+            config: &AutotagConfig,
+        ) -> anyhow::Result<Vec<CatalogMatch>> {
+            self.0.lock().unwrap().push((
+                config.solver.endpoint.clone(),
+                config.solver.timeout_seconds,
+                config.options.strictness,
+            ));
+            Ok(vec![])
+        }
+    }
+    for endpoint in [Some("http://127.0.0.1:8192".to_owned()), None] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let source = root.join("source.flac");
+        std::fs::copy(
+            repo.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+            &source,
+        )
+        .unwrap();
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin"))
+                .unwrap();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["beatport".into()];
+        config.options.parse_filename = false;
+        config.options.strictness = 0.37;
+        config.no_match = cuerithm_autotag::NoMatchPolicy::KeepExisting;
+        config.solver.endpoint = Some("http://127.0.0.1:8191".into());
+        let mut settings = crate::PreparationSettings {
+            autotag_enabled: true,
+            tagging: Some(config),
+            ..Default::default()
+        };
+        settings.engine.lexicon_energy = true;
+        lib.save_settings(settings.clone()).unwrap();
+        let job = lib
+            .enqueue(
+                std::slice::from_ref(&source),
+                lib.settings().unwrap().revision,
+            )
+            .unwrap()
+            .remove(0);
+        let first = lib.claim_next().unwrap().unwrap();
+        lib.fail_for_run(&first, "matching", "synthetic provider interruption")
+            .unwrap();
+        let editor = crate::MetadataEditService::new(lib.clone(), runtime.clone());
+        let draft = editor
+            .create_draft(std::slice::from_ref(&first.track_id))
+            .unwrap();
+        let mut patch = crate::MetadataEditorPatch::default();
+        patch.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec!["Accepted manual title".into()],
+            },
+        );
+        let draft = editor
+            .update_draft(&draft.id, draft.revision, patch)
+            .unwrap();
+        let preview = editor
+            .preview(&draft.id, draft.revision, &CancellationToken::default())
+            .unwrap();
+        editor
+            .apply(&preview.id, &CancellationToken::default())
+            .unwrap();
+        let owned = lib.claim_next().unwrap().unwrap();
+        let evidence = || {
+            lib.conn().unwrap().query_row("SELECT payload_json,execution_source_proof_json,settings_revision FROM metadata_edit_overrides WHERE job_id=?1",[&job],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?))).unwrap()
+        };
+        let before = evidence();
+        settings.tagging.as_mut().unwrap().solver.endpoint = endpoint.clone();
+        settings.tagging.as_mut().unwrap().solver.timeout_seconds = 42;
+        lib.save_settings(settings).unwrap();
+        let backend = Arc::new(Catalog::default());
+        let tagger =
+            Arc::new(cuerithm_autotag::Tagger::with_backends(vec![backend.clone()]).unwrap());
+        let worker =
+            crate::PreparationService::start_with_tagger(lib.clone(), runtime, 1, tagger).unwrap();
+        lib.fail_for_run(&owned, "matching", "synthetic interruption before lookup")
+            .unwrap();
+        worker
+            .retry(job.clone(), Some(lib.settings().unwrap().revision))
+            .unwrap();
+        wait_for_job(&lib, &job, "completed");
+        worker.shutdown();
+        assert_eq!(
+            *backend.0.lock().unwrap(),
+            vec![(endpoint, 42, 0.37)],
+            "fresh lookup must consume current global transport, including removal, while keeping captured match policy"
+        );
+        assert_eq!(
+            evidence(),
+            before,
+            "transport refresh must not rewrite accepted payload, source proof or policy revision"
+        );
+        assert_eq!(
+            lib.track(&first.track_id).unwrap().title,
+            "Accepted manual title"
+        );
+    }
+}
+
+#[test]
+fn retained_candidate_expansion_uses_live_transport_and_blocks_after_solver_removal() {
+    use cuerithm_autotag::{ChallengeStore, ProviderBackend, ProviderId};
+    use std::sync::{Arc, Mutex};
+    #[derive(Default)]
+    struct Catalog(Mutex<Vec<(Option<String>, u64, f64)>>);
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            anyhow::bail!("retained selection must not requery")
+        }
+        fn extend(&self, _: &mut CatalogTrack, config: &AutotagConfig) -> anyhow::Result<()> {
+            self.0.lock().unwrap().push((
+                config.solver.endpoint.clone(),
+                config.solver.timeout_seconds,
+                config.options.strictness,
+            ));
+            Ok(())
+        }
+    }
+    for endpoint in [Some("http://127.0.0.1:8192".to_owned()), None] {
+        let f = ReviewFixture::with_solver(Some("http://127.0.0.1:8191"));
+        let captured = || {
+            f.lib
+                .conn()
+                .unwrap()
+                .query_row(
+                    "SELECT payload_json FROM preparation_match_generations WHERE track_id=?1",
+                    [&f.run.track_id],
+                    |r| r.get::<_, String>(0),
+                )
+                .unwrap()
+        };
+        let before = captured();
+        let source_before = std::fs::read(&f.source).unwrap();
+        let mut request = f.request();
+        request.acknowledge_conflicts = true;
+        let generation = request.generation.clone();
+        let candidate = request.candidate_id.clone();
+        let mut settings = f.lib.settings().unwrap().settings;
+        let config = settings.tagging.as_mut().unwrap();
+        config.solver.endpoint = endpoint.clone();
+        config.solver.timeout_seconds = 42;
+        config.options.strictness = 0.99;
+        f.lib.save_settings(settings).unwrap();
+        f.lib.mark_requires_solver("beatport").unwrap();
+        let backend = Arc::new(Catalog::default());
+        let tagger = cuerithm_autotag::Tagger::with_backends(vec![backend.clone()]).unwrap();
+        let preview = f
+            .lib
+            .preview_match_review_with(
+                &tagger,
+                &f.runtime,
+                request,
+                &cuerithm_media::CancellationToken::default(),
+            )
+            .unwrap();
+        if let Some(endpoint) = endpoint {
+            assert!(preview.can_apply, "{:?}", preview.blockers);
+            assert_eq!(
+                *backend.0.lock().unwrap(),
+                vec![(
+                    Some(endpoint),
+                    42,
+                    f.run
+                        .snapshot
+                        .settings
+                        .tagging
+                        .as_ref()
+                        .unwrap()
+                        .options
+                        .strictness
+                )]
+            );
+        } else {
+            assert!(
+                !preview.can_apply,
+                "a detected provider must be unavailable after global solver removal"
+            );
+            assert!(
+                preview
+                    .blockers
+                    .iter()
+                    .any(|reason| reason.contains("Unavailable"))
+            );
+            assert!(
+                backend.0.lock().unwrap().is_empty(),
+                "unavailable providers must block before expansion"
+            );
+        }
+        assert_eq!(preview.generation, generation);
+        assert_eq!(
+            preview
+                .candidate
+                .as_ref()
+                .map(|candidate| candidate.id.clone()),
+            candidate
+        );
+        assert_eq!(
+            captured(),
+            before,
+            "transport refresh must not rewrite retained candidate/policy/native evidence"
+        );
+        assert_eq!(std::fs::read(&f.source).unwrap(), source_before);
+    }
+}
+
+#[test]
+fn retained_candidate_access_keeps_captured_provider_policy_when_current_preset_disconnects() {
+    let f = ReviewFixture::with_solver(Some("http://127.0.0.1:8191"));
+    let mut settings = f.lib.settings().unwrap().settings;
+    settings.watch_folders = vec![f.source.parent().unwrap().to_path_buf()];
+    settings.tagging.as_mut().unwrap().solver.endpoint = Some("http://127.0.0.1:8192".into());
+    let selected = f.lib.save_settings(settings.clone()).unwrap();
+    let projection = f.lib.project_preparation_preset(&settings).unwrap();
+    let mut rules = projection.rules;
+    rules.organization.mode = crate::OrganizationSettingMode::Copy;
+    let destination = f.source.parent().unwrap().join("future-managed");
+    std::fs::create_dir(&destination).unwrap();
+    let grant = f
+        .lib
+        .register_organization_root(destination.clone())
+        .unwrap();
+    let preset = f
+        .lib
+        .save_preparation_preset(crate::PreparationPresetSave {
+            id: None,
+            expected_revision: None,
+            name: "Unavailable future policy".into(),
+            rules,
+            connections: crate::PreparationPresetConnections {
+                destination_root_id: Some(grant.id),
+            },
+        })
+        .unwrap();
+    let folder = f
+        .lib
+        .preparation_preset_folders_for_settings(&settings)
+        .unwrap()
+        .remove(0);
+    f.lib
+        .save_settings_with_preparation_assignments(
+            settings,
+            &selected,
+            &[crate::PreparationFolderChange {
+                folder_id: folder.folder_id,
+                expected_revision: folder.revision,
+                choice: crate::PreparationFolderChoice::Preset {
+                    preset_id: preset.id,
+                },
+            }],
+        )
+        .unwrap();
+    std::fs::rename(
+        &destination,
+        destination.with_file_name("retained-future-managed"),
+    )
+    .unwrap();
+    let state = f.lib.track_match_review(&f.run.track_id).unwrap().unwrap();
+    assert!(
+        !state.can_requery,
+        "new queries require available current rules"
+    );
+    assert!(state.can_keep_existing_once);
+    assert_eq!(
+        state
+            .providers
+            .iter()
+            .map(|provider| (provider.id.as_str(), provider.available))
+            .collect::<Vec<_>>(),
+        vec![("beatport", true)],
+        "retained choices must retain captured provider policy while global transport remains usable"
+    );
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let preview = f
+        .lib
+        .preview_match_review_with(
+            &f.tagger,
+            &f.runtime,
+            request,
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap();
+    assert!(preview.can_apply, "{:?}", preview.blockers);
+    assert_eq!(preview.generation, state.generation);
 }

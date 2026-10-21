@@ -162,7 +162,6 @@ impl PreparationService {
     pub fn enqueue_paths(&self, paths: &[PathBuf]) -> Result<Vec<JobId>> {
         let snapshot = self.library.settings()?;
         let recursive = snapshot.settings.include_subfolders();
-        let rev = snapshot.revision;
         let mut files = Vec::new();
         for path in paths {
             if path.is_dir() {
@@ -181,11 +180,20 @@ impl PreparationService {
                 files.push(path.clone());
             }
         }
-        let jobs = self.library.enqueue(&files, rev)?;
+        let jobs = self.library.enqueue_with_current_preparation(&files, false);
         self.wake();
-        Ok(jobs)
+        jobs
     }
     pub fn retry(&self, job: JobId, revision: Option<SettingsRevision>) -> Result<()> {
+        let revision = if let Some(revision) = revision {
+            if revision == self.library.settings()?.revision {
+                self.library.current_preparation_retry_revision(&job)?
+            } else {
+                Some(revision)
+            }
+        } else {
+            None
+        };
         self.library.retry(&job, revision)?;
         self.wake();
         Ok(())
@@ -225,7 +233,7 @@ impl PreparationService {
         let mut errors = Vec::new();
         for job in self.library.jobs()? {
             if job.state == "attention"
-                && let Err(e) = self.library.retry(&job.id, Some(revision.clone()))
+                && let Err(e) = self.retry(job.id.clone(), Some(revision.clone()))
             {
                 errors.push(e.to_string());
             }
@@ -370,8 +378,9 @@ impl Worker {
                     .collect();
                 if let Err(e) = self
                     .library
-                    .enqueue_discovered(&candidates, snapshot.revision)
+                    .enqueue_with_current_preparation(&candidates, true)
                 {
+                    discovery.admission_failed(&candidates);
                     self.error(e);
                 }
             }
@@ -396,6 +405,14 @@ impl Worker {
             // Resume before source-hash comparison or decoder/model/provider work: tags and
             // organization can legitimately have changed this logical job's source path/hash.
             if self.library.has_preparation_checkpoint(&job.id)? {
+                let unpublished: bool = self.library.conn()?.query_row(
+                    "SELECT batch_id IS NULL FROM preparation_checkpoints WHERE job_id=?1",
+                    [&job.id],
+                    |row| row.get(0),
+                )?;
+                if unpublished {
+                    self.library.verify_preparation_preset_source(&job)?;
+                }
                 stage = "organizing";
                 self.emit(&job, stage, "running");
                 self.library
@@ -403,6 +420,7 @@ impl Worker {
                 self.emit(&job, "completed", "completed");
                 return Ok(());
             }
+            self.library.verify_preparation_preset_source(&job)?;
             job.snapshot.settings.ready()?;
             stage = "waiting";
             self.emit(&job, stage, "running");
@@ -511,6 +529,15 @@ impl Worker {
                     crate::match_review::effective::project_query(&mut query, patch);
                 }
                 let folder = job.path.parent().context("Missing track folder")?;
+                // Transport is global and live for each new lookup. Retain the
+                // captured matching/writing policy and every accepted receipt.
+                // Protected catalog decisions do not perform another lookup.
+                let lookup_config =
+                    if protected_review.is_none() && job.snapshot.settings.autotag_enabled {
+                        self.library.current_catalog_lookup_config(config)?
+                    } else {
+                        config.clone()
+                    };
                 let hint = if protected_review.is_none()
                     && job.snapshot.settings.autotag_enabled
                     && config.options.album_tagging
@@ -522,7 +549,7 @@ impl Worker {
                         .prepare(folder, &job.settings_revision, &members);
                     self.album_groups
                         .selected(folder, &job.settings_revision)
-                        .map(|choice| choice.hint(&self.tagger, config, &self.stop))
+                        .map(|choice| choice.hint(&self.tagger, &lookup_config, &self.stop))
                         .transpose()?
                         .flatten()
                 } else {
@@ -538,7 +565,7 @@ impl Worker {
                 } else if job.snapshot.settings.autotag_enabled {
                     match self.tagger.match_track_with_album(
                         &query,
-                        config,
+                        &lookup_config,
                         &self.stop,
                         hint.as_ref(),
                     ) {
@@ -659,8 +686,10 @@ impl Worker {
                 stage = "writing_tags";
                 // The journal transaction sets this stage. Once it succeeds,
                 // always enter publication, which settles obsolete attempts too.
+                self.library.verify_preparation_preset_source(&job)?;
                 let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
                 self.emit(&job, stage, "running");
+                self.library.verify_preparation_preset_source(&job)?;
                 self.library.publish_preparation(&job, &journal)?;
                 if protected_review.is_none()
                     && job.snapshot.settings.autotag_enabled
@@ -698,6 +727,7 @@ impl Worker {
                     .1
                     .refresh_prepared_cues(&audio, &mut result, genre)?;
                 crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                self.library.verify_preparation_preset_source(&job)?;
                 self.library.apply_prepared_analysis_for_run(
                     &job,
                     &result,
@@ -711,10 +741,12 @@ impl Worker {
                 self.library.set_stage_for_run(&job, stage)?;
                 self.emit(&job, stage, "running");
                 crate::publication::apply(&mut result, &job.snapshot.settings)?;
+                self.library.verify_preparation_preset_source(&job)?;
                 self.library
                     .apply_analysis_for_run(&job, &result, &audio.info)?;
             }
             if job.snapshot.settings.organization.enabled() {
+                self.library.verify_preparation_preset_source(&job)?;
                 stage = "organizing";
                 self.emit(&job, stage, "running");
                 self.library

@@ -116,4 +116,6 @@ pub struct SettingsSnapshot {
     pub revision: crate::SettingsRevision,
     pub settings: PreparationSettings,
     pub models: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_capture: Option<crate::PreparationPresetCapture>,
 }

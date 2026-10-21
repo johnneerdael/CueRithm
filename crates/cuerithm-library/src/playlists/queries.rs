@@ -66,6 +66,7 @@ struct SqlQuery {
     condition: String,
     order: String,
     needle: String,
+    curation: String,
     revision: u64,
     query_id: String,
     offset: u64,
@@ -75,6 +76,18 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
     let revision: u64 = conn.query_row("SELECT value FROM meta WHERE key='revision'", [], |r| {
         r.get(0)
     })?;
+    ensure!(
+        query
+            .expected_revision
+            .is_none_or(|expected| expected == revision),
+        "Library changed; refresh selection before selecting all"
+    );
+    crate::curation::validate_filter(conn, query.curation.as_ref())?;
+    let mut filter = query.curation.clone();
+    if let Some(filter) = &mut filter {
+        filter.notes = filter.notes.to_lowercase();
+    }
+    let curation = serde_json::to_string(&filter)?;
     let query_id = format!(
         "{:x}",
         Sha256::digest(serde_json::to_vec(&serde_json::json!([
@@ -83,7 +96,8 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
             query.sort,
             query.descending,
             query.limit,
-            query.playlist_id
+            query.playlist_id,
+            query.curation
         ]))?)
     );
     let offset = if let Some(cursor) = &query.cursor {
@@ -122,6 +136,9 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
         TrackSort::Bpm => "t.bpm",
         TrackSort::Energy => "t.energy",
         TrackSort::Added => "t.created",
+        TrackSort::UserRating => {
+            "COALESCE((SELECT json_extract(committed_json,'$.user_rating') FROM curation_tracks WHERE track_id=t.id),0)"
+        }
         TrackSort::PlaylistOrder => {
             ensure!(scoped, "Choose a playlist before using playlist order");
             "s.ordinal"
@@ -134,7 +151,11 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
         } else {
             "tracks t"
         },
-        condition: format!("{condition} AND instr(t.search_text,:needle)>0"),
+        condition: format!(
+            "{condition} AND instr(t.search_text,:needle)>0 AND ({})",
+            crate::curation::FILTER_SQL
+        ),
+        curation,
         order: format!(
             "{column} {},t.id ASC",
             if query.descending { "DESC" } else { "ASC" }
@@ -154,11 +175,14 @@ pub(crate) fn tracks(lib: &Library, query: TrackQuery) -> Result<TrackPage> {
             "{CTE} SELECT COUNT(*) FROM {} WHERE {}",
             sql.source, sql.condition
         ),
-        named_params! {":scope":sql.scope,":needle":sql.needle},
+        named_params! {":scope":sql.scope,":needle":sql.needle,":curation":sql.curation},
         |r| r.get(0),
     )?;
     let mut q=conn.prepare(&format!("{CTE} SELECT t.id,t.path,t.title,t.artist,t.album,t.genre,t.state,t.musical_key,t.bpm,t.energy,t.duration,t.source_hash,t.metadata_json,t.created,t.updated,t.archived,json_extract(t.tagging_json,'$.status') FROM {} WHERE {} ORDER BY {} LIMIT :limit OFFSET :offset",sql.source,sql.condition,sql.order))?;
-    let rows=q.query_map(named_params!{":scope":sql.scope,":needle":sql.needle,":limit":query.limit,":offset":sql.offset},crate::store::summary_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut rows=q.query_map(named_params!{":scope":sql.scope,":needle":sql.needle,":curation":sql.curation,":limit":query.limit,":offset":sql.offset},crate::store::summary_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+    for row in &mut rows {
+        crate::curation::project_summary(&conn, row)?;
+    }
     let next = sql.offset + rows.len() as u64;
     Ok(TrackPage {
         rows,
@@ -175,7 +199,7 @@ pub(crate) fn track_ids(lib: &Library, query: TrackQuery) -> Result<Vec<String>>
         sql.source, sql.condition, sql.order
     ))?;
     Ok(q.query_map(
-        named_params! {":scope":sql.scope,":needle":sql.needle},
+        named_params! {":scope":sql.scope,":needle":sql.needle,":curation":sql.curation},
         |r| r.get(0),
     )?
     .collect::<rusqlite::Result<_>>()?)

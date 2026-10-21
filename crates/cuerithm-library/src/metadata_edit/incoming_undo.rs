@@ -5,15 +5,12 @@ use cuerithm_autotag::{
     TextEdit, ValueEdit,
 };
 use cuerithm_media::CancellationToken;
-use rusqlite::params;
 impl MetadataEditService {
-    pub(super) fn append_incoming_undo(
+    pub(super) fn prepare_incoming_undo(
         &self,
         original: &str,
-        batch: &str,
-        offset: usize,
         cancel: &CancellationToken,
-    ) -> Result<()> {
+    ) -> Result<Vec<FrozenRow>> {
         let rows = {
             let conn = self.library.conn()?;
             let mut q=conn.prepare("SELECT o.job_id,o.payload_json,o.receipt_json,o.final_json,r.payload_json FROM metadata_edit_overrides o JOIN metadata_edit_rows r ON r.batch_id=o.batch_id AND r.track_id=o.track_id WHERE o.batch_id=?1 AND o.state='committed' AND o.undo_batch_id IS NULL AND o.final_json IS NOT NULL ORDER BY r.ordinal")?;
@@ -28,9 +25,9 @@ impl MetadataEditService {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
         };
-        for (index, (job, patch, receipt, proof, frozen)) in rows.into_iter().enumerate() {
+        let mut prepared = Vec::new();
+        for (job, patch, receipt, proof, frozen) in rows {
             let old: FrozenRow = serde_json::from_str(&frozen)?;
-            let row_id = uuid::Uuid::new_v4().to_string();
             let outcome = (|| -> Result<FrozenRow> {
                 cancel.check()?;
                 let proof: super::overrides::FinalOverride = serde_json::from_str(&proof)?;
@@ -67,40 +64,23 @@ impl MetadataEditService {
                     },
                     capture,
                     stage: Some(stage),
+                    undo_of: None,
+                    override_of: Some(job.clone()),
                 })
             })();
-            let mut row = match outcome {
+            let row = match outcome {
                 Ok(row) => row,
                 Err(error) => {
                     let mut row = old;
+                    row.stage = None;
                     row.public.outcome = "failed".into();
                     row.public.error = Some(format!("{error:#}"));
                     row
                 }
             };
-            let payload = bounded_json(&row)?;
-            self.library.conn()?.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json,error)VALUES(?1,?2,?3,?4,?5,?6,?7)",params![row_id,batch,row.public.track_id,offset+index,row.public.outcome,payload,row.public.error])?;
-            if row.public.outcome == "ready" {
-                let result = self
-                    .begin_write_owned(batch, &row_id, &row, None, Some(job))
-                    .and_then(|id| self.publish_write(&id, cancel));
-                if let Err(error) = result {
-                    let pending:bool=self.library.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE row_id=?1 AND state IN ('prepared','publishing','recovery_required','conflict'))",[&row_id],|r|r.get(0))?;
-                    row.public.error = Some(format!("{error:#}"));
-                    self.row_state(
-                        &row_id,
-                        if pending {
-                            "recovery_required"
-                        } else {
-                            "failed"
-                        },
-                        row.public.error.as_deref(),
-                        None,
-                    )?;
-                }
-            }
+            prepared.push(row);
         }
-        Ok(())
+        Ok(prepared)
     }
     fn inverse_incoming_patch(
         &self,

@@ -88,7 +88,8 @@ impl Library {
                     "Complete candidate is unavailable; explicitly requery before selecting it",
                 )?;
                 {
-                    let access = self.review_access(Some(&capture.config))?;
+                    let lookup_config = self.current_catalog_lookup_config(&capture.config)?;
+                    let access = self.review_access_for_lookup(&lookup_config)?;
                     if let Some(blocked) = access
                         .iter()
                         .find(|a| a.id == full.track.platform && !a.available)
@@ -104,7 +105,7 @@ impl Library {
                         Some(tagger.expand_review_candidate(
                             &capture.input()?,
                             full,
-                            &capture.config,
+                            &lookup_config,
                             &cancel.shared_flag(),
                         )?)
                     }
@@ -551,7 +552,7 @@ impl Library {
             .load_review_capture(track)?
             .context("Missing review source capture")?;
         self.validate_review_capture(&before)?;
-        let snapshot = self.settings()?;
+        let snapshot = self.current_preparation_snapshot_for_path(&before.path.path()?)?;
         let mut config = snapshot
             .settings
             .tagging

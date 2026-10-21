@@ -168,6 +168,100 @@ fn published_metadata_recovers_after_reopen_without_adopting_equal_external_copy
     assert_eq!(undo.state, "undone", "{undo:?}");
     assert_eq!(file_sha256(&path).unwrap(), before);
 }
+
+#[test]
+fn archive_cannot_invalidate_a_native_publication_between_exchange_and_commit() {
+    let (_temp, service, track, path) = fixture();
+    let (batch, id) = reserved(&service, &track);
+    service
+        .publish_write_with(&id, &CancellationToken::default(), || {
+            assert!(
+                service.library.set_archived(&track, true).is_err(),
+                "Archive must not invalidate the owner after its native exchange"
+            );
+            assert!(!service.library.track(&track)?.archived);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(service.finish_batch(&batch).unwrap().state, "saved");
+    assert_eq!(
+        service.library.source_hash(&track).unwrap(),
+        file_sha256(&path).unwrap()
+    );
+    service.library.set_archived(&track, true).unwrap();
+    assert!(service.library.track(&track).unwrap().archived);
+}
+
+#[test]
+fn archive_and_restore_retain_the_owner_of_an_interrupted_native_publication() {
+    let (_temp, service, track, path) = fixture();
+    let (batch, id) = reserved(&service, &track);
+    let original_job: String = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT current_job FROM tracks WHERE id=?1",
+            [&track],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        service
+            .publish_write_with(&id, &CancellationToken::default(), || {
+                anyhow::bail!("synthetic interruption after native exchange")
+            })
+            .is_err()
+    );
+    let after = file_sha256(&path).unwrap();
+    let frozen_hash = service.library.source_hash(&track).unwrap();
+    assert_ne!(after, frozen_hash);
+    assert!(
+        service.library.set_archived(&track, true).is_err(),
+        "Recover the retained publication before changing its archive identity"
+    );
+    assert!(!service.library.track(&track).unwrap().archived);
+
+    // An older application could already have archived this interrupted row.
+    service
+        .library
+        .conn()
+        .unwrap()
+        .execute("UPDATE tracks SET archived=1 WHERE id=?1", [&track])
+        .unwrap();
+    assert!(service.library.set_archived(&track, false).is_err());
+    assert!(service.library.track(&track).unwrap().archived);
+    assert_eq!(service.library.source_hash(&track).unwrap(), frozen_hash);
+    let retained_job: String = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT current_job FROM tracks WHERE id=?1",
+            [&track],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(retained_job, original_job);
+
+    service
+        .library
+        .conn()
+        .unwrap()
+        .execute("UPDATE tracks SET archived=0 WHERE id=?1", [&track])
+        .unwrap();
+    service.library.recover_metadata_edits().unwrap();
+    assert_eq!(
+        service
+            .recover(&batch, &CancellationToken::default())
+            .unwrap()
+            .state,
+        "saved"
+    );
+    assert_eq!(service.library.source_hash(&track).unwrap(), after);
+    service.library.set_archived(&track, true).unwrap();
+}
+
 #[test]
 fn unknown_replacement_after_publication_remains_recoverable_and_is_never_adopted() {
     let (_t, service, track, path) = fixture();
