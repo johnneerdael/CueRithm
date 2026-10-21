@@ -643,3 +643,48 @@ fn id3v23_release_dates_split_across_year_and_day_month_are_shown_whole() {
         })
     );
 }
+
+#[test]
+fn edits_only_suppress_the_automatic_tags_that_share_their_native_field() {
+    let (_d, runtime, paths) = fixtures();
+    let mut totals = MetadataPatch::default();
+    totals.disc_total = ValueEdit::Set { value: 3 };
+    let mut disc = MetadataPatch::default();
+    disc.disc_number = ValueEdit::Set { value: 2 };
+    let mut original = MetadataPatch::default();
+    original.original_date = ValueEdit::Set {
+        value: TransferDate {
+            year: 2020,
+            month: None,
+            day: None,
+        },
+    };
+    for path in paths {
+        let media = runtime.probe(&path).unwrap();
+        let vorbis = path
+            .extension()
+            .is_some_and(|e| e == "flac" || e == "ogg" || e == "opus");
+        let shown = path.display();
+        assert!(
+            !totals
+                .protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::DiscNumber),
+            "a disc total edit keeps the matched disc number: {shown}"
+        );
+        assert!(
+            disc.protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::DiscNumber),
+            "{shown}"
+        );
+        assert_eq!(
+            original
+                .protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::PublishDate),
+            vorbis,
+            "only Vorbis stores the publish date where the original date is edited: {shown}"
+        );
+    }
+}

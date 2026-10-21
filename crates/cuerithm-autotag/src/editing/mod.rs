@@ -175,7 +175,18 @@ impl MetadataPatch {
         out.dedup();
         out
     }
-    pub fn protected_tags(&self) -> Vec<crate::SupportedTag> {
+    /// Automatic-tagging fields this edit replaces, so the matched value must not be written first.
+    /// Only fields that share a native field with the edit are protected: the original date shares
+    /// Vorbis `ORIGINALDATE` with the publish date, but has its own field in ID3, MP4 and WMA.
+    pub fn protected_tags(
+        &self,
+        media: &cuerithm_media::MediaInfo,
+    ) -> anyhow::Result<Vec<crate::SupportedTag>> {
+        use onetagger_tag::AudioFileFormat as F;
+        let vorbis = matches!(crate::input::audio_format(media)?, F::FLAC | F::OGG);
+        Ok(self.protected_for(vorbis))
+    }
+    fn protected_for(&self, vorbis: bool) -> Vec<crate::SupportedTag> {
         use crate::SupportedTag as T;
         use MetadataTextField as F;
         let mut out = vec![];
@@ -205,7 +216,7 @@ impl MetadataPatch {
         if !matches!(self.release_date, ValueEdit::Keep) {
             out.push(T::ReleaseDate)
         }
-        if !matches!(self.original_date, ValueEdit::Keep) {
+        if vorbis && !matches!(self.original_date, ValueEdit::Keep) {
             out.push(T::PublishDate)
         }
         if !matches!(self.track_number, ValueEdit::Keep) {
@@ -214,9 +225,8 @@ impl MetadataPatch {
         if !matches!(self.track_total, ValueEdit::Keep) {
             out.push(T::TrackTotal)
         }
-        if !matches!(self.disc_number, ValueEdit::Keep)
-            || !matches!(self.disc_total, ValueEdit::Keep)
-        {
+        // The catalog supplies no disc total, so a total-only edit keeps the matched disc number.
+        if !matches!(self.disc_number, ValueEdit::Keep) {
             out.push(T::DiscNumber)
         }
         if !matches!(self.bpm, ValueEdit::Keep) {
