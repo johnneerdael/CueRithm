@@ -28,6 +28,7 @@ pub struct Host {
     pub library: Library,
     pub runtime: MediaRuntime,
     pub preparation: PreparationService,
+    pub provider_setup: cuerithm_library::ProviderSetupService,
     pub smart_playlists: cuerithm_library::SmartPlaylistService,
     pub curation: CurationService,
     pub curation_worker: Mutex<CurationWorker>,
@@ -39,7 +40,29 @@ pub struct Host {
     pub alive: AtomicBool,
 }
 impl Host {
+    #[cfg(test)]
     pub fn open(root: &Path, runtime: &Path, initial_folder: Option<PathBuf>) -> Result<Self> {
+        Self::open_with_provider_factory(root, runtime, initial_folder, |library| {
+            library
+                .provider_runtime_with(Arc::new(cuerithm_autotag::CatalogRuntime::development()?))
+        })
+    }
+    pub fn open_with_release(
+        root: &Path,
+        runtime: &Path,
+        initial_folder: Option<PathBuf>,
+        release: &str,
+    ) -> Result<Self> {
+        Self::open_with_provider_factory(root, runtime, initial_folder, |library| {
+            library.provider_runtime(release)
+        })
+    }
+    fn open_with_provider_factory(
+        root: &Path,
+        runtime: &Path,
+        initial_folder: Option<PathBuf>,
+        provider_factory: impl FnOnce(&Library) -> Result<cuerithm_library::ProviderSetupService>,
+    ) -> Result<Self> {
         std::fs::create_dir_all(root)?;
         let path = root.join("library.sqlite");
         let is_new = !path.exists();
@@ -69,7 +92,12 @@ impl Host {
         let builtin = crate::builtin::BuiltinModels::install(root)?;
         builtin.configure_library(&library)?;
         let runtime = MediaRuntime::from_bundle(runtime)?;
-        let preparation = PreparationService::start(library.clone(), runtime.clone())?;
+        let provider_setup = provider_factory(&library)?;
+        let preparation = PreparationService::start_with_catalog_runtime(
+            library.clone(),
+            runtime.clone(),
+            provider_setup.runtime().clone(),
+        )?;
         let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
         let curation = CurationService::new(library.clone(), Some(runtime.clone()));
         let curation_worker = Mutex::new(curation.start_background()?);
@@ -80,6 +108,7 @@ impl Host {
             library,
             runtime,
             preparation,
+            provider_setup,
             smart_playlists,
             curation,
             curation_worker,

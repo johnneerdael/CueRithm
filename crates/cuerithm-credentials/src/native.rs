@@ -27,6 +27,10 @@ impl NativeVault {
             ProviderId::SonoVault => "sonovault",
             ProviderId::AudD => "audd",
             ProviderId::RapidApi => "rapidapi",
+            ProviderId::Discogs => "discogs",
+            ProviderId::BpmSupreme => "bpm_supreme",
+            ProviderId::Spotify => "spotify",
+            ProviderId::AcoustId => "acoustid",
         };
         #[cfg(target_os = "windows")]
         let modifiers = Some(std::collections::HashMap::from([("persistence", "Local")]));
@@ -47,9 +51,14 @@ impl Vault for NativeVault {
     }
     fn load(&self, provider: ProviderId) -> Result<Option<Secret>, VaultError> {
         match self.entry(provider)?.get_password() {
-            Ok(value) => Secret::new(value)
-                .map(Some)
-                .map_err(|_| VaultError::Corrupt),
+            Ok(value) => {
+                let secret = if matches!(provider, ProviderId::BpmSupreme | ProviderId::Spotify) {
+                    Secret::structured(value)
+                } else {
+                    Secret::new(value)
+                };
+                secret.map(Some).map_err(|_| VaultError::Corrupt)
+            }
             Err(keyring_core::Error::NoEntry) => Ok(None),
             Err(e) => Err(map_error(e)),
         }

@@ -89,7 +89,24 @@ impl Library {
                 )?;
                 {
                     let lookup_config = self.current_catalog_lookup_config(&capture.config)?;
-                    let access = self.review_access_for_lookup(&lookup_config)?;
+                    let mut access_config = lookup_config.clone();
+                    if full.recognition.is_some()
+                        && cuerithm_autotag::Tagger::review_candidate_provider_enabled(
+                            &capture.input()?,
+                            full,
+                            &lookup_config,
+                        )?
+                        && !access_config
+                            .options
+                            .platforms
+                            .contains(&full.track.platform)
+                    {
+                        access_config
+                            .options
+                            .platforms
+                            .push(full.track.platform.clone());
+                    }
+                    let access = self.review_access_for_lookup(&access_config)?;
                     if let Some(blocked) = access
                         .iter()
                         .find(|a| a.id == full.track.platform && !a.available)
@@ -124,7 +141,7 @@ impl Library {
             .native;
         let (fields, mut patch, field_blockers) = super::fields::make_fields(
             &native,
-            selected.as_ref().map(|c| &c.track),
+            selected.as_ref(),
             &request,
             capture.config.options.short_title,
         )?;
@@ -512,14 +529,27 @@ impl PreparationService {
         revision: &str,
         cancel: &CancellationToken,
     ) -> Result<MetadataArtworkAsset> {
-        let (library, runtime, _) = self.match_review_context();
-        library.review_artwork_asset_with(
-            runtime,
-            preview_id,
-            revision,
-            cancel,
-            cuerithm_autotag::fetch_catalog_artwork,
-        )
+        let (library, runtime, tagger) = self.match_review_context();
+        if let Some(catalog) = tagger.catalog_runtime() {
+            library.review_artwork_asset_for_match_with(runtime,preview_id,revision,cancel,|candidate,url,cancel|{
+                let provider=cuerithm_autotag::ProviderId::parse(&candidate.track.platform).context("Unsupported artwork provider")?;
+                if let Some(cover)=candidate.musicbrainz().and_then(|facts|facts.cover.as_ref()){
+                    let fetched=cuerithm_autotag::fetch_musicbrainz_artwork(catalog,cover,cancel)?.context("No approved front artwork is available for this release")?;
+                    Ok(ReviewArtworkDownload{bytes:fetched.bytes,source:Some(serde_json::to_string(&serde_json::json!({"provider":"musicbrainz","artwork":fetched.provenance}))?)})
+                }else{
+                    let bytes=cuerithm_autotag::fetch_catalog_artwork_with_runtime(catalog,provider,url,cancel)?;
+                    Ok(ReviewArtworkDownload{bytes,source:Some(serde_json::to_string(&serde_json::json!({"provider":provider.as_str(),"source_url":url}))?)})
+                }
+            })
+        } else {
+            library.review_artwork_asset_with(
+                runtime,
+                preview_id,
+                revision,
+                cancel,
+                cuerithm_autotag::fetch_catalog_artwork,
+            )
+        }
     }
 }
 
@@ -662,6 +692,10 @@ impl Library {
     }
 }
 
+struct ReviewArtworkDownload {
+    bytes: Vec<u8>,
+    source: Option<String>,
+}
 impl Library {
     pub(super) fn review_artwork_asset_with(
         &self,
@@ -670,6 +704,29 @@ impl Library {
         revision: &str,
         cancel: &CancellationToken,
         fetch: impl FnOnce(cuerithm_autotag::ProviderId, &str, &CancellationToken) -> Result<Vec<u8>>,
+    ) -> Result<MetadataArtworkAsset> {
+        self.review_artwork_asset_for_match_with(
+            runtime,
+            id,
+            revision,
+            cancel,
+            |candidate, url, cancel| {
+                let provider = cuerithm_autotag::ProviderId::parse(&candidate.track.platform)
+                    .context("Unsupported artwork provider")?;
+                Ok(ReviewArtworkDownload {
+                    bytes: fetch(provider, url, cancel)?,
+                    source: None,
+                })
+            },
+        )
+    }
+    fn review_artwork_asset_for_match_with(
+        &self,
+        runtime: &MediaRuntime,
+        id: &str,
+        revision: &str,
+        cancel: &CancellationToken,
+        fetch: impl FnOnce(&CatalogMatch, &str, &CancellationToken) -> Result<ReviewArtworkDownload>,
     ) -> Result<MetadataArtworkAsset> {
         cancel.check()?;
         let preview = self.load_match_preview(id, revision)?;
@@ -694,16 +751,27 @@ impl Library {
             .context("Selected candidate token is missing")?;
         let url_hash = digest(&Some(url.to_owned()))?;
         if let Some((saved,json))=self.conn()?.query_row("SELECT url_digest,asset_json FROM preparation_review_artwork WHERE generation=?1 AND candidate_id=?2",params![preview.public.generation,candidate_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?{ensure!(saved==url_hash,"Artwork changed; request a fresh catalog generation");return Ok(serde_json::from_str(&json)?)}
-        let provider = match candidate.provider.as_str() {
-            "beatport" => cuerithm_autotag::ProviderId::Beatport,
-            "traxsource" => cuerithm_autotag::ProviderId::Traxsource,
-            _ => anyhow::bail!("Unsupported artwork provider"),
-        };
-        let bytes = fetch(provider, url, cancel)?;
+        let selected = preview
+            .selected
+            .as_ref()
+            .context("Complete selected artwork evidence is unavailable; requery")?;
+        selected.validate()?;
+        ensure!(
+            selected.track.platform == candidate.provider,
+            "Artwork provider changed"
+        );
+        let downloaded = fetch(selected, url, cancel)?;
+        ensure!(
+            downloaded
+                .source
+                .as_ref()
+                .is_none_or(|value| value.len() <= 16 * 1024),
+            "Artwork provenance exceeds its bound"
+        );
         cancel.check()?;
         self.validate_review_capture(&preview.capture)?;
-        let asset =
-            MetadataEditService::new(self.clone(), runtime.clone()).import_artwork(bytes)?;
+        let asset = MetadataEditService::new(self.clone(), runtime.clone())
+            .import_artwork(downloaded.bytes)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         Self::validate_review_capture_tx(&tx, &preview.capture)?;
@@ -716,7 +784,7 @@ impl Library {
             "Catalog generation changed while loading artwork"
         );
         ensure!(tx.query_row("SELECT state='preview' AND revision=?2 FROM preparation_match_previews WHERE id=?1",params![id,revision],|r|r.get::<_,bool>(0))?,"Review was accepted or invalidated while loading artwork");
-        tx.execute("INSERT OR IGNORE INTO preparation_review_artwork(generation,candidate_id,url_digest,asset_json) VALUES(?1,?2,?3,?4)",params![preview.public.generation,candidate_id,url_hash,serde_json::to_string(&asset)?])?;
+        tx.execute("INSERT OR IGNORE INTO preparation_review_artwork(generation,candidate_id,url_digest,asset_json,source_json) VALUES(?1,?2,?3,?4,?5)",params![preview.public.generation,candidate_id,url_hash,serde_json::to_string(&asset)?,downloaded.source])?;
         let(saved,json):(String,String)=tx.query_row("SELECT url_digest,asset_json FROM preparation_review_artwork WHERE generation=?1 AND candidate_id=?2",params![preview.public.generation,candidate_id],|r|Ok((r.get(0)?,r.get(1)?)))?;
         ensure!(
             saved == url_hash,

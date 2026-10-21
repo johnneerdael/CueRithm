@@ -13,6 +13,11 @@ pub mod state;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderId {
+    Discogs,
+    BpmSupreme,
+    Spotify,
+    #[serde(rename = "acoustid")]
+    AcoustId,
     #[serde(rename = "sonovault")]
     SonoVault,
     #[serde(rename = "audd")]
@@ -55,6 +60,23 @@ impl Secret {
             return Err(CredentialError::InvalidKey);
         }
         Ok(Self(value))
+    }
+    /// Validated structured credentials; opaque token validation remains unchanged.
+    pub fn structured(value: String) -> Result<Self, CredentialError> {
+        let value = Zeroizing::new(value);
+        if value.len() > 4096 {
+            return Err(CredentialError::InvalidKey);
+        }
+        let parsed: serde_json::Value =
+            serde_json::from_str(&value).map_err(|_| CredentialError::InvalidKey)?;
+        if !parsed.is_object() || parsed.as_object().is_some_and(|v| v.is_empty()) {
+            return Err(CredentialError::InvalidKey);
+        }
+        let canonical = serde_json::to_string(&parsed).map_err(|_| CredentialError::InvalidKey)?;
+        if canonical.len() > 4096 {
+            return Err(CredentialError::InvalidKey);
+        }
+        Ok(Self(Zeroizing::new(canonical)))
     }
     pub fn expose(&self) -> &str {
         &self.0
@@ -171,6 +193,10 @@ impl<V: Vault> CredentialService<V> {
             ProviderId::SonoVault,
             ProviderId::AudD,
             ProviderId::RapidApi,
+            ProviderId::Discogs,
+            ProviderId::BpmSupreme,
+            ProviderId::Spotify,
+            ProviderId::AcoustId,
         ] {
             let persisted = store
                 .load_or_create(provider)
@@ -254,6 +280,28 @@ impl<V: Vault> CredentialService<V> {
         refresh(&mut state, expected.provider)?;
         check(&state, expected)?;
         Ok(result)
+    }
+    pub fn record_verification(
+        &self,
+        expected: &CredentialRef,
+        verification: Verification,
+    ) -> Result<CredentialStatus, CredentialError> {
+        let mut state = self.inner.lock().map_err(|_| CredentialError::Poisoned)?;
+        refresh(&mut state, expected.provider)?;
+        check(&state, expected)?;
+        if state.entries[&expected.provider]
+            .persisted
+            .pending
+            .is_some()
+        {
+            return Err(CredentialError::MutationUncertain);
+        }
+        state
+            .entries
+            .get_mut(&expected.provider)
+            .unwrap()
+            .verification = verification;
+        Ok(status(&state, expected.provider))
     }
     pub fn verify(
         &self,

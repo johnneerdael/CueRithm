@@ -19,7 +19,7 @@ pub struct AnalysisTags {
 #[derive(Clone)]
 pub struct TagWritePlan {
     input: TagInput,
-    matches: Vec<CatalogTrack>,
+    matches: Vec<crate::CatalogMatch>,
     config: AutotagConfig,
     analysis: AnalysisTags,
     artwork: Option<crate::image::Artwork>,
@@ -29,6 +29,7 @@ pub struct TagWritePlan {
     custom_tags: Vec<cuerithm_cleanup::CustomTag>,
     transfer: Option<crate::TransferPatch>,
     editor_patch: Option<crate::MetadataPatch>,
+    catalog_runtime: Option<std::sync::Arc<crate::CatalogRuntime>>,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -92,6 +93,16 @@ impl TagWritePlan {
             analysis.energy.is_none_or(|v| (1..=10).contains(&v)),
             "Invalid track energy"
         );
+        for candidate in &outcome.matches {
+            candidate.validate()?;
+            ensure!(
+                crate::provider_native_field_allowed(
+                    &candidate.track.platform,
+                    SupportedTag::OtherTags
+                ) || candidate.track.other.is_empty(),
+                "Source policy does not permit custom native tags"
+            );
+        }
         if config.options.tag_enabled(SupportedTag::OtherTags) {
             let format = input.audio_info(config)?.format;
             for track in &outcome.matches {
@@ -137,7 +148,7 @@ impl TagWritePlan {
         provenance["evidence"] = serde_json::to_value(outcome.provenance(&input, config)?)?;
         Ok(Self {
             input,
-            matches: outcome.matches.iter().map(|m| m.track.clone()).collect(),
+            matches: outcome.matches.clone(),
             config: config.clone(),
             analysis: analysis.clone(),
             artwork: None,
@@ -147,7 +158,12 @@ impl TagWritePlan {
             custom_tags: vec![],
             transfer: None,
             editor_patch: None,
+            catalog_runtime: None,
         })
+    }
+    pub fn with_catalog_runtime(mut self, runtime: std::sync::Arc<crate::CatalogRuntime>) -> Self {
+        self.catalog_runtime = Some(runtime);
+        self
     }
     pub fn with_custom_tags(mut self, tags: Vec<cuerithm_cleanup::CustomTag>) -> Result<Self> {
         cuerithm_cleanup::Metadata {
@@ -219,6 +235,17 @@ impl TagWritePlan {
         ensure!(
             self.config.options.tag_enabled(SupportedTag::AlbumArt),
             "Artwork is not selected"
+        );
+        ensure!(
+            self.matches.is_empty()
+                || self
+                    .matches
+                    .iter()
+                    .any(|m| crate::provider_native_field_allowed(
+                        &m.platform,
+                        SupportedTag::AlbumArt
+                    )),
+            "Source policy does not permit artwork"
         );
         self.artwork = Some(crate::image::Artwork::validate(bytes)?);
         Ok(self)
@@ -361,6 +388,7 @@ impl TagWritePlan {
             custom_style.as_deref(),
         )?;
         let mut sidecars = Vec::new();
+        let mut catalog_cover = None;
         let mut cleanup = None;
         let mut expected_metadata = None;
         let mut expected_editor = None;
@@ -381,7 +409,10 @@ impl TagWritePlan {
                             .as_deref()
                             .unwrap_or("; "),
                     );
-                    let request = self.apply(&mut tag, &format)?;
+                    let request = self.apply(&mut tag, &format, cancel, &mut catalog_cover)?;
+                    self.catalog_patch(&crate::editing::native::snapshot_asf(&tag)?)
+                        .apply_asf(&mut tag)?;
+                    self.catalog_ids(&mut tag, &format);
                     if let Some(patch) = &self.editor_patch {
                         editor_before = Some(crate::editing::native::snapshot_asf(&tag)?);
                         patch.apply_asf(&mut tag)?;
@@ -427,8 +458,18 @@ impl TagWritePlan {
                     }
                     {
                         let tag = wrapper.tag_mut();
-                        let request = self.apply(&mut **tag, &format)?;
+                        let request =
+                            self.apply(&mut **tag, &format, cancel, &mut catalog_cover)?;
                         drop(tag);
+                        self.catalog_patch(&crate::editing::native::snapshot_tag(
+                            &wrapper, &format,
+                        )?)
+                        .apply_tag(&mut wrapper, &format)?;
+                        {
+                            let tag = wrapper.tag_mut();
+                            self.catalog_ids(&mut **tag, &format);
+                        }
+                        self.catalog_id3_recording_id(&mut wrapper);
                         if let Some(patch) = &self.editor_patch {
                             editor_before =
                                 Some(crate::editing::native::snapshot_tag(&wrapper, &format)?);
@@ -528,6 +569,9 @@ impl TagWritePlan {
             );
         }
         let mut provenance = self.provenance.clone();
+        if let Some(reference) = catalog_cover {
+            provenance["catalog_artwork"] = serde_json::to_value(reference)?;
+        }
         provenance["fields"] = serde_json::to_value(&fields)?;
         if let Some(patch) = &self.transfer {
             patch.verify(&path, &after.info)?;
@@ -588,10 +632,17 @@ impl TagWritePlan {
         &self,
         tag: &mut dyn TagImpl,
         format: &AudioFileFormat,
+        cancel: &cuerithm_media::CancellationToken,
+        selected_cover: &mut Option<crate::catalog_artwork::CatalogArtworkProvenance>,
     ) -> Result<Option<crate::sidecar::SidecarRequest>> {
         let config = &self.config.options;
         let mut explicit_present = crate::fields::explicit_at(&self.input.path, format, tag)?;
         for original in &self.matches {
+            let mut allowed_config = config.clone();
+            allowed_config.tags.retain(|field| {
+                crate::provider_native_field_allowed(&original.track.platform, *field)
+            });
+            let config = &allowed_config;
             let mut track = original.clone();
             let genres = track.genres.clone();
             let styles = track.styles.clone();
@@ -731,51 +782,55 @@ impl TagWritePlan {
                 self.apply_key_bpm(
                     tag,
                     format,
-                    track.key.as_deref(),
-                    track.bpm.map(|n| n as f64),
+                    config
+                        .tag_enabled(SupportedTag::Key)
+                        .then(|| track.key.as_deref())
+                        .flatten(),
+                    config
+                        .tag_enabled(SupportedTag::BPM)
+                        .then(|| track.bpm.map(|n| n as f64))
+                        .flatten(),
                 )?;
             }
-            for (selected, date, year, publish) in [
-                (
-                    SupportedTag::ReleaseDate,
-                    track.release_date,
-                    track.release_year,
-                    false,
-                ),
-                (
-                    SupportedTag::PublishDate,
-                    track.publish_date,
-                    track.publish_year,
-                    true,
-                ),
-            ] {
-                if enabled(selected) {
-                    let d = date
-                        .map(|d| TagDate {
-                            year: d.year(),
-                            month: if config.only_year {
-                                None
-                            } else {
-                                Some(d.month() as u8)
-                            },
-                            day: if config.only_year {
-                                None
-                            } else {
-                                Some(d.day() as u8)
-                            },
+            // Preserve legacy native DATE/ID3v2.3 behavior when no typed date
+            // envelope participates. Mixed batches resolve every provider in
+            // catalog_patch instead, so a second pass cannot invert precedence.
+            if !self.matches.iter().any(|matched| matched.facts.is_some()) {
+                for (field, date, year, original_date) in [
+                    (
+                        SupportedTag::ReleaseDate,
+                        track.release_date,
+                        track.release_year,
+                        false,
+                    ),
+                    (
+                        SupportedTag::PublishDate,
+                        track.publish_date,
+                        track.publish_year,
+                        true,
+                    ),
+                ] {
+                    if !enabled(field) {
+                        continue;
+                    }
+                    let date = date
+                        .map(|date| TagDate {
+                            year: date.year(),
+                            month: (!config.only_year).then_some(date.month() as u8),
+                            day: (!config.only_year).then_some(date.day() as u8),
                         })
                         .or_else(|| {
-                            year.map(|y| TagDate {
-                                year: y.into(),
+                            year.map(|year| TagDate {
+                                year: year.into(),
                                 month: None,
                                 day: None,
                             })
                         });
-                    if let Some(d) = d {
-                        if publish {
-                            tag.set_publish_date(&d, overwrite(selected));
+                    if let Some(date) = date {
+                        if original_date {
+                            tag.set_publish_date(&date, overwrite(field));
                         } else {
-                            tag.set_date(&d, overwrite(selected));
+                            tag.set_date(&date, overwrite(field));
                         }
                     }
                 }
@@ -807,6 +862,8 @@ impl TagWritePlan {
                 ),
             ] {
                 if enabled(selected)
+                    && !(original.musicbrainz().is_some()
+                        && matches!(selected, SupportedTag::TrackId | SupportedTag::ReleaseId))
                     && let Some(value) = value
                 {
                     tag.set_raw(&name, vec![value], overwrite(selected));
@@ -884,26 +941,53 @@ impl TagWritePlan {
             let preserve = target
                 .as_ref()
                 .is_some_and(|p| p.exists() && !config.overwrite_tag(SupportedTag::AlbumArt));
-            let mut artwork = self.matches.iter().filter_map(|track| {
-                track
-                    .art
-                    .as_deref()
-                    .map(|url| (url, track.platform.as_str()))
+            let mut candidates = self.matches.iter().filter(|m| {
+                crate::provider_native_field_allowed(&m.platform, SupportedTag::AlbumArt)
+                    && (m.art.is_some() || m.musicbrainz().and_then(|f| f.cover.as_ref()).is_some())
             });
             let remote = if config.overwrite_tag(SupportedTag::AlbumArt) {
-                artwork.next_back()
+                candidates.next_back()
             } else {
-                artwork.next()
+                candidates.next()
             };
             let art = if preserve {
                 None
             } else if let Some(image) = &self.artwork {
                 Some(image.clone())
+            } else if let Some(candidate) = remote {
+                if let Some(reference) = candidate.musicbrainz().and_then(|f| f.cover.as_ref()) {
+                    let runtime = self
+                        .catalog_runtime
+                        .as_ref()
+                        .context("MusicBrainz artwork requires the shared catalog runtime")?;
+                    crate::fetch_musicbrainz_artwork(runtime, reference, cancel)?
+                        .map(|image| {
+                            *selected_cover = Some(image.provenance);
+                            crate::image::Artwork::validate(image.bytes)
+                        })
+                        .transpose()?
+                } else if let Some(runtime) = &self.catalog_runtime {
+                    Some(crate::image::Artwork::validate(
+                        crate::fetch_catalog_artwork_with_runtime(
+                            runtime,
+                            crate::ProviderId::parse(&candidate.platform)
+                                .context("Unknown artwork provider")?,
+                            candidate.art.as_deref().context("Missing artwork URL")?,
+                            cancel,
+                        )?,
+                    )?)
+                } else {
+                    ensure!(
+                        matches!(candidate.platform.as_str(), "beatport" | "traxsource"),
+                        "Artwork requires the shared catalog runtime"
+                    );
+                    Some(crate::image::Artwork::fetch(
+                        candidate.art.as_deref().context("Missing artwork URL")?,
+                        &candidate.platform,
+                    )?)
+                }
             } else {
-                remote
-                    .map(|(url, platform)| crate::image::Artwork::fetch(url, platform))
-                    .transpose()
-                    .context("Selected artwork could not be fetched or decoded")?
+                None
             };
             if let Some(art) = art {
                 if let Some(target) = target {
@@ -933,6 +1017,161 @@ impl TagWritePlan {
             );
         }
         Ok(sidecar)
+    }
+    fn catalog_patch(&self, before: &crate::MetadataSnapshot) -> crate::MetadataPatch {
+        let mut patch = crate::MetadataPatch {
+            allow_id3_upgrade: self.config.options.id3v24,
+            ..Default::default()
+        };
+        if !self.matches.iter().any(|matched| matched.facts.is_some()) {
+            return patch;
+        }
+        let mut occupied = [
+            before.release_date.is_some(),
+            before.original_date.is_some(),
+        ];
+        let legacy_date = |date: Option<chrono::NaiveDate>, year: Option<i16>| {
+            date.map(|date| crate::TransferDate {
+                year: date.year(),
+                month: Some(date.month() as u8),
+                day: Some(date.day() as u8),
+            })
+            .or_else(|| {
+                year.map(|year| crate::TransferDate {
+                    year: year.into(),
+                    month: None,
+                    day: None,
+                })
+            })
+        };
+        for matched in &self.matches {
+            let release = matched.selected_release_date().cloned().or_else(|| {
+                matched
+                    .facts
+                    .is_none()
+                    .then(|| legacy_date(matched.release_date, matched.release_year))
+                    .flatten()
+            });
+            let original = matched
+                .musicbrainz()
+                .and_then(|facts| facts.recording_first_release_date.clone())
+                .or_else(|| {
+                    matched
+                        .facts
+                        .is_none()
+                        .then(|| legacy_date(matched.publish_date, matched.publish_year))
+                        .flatten()
+                });
+            for (index, field, date) in [
+                (0, SupportedTag::ReleaseDate, release),
+                (1, SupportedTag::PublishDate, original),
+            ] {
+                if !self.config.options.tag_enabled(field)
+                    || !crate::provider_native_field_allowed(&matched.platform, field)
+                    || (occupied[index] && !self.config.options.overwrite_tag(field))
+                {
+                    continue;
+                }
+                if let Some(mut date) = date {
+                    if self.config.options.only_year {
+                        date.month = None;
+                        date.day = None;
+                    }
+                    let edit = crate::ValueEdit::Set { value: date };
+                    if index == 0 {
+                        patch.release_date = edit;
+                    } else {
+                        patch.original_date = edit;
+                    }
+                    occupied[index] = true;
+                }
+            }
+        }
+        patch
+    }
+    fn catalog_ids(&self, tag: &mut dyn TagImpl, format: &AudioFileFormat) {
+        for candidate in &self.matches {
+            let Some(f) = candidate.musicbrainz() else {
+                continue;
+            };
+            for (field, key, id) in [
+                (SupportedTag::TrackId, "TRACKID", Some(&f.recording_id)),
+                (
+                    SupportedTag::TrackId,
+                    "RELEASETRACKID",
+                    f.release_track_id.as_ref(),
+                ),
+                (SupportedTag::ReleaseId, "ALBUMID", f.release_id.as_ref()),
+                (
+                    SupportedTag::ReleaseId,
+                    "RELEASEGROUPID",
+                    f.release_group_id.as_ref(),
+                ),
+            ] {
+                if !self.config.options.tag_enabled(field)
+                    || !crate::provider_native_field_allowed(&candidate.platform, field)
+                {
+                    continue;
+                }
+                let Some(id) = id else { continue };
+                let description = match key {
+                    "TRACKID" => "MusicBrainz Track Id",
+                    "RELEASETRACKID" => "MusicBrainz Release Track Id",
+                    "ALBUMID" => "MusicBrainz Album Id",
+                    _ => "MusicBrainz Release Group Id",
+                };
+                let name = match format {
+                    AudioFileFormat::MP3
+                    | AudioFileFormat::AAC
+                    | AudioFileFormat::WAV
+                    | AudioFileFormat::AIFF => {
+                        if key == "TRACKID" {
+                            continue;
+                        }
+                        description.to_owned()
+                    }
+                    AudioFileFormat::MP4 => format!("----:com.apple.iTunes:{description}"),
+                    AudioFileFormat::WMA => description.replacen("MusicBrainz ", "MusicBrainz/", 1),
+                    _ => format!("MUSICBRAINZ_{key}"),
+                };
+                tag.set_native(
+                    &name,
+                    if self.config.options.overwrite_tag(field) || tag.get_native(&name).is_none() {
+                        vec![id.to_string()]
+                    } else {
+                        continue;
+                    },
+                );
+            }
+        }
+    }
+    fn catalog_id3_recording_id(&self, wrapper: &mut Tag) {
+        use id3::TagLike;
+        let Tag::ID3(tag) = wrapper else { return };
+        for candidate in &self.matches {
+            let Some(f) = candidate.musicbrainz() else {
+                continue;
+            };
+            if !self.config.options.tag_enabled(SupportedTag::TrackId)
+                || !crate::provider_native_field_allowed(&candidate.platform, SupportedTag::TrackId)
+            {
+                continue;
+            }
+            let owner = "http://musicbrainz.org";
+            if self.config.options.overwrite_tag(SupportedTag::TrackId)
+                || !tag
+                    .editor_tag()
+                    .unique_file_identifiers()
+                    .any(|id| id.owner_identifier == owner)
+            {
+                let native = tag.editor_tag_mut();
+                native.remove_unique_file_identifier_by_owner_identifier(owner);
+                native.add_frame(id3::frame::UniqueFileIdentifier {
+                    owner_identifier: owner.into(),
+                    identifier: f.recording_id.as_str().as_bytes().to_vec(),
+                });
+            }
+        }
     }
     fn apply_key_bpm(
         &self,

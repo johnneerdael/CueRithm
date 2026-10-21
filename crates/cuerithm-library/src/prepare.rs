@@ -65,6 +65,21 @@ impl PreparationService {
         let count = worker_count(thread::available_parallelism().map_or(1, |n| n.get()));
         Self::start_with_workers(library, runtime, count)
     }
+    #[cfg(feature = "autotag")]
+    pub fn start_with_catalog_runtime(
+        library: Library,
+        runtime: MediaRuntime,
+        catalog: Arc<cuerithm_autotag::CatalogRuntime>,
+    ) -> Result<Self> {
+        library.provider_runtime_with(catalog.clone())?;
+        let count = worker_count(thread::available_parallelism().map_or(1, |n| n.get()));
+        let tagger = Arc::new(Tagger::with_runtime_and_store(
+            cuerithm_autotag::CatalogEndpoints::default(),
+            Arc::new(library.clone()),
+            catalog,
+        )?);
+        Self::start_inner(library, runtime, count, tagger)
+    }
     pub fn start_with_workers(
         library: Library,
         runtime: MediaRuntime,
@@ -563,8 +578,9 @@ impl Worker {
                         warnings: vec![],
                     }
                 } else if job.snapshot.settings.autotag_enabled {
-                    match self.tagger.match_track_with_album(
+                    match self.tagger.match_prepared_with_album(
                         &query,
+                        &audio,
                         &lookup_config,
                         &self.stop,
                         hint.as_ref(),
@@ -629,6 +645,9 @@ impl Worker {
                     .required_tags
                     .retain(|field| !protected.contains(field));
                 let mut plan = TagWritePlan::build(input, &matched, &stage_config, &measured)?;
+                if let Some(runtime) = self.tagger.catalog_runtime() {
+                    plan = plan.with_catalog_runtime(runtime.clone());
+                }
                 if editor_override.is_some() || !patch.is_noop() {
                     plan = plan.with_editor_patch(patch)?;
                 }

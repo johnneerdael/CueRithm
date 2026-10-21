@@ -19,6 +19,10 @@ pub struct CandidateSnapshot {
     pub similarity: f64,
     pub reason: onetagger_tagger::MatchReason,
     pub identity_conflicts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facts: Option<crate::CatalogFacts>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recognition: Option<crate::CatalogRecognition>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandidateProvenance {
@@ -91,7 +95,9 @@ impl TagMatchOutcome {
                         .then_some(m.track.duration.as_secs_f64()),
                     similarity: m.accuracy,
                     reason: m.reason,
-                    identity_conflicts: identity_conflicts(input, &m.track, config),
+                    identity_conflicts: match_identity_conflicts(input, m, config),
+                    facts: m.facts.clone(),
+                    recognition: m.recognition.clone(),
                 })
                 .collect(),
             truncated: self.matches.len() > MAX_REVIEW_CANDIDATES,
@@ -215,7 +221,7 @@ pub(crate) fn identity_conflicts(
 }
 pub(crate) fn stable_key(t: &CatalogTrack) -> String {
     format!(
-        "{}\0{}\0{}\0{}\0{}\0{}\0{:?}\0{}",
+        "{}\0{}\0{}\0{}\0{}\0{}\0{:?}\0{}\0{}",
         t.platform,
         t.track_id.as_deref().unwrap_or(""),
         t.release_id.as_deref().unwrap_or(""),
@@ -223,7 +229,12 @@ pub(crate) fn stable_key(t: &CatalogTrack) -> String {
         t.album.as_deref().unwrap_or(""),
         t.isrc.as_deref().unwrap_or(""),
         t.artists,
-        t.duration.as_nanos()
+        t.duration.as_nanos(),
+        if t.track_id.is_none() {
+            format!("{:?}|{:?}", t.disc_number, t.track_number)
+        } else {
+            String::new()
+        }
     )
 }
 
@@ -263,4 +274,108 @@ pub(crate) fn recording_conflict(
             && !b.duration.is_zero()
             && a.duration.abs_diff(b.duration).as_secs_f64()
                 > config.options.max_duration_difference as f64)
+}
+
+pub(crate) fn candidate_key(candidate: &crate::CatalogMatch) -> String {
+    format!(
+        "{}\0{}",
+        stable_key(&candidate.track),
+        candidate.entity_key()
+    )
+}
+pub(crate) fn match_identity_conflicts(
+    input: &TagInput,
+    candidate: &crate::CatalogMatch,
+    config: &AutotagConfig,
+) -> Vec<String> {
+    let mut conflicts = identity_conflicts(input, &candidate.track, config);
+    if let Some(f) = candidate.musicbrainz() {
+        if f.scope == crate::CatalogIdentityScope::RecordingOnly {
+            conflicts.push("release_edition_unresolved".into());
+        }
+        for (aliases, target, name) in [
+            (
+                &[
+                    "musicbrainz_trackid",
+                    "musicbrainz_recordingid",
+                    "musicbrainz_recording_id",
+                ][..],
+                Some(f.recording_id.as_str()),
+                "recording_id",
+            ),
+            (
+                &["musicbrainz_albumid", "musicbrainz_releaseid"][..],
+                f.release_id.as_ref().map(crate::Mbid::as_str),
+                "release_id",
+            ),
+            (
+                &["musicbrainz_releasetrackid"][..],
+                f.release_track_id.as_ref().map(crate::Mbid::as_str),
+                "release_track_id",
+            ),
+        ] {
+            if let Some(source) = input
+                .media
+                .tags
+                .iter()
+                .find(|(key, _)| {
+                    aliases
+                        .iter()
+                        .any(|a| crate::candidate::native_identity_key_matches(key, a))
+                })
+                .map(|(_, value)| value.as_str())
+                && target.is_none_or(|target| !source.eq_ignore_ascii_case(target))
+            {
+                conflicts.push(name.into());
+            }
+        }
+    }
+    conflicts.sort();
+    conflicts.dedup();
+    conflicts
+}
+pub(crate) fn candidate_conflict(
+    a: &crate::CatalogMatch,
+    b: &crate::CatalogMatch,
+    config: &AutotagConfig,
+) -> bool {
+    recording_conflict(&a.track, &b.track, config)
+        || (a.track_id.is_none()
+            && b.track_id.is_none()
+            && a.platform == b.platform
+            && a.release_id == b.release_id
+            && a.track_number.is_some()
+            && b.track_number.is_some()
+            && (a.track_number != b.track_number || a.disc_number != b.disc_number))
+        || (config.options.multiple_matches != onetagger_tagger::MultipleMatchesSort::Default
+            && a.facts.is_some()
+            && b.facts.is_some()
+            && candidate_key(a) != candidate_key(b)
+            && partial_dates_overlap(a.selected_release_date(), b.selected_release_date()))
+        || match (a.musicbrainz(), b.musicbrainz()) {
+            (Some(a), Some(b)) => {
+                a.recording_id != b.recording_id
+                    || (a.release_id.is_some()
+                        && a.release_id == b.release_id
+                        && a.release_track_id != b.release_track_id)
+            }
+            _ => false,
+        }
+}
+
+// Unknown components define intervals, not invented dates. Only disjoint
+// intervals can establish an older/newer edition under the explicit policy.
+fn partial_dates_overlap(a: Option<&crate::TransferDate>, b: Option<&crate::TransferDate>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) if a.year != b.year => false,
+        (Some(a), Some(b)) => match (a.month, b.month) {
+            (Some(a), Some(b)) if a != b => false,
+            (Some(_), Some(_)) => match (a.day, b.day) {
+                (Some(a), Some(b)) => a == b,
+                _ => true,
+            },
+            _ => true,
+        },
+        _ => true,
+    }
 }

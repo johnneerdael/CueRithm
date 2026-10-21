@@ -89,6 +89,13 @@ pub struct PreparationPresetFrameName {
 pub struct PreparationPresetProviderOptions {
     pub beatport: Option<PreparationPresetBeatportOptions>,
     pub traxsource: Option<PreparationPresetTraxsourceOptions>,
+    pub musicbrainz: Option<PreparationPresetNoOptions>,
+    pub sonovault: Option<PreparationPresetNoOptions>,
+    pub discogs: Option<PreparationPresetNoOptions>,
+    pub itunes: Option<PreparationPresetNoOptions>,
+    pub bpmsupreme: Option<PreparationPresetNoOptions>,
+    pub bandcamp: Option<PreparationPresetNoOptions>,
+    pub deezer: Option<PreparationPresetNoOptions>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -188,3 +195,7 @@ pub struct PreparationPresetCapture {
     pub assignment_revision: Option<String>,
     pub base_settings_revision: String,
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreparationPresetNoOptions {}

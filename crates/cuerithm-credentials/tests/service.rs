@@ -10,12 +10,13 @@ impl Vault for Fake {
         Ok(self.0.lock().unwrap().contains_key(&p))
     }
     fn load(&self, p: ProviderId) -> Result<Option<Secret>, VaultError> {
-        Ok(self
-            .0
-            .lock()
-            .unwrap()
-            .get(&p)
-            .map(|s| Secret::new(s.clone()).unwrap()))
+        Ok(self.0.lock().unwrap().get(&p).map(|s| {
+            if matches!(p, ProviderId::BpmSupreme | ProviderId::Spotify) {
+                Secret::structured(s.clone()).unwrap()
+            } else {
+                Secret::new(s.clone()).unwrap()
+            }
+        }))
     }
     fn store(&self, p: ProviderId, s: &Secret) -> Result<(), VaultError> {
         self.0.lock().unwrap().insert(p, s.expose().into());
@@ -572,4 +573,49 @@ fn marker_symlink_is_rejected_without_following_or_replacing_target() {
         Err(StateError::UnsafePath)
     );
     assert_eq!(std::fs::read(outside).unwrap(), b"sentinel");
+}
+
+#[test]
+fn structured_account_password_spaces_preserve_token_validation() {
+    let secret =
+        Secret::structured(r#"{"email":"fixture@example.invalid","password":"two words"}"#.into())
+            .unwrap();
+    let value: serde_json::Value = serde_json::from_str(secret.expose()).unwrap();
+    assert_eq!(value["password"], "two words");
+    assert!(Secret::new("two words".into()).is_err());
+    assert!(Secret::structured("[]".into()).is_err());
+    assert!(Secret::structured("{}".into()).is_err());
+    assert!(!format!("{secret:?}").contains("two words"));
+    let service = new_service(Fake::default());
+    let old = service.status(ProviderId::BpmSupreme).unwrap();
+    let saved = service.save(&old.reference, secret).unwrap();
+    service
+        .run(&saved.reference, |value, _| {
+            let parsed: serde_json::Value = serde_json::from_str(value).unwrap();
+            assert_eq!(parsed["password"], "two words");
+        })
+        .unwrap();
+}
+#[test]
+fn discogs_account_verification_cas_is_revoked_by_remove() {
+    let service = new_service(Fake::default());
+    let first = service.status(ProviderId::Discogs).unwrap();
+    let saved = service
+        .save(
+            &first.reference,
+            Secret::new("fixture-personal".into()).unwrap(),
+        )
+        .unwrap();
+    service
+        .record_verification(&saved.reference, Verification::Valid)
+        .unwrap();
+    service.remove(ProviderId::Discogs).unwrap();
+    assert_eq!(
+        service.record_verification(&saved.reference, Verification::Valid),
+        Err(CredentialError::Stale)
+    );
+    assert_eq!(
+        service.status(ProviderId::Discogs).unwrap().verification,
+        Verification::Untested
+    );
 }

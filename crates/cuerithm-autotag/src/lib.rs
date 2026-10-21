@@ -1,11 +1,18 @@
 //! Automatic tagging adapters. GPL-3.0-only; the independent analysis engine is MIT.
 mod asf;
+mod candidate;
 mod config;
 mod evidence;
+pub use candidate::*;
+mod musicbrainz;
+pub use musicbrainz::MusicBrainzBackend;
 mod review;
 pub use review::{review_catalog_url, validate_review_required_fields};
 mod catalog_artwork;
-pub use catalog_artwork::fetch_catalog_artwork;
+pub use catalog_artwork::{
+    CatalogArtworkProvenance, CatalogArtworkRights, FetchedMusicBrainzArtwork,
+    fetch_catalog_artwork, fetch_catalog_artwork_with_runtime, fetch_musicbrainz_artwork,
+};
 mod editing;
 pub use editing::*;
 mod fields;
@@ -26,9 +33,17 @@ pub use write::{AnalysisTags, StagedTagWrite, TagWritePlan};
 mod image;
 mod sidecar;
 pub use sidecar::StagedSidecar;
+pub mod catalog_runtime;
 mod input;
 mod providers;
+pub use catalog_runtime::*;
+mod catalog_ports;
+mod recognition;
+pub use recognition::*;
+pub mod discogs;
+pub mod sonovault;
 use anyhow::{Result, ensure};
+pub use catalog_ports::test_pool_account;
 pub use config::{AnalysisTagSource, AutotagConfig, NoMatchPolicy};
 pub use input::TagInput;
 pub use onetagger_selected_providers::http::{ChallengeStore, MemoryChallengeStore, SolverConfig};
@@ -36,10 +51,11 @@ pub use onetagger_selected_providers::traxsource::TraxsourceRelease as CatalogRe
 use onetagger_tagger::MatchingUtils;
 pub use onetagger_tagger::{
     Album as CatalogAlbum, FrameName, PlatformInfo, SupportedTag, TaggerConfig,
-    Track as CatalogTrack, TrackMatch as CatalogMatch,
+    Track as CatalogTrack,
 };
 pub use providers::CatalogEndpoints;
 use serde::{Deserialize, Serialize};
+pub use sonovault::{SonoVaultBackend, SonoVaultLookup};
 use std::sync::{
     Arc, Condvar, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -49,13 +65,53 @@ use std::sync::{
 pub enum ProviderId {
     Beatport,
     Traxsource,
+    Musicbrainz,
+    Sonovault,
+    Discogs,
+    Itunes,
+    Bpmsupreme,
+    Bandcamp,
+    Deezer,
 }
 impl ProviderId {
+    pub const ALL: [Self; 9] = [
+        Self::Beatport,
+        Self::Traxsource,
+        Self::Musicbrainz,
+        Self::Sonovault,
+        Self::Discogs,
+        Self::Itunes,
+        Self::Bpmsupreme,
+        Self::Bandcamp,
+        Self::Deezer,
+    ];
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Beatport => "beatport",
             Self::Traxsource => "traxsource",
+            Self::Musicbrainz => "musicbrainz",
+            Self::Sonovault => "sonovault",
+            Self::Discogs => "discogs",
+            Self::Itunes => "itunes",
+            Self::Bpmsupreme => "bpmsupreme",
+            Self::Bandcamp => "bandcamp",
+            Self::Deezer => "deezer",
         }
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|p| p.as_str() == value)
+    }
+}
+/// Compiled source policy; serialized candidate fields cannot grant write permission.
+pub fn provider_native_field_allowed(provider: &str, field: SupportedTag) -> bool {
+    use SupportedTag::*;
+    match ProviderId::parse(provider) {
+        Some(ProviderId::Sonovault) => matches!(
+            field,
+            Title | Artist | Album | Label | Genre | ReleaseDate | Duration | ISRC
+        ),
+        Some(_) => true,
+        None => false,
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,6 +208,16 @@ pub trait ProviderBackend: Send + Sync {
         self.extend(track, config)
     }
 
+    /// Extend the owned candidate so typed identity/evidence cannot be detached.
+    fn extend_candidate_cancellable(
+        &self,
+        candidate: &mut CatalogMatch,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<()> {
+        self.extend_cancellable(&mut candidate.track, config, cancel)
+    }
+
     fn extend(&self, _track: &mut CatalogTrack, _config: &AutotagConfig) -> Result<()> {
         Ok(())
     }
@@ -199,21 +265,30 @@ pub struct TaggingCatalog {
     pub defaults: AutotagConfig,
     pub providers: Vec<PlatformInfo>,
     pub access: Vec<SourceAccess>,
+    pub recognition: RecognitionCatalog,
 }
 #[derive(Debug, serde::Serialize)]
 pub struct SourceAccess {
     pub id: String,
     pub requires_solver: bool,
 }
+#[derive(Debug, serde::Serialize)]
+pub struct RecognitionCatalog {
+    pub acoustid_configured: bool,
+}
 pub fn settings_catalog() -> TaggingCatalog {
     TaggingCatalog {
         defaults: AutotagConfig::default(),
         providers: Tagger::provider_options(),
         access: vec![],
+        recognition: RecognitionCatalog {
+            acoustid_configured: acoustid_application_configured(),
+        },
     }
 }
 pub struct Tagger {
     backends: Vec<Backend>,
+    runtime: Option<Arc<CatalogRuntime>>,
 }
 impl Tagger {
     pub fn new() -> Result<Self> {
@@ -226,7 +301,25 @@ impl Tagger {
         endpoints: CatalogEndpoints,
         store: Arc<dyn ChallengeStore>,
     ) -> Result<Self> {
-        Self::with_backends(providers::backends(endpoints, store)?)
+        let runtime = if let Some(origin) = endpoints.fixture_origin() {
+            CatalogRuntime::for_local_server(origin)?
+        } else {
+            CatalogRuntime::development()?
+        };
+        Self::with_runtime_and_store(endpoints, store, Arc::new(runtime))
+    }
+    pub fn with_runtime_and_store(
+        endpoints: CatalogEndpoints,
+        store: Arc<dyn ChallengeStore>,
+        runtime: Arc<CatalogRuntime>,
+    ) -> Result<Self> {
+        let mut tagger =
+            Self::with_backends(providers::backends(endpoints, store, runtime.clone())?)?;
+        tagger.runtime = Some(runtime);
+        Ok(tagger)
+    }
+    pub fn catalog_runtime(&self) -> Option<&Arc<CatalogRuntime>> {
+        self.runtime.as_ref()
     }
     pub fn with_backends(backends: Vec<Arc<dyn ProviderBackend>>) -> Result<Self> {
         let mut seen = std::collections::HashSet::new();
@@ -234,6 +327,7 @@ impl Tagger {
             ensure!(seen.insert(b.id()), "Duplicate provider backend");
         }
         Ok(Self {
+            runtime: None,
             backends: backends
                 .into_iter()
                 .map(|source| Backend {
@@ -261,7 +355,10 @@ impl Tagger {
                     && evidence::identity_conflicts(input, t, config).is_empty()
             })
             .collect();
-        let mut found = MatchingUtils::match_track(&info, &tracks, &config.options, true);
+        let mut found = MatchingUtils::match_track(&info, &tracks, &config.options, true)
+            .into_iter()
+            .map(CatalogMatch::from)
+            .collect();
         sort_candidates(&mut found, config);
         Ok(found)
     }
@@ -333,6 +430,63 @@ impl Tagger {
                     backend.source.album_cancellable(id, config, cancel)
                 })
                 .map(|album| album.map(Arc::new))
+        })
+    }
+    /// Recording recognition is an explicit fallback. Its edition candidates always require review.
+    pub fn match_prepared_with_album(
+        &self,
+        input: &TagInput,
+        audio: &cuerithm_media::PreparedAudio,
+        config: &AutotagConfig,
+        cancel: &Arc<AtomicBool>,
+        hint: Option<&AlbumHint>,
+    ) -> Result<TagMatchOutcome> {
+        let initial = self.match_track_with_album(input, config, cancel, hint);
+        if !config.recognition.enabled {
+            return initial;
+        }
+        let missing_identity = input.audio_info(config).is_ok_and(|info| {
+            info.title.as_ref().is_none_or(|s| s.trim().is_empty()) || info.artists.is_empty()
+        });
+        let unresolved = match &initial {
+            Ok(outcome) => outcome.status == MatchStatus::NoMatch,
+            Err(error) => missing_identity && error.downcast_ref::<CatalogLookupError>().is_some(),
+        };
+        if !unresolved {
+            return initial;
+        }
+        if let Some(reason) = recognition::recognition_skip_reason(audio) {
+            return initial.map(|mut outcome| {
+                outcome.warnings.push(ProviderFailure {
+                    provider: ProviderId::Musicbrainz,
+                    kind: ProviderFailureKind::Unknown,
+                    message: reason.into(),
+                });
+                outcome
+            });
+        }
+        let runtime = self
+            .runtime
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Identification runtime is unavailable"))?;
+        let recognized = recognize_prepared(runtime, audio, &config.recognition, cancel)?;
+        let mut found = recognized.matches;
+        let info = input.audio_info(config)?;
+        found.retain(|m| MatchingUtils::match_duration(&info, &m.track, &config.options));
+        if found.is_empty() {
+            return initial;
+        }
+        sort_candidates(&mut found, config);
+        Ok(TagMatchOutcome {
+            status: MatchStatus::Ambiguous,
+            matches: found,
+            attempted: vec![ProviderId::Musicbrainz],
+            warnings: if recognized.editions_truncated {
+                vec![ProviderFailure {provider:ProviderId::Musicbrainz, kind:ProviderFailureKind::Unknown,
+                    message:"Recognition shows a bounded selection of editions; refine the match if the desired release is absent".into()}]
+            } else {
+                vec![]
+            },
         })
     }
     pub fn match_track_with_album(
@@ -409,6 +563,9 @@ impl Tagger {
                             b.source.candidates_cancellable(input, config, cancel)
                         })?;
                     }
+                    for candidate in &found {
+                        candidate.validate()?;
+                    }
                     ensure!(
                         found.iter().all(|m| m.accuracy.is_finite()
                             && (0.0..=1.0).contains(&m.accuracy)
@@ -421,7 +578,7 @@ impl Tagger {
                     }
                     let all = found.clone();
                     found.retain(|m| {
-                        evidence::identity_conflicts(input, &m.track, config).is_empty()
+                        evidence::match_identity_conflicts(input, m, config).is_empty()
                     });
                     if found.is_empty() {
                         return Ok(all
@@ -434,9 +591,10 @@ impl Tagger {
                         && found
                             .get(1)
                             .is_some_and(|next| (found[0].accuracy - next.accuracy).abs() <= 0.01);
-                    let recording_conflict = found.iter().skip(1).any(|next| {
-                        evidence::recording_conflict(&found[0].track, &next.track, config)
-                    });
+                    let recording_conflict = found
+                        .iter()
+                        .skip(1)
+                        .any(|next| evidence::candidate_conflict(&found[0], next, config));
                     if tied_default || recording_conflict {
                         return Ok(found
                             .into_iter()
@@ -453,11 +611,16 @@ impl Tagger {
                         b.cooldown
                             .run(cancel, b.source.stage_timeout(config), || {
                                 // Do not let a failed partial extension contaminate a retry.
-                                let mut track = matched.track.clone();
-                                b.source.extend_cancellable(&mut track, config, cancel)?;
-                                Ok(track)
+                                let mut candidate = matched.clone();
+                                b.source.extend_candidate_cancellable(
+                                    &mut candidate,
+                                    config,
+                                    cancel,
+                                )?;
+                                candidate.validate_extension_from(&matched)?;
+                                Ok(candidate)
                             })
-                            .map(|track| matched.track = track)?;
+                            .map(|candidate| matched = candidate)?;
                     }
                     Ok(vec![matched])
                 },
@@ -465,7 +628,7 @@ impl Tagger {
             match result {
                 Ok(found) if !found.is_empty() => {
                     let ambiguous = found.len() > 1
-                        || !evidence::identity_conflicts(input, &found[0].track, config).is_empty();
+                        || !evidence::match_identity_conflicts(input, &found[0], config).is_empty();
                     out.matches.extend(found);
                     if ambiguous {
                         out.status = MatchStatus::Ambiguous;
@@ -492,7 +655,7 @@ impl Tagger {
             out.matches
                 .iter()
                 .skip(i + 1)
-                .any(|b| evidence::recording_conflict(&a.track, &b.track, config))
+                .any(|b| evidence::candidate_conflict(a, b, config))
         }) {
             out.status = MatchStatus::Ambiguous;
         }
@@ -505,10 +668,42 @@ impl Tagger {
 
 fn sort_candidates(found: &mut Vec<CatalogMatch>, config: &AutotagConfig) {
     found.sort_by(|a, b| {
-        evidence::stable_key(&a.track)
-            .cmp(&evidence::stable_key(&b.track))
+        evidence::candidate_key(a)
+            .cmp(&evidence::candidate_key(b))
             .then_with(|| b.accuracy.total_cmp(&a.accuracy))
     });
-    found.dedup_by(|a, b| evidence::stable_key(&a.track) == evidence::stable_key(&b.track));
-    MatchingUtils::sort_tracks(found, &config.options);
+    found.dedup_by(|a, b| evidence::candidate_key(a) == evidence::candidate_key(b));
+    // Stable display ranking only: overlapping partial-date intervals are
+    // rejected as ambiguous before an Oldest/Newest policy can publish.
+    found.sort_by(|a, b| match config.options.multiple_matches {
+        onetagger_tagger::MultipleMatchesSort::Oldest
+        | onetagger_tagger::MultipleMatchesSort::Newest => {
+            let date = |m: &CatalogMatch| {
+                m.selected_release_date()
+                    .map(|d| (d.year, d.month, d.day))
+                    .or_else(|| {
+                        m.track.release_date.map(|d| {
+                            (
+                                chrono::Datelike::year(&d),
+                                Some(chrono::Datelike::month(&d) as u8),
+                                Some(chrono::Datelike::day(&d) as u8),
+                            )
+                        })
+                    })
+            };
+            match (date(a), date(b)) {
+                (Some(a), Some(b)) => {
+                    if config.options.multiple_matches
+                        == onetagger_tagger::MultipleMatchesSort::Oldest
+                    {
+                        a.cmp(&b)
+                    } else {
+                        b.cmp(&a)
+                    }
+                }
+                _ => std::cmp::Ordering::Equal,
+            }
+        }
+        _ => b.accuracy.total_cmp(&a.accuracy),
+    });
 }

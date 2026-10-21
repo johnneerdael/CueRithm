@@ -26,6 +26,8 @@ pub struct MatchReviewCandidate {
     pub artwork_url: Option<String>,
     pub selectable: bool,
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facts: Option<cuerithm_autotag::CatalogFacts>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchReviewProviderAccess {

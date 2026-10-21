@@ -1,3 +1,5 @@
+import type {RecognitionConfig} from "./components/RecognitionSettings";
+import type {ProviderSetupBridge} from "./provider-setup-types";
 import type {CurationBridge,CurationFilter} from "./curation-types";
 import type {PreparationPresetsBridge,PreparationFolderChange} from "./preset-types";
 import type {OrganizationBridge} from "./organization-types";
@@ -37,10 +39,10 @@ export interface TaggingOptions {
   [key:string]:unknown;
 }
 export interface SolverConfig {endpoint:string|null;timeout_seconds:number}
-export interface AutotagConfig {solver?:SolverConfig;options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean;required_tags?:string[]}
+export interface AutotagConfig {recognition?:RecognitionConfig;solver?:SolverConfig;options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean;required_tags?:string[]}
 export type CustomOptionValue = {type:"boolean";value:boolean}|{type:"number";min:number;max:number;step:number;value:number}|{type:"string";value:string;hidden:boolean|null}|{type:"tag";value:TagFrame}|{type:"option";values:string[];value:string}|{type:"button"};
 export interface TaggingProvider {id:string;name:string;maxThreads:number;supportedTags:string[];customOptions:{options:{id:string;label:string;tooltip:string|null;value:CustomOptionValue}[]}}
-export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[];access?:{id:string;requires_solver:boolean}[]}
+export interface TaggingCatalog {recognition?:{acoustid_configured:boolean};defaults:AutotagConfig;providers:TaggingProvider[];access?:{id:string;requires_solver:boolean}[]}
 export type MetadataField="title"|"artist"|"album"|"album_artist"|"genre"|"comment"|"grouping"|"label"|"remixer"|"mix"|"producer"|"composer"|"lyricist";
 export type ContributorRole="artist"|"remixer"|"producer"|"composer"|"lyricist";
 export type CommonTextPattern="CamelotKeyFromTitle"|"OriginalMixFromTitle"|"CamelotKeyEnergyFromTitle"|"BpmFromTitle";
@@ -68,7 +70,7 @@ export interface Playback {track_id:string|null;duration_seconds:number;position
 export interface PreparationEvent {sequence:number;attempt?:number;job_id:string;track_id:string;stage:string;state:string}
 export interface PlaybackEvent {sequence:number;status:Playback}
 export interface Waveform {duration_seconds:number;bins:{min:number;max:number}[];bands?:[number,number,number][];rms?:number[];levels?:[number,number,number][]}
-export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge,PreparationPresetsBridge,CurationBridge {
+export interface Bridge extends OrganizationBridge,MetadataEditorBridge,MatchReviewBridge,PreparationPresetsBridge,CurationBridge,ProviderSetupBridge {
   discoverDjTargets():Promise<import("./sync-types").DiscoveredTarget[]>;
   previewDjSync(request:import("./sync-types").DjSyncRequest):Promise<import("./sync-types").SyncPreview>;
   discardDjSync(id:string):Promise<void>;

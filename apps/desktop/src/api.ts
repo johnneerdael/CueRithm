@@ -1,3 +1,4 @@
+import {nativeProviderSetup} from "./provider-setup-api";
 import {nativeCuration} from "./curation-api";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
@@ -12,6 +13,7 @@ export const nativeBridge:Bridge={
   ...nativeOrganization,
   ...nativePreparationPresets,
   ...nativeCuration,
+  ...nativeProviderSetup,
   ...nativeMetadataEditor,
   ...nativeMatchReview,
   discoverDjTargets:()=>invoke("discover_dj_targets"),

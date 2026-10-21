@@ -15,6 +15,8 @@ pub(crate) struct Inner {
     #[cfg(feature = "autotag")]
     pub tag_gate: Mutex<()>,
     #[cfg(feature = "autotag")]
+    pub catalog_runtime: Mutex<Option<std::sync::Weak<cuerithm_autotag::CatalogRuntime>>>,
+    #[cfg(feature = "autotag")]
     pub artifact_cleanup_gate: Mutex<()>,
     pub _lease: File,
     pub root: PathBuf,
@@ -62,7 +64,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=22).contains(&version),
+            (0..=23).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -201,6 +203,12 @@ impl Library {
                 include_str!("../migrations/022_curation.sql")
             ))?;
         }
+        if version < 23 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/023_catalog_runtime.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -236,6 +244,8 @@ impl Library {
                 organization_gate: Mutex::new(()),
                 #[cfg(feature = "autotag")]
                 tag_gate: Mutex::new(()),
+                #[cfg(feature = "autotag")]
+                catalog_runtime: Mutex::new(None),
                 #[cfg(feature = "autotag")]
                 artifact_cleanup_gate: Mutex::new(()),
                 _lease: lease,

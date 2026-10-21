@@ -69,6 +69,7 @@ pub struct Beatport {
     api: String,
     auth: String,
     cancel: Arc<AtomicBool>,
+    start_gate: Option<Arc<dyn Fn(&Arc<AtomicBool>) -> Result<(), Error> + Send + Sync>>,
 }
 
 impl Beatport {
@@ -85,6 +86,7 @@ impl Beatport {
             api: "https://api.beatport.com".into(),
             auth: "https://account.beatport.com".into(),
             cancel: Arc::new(AtomicBool::new(false)),
+            start_gate: None,
         }
     }
 
@@ -101,9 +103,30 @@ impl Beatport {
             api: api.trim_end_matches('/').into(),
             auth: auth.trim_end_matches('/').into(),
             cancel: Arc::new(AtomicBool::new(false)),
+            start_gate: None,
         }
     }
 
+    pub fn with_start_gate(
+        mut self,
+        gate: Arc<dyn Fn(&Arc<AtomicBool>) -> Result<(), Error> + Send + Sync>,
+    ) -> Self {
+        self.start_gate = Some(gate);
+        self
+    }
+
+    fn start_request(&self) -> Result<(), Error> {
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err(anyhow!("Tagging is stopping"));
+        }
+        if let Some(gate) = &self.start_gate {
+            gate(&self.cancel)?;
+        }
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err(anyhow!("Tagging is stopping"));
+        }
+        Ok(())
+    }
     pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
         self.cancel = cancel;
         self
@@ -119,6 +142,7 @@ impl Beatport {
     ) -> Result<BeatportTrackResults, Error> {
         let query = Self::clear_search_query(query);
         let token = self.update_token()?;
+        self.start_request()?;
         Ok(self
             .client
             .get(format!("{}/v4/catalog/search/", self.api))
@@ -165,6 +189,7 @@ impl Beatport {
         }
         drop(state);
         let fetched = (|| -> Result<BeatportOAuth, Error> {
+            self.start_request()?;
             let mut response: BeatportOAuth = self.client.post(format!("{}/o/token/",self.auth))
                 .form(&json!({
                     "client_id": "2tiTbKxmQFwnbFjMONU4k7njMRZmV3ZMwRBndiZs",
@@ -191,6 +216,11 @@ impl Beatport {
                 state.failure = None;
                 Ok(token)
             }
+            Err(error) if self.cancel.load(Ordering::Relaxed) => {
+                state.token = None;
+                state.failure = None;
+                Err(error)
+            }
             Err(error) => {
                 state.token = None;
                 let failure = TokenRefreshFailure {
@@ -212,6 +242,7 @@ impl Beatport {
     /// Fetch track using API
     pub fn track(&self, id: i64) -> Result<Option<BeatportTrack>, Error> {
         let token = self.update_token()?;
+        self.start_request()?;
         let response = self
             .client
             .get(&format!("{}/v4/catalog/tracks/{}", self.api, id))
@@ -229,6 +260,7 @@ impl Beatport {
     /// Fetch release using API
     pub fn release(&self, id: i64) -> Result<BeatportRelease, Error> {
         let token = self.update_token()?;
+        self.start_request()?;
         let response = self
             .client
             .get(&format!("{}/v4/catalog/releases/{}", self.api, id))
@@ -241,6 +273,7 @@ impl Beatport {
     /// Get tracks from release
     pub fn release_tracks(&self, id: i64) -> Result<Vec<BeatportTrack>, Error> {
         let token = self.update_token()?;
+        self.start_request()?;
         let response: BeatportPagination<BeatportTrack> = self
             .client
             .get(&format!(

@@ -10,6 +10,7 @@ mod match_review_commands;
 mod metadata_commands;
 mod organization_commands;
 mod preparation_preset_commands;
+mod provider_commands;
 mod sync_commands;
 use anyhow::Result;
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -17,6 +18,23 @@ use tauri::{Emitter, Manager};
 
 fn context() -> tauri::Context<tauri::Wry> {
     tauri::generate_context!()
+}
+
+/// Native automation shares packaged resources and provider identity without opening a window.
+pub fn automation_context(
+    library: &cuerithm_library::Library,
+) -> Result<(
+    cuerithm_media::MediaRuntime,
+    Arc<cuerithm_autotag::CatalogRuntime>,
+)> {
+    let context = context();
+    let resources =
+        tauri::utils::platform::resource_dir(context.package_info(), &Default::default())?
+            .join("media");
+    let runtime = cuerithm_media::MediaRuntime::from_bundle(&resources)?;
+    builtin::BuiltinModels::install(library.data_dir())?.configure_library(library)?;
+    let providers = library.provider_runtime(&context.package_info().version.to_string())?;
+    Ok((runtime, providers.runtime().clone()))
 }
 
 pub fn diagnostics() -> Result<()> {
@@ -27,7 +45,7 @@ pub fn diagnostics() -> Result<()> {
     builtin::BuiltinModels::verify()?;
     println!(
         "{}",
-        serde_json::json!({"application":"Cuerithm","version":env!("CARGO_PKG_VERSION"),"decoder":runtime.identity,"resources_verified":true,"built_in_analysis_verified":true})
+        serde_json::json!({"application":"Cuerithm","version":context.package_info().version.to_string(),"decoder":runtime.identity,"resources_verified":true,"built_in_analysis_verified":true})
     );
     Ok(())
 }
@@ -75,7 +93,12 @@ pub fn run() {
                 .audio_dir()
                 .ok()
                 .map(|p| p.join("Cuerithm/Incoming"));
-            let host = Arc::new(host::Host::open(&root, &runtime, initial_folder)?);
+            let host = Arc::new(host::Host::open_with_release(
+                &root,
+                &runtime,
+                initial_folder,
+                &app.package_info().version.to_string(),
+            )?);
             let events = host.preparation.subscribe();
             let handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -128,6 +151,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            provider_commands::provider_setup_statuses,
+            provider_commands::save_provider_credential,
+            provider_commands::remove_provider_credential,
+            provider_commands::test_provider_credential,
             curation_commands::curation_catalog,
             curation_commands::edit_curation_taxonomy,
             curation_commands::curation_snapshot,

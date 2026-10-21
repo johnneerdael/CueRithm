@@ -1754,3 +1754,174 @@ fn retained_candidate_access_keeps_captured_provider_policy_when_current_preset_
     assert!(preview.can_apply, "{:?}", preview.blockers);
     assert_eq!(preview.generation, state.generation);
 }
+
+#[test]
+fn recognized_candidate_uses_source_bound_consent_without_enabling_musicbrainz_globally() {
+    use cuerithm_autotag::{
+        CatalogFacts, CatalogRecognition, CatalogRecognitionService, ProviderBackend, ProviderId,
+        Tagger,
+    };
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    struct Recognized(Arc<AtomicUsize>);
+    impl ProviderBackend for Recognized {
+        fn id(&self) -> ProviderId {
+            ProviderId::Musicbrainz
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            anyhow::bail!("review must not requery")
+        }
+        fn extend(&self, t: &mut CatalogTrack, _: &AutotagConfig) -> anyhow::Result<()> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            t.label = Some("Expanded recognized label".into());
+            Ok(())
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let db = root.join("data/library.sqlite");
+    let lib = Library::open(&db).unwrap();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let source = root.join("source.flac");
+    std::fs::copy(
+        repo.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+        &source,
+    )
+    .unwrap();
+    let runtime =
+        cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin")).unwrap();
+    let mut config = AutotagConfig::default();
+    config.options.parse_filename = false;
+    config.recognition.enabled = true;
+    config.recognition.fingerprint_consent = true;
+    assert_eq!(config.options.platforms, ["beatport", "traxsource"]);
+    lib.save_settings(crate::PreparationSettings {
+        autotag_enabled: true,
+        tagging: Some(config.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&source),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let run = lib.claim_next().unwrap().unwrap();
+    let mut media = runtime.probe(&source).unwrap();
+    media.tags.insert("title".into(), "Signal".into());
+    media.tags.insert("artist".into(), "Artist".into());
+    let input = TagInput {
+        path: source,
+        source_sha256: run.source_sha256.clone(),
+        media,
+        duration_seconds: 64.,
+    };
+    let recording = "11111111-1111-4111-8111-111111111111";
+    let mut candidate = CatalogMatch::new(
+        1.,
+        CatalogTrack {
+            platform: "musicbrainz".into(),
+            title: "Signal".into(),
+            artists: vec!["Artist".into()],
+            track_id: Some(recording.into()),
+            ..Default::default()
+        },
+    );
+    candidate.facts=Some(CatalogFacts::MusicBrainz(serde_json::from_value(serde_json::json!({
+        "schema_version":1,"recording_id":recording,"release_id":null,"release_group_id":null,"release_track_id":null,"scope":"recording_only",
+        "recording_title":"Signal","track_title":null,"recording_disambiguation":null,"recording_credit":[],"track_credit":[],"release_credit":[],"isrcs":[],"recording_length_ms":64000,"track_length_ms":null,
+        "selected_release_date":null,"recording_first_release_date":null,"release_group_first_release_date":null,"release_events":[],"position":{},"release":null,"cover":null,
+        "source_policy":{"adapter_revision":"fixture","policy_revision":"fixture","data_class":"core"}
+    })).unwrap()));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let tagger = Tagger::with_backends(vec![Arc::new(Recognized(calls.clone()))]).unwrap();
+    let cancel = cuerithm_media::CancellationToken::default();
+    assert!(
+        tagger
+            .expand_review_candidate(&input, &candidate, &config, &cancel.shared_flag())
+            .is_err(),
+        "ordinary unselected provider stays rejected"
+    );
+    candidate.recognition = Some(CatalogRecognition {
+        schema_version: 1,
+        service: CatalogRecognitionService::AcoustId,
+        source_sha256: input.source_sha256.clone(),
+        recording_id: cuerithm_autotag::Mbid::new(recording).unwrap(),
+    });
+    let mut substituted = candidate.clone();
+    substituted.recognition.as_mut().unwrap().source_sha256 = "f".repeat(64);
+    assert!(
+        tagger
+            .expand_review_candidate(&input, &substituted, &config, &cancel.shared_flag())
+            .is_err(),
+        "another source cannot reuse recognition permission"
+    );
+    let mut no_consent = config.clone();
+    no_consent.recognition.fingerprint_consent = false;
+    assert!(
+        tagger
+            .expand_review_candidate(&input, &candidate, &no_consent, &cancel.shared_flag())
+            .is_err()
+    );
+    lib.record_match_outcome(
+        &run,
+        &input,
+        &TagMatchOutcome {
+            status: MatchStatus::Ambiguous,
+            matches: vec![candidate.clone()],
+            attempted: vec![ProviderId::Musicbrainz],
+            warnings: vec![],
+        },
+    )
+    .unwrap();
+    lib.fail_for_run(
+        &run,
+        "matching",
+        "Recognized recording requires edition review",
+    )
+    .unwrap();
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let state = lib.track_match_review(&run.track_id).unwrap().unwrap();
+    let request = super::MatchReviewRequest {
+        track_id: run.track_id.clone(),
+        generation: state.generation,
+        candidate_id: Some(state.candidates[0].id.clone()),
+        action: super::MatchReviewAction::UseSelected,
+        fields: vec![super::MatchReviewFieldDecision {
+            field: "label".into(),
+            action: super::MatchReviewFieldAction::Replace,
+        }],
+        acknowledge_conflicts: true,
+        allow_id3_upgrade: false,
+    };
+    let preview = lib
+        .preview_match_review_with(&tagger, &runtime, request, &cancel)
+        .expect("consented source-bound recognition must expand despite default provider list");
+    assert!(preview.can_apply, "{:?}", preview.blockers);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        lib.load_review_capture(&run.track_id)
+            .unwrap()
+            .unwrap()
+            .config
+            .options
+            .platforms,
+        ["beatport", "traxsource"]
+    );
+    lib.apply_match_review_with(&runtime, &preview.id, &preview.revision, &cancel)
+        .unwrap();
+    let retry = lib.claim_next().unwrap().unwrap();
+    assert_eq!(retry.id, run.id);
+    assert!(retry.attempt > run.attempt);
+    let decision = lib
+        .protected_match_review_for_run(&retry, &runtime)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        decision.outcome.matches[0].recognition,
+        candidate.recognition
+    );
+}

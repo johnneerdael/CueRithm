@@ -15,6 +15,12 @@ function fixture(){
  return {bridge,review};
 }
 describe("match review evidence and decisions",()=>{
+ it("keeps scoped MusicBrainz edition dates and credits visible as read-only evidence",async()=>{
+  const {bridge,review}=fixture();review.candidates.splice(1);const chosen=review.candidates[0];chosen.provider="musicbrainz";
+  Object.assign(chosen,{facts:{kind:"musicbrainz",data:{schema_version:1,recording_id:"11111111-1111-4111-8111-111111111111",release_id:"22222222-2222-4222-8222-222222222222",release_group_id:null,release_track_id:"33333333-3333-4333-8333-333333333333",scope:"release_track",recording_title:"Borrowed Light",track_title:"Borrowed Light",recording_disambiguation:null,recording_credit:[{artist_id:"44444444-4444-4444-8444-444444444444",name:"Nora Vale",credited_name:"N. Vale",join_phrase:" feat. "},{artist_id:"55555555-5555-4555-8555-555555555555",name:"Miro",credited_name:"Miro",join_phrase:""}],track_credit:[],release_credit:[],isrcs:[],recording_length_ms:null,track_length_ms:null,selected_release_date:{year:2024,month:6,day:null},recording_first_release_date:{year:2020,month:null,day:null},release_group_first_release_date:null,release_events:[],position:{medium_position:1,track_position:1,printed_number:"A1",medium_track_count:2,medium_count:1},release:{title:"Quiet Forms",status:"Official",country:"BE",barcode:null,media_format:"Vinyl",labels:[]},cover:null,source_policy:{adapter_revision:"fixture",policy_revision:"fixture",data_class:"core"}}}});
+  render(<MatchReview bridge={bridge} trackId="a" onClose={()=>{}} onPending={()=>{}} onChanged={()=>{}}/>);fireEvent.click(await screen.findByRole("radio",{name:"musicbrainz · Borrowed Light · Club Mix"}));
+  const evidence=await screen.findByRole("region",{name:"Recording and release evidence"});expect(evidence).toHaveTextContent("2024-06");expect(evidence).toHaveTextContent("N. Vale feat. Miro");expect(evidence).toHaveTextContent("A1");expect(evidence).toHaveTextContent("read-only");expect(screen.queryByRole("combobox",{name:"MusicBrainz recording ID match action"})).not.toBeInTheDocument();expect(bridge.playerLoad).not.toHaveBeenCalled();
+ });
  it("refreshes unavailable source access without erasing choices or re-expanding a frozen preview",async()=>{
   const {bridge,review}=fixture();let access:()=>void=()=>{};
   bridge.onCatalogAccessChange=vi.fn(async listener=>{access=listener;return()=>{};});

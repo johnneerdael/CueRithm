@@ -16,6 +16,93 @@ fn rules() -> PreparationPresetRules {
         },
     }
 }
+#[cfg(feature = "autotag")]
+#[test]
+fn every_accepted_provider_is_portable_without_credentials_or_transmission_consent() {
+    let temp = tempfile::tempdir().unwrap();
+    let lib = Library::open(&temp.path().join("library.sqlite")).unwrap();
+    let mut draft = PreparationSettings::default();
+    let mut tagging = cuerithm_autotag::AutotagConfig::default();
+    tagging.options.platforms = cuerithm_autotag::ProviderId::ALL
+        .iter()
+        .map(|provider| provider.as_str().into())
+        .collect();
+    tagging.recognition.enabled = true;
+    tagging.recognition.fingerprint_consent = true;
+    tagging.solver.endpoint = Some("http://private-solver.invalid:8191".into());
+    draft.tagging = Some(tagging.clone());
+    let projection = lib.project_preparation_preset(&draft).unwrap();
+    assert_eq!(
+        projection
+            .rules
+            .tagging
+            .as_ref()
+            .unwrap()
+            .options
+            .platforms
+            .len(),
+        9
+    );
+    let preset = lib
+        .save_preparation_preset(PreparationPresetSave {
+            id: None,
+            expected_revision: None,
+            name: "All accepted metadata providers".into(),
+            rules: projection.rules,
+            connections: projection.connections,
+        })
+        .unwrap();
+    let exported = lib
+        .export_preparation_preset(&preset.id, &preset.revision)
+        .unwrap();
+    assert!(!exported.document.contains("recognition"));
+    assert!(!exported.document.contains("fingerprint_consent"));
+    assert!(!exported.document.contains("private-solver"));
+    assert!(!exported.document.contains("spotify"));
+    assert!(!exported.document.contains("beatsource"));
+    assert!(!exported.document.contains("junodownload"));
+    let overlay = lib
+        .overlay_preparation_preset(&draft, &preset.id, &preset.revision)
+        .unwrap();
+    assert!(
+        overlay
+            .tagging
+            .as_ref()
+            .unwrap()
+            .recognition
+            .fingerprint_consent
+    );
+    assert_eq!(
+        overlay.tagging.as_ref().unwrap().solver.endpoint,
+        tagging.solver.endpoint
+    );
+    let mut unsafe_import: serde_json::Value = serde_json::from_str(&exported.document).unwrap();
+    unsafe_import["rules"]["tagging"]["recognition"] =
+        serde_json::json!({"enabled":true,"fingerprint_consent":true});
+    assert!(
+        lib.import_preparation_preset(&unsafe_import.to_string(), None)
+            .is_err()
+    );
+    unsafe_import = serde_json::from_str(&exported.document).unwrap();
+    unsafe_import["rules"]["tagging"]["options"]["platforms"] = serde_json::json!(["junodownload"]);
+    assert!(
+        lib.import_preparation_preset(&unsafe_import.to_string(), None)
+            .is_err()
+    );
+    unsafe_import = serde_json::from_str(&exported.document).unwrap();
+    unsafe_import["rules"]["tagging"]["options"]["platforms"] = serde_json::json!(["beatsource"]);
+    assert!(
+        lib.import_preparation_preset(&unsafe_import.to_string(), None)
+            .is_err()
+    );
+    unsafe_import = serde_json::from_str(&exported.document).unwrap();
+    unsafe_import["rules"]["tagging"]["options"]["custom"]["sonovault"] =
+        serde_json::json!({"api_key":"fixture-private"});
+    assert!(
+        lib.import_preparation_preset(&unsafe_import.to_string(), None)
+            .is_err()
+    );
+}
 #[test]
 fn preset_revisions_are_durable_cas_guarded_and_do_not_select_global_settings() {
     let temp = tempfile::tempdir().unwrap();

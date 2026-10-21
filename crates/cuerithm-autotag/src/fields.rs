@@ -62,7 +62,19 @@ fn value(
             .filter(|v| v.iter().any(|s| !s.trim().is_empty()));
     }
     match selected {
-        SupportedTag::ReleaseDate => tag.get_date().map(|d| vec![format!("{d:?}")]),
+        SupportedTag::ReleaseDate => {
+            let keys: &[&str] = match format {
+                AudioFileFormat::FLAC | AudioFileFormat::OGG => {
+                    &["RELEASETIME", "RELEASEDATE", "RELEASE_DATE"]
+                }
+                AudioFileFormat::MP4 => &["----:com.apple.iTunes:RELEASETIME"],
+                AudioFileFormat::WMA => &["RELEASETIME"],
+                _ => &["TDRL"],
+            };
+            keys.iter()
+                .find_map(|key| tag.get_native(key))
+                .or_else(|| tag.get_date().map(|d| vec![format!("{d:?}")]))
+        }
         SupportedTag::PublishDate => tag.get_raw(match format {
             AudioFileFormat::FLAC | AudioFileFormat::OGG => "ORIGINALDATE",
             AudioFileFormat::MP4 => "com.apple.iTunes:PUBLISHTIME",
@@ -100,7 +112,25 @@ fn value(
             let mut values: Vec<_> = tag
                 .all_tags()
                 .into_iter()
-                .filter(|(k, _)| k.to_uppercase().ends_with(suffix))
+                .filter(|(k, _)| {
+                    let canonical = k
+                        .chars()
+                        .filter(|c| c.is_ascii_alphanumeric())
+                        .flat_map(char::to_lowercase)
+                        .collect::<String>();
+                    k.to_uppercase().ends_with(suffix)
+                        || match selected {
+                            SupportedTag::TrackId => {
+                                canonical.ends_with("musicbrainztrackid")
+                                    || canonical.ends_with("musicbrainzreleasetrackid")
+                            }
+                            SupportedTag::ReleaseId => {
+                                canonical.ends_with("musicbrainzalbumid")
+                                    || canonical.ends_with("musicbrainzreleasegroupid")
+                            }
+                            _ => false,
+                        }
+                })
                 .collect();
             values.sort_by(|a, b| a.0.cmp(&b.0));
             (!values.is_empty()).then(|| {
@@ -160,6 +190,21 @@ pub(crate) fn values(
                     && let Some(custom) = custom_style
                 {
                     wrapper.tag().get_raw(custom)
+                } else if *s == SupportedTag::TrackId && matches!(&wrapper, Tag::ID3(_)) {
+                    let mut values =
+                        value(&**wrapper.tag(), *s, &format, other_bindings).unwrap_or_default();
+                    if let Tag::ID3(tag) = &wrapper {
+                        for id in tag
+                            .editor_tag()
+                            .unique_file_identifiers()
+                            .filter(|id| id.owner_identifier == "http://musicbrainz.org")
+                        {
+                            if let Ok(value) = std::str::from_utf8(&id.identifier) {
+                                values.push(format!("UFID:http://musicbrainz.org={value}"));
+                            }
+                        }
+                    }
+                    (!values.is_empty()).then_some(values)
                 } else if format == AudioFileFormat::MP4 && *s == SupportedTag::Explicit {
                     advisory.clone()
                 } else {
@@ -258,6 +303,7 @@ pub(crate) fn protected_custom_target(key: &str, format: &AudioFileFormat) -> bo
     let leaf = custom_leaf(key, format);
     [
         "GEOB",
+        "UFID",
         "PRIV",
         "POPM",
         "COMM",
@@ -320,6 +366,12 @@ pub(crate) fn custom_bypasses_field_policy(
             || (*format == AudioFileFormat::MP4 && same_mp4_atom(binding, key))
     });
     bound
+        || (leaf
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect::<String>()
+            .contains("MUSICBRAINZ")
+            && leaf.ends_with("ID"))
         || leaf.ends_with("_TRACK_ID")
         || leaf.ends_with("_RELEASE_ID")
         || leaf.ends_with("_TAGGEDDATE")

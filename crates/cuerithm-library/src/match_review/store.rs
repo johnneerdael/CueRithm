@@ -52,11 +52,9 @@ pub(super) fn candidate_public(
     selectable: bool,
 ) -> Result<MatchReviewCandidate> {
     let track = &matched.track;
-    let provider = match track.platform.as_str() {
-        "beatport" => cuerithm_autotag::ProviderId::Beatport,
-        "traxsource" => cuerithm_autotag::ProviderId::Traxsource,
-        _ => anyhow::bail!("Unrecognized candidate provider"),
-    };
+    matched.validate()?;
+    let provider = cuerithm_autotag::ProviderId::parse(&track.platform)
+        .context("Unrecognized candidate provider")?;
     Ok(MatchReviewCandidate {
         id,
         provider: track.platform.clone(),
@@ -69,14 +67,27 @@ pub(super) fn candidate_public(
         isrc: track.isrc.as_deref().map(text),
         duration_seconds: (!track.duration.is_zero()).then_some(track.duration.as_secs_f64()),
         similarity: matched.accuracy,
-        identity_conflicts: cuerithm_autotag::Tagger::review_candidate_conflicts(
-            input, track, config,
+        identity_conflicts: cuerithm_autotag::Tagger::review_match_conflicts(
+            input, matched, config,
         )?,
         source_url: cuerithm_autotag::review_catalog_url(provider, &track.url, false),
-        artwork_url: track
-            .art
-            .as_deref()
-            .and_then(|url| cuerithm_autotag::review_catalog_url(provider, url, true)),
+        artwork_url: matched
+            .musicbrainz()
+            .and_then(|facts| facts.cover.as_ref())
+            .map(|cover| {
+                format!(
+                    "https://coverartarchive.org/release/{}/{}",
+                    cover.release_id,
+                    cover.image_id.as_deref().unwrap_or("front")
+                )
+            })
+            .or_else(|| {
+                track
+                    .art
+                    .as_deref()
+                    .and_then(|url| cuerithm_autotag::review_catalog_url(provider, url, true))
+            }),
+        facts: matched.facts.clone(),
         selectable,
         reason: (!selectable).then(|| {
             "Complete candidate exceeds the evidence budget; requery before selecting it".into()
@@ -124,6 +135,17 @@ impl Library {
             fingerprint.sha256 == run.source_sha256,
             "Source changed before candidate capture"
         );
+        for candidate in &outcome.matches {
+            candidate.validate()?;
+            if candidate.recognition.is_some() {
+                ensure!(
+                    cuerithm_autotag::Tagger::review_candidate_provider_enabled(
+                        input, candidate, &config
+                    )?,
+                    "Recognition candidate does not belong to this consented source"
+                );
+            }
+        }
         let info = input.audio_info(&config)?;
         let generation = uuid::Uuid::new_v4().to_string();
         let mut capture = Capture {
@@ -183,20 +205,32 @@ impl Library {
         for (index, matched) in outcome.matches.iter().take(10).enumerate() {
             let id = digest(&(&generation, index, matched))?;
             let bytes = serde_json::to_vec(matched)?.len();
+            let mut public = candidate_public(id.clone(), matched, input, &config, true)?;
+            let public_bytes = serde_json::to_vec(&public)?.len();
             let selectable = capture.media.is_some()
-                && used.saturating_add(bytes).saturating_add(16384) < MAX_BYTES;
+                && used
+                    .saturating_add(bytes)
+                    .saturating_add(public_bytes)
+                    .saturating_add(128)
+                    < MAX_BYTES;
             if selectable {
-                used = used.saturating_add(bytes).saturating_add(16384);
+                used = used
+                    .saturating_add(bytes)
+                    .saturating_add(public_bytes)
+                    .saturating_add(128);
             } else {
                 capture.public.truncated = true;
+                public.facts = None;
+                public.selectable = false;
+                public.reason = Some(
+                    "Complete candidate exceeds the evidence budget; requery before selecting it"
+                        .into(),
+                );
+                used = used
+                    .saturating_add(serde_json::to_vec(&public)?.len())
+                    .saturating_add(128);
             }
-            capture.public.candidates.push(candidate_public(
-                id.clone(),
-                matched,
-                input,
-                &config,
-                selectable,
-            )?);
+            capture.public.candidates.push(public);
             capture.candidates.push(SavedCandidate {
                 id,
                 matched: selectable.then(|| matched.clone()),
@@ -298,6 +332,39 @@ impl Library {
         current.solver.timeout_seconds = solver.timeout_seconds;
         Ok(current)
     }
+    pub(super) fn recognized_review_access(
+        &self,
+        capture: &Capture,
+    ) -> Result<Option<MatchReviewProviderAccess>> {
+        if !capture
+            .candidates
+            .iter()
+            .filter_map(|candidate| candidate.matched.as_ref())
+            .any(|candidate| candidate.recognition.is_some())
+        {
+            return Ok(None);
+        }
+        let input = capture.input()?;
+        let recognized = capture
+            .candidates
+            .iter()
+            .filter_map(|candidate| candidate.matched.as_ref())
+            .any(|candidate| {
+                candidate.recognition.is_some()
+                    && cuerithm_autotag::Tagger::review_candidate_provider_enabled(
+                        &input,
+                        candidate,
+                        &capture.config,
+                    )
+                    .unwrap_or(false)
+            });
+        if !recognized {
+            return Ok(None);
+        }
+        let mut access_config = self.current_catalog_lookup_config(&capture.config)?;
+        access_config.options.platforms = vec!["musicbrainz".into()];
+        Ok(self.review_access_for_lookup(&access_config)?.pop())
+    }
     pub(super) fn review_access(
         &self,
         config: Option<&AutotagConfig>,
@@ -313,7 +380,24 @@ impl Library {
     ) -> Result<Vec<MatchReviewProviderAccess>> {
         use cuerithm_autotag::ChallengeStore;
         let has_solver = config.solver.api_url()?.is_some();
-        config.options.platforms.iter().map(|id|{let requires_solver=self.requires_solver(id)?;let available=!requires_solver||has_solver;Ok(MatchReviewProviderAccess{id:id.clone(),available,requires_solver,reason:(!available).then(||"Unavailable: configure a FlareSolverr-compatible solver in Automatic tagging settings".into())})}).collect()
+        let setup = self
+            .shared_catalog_runtime()?
+            .map(|runtime| self.provider_runtime_with(runtime))
+            .transpose()?;
+        config.options.platforms.iter().map(|id|{
+            let requires_solver=self.requires_solver(id)?;
+            let provider=cuerithm_autotag::ProviderId::parse(id);
+            let configured=provider.map(|provider|setup.as_ref().map(|setup|setup.status(provider)).transpose()).transpose()?.flatten();
+            let needs_native_setup=matches!(provider,Some(cuerithm_autotag::ProviderId::Sonovault|cuerithm_autotag::ProviderId::Bpmsupreme));
+            let capability=configured.as_ref().map_or(!needs_native_setup,|status|status.can_use);
+            let available=provider.is_some()&&capability&&(!requires_solver||has_solver);
+            let reason=if requires_solver&&!has_solver {
+                Some("Unavailable: configure a FlareSolverr-compatible solver in Automatic tagging settings".into())
+            }else if !capability {
+                Some(configured.and_then(|status|status.reason.map(|reason|reason.message)).unwrap_or_else(||"Set up this optional provider in Automatic tagging settings".into()))
+            }else{None};
+            Ok(MatchReviewProviderAccess{id:id.clone(),available,requires_solver,reason})
+        }).collect()
     }
     pub(super) fn initial_review_capture(&self, track: &str) -> Result<Capture> {
         type InitialRow = (
@@ -414,6 +498,7 @@ impl Library {
             }
         };
         let current = self.current_preparation_snapshot_for_path(&capture.path.path()?);
+        let recognized_access = self.recognized_review_access(&capture)?;
         let mut public = capture.public;
         let attention = public
             .job_id
@@ -445,6 +530,14 @@ impl Library {
         public.can_requery = current_error.is_none()
             && (public.track_state == "ready" || attention)
             && public.providers.iter().any(|p| p.available);
+        if let Some(access) = recognized_access
+            && !public
+                .providers
+                .iter()
+                .any(|provider| provider.id == access.id)
+        {
+            public.providers.push(access);
+        }
         if let Some(error) = current_error {
             public.reason = Some(error);
         } else if public.providers.is_empty() {

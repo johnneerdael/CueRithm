@@ -1,4 +1,7 @@
-import {useEffect,useState,type ReactNode} from "react";
+import RecognitionSettings from "../components/RecognitionSettings";
+import ProviderSetup,{providerSetupSummary} from "../components/ProviderSetup";
+import type {ProviderSetupStatus} from "../provider-setup-types";
+import {useCallback,useEffect,useRef,useState,type ReactNode} from "react";
 import {ArrowUp,ArrowDown} from "lucide-react";
 import type {AutotagConfig,Bridge,TagFrame,TaggingCatalog,TaggingOptions} from "../types";
 import {errorMessage} from "../api";
@@ -21,7 +24,12 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
   const [retry,setRetry]=useState(0);
   const [accessError,setAccessError]=useState<string|null>(null);
   const [resetting,setResetting]=useState(false);
-  useEffect(()=>{let active=true;setError(null);bridge.getTaggingCatalog().then(value=>{if(active)setCatalog(value);}).catch(e=>{if(active)setError(errorMessage(e));});return ()=>{active=false;};},[bridge,retry,catalogRevision]);
+  const [setup,setSetup]=useState<ProviderSetupStatus[]>([]),[setupError,setSetupError]=useState<string|null>(null);
+  const setupRequest=useRef(0),catalogRequest=useRef(0),mounted=useRef(true);
+  const refreshSetup=useCallback(async()=>{const request=++setupRequest.current;try{const next=await bridge.providerSetupStatuses();if(mounted.current&&request===setupRequest.current){setSetup(next);setSetupError(null);}}catch{if(mounted.current&&request===setupRequest.current)setSetupError("Provider setup status is unavailable. Refresh before configuring an account.");}},[bridge]);
+  const refreshCatalog=useCallback(async(showError:boolean)=>{const request=++catalogRequest.current;try{const next=await bridge.getTaggingCatalog();if(mounted.current&&request===catalogRequest.current){setCatalog(next);setError(null);}}catch(e){if(showError&&mounted.current&&request===catalogRequest.current)setError(errorMessage(e));}},[bridge]);
+  useEffect(()=>{mounted.current=true;void refreshSetup();const listener=bridge.onCatalogAccessChange(()=>{void refreshSetup();void refreshCatalog(false);});return()=>{mounted.current=false;setupRequest.current++;catalogRequest.current++;void listener.then(dispose=>dispose());};},[bridge,refreshSetup,refreshCatalog]);
+  useEffect(()=>{setError(null);void refreshCatalog(true);},[refreshCatalog,retry,catalogRevision]);
   useEffect(()=>{let active=true;bridge.getTaggingStorage().then(value=>{if(active)setStorage(value);}).catch(()=>{});return ()=>{active=false;};},[bridge]);
   if(error)return <section className="setting-section"><h2>Automatic tagging</h2><p role="alert">{error}</p><button className="secondary" onClick={()=>setRetry(n=>n+1)}>Retry loading tagging settings</button></section>;
   if(!catalog)return <section className="setting-section" aria-busy="true"><h2>Automatic tagging</h2><p className="setting-note">Loading tagging settings…</p></section>;
@@ -36,7 +44,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
     (storage.retained_cleanup_files??0)>0||(storage.retained_cleanup_bytes??0)>0?`Temporary files retained: ${storage.retained_cleanup_files??"count unavailable"} · ${storage.retained_cleanup_bytes===undefined?"size not reported":(storage.retained_cleanup_bytes/1048576).toFixed(1)+" MB measured"}.`:null,
     (storage.retained_cleanup_unknown_sizes??0)>0?`Size unavailable for ${storage.retained_cleanup_unknown_sizes} ${storage.retained_cleanup_unknown_sizes===1?"file":"files"}.`:null,
   ].filter(Boolean).join(" "):"";
-  const resetAccess=async()=>{setResetting(true);setAccessError(null);try{setCatalog(await bridge.resetCatalogAccess());}catch(e){setAccessError(errorMessage(e));}finally{setResetting(false);}};
+  const resetAccess=async()=>{const request=++catalogRequest.current;setResetting(true);setAccessError(null);try{const next=await bridge.resetCatalogAccess();if(mounted.current&&request===catalogRequest.current)setCatalog(next);}catch(e){if(mounted.current)setAccessError(errorMessage(e));}finally{if(mounted.current)setResetting(false);}};
   const options=current.options;
   const update=(patch:Partial<AutotagConfig>)=>onChange({...current,...patch},enabled);
   const opt=(patch:Partial<TaggingOptions>)=>update({options:{...options,...patch}});
@@ -51,12 +59,15 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
     <div className="setting-heading"><div><h2>Automatic tagging</h2><p>Apply these settings to every incoming track after analysis.</p></div></div>
     <Toggle label="Automatic tagging" value={enabled} onChange={value=>onChange(current,value)} note="Catalog lookups use an internet connection. Analysis and cue generation work offline."/>
     <div className="setting-row"><div><strong>Recovery backups</strong><p>Original file backups are retained in application data. Temporary files remain while cleanup is pending.</p>{retainedCleanup?<p>{retainedCleanup}</p>:null}</div><span className="fixed-setting">{storage?`${(storage.original_bytes/1048576).toFixed(1)} MB · ${storage.original_files} files`:"Storage unavailable"}</span></div>
+    {setupError?<p role="alert" className="provider-setup-message">{setupError}<button className="back-link" onClick={()=>void refreshSetup()}>Refresh provider setup</button></p>:null}
     <div className="provider-order" aria-label="Catalog providers">{ordered.map(id=>{
       const provider=catalog.providers.find(p=>p.id===id);if(!provider)return null;
       const index=options.platforms.indexOf(id),selected=index>=0;
-      const unavailable=requiresSolver(id)&&!hasSolver;
-      return <div className="provider-line" key={id}><span className="provider-position">{selected?index+1:"—"}</span><label><input type="checkbox" aria-label={"Use "+provider.name} disabled={unavailable&&!selected} checked={selected} onChange={e=>opt({platforms:e.target.checked?[...options.platforms,id]:options.platforms.filter(p=>p!==id)})}/><strong>{provider.name}</strong></label><small>{unavailable?"Unavailable · configure a solver":requiresSolver(id)?"Uses configured solver":provider.maxThreads===1?"One request at a time":"Uses tagging concurrency"}</small><button aria-label={"Move "+provider.name+" earlier"} disabled={!selected||index===0} onClick={()=>opt({platforms:swap(options.platforms,index,-1)})}><ArrowUp size={15}/></button><button aria-label={"Move "+provider.name+" later"} disabled={!selected||index===options.platforms.length-1} onClick={()=>opt({platforms:swap(options.platforms,index,1)})}><ArrowDown size={15}/></button></div>;
+      const connection=setup.find(value=>value.id===id),needsSetup=["sonovault","bpmsupreme"].includes(id);
+      const unavailable=requiresSolver(id)&&!hasSolver||(connection?!connection.can_use:needsSetup);
+      return <div className="provider-entry" key={id}><div className="provider-line"><span className="provider-position">{selected?index+1:"—"}</span><label><input type="checkbox" aria-label={"Use "+provider.name} disabled={unavailable&&!selected} checked={selected} onChange={e=>opt({platforms:e.target.checked?[...options.platforms,id]:options.platforms.filter(p=>p!==id)})}/><strong>{provider.name}</strong></label><small>{requiresSolver(id)&&!hasSolver?"Unavailable · configure a solver":connection?providerSetupSummary(connection):requiresSolver(id)?"Uses configured solver":provider.maxThreads===1?"One request at a time":"Uses tagging concurrency"}</small><button aria-label={"Move "+provider.name+" earlier"} disabled={!selected||index===0} onClick={()=>opt({platforms:swap(options.platforms,index,-1)})}><ArrowUp size={15}/></button><button aria-label={"Move "+provider.name+" later"} disabled={!selected||index===options.platforms.length-1} onClick={()=>opt({platforms:swap(options.platforms,index,1)})}><ArrowDown size={15}/></button></div>{connection?<ProviderSetup bridge={bridge} name={provider.name} status={connection} onRefresh={refreshSetup}/>:null}</div>;
     })}</div>
+    <RecognitionSettings config={current.recognition} configured={catalog.recognition?.acoustid_configured??false} onChange={recognition=>update({recognition})}/>
     <details className="tagging-group" open><summary>Cloudflare challenge solver</summary>
       <p className="setting-note">Optional. Only sources detected as blocked use this service. It receives their catalog URLs and search queries. Beatport keeps its direct catalog API connection. The connection is checked when used; an unreachable or incompatible solver leaves the source unavailable.</p>
       <Row label="Solver API URL" note="FlareSolverr, Byparr or Trawl. Enter the server URL or its /v1 endpoint; leave empty to disable."><input aria-label="Solver API URL" type="url" placeholder="http://localhost:8191" value={solver.endpoint??""} onChange={e=>update({solver:{...solver,endpoint:e.target.value||null}})}/></Row>

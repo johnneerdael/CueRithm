@@ -10,9 +10,10 @@ sha2.workspace = true
 
 [features]
 default = []
-autotag = ["dep:cuerithm-autotag"]
+autotag = ["dep:cuerithm-autotag", "dep:cuerithm-credentials", "dep:dirs"]
 
 [dependencies]
+dirs = { version = "6", optional = true }
 cuerithm-dj-sync = { path = "../cuerithm-dj-sync" }
 cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
 iana-time-zone = "=0.1.65"
@@ -22,6 +23,7 @@ cuerithm-cleanup = { path = "../cuerithm-cleanup" }
 cuerithm-organize = { path = "../cuerithm-organize" }
 cuerithm-maintenance = { path = "../cuerithm-maintenance" }
 same-file = "=1.0.6"
+cuerithm-credentials = { path = "../cuerithm-credentials", optional = true }
 cuerithm-autotag = { path = "../cuerithm-autotag", optional = true }
 anyhow.workspace = true
 rustfft.workspace = true
