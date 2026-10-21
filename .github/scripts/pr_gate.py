@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Lean PR gate: PR body sections plus a completed Codex review of the head commit.
 
-Once the gate passes it starts the hosted builds for that commit (one dispatch per commit), and a
-newer commit cancels unfinished builds of the old one. Pushes alone never start them.
+Once the gate passes it starts the Linux checks for that commit (one dispatch per commit), and a
+newer commit cancels unfinished runs of the old one. Pushes alone never start them. Every other
+platform runs after the merge, on main, and a failure there is fixed on main.
 
 Run only from main with a token that never executes PR code.
 """
@@ -16,6 +17,7 @@ import urllib.parse
 CONTEXT = "PR gate"
 CODEX = "chatgpt-codex-connector[bot]"
 HOSTED_CHECKS = ("ci.yml", "desktop.yml")
+PR_RUNNER = "ubuntu-24.04"  # before the merge only Linux runs; Windows and macOS run on main
 
 
 def sections(body):
@@ -120,6 +122,10 @@ def check_actions(pr, repo, state, runs):
     return actions
 
 
+def dispatch_payload(branch):
+    return {"ref": branch, "inputs": {"os": PR_RUNNER}}
+
+
 def manage_checks(repo, pr, state):
     branch = pr["head"]["ref"]
     runs = {}
@@ -133,7 +139,7 @@ def manage_checks(repo, pr, state):
             gh(f"repos/{repo}/actions/runs/{target}/cancel", "--method", "POST")
         else:
             gh(f"repos/{repo}/actions/workflows/{target}/dispatches", "--method", "POST",
-               "--input", "-", data={"ref": branch})
+               "--input", "-", data=dispatch_payload(branch))
 
 
 def main():
