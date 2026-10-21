@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths-ignore: ['docs/**', 'README.md', '.github/PULL_REQUEST_TEMPLATE.md', '.github/scripts/**', '.github/workflows/pr-gate.yml', '.github/workflows/release.yml', '.github/workflows/pages.yml', 'mkdocs.yml', 'tools/release/**']
   workflow_dispatch:
+    inputs:
+      os:
+        description: 'Run only this runner, for example ubuntu-24.04. Ignored on main, which always runs every runner.'
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -11,6 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   engine-rust-floor:
+    if: ${{ !inputs.os || inputs.os == 'ubuntu-24.04' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -27,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]') }}
+        os: ${{ fromJSON(inputs.os && github.ref != 'refs/heads/main' && format('["{0}"]', inputs.os) || (vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]')) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -53,7 +59,7 @@ jobs:
         run: cargo +stable build --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked
 
   windows-combined:
-    if: vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true'
+    if: ${{ vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && (!inputs.os || github.ref == 'refs/heads/main') }}
     runs-on: [self-hosted, windows, x64, cloudrunner, cuerithm]
     timeout-minutes: 120
     steps:
