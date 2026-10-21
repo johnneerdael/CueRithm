@@ -100,7 +100,9 @@ pub(super) fn prepare_root(root: &Path) -> Result<()> {
                 "Application catalog directory contains an alias"
             ),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let mut builder = std::fs::DirBuilder::new();
+                let builder = std::fs::DirBuilder::new();
+                #[cfg(unix)]
+                let mut builder = builder;
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::DirBuilderExt;

@@ -53,7 +53,9 @@ impl FileStateStore {
             .canonicalize()
             .map_err(|_| StateError::Unavailable)?;
         let directory = app_data.join("credentials-state");
-        let mut builder = std::fs::DirBuilder::new();
+        let builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         {
             use std::os::unix::fs::DirBuilderExt;
