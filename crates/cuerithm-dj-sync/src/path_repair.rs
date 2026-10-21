@@ -52,6 +52,9 @@ fn resolved(target: &SyncTarget) -> Result<SyncTarget> {
         DjSoftware::DjayPro if target.path.is_dir() => target.path.join("MediaLibrary.db"),
         DjSoftware::Serato4 if target.path.is_dir() => target.path.join("root.sqlite"),
         DjSoftware::PioneerUsb => anyhow::bail!("Pioneer USB owns independent media copies"),
+        DjSoftware::Rekordbox => {
+            anyhow::bail!("Use the native rekordbox collection workflow for relocation")
+        }
         _ => target.path,
     };
     ensure!(
@@ -83,6 +86,9 @@ fn external_id(target: &SyncTarget, source: &Path) -> Result<String> {
         }
         DjSoftware::PioneerUsb => {
             anyhow::bail!("Independent device copy has no desktop source-path reference")
+        }
+        DjSoftware::Rekordbox => {
+            anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }
     }
 }
@@ -306,6 +312,9 @@ pub fn prepare_path_repair(
             &snapshot.external_id,
         )?,
         DjSoftware::PioneerUsb => anyhow::bail!("Independent device copy cannot be path-repaired"),
+        DjSoftware::Rekordbox => {
+            anyhow::bail!("Use the native rekordbox collection workflow for relocation")
+        }
     }
     if snapshot.target.software != DjSoftware::VirtualDj {
         let db = rusqlite::Connection::open(&staged)?;

@@ -13,7 +13,7 @@ pub(crate) mod scope;
 mod service;
 mod snapshot;
 mod tools;
-mod tree;
+pub(crate) mod tree;
 mod workspace;
 use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
@@ -28,7 +28,7 @@ pub use model::{
     SmartFieldCatalog, SmartGenerationRequest, SmartListFailure, SmartListStatus, SmartPreview,
     SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
-use model::{Delta, StoredNode, Tree};
+pub(crate) use model::{Delta, StoredNode, Tree};
 pub use prepared::PreparedPlaylistSaveRequest;
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;
@@ -103,14 +103,14 @@ pub(crate) fn load(conn: &Connection) -> Result<Tree> {
     }
     Ok(tree)
 }
-fn revision(conn: &Connection) -> Result<u64> {
+pub(crate) fn revision(conn: &Connection) -> Result<u64> {
     Ok(conn.query_row(
         "SELECT value FROM meta WHERE key='playlist_revision'",
         [],
         |r| r.get(0),
     )?)
 }
-fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
+pub(crate) fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
     let ids: BTreeSet<_> = before.keys().chain(after.keys()).cloned().collect();
     let mut a = Delta::new();
     let mut b = Delta::new();
@@ -122,7 +122,7 @@ fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
     }
     (a, b)
 }
-fn persist(conn: &Connection, before: &Delta, after: &Delta) -> Result<()> {
+pub(crate) fn persist(conn: &Connection, before: &Delta, after: &Delta) -> Result<()> {
     for (id, row) in after {
         if let Some(row) = row {
             let n = &row.node;

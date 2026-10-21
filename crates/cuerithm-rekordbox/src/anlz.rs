@@ -23,7 +23,7 @@ impl Default for ParseLimits {
     }
 }
 /// PQTZ units: beat within bar (1..4), hundredths of BPM, unsigned milliseconds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Beat {
     pub number: u16,
     pub tempo: u16,
@@ -96,6 +96,137 @@ pub struct AnlzTag {
     limits: ParseLimits,
 }
 impl AnlzTag {
+    fn waveform_layout(&self) -> Result<(usize, usize, Option<usize>)> {
+        let (minimum, stride, count_at) = match &self.fourcc() {
+            b"PVBR" => (16, 1604, None),
+            b"PWAV" | b"PWV2" => (20, 1, Some(12)),
+            b"PWV3" => (24, 1, Some(16)),
+            b"PWV4" => (24, 6, Some(16)),
+            b"PWV5" => (24, 2, Some(16)),
+            b"PWV6" => (20, 3, Some(16)),
+            b"PWV7" => (24, 3, Some(16)),
+            b"PWVC" => (14, 6, None),
+            _ => bail!("Unsupported native waveform section"),
+        };
+        self.expect(&self.fourcc(), minimum)?;
+        if count_at == Some(16) {
+            ensure!(
+                u32be(&self.raw, 12)? as usize == stride,
+                "Unsupported native waveform entry layout"
+            );
+        }
+        let count =
+            count_at.map_or(Ok(1), |at| u32be(&self.raw, at).map(|count| count as usize))?;
+        ensure!(
+            count <= self.limits.max_entries,
+            "Native waveform exceeds entry budget"
+        );
+        let length = count
+            .checked_mul(stride)
+            .context("Native waveform payload length overflow")?;
+        slice(&self.raw, self.header_len(), length)?;
+        Ok((minimum, length, count_at))
+    }
+    /// A generated replacement may contain only the known header and payload.
+    /// Existing files may carry opaque header extensions and trailing bytes.
+    pub fn validate_waveform_template(&self) -> Result<()> {
+        let (header, payload, _) = self.waveform_layout()?;
+        ensure!(
+            self.header_len() == header && self.raw.len() == header + payload,
+            "Generated native waveform contains unsupported extensions"
+        );
+        Ok(())
+    }
+    /// Replace measured waveform data and its count, retaining the observed
+    /// producer fields, header extensions and trailing opaque bytes.
+    pub fn with_waveform(&self, generated: &AnlzTag) -> Result<Self> {
+        ensure!(
+            self.fourcc() == generated.fourcc(),
+            "Native waveform replacement type mismatch"
+        );
+        let (_, old_payload, count_at) = self.waveform_layout()?;
+        generated.validate_waveform_template()?;
+        let (_, new_payload, _) = generated.waveform_layout()?;
+        if let Some(at) = count_at {
+            ensure!(
+                u32be(&generated.raw, at)? as usize <= self.limits.max_entries,
+                "Native waveform exceeds entry budget"
+            );
+        }
+        let mut changed = self.with_payload(
+            self.header_len(),
+            old_payload,
+            &generated.raw[generated.header_len()..generated.header_len() + new_payload],
+        )?;
+        if let Some(at) = count_at {
+            changed.raw[at..at + 4].copy_from_slice(&generated.raw[at..at + 4]);
+        }
+        Ok(changed)
+    }
+    /// Edit a known legacy record without discarding opaque record extensions.
+    pub fn with_legacy_cue(&self, kind: u32, cue: &LegacyCue) -> Result<Self> {
+        self.expect(b"PCPT", 28)?;
+        ensure!(self.raw.len() >= 40, "Truncated legacy cue record");
+        let built = Self::legacy_cues(kind, std::slice::from_ref(cue))?;
+        let replacement = built.cue_records()?;
+        let mut tag = self.clone();
+        for range in [12..20, 24..40] {
+            tag.raw[range.clone()].copy_from_slice(&replacement[0].raw[range]);
+        }
+        Ok(tag)
+    }
+    /// Edit known fields/comment while retaining producer flags and trailing
+    /// extensions. Short records without the complete known layout fail closed.
+    pub fn with_extended_cue(&self, kind: u32, cue: &ExtendedCue) -> Result<Self> {
+        self.expect(b"PCP2", 16)?;
+        ensure!(
+            self.header_len() == 16 && self.raw.len() >= 44,
+            "Unsupported extended cue layout"
+        );
+        let old_size = u32be(&self.raw, 40)? as usize;
+        slice(
+            &self.raw,
+            44,
+            old_size.checked_add(4).context("Cue text overflow")?,
+        )?;
+        let built = Self::extended_cues(kind, std::slice::from_ref(cue))?;
+        let replacement = built.cue_records()?;
+        let entry = &replacement[0];
+        let new_size = u32be(&entry.raw, 40)? as usize;
+        ensure!(
+            new_size <= self.limits.max_string_bytes,
+            "Cue comment exceeds string budget"
+        );
+        let mut tag = self.with_payload(44, old_size, &entry.raw[44..44 + new_size])?;
+        for range in [12..17, 20..29, 36..44] {
+            tag.raw[range.clone()].copy_from_slice(&entry.raw[range]);
+        }
+        tag.raw[44 + new_size..48 + new_size]
+            .copy_from_slice(&entry.raw[44 + new_size..48 + new_size]);
+        Ok(tag)
+    }
+    /// Update only the explicitly recognized microsecond dialect; unknown PQT2
+    /// dialects retain their opaque words rather than being coerced into it.
+    pub fn with_microsecond_grid(
+        &self,
+        beats: &[Beat],
+        fractions: &[u16],
+        variable: bool,
+        downbeat: usize,
+    ) -> Result<Self> {
+        let old = self.extended_grid()?;
+        ensure!(
+            matches!(old.flags, 0x01000002 | 0x02000002) && old.words.iter().all(|v| *v < 1000),
+            "Unsupported extended-grid dialect"
+        );
+        let built = Self::microsecond_grid(beats, fractions, variable, downbeat)?;
+        let mut tag =
+            self.with_payload(self.header_len(), old.words.len() * 2, &built.raw[56..])?;
+        for range in [16..20, 24..52] {
+            tag.raw[range.clone()].copy_from_slice(&built.raw[range]);
+        }
+        Ok(tag)
+    }
     /// Change only the beat count/payload; retain header extensions and trailers.
     pub fn with_beats(&self, beats: &[Beat]) -> Result<Self> {
         self.expect(b"PQTZ", 24)?;
@@ -520,6 +651,20 @@ pub struct AnlzFile {
     limits: ParseLimits,
 }
 impl AnlzFile {
+    /// Construct a minimal analysis container from authored known tags. Waveform
+    /// or spectral sections must come from measured PCM, never placeholders.
+    pub fn new(tags: Vec<AnlzTag>) -> Result<Self> {
+        let mut header = new_tag(b"PMAI", 28, 28)?;
+        put32(&mut header, 12, 1);
+        put32(&mut header, 16, 65536);
+        put32(&mut header, 20, 65536);
+        let file = Self {
+            header,
+            tags,
+            limits: ParseLimits::default(),
+        };
+        Self::parse(&file.to_bytes()?, ParseLimits::default())
+    }
     pub fn parse(bytes: &[u8], limits: ParseLimits) -> Result<Self> {
         ensure!(
             bytes.len() <= limits.max_bytes,
@@ -544,6 +689,24 @@ impl AnlzFile {
     }
     pub fn tags(&self) -> &[AnlzTag] {
         &self.tags
+    }
+    /// Append an explicitly authored section without moving or removing any
+    /// existing section. Preserve the file's original header and parse budgets.
+    pub fn append(&mut self, tag: AnlzTag) -> Result<()> {
+        ensure!(
+            self.tags.len() < self.limits.max_tags,
+            "ANLZ file exceeds tag budget"
+        );
+        let length = self
+            .encoded_len()?
+            .checked_add(tag.raw.len())
+            .context("ANLZ file length overflow")?;
+        ensure!(
+            length <= self.limits.max_bytes,
+            "ANLZ appended section exceeds byte budget"
+        );
+        self.tags.push(AnlzTag::parse(&tag.raw, self.limits)?);
+        Ok(())
     }
     /// Replace the selected tag, preserving ordering and every other byte. A
     /// format or memory/hot-list mismatch is rejected rather than changing scope.

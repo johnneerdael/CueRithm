@@ -1,7 +1,9 @@
-# Direct rekordbox contract: research revision 1
+# Direct rekordbox contract: research revision 2
 
-This is the contract and progress record for the native Rust adapter. The desktop app does
-not yet sync to rekordbox. No collection XML transport or fallback is planned.
+This is the contract and progress record for the native Rust adapter. The desktop
+Sync workflow is implemented, but production writes remain unavailable until the
+actual application acceptance below passes. No collection XML transport or
+fallback is planned.
 
 ## Evidence and limits
 
@@ -339,3 +341,90 @@ The backend target/link/record APIs expose this durable state. The branded
 Sync workflow, supported native rule/asset mappings, per-field reconciliation,
 coordinated DB/asset writes and recovery, and actual 6/7 desktop round trips
 still require implementation and acceptance. No collection XML fallback is used.
+
+
+## Native publication implementation checkpoint (2026-10-21)
+
+The native SDK now plans metadata, foreign descriptive records, content and
+master-song identities, cue/content-cue records, analysis references, artwork,
+playlist hierarchy/order and MyTag relationships. A preview uses a fresh random
+seed to freeze allocated IDs and UUIDs. Changed records share one local update
+counter; an actual no-op neither advances that counter nor writes rows. Native
+memory cue colours retain nullable colour-table indices, distinct from hot-cue
+palette indices. Unsupported custom colours require explicit conversion.
+
+The publisher retains an exclusive connection to the original encrypted
+native database inode across immutable asset publication and the final SQLite
+commit. It compares coherent logical proofs of all native tables, including
+unknown rows and WAL-only edits. The frozen after-state is checked inside the
+transaction before commit. Database snapshots use the encrypted SQLite backup
+API; replacing the original database file or deleting its sidecars is not part
+of this protocol. Restart history distinguishes staged assets, native commit and
+local acknowledgement. Later destination changes cause guarded recovery or
+restore to refuse the operation.
+
+Analysis changes preserve unknown chunks and retained cue records. Original
+DAT/EXT/2EX siblings remain available while complete new versions are published;
+3EX resources are preserved as opaque data, because observed 3EX files are not
+PMAI analysis envelopes. New waveforms use decoded playable PCM. A verified
+change in source PCM regenerates known waveform sections while preserving
+unrelated sections. Track paths, cue times and beatgrids use the measured native
+clock once, including MP3 encoder timing and AAC container delay.
+
+Local files outside the supported native audio profile require explicit
+permission to create compatible, target-owned PCM WAV copies. The preview
+reports their number and storage size. Source files remain unchanged; the copy
+has its own measured media facts and zero-offset playable clock. Authored format
+fixtures cover all fourteen repository source layouts. Their results establish
+conversion and source-preservation behaviour, not acceptance by rekordbox.
+Artwork is normalized to deterministic JPEGs at 80, 240 and 320 pixel bounds,
+with aspect ratio preserved and transparency composited onto white. A local
+artwork observation hashes the generated main image once; the remote observation
+hashes the actual native image bytes, so repeat syncs do not repeatedly recompress
+or rewrite artwork.
+
+Playlist/MyTag import and export use separate identity and ownership records.
+Matching a name does not establish ownership. UUID generation proofs prevent
+recycled cue or membership IDs from inheriting earlier ownership. Native smart
+payloads remain opaque unless their full semantics can be retained; new local
+smart lists require explicit whole-list materialization. Preview and publication
+observe native-only tracks without silently importing or preparing them.
+
+The desktop bridge provides discovery, preflight, reviewed field decisions,
+apply, discard, restart recovery and restore. Compatible audio copies and
+nearest cue colours default off. Existing five-player Sync controls remain
+separate. Fixture checks cover publication interruptions, process guards,
+identity reuse, repeated no-op exports, source replacement and later-edit
+conflicts. These checks do not establish actual application compatibility.
+
+### Actual application acceptance still required
+
+The official signed/notarized rekordbox 6.8.7.0303 application payload is now
+available privately for isolated testing. Its data-only key-provider path can
+read a coherent private copy of the observed version 7 database. This proves
+neither a version 6-created schema nor a version 6 write/playback round trip.
+The installed version 7 remains 7.2.19.0342. Neither build has passed the full
+isolated application acceptance matrix, so the production profile allowlist is
+still empty.
+
+Enable each exact application/build, platform and schema profile only after
+isolated native reopen, cue/loop/grid playback, metadata/artwork/MyTag and ordered
+playlist inspection, repeat no-op, edits in both applications, interrupted
+publication recovery and guarded restore pass. Retain unsupported builds as
+read-only. Record release publication separately from local implementation,
+authored tests and native acceptance.
+
+### Lexicon artifact revalidation
+
+The user-requested REA pass revalidated installed Lexicon 1.11.15 against the
+ASAR SHA-256 recorded above. REA parent Evidence is
+`ev_9c3010d8f2710194623ca9326b686bf2619c2d45cf795b1e0ef87324455be184`;
+its renderer asset view is
+`ev_cb245b691040c15414a9e74ed5d83d4973be3ed0776609726b9b62716498defe`,
+with source SHA-256
+`df240bbd3677166bda1f36d00212c49b03740038c52fc17fbb8b7cf647b2e198`.
+The large application graph is partial because source analysis exceeded its
+resource budget. Unpacked native helper integrity metadata also differs from
+observed bytes; those helpers were not executed. Focused static exporter traces
+supply protocol evidence, with exact private source locations retained in the
+ignored investigation ledger. Static traces are not native execution evidence.

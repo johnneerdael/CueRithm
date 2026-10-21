@@ -31,7 +31,7 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 20. Migration preserves existing tracks, jobs,
+The library upgrades to schema 22. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.

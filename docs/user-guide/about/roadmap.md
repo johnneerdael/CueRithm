@@ -26,7 +26,7 @@ Manual corrections, maintenance, compatible-track search, reference-tracklist ma
 - Traxsource may require a separately hosted [FlareSolverr-compatible solver](../guides/catalog-solver.md). Live fetching and parsing were verified with Trawl; universal catalog coverage and packaged-app acceptance remain unverified. Beatport has one successful direct API probe.
 - Decoding stops at about 24 minutes, so long mixes do not prepare.
 - There is no Intel Mac build. Windows and Linux builds are unsigned, and their native playback and restart acceptance is not complete.
-- The library schema is version 20. Older app versions refuse a newer library, and there is no downgrade.
+- The library schema is version 22. Older app versions refuse a newer library, and there is no downgrade.
 - Published figures measure agreement with reference tools on my own library. Held-out accuracy, real-music energy agreement and large-library performance are not measured. See [How accurate is it?](../technical/accuracy.md).
 - There is no auto-update.
 

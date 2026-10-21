@@ -17,7 +17,7 @@ uuid = { version = "1", features = ["v4"] }
 quick-xml = { version = "0.42", features = ["serialize"] }
 lofty = "0.22.4"
 sha1 = "0.10"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 cuerithm-rekordbox = { path = "../cuerithm-rekordbox" }
 fs2 = "0.4"
 camelot-core = { path = "../camelot-core" }

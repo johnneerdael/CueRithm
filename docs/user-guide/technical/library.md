@@ -7,7 +7,7 @@ CueRithm keeps its library state in a single SQLite database, with caches and re
 - SQLite (bundled with the app, via `rusqlite`), file name `library.sqlite`, in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on, a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library (a non-empty SQLite file without it is rejected).
-- Schema version (`user_version`) is currently 20. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
+- Schema version (`user_version`) is currently 22. Migrations are embedded SQL files applied in order, in an immediate transaction. A newer schema is refused ("Library schema is newer than this application"), and there is no downgrade. Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live
 

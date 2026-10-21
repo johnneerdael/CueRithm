@@ -1,5 +1,5 @@
 //! Guarded row staging on owned encrypted snapshots. This module deliberately
-//! has no production publication operation or accepted native protocol profile.
+//! does not establish an accepted native application protocol profile.
 use crate::*;
 use rusqlite::{OptionalExtension, params_from_iter, types::Value as SqlValue};
 use std::collections::{BTreeMap, BTreeSet};
@@ -50,7 +50,7 @@ fn table_key(table: &str, id: &str) -> Result<&'static str> {
         }
         "djmdContent" | "djmdArtist" | "djmdAlbum" | "djmdGenre" | "djmdLabel" | "djmdKey"
         | "djmdCue" | "contentCue" | "djmdPlaylist" | "djmdSongPlaylist" | "djmdMyTag"
-        | "djmdSongMyTag" => Ok("ID"),
+        | "djmdSongMyTag" | "contentFile" => Ok("ID"),
         _ => anyhow::bail!("Unsupported native staging table"),
     }
 }
@@ -126,6 +126,63 @@ pub fn stage_native_write(
     cancel: &CancellationToken,
 ) -> Result<StagedNativeWrite> {
     cancel.check()?;
+    validate_native_rows(plan)?;
+    let source = ReadOnlyDatabase::open(&plan.source, key)?;
+    let mut snapshot = source.capture(workspace, key, cancel)?;
+    ensure!(
+        snapshot.schema.fingerprint == plan.schema_fingerprint,
+        "Native staging schema changed"
+    );
+    ensure!(
+        snapshot.checks.foreign_key_issues == 0,
+        "Native source has foreign-key issues"
+    );
+    let write_capability = validate_write_profile(&snapshot.schema)?;
+    drop(source);
+    let staged_path = snapshot
+        .path
+        .canonicalize()
+        .context("Resolve owned native staging path")?;
+    let mut conn = Connection::open_with_flags(
+        &staged_path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+    )?;
+    set_key(&conn, key)?;
+    conn.pragma_update(None, "foreign_keys", true)?;
+    let tx = conn.transaction()?;
+    let changed_rows = apply_native_rows(&tx, plan, cancel)?;
+    cancel.check()?;
+    tx.commit()?;
+    drop(conn);
+    let staged = ReadOnlyDatabase::open(&snapshot.path, key)?;
+    snapshot.checks = staged.checks()?;
+    ensure!(
+        snapshot.checks.integrity_ok && snapshot.checks.foreign_key_issues == 0,
+        "Staged native database failed integrity checks"
+    );
+    snapshot.schema = staged.schema()?;
+    ensure!(
+        snapshot.schema.fingerprint == plan.schema_fingerprint,
+        "Native staging changed schema"
+    );
+    drop(staged);
+    cancel.check()?;
+    snapshot.sha256 = file_sha256_cancellable(&snapshot.path, cancel)?;
+    std::fs::File::options()
+        .read(true)
+        .write(true)
+        .open(&snapshot.path)?
+        .sync_all()?;
+    Ok(StagedNativeWrite {
+        snapshot,
+        changed_rows,
+        write_capability,
+    })
+}
+
+fn validate_native_rows(plan: &NativeWritePlan) -> Result<()> {
     ensure!(
         plan.rows.len() <= 100_000,
         "Native row staging budget exceeded"
@@ -156,31 +213,17 @@ pub fn stage_native_write(
             sql_value(value)?;
         }
     }
-    let source = ReadOnlyDatabase::open(&plan.source, key)?;
-    let mut snapshot = source.capture(workspace, key, cancel)?;
-    ensure!(
-        snapshot.schema.fingerprint == plan.schema_fingerprint,
-        "Native staging schema changed"
-    );
-    ensure!(
-        snapshot.checks.foreign_key_issues == 0,
-        "Native source has foreign-key issues"
-    );
-    let write_capability = validate_write_profile(&snapshot.schema)?;
-    drop(source);
-    let staged_path = snapshot
-        .path
-        .canonicalize()
-        .context("Resolve owned native staging path")?;
-    let mut conn = Connection::open_with_flags(
-        &staged_path,
-        OpenFlags::SQLITE_OPEN_READ_WRITE
-            | OpenFlags::SQLITE_OPEN_NO_MUTEX
-            | OpenFlags::SQLITE_OPEN_NOFOLLOW,
-    )?;
-    set_key(&conn, key)?;
-    conn.pragma_update(None, "foreign_keys", true)?;
-    let tx = conn.transaction()?;
+    Ok(())
+}
+
+/// Apply guarded DML within the caller's transaction; never commits by itself.
+pub(crate) fn apply_native_rows(
+    conn: &Connection,
+    plan: &NativeWritePlan,
+    cancel: &CancellationToken,
+) -> Result<usize> {
+    cancel.check()?;
+    validate_native_rows(plan)?;
     let mut changed_rows = 0;
     for row in &plan.rows {
         cancel.check()?;
@@ -188,7 +231,7 @@ pub fn stage_native_write(
         let ObservedRow {
             columns,
             values: before,
-        } = current_row(&tx, &row.table, key_column, &row.id)?;
+        } = current_row(conn, &row.table, key_column, &row.id)?;
         let observed = before
             .as_ref()
             .map(|values| -> Result<String> {
@@ -227,7 +270,7 @@ pub fn stage_native_write(
                 .collect::<Result<Vec<_>>>()?
                 .join(",");
             values.push(SqlValue::Text(row.id.clone()));
-            let affected = tx.execute(
+            let affected = conn.execute(
                 &format!(
                     "UPDATE {} SET {sets} WHERE {}=?{}",
                     identifier(&row.table)?,
@@ -251,7 +294,7 @@ pub fn stage_native_write(
                 .map(|i| format!("?{i}"))
                 .collect::<Vec<_>>()
                 .join(",");
-            tx.execute(
+            conn.execute(
                 &format!(
                     "INSERT INTO {} ({}) VALUES({placeholders})",
                     identifier(&row.table)?,
@@ -263,30 +306,5 @@ pub fn stage_native_write(
         changed_rows += 1;
     }
     cancel.check()?;
-    tx.commit()?;
-    drop(conn);
-    let staged = ReadOnlyDatabase::open(&snapshot.path, key)?;
-    snapshot.checks = staged.checks()?;
-    ensure!(
-        snapshot.checks.integrity_ok && snapshot.checks.foreign_key_issues == 0,
-        "Staged native database failed integrity checks"
-    );
-    snapshot.schema = staged.schema()?;
-    ensure!(
-        snapshot.schema.fingerprint == plan.schema_fingerprint,
-        "Native staging changed schema"
-    );
-    drop(staged);
-    cancel.check()?;
-    snapshot.sha256 = file_sha256_cancellable(&snapshot.path, cancel)?;
-    std::fs::File::options()
-        .read(true)
-        .write(true)
-        .open(&snapshot.path)?
-        .sync_all()?;
-    Ok(StagedNativeWrite {
-        snapshot,
-        changed_rows,
-        write_capability,
-    })
+    Ok(changed_rows)
 }

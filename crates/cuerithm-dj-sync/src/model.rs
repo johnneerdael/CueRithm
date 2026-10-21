@@ -9,6 +9,7 @@ pub enum DjSoftware {
     DjayPro,
     Serato4,
     PioneerUsb,
+    Rekordbox,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -49,6 +50,9 @@ pub struct SyncTrack {
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncCue {
+    /// Activate a saved loop when the native target loads it.
+    #[serde(default)]
+    pub active_loop: bool,
     pub index: u8,
     pub name: String,
     pub start_seconds: f64,
@@ -173,4 +177,27 @@ pub struct AppliedTiming {
     pub target: DjSoftware,
     pub offset_seconds: f64,
     pub profile_sha256: String,
+}
+
+#[cfg(test)]
+mod cue_tests {
+    use super::SyncCue;
+    #[test]
+    fn missing_active_loop_deserializes_as_inactive() {
+        let cue: SyncCue = serde_json::from_str(
+            r#"{"index":0,"name":"old","start_seconds":1.0,"end_seconds":2.0,"color":null}"#,
+        )
+        .unwrap();
+        assert!(!cue.active_loop);
+        assert!(!SyncCue::default().active_loop);
+        let active = SyncCue {
+            active_loop: true,
+            ..cue
+        };
+        assert!(
+            serde_json::from_value::<SyncCue>(serde_json::to_value(active).unwrap())
+                .unwrap()
+                .active_loop
+        );
+    }
 }

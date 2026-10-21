@@ -13,6 +13,9 @@ struct Args {
     key_file: Option<PathBuf>,
     #[arg(long, requires = "database")]
     automatic_key: bool,
+    /// Read-only research selection for an unpacked, signed target executable.
+    #[arg(long, requires = "automatic_key")]
+    target_executable: Option<PathBuf>,
     #[arg(long, conflicts_with = "database")]
     discover: bool,
     #[arg(long, requires = "database")]
@@ -41,11 +44,15 @@ fn main() -> Result<()> {
         let cancel = CancellationToken::default();
         let paths = DiscoveryPaths::current()?;
         let found = discover_targets(&paths, &cancel)?;
-        let target = found
-            .installations
-            .first()
-            .context("No installed target is available")?;
-        let source = NativeKeySource::for_installation(target, paths.platform)?;
+        let source = if let Some(executable) = args.target_executable {
+            NativeKeySource { executable }
+        } else {
+            let target = found
+                .installations
+                .first()
+                .context("No installed target is available")?;
+            NativeKeySource::for_installation(target, paths.platform)?
+        };
         resolve_database_key(
             &source,
             &paths.agent_options_file()?,

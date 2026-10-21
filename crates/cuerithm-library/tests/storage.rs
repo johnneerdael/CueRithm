@@ -236,9 +236,9 @@ fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
         .clone();
     let track = library.jobs().unwrap()[0].track_id.clone();
     drop(library);
-    // Recreate the schema-18 boundary without leaving either new feature table.
+    // Recreate the schema-18 boundary without leaving later feature tables.
     let conn = rusqlite::Connection::open(&db).unwrap();
-    conn.execute_batch("DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; PRAGMA user_version=18;").unwrap();
+    conn.execute_batch("DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; DROP TABLE native_playlist_bindings; DROP TABLE native_playlist_acknowledgements; DROP TABLE rekordbox_sync_operations; DROP TABLE native_sync_track_ownership; PRAGMA user_version=18;").unwrap();
     drop(conn);
     let library = Library::open(&db).unwrap();
     assert_eq!(library.organization_roots().unwrap()[0].id, root.id);
@@ -258,7 +258,7 @@ fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 20);
+    assert_eq!(version, 22);
     let count: i64 = conn
         .query_row(
             "SELECT count(*) FROM native_reconciliation_plans",

@@ -7,6 +7,7 @@ mod maintenance;
 mod maintenance_commands;
 mod manual_publication_commands;
 mod organization_commands;
+mod rekordbox_sync_commands;
 mod sync_commands;
 mod tracklist_commands;
 use anyhow::Result;
@@ -78,6 +79,14 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            rekordbox_sync_commands::discover_rekordbox_targets,
+            rekordbox_sync_commands::preflight_rekordbox_sync,
+            rekordbox_sync_commands::preview_rekordbox_sync,
+            rekordbox_sync_commands::apply_rekordbox_sync,
+            rekordbox_sync_commands::restore_rekordbox_sync,
+            rekordbox_sync_commands::recover_rekordbox_sync,
+            rekordbox_sync_commands::discard_rekordbox_sync,
+            rekordbox_sync_commands::rekordbox_sync_history,
             manual_publication_commands::manual_publication_snapshot,
             manual_publication_commands::preview_manual_publication,
             manual_publication_commands::apply_manual_publication,

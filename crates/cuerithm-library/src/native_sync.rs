@@ -461,6 +461,25 @@ impl Library {
         options: NativeImportOptions,
         cancel: &CancellationToken,
     ) -> Result<NativeImportReport> {
+        self.observe_or_import_rekordbox_collection(input, options, cancel, true)
+    }
+    /// Record a coherent native observation and link already registered local
+    /// sources. Sync previews never implicitly import native-only music/jobs.
+    pub(crate) fn observe_rekordbox_collection(
+        &self,
+        input: &RekordboxCollection,
+        options: NativeImportOptions,
+        cancel: &CancellationToken,
+    ) -> Result<NativeImportReport> {
+        self.observe_or_import_rekordbox_collection(input, options, cancel, false)
+    }
+    fn observe_or_import_rekordbox_collection(
+        &self,
+        input: &RekordboxCollection,
+        options: NativeImportOptions,
+        cancel: &CancellationToken,
+        allow_new_sources: bool,
+    ) -> Result<NativeImportReport> {
         cancel.check()?;
         validate(input, &options, cancel)?;
         self.settings_revision(&options.settings_revision)?;
@@ -519,6 +538,10 @@ impl Library {
                 .optional()?;
             if let Some(id_local) = existing {
                 candidates.insert(id.clone(), Candidate::Existing(id_local));
+                continue;
+            }
+            if !allow_new_sources {
+                candidates.insert(id.clone(), Candidate::Unavailable("not_in_local_library"));
                 continue;
             }
             let source_hash = if let Some(hash) = sources.get(&path) {

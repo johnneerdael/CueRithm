@@ -262,6 +262,9 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
                 ((end - cue.start_seconds) * base_bpm / 60.).round() as u64,
             );
             poi.attr("Slot", u16::from(cue.index) + 1);
+            if cue.active_loop {
+                poi.attr("AutoTrigger", "yes");
+            }
         }
         song.children.push(Part::Node(poi));
     }
@@ -441,6 +444,7 @@ mod tests {
                 bpm: 120.,
                 duration_seconds: 60.,
                 cues: vec![SyncCue {
+                    active_loop: false,
                     index: 0,
                     name: "Drop & mix".into(),
                     start_seconds: 4.,
@@ -482,6 +486,58 @@ mod tests {
             files
                 .iter()
                 .any(|f| f.extension().is_some_and(|x| x == "vdjfolder"))
+        );
+    }
+    #[test]
+    fn only_active_loops_autotrigger_and_foreign_pois_survive() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("database.xml");
+        fs::write(&path, r#"<VirtualDJ_Database Version="8.5"><Song FilePath="/synthetic.wav"><Poi Type="automix" Pos="9" AutoTrigger="keep"/><Poi Type="loop" Name="old" AutoTrigger="yes"/></Song></VirtualDJ_Database>"#).unwrap();
+        let mut library = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "track".into(),
+                path: "/synthetic.wav".into(),
+                bpm: 120.,
+                duration_seconds: 20.,
+                cues: vec![
+                    SyncCue {
+                        index: 0,
+                        name: "active".into(),
+                        start_seconds: 1.,
+                        end_seconds: Some(3.),
+                        active_loop: true,
+                        ..Default::default()
+                    },
+                    SyncCue {
+                        index: 1,
+                        name: "saved".into(),
+                        start_seconds: 5.,
+                        end_seconds: Some(7.),
+                        ..Default::default()
+                    },
+                    SyncCue {
+                        index: 2,
+                        name: "cue".into(),
+                        start_seconds: 8.,
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        write(&path, &library, &SyncOptions::default()).unwrap();
+        let xml = fs::read_to_string(&path).unwrap();
+        assert_eq!(xml.matches("AutoTrigger=\"yes\"").count(), 1);
+        assert!(xml.contains("AutoTrigger=\"keep\""));
+        assert!(xml.contains("Type=\"automix\""));
+        assert!(!xml.contains("Name=\"old\""));
+        library.tracks[0].cues[0].active_loop = false;
+        write(&path, &library, &SyncOptions::default()).unwrap();
+        assert!(
+            !fs::read_to_string(path)
+                .unwrap()
+                .contains("AutoTrigger=\"yes\"")
         );
     }
     #[test]

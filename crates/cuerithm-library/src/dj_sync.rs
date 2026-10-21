@@ -316,6 +316,7 @@ fn project_track(row: RawTrack) -> Result<SyncTrack> {
                 None
             };
             Ok(SyncCue {
+                active_loop: end_seconds.is_some() && cue.active_loop.unwrap_or(false),
                 index,
                 name: cue.name,
                 start_seconds: cue.start_time,
@@ -531,6 +532,8 @@ mod tests {
         assert_eq!(track.beatgrid[0].seconds, 0.234567);
         assert_eq!(track.cues[0].start_seconds, 32.123456);
         assert_eq!(track.cues[1].end_seconds, Some(227.783));
+        assert!(!track.cues[0].active_loop);
+        assert!(track.cues[1].active_loop);
         assert_eq!(track.cues[1].color, Some(0xe60ede));
         assert_eq!(track.label, "Fixture label");
         assert_eq!(track.comment, "Fixture comment");

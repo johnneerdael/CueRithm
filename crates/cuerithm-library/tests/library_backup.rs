@@ -450,7 +450,7 @@ fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
         let backup = lib
             .create_library_backup(&d.path().join("backups"))
             .unwrap();
-        assert_eq!(backup.schema, 20);
+        assert_eq!(backup.schema, 22);
         assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
         lib.stage_library_restore(&backup.path, &backup.database_sha256)
             .unwrap();
@@ -645,4 +645,73 @@ fn sparse_oversized_organization_original_is_rejected_before_reading_its_bytes()
     // Reclaim the authored sparse fixture immediately, even if the assertion fails.
     file.set_len(0).unwrap();
     assert!(result.unwrap_err().to_string().contains("budget"));
+}
+
+#[test]
+fn cancelling_restore_removes_only_its_owned_staged_copy_and_is_repeatable() {
+    let (d, lib, _) = fixture();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    let intent = lib
+        .stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    let staged = lib.data_dir().join("library-backups").join(&intent.id);
+    assert!(staged.join("library.sqlite").is_file());
+    lib.cancel_library_restore().unwrap();
+    assert!(!staged.exists(), "cancelled copies must not accumulate");
+    assert!(
+        backup.path.join("library.sqlite").is_file(),
+        "the selected original backup stays intact"
+    );
+    assert!(lib.pending_library_restore().unwrap().is_none());
+    lib.cancel_library_restore().unwrap();
+}
+#[test]
+fn restore_cancellation_preserves_unowned_entries_and_started_recovery() {
+    let (d, lib, _) = fixture();
+    let backup = lib
+        .create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    let intent = lib
+        .stage_library_restore(&backup.path, &backup.database_sha256)
+        .unwrap();
+    let staged = lib.data_dir().join("library-backups").join(&intent.id);
+    fs::write(staged.join("unowned"), b"preserve this file").unwrap();
+    assert!(lib.cancel_library_restore().is_err());
+    assert!(staged.join("library.sqlite").exists());
+    assert!(lib.pending_library_restore().unwrap().is_some());
+    fs::remove_file(staged.join("unowned")).unwrap();
+    let pending = lib.data_dir().join("library-backups/pending.json");
+    let mut payload: serde_json::Value =
+        serde_json::from_slice(&fs::read(&pending).unwrap()).unwrap();
+    payload["mutation_started"] = true.into();
+    fs::write(&pending, serde_json::to_vec(&payload).unwrap()).unwrap();
+    assert!(lib.cancel_library_restore().is_err());
+    assert!(staged.join("library.sqlite").exists());
+    assert!(pending.exists());
+}
+
+#[test]
+fn library_backup_refuses_unsettled_native_rekordbox_publication() {
+    let (d, lib, db) = fixture();
+    let conn = Connection::open(db).unwrap();
+    conn.execute("INSERT INTO rekordbox_sync_operations(id,target_id,database_path,status,journal_json,created,updated) VALUES('authored','target','authored.db','publishing','{}',0,0)", []).unwrap();
+    for status in ["prepared", "publishing", "native_published", "restoring"] {
+        conn.execute("UPDATE rekordbox_sync_operations SET status=?1", [status])
+            .unwrap();
+        assert!(
+            lib.create_library_backup(&d.path().join("backups"))
+                .is_err(),
+            "{status}"
+        );
+    }
+    for status in ["applied", "restored", "discarded", "rolled_back"] {
+        conn.execute("UPDATE rekordbox_sync_operations SET status=?1", [status])
+            .unwrap();
+        assert!(
+            lib.create_library_backup(&d.path().join("backups")).is_ok(),
+            "{status}"
+        );
+    }
 }

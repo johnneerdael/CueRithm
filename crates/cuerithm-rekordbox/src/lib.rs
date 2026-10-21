@@ -1,11 +1,14 @@
 //! Native direct-library access. No collection XML transport is provided.
 pub mod anlz;
+mod asset_staging;
+pub use asset_staging::*;
 mod collection;
 mod discovery;
 mod key_provider;
 pub use discovery::*;
 pub use key_provider::*;
 mod records;
+pub use records::NativeColumn;
 mod write_profile;
 use anyhow::{Context, Result, ensure};
 pub use collection::*;
@@ -23,6 +26,12 @@ use std::{
 pub use write_profile::*;
 mod writer;
 pub use writer::*;
+mod native_plan;
+pub use native_plan::*;
+mod native_color;
+pub use native_color::*;
+mod publication;
+pub use publication::*;
 use zeroize::Zeroizing;
 
 /// Runtime-only material: never serializable and never included in diagnostics.

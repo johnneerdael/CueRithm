@@ -164,10 +164,18 @@ fn schema(conn: &Connection) -> Result<i64> {
     let app: i64 = conn.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    ensure!(version == 20, "Unsupported library backup schema");
+    ensure!(version == 22, "Unsupported library backup schema");
     Ok(version)
 }
 fn quiet_database(conn: &Connection) -> Result<()> {
+    let native_pending: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM rekordbox_sync_operations WHERE status NOT IN ('applied','restored','discarded','rolled_back'))",
+        [], |row| row.get(0),
+    )?;
+    ensure!(
+        !native_pending,
+        "Finish or recover native rekordbox sync before using a library backup"
+    );
     let organization_pending:i64=conn.query_row("SELECT (SELECT COUNT(*) FROM organization_operations WHERE state NOT IN ('complete','unchanged','cancelled','undone') OR error IS NOT NULL)+(SELECT COUNT(*) FROM organization_reservations)+(SELECT COUNT(*) FROM organization_batches WHERE state NOT IN ('complete','partial','cancelled','undone'))+(SELECT COUNT(*) FROM organization_batch_rows WHERE outcome NOT IN ('completed','unchanged','skipped','blocked','failed','cancelled'))+(SELECT COUNT(*) FROM preparation_checkpoints WHERE state!='complete')+(SELECT COUNT(*) FROM organization_copy_conflicts WHERE state NOT IN ('committed','original_restored'))+(SELECT COUNT(*) FROM organization_alternates WHERE state='conflict')+(SELECT COUNT(*) FROM organization_reference_intents i JOIN organization_operations o ON o.id=i.operation_id WHERE i.error IS NOT NULL OR i.state IN ('repairing','repaired') OR (o.state!='cancelled' AND i.state!='acknowledged' AND EXISTS(SELECT 1 FROM json_each(i.payload_json,'$.entries') e WHERE json_extract(e.value,'$.reference.known.independent')=0)))",[],|row|row.get(0))?;
     ensure!(
         organization_pending == 0,
@@ -1240,12 +1248,50 @@ impl Library {
     }
     pub fn cancel_library_restore(&self) -> Result<()> {
         let _sync = sync_lease(self.data_dir())?;
-        let request = managed_directory(self.data_dir())?.join("pending.json");
-        if request.exists() {
-            regular(&request, MAX_MANIFEST)?;
-            fs::remove_file(&request)?;
-            sync_directory(request.parent().unwrap())?;
+        let Some(intent) = pending(self.data_dir())? else {
+            return Ok(());
+        };
+        ensure!(
+            !intent.mutation_started && intent.pre_restore.is_none(),
+            "A started restore requires recovery; its evidence cannot be cancelled"
+        );
+        let directory = managed_directory(self.data_dir())?;
+        let staged = directory.join(&intent.id);
+        match fs::symlink_metadata(&staged) {
+            Ok(meta) => {
+                ensure!(
+                    meta.is_dir() && !meta.file_type().is_symlink(),
+                    "Staged restore directory changed"
+                );
+                // Validate the complete directory before removing any owned leaf.
+                // Missing leaves permit retry after an interrupted cancellation.
+                let mut files = Vec::new();
+                for entry in fs::read_dir(&staged)? {
+                    let entry = entry?;
+                    ensure!(
+                        matches!(
+                            entry.file_name().to_str(),
+                            Some("library.sqlite" | "manifest.json")
+                        ),
+                        "Staged restore contains an unowned entry"
+                    );
+                    ensure!(
+                        entry.file_type()?.is_file(),
+                        "Staged restore entry is not an owned regular file"
+                    );
+                    files.push(entry.path());
+                }
+                for file in files {
+                    fs::remove_file(file)?;
+                }
+                fs::remove_dir(&staged)?;
+                sync_directory(&directory)?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
         }
+        fs::remove_file(directory.join("pending.json"))?;
+        sync_directory(&directory)?;
         Ok(())
     }
 }

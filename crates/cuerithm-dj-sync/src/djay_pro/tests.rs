@@ -36,6 +36,7 @@ fn library() -> SyncLibrary {
             color: Some(0xcc0000),
             cues: vec![
                 SyncCue {
+                    active_loop: false,
                     index: 0,
                     name: "Intro".into(),
                     start_seconds: 1.5,
@@ -43,6 +44,7 @@ fn library() -> SyncLibrary {
                     color: Some(0x00cc00),
                 },
                 SyncCue {
+                    active_loop: false,
                     index: 1,
                     name: "Loop".into(),
                     start_seconds: 20.0,
@@ -1049,4 +1051,45 @@ fn path_only_repair_keeps_other_native_collections_and_location_fields() {
     let conn = Connection::open(&path).unwrap();
     let after=conn.prepare("SELECT collection,key,data,metadata FROM database2 WHERE collection!='localMediaItemLocations' ORDER BY rowid").unwrap().query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,Option<Vec<u8>>>(3)?))).unwrap().collect::<rusqlite::Result<Vec<_>>>().unwrap();
     assert_eq!(before, after);
+}
+
+#[test]
+fn equal_tempo_phase_reset_anchors_are_preserved() {
+    let beats = [
+        SyncBeat {
+            seconds: 0.,
+            bpm: 120.,
+            beat: 1,
+        },
+        SyncBeat {
+            seconds: 8.25,
+            bpm: 120.,
+            beat: 1,
+        },
+        SyncBeat {
+            seconds: 16.5,
+            bpm: 120.,
+            beat: 1,
+        },
+    ];
+    let (_, grid) = beatgrid(&beats).unwrap();
+    let Some(Value::Array(markers)) = grid.get("downbeatMarkers") else {
+        panic!("phase anchors disappeared")
+    };
+    assert_eq!(
+        markers,
+        &vec![
+            Value::Fields(vec![
+                ("position".into(), Value::Float(8.25)),
+                ("numberOfBars".into(), Value::Small(255))
+            ]),
+            Value::Fields(vec![
+                ("position".into(), Value::Float(16.5)),
+                ("numberOfBars".into(), Value::Small(255))
+            ]),
+        ]
+    );
+    let mut unsupported = beats;
+    unsupported[2].bpm = 130.;
+    assert!(beatgrid(&unsupported).is_err());
 }

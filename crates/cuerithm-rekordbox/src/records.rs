@@ -71,6 +71,7 @@ pub(crate) fn read_records(
                 | "djmdSongPlaylist"
                 | "djmdMyTag"
                 | "djmdSongMyTag"
+                | "contentFile"
         ),
         "Unsupported import table"
     );
@@ -135,4 +136,69 @@ pub(crate) fn read_records(
         });
     }
     Ok(output)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeColumn {
+    pub name: String,
+    pub kind: String,
+    pub required: bool,
+    pub default: Option<String>,
+    pub primary: bool,
+}
+impl ReadOnlyDatabase {
+    /// Inspect column contracts without retaining or exposing target rows.
+    pub fn table_columns(&self, table: &str) -> Result<Vec<NativeColumn>> {
+        ensure!(
+            matches!(
+                table,
+                "djmdContent"
+                    | "djmdArtist"
+                    | "djmdAlbum"
+                    | "djmdGenre"
+                    | "djmdLabel"
+                    | "djmdKey"
+                    | "djmdCue"
+                    | "contentCue"
+                    | "contentFile"
+                    | "djmdPlaylist"
+                    | "djmdSongPlaylist"
+                    | "djmdMyTag"
+                    | "djmdSongMyTag"
+                    | "agentRegistry"
+            ),
+            "Unsupported native table"
+        );
+        let mut query = self
+            .conn
+            .prepare(&format!("PRAGMA table_info(\"{table}\")"))?;
+        Ok(query
+            .query_map([], |row| {
+                Ok(NativeColumn {
+                    name: row.get(1)?,
+                    kind: row.get(2)?,
+                    required: row.get(3)?,
+                    default: row.get(4)?,
+                    primary: row.get(5)?,
+                })
+            })?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+    /// Auxiliary native asset references stay separate from the original import contract.
+    pub fn read_asset_records(
+        &self,
+        max_rows: usize,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<TargetRecord>> {
+        ensure!(max_rows > 0, "Native asset row budget must be positive");
+        let present: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='contentFile')",
+            [],
+            |r| r.get(0),
+        )?;
+        if !present {
+            return Ok(Vec::new());
+        }
+        read_records(&self.conn, "contentFile", "ID", &mut 0, max_rows, cancel)
+    }
 }

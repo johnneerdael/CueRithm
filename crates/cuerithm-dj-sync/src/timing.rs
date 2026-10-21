@@ -25,6 +25,10 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
         .to_lowercase();
     let Some(profile) = &track.export_timing else {
         ensure!(
+            target != DjSoftware::Rekordbox,
+            "Source timing must be measured before native rekordbox export"
+        );
+        ensure!(
             !((extension == "mp3"
                 && matches!(target, DjSoftware::Serato4 | DjSoftware::PioneerUsb))
                 || (matches!(extension.as_str(), "m4a" | "mp4")
@@ -64,7 +68,10 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
             ensure!(
                 !matches!(
                     target,
-                    DjSoftware::Serato4 | DjSoftware::PioneerUsb | DjSoftware::DjayPro
+                    DjSoftware::Serato4
+                        | DjSoftware::PioneerUsb
+                        | DjSoftware::DjayPro
+                        | DjSoftware::Rekordbox
                 ),
                 "Source timing is unmeasured: {reason}"
             );
@@ -79,6 +86,14 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
                 }
             }
             DjSoftware::PioneerUsb => match case {
+                Mp3TimingCase::A => 0.,
+                Mp3TimingCase::B | Mp3TimingCase::C => 0.051 - 0.026,
+                Mp3TimingCase::D => 0.051,
+            },
+            // Native desktop export is a distinct clock contract. The measured
+            // canonical PCM cases map to these native offsets independently of
+            // USB serialization; container priming below differs from USB.
+            DjSoftware::Rekordbox => match case {
                 Mp3TimingCase::A => 0.,
                 Mp3TimingCase::B | Mp3TimingCase::C => 0.051 - 0.026,
                 Mp3TimingCase::D => 0.051,
@@ -114,6 +129,7 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
                     audio - video_delay_ms / 1000.
                 }
                 DjSoftware::DjayPro => -video_delay_ms / 1000.,
+                DjSoftware::Rekordbox => audio_delay_ms / 1000.,
                 _ => 0.,
             }
         }
@@ -205,6 +221,50 @@ mod tests {
             }],
             ..Default::default()
         }
+    }
+    #[test]
+    fn native_rekordbox_has_its_own_measured_clock_and_converts_once() {
+        for (case, expected) in [
+            (Mp3TimingCase::A, 0.),
+            (Mp3TimingCase::B, 0.025),
+            (Mp3TimingCase::C, 0.025),
+            (Mp3TimingCase::D, 0.051),
+        ] {
+            let original = track(CodecTimingProfile::Mp3 { case });
+            let converted = export_track(&original, DjSoftware::Rekordbox).unwrap();
+            assert!((converted.cues[0].start_seconds - 1. - expected).abs() < 1e-12);
+            assert!((converted.beatgrid[0].seconds - 0.5 - expected).abs() < 1e-12);
+            assert_eq!(
+                serde_json::to_vec(&converted).unwrap(),
+                serde_json::to_vec(&export_track(&converted, DjSoftware::Rekordbox).unwrap())
+                    .unwrap()
+            );
+            assert!(export_track(&converted, DjSoftware::PioneerUsb).is_err());
+        }
+        for extension in ["m4a", "mp4"] {
+            for delay in [0., 23.2] {
+                let original = track(CodecTimingProfile::IsoAudio {
+                    extension: extension.into(),
+                    audio_delay_ms: delay,
+                    video_delay_ms: 42.7,
+                });
+                assert_eq!(
+                    offset_seconds(&original, DjSoftware::Rekordbox).unwrap(),
+                    delay / 1000.
+                );
+                assert_eq!(
+                    offset_seconds(&original, DjSoftware::PioneerUsb).unwrap(),
+                    0.
+                );
+            }
+        }
+        let mut missing = track(CodecTimingProfile::Direct);
+        missing.export_timing = None;
+        assert!(export_track(&missing, DjSoftware::Rekordbox).is_err());
+        let unknown = track(CodecTimingProfile::Unmeasured {
+            reason: "fixture".into(),
+        });
+        assert!(export_track(&unknown, DjSoftware::Rekordbox).is_err());
     }
     #[test]
     fn mp3_cases_match_executed_reference_offsets_and_never_accumulate() {
