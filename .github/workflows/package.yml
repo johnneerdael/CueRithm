@@ -40,7 +40,7 @@ jobs:
   package:
     timeout-minutes: 90
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os == 'windows-2025' && vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","windows","x64","cloudrunner","cuerithm"]') || matrix.os }}
