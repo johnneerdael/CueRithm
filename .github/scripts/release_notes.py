@@ -6,6 +6,7 @@ import re
 import subprocess
 
 from pr_gate import sections
+from release_history import prior_source
 
 
 def next_version(base, tags):
@@ -40,7 +41,7 @@ def entries(commits, bodies):
 
 PRODUCT = "CueRithm"
 TAGLINE = "Know your music. Shape your set."
-BANNER_DIR = "docs/assets/brand"  # readme-light.png and readme-dark.png
+RELEASE_BANNER = "docs/assets/brand/release-banner.png"
 # One row per platform package that release.yml publishes; keep the two in step.
 DOWNLOADS = [
     ("macOS DMG", "Apple Silicon (M1 and later); there is no Intel build", "Developer ID signed and Apple notarized"),
@@ -51,12 +52,9 @@ DOWNLOADS = [
 
 
 def banner(repo, sha):
-    """Theme-aware brand banner, pinned to the commit because the release tag does not exist yet."""
-    base = f"https://raw.githubusercontent.com/{repo}/{sha}/{BANNER_DIR}"
-    return ["<picture>",
-            f'  <source media="(prefers-color-scheme: dark)" srcset="{base}/readme-dark.png">',
-            f'  <img src="{base}/readme-light.png" alt="{PRODUCT}. {TAGLINE}" width="100%">',
-            "</picture>", ""]
+    """Unmodified release banner, pinned to the source before the release tag exists."""
+    url = f"https://raw.githubusercontent.com/{repo}/{sha}/{RELEASE_BANNER}"
+    return [f"![{PRODUCT}. {TAGLINE}]({url})", ""]
 
 
 def status(repo, sha, version):
@@ -104,8 +102,7 @@ def main():
     if args.command == "version":
         print(next_version(args.base, tags))
         return
-    ordered = run("git", "tag", "--list", "v*", "--merged", args.head, "--sort=-v:refname").split()
-    prior = ordered[0] if ordered else None
+    prior = prior_source(args.head)
     span = f"{prior}..{args.head}" if prior else args.head
     commits = [tuple(line.split("\t", 1)) for line in
                run("git", "log", "--first-parent", "--format=%H%x09%s", span).splitlines()]

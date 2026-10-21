@@ -1,0 +1,7 @@
+{
+  "v0.1.11": {
+    "released_sha": "221914305815b495b3ca275967c7eed326ed14d2",
+    "equivalent_main_sha": "5c492a8689f69713f230f2bf683427025487baec",
+    "reason": "Verified 2026-10-22 main history migration: remove private-derived research and configuration, retaining the released application source. Keep the published tag and assets unchanged."
+  }
+}

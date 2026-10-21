@@ -53,8 +53,12 @@ jobs:
           [ "$(python3 .github/scripts/checks_ready.py --repo "$GITHUB_REPOSITORY" --sha "$SHA")" = true ] || ok=false
           # Skip when this commit is already released or an equal/newer main commit was.
           if [ -n "$(git tag --points-at "$SHA")" ]; then ok=false; fi
-          latest=$(git tag --list 'v*' --sort=-v:refname | head -1)
-          if [ -n "$latest" ] && ! git merge-base --is-ancestor "$latest" "$SHA"; then ok=false; fi
+          # Use the same prior source as release notes, including exact verified history migrations.
+          if prior=$(python3 .github/scripts/release_history.py --head "$SHA"); then
+            echo "Prior released source: ${prior:-initial release}"
+          else
+            ok=false
+          fi
           # GITHUB_TOKEN may only tag the tip of main (older commits can differ in workflow files).
           # Tag the tip when everything after the checked commit is release-only (the checks' paths-ignore set).
           target=$(git rev-parse origin/main)
@@ -147,7 +151,7 @@ jobs:
           version="$VERSION"
           python3 .github/scripts/release_notes.py notes --head "$TARGET" --repo "$GITHUB_REPOSITORY" --version "$version" > notes.md
           for f in release/Cuerithm-*.dmg release/Cuerithm-*.deb release/Cuerithm-*.zip; do mv "$f" "${f%.*}-$version.${f##*.}"; done
-          gh release create "v$version" release/* --target "$TARGET" --title "Cuerithm $version" --notes-file notes.md --latest
+          gh release create "v$version" release/* --target "$TARGET" --title "CueRithm $version" --notes-file notes.md --latest
       - name: Remove signing keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/release.keychain-db" || true

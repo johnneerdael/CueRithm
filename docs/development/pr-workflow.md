@@ -58,3 +58,13 @@ The release gate checks all seven logical components: the Rust floor plus engine
 The trailers are the maintainer's assertion that the other results remain valid. Never retain a component affected by the patch. The release log records the exact checked commits, workflow runs and jobs used. Packaging still builds the selected release source on every platform.
 
 `.github/scripts/` holds the gate and release-note logic; run its tests with `python3 -m unittest discover -s .github/scripts`.
+
+The release gate and note generator both use the latest global `v*` tag as their
+previous release. An unrelated tag blocks publication rather than replaying old
+notes. For a verified source-history migration, `.github/scripts/release_history.json`
+records the exact published tag commit and its equivalent baseline on current
+`main`. The resolver requires that unchanged tag target and an existing baseline
+ancestor of the checked source. The 2026-10-22 migration preserves `v0.1.11` and
+its published assets; its equivalent baseline excludes already released changes
+from future notes. Migration records do not bypass any platform checks, source
+promotion restrictions or duplicate-release guards.
