@@ -6,13 +6,14 @@ mod generator;
 mod history;
 mod model;
 mod preferences;
+mod prepared;
 mod previews;
 pub(crate) mod queries;
 pub(crate) mod scope;
 mod service;
 mod snapshot;
 mod tools;
-mod tree;
+pub(crate) mod tree;
 mod workspace;
 use crate::{Library, now};
 use anyhow::{Context, Result, ensure};
@@ -27,7 +28,8 @@ pub use model::{
     SmartFieldCatalog, SmartGenerationRequest, SmartListFailure, SmartListStatus, SmartPreview,
     SmartPreviewScope, SmartRefresh, SmartStamp, SmartState, SmartTagChoice,
 };
-use model::{Delta, StoredNode, Tree};
+pub(crate) use model::{Delta, StoredNode, Tree};
+pub use prepared::PreparedPlaylistSaveRequest;
 use rusqlite::{Connection, TransactionBehavior, params};
 pub use service::SmartPlaylistService;
 use std::collections::BTreeSet;
@@ -101,14 +103,14 @@ pub(crate) fn load(conn: &Connection) -> Result<Tree> {
     }
     Ok(tree)
 }
-fn revision(conn: &Connection) -> Result<u64> {
+pub(crate) fn revision(conn: &Connection) -> Result<u64> {
     Ok(conn.query_row(
         "SELECT value FROM meta WHERE key='playlist_revision'",
         [],
         |r| r.get(0),
     )?)
 }
-fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
+pub(crate) fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
     let ids: BTreeSet<_> = before.keys().chain(after.keys()).cloned().collect();
     let mut a = Delta::new();
     let mut b = Delta::new();
@@ -120,7 +122,7 @@ fn diff(before: &Tree, after: &Tree) -> (Delta, Delta) {
     }
     (a, b)
 }
-fn persist(conn: &Connection, before: &Delta, after: &Delta) -> Result<()> {
+pub(crate) fn persist(conn: &Connection, before: &Delta, after: &Delta) -> Result<()> {
     for (id, row) in after {
         if let Some(row) = row {
             let n = &row.node;
@@ -244,27 +246,7 @@ impl Library {
     ) -> Result<PlaylistChange> {
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        ensure!(
-            revision(&tx)? == expected_revision,
-            "Playlist changed; refresh before editing"
-        );
-        let before = load(&tx)?;
-        let tracks = tree::known_tracks(&tx)?;
-        tree::validate(&before, &tracks)?;
-        let mut after = before.clone();
-        let mut created = vec![];
-        let operation = uuid::Uuid::new_v4().to_string();
-        edits::apply(
-            &mut after,
-            &tracks,
-            edit,
-            &operation,
-            &mut created,
-            0,
-            &mut 0,
-        )?;
-        let change =
-            commit_tree_change(&tx, &before, after, created, expected_revision, operation)?;
+        let change = apply_edit_tx(&tx, edit, expected_revision)?;
         tx.commit()?;
         Ok(change)
     }
@@ -282,4 +264,32 @@ impl Library {
             expected_revision,
         )
     }
+}
+
+/// Apply one revision-guarded playlist batch inside a caller-owned transaction.
+pub(crate) fn apply_edit_tx(
+    tx: &rusqlite::Transaction<'_>,
+    edit: PlaylistEdit,
+    expected_revision: u64,
+) -> Result<PlaylistChange> {
+    ensure!(
+        revision(tx)? == expected_revision,
+        "Playlist changed; refresh before editing"
+    );
+    let before = load(tx)?;
+    let tracks = tree::known_tracks(tx)?;
+    tree::validate(&before, &tracks)?;
+    let mut after = before.clone();
+    let mut created = vec![];
+    let operation = uuid::Uuid::new_v4().to_string();
+    edits::apply(
+        &mut after,
+        &tracks,
+        edit,
+        &operation,
+        &mut created,
+        0,
+        &mut 0,
+    )?;
+    commit_tree_change(tx, &before, after, created, expected_revision, operation)
 }

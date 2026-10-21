@@ -393,3 +393,135 @@ fn untagged_build_preserves_pending_native_decisions_before_recovery() {
         );
     }
 }
+
+#[test]
+fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
+    let d = tempfile::tempdir().unwrap();
+    let db = d.path().join("app/library.sqlite");
+    let music = d.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    let music = music.canonicalize().unwrap();
+    let source = music.join("authored.flac");
+    std::fs::write(&source, b"authored migration source").unwrap();
+    let library = Library::open(&db).unwrap();
+    let root = library.register_organization_root(music).unwrap();
+    let settings = library.settings().unwrap().revision;
+    let job = library
+        .enqueue(std::slice::from_ref(&source), settings.clone())
+        .unwrap()[0]
+        .clone();
+    let track = library.jobs().unwrap()[0].track_id.clone();
+    drop(library);
+    // Recreate the schema-18 boundary without leaving later feature tables.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute_batch("DROP TRIGGER curation_category_insert; DROP TRIGGER curation_category_update; DROP TRIGGER curation_category_delete; DROP TRIGGER curation_value_insert; DROP TRIGGER curation_value_update; DROP TRIGGER curation_value_delete; DROP TRIGGER curation_smart_update; DROP TABLE curation_metadata_drafts; DROP TABLE curation_native_stale; DROP TABLE curation_publications; DROP TABLE curation_tracks; DROP TABLE curation_mutations; DROP TABLE curation_mappings; DROP TABLE curation_value_aliases; DROP TABLE curation_category_aliases; DROP TABLE curation_value_properties; DROP TABLE curation_group_properties; DROP TABLE preparation_preset_assignments; DROP TABLE preparation_preset_capture_authorities; DROP TABLE preparation_preset_folders; DROP TABLE preparation_preset_revisions; DROP TABLE preparation_presets; DROP TABLE catalog_response_cache; DROP TABLE catalog_request_starts; DROP TABLE catalog_rate_state; DELETE FROM meta WHERE key='curation_taxonomy_revision'; DROP TABLE metadata_edit_files; DROP TABLE metadata_edit_writes; DROP TABLE metadata_edit_rows; DROP TABLE metadata_edit_overrides; DROP TABLE metadata_edit_batches; DROP TABLE metadata_edit_previews; DROP TABLE metadata_edit_drafts; DROP TABLE metadata_artwork_assets; DROP TABLE preparation_match_generations; DROP TABLE preparation_match_previews; DROP TABLE preparation_review_decisions; DROP TABLE preparation_reuse; DROP TABLE preparation_review_artwork; DROP TABLE artifact_cleanup_moves; ALTER TABLE tag_writes DROP COLUMN editor_receipt_json; ALTER TABLE tag_writes DROP COLUMN input_source_proof_json; ALTER TABLE tag_writes DROP COLUMN restore_source_proof_json; ALTER TABLE tag_writes DROP COLUMN artifact_authorities_json; DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; DROP TABLE native_playlist_bindings; DROP TABLE native_playlist_acknowledgements; DROP TABLE rekordbox_sync_operations; DROP TABLE native_sync_track_ownership; PRAGMA user_version=18;").unwrap();
+    drop(conn);
+    let library = Library::open(&db).unwrap();
+    assert_eq!(library.organization_roots().unwrap()[0].id, root.id);
+    assert_eq!(library.track_path(&track).unwrap(), source);
+    assert_eq!(library.jobs().unwrap()[0].id, job);
+    assert_eq!(library.settings().unwrap().revision, settings);
+    library
+        .save_cue_template(
+            None,
+            "Practice".into(),
+            Default::default(),
+            library.revision().unwrap(),
+        )
+        .unwrap();
+    assert_eq!(library.cue_templates().unwrap().len(), 1);
+    let conn = rusqlite::Connection::open(db).unwrap();
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 27);
+    let count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM native_reconciliation_plans",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
+#[test]
+fn schema_twenty_three_upgrade_preserves_released_preset_curation_and_catalog_data() {
+    use cuerithm_library::*;
+    let d = tempfile::tempdir().unwrap();
+    let db = d.path().join("library.sqlite");
+    let library = Library::open(&db).unwrap();
+    let projection = library
+        .project_preparation_preset(&library.settings().unwrap().settings)
+        .unwrap();
+    let preset = library
+        .save_preparation_preset(PreparationPresetSave {
+            id: None,
+            expected_revision: None,
+            name: "Released preset".into(),
+            rules: projection.rules,
+            connections: projection.connections,
+        })
+        .unwrap();
+    let service = CurationService::new(library.clone(), None);
+    let receipt = service
+        .edit_taxonomy(CurationTaxonomyRequest {
+            request_id: "released-curation".into(),
+            expected_revision: service.catalog().unwrap().revision,
+            change: CurationTaxonomyChange::CreateGroup {
+                name: "Released Mood".into(),
+                mode: CurationGroupMode::Single,
+            },
+        })
+        .unwrap();
+    drop(service);
+    drop(library);
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute_batch("INSERT INTO catalog_rate_state(service,manual_hold) VALUES('musicbrainz',1); DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; DROP TABLE native_playlist_bindings; DROP TABLE native_playlist_acknowledgements; DROP TABLE rekordbox_sync_operations; DROP TABLE native_sync_track_ownership; PRAGMA user_version=23;").unwrap();
+    drop(conn);
+    let library = Library::open(&db).unwrap();
+    assert_eq!(
+        library.preparation_preset(&preset.id).unwrap().revision,
+        preset.revision
+    );
+    let service = CurationService::new(library.clone(), None);
+    assert!(
+        service
+            .catalog()
+            .unwrap()
+            .groups
+            .iter()
+            .any(|group| Some(&group.id) == receipt.created_id.as_ref()
+                && group.name == "Released Mood")
+    );
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+            .unwrap(),
+        27
+    );
+    assert!(
+        conn.query_row(
+            "SELECT manual_hold FROM catalog_rate_state WHERE service='musicbrainz'",
+            [],
+            |row| row.get::<_, bool>(0)
+        )
+        .unwrap()
+    );
+    for table in [
+        "native_reconciliation_plans",
+        "manual_publication_operations",
+        "native_playlist_bindings",
+        "rekordbox_sync_operations",
+    ] {
+        assert!(
+            conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+                [table],
+                |row| row.get::<_, bool>(0)
+            )
+            .unwrap(),
+            "missing {table}"
+        );
+    }
+}

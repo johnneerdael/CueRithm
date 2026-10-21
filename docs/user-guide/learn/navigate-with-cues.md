@@ -50,4 +50,4 @@ The default 32-second view follows the playhead and spaces out the beat lines so
 
 Use ++arrow-left++ and ++arrow-right++ to jump a bar (four beats) at a time, and ++space++ to play or pause.
 
-The cue buttons and markers are drawn from the cues saved at preparation time. The beat lines come from the saved BPM and first-beat anchor. Cues are read-only in this release: you can seek to them, but not edit them. The detection logic is described in [The cue engine](../technical/cues.md).
+The cue buttons and markers are drawn from the cues saved at preparation time. The beat lines come from the saved BPM and first-beat anchor. Choose **Edit cues & grid** in the player to [correct saved cues and loops](../guides/manual-corrections.md), preview the changes and save them with Undo. The detection logic is described in [The cue engine](../technical/cues.md).

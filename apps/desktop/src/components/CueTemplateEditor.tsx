@@ -1,0 +1,34 @@
+import {useState} from "react";
+import type {CueTemplate,CueTemplateRow,CueMarker,SavedCueTemplate} from "../manual-publication-types";
+export const cuePalette=["yellow","red","blue","green","orange","violet","magenta","cyan","white"];
+const roles:[CueMarker,string][]=[["start","Start"],["drop","Drop"],["breakdown","Breakdown"],["second_drop","Second drop"],["second_breakdown","Second breakdown"],["lastbeat","Last beat"],["emergency_loop","Emergency loop"],["normal","Offset from marker"]];
+export function defaultCueTemplate():CueTemplate {
+ return {overwrite:false,startCueBehavior:"atFirstBeat",breakdownMinBeats:64,keepCuePositions:false,enableCustomAnchors:false,dropAtStart:"never",customAnchors:{},rows:roles.slice(0,6).map(([markerType,label],i)=>({checked:true,markerType,name:label,label,cueType:"hotcue",color:cuePalette[i]}))};
+}
+export default function CueTemplateEditor({saved,cueNames,busy,onSave,onCancel}:{saved:SavedCueTemplate|null;cueNames:string[];busy:boolean;onSave:(id:string|null,name:string,template:CueTemplate)=>void;onCancel:()=>void}) {
+ const [name,setName]=useState(saved?.name??"");const [template,setTemplate]=useState<CueTemplate>(()=>structuredClone(saved?.template??defaultCueTemplate()));
+ const update=(patch:Partial<CueTemplate>)=>setTemplate(current=>({...current,...patch}));
+ const row=(index:number,patch:Partial<CueTemplateRow>)=>update({rows:template.rows.map((value,i)=>i===index?{...value,...patch}:value)});
+ return <section className="cue-template-form" aria-label="Cue template editor"><h4>{saved?"Edit cue template":"New cue template"}</h4>
+  <fieldset disabled={busy}><label>Template name<input aria-label="Template name" value={name} maxLength={200} onChange={event=>setName(event.target.value)}/></label>
+   <div className="publication-options"><label><input type="checkbox" checked={template.overwrite} onChange={event=>update({overwrite:event.target.checked})}/>Replace existing cue slots</label><label><input type="checkbox" checked={template.keepCuePositions} onChange={event=>update({keepCuePositions:event.target.checked})}/>Keep row slot numbers</label>
+    <label>Start cue<select value={template.startCueBehavior??"atFirstBeat"} onChange={event=>update({startCueBehavior:event.target.value as CueTemplate["startCueBehavior"]})}><option value="atFirstBeat">At corrected first beat</option><option value="atExistingCue">At first saved cue</option><option value="atZero">At track start</option></select></label>
+   </div>
+   <div className="template-rows">{template.rows.map((value,index)=><div className="template-row" key={index}>
+    <label className="template-enabled"><input aria-label={`Use template row ${index+1}`} type="checkbox" checked={value.checked} onChange={event=>row(index,{checked:event.target.checked})}/><span>{index+1}</span></label>
+    <label>Marker<select aria-label={`Template marker ${index+1}`} value={value.markerType} onChange={event=>row(index,{markerType:event.target.value as CueMarker,...(event.target.value==="normal"?{anchor:"start" as CueMarker,position:"after" as const,beatsOffset:0}:{})})}>{roles.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+    <label>Name<input aria-label={`Template cue name ${index+1}`} value={value.name} onChange={event=>row(index,{name:event.target.value})}/></label>
+    <label>Kind<select aria-label={`Template cue kind ${index+1}`} value={value.cueType} onChange={event=>row(index,{cueType:event.target.value as CueTemplateRow["cueType"],loopDuration:value.loopDuration??16})}><option value="hotcue">Hot cue</option><option value="loop_hot">Saved loop</option><option value="loop_active">Active saved loop</option><option value="memory_cue">Memory cue</option><option value="memory_cue_loop">Memory loop</option></select></label>
+    <label>Color<select aria-label={`Template cue color ${index+1}`} value={value.color??""} onChange={event=>row(index,{color:event.target.value||null})}><option value="">None</option>{[...new Set([...cuePalette,...(value.color?[value.color]:[])])].map(color=><option key={color}>{color}</option>)}</select></label>
+    <button type="button" aria-label={`Remove template row ${index+1}`} onClick={()=>update({rows:template.rows.filter((_,i)=>i!==index)})}>Remove</button>
+    {value.markerType==="normal"?<div className="template-offset"><label>Anchor<select aria-label={`Template anchor ${index+1}`} value={value.anchor??"start"} onChange={event=>row(index,{anchor:event.target.value as CueMarker})}>{roles.filter(([id])=>id!=="normal").map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label><label>Offset<select value={value.position??"after"} onChange={event=>row(index,{position:event.target.value as "before"|"after"})}><option value="before">Before</option><option value="after">After</option></select></label><label>Beats<input aria-label={`Template offset beats ${index+1}`} type="number" min={0} step={1} value={value.beatsOffset??0} onChange={event=>row(index,{beatsOffset:Number(event.target.value)})}/></label></div>:null}
+    {value.cueType.includes("loop")?<label className="template-loop">Loop beats<input aria-label={`Template loop beats ${index+1}`} type="number" min={1} step={1} value={value.loopDuration??16} onChange={event=>row(index,{loopDuration:Number(event.target.value)})}/></label>:null}
+   </div>)}</div>
+   <button type="button" onClick={()=>update({rows:[...template.rows,{checked:true,markerType:"normal",name:"Practice",cueType:"hotcue",color:"cyan",anchor:"start",position:"after",beatsOffset:16}]})}>Add template row</button>
+   <label className="template-custom"><input type="checkbox" checked={template.enableCustomAnchors} onChange={event=>update({enableCustomAnchors:event.target.checked})}/>Use named saved cues as anchors</label>
+   {template.enableCustomAnchors?<div className="template-anchor-map">{roles.filter(([id])=>id!=="normal").map(([id,label])=><label key={id}>{label}<select aria-label={`${label} saved anchor`} value={template.customAnchors[id]??""} onChange={event=>{const customAnchors={...template.customAnchors};if(event.target.value)customAnchors[id]=event.target.value;else delete customAnchors[id];update({customAnchors});}}><option value="">Measured marker</option>{[...new Set([...cueNames,...(template.customAnchors[id]?[template.customAnchors[id]]:[])])].map(cue=><option key={cue}>{cue}</option>)}</select></label>)}</div>:null}
+   <p className="publication-help">Templates use measured structural markers and the saved grid. They do not rerun cue detection. Manual corrections stay protected in the preview by default.</p>
+   <div className="publication-actions"><button type="button" onClick={onCancel}>Cancel template</button><button type="button" className="primary" disabled={!name.trim()} onClick={()=>onSave(saved?.id??null,name,template)}>Save template</button></div>
+  </fieldset>
+ </section>;
+}

@@ -1,7 +1,10 @@
-# Direct rekordbox contract: research revision 1
+# Direct rekordbox contract: research revision 3
 
-This is the contract and progress record for the native Rust adapter. The desktop app does
-not yet sync to rekordbox. No collection XML transport or fallback is planned.
+This is the contract and progress record for the native Rust adapter. Desktop
+Sync writes are enabled only for the two tested macOS builds listed under
+[accepted native profiles](#accepted-native-profiles). Other builds remain
+read-only. Earlier sections retain historical research checkpoints. No collection
+XML transport or fallback is provided.
 
 ## Evidence and limits
 
@@ -339,3 +342,138 @@ The backend target/link/record APIs expose this durable state. The branded
 Sync workflow, supported native rule/asset mappings, per-field reconciliation,
 coordinated DB/asset writes and recovery, and actual 6/7 desktop round trips
 still require implementation and acceptance. No collection XML fallback is used.
+
+
+## Native publication implementation checkpoint (2026-10-21)
+
+The native SDK now plans metadata, foreign descriptive records, content and
+master-song identities, cue/content-cue records, analysis references, artwork,
+playlist hierarchy/order and MyTag relationships. A preview uses a fresh random
+seed to freeze allocated IDs and UUIDs. Changed records share one local update
+counter; an actual no-op neither advances that counter nor writes rows. Native
+memory cue colours retain nullable colour-table indices, distinct from hot-cue
+palette indices. Unsupported custom colours require explicit conversion.
+
+The publisher retains an exclusive connection to the original encrypted
+native database inode across immutable asset publication and the final SQLite
+commit. It compares coherent logical proofs of all native tables, including
+unknown rows and WAL-only edits. The frozen after-state is checked inside the
+transaction before commit. Database snapshots use the encrypted SQLite backup
+API; replacing the original database file or deleting its sidecars is not part
+of this protocol. Restart history distinguishes staged assets, native commit and
+local acknowledgement. Later destination changes cause guarded recovery or
+restore to refuse the operation.
+
+Analysis changes preserve unknown chunks and retained cue records. Original
+DAT/EXT/2EX siblings remain available while complete new versions are published;
+3EX resources are preserved as opaque data, because observed 3EX files are not
+PMAI analysis envelopes. New waveforms use decoded playable PCM. A verified
+change in source PCM regenerates known waveform sections while preserving
+unrelated sections. Track paths, cue times and beatgrids use the measured native
+clock once, including MP3 encoder timing and AAC container delay.
+
+Local files outside the supported native audio profile require explicit
+permission to create compatible, target-owned PCM WAV copies. The preview
+reports their number and storage size. Source files remain unchanged; the copy
+has its own measured media facts and zero-offset playable clock. Authored format
+fixtures cover all fourteen repository source layouts. Their results establish
+conversion and source-preservation behaviour, not acceptance by rekordbox.
+Artwork is normalized to deterministic JPEGs at 80, 240 and 320 pixel bounds,
+with aspect ratio preserved and transparency composited onto white. A local
+artwork observation hashes the generated main image once; the remote observation
+hashes the actual native image bytes, so repeat syncs do not repeatedly recompress
+or rewrite artwork.
+
+Playlist/MyTag import and export use separate identity and ownership records.
+Matching a name does not establish ownership. UUID generation proofs prevent
+recycled cue or membership IDs from inheriting earlier ownership. Native smart
+payloads remain opaque unless their full semantics can be retained; new local
+smart lists require explicit whole-list materialization. Preview and publication
+observe native-only tracks without silently importing or preparing them.
+
+The desktop bridge provides discovery, preflight, reviewed field decisions,
+apply, discard, restart recovery and restore. Compatible audio copies and
+nearest cue colours default off. Existing five-player Sync controls remain
+separate. Fixture checks cover publication interruptions, process guards,
+identity reuse, repeated no-op exports, source replacement and later-edit
+conflicts. These checks do not establish actual application compatibility.
+
+### Accepted native profiles
+
+| Platform | Exact application build | Schema fingerprint | SQLite user_version / application_id |
+| --- | --- | --- | --- |
+| macOS | 6.8.7.0303 | `ddc512c75d38fb50ca9688b8bca2e179130b482f001b9df9272c0bd21ff9baaf` | 0 / 0 |
+| macOS | 7.2.19.0342 | `6bd02ac0a3f9cadfd3ae9b4c95e1ca0663fd3e7717a74e89a4c153834611d2eb` | 0 / 0 |
+
+Version 6 executable SHA-256:
+`aab4838b9768860da941f232db3f31cfa397a7a79f6052cde1aa6584f2d5dc3c`.
+Version 7 executable SHA-256:
+`07dcecbaf304f777e435539c83c7dcc02e41de1eaf2e0a75e8a9852e4411a244`.
+Both schemas were measured in fresh, application-created private libraries.
+Version 6 has 42 tables and 303 schema objects; version 7 has 48 and 336.
+Integrity checks pass with no foreign-key violations. Acceptance binds platform,
+exact build, executable digest, complete schema and both SQLite header markers.
+Schema recognition alone never authorizes writing. Windows and other builds
+remain read-only until their own application acceptance passes.
+
+Each private exercise retains an application-imported authored WAV and creates
+a second authored FLAC through CueRithm. Native readback verifies exact cue
+slots/intervals, the active-loop memory marker, the complete constant grid,
+three normalized cover images, MyTags, folder relationships, ordered manual
+membership and a whole materialized Smart Playlist. Repeated syncs leave native
+rows, database/resource bytes and modification times unchanged. Reverse-order
+restore and recovery after injected post-commit interruptions pass. Local playlist
+reorders are published and recovered without claiming retained links as new.
+Native-added bundled demo tracks and unplanned rows/assets are preserved.
+
+Both applications reopen and display the CueRithm-published cover, metadata,
+grid, cue and loop. The created FLAC plays with advancing transport/output meters
+and repeats its authored four-beat loop. The version 6 active-loop check includes
+user confirmation; version 7 hot-loop playback was observed across repeated
+cycles. MyTag checkboxes display correctly. Version 7 additionally displays the
+reordered manual playlist and complete materialized Smart Playlist in its native
+browser; version 6 hierarchy is visible in native menus and exact order is
+verified in native readback.
+
+A tag reload inside each application changes target metadata. CueRithm detects
+the resulting conflicts and refuses an older restore without changing the
+native database/assets or operation status. Version 6 reaches the database-state
+guard; version 7 first reaches the native-asset guard because the application
+also changed a referenced analysis asset. Source-audio changes and generic
+restore errors do not qualify as this later-native-edit acceptance.
+
+After promotion, the public version 7 API discovers the exact private target,
+passes writable preflight, previews/applies a zero-row sync and restores that
+acknowledgement. Native database and resource bytes and modification times remain
+unchanged throughout. The privately expanded version 6 artifact exercises the
+same planner/publisher with explicit test-only routing, rather than claiming
+normal installation discovery for that artifact location.
+
+These checks exposed and repaired an artwork-reference error: `ImagePath` begins
+`/PIONEER/Artwork/` and resolves relative to `share`. Native tag reload supplied
+the reference/filesystem evidence. Corrected CueRithm publication displays its
+own cover after reopening. Native 6's extended-grid microsecond dialect is
+recognized only when it agrees with the companion DAT. Loop-size conversion uses
+the selected cue/grid tempo even when BPM metadata is excluded.
+
+The local editor currently publishes one constant BPM/first-beat anchor. Existing
+native variable grids can be retained; this acceptance does not claim native
+variable-grid publication through the editor. Native reanalysis remains an
+explicit target-side operation: the private playback checks retain CueRithm's
+saved analysis. Physical-player playback, Windows native execution, genuine
+power loss and release publication remain separate evidence boundaries.
+
+### Lexicon artifact revalidation
+
+The user-requested REA pass revalidated installed Lexicon 1.11.15 against the
+ASAR SHA-256 recorded above. REA parent Evidence is
+`ev_9c3010d8f2710194623ca9326b686bf2619c2d45cf795b1e0ef87324455be184`;
+its renderer asset view is
+`ev_cb245b691040c15414a9e74ed5d83d4973be3ed0776609726b9b62716498defe`,
+with source SHA-256
+`df240bbd3677166bda1f36d00212c49b03740038c52fc17fbb8b7cf647b2e198`.
+The large application graph is partial because source analysis exceeded its
+resource budget. Unpacked native helper integrity metadata also differs from
+observed bytes; those helpers were not executed. Focused static exporter traces
+supply protocol evidence, with exact private source locations retained in the
+ignored investigation ledger. Static traces are not native execution evidence.

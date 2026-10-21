@@ -63,4 +63,4 @@ Each preparation stores a new cue revision. Earlier revisions are kept. Cues are
 | Drop at start | Never | Whether a drop can sit at the start. |
 | Emergency loop | off | Adds the S.O.S. loop. |
 
-There is no cue template editor, no custom anchors and no tempo-range option yet.
+The player offers [manual corrections and reusable templates](../guides/manual-corrections.md), including named cue anchors. Automatic Incoming preparation still uses the factory publication rows and current preparation settings. A tempo-range option is not available.

@@ -485,10 +485,18 @@ pub fn leaf(path: &Path) -> Result<()> {
     Ok(())
 }
 pub fn fingerprint(file: &mut File) -> Result<Fingerprint> {
+    fingerprint_bounded(file, u64::MAX)
+}
+/// Reject oversized dependencies before hashing and stop if a file grows while read.
+pub(crate) fn fingerprint_bounded(file: &mut File, max_bytes: u64) -> Result<Fingerprint> {
     let before = file.metadata()?;
     ensure!(
         before.is_file(),
         "Only regular organization files are supported"
+    );
+    ensure!(
+        before.len() <= max_bytes,
+        "Organization dependency exceeds backup size budget"
     );
     let id = identity(file)?;
     file.seek(SeekFrom::Start(0))?;
@@ -496,10 +504,18 @@ pub fn fingerprint(file: &mut File) -> Result<Fingerprint> {
     let mut buffer = [0u8; 64 * 1024];
     let mut bytes = 0;
     loop {
-        let count = file.read(&mut buffer)?;
+        let limit = max_bytes
+            .saturating_sub(bytes)
+            .saturating_add(1)
+            .min(buffer.len() as u64) as usize;
+        let count = file.read(&mut buffer[..limit])?;
         if count == 0 {
             break;
         }
+        ensure!(
+            count as u64 <= max_bytes.saturating_sub(bytes),
+            "Organization dependency exceeds backup size budget"
+        );
         sha.update(&buffer[..count]);
         bytes += count as u64;
     }

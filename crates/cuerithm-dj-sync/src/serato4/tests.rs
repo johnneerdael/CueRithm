@@ -55,6 +55,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, std::path::PathBuf, SyncLibrary) 
             duration_seconds: 3.,
             sample_rate: 44100,
             cues: vec![SyncCue {
+                active_loop: false,
                 index: 0,
                 name: "Intro".into(),
                 start_seconds: 1.234,
@@ -93,6 +94,7 @@ fn native_markers_match_synthetic_reference_bytes() {
         color: Some(0xff0000),
         cues: vec![
             SyncCue {
+                active_loop: false,
                 index: 0,
                 name: "Intro".into(),
                 start_seconds: 1.234,
@@ -100,6 +102,7 @@ fn native_markers_match_synthetic_reference_bytes() {
                 end_seconds: None,
             },
             SyncCue {
+                active_loop: false,
                 index: 1,
                 name: "Loop".into(),
                 start_seconds: 2.,

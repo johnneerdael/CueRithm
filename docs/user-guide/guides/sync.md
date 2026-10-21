@@ -10,7 +10,7 @@ recoverable backup.
 
 ## Choose a destination
 
-The **Sync to** menu offers five targets:
+The **DJ libraries and USB** tab contains the **Sync to** menu with five targets:
 
 | Target | Choose |
 | --- | --- |
@@ -23,12 +23,94 @@ The **Sync to** menu offers five targets:
 Initialize desktop libraries in their DJ application first. Choose a discovered
 library, use the folder button to browse, or enter its location. The refresh button
 checks for libraries again. Older library formats are not a separate export target.
-Existing direct rekordbox 6/7 groundwork is separate from these five sync targets;
-Pioneer USB exports to a drive rather than a desktop rekordbox library.
+Choose the **rekordbox 6 / 7** tab for a desktop rekordbox library. Pioneer USB
+exports to a drive rather than a desktop rekordbox library.
 
 Sync remembers the selected software and keeps the destination, scope and options
 separately for each target. Returning restores these choices; create a fresh preview
 before applying them.
+
+## Sync directly to rekordbox 6 or 7
+
+Native sync discovers installed rekordbox 6 and 7 libraries on macOS and Windows.
+The installed version and database location appear under **Installed library**.
+Linux does not support a native desktop rekordbox installation.
+
+**Supported native writes:** macOS builds **6.8.7.0303** and **7.2.19.0342**.
+Other builds and Windows libraries remain **Read only** until tested. Review the
+availability notice; support is checked against the actual installed build and
+library. Linux cannot run a local desktop rekordbox target.
+
+1. Close rekordbox and **rekordbox Agent**. The Agent can remain running after
+   closing the main application.
+2. Open **Sync → rekordbox 6 / 7** and choose the installed library.
+3. Choose the full library, a playlist or folder, or tracks modified since the last
+   sync. Select the metadata, cues, beatgrids, artwork, playlists and My Tags to
+   include. **Convert smart playlists to track lists** exports their saved members.
+4. Choose **Preview rekordbox sync** and review the values from both libraries.
+   **Playlists and My Tags** shows each creation, update and owned deletion,
+   with the current and resulting names, folders, positions and track membership.
+   Expand **Track membership** to inspect native track positions and retained
+   external members. Long lists show the first 50 tracks and the full count.
+   Smart playlists identify when they become track lists; native smart rules are
+   labelled separately when preserved.
+   When a new track has no native identity yet, its playlists and My Tags await
+   your choices. Include the track in the sync scope, choose **Use CueRithm** for
+   its title and any cues or beatgrid to send, then preview again. Sync remains
+   unavailable until that fresh preview contains the complete membership plan.
+5. Choose which values to use. The first sync requires explicit choices, including
+   **Accept equal values** when both libraries already agree. Bulk choices apply to
+   unresolved fields with available values and preserve choices already made.
+6. Preview again after changing choices. **Sync rekordbox** applies only this fresh
+   preview, when the installed library supports writing.
+
+**Use CueRithm** sends the local value to rekordbox. **Keep rekordbox** preserves
+the native value; it does not rewrite source music tags. **Clear in rekordbox** is
+an explicit removal. An **Empty** or **Unavailable** observation never requests a
+removal automatically. Beatgrids can be retained or replaced; clearing a complete
+beatgrid is unavailable.
+
+CueRithm sends a constant BPM and first-beat grid. Choose **Keep rekordbox** to
+retain an existing variable-tempo grid. When reopening newly synced tracks,
+rekordbox may offer its own analysis. Cancel that analysis to retain the reviewed
+CueRithm grid; reanalysis is a separate edit in rekordbox. To audition an active
+loop automatically, enable **Active Loop Playback** in rekordbox's player menu.
+
+**Create compatible WAV copies for unsupported audio** is off by default. Enable
+it to sync formats that rekordbox cannot play directly. CueRithm creates separate
+WAV copies for the native library and leaves source music unchanged. Review the
+copy count and additional storage size before applying the preview. Without this
+option, unsupported audio stops the preview with an explanation.
+
+**Use nearest supported cue colors** is also off by default. Enable it to map
+unsupported colors to the closest rekordbox color. The preview reports the cues
+whose colors change; otherwise unsupported colors stop the preview for review.
+
+For cues, **Replace listed rekordbox cues** and **Clear listed rekordbox cues**
+explicitly replace or remove the recognized cues shown in the review. CueRithm
+manages those cues after the sync commits. Unknown cue data stays protected.
+The bulk **Use CueRithm for unresolved** action shows how many cue sets it includes.
+Accepting equal cues alone does not transfer their management.
+
+**Skip this field** leaves it unsynced and unacknowledged. Completed syncs report
+the actual tracks, changed rows, acknowledged fields and skipped fields. A skipped
+field stays available for review in a later preview.
+
+Changing the destination, scope, options or local library invalidates the preview.
+Later native edits also require another preview. Existing field choices remain
+visible after a failed apply; **Reset choices** starts a new comparison without
+those choices. **Cancel** waits for the active operation to stop before another
+operation can begin. The refresh button rechecks availability after closing an app
+or Agent.
+
+Native previews and recovery information appear in **rekordbox sync history**,
+including after restarting CueRithm. Discard an unused preview before preparing
+another sync to the same database. Choose **Recover sync** for interrupted work.
+**Restore backup** asks for confirmation and checks the saved library and file
+identities before reverting that sync. Later destination edits prevent restoration.
+If native changes were published but recovery cannot acknowledge later local
+changes, a guarded restore may also be available. Restore does not overwrite
+current local music files.
 
 ## Choose what to sync
 

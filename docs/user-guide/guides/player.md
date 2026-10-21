@@ -57,8 +57,7 @@ Each cue has one button showing its slot letter, name, time and colour. Click a 
 
 Until preparation finishes the area says *Cues appear here after preparation finishes.*
 
-!!! note "Read-only"
-    You can seek to cues but not move, rename or delete them in this release. There is no cue template editor yet.
+Choose **Edit cues & grid** to change cue positions, names, colours and slots, save loops, or correct the constant grid. Preview before saving; use Undo to restore the previous publication. Reusable templates are in the same panel. See [Manual corrections](manual-corrections.md).
 
 ## The light theme
 

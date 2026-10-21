@@ -303,13 +303,33 @@ fn write_track(
             id
         ],
     )?;
+    // Source bitrate is in kbps and sizeBytes is a byte count, matching Engine's
+    // integer columns. Missing facts preserve native values; explicit null clears.
+    for (source, native) in [("bitrate", "bitrate"), ("sizeBytes", "fileBytes")] {
+        let value = match track.attributes.get(source) {
+            None => continue,
+            Some(cuerithm_smartlists::FieldValue::Null) => None,
+            Some(cuerithm_smartlists::FieldValue::Number(value)) => {
+                ensure!(
+                    value.is_finite() && *value >= 0. && value.round() < i64::MAX as f64,
+                    "Invalid Engine DJ source {source}"
+                );
+                Some(value.round() as i64)
+            }
+            Some(_) => anyhow::bail!("Invalid Engine DJ source {source}"),
+        };
+        tx.execute(
+            &format!("UPDATE Track SET {native}=?1 WHERE id=?2"),
+            params![value, id],
+        )?;
+    }
     let data = performance_data(track, key.unwrap_or(0), options)?;
     tx.execute(
         "INSERT OR IGNORE INTO PerformanceData(trackId) VALUES(?1)",
         [id],
     )?;
-    tx.execute("UPDATE PerformanceData SET trackData=?1,quickCues=?2,loops=?3,activeOnLoadLoops=0 WHERE trackId=?4",
-        params![data.track,data.cues,data.loops,id])?;
+    tx.execute("UPDATE PerformanceData SET trackData=?1,quickCues=?2,loops=?3,activeOnLoadLoops=?4 WHERE trackId=?5",
+        params![data.track,data.cues,data.loops,data.active_loops,id])?;
     if !options.skip_beatgrids {
         tx.execute(
             "UPDATE PerformanceData SET beatData=?1 WHERE trackId=?2",
@@ -399,6 +419,7 @@ struct PerformanceData {
     beats: Option<Vec<u8>>,
     cues: Option<Vec<u8>>,
     loops: Option<Vec<u8>>,
+    active_loops: u8,
 }
 fn compressed(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut out = (u32::try_from(bytes.len())?).to_be_bytes().to_vec();
@@ -472,29 +493,33 @@ fn performance_data(track: &SyncTrack, key: u32, options: &SyncOptions) -> Resul
     };
     let mut cues = [None; 8];
     let mut loops = [None; 8];
+    let mut loop_count = 0;
     for cue in &track.cues {
-        ensure!(
-            cue.index < 8,
-            "Engine DJ supports eight cue slots and eight loop slots"
-        );
         ensure!(
             cue.start_seconds.is_finite() && cue.start_seconds >= 0.0,
             "Invalid Engine DJ cue time"
         );
-        let slots = if let Some(end) = cue.end_seconds {
+        let (slots, index) = if let Some(end) = cue.end_seconds {
             ensure!(
                 end.is_finite() && end > cue.start_seconds,
                 "Invalid Engine DJ loop end"
             );
-            &mut loops
+            // Generated publications have no imported Engine loop identity.
+            // Allocate their native loop positions independently of hotcue slots.
+            ensure!(loop_count < 8, "Engine DJ supports eight loop slots");
+            let index = loop_count;
+            loop_count += 1;
+            (&mut loops, index)
         } else {
-            &mut cues
+            ensure!(cue.index < 8, "Engine DJ supports eight cue slots");
+            (&mut cues, usize::from(cue.index))
         };
         ensure!(
-            slots[usize::from(cue.index)].replace(cue).is_none(),
+            slots[index].replace(cue).is_none(),
             "Duplicate Engine DJ cue or loop slot"
         );
     }
+    let mut active_loops = 0_u8;
     let cue_bytes = if cues.iter().all(Option::is_none) {
         None
     } else {
@@ -522,6 +547,9 @@ fn performance_data(track: &SyncTrack, key: u32, options: &SyncOptions) -> Resul
         let mut bytes = 8_u64.to_le_bytes().to_vec();
         for (index, cue) in loops.iter().enumerate() {
             if let Some(cue) = cue {
+                if cue.active_loop {
+                    active_loops |= 1 << index;
+                }
                 let name = cue_name(&cue.name, format!("Loop {}", index + 1));
                 bytes.push(name.len() as u8);
                 bytes.extend(name);
@@ -543,6 +571,7 @@ fn performance_data(track: &SyncTrack, key: u32, options: &SyncOptions) -> Resul
         beats,
         cues: cue_bytes,
         loops: loop_bytes,
+        active_loops,
     })
 }
 
@@ -1076,6 +1105,7 @@ mod tests {
                     ..Default::default()
                 },
                 SyncCue {
+                    active_loop: false,
                     index: 0,
                     name: "Loop".into(),
                     start_seconds: 4.0,
@@ -1101,6 +1131,80 @@ mod tests {
             result.len()
         );
         result
+    }
+    #[test]
+    fn active_loops_use_serialized_loop_slots_and_source_facts_keep_native_units() {
+        use cuerithm_smartlists::FieldValue;
+        let (dir, database) = fixture();
+        let mut input = track(dir.path().join("source.wav"));
+        input.cues[1].index = 5;
+        input.cues[1].active_loop = true;
+        input.cues.push(SyncCue {
+            index: 7,
+            name: "Second".into(),
+            start_seconds: 10.,
+            end_seconds: Some(12.),
+            active_loop: true,
+            ..Default::default()
+        });
+        input
+            .attributes
+            .insert("bitrate".into(), FieldValue::Number(320.));
+        input
+            .attributes
+            .insert("sizeBytes".into(), FieldValue::Number(12_345_678.));
+        let mut library = SyncLibrary {
+            tracks: vec![input],
+            ..Default::default()
+        };
+        let base = database.parent().unwrap().parent().unwrap();
+        write_staged(&database, base, &library, &SyncOptions::default()).unwrap();
+        let db = Connection::open(&database).unwrap();
+        let (mask, loops): (u32, Vec<u8>) = db.query_row(
+            "SELECT activeOnLoadLoops,loops FROM PerformanceData JOIN Track ON Track.id=trackId WHERE title='Synthetic'", [],
+            |r| Ok((r.get(0)?,r.get(1)?)),
+        ).unwrap();
+        assert_eq!(
+            mask, 0b11,
+            "active bits follow serialized loop positions, not cue indices 5/7"
+        );
+        assert_eq!(
+            &loops[9..13],
+            b"Loop",
+            "the first serialized loop occupies slot zero"
+        );
+        let facts: (i64, i64) = db
+            .query_row(
+                "SELECT bitrate,fileBytes FROM Track WHERE title='Synthetic'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(facts, (320, 12_345_678));
+        db.execute("UPDATE Track SET timeLastPlayed=123,playOrder=9,playedIndicator=1 WHERE title='Synthetic'", []).unwrap();
+        library.tracks[0].attributes.clear();
+        library.tracks[0].cues[1].active_loop = false;
+        library.tracks[0].cues[2].active_loop = false;
+        write_staged(&database, base, &library, &SyncOptions::default()).unwrap();
+        let preserved: (i64,i64,i64,i64,i64) = db.query_row("SELECT bitrate,fileBytes,timeLastPlayed,playOrder,playedIndicator FROM Track WHERE title='Synthetic'", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).unwrap();
+        assert_eq!(preserved, (320, 12_345_678, 123, 9, 1));
+        assert_eq!(db.query_row("SELECT activeOnLoadLoops FROM PerformanceData JOIN Track ON Track.id=trackId WHERE title='Synthetic'", [], |r| r.get::<_,u32>(0)).unwrap(),0);
+        library.tracks[0]
+            .attributes
+            .insert("bitrate".into(), FieldValue::Number(256.));
+        library.tracks[0]
+            .attributes
+            .insert("sizeBytes".into(), FieldValue::Null);
+        write_staged(&database, base, &library, &SyncOptions::default()).unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT bitrate,fileBytes FROM Track WHERE title='Synthetic'",
+                [],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?))
+            )
+            .unwrap(),
+            (256, None)
+        );
     }
     #[test]
     fn native_payload_matches_independent_reference_outputs() {
@@ -1184,7 +1288,8 @@ mod tests {
                 originTrackId INTEGER,dateCreated INTEGER,dateAdded INTEGER,playOrder INTEGER,playedIndicator INTEGER,
                 isMetadataOfPackedTrackChanged INTEGER,isPerfomanceDataOfPackedTrackChanged INTEGER,albumArt TEXT,albumArtId INTEGER,
                 title TEXT,artist TEXT,album TEXT,genre TEXT,label TEXT,comment TEXT,composer TEXT,remixer TEXT,bpm REAL,bpmAnalyzed REAL,
-                length INTEGER,year INTEGER,key INTEGER,rating INTEGER,isBeatGridLocked INTEGER,lastEditTime INTEGER);
+                length INTEGER,year INTEGER,key INTEGER,rating INTEGER,isBeatGridLocked INTEGER,lastEditTime INTEGER,
+                bitrate INTEGER,fileBytes INTEGER,timeLastPlayed INTEGER);
             CREATE TABLE PerformanceData(trackId INTEGER PRIMARY KEY REFERENCES Track(id),trackData BLOB,
                 quickCues BLOB,loops BLOB,beatData BLOB,activeOnLoadLoops INTEGER,overviewWaveFormData BLOB);
             CREATE TABLE AlbumArt(id INTEGER PRIMARY KEY AUTOINCREMENT,hash TEXT,albumArt BLOB);

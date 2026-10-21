@@ -40,11 +40,11 @@ pub struct DjSyncHistoryEntry {
     pub needs_restore_acknowledgement: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
-struct Source {
-    id: String,
+pub(crate) struct Source {
+    pub(crate) id: String,
     #[serde(with = "cuerithm_dj_sync::path_serde")]
-    path: PathBuf,
-    hash: String,
+    pub(crate) path: PathBuf,
+    pub(crate) hash: String,
 }
 #[derive(Serialize, Deserialize)]
 struct LibraryJournal {
@@ -81,6 +81,27 @@ struct Baseline {
     playlist_hashes: BTreeMap<String, String>,
 }
 impl Library {
+    pub(crate) fn native_sync_library(
+        &self,
+        scope: DjSyncScope,
+        runtime: Option<&cuerithm_media::MediaRuntime>,
+    ) -> Result<SyncLibrary> {
+        let revision = self.revision()?;
+        let mut library = self.dj_sync_library(scope)?;
+        let sources = capture_sources(&*self.conn()?, &library)?;
+        measure_export_profiles(
+            &self.data_dir().join("cache/dj-timing"),
+            &mut library,
+            &sources,
+            runtime,
+        )?;
+        ensure!(
+            self.revision()? == revision,
+            "Library changed while measuring native sync timing; preview again"
+        );
+        Ok(library)
+    }
+
     /// Stage exact native bytes on copies, retaining revision and source ownership
     /// evidence next to the file transaction. This never publishes staged bytes.
     pub fn preview_dj_sync(&self, request: DjSyncRequest) -> Result<SyncPreview> {
@@ -632,7 +653,7 @@ fn digest(value: &impl Serialize) -> Result<String> {
 fn export_options_hash(options: &SyncOptions) -> Result<String> {
     digest(&(options, cuerithm_dj_sync::implementation_sha256()))
 }
-fn measure_export_profiles(
+pub(crate) fn measure_export_profiles(
     cache: &Path,
     library: &mut SyncLibrary,
     sources: &[Source],
@@ -796,7 +817,10 @@ fn revision_of(connection: &Connection) -> Result<u64> {
         })?,
     )
 }
-fn capture_sources(connection: &Connection, library: &SyncLibrary) -> Result<Vec<Source>> {
+pub(crate) fn capture_sources(
+    connection: &Connection,
+    library: &SyncLibrary,
+) -> Result<Vec<Source>> {
     let mut query = connection.prepare(
         "SELECT path,source_hash FROM tracks WHERE id=?1 AND state='ready' AND archived=0",
     )?;
@@ -959,7 +983,7 @@ fn finish<T>(
         }
     }
 }
-fn service_lock(root: &Path) -> Result<File> {
+pub(crate) fn service_lock(root: &Path) -> Result<File> {
     fs::create_dir_all(root)?;
     let lock = File::options()
         .create(true)

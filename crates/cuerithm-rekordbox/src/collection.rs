@@ -133,6 +133,8 @@ pub struct PlaylistLink {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportedTag {
     pub id: String,
+    #[serde(default)]
+    pub uuid: Option<String>,
     pub parent_id: Option<String>,
     pub name: String,
     pub attribute: i64,
@@ -286,356 +288,357 @@ impl ReadOnlyDatabase {
         options: CollectionReadOptions,
         cancel: &CancellationToken,
     ) -> Result<RekordboxCollection> {
+        read_collection_on(&self.conn, options, cancel)
+    }
+}
+pub(crate) fn read_collection_on(
+    connection: &Connection,
+    options: CollectionReadOptions,
+    cancel: &CancellationToken,
+) -> Result<RekordboxCollection> {
+    cancel.check()?;
+    ensure!(
+        options.max_rows > 0,
+        "Collection read budget must be positive"
+    );
+    let tx = connection.unchecked_transaction()?;
+    let schema = crate::schema_on(&tx)?;
+    let mut records: BTreeMap<String, Vec<TargetRecord>> = BTreeMap::new();
+    let mut count = 0;
+    for table in [
+        "djmdProperty",
+        "agentRegistry",
+        "djmdArtist",
+        "djmdAlbum",
+        "djmdGenre",
+        "djmdLabel",
+        "djmdKey",
+        "djmdContent",
+        "djmdCue",
+        "contentCue",
+        "djmdPlaylist",
+        "djmdSongPlaylist",
+        "djmdMyTag",
+        "djmdSongMyTag",
+    ] {
         cancel.check()?;
-        ensure!(
-            options.max_rows > 0,
-            "Collection read budget must be positive"
-        );
-        let tx = self.conn.unchecked_transaction()?;
-        let schema = crate::schema_on(&tx)?;
-        let mut records: BTreeMap<String, Vec<TargetRecord>> = BTreeMap::new();
-        let mut count = 0;
-        for table in [
-            "djmdProperty",
-            "agentRegistry",
-            "djmdArtist",
-            "djmdAlbum",
-            "djmdGenre",
-            "djmdLabel",
-            "djmdKey",
-            "djmdContent",
-            "djmdCue",
-            "contentCue",
-            "djmdPlaylist",
-            "djmdSongPlaylist",
-            "djmdMyTag",
-            "djmdSongMyTag",
-        ] {
-            cancel.check()?;
-            let key = match table {
-                "djmdProperty" => "DBID",
-                "agentRegistry" => "registry_id",
-                _ => "ID",
-            };
-            records.insert(
-                table.into(),
-                crate::records::read_records(
-                    &tx,
-                    table,
-                    key,
-                    &mut count,
-                    options.max_rows,
-                    cancel,
-                )?,
-            );
-        }
-        ensure!(
-            records["djmdProperty"].len() == 1,
-            "Target database identity is absent or ambiguous"
-        );
-        let property = &records["djmdProperty"][0];
-        let database_id = property
-            .text("DBID")?
-            .filter(|s| !s.is_empty())
-            .context("Missing database identity")?;
-        let identity = DatabaseIdentity {
-            database_id: database_id.clone(),
-            device_id: property.text("DeviceID")?,
-            database_version: property.text("DBVersion")?,
-            local_update_count: records["agentRegistry"]
-                .iter()
-                .find(|r| r.id == "localUpdateCount")
-                .map(|r| r.unsigned("int_1"))
-                .transpose()?
-                .flatten(),
+        let key = match table {
+            "djmdProperty" => "DBID",
+            "agentRegistry" => "registry_id",
+            _ => "ID",
         };
-        let index = records
+        records.insert(
+            table.into(),
+            crate::records::read_records(&tx, table, key, &mut count, options.max_rows, cancel)?,
+        );
+    }
+    ensure!(
+        records["djmdProperty"].len() == 1,
+        "Target database identity is absent or ambiguous"
+    );
+    let property = &records["djmdProperty"][0];
+    let database_id = property
+        .text("DBID")?
+        .filter(|s| !s.is_empty())
+        .context("Missing database identity")?;
+    let identity = DatabaseIdentity {
+        database_id: database_id.clone(),
+        device_id: property.text("DeviceID")?,
+        database_version: property.text("DBVersion")?,
+        local_update_count: records["agentRegistry"]
             .iter()
-            .map(|(table, rows)| {
-                (
-                    table.as_str(),
-                    rows.iter()
-                        .map(|r| (r.id.as_str(), r))
-                        .collect::<BTreeMap<_, _>>(),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-        let mut issues = vec![];
-        let mut tracks = vec![];
-        for r in &records["djmdContent"] {
-            cancel.check()?;
-            let album_id = r.text("AlbumID")?;
-            let album_artist_id = album_id
-                .as_deref()
-                .and_then(|id| index["djmdAlbum"].get(id))
-                .map(|r| r.text("AlbumArtistID"))
-                .transpose()?
-                .flatten();
-            let metadata = TrackMetadata {
-                title: r.text("Title")?.unwrap_or_default(),
-                artist: resolve(
-                    &index,
-                    "djmdArtist",
-                    r.text("ArtistID")?,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                album: resolve(&index, "djmdAlbum", album_id, "Name", r, &mut issues)?,
-                album_artist: resolve(
-                    &index,
-                    "djmdArtist",
-                    album_artist_id,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                genre: resolve(
-                    &index,
-                    "djmdGenre",
-                    r.text("GenreID")?,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                label: resolve(
-                    &index,
-                    "djmdLabel",
-                    r.text("LabelID")?,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                key: resolve(
-                    &index,
-                    "djmdKey",
-                    r.text("KeyID")?,
-                    "ScaleName",
-                    r,
-                    &mut issues,
-                )?,
-                comment: r.text("Commnt")?.unwrap_or_default(),
-                remixer: resolve(
-                    &index,
-                    "djmdArtist",
-                    r.text("RemixerID")?,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                composer: resolve(
-                    &index,
-                    "djmdArtist",
-                    r.text("ComposerID")?,
-                    "Name",
-                    r,
-                    &mut issues,
-                )?,
-                lyricist: r.text("Lyricist")?.unwrap_or_default(),
-                mix_name: r.text("Subtitle")?.unwrap_or_default(),
-                release_year: r.u32("ReleaseYear")?.filter(|v| *v > 0),
-                release_date: nonempty(r.text("ReleaseDate")?),
-                track_number: r.u32("TrackNo")?.filter(|v| *v > 0),
-                disc_number: r.u32("DiscNo")?.filter(|v| *v > 0),
-                rating: r
-                    .int("Rating")?
-                    .filter(|v| (1..=5).contains(v))
-                    .map(|v| v as u8),
-            };
-            let source = TrackSource {
-                path: nonempty(r.text("FolderPath")?),
-                resolved_path: resolved_path(r, &options)?,
-                original_path: nonempty(r.text("OrgFolderPath")?),
-                service_id: r.int("ServiceID")?,
-                analysis_path: nonempty(r.text("AnalysisDataPath")?),
-                artwork_path: nonempty(r.text("ImagePath")?),
-                file_type: r.int("FileType")?,
-                file_size: r.unsigned("FileSize")?,
-                sample_rate: r.u32("SampleRate")?.filter(|v| *v > 0),
-                bitrate: r.number("BitRate")?.filter(|v| *v > 0.),
-                bit_depth: r.u32("BitDepth")?.filter(|v| *v > 0),
-            };
-            let target = TrackIdentity {
-                database_id: database_id.clone(),
-                content_id: r.id.clone(),
-                uuid: nonempty(r.text("UUID")?),
-                master_song_id: nonempty(r.text("MasterSongID")?),
-                local_usn: r.unsigned("rb_local_usn")?,
-            };
-            if target.master_song_id.is_none() {
-                issue(
-                    &mut issues,
-                    r,
-                    "MasterSongID",
-                    "missing_master_song_identity",
-                );
-            }
-            if target.uuid.is_none() {
-                issue(&mut issues, r, "UUID", "missing_uuid");
-            }
-            if source.resolved_path.is_none() {
-                issue(&mut issues, r, "FolderPath", "unresolved_local_location");
-            }
-            let bpm = r.number("BPM")?.filter(|v| *v > 0.).map(|v| v / 100.);
-            let metadata_hash = format!(
-                "{:x}",
-                Sha256::digest(serde_json::to_vec(&(&metadata, bpm))?)
+            .find(|r| r.id == "localUpdateCount")
+            .map(|r| r.unsigned("int_1"))
+            .transpose()?
+            .flatten(),
+    };
+    let index = records
+        .iter()
+        .map(|(table, rows)| {
+            (
+                table.as_str(),
+                rows.iter()
+                    .map(|r| (r.id.as_str(), r))
+                    .collect::<BTreeMap<_, _>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut issues = vec![];
+    let mut tracks = vec![];
+    for r in &records["djmdContent"] {
+        cancel.check()?;
+        let album_id = r.text("AlbumID")?;
+        let album_artist_id = album_id
+            .as_deref()
+            .and_then(|id| index["djmdAlbum"].get(id))
+            .map(|r| r.text("AlbumArtistID"))
+            .transpose()?
+            .flatten();
+        let metadata = TrackMetadata {
+            title: r.text("Title")?.unwrap_or_default(),
+            artist: resolve(
+                &index,
+                "djmdArtist",
+                r.text("ArtistID")?,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            album: resolve(&index, "djmdAlbum", album_id, "Name", r, &mut issues)?,
+            album_artist: resolve(
+                &index,
+                "djmdArtist",
+                album_artist_id,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            genre: resolve(
+                &index,
+                "djmdGenre",
+                r.text("GenreID")?,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            label: resolve(
+                &index,
+                "djmdLabel",
+                r.text("LabelID")?,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            key: resolve(
+                &index,
+                "djmdKey",
+                r.text("KeyID")?,
+                "ScaleName",
+                r,
+                &mut issues,
+            )?,
+            comment: r.text("Commnt")?.unwrap_or_default(),
+            remixer: resolve(
+                &index,
+                "djmdArtist",
+                r.text("RemixerID")?,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            composer: resolve(
+                &index,
+                "djmdArtist",
+                r.text("ComposerID")?,
+                "Name",
+                r,
+                &mut issues,
+            )?,
+            lyricist: r.text("Lyricist")?.unwrap_or_default(),
+            mix_name: r.text("Subtitle")?.unwrap_or_default(),
+            release_year: r.u32("ReleaseYear")?.filter(|v| *v > 0),
+            release_date: nonempty(r.text("ReleaseDate")?),
+            track_number: r.u32("TrackNo")?.filter(|v| *v > 0),
+            disc_number: r.u32("DiscNo")?.filter(|v| *v > 0),
+            rating: r
+                .int("Rating")?
+                .filter(|v| (1..=5).contains(v))
+                .map(|v| v as u8),
+        };
+        let source = TrackSource {
+            path: nonempty(r.text("FolderPath")?),
+            resolved_path: resolved_path(r, &options)?,
+            original_path: nonempty(r.text("OrgFolderPath")?),
+            service_id: r.int("ServiceID")?,
+            analysis_path: nonempty(r.text("AnalysisDataPath")?),
+            artwork_path: nonempty(r.text("ImagePath")?),
+            file_type: r.int("FileType")?,
+            file_size: r.unsigned("FileSize")?,
+            sample_rate: r.u32("SampleRate")?.filter(|v| *v > 0),
+            bitrate: r.number("BitRate")?.filter(|v| *v > 0.),
+            bit_depth: r.u32("BitDepth")?.filter(|v| *v > 0),
+        };
+        let target = TrackIdentity {
+            database_id: database_id.clone(),
+            content_id: r.id.clone(),
+            uuid: nonempty(r.text("UUID")?),
+            master_song_id: nonempty(r.text("MasterSongID")?),
+            local_usn: r.unsigned("rb_local_usn")?,
+        };
+        if target.master_song_id.is_none() {
+            issue(
+                &mut issues,
+                r,
+                "MasterSongID",
+                "missing_master_song_identity",
             );
-            tracks.push(ImportedTrack {
-                identity: target,
-                metadata,
-                source,
-                bpm,
-                duration_seconds: r.number("Length")?.filter(|v| *v > 0.),
-                deleted: r.flag("rb_local_deleted")?,
-                cues: vec![],
-                tag_ids: vec![],
-                raw_hash: r.fingerprint.clone(),
-                metadata_hash,
-            });
         }
-        let track_index = tracks
-            .iter()
-            .enumerate()
-            .map(|(i, t)| (t.identity.content_id.clone(), i))
-            .collect::<BTreeMap<_, _>>();
-        for r in &records["djmdCue"] {
-            cancel.check()?;
-            if r.flag("rb_local_deleted")? != Some(false) {
-                continue;
-            }
-            let id = r
-                .text("ContentID")?
-                .context("Cue is missing content identity")?;
-            let Some(i) = track_index.get(&id) else {
-                issue(&mut issues, r, "ContentID", "orphan_cue");
-                continue;
-            };
-            let kind = r.int("Kind")?.context("Cue kind is absent")?;
-            let memory = kind == 0 || kind == 4;
-            let slot = match kind {
-                1..=3 => Some((kind - 1) as u8),
-                5..=17 => Some((kind - 2) as u8),
-                _ => None,
-            };
-            if !memory && slot.is_none() {
-                issue(&mut issues, r, "Kind", "unsupported_cue_kind");
-            }
-            let start = r.number("InMsec")?.filter(|v| *v >= 0.).map(|v| v / 1000.);
-            let end = r.number("OutMsec")?.filter(|v| *v >= 0.).map(|v| v / 1000.);
-            if start.is_none() || end.is_some_and(|e| start.is_some_and(|s| e <= s)) {
-                issue(&mut issues, r, "InMsec", "invalid_cue_interval");
-            }
-            let cue = ImportedCue {
+        if target.uuid.is_none() {
+            issue(&mut issues, r, "UUID", "missing_uuid");
+        }
+        if source.resolved_path.is_none() {
+            issue(&mut issues, r, "FolderPath", "unresolved_local_location");
+        }
+        let bpm = r.number("BPM")?.filter(|v| *v > 0.).map(|v| v / 100.);
+        let metadata_hash = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&(&metadata, bpm))?)
+        );
+        tracks.push(ImportedTrack {
+            identity: target,
+            metadata,
+            source,
+            bpm,
+            duration_seconds: r.number("Length")?.filter(|v| *v > 0.),
+            deleted: r.flag("rb_local_deleted")?,
+            cues: vec![],
+            tag_ids: vec![],
+            raw_hash: r.fingerprint.clone(),
+            metadata_hash,
+        });
+    }
+    let track_index = tracks
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.identity.content_id.clone(), i))
+        .collect::<BTreeMap<_, _>>();
+    for r in &records["djmdCue"] {
+        cancel.check()?;
+        if r.flag("rb_local_deleted")? != Some(false) {
+            continue;
+        }
+        let id = r
+            .text("ContentID")?
+            .context("Cue is missing content identity")?;
+        let Some(i) = track_index.get(&id) else {
+            issue(&mut issues, r, "ContentID", "orphan_cue");
+            continue;
+        };
+        let kind = r.int("Kind")?.context("Cue kind is absent")?;
+        let memory = kind == 0 || kind == 4;
+        let slot = match kind {
+            1..=3 => Some((kind - 1) as u8),
+            5..=17 => Some((kind - 2) as u8),
+            _ => None,
+        };
+        if !memory && slot.is_none() {
+            issue(&mut issues, r, "Kind", "unsupported_cue_kind");
+        }
+        let start = r.number("InMsec")?.filter(|v| *v >= 0.).map(|v| v / 1000.);
+        let end = r.number("OutMsec")?.filter(|v| *v >= 0.).map(|v| v / 1000.);
+        if start.is_none() || end.is_some_and(|e| start.is_some_and(|s| e <= s)) {
+            issue(&mut issues, r, "InMsec", "invalid_cue_interval");
+        }
+        let cue = ImportedCue {
+            id: r.id.clone(),
+            uuid: r.text("UUID")?,
+            content_uuid: r.text("ContentUUID")?,
+            kind,
+            slot,
+            memory,
+            start_seconds: start,
+            end_seconds: end,
+            active_loop: kind == 4
+                || (end.is_some() && r.int("ActiveLoop")?.is_some_and(|v| v != 0)),
+            comment: r.text("Comment")?.unwrap_or_default(),
+            color: r.int("Color")?,
+            color_table_index: r.int("ColorTableIndex")?,
+            beat_loop_size: r.int("BeatLoopSize")?,
+            raw_hash: r.fingerprint.clone(),
+        };
+        if cue.content_uuid.is_some() && cue.content_uuid != tracks[*i].identity.uuid {
+            issue(&mut issues, r, "ContentUUID", "content_uuid_mismatch");
+        }
+        tracks[*i].cues.push(cue);
+    }
+    let playlists = records["djmdPlaylist"]
+        .iter()
+        .map(|r| {
+            Ok(ImportedPlaylist {
                 id: r.id.clone(),
                 uuid: r.text("UUID")?,
-                content_uuid: r.text("ContentUUID")?,
-                kind,
-                slot,
-                memory,
-                start_seconds: start,
-                end_seconds: end,
-                active_loop: kind == 4
-                    || (end.is_some() && r.int("ActiveLoop")?.is_some_and(|v| v != 0)),
-                comment: r.text("Comment")?.unwrap_or_default(),
-                color: r.int("Color")?,
-                color_table_index: r.int("ColorTableIndex")?,
-                beat_loop_size: r.int("BeatLoopSize")?,
+                parent_id: r.text("ParentID")?,
+                name: r.text("Name")?.unwrap_or_default(),
+                attribute: r.int("Attribute")?.context("Playlist attribute missing")?,
+                sequence: r.int("Seq")?.unwrap_or(0),
+                smart_rule: nonempty(r.text("SmartList")?),
+                deleted: r.flag("rb_local_deleted")?,
                 raw_hash: r.fingerprint.clone(),
-            };
-            if cue.content_uuid.is_some() && cue.content_uuid != tracks[*i].identity.uuid {
-                issue(&mut issues, r, "ContentUUID", "content_uuid_mismatch");
-            }
-            tracks[*i].cues.push(cue);
-        }
-        let playlists = records["djmdPlaylist"]
-            .iter()
-            .map(|r| {
-                Ok(ImportedPlaylist {
-                    id: r.id.clone(),
-                    uuid: r.text("UUID")?,
-                    parent_id: r.text("ParentID")?,
-                    name: r.text("Name")?.unwrap_or_default(),
-                    attribute: r.int("Attribute")?.context("Playlist attribute missing")?,
-                    sequence: r.int("Seq")?.unwrap_or(0),
-                    smart_rule: nonempty(r.text("SmartList")?),
-                    deleted: r.flag("rb_local_deleted")?,
-                    raw_hash: r.fingerprint.clone(),
-                })
             })
-            .collect::<Result<Vec<_>>>()?;
-        let mut playlist_links = records["djmdSongPlaylist"]
-            .iter()
-            .map(|r| {
-                Ok(PlaylistLink {
-                    id: r.id.clone(),
-                    playlist_id: r
-                        .text("PlaylistID")?
-                        .context("Playlist link has no playlist")?,
-                    content_id: r
-                        .text("ContentID")?
-                        .context("Playlist link has no content")?,
-                    position: r.int("TrackNo")?.context("Playlist link has no sequence")?,
-                    deleted: r.flag("rb_local_deleted")?,
-                    raw_hash: r.fingerprint.clone(),
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        playlist_links.sort_by(|a, b| {
-            (&a.playlist_id, a.position, &a.id).cmp(&(&b.playlist_id, b.position, &b.id))
-        });
-        let tags = records["djmdMyTag"]
-            .iter()
-            .map(|r| {
-                Ok(ImportedTag {
-                    id: r.id.clone(),
-                    parent_id: r.text("ParentID")?,
-                    name: r.text("Name")?.unwrap_or_default(),
-                    attribute: r.int("Attribute")?.context("Tag attribute missing")?,
-                    sequence: r.int("Seq")?.unwrap_or(0),
-                    deleted: r.flag("rb_local_deleted")?,
-                    raw_hash: r.fingerprint.clone(),
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let tag_links = records["djmdSongMyTag"]
-            .iter()
-            .map(|r| {
-                Ok(TagLink {
-                    id: r.id.clone(),
-                    tag_id: r.text("MyTagID")?.context("Tag link has no tag")?,
-                    content_id: r.text("ContentID")?.context("Tag link has no content")?,
-                    deleted: r.flag("rb_local_deleted")?,
-                    raw_hash: r.fingerprint.clone(),
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let active_tags = tags
-            .iter()
-            .filter(|t| t.deleted == Some(false))
-            .map(|t| t.id.as_str())
-            .collect::<std::collections::BTreeSet<_>>();
-        for link in &tag_links {
-            if link.deleted == Some(false)
-                && active_tags.contains(link.tag_id.as_str())
-                && let Some(i) = track_index.get(&link.content_id)
-                && !tracks[*i].tag_ids.contains(&link.tag_id)
-            {
-                tracks[*i].tag_ids.push(link.tag_id.clone());
-            }
-        }
-        cancel.check()?;
-        tx.commit()?;
-        Ok(RekordboxCollection {
-            identity,
-            schema_fingerprint: schema.fingerprint,
-            tracks,
-            playlists,
-            playlist_links,
-            tags,
-            tag_links,
-            records,
-            issues,
         })
+        .collect::<Result<Vec<_>>>()?;
+    let mut playlist_links = records["djmdSongPlaylist"]
+        .iter()
+        .map(|r| {
+            Ok(PlaylistLink {
+                id: r.id.clone(),
+                playlist_id: r
+                    .text("PlaylistID")?
+                    .context("Playlist link has no playlist")?,
+                content_id: r
+                    .text("ContentID")?
+                    .context("Playlist link has no content")?,
+                position: r.int("TrackNo")?.context("Playlist link has no sequence")?,
+                deleted: r.flag("rb_local_deleted")?,
+                raw_hash: r.fingerprint.clone(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    playlist_links.sort_by(|a, b| {
+        (&a.playlist_id, a.position, &a.id).cmp(&(&b.playlist_id, b.position, &b.id))
+    });
+    let tags = records["djmdMyTag"]
+        .iter()
+        .map(|r| {
+            Ok(ImportedTag {
+                id: r.id.clone(),
+                uuid: nonempty(r.text("UUID")?),
+                parent_id: r.text("ParentID")?,
+                name: r.text("Name")?.unwrap_or_default(),
+                attribute: r.int("Attribute")?.context("Tag attribute missing")?,
+                sequence: r.int("Seq")?.unwrap_or(0),
+                deleted: r.flag("rb_local_deleted")?,
+                raw_hash: r.fingerprint.clone(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let tag_links = records["djmdSongMyTag"]
+        .iter()
+        .map(|r| {
+            Ok(TagLink {
+                id: r.id.clone(),
+                tag_id: r.text("MyTagID")?.context("Tag link has no tag")?,
+                content_id: r.text("ContentID")?.context("Tag link has no content")?,
+                deleted: r.flag("rb_local_deleted")?,
+                raw_hash: r.fingerprint.clone(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let active_tags = tags
+        .iter()
+        .filter(|t| t.deleted == Some(false))
+        .map(|t| t.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    for link in &tag_links {
+        if link.deleted == Some(false)
+            && active_tags.contains(link.tag_id.as_str())
+            && let Some(i) = track_index.get(&link.content_id)
+            && !tracks[*i].tag_ids.contains(&link.tag_id)
+        {
+            tracks[*i].tag_ids.push(link.tag_id.clone());
+        }
     }
+    cancel.check()?;
+    tx.commit()?;
+    Ok(RekordboxCollection {
+        identity,
+        schema_fingerprint: schema.fingerprint,
+        tracks,
+        playlists,
+        playlist_links,
+        tags,
+        tag_links,
+        records,
+        issues,
+    })
 }

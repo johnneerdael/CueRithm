@@ -60,11 +60,12 @@ impl Library {
                 Err(error) => return Err(error).context("This library is already open"),
             }
         }
+        crate::library_backup::ensure_library_open_safe(&root)?;
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=23).contains(&version),
+            (0..=27).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -207,6 +208,30 @@ impl Library {
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
                 include_str!("../migrations/023_catalog_runtime.sql")
+            ))?;
+        }
+        if version < 24 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/024_native_reconciliation.sql")
+            ))?;
+        }
+        if version < 25 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/025_manual_publication.sql")
+            ))?;
+        }
+        if version < 26 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/026_native_playlist_sync.sql")
+            ))?;
+        }
+        if version < 27 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/027_rekordbox_sync.sql")
             ))?;
         }
         #[cfg(not(feature = "autotag"))]

@@ -85,6 +85,179 @@ fn source(dir: &Path, name: &str) -> PathBuf {
 }
 
 #[test]
+fn native_reconciliation_review_survives_restart_without_acknowledging_or_writing() {
+    let d = tempfile::tempdir().unwrap();
+    let path = source(d.path(), "review.flac");
+    let before = file_sha256(&path).unwrap();
+    let db = d.path().join("library.sqlite");
+    let lib = Library::open(&db).unwrap();
+    let input = collection("review-db", vec![track("review-db", "1", &path)]);
+    let imported = lib
+        .import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    let preview = lib
+        .preview_native_reconciliation(&imported.target_id, "1")
+        .unwrap();
+    assert!(matches!(
+        preview.snapshot.fields["title"].result,
+        NativeReconciliation::Conflict {
+            reason: NativeConflict::InitialAcknowledgement,
+            ..
+        }
+    ));
+    let decisions = BTreeMap::from([("title".into(), NativeFieldDecision::AcceptEqual)]);
+    let reviewed = lib
+        .review_native_reconciliation(&preview.id, 0, decisions.clone())
+        .unwrap();
+    assert_eq!(reviewed.revision, 1);
+    assert!(reviewed.stale_reason.is_none());
+    assert!(
+        lib.review_native_reconciliation(&preview.id, 0, decisions.clone())
+            .is_err()
+    );
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let restored = lib.native_reconciliation_review(&preview.id).unwrap();
+    assert_eq!(restored.decisions, decisions);
+    assert_eq!(restored.revision, 1);
+    assert!(restored.stale_reason.is_none());
+    assert!(
+        lib.native_track_link(&imported.target_id, "1")
+            .unwrap()
+            .fields
+            .values()
+            .all(|f| !f.acknowledged)
+    );
+    assert_eq!(file_sha256(&path).unwrap(), before);
+}
+
+#[test]
+fn native_reconciliation_accepts_a_new_update_counter_for_the_same_recording() {
+    let d = tempfile::tempdir().unwrap();
+    let path = source(d.path(), "updated-review.flac");
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let mut input = collection("review-db", vec![track("review-db", "1", &path)]);
+    input.tracks[0].identity.local_usn = Some(1);
+    let imported = lib
+        .import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    input.tracks[0].identity.local_usn = Some(2);
+    input.tracks[0].metadata.title = "A legitimate edit".into();
+    lib.import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    let preview = lib
+        .preview_native_reconciliation(&imported.target_id, "1")
+        .unwrap();
+    assert_eq!(
+        preview.snapshot.fields["title"].remote,
+        NativeFieldObservation::Present(json!(["A legitimate edit"]))
+    );
+}
+
+#[test]
+fn native_reconciliation_rejects_local_edits_even_when_the_value_changes_back() {
+    let d = tempfile::tempdir().unwrap();
+    let path = source(d.path(), "aba-review.flac");
+    let db = d.path().join("library.sqlite");
+    let lib = Library::open(&db).unwrap();
+    let input = collection("review-db", vec![track("review-db", "1", &path)]);
+    let imported = lib
+        .import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    let preview = lib
+        .preview_native_reconciliation(&imported.target_id, "1")
+        .unwrap();
+    let local_id = &preview.snapshot.local_track_id;
+    let sql = rusqlite::Connection::open(&db).unwrap();
+    sql.execute(
+        "UPDATE tracks SET title='temporary edit' WHERE id=?1",
+        [local_id],
+    )
+    .unwrap();
+    sql.execute("UPDATE tracks SET title='Target 1' WHERE id=?1", [local_id])
+        .unwrap();
+    assert!(
+        lib.native_reconciliation_review(&preview.id)
+            .unwrap()
+            .stale_reason
+            .is_some()
+    );
+    assert!(
+        lib.review_native_reconciliation(
+            &preview.id,
+            0,
+            BTreeMap::from([("title".into(), NativeFieldDecision::AcceptEqual)])
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn native_reconciliation_rejects_changed_observations_unknown_fields_and_false_equality() {
+    let d = tempfile::tempdir().unwrap();
+    let path = source(d.path(), "stale-review.flac");
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let mut input = collection("review-db", vec![track("review-db", "1", &path)]);
+    let imported = lib
+        .import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    let preview = lib
+        .preview_native_reconciliation(&imported.target_id, "1")
+        .unwrap();
+    assert!(
+        lib.review_native_reconciliation(
+            &preview.id,
+            0,
+            BTreeMap::from([("not-a-field".into(), NativeFieldDecision::UseLocal)])
+        )
+        .is_err()
+    );
+    assert!(
+        lib.review_native_reconciliation(
+            &preview.id,
+            0,
+            BTreeMap::from([("bpm".into(), NativeFieldDecision::AcceptEqual)])
+        )
+        .is_err()
+    );
+    input.tracks[0].metadata.title = "A new remote title".into();
+    lib.import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    assert!(
+        lib.native_reconciliation_review(&preview.id)
+            .unwrap()
+            .stale_reason
+            .is_some()
+    );
+    assert!(
+        lib.review_native_reconciliation(
+            &preview.id,
+            0,
+            BTreeMap::from([("title".into(), NativeFieldDecision::UseLocal)])
+        )
+        .is_err()
+    );
+    let fresh = lib
+        .preview_native_reconciliation(&imported.target_id, "1")
+        .unwrap();
+    assert!(
+        lib.review_native_reconciliation(
+            &fresh.id,
+            0,
+            BTreeMap::from([("title".into(), NativeFieldDecision::UseRemote)])
+        )
+        .is_ok()
+    );
+    input.tracks[0].identity.uuid = Some("different-recording".into());
+    lib.import_rekordbox_collection(&input, options(&lib), &CancellationToken::default())
+        .unwrap();
+    assert!(
+        lib.preview_native_reconciliation(&imported.target_id, "1")
+            .is_err()
+    );
+}
+
+#[test]
 fn native_import_queues_new_sources_persists_scoped_ids_and_lossless_records_and_is_idempotent() {
     let d = tempfile::tempdir().unwrap();
     let path = source(d.path(), "song.flac");
@@ -391,7 +564,7 @@ fn schema_ten_migration_preserves_legacy_links_and_native_import_enforces_foreig
     assert_eq!(
         sql.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        23
+        27
     );
     assert_eq!(
         sql.query_row(

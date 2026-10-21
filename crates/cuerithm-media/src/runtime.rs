@@ -123,23 +123,6 @@ impl MediaRuntime {
         }
         Ok(self.audio_codecs.get().unwrap().contains(codec))
     }
-    pub(crate) fn run(
-        &self,
-        program: &Path,
-        args: &[OsString],
-        out: File,
-        max_bytes: u64,
-    ) -> Result<File> {
-        self.run_controlled(
-            program,
-            args,
-            out,
-            max_bytes,
-            Duration::from_secs(300),
-            &CancellationToken::default(),
-        )
-    }
-
     pub(crate) fn run_controlled(
         &self,
         program: &Path,

@@ -145,6 +145,12 @@ nav:
       - Smart playlist rules: guides/smart-rules.md
       - Playlist tools and generator: guides/playlist-tools.md
       - Sync to DJ software: guides/sync.md
+      - Maintenance: guides/maintenance.md
+      - Correct cues, loops and beatgrid: guides/manual-corrections.md
+      - Find compatible tracks: guides/compatible-tracks.md
+      - Playlist flow: guides/playlist-flow.md
+      - Match a reference tracklist: guides/tracklist-matcher.md
+      - Library backup and restore: guides/library-backup.md
       - Cleanup rules: guides/cleanup-rules.md
       - Automatic tagging settings: guides/tagging-settings.md
       - Cloudflare challenge solver: guides/catalog-solver.md

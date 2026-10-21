@@ -16,9 +16,11 @@ pub use path_repair::*;
 pub mod transaction;
 pub use sync::*;
 pub mod formatting;
+mod native_rekordbox;
 pub mod pioneer_usb;
 mod smart_rules;
 pub mod timing;
+pub use native_rekordbox::*;
 pub use smart_rules::smart_fallbacks;
 pub mod ownership;
 /// Invalidate acknowledgement caches when native serialization or rule semantics change.

@@ -1,0 +1,31 @@
+.tracklist-matcher { height:100%; }
+.tracklist-matcher .view-title h1 { margin:0 0 5px; font-size:23px; }
+.tracklist-matcher .view-title p { margin:0; color:var(--cr-muted); }
+.tracklist-input { border:1px solid var(--cr-border); padding:18px; min-width:0; }
+.tracklist-input>label { display:grid; gap:8px; font-weight:600; }
+.tracklist-matcher textarea { width:100%; min-height:150px; resize:vertical; border:1px solid var(--cr-border); background:var(--cr-bg); color:var(--cr-text); border-radius:4px; padding:12px; font:inherit; line-height:1.7; }
+.tracklist-matcher textarea:focus { outline:2px solid var(--cr-accent); outline-offset:2px; }
+.tracklist-options { display:flex; flex-wrap:wrap; gap:18px; align-items:end; margin:16px 0; }
+.tracklist-options>label:not(.playlist-check),.tracklist-save>label { display:grid; gap:7px; font-size:12px; color:var(--cr-muted); }
+.tracklist-options input[type=file] { max-width:270px; }
+.tracklist-review-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.tracklist-review-heading h2 { font-size:18px; }
+.tracklist-review-heading strong { color:var(--cr-accent); font-size:13px; }
+.tracklist-row { min-width:0; margin:20px 0; border:1px solid var(--cr-border); padding:12px 16px 16px; }
+.tracklist-row legend { max-width:100%; padding:0 8px; overflow-wrap:anywhere; font-weight:600; line-height:1.7; }
+.tracklist-number { display:inline-flex; justify-content:center; min-width:24px; margin-right:9px; color:var(--cr-muted); font-variant-numeric:tabular-nums; }
+.tracklist-skip { display:flex; gap:9px; align-items:center; margin:3px 0 10px; color:var(--cr-muted); font-size:12px; }
+.tracklist-candidate { display:flex; gap:14px; align-items:center; padding:11px 0; border-top:1px solid var(--cr-border); }
+.tracklist-candidate>label { flex:1; display:flex; gap:12px; align-items:center; cursor:pointer; min-width:0; }
+.tracklist-candidate>label span { min-width:0; overflow-wrap:anywhere; }
+.tracklist-candidate small { display:block; color:var(--cr-muted); line-height:1.7; }
+.tracklist-candidate input,.tracklist-skip input { accent-color:var(--cr-accent); }
+.tracklist-candidate:has(input:checked) { background:color-mix(in srgb,var(--cr-accent) 7%,transparent); }
+.tracklist-skipped { margin:20px 0; color:var(--cr-muted); }
+.tracklist-skipped summary { cursor:pointer; margin-bottom:12px; }
+.tracklist-save { display:flex; align-items:end; gap:15px; flex-wrap:wrap; padding-top:20px; border-top:1px solid var(--cr-border); }
+.tracklist-save>small { flex-basis:100%; }
+.tracklist-save p { margin:0; }
+
+.tracklist-review { margin-top:24px; border-top:1px solid var(--cr-divider); padding-top:12px; }
+.tracklist-matcher textarea { user-select:text; }

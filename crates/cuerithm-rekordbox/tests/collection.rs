@@ -112,6 +112,44 @@ fn cue_slots_memory_loops_and_ordered_memberships_keep_native_semantics() {
     assert_eq!(c.tags.len(), 2);
 }
 #[test]
+fn mytag_uuid_is_preserved_when_the_native_schema_provides_it() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("master.db");
+    let writer = fixture(&path);
+    writer
+        .execute("ALTER TABLE djmdMyTag ADD COLUMN UUID TEXT", [])
+        .unwrap();
+    writer
+        .execute(
+            "UPDATE djmdMyTag SET UUID='authored-tag-uuid' WHERE ID='tag'",
+            [],
+        )
+        .unwrap();
+    let db = ReadOnlyDatabase::open(&path, &key()).unwrap();
+    let collection = db
+        .read_collection(Default::default(), &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        collection
+            .tags
+            .iter()
+            .find(|t| t.id == "tag")
+            .unwrap()
+            .uuid
+            .as_deref(),
+        Some("authored-tag-uuid")
+    );
+    assert!(
+        collection
+            .tags
+            .iter()
+            .find(|t| t.id == "category")
+            .unwrap()
+            .uuid
+            .is_none()
+    );
+}
+#[test]
 fn raw_target_changes_are_separate_from_requested_metadata_baselines() {
     let d = tempfile::tempdir().unwrap();
     let path = d.path().join("master.db");

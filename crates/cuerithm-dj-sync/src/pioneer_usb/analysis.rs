@@ -77,7 +77,20 @@ pub(super) fn write(
             cue_type: c.cue_type,
             time_ms: c.time_ms,
             loop_time_ms: c.loop_time_ms,
-            status: 0,
+            // Activation belongs to memory PCPT only. Match the serialized
+            // timeline because memory entries are sorted and deduplicated.
+            status: if c.cue_type == 2
+                && track.cues.iter().any(|cue| {
+                    cue.active_loop
+                        && cue.end_seconds.is_some_and(|end| {
+                            (cue.start_seconds * 1000. + 1e-6).floor() as u32 == c.time_ms
+                                && (end * 1000. + 1e-6).floor() as u32 == c.loop_time_ms
+                        })
+                }) {
+                4
+            } else {
+                0
+            },
             order_first: if n == 0 { u16::MAX } else { n as u16 - 1 },
             order_last: if n + 1 == memory.len() {
                 u16::MAX
@@ -194,11 +207,12 @@ fn cues(track: &SyncTrack, options: &SyncOptions) -> Result<(Vec<ExtendedCue>, V
     memory.dedup_by_key(|c| (c.time_ms, c.loop_time_ms, c.cue_type));
     Ok((hot, memory))
 }
-fn grid(track: &SyncTrack) -> Result<(Vec<Beat>, Vec<u16>, usize)> {
+pub(crate) fn grid(track: &SyncTrack) -> Result<(Vec<Beat>, Vec<u16>, usize)> {
     let mut beats = Vec::new();
     let mut fractions = Vec::new();
     let mut downbeat = None;
     let markers = &track.beatgrid;
+    ensure!(!markers.is_empty(), "Beatgrid has no tempo markers");
     for (n, marker) in markers.iter().enumerate() {
         ensure!(
             marker.seconds.is_finite()
@@ -267,7 +281,7 @@ fn push_beat(
     fractions.push(((ms - floor) * 1000.0).round().clamp(0.0, 999.0) as u16);
     Ok(())
 }
-fn tag(kind: &[u8; 4], header: usize, extra: &[u8], payload: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn tag(kind: &[u8; 4], header: usize, extra: &[u8], payload: &[u8]) -> Result<Vec<u8>> {
     ensure!(
         header >= 12 && extra.len() == header - 12,
         "Invalid generated ANLZ header"
@@ -283,7 +297,7 @@ fn tag(kind: &[u8; 4], header: usize, extra: &[u8], payload: &[u8]) -> Result<Ve
     bytes.extend(payload);
     Ok(bytes)
 }
-fn file(tags: &[Vec<u8>]) -> Result<Vec<u8>> {
+pub(crate) fn file(tags: &[Vec<u8>]) -> Result<Vec<u8>> {
     let size = 28 + tags.iter().map(Vec::len).sum::<usize>();
     let mut bytes = b"PMAI".to_vec();
     bytes.extend(28_u32.to_be_bytes());
@@ -294,14 +308,14 @@ fn file(tags: &[Vec<u8>]) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
-struct Waves {
-    preview: Vec<u8>,
-    tiny: Vec<u8>,
-    detail: Vec<u8>,
-    rgb_preview: Vec<u8>,
-    rgb_detail: Vec<u8>,
-    three_preview: Vec<u8>,
-    three_detail: Vec<u8>,
+pub(crate) struct Waves {
+    pub(crate) preview: Vec<u8>,
+    pub(crate) tiny: Vec<u8>,
+    pub(crate) detail: Vec<u8>,
+    pub(crate) rgb_preview: Vec<u8>,
+    pub(crate) rgb_detail: Vec<u8>,
+    pub(crate) three_preview: Vec<u8>,
+    pub(crate) three_detail: Vec<u8>,
 }
 struct Biquad {
     b: [f64; 3],
@@ -359,6 +373,17 @@ fn waveforms(
     track: &SyncTrack,
     options: &SyncOptions,
 ) -> Result<Waves> {
+    waveforms_cancellable(samples, rate, track, options, &Default::default())
+}
+pub(crate) fn waveforms_cancellable(
+    samples: &[f32],
+    rate: u32,
+    track: &SyncTrack,
+    options: &SyncOptions,
+    cancel: &cuerithm_media::CancellationToken,
+) -> Result<Waves> {
+    cancel.check()?;
+    ensure!(rate >= 150, "Waveform sample rate is too small");
     let frame = (f64::from(rate) / 150.0).round() as usize;
     let count = samples.len() / frame;
     ensure!(count > 0, "Audio too short to generate USB waveform");
@@ -372,6 +397,7 @@ fn waveforms(
     let mut mp = Biquad::new(rate, 3000.0, false);
     let mut hi = Biquad::new(rate, 1500.0, true);
     for chunk in samples.chunks_exact(frame) {
+        cancel.check()?;
         let mut energy = 0.0;
         let mut p = 0_f64;
         let mut l = 0_f64;
@@ -520,7 +546,7 @@ fn waveforms(
 }
 /// Fresh canonical detail arrays use 150 Hz bins. Existing assets copied from a
 /// device bypass generation entirely and therefore never receive padding twice.
-fn pad_detail_waveform(bytes: &[u8], offset: f64) -> Result<Vec<u8>> {
+pub(crate) fn pad_detail_waveform(bytes: &[u8], offset: f64) -> Result<Vec<u8>> {
     ensure!(offset.is_finite(), "Invalid waveform timing offset");
     if offset <= 0. || !matches!(bytes.get(..4), Some(b"PWV3" | b"PWV5" | b"PWV7")) {
         return Ok(bytes.to_vec());

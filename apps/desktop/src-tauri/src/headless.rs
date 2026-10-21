@@ -79,11 +79,7 @@ pub fn run(library_path: &Path) -> i32 {
             return 1;
         }
     };
-    if !library_path.is_file() {
-        emit(json!({"status":"error","error":"Choose an existing CueRithm library database"}));
-        return 1;
-    }
-    let library = match Library::open(library_path) {
+    let library = match open_library(library_path) {
         Ok(l) => l,
         Err(e) => {
             let busy = e.to_string().contains("already open");
@@ -103,6 +99,16 @@ pub fn run(library_path: &Path) -> i32 {
             1
         }
     }
+}
+fn open_library(library_path: &Path) -> Result<Library> {
+    // Match GUI startup before opening a connection or starting any workers.
+    // Interrupted mutation must remain recoverable instead of being bypassed.
+    cuerithm_library::apply_pending_library_restore(library_path)?;
+    ensure!(
+        library_path.is_file(),
+        "Choose an existing CueRithm library database"
+    );
+    Library::open(library_path)
 }
 fn emit(value: Value) {
     println!("{value}");
@@ -424,6 +430,33 @@ fn report(library: &Library, scope: ReportScope) -> Result<(Value, bool)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn automation_applies_a_reviewed_restore_before_opening_the_library() {
+        let dir = tempfile::tempdir().unwrap();
+        let database = dir.path().join("app/library.sqlite");
+        let library = Library::open(&database).unwrap();
+        let backup = library
+            .create_library_backup(&dir.path().join("backups"))
+            .unwrap();
+        let mut settings = library.settings().unwrap().settings;
+        settings.watch_folders = vec![dir.path().join("authored-incoming")];
+        library.save_settings(settings).unwrap();
+        library
+            .stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        drop(library);
+
+        let library = open_library(&database).unwrap();
+        assert!(
+            library
+                .settings()
+                .unwrap()
+                .settings
+                .watch_folders
+                .is_empty()
+        );
+        assert!(library.pending_library_restore().unwrap().is_none());
+    }
     #[test]
     fn bounded_command_rejects_unknown_keys_and_duplicate_scope() {
         assert!(

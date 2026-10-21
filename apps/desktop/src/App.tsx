@@ -11,6 +11,17 @@ import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
 import Organize from "./views/Organize";
 import Sync from "./views/Sync";
+import Maintenance from "./views/Maintenance";
+import CompatibleTracks from "./views/CompatibleTracks";
+import TracklistMatcher from "./views/TracklistMatcher";
+import PlaylistFlow from "./components/PlaylistFlow";
+import LibraryBackup from "./views/LibraryBackup";
+import {nativeLibraryBackup} from "./backup-api";
+import type {LibraryBackupBridge} from "./backup-types";
+import {manualPublicationApi} from "./manual-publication-api";
+import type {ManualPublicationApi,ManualPublicationResult} from "./manual-publication-types";
+import type {CompatibleBridge} from "./compatible-types";
+import type {TracklistBridge} from "./tracklist-types";
 import type {PlaylistWorkspace,PlaylistNode,PlaylistChange,PlaylistEdit} from "./playlist-types";
 import PlaylistEditor from "./views/PlaylistEditor";
 import PlaylistTools from "./views/PlaylistTools";
@@ -31,9 +42,19 @@ import type {MetadataDraft} from "./editor-types";
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
-export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
-  const [view,setView]=useState<WorkspaceView>("tracks");
+const isLibraryView=(value:WorkspaceView):value is View=>value==="tracks"||value==="incoming"||value==="archive";
+export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridge,backupBridge=nativeLibraryBackup,publicationApi=manualPublicationApi}:{bridge?:Bridge;compatibleBridge?:CompatibleBridge;tracklistBridge?:TracklistBridge;backupBridge?:LibraryBackupBridge;publicationApi?:ManualPublicationApi}){
+  const [view,setViewState]=useState<WorkspaceView>("tracks");
   const [lastView,setLastView]=useState<View>("tracks");
+  const currentView=useRef(view);currentView.current=view;
+  const viewSession=useRef(0);
+  const setView=useCallback((next:WorkspaceView)=>{
+    if(currentView.current!==next){viewSession.current++;currentView.current=next;}
+    setViewState(next);
+  },[]);
+  const [compatibleSourceId,setCompatibleSourceId]=useState<string|null>(null);
+  const [showPlaylistFlow,setShowPlaylistFlow]=useState(false),[flowReload,setFlowReload]=useState(0);
+  const [canonicalMembers,setCanonicalMembers]=useState<{playlistId:string;ids:string[];error:string|null}|null>(null);
   const [playlists,setPlaylists]=useState<PlaylistWorkspace|null>(null);
   const [playlistId,setPlaylistId]=useState<string|null>(null);
   const [playlistEditor,setPlaylistEditor]=useState<{node:PlaylistNode|null;parentId:string|null}|null>(null);
@@ -76,7 +97,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const searchInput=useRef<HTMLInputElement>(null);
   const alive=useRef(true);
   const internalDrag=usePlaylistDrag({canDrop:(payload,target)=>canDropInternal(payload,target),onStart:payload=>{if(payload.kind==="tracks")setSelected(new Set(payload.ids));},onDrop:(payload,target)=>dropInternal(payload,target)});
-  query.current={view:view==="settings"||view==="cleanup"||view==="sync"||view==="organize"?lastView:view,search,sort,descending,limit:200,cursor:null,playlist_id:playlistId,...(curationFilter?{curation:curationFilter}:{})};
+  query.current={view:!isLibraryView(view)?lastView:view,search,sort,descending,limit:200,cursor:null,playlist_id:playlistId,...(curationFilter?{curation:curationFilter}:{})};
   const notify=useCallback((error:unknown)=>{const message=errorMessage(error);if(!message.includes("superseded"))setToast(message);},[]);
   const flushInspector=async()=>{if(inspectorRef.current?.mode==="edit")await metadataEditor.current?.flush();else if(inspectorRef.current?.mode==="curate")await curate.current?.flush();};
   const navigate=(action:()=>void|Promise<void>)=>{if(exitIntent.current||closePending.current)return;if(inspectorRef.current?.mode!=="edit"&&inspectorRef.current?.mode!=="curate"){inspectorRef.current=null;setInspector(null);try{const result=action();if(result)void result.catch(notify);}catch(error){notify(error);}return;}void (async()=>{await flushInspector();if(!alive.current||exitIntent.current||closePending.current)return;inspectorRef.current=null;setInspector(null);await action();})().catch(notify);};
@@ -136,6 +157,20 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     try{const next=await bridge.getState();if(!alive.current)return;setState(next);setBootError(null);const workspace=await refreshPlaylists();if(!alive.current||query.current.playlist_id&&(!workspace||!workspace.tree.nodes.some(n=>n.id===query.current.playlist_id&&!n.deleted)))return;if(force||revision.current!==next.revision)await fetchRows(false);}
     catch(e){if(alive.current)setBootError(errorMessage(e));}
   },[bridge,fetchRows,refreshPlaylists]);
+  useEffect(()=>{
+    if(bridge!==nativeBridge&&backupBridge===nativeLibraryBackup)return;
+    let canceled=false;
+    void backupBridge.pending().then(pending=>{if(!canceled&&pending?.blocked_reason)setView("backup");}).catch(error=>{if(!canceled)notify(error);});
+    return()=>{canceled=true;};
+  },[bridge,backupBridge,notify]);
+  const publicationChanged=useCallback(async(result:ManualPublicationResult)=>{
+    const current=loadedDetail.current,playGeneration=playRequest.current;
+    if(current&&result.track_ids.includes(current.track.id)){
+      const next=await bridge.getTrack(current.track.id);
+      if(alive.current&&playGeneration===playRequest.current&&loadedDetail.current?.track.id===next.track.id){loadedDetail.current=next;setDetail(next);}
+    }
+    await refresh(true);
+  },[bridge,refresh]);
   const addPaths=useCallback(async(paths:string[])=>{if(!paths.length)return;try{await bridge.enqueuePaths(paths);clearScopeRows();setPlaylistId(null);setPlaylistEditor(null);setPlaylistPanel(null);setSort(previous=>previous==="playlist_order"?"title":previous);setView("incoming");setLastView("incoming");await refresh(true);}catch(e){notify(e);}},[bridge,notify,refresh]);
   const load=useCallback(async(row:Track)=>{
     const generation=++playRequest.current;loadingTrackRef.current=true;setLoadingTrack(true);
@@ -170,7 +205,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
     const timer=setInterval(()=>void refresh(false),1500);
     return()=>{alive.current=false;clearInterval(timer);void prep.then(unlisten=>unlisten());void library.then(unlisten=>unlisten());void access.then(unlisten=>unlisten());void curation.then(unlisten=>unlisten());void player.then(unlisten=>unlisten());void drop.then(unlisten=>unlisten());};
   },[bridge,refresh,addPaths,notify]);
-  useEffect(()=>{if(view==="settings"||view==="cleanup"||view==="sync"||view==="organize")return;void fetchRows(true);},[view,playlistId,search,sort,descending,curationFilter,fetchRows]);
+  useEffect(()=>{if(!isLibraryView(view))return;void fetchRows(true);},[view,playlistId,search,sort,descending,curationFilter,fetchRows]);
   useEffect(()=>{setSelected(new Set());},[query.current.view,playlistId,search,curationFilter]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),8000);return()=>clearTimeout(timer);},[toast]);
   const toggle=useCallback(async()=>{try{if(playback.playing)await bridge.playerPause();else await bridge.playerPlay();setPlayback(await bridge.playerStatus());}catch(e){notify(e);}},[playback.playing,bridge,notify]);
@@ -195,11 +230,11 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current||exitIntent.current||closePending.current)return;
-      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(view==="settings"||view==="cleanup"||view==="sync"||view==="organize")setView(lastView);searchInput.current?.focus();}
+      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
-      if(view!=="settings"&&view!=="cleanup"&&view!=="sync"&&view!=="organize"&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
+      if(isLibraryView(view)&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
       if(!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey&&(event.key==="ArrowLeft"||event.key==="ArrowRight")&&playbackBpm(loadedDetail.current?.analysis)){event.preventDefault();jumpBar(event.key==="ArrowLeft"?-1:1);return;}
       if(event.code==="Space"&&detail&&!(event.target instanceof Element&&event.target.closest("button,a"))){event.preventDefault();void toggle();}
     };
@@ -258,7 +293,7 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const applyPlaylistPreview=async(operation:()=>Promise<PlaylistChange>)=>{if(playlistMutation.current)throw Error("Another playlist change is still being applied.");playlistMutation.current=true;setPlaylistBusy(true);try{return await operation();}finally{playlistMutation.current=false;if(alive.current)setPlaylistBusy(false);}};
   const playlistToolApplied=async(_change:PlaylistChange)=>{const next=await bridge.getPlaylists();if(!alive.current)return;publishPlaylists(next);void refresh(true);};
   const openPlaylistPanel=(panel:"tools"|"generator")=>navigate(()=>{setPlaylistEditor(null);setPlaylistPanel(panel);setView("tracks");setLastView("tracks");});
-  const onView=(next:WorkspaceView)=>navigate(()=>{setPlaylistEditor(null);setPlaylistPanel(null);if(next==="tracks"||next==="incoming"||next==="archive"){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}if(next==="cleanup")setCleanupSelection([...selectedRef.current]);if(next==="organize")setOrganizationSelection([...selectedRef.current]);if(next!=="settings"&&next!=="cleanup"&&next!=="sync"&&next!=="organize")setLastView(next);setView(next);});
+  const onView=(next:WorkspaceView)=>navigate(()=>{setPlaylistEditor(null);setPlaylistPanel(null);if(next==="tracks"||next==="incoming"||next==="archive"){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}if(next==="cleanup")setCleanupSelection([...selectedRef.current]);if(next==="organize")setOrganizationSelection([...selectedRef.current]);if(next==="compatible")setCompatibleSourceId(selectedRef.current.values().next().value??loadedDetail.current?.track.id??null);if(isLibraryView(next))setLastView(next);setView(next);});
   useEffect(()=>{if(playlistId&&playlists&&!playlists.tree.nodes.some(n=>n.id===playlistId&&!n.deleted)){clearScopeRows();setPlaylistId(null);if(sort==="playlist_order")setSort("title");}},[playlistId,playlists,sort]);
   const onSelect=(row:Track,event:React.MouseEvent)=>{
     if(loadedScope.current!==JSON.stringify(query.current))return;
@@ -280,23 +315,37 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
   const attention=state?.jobs.filter(j=>j.state==="attention")??[];
   const activePlaylist=playlists?.tree.nodes.find(n=>n.id===playlistId&&!n.deleted)??null;
   const activePlaylistStatus=playlists?.statuses.find(status=>status.playlist_id===playlistId);
-  const libraryView=view==="settings"||view==="cleanup"||view==="sync"||view==="organize"?lastView:view;
+  useEffect(()=>{
+    let canceled=false;
+    if(!showPlaylistFlow||activePlaylist?.kind!=="playlist"){setCanonicalMembers(null);return;}
+    const id=activePlaylist.id;setCanonicalMembers(null);
+    void bridge.playlistMembers(id,true).then(ids=>{if(!canceled)setCanonicalMembers({playlistId:id,ids,error:null});}).catch(error=>{if(!canceled)setCanonicalMembers({playlistId:id,ids:[],error:errorMessage(error)});});
+    return()=>{canceled=true;};
+  },[bridge,showPlaylistFlow,playlistId,activePlaylist?.kind,playlists?.tree.revision,state?.revision,flowReload]);
+  const toolSaved=async(expectedView:WorkspaceView,session:number,change:PlaylistChange)=>{
+    const next=await refreshPlaylists();if(!alive.current)return;
+    if(currentView.current===expectedView&&viewSession.current===session){const node=next?.tree.nodes.find(n=>n.id===change.created_ids[0]&&!n.deleted);if(node)choosePlaylist(node);}
+    await refresh(true);
+  };
+  const selectToolTrack=(row:Track)=>setSelected(new Set([row.id]));
+  const renderedViewSession=viewSession.current;
+  const libraryView=!isLibraryView(view)?lastView:view;
   const dragPayload=internalDrag.drag,dragLabel=dragPayload?.kind==="tracks"?`${dragPayload.ids.length} tracks`:dragPayload?playlists?.tree.nodes.find(n=>n.id===dragPayload.id)?.name??"Playlist":"";
   return <div className="app" data-collapsed={collapsed} data-internal-dragging={!!internalDrag.drag||undefined} onClickCapture={internalDrag.suppressClick} onDoubleClickCapture={internalDrag.suppressClick} style={{"--sidebar-width":sideWidth+"px","--player-height":playerHeight+"px"} as React.CSSProperties}>
     <Sidebar view={view} onView={onView} state={state} playlists={playlists} activePlaylistId={playlistId} onPlaylist={onPlaylist} onCreate={()=>navigate(()=>{setPlaylistPanel(null);setPlaylistEditor({node:null,parentId:activePlaylist?.kind==="folder"?activePlaylist.id:null});})} onEdit={node=>navigate(()=>{setPlaylistPanel(null);setPlaylistEditor({node,parentId:node.parent_id});})} onAction={playlistAction} onUndo={undoPlaylist} busy={playlistBusy||!!playlistEditor} playlistPanel={playlistPanel} onTools={()=>openPlaylistPanel("tools")} drag={internalDrag.drag} onPlaylistDragStart={startPlaylistDrag} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(v=>!v)}/>
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column" inert={exiting}>
       <header className="app-header" data-tauri-drag-region>
-        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(view==="settings"||view==="cleanup"||view==="sync"||view==="organize")onView(lastView);}}/><kbd>⌘ F</kbd></div>
+        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(!isLibraryView(view))onView(lastView);}}/><kbd>⌘ F</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
         <button className="icon-button theme-toggle" aria-label={"Colour theme: "+mode} title={"Colour theme: "+mode+" (click to change)"} onClick={cycle}>{mode==="light"?<Sun size={17}/>:mode==="dark"?<Moon size={17}/>:<SunMoon size={17}/>}</button>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>
       </header>
       <main className={inspector?"inspecting":undefined}>
         {bootError?<div role="alert" className="error-banner">{bootError}<button onClick={()=>void refresh(true)}>Try again</button></div>:null}
-        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="organize"&&state?<Organize bridge={bridge} revision={state.revision} onBack={()=>setView(lastView)} snapshot={state.settings} selectedIds={organizationSelection} playlistId={playlistId} workspace={playlists} onChanged={()=>void refresh(true)}/>:view==="sync"?<Sync bridge={bridge} workspace={playlists} revision={state?.revision??0} onChanged={()=>void refresh(true)}/>:view==="settings"&&state?<Settings catalogRevision={state.revision} snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
+        {playlistEditor&&playlists?<PlaylistEditor bridge={bridge} workspace={playlists} node={playlistEditor.node} parentId={playlistEditor.parentId} onSaved={playlistSaved} onClose={()=>setPlaylistEditor(null)}/>:playlistPanel==="tools"&&playlists?<PlaylistTools bridge={bridge} workspace={playlists} initialId={playlistId} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applyPlaylistTool(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onGenerate={()=>openPlaylistPanel("generator")}/>:playlistPanel==="generator"&&playlists?<PlaylistGenerator bridge={bridge} workspace={playlists} initialFolderId={activePlaylist?.kind==="folder"?activePlaylist.id:activePlaylist?.parent_id??null} onApplied={playlistToolApplied} applyPreview={(id,rev)=>applyPlaylistPreview(()=>bridge.applySmartGeneration(id,rev))} onClose={()=>{setPlaylistPanel(null);void refresh(true);}} onTools={()=>openPlaylistPanel("tools")}/>:view==="organize"&&state?<Organize bridge={bridge} revision={state.revision} onBack={()=>setView(lastView)} snapshot={state.settings} selectedIds={organizationSelection} playlistId={playlistId} workspace={playlists} onChanged={()=>void refresh(true)}/>:view==="compatible"?<CompatibleTracks bridge={bridge} compatibleBridge={compatibleBridge} initialSourceId={compatibleSourceId} onSelect={selectToolTrack} onPreview={load} onClose={()=>onView(lastView)} onSaved={change=>toolSaved("compatible",renderedViewSession,change)}/>:view==="tracklist"?<TracklistMatcher bridge={bridge} tracklistBridge={tracklistBridge} onSelect={selectToolTrack} onPreview={load} onClose={()=>onView(lastView)} onSaved={change=>toolSaved("tracklist",renderedViewSession,change)}/>:view==="backup"?<LibraryBackup bridge={backupBridge}/>:view==="maintenance"?<Maintenance revision={state?.revision} chooseFolder={bridge.chooseFolder} workspace={playlists} onChanged={()=>void refresh(true)}/>:view==="sync"?<Sync bridge={bridge} workspace={playlists} revision={state?.revision??0} onChanged={()=>void refresh(true)}/>:view==="settings"&&state?<Settings catalogRevision={state.revision} snapshot={state.settings} bridge={bridge} onSaved={()=>void refresh(true)} onBack={()=>onView(lastView)}/>:view==="cleanup"&&state?<Cleanup bridge={bridge} snapshot={state.settings} selectedIds={cleanupSelection} onChanged={()=>void refresh(true)}/>:<>
           <div className="view-title library-heading"><div><div className="eyebrow">LIBRARY</div><h1>{activePlaylist?activePlaylist.name:view==="incoming"?"Incoming":view==="archive"?"Archive":"Tracks"}<span className="heading-count">{activePlaylist?total:view==="incoming"?state?.counts.incoming:view==="archive"?state?.counts.archive:state?.counts.tracks}</span></h1><p>{view==="incoming"?"Automatic preparation. Ready tracks move into your library.":view==="archive"?"Archived tracks keep their analysis and cues.":"Key, BPM, energy and structural cues."}</p></div>
-            <div className="view-actions">{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
+            <div className="view-actions">{activePlaylist?.kind==="playlist"?<button className="secondary" aria-pressed={showPlaylistFlow} onClick={()=>setShowPlaylistFlow(value=>!value)}>Playlist flow</button>:null}{attention.length&&view!=="incoming"?<button className="attention-link" onClick={()=>onView("incoming")}>{attention.length} need attention</button>:null}<button className="icon-button" aria-label="Preparation settings" title="Preparation settings" onClick={()=>onView("settings")}><SlidersHorizontal size={18}/></button></div>
           </div>
 
           {activePlaylistStatus&&activePlaylistStatus.state!=="ready"?<div className="playlist-evaluation-status" role={activePlaylistStatus.state==="error"?"alert":"status"}><strong>{activePlaylistStatus.error??(activePlaylistStatus.state==="pending"?"Evaluating playlist…":"Updating playlist…")}</strong><span>{activePlaylist?.kind==="folder"?(activePlaylistStatus.has_last_good_results?"Showing saved results from available smart playlists.":"Smart playlists have no saved results yet."):(activePlaylistStatus.has_last_good_results?"Showing the last successfully evaluated results.":"No saved results are available yet.")}</span></div>:null}
@@ -307,13 +356,16 @@ export default function App({bridge=nativeBridge}:{bridge?:Bridge}){
           </div></div>
           {playlists?<PlaylistMembershipControls workspace={playlists} active={activePlaylist} selected={selected} manualOrder={sort==="playlist_order"&&!descending} busy={playlistBusy} onEdit={playlistAction} onMove={reorderSelected} onManualOrder={()=>{setSort("playlist_order");setDescending(false);}}/>:null}
           <div className={"library-workspace"+(inspector?" has-inspector":"")}><div className="library-table-column" hidden={!!inspector&&compactInspector}>
-          {rows.length?<TrackTable curationCatalog={curationCatalog} suspended={!!inspector&&compactInspector} onInspect={(row,mode)=>openInspector(mode,row)} previewLoader={previewLoader} onTrackDragStart={startTrackDrag} metadataLoader={async()=>{const fields=await bridge.getMetadataFields();await refresh(true);return fields;}} artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={row=>void archive(row)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading?(state?"Loading tracks…":"Opening your library…"):search?"No matching tracks":activePlaylist?"No tracks in this playlist":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":activePlaylist?activePlaylist.kind==="smartlist"?"Tracks appear here when they match the playlist conditions.":activePlaylist.kind==="folder"?"Tracks from playlists in this folder appear here.":"Add tracks from your library to this playlist.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!activePlaylist&&!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}{!activePlaylist?<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small>:null}</div>}
+          {showPlaylistFlow&&activePlaylist?.kind==="playlist"?<>
+            {canonicalMembers?.playlistId!==activePlaylist.id?<p role="status" className="playlist-evaluation-status">Loading playlist order…</p>:canonicalMembers.error?<div role="alert" className="error-banner">{canonicalMembers.error}<button onClick={()=>setFlowReload(value=>value+1)}>Retry playlist flow</button></div>:<PlaylistFlow key={activePlaylist.id} tracks={rows} orderedTrackIds={canonicalMembers.ids} totalCount={canonicalMembers.ids.length} selectedTrackId={selected.values().next().value??null} onSelect={id=>setSelected(new Set([id]))} onPlay={id=>{const row=rows.find(track=>track.id===id);if(row)void load(row);}}/>}
+            {page?.next_cursor?<button className="secondary flow-load-more" disabled={loading} onClick={()=>void more()}>Load more track details</button>:null}
+          </>:rows.length?<TrackTable curationCatalog={curationCatalog} suspended={!!inspector&&compactInspector} onInspect={(row,mode)=>openInspector(mode,row)} previewLoader={previewLoader} onTrackDragStart={startTrackDrag} metadataLoader={async()=>{const fields=await bridge.getMetadataFields();await refresh(true);return fields;}} artworkLoader={bridge.getArtwork} rows={rows} selected={selected} playingId={playback.playing?playback.track_id:null} onSelect={onSelect} onPlay={row=>void load(row)} sort={sort} descending={descending} onSort={next=>{if(sort===next)setDescending(v=>!v);else{setSort(next);setDescending(false);}}} view={libraryView} jobs={state?.jobs??[]} onRetry={id=>void bridge.retryJob(id).then(()=>refresh(true)).catch(notify)} onReprepare={id=>void reprepare(id)} onArchive={row=>void archive(row)} onMore={()=>void more()} hasMore={!!page?.next_cursor} loading={loading}/>:<div className="empty-state">{loading?<LoaderCircle size={34} className="spin"/>:view==="incoming"?<Inbox size={40}/>:<Music2 size={40}/>}<h2>{loading?(state?"Loading tracks…":"Opening your library…"):search?"No matching tracks":activePlaylist?"No tracks in this playlist":view==="incoming"?"Nothing incoming":view==="archive"?"Your archive is empty":"Your library starts here"}</h2><p>{search?"Try a different title, artist or genre.":activePlaylist?activePlaylist.kind==="smartlist"?"Tracks appear here when they match the playlist conditions.":activePlaylist.kind==="folder"?"Tracks from playlists in this folder appear here.":"Add tracks from your library to this playlist.":view==="incoming"?"Drop files here, or add music to a watch folder. Preparation runs automatically.":view==="archive"?"Archived tracks will be kept here with their analysis and cues.":"Drop music here. We’ll analyze it, generate cues and get it ready for your library."}</p>{!activePlaylist&&!search&&view!=="archive"?<button className="secondary" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={16}/>Add audio files</button>:null}{!activePlaylist?<small>MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA</small>:null}</div>}
           <footer className="library-footer"><span>{rows.length<total?rows.length+" of ":""}{total.toLocaleString()} tracks{selected.size?" · "+selected.size+" selected":""}</span><span><CheckCircle2 size={12}/>Offline audio analysis</span></footer>
           </div>{inspector?.mode==="curate"?<CuratePanel ref={curate} bridge={bridge} trackIds={[...selected]} order={inspector.order??[]} exiting={exiting} onNavigate={id=>{setSelected(new Set([id]));}} onClose={closeInspector} onPending={openCurationPending} onChanged={()=>void refresh(true)}/>:inspector?.mode==="edit"?<MetadataEditor ref={metadataEditor} exiting={exiting} bridge={bridge} trackIds={[...selected]} draftId={inspector.draftId} onClose={closeInspector} onPending={()=>openInspector("pending")} onChanged={()=>void refresh(true)}/>:inspector?.mode==="review"?<MatchReview bridge={bridge} trackId={selected.size===1?[...selected][0]:null} onClose={closeInspector} onPending={()=>openInspector("pending")} onChanged={()=>void refresh(true)}/>:inspector?.mode==="pending"?<MetadataPending bridge={bridge} initialTab={inspector.pendingKind} onOpenCuration={openCurationTrack} onOpenDraft={openDraft} onClose={closeInspector} onChanged={()=>void refresh(true)}/>:null}</div>
         </>}
       </main>
       <div className="player-resize" role="separator" aria-label="Resize player" aria-orientation="horizontal" onPointerDown={e=>resize(e,"player")}/>
-      <PlayerPanel artworkLoader={bridge.getArtwork} status={playback} detail={detail} data={wave} busy={loadingTrack} onToggle={()=>void toggle()} onPause={()=>void bridge.playerPause().then(()=>bridge.playerStatus()).then(setPlayback).catch(notify)} onSeek={seconds=>void seek(seconds)} onVolume={volume=>{setPlayback(p=>({...p,volume}));void bridge.playerVolume(volume).catch(notify);}}/>
+      <PlayerPanel publicationApi={publicationApi} selectedTrackIds={[...selected]} onPublicationChanged={publicationChanged} artworkLoader={bridge.getArtwork} status={playback} detail={detail} data={wave} busy={loadingTrack} onToggle={()=>void toggle()} onPause={()=>void bridge.playerPause().then(()=>bridge.playerStatus()).then(setPlayback).catch(notify)} onSeek={seconds=>void seek(seconds)} onVolume={volume=>{setPlayback(p=>({...p,volume}));void bridge.playerVolume(volume).catch(notify);}}/>
     </div>
     {internalDrag.drag?<div ref={internalDrag.ghost} className="internal-drag-ghost" aria-hidden="true">{dragLabel}</div>:null}
     {exiting?<div className="app-exit-status" role="status"><LoaderCircle size={16} className="spin"/>{exitRequestId?"Saving the latest draft before quitting…":"Saving the latest draft before closing…"}{exitRequestId?<button className="secondary" onClick={()=>void cancelExit()}>Cancel quit</button>:null}</div>:null}

@@ -68,7 +68,7 @@ pub fn process_matches(software: DjSoftware, command: &str) -> bool {
         DjSoftware::EngineDj => name == "engine dj",
         DjSoftware::DjayPro => matches!(name, "djay" | "djay pro"),
         DjSoftware::Serato4 => matches!(name, "serato dj pro" | "serato dj"),
-        DjSoftware::PioneerUsb => {
+        DjSoftware::PioneerUsb | DjSoftware::Rekordbox => {
             matches!(name, "rekordbox" | "rekordboxagent" | "rekordbox agent")
         }
     }
