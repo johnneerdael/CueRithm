@@ -6,6 +6,8 @@ rust-version = "1.90"
 license = "GPL-3.0-only"
 
 [dependencies]
+sha2.workspace = true
+mp4ameta = "0.13"
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

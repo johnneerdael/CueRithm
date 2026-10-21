@@ -24,6 +24,8 @@ pub struct AutotagConfig {
     pub no_match: NoMatchPolicy,
     pub analysis_tag_source: AnalysisTagSource,
     pub write_energy: bool,
+    /// Selected fields that must be present after preparation. Optional fields report absence.
+    pub required_tags: Vec<onetagger_tagger::SupportedTag>,
 }
 impl Default for AutotagConfig {
     fn default() -> Self {
@@ -43,6 +45,7 @@ impl Default for AutotagConfig {
             no_match: NoMatchPolicy::default(),
             analysis_tag_source: AnalysisTagSource::default(),
             write_energy: true,
+            required_tags: vec![],
         }
     }
 }
@@ -50,6 +53,17 @@ impl AutotagConfig {
     pub fn validate(&self) -> Result<()> {
         self.solver.validate()?;
         let c = &self.options;
+        ensure!(
+            self.required_tags.iter().all(|t| c.tags.contains(t)),
+            "Required fields must be selected"
+        );
+        ensure!(
+            self.required_tags
+                .iter()
+                .enumerate()
+                .all(|(i, t)| !self.required_tags[..i].contains(t)),
+            "Duplicate required field"
+        );
         ensure!(
             c.track_number_leading_zeroes <= 8,
             "Track number padding must be between 0 and 8"

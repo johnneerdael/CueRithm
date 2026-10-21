@@ -53,6 +53,20 @@ struct VolumeIdentity {
     persistent_inodes: bool,
 }
 
+#[cfg(any(windows, test))]
+fn windows_object_token(
+    volume: &VolumeIdentity,
+    created: std::time::SystemTime,
+    file_id: Option<(u64, [u8; 16])>,
+) -> Result<String> {
+    let file_id = if volume.persistent_inodes {
+        Some(file_id.context("Filesystem cannot identify this DJ object")?)
+    } else {
+        None
+    };
+    digest(&(&volume.id, file_id, created))
+}
+
 #[cfg(unix)]
 fn durable_object_token(
     volume: &VolumeIdentity,
@@ -97,7 +111,58 @@ fn object_token_on_volume(path: &Path, volume: VolumeIdentity) -> Result<String>
             durable_object_token(&volume, metadata.ino(), created)
         }
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+            FILE_ID_INFO, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ,
+            FILE_SHARE_WRITE, FileIdInfo, GetFileInformationByHandleEx,
+        };
+        // A replacement can inherit NTFS creation time through tunneling. Read
+        // its native 128-bit ID from the opened object rather than relying on time.
+        let opened = fs::OpenOptions::new()
+            .access_mode(FILE_READ_ATTRIBUTES)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path)?;
+        let metadata = opened.metadata()?;
+        use std::os::windows::fs::MetadataExt;
+        ensure!(
+            metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT == 0,
+            "DJ registration cannot be a reparse point"
+        );
+        let file_id = if volume.persistent_inodes {
+            let mut info = std::mem::MaybeUninit::<FILE_ID_INFO>::zeroed();
+            if unsafe {
+                GetFileInformationByHandleEx(
+                    opened.as_raw_handle(),
+                    FileIdInfo,
+                    info.as_mut_ptr().cast(),
+                    std::mem::size_of::<FILE_ID_INFO>() as u32,
+                )
+            } == 0
+            {
+                return Err(std::io::Error::last_os_error()).context("Read persistent DJ file ID");
+            }
+            let info = unsafe { info.assume_init() };
+            ensure!(
+                info.FileId.Identifier != [0; 16],
+                "Filesystem has no persistent DJ file ID"
+            );
+            Some((info.VolumeSerialNumber, info.FileId.Identifier))
+        } else {
+            None
+        };
+        windows_object_token(
+            &volume,
+            metadata
+                .created()
+                .context("Filesystem cannot identify the selected DJ target")?,
+            file_id,
+        )
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         digest(&(
             volume.id,
@@ -517,6 +582,7 @@ fn volume_identity(path: &Path) -> Result<VolumeIdentity> {
         return Err(std::io::Error::last_os_error()).context("Locate DJ volume");
     }
     let mut serial = 0;
+    let mut filesystem = [0_u16; 32];
     if unsafe {
         GetVolumeInformationW(
             root.as_ptr(),
@@ -525,8 +591,8 @@ fn volume_identity(path: &Path) -> Result<VolumeIdentity> {
             &mut serial,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            0,
+            filesystem.as_mut_ptr(),
+            filesystem.len() as u32,
         )
     } == 0
     {
@@ -534,7 +600,18 @@ fn volume_identity(path: &Path) -> Result<VolumeIdentity> {
     }
     Ok(VolumeIdentity {
         id: digest(&("volume-serial", serial))?,
-        persistent_inodes: false,
+        persistent_inodes: {
+            let end = filesystem
+                .iter()
+                .position(|c| *c == 0)
+                .unwrap_or(filesystem.len());
+            matches!(
+                String::from_utf16_lossy(&filesystem[..end])
+                    .to_ascii_lowercase()
+                    .as_str(),
+                "ntfs" | "refs"
+            )
+        },
     })
 }
 
@@ -627,6 +704,24 @@ mod tests {
         fs::write(&replacement, fs::read(&engine_path).unwrap()).unwrap();
         fs::rename(&replacement, &engine_path).unwrap();
         assert_ne!(before, capture(&engine).unwrap());
+    }
+
+    #[test]
+    fn windows_file_id_detects_replacement_with_the_same_creation_time() {
+        let volume = VolumeIdentity {
+            id: "fixture-volume".into(),
+            persistent_inodes: true,
+        };
+        let created = std::time::SystemTime::UNIX_EPOCH;
+        let first = windows_object_token(&volume, created, Some((7, [1; 16]))).unwrap();
+        assert_eq!(
+            first,
+            windows_object_token(&volume, created, Some((7, [1; 16]))).unwrap()
+        );
+        assert_ne!(
+            first,
+            windows_object_token(&volume, created, Some((7, [2; 16]))).unwrap()
+        );
     }
 
     #[test]

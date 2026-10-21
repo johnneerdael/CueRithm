@@ -13,7 +13,11 @@ results in the library remain measured analysis, independently of catalog tags.
 ## Providers and matching
 
 Select Beatport and/or Traxsource. Move providers earlier or later to set their
-order. With Combine providers off, the first successful match supplies metadata.
+order. A source marked as restricted that has no working solver shows as
+unavailable and cannot be newly selected; a saved selection stays visible so you
+can clear it.
+
+With Combine providers off, the first successful selected provider supplies metadata.
 With it on, every selected provider is consulted and matches apply in order.
 Configured provider failures leave the job in Incoming for retry; they are not
 reported as successful empty results. Traxsource uses the shared public-catalog
@@ -24,6 +28,12 @@ use its `/v1` endpoint, with a 120-second default solve timeout and one retry fo
 timeouts or temporary unavailability.
 See [solver setup](user-guide/guides/catalog-solver.md) for FlareSolverr, Byparr
 and Trawl, source availability, caching and troubleshooting.
+
+Known edition/recording conflicts and tied best candidates stay in Incoming for
+review, including disagreements between combined providers. Oldest/newest release
+preferences select among compatible candidates. Ignoring mix text for title
+similarity still retains recording/edition checks. Matching evidence is bound to
+the source, settings and claimed preparation attempt and survives attention/restart.
 
 Matching settings include title/artist strictness, optional duration tolerance,
 embedded IDs/ISRC, oldest/newest release preference, filename parsing and title
@@ -42,6 +52,9 @@ both watched folders and folder imports, even when catalog tagging is disabled.
 Select fields to write and choose overwrite-all or individual overwrite exceptions.
 Unselected fields remain unchanged. Available fields come from the selected
 provider implementations; the editor shows which providers supply each field.
+Custom Style/Other tags mappings cannot target protected standard or opaque DJ
+records. Preparation provenance records whether selected fields were written,
+kept or unavailable; configured required fields must be present before completion.
 Key/BPM file tags can use measured analysis or catalog metadata. Track energy is
 a separate optional file write and remains a single whole-track rating.
 
@@ -84,3 +97,7 @@ standalone tag editing/renaming and post-commands. It reuses pinned OneTagger
 source under GPLv3; desktop licensing and modifications are documented in
 [third-party notices](../THIRD_PARTY_NOTICES.md). The separate analysis engine
 remains MIT.
+
+An internal naming planner and recoverable organization coordinator are now
+available to library services. Desktop Incoming/manual organization remains the
+next delivery step; no organization command is exposed by this foundation change.

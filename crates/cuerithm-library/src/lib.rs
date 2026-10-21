@@ -27,10 +27,15 @@ pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
 mod playlists;
 pub use playlists::*;
 mod maintenance;
+#[cfg(feature = "autotag")]
+mod match_evidence;
 mod model;
+pub mod organization;
 pub use maintenance::*;
 #[cfg(feature = "autotag")]
 mod catalog_access;
+#[cfg(feature = "autotag")]
+pub use match_evidence::PreparationMatchSnapshot;
 pub mod playback;
 mod settings;
 mod store;

@@ -1,5 +1,7 @@
 /target/
 /.analysis/
+/.sonovault
+/.audd
 /Archive/
 /Archive.zip
 *.csv

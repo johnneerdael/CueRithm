@@ -86,6 +86,11 @@ fn challenge_is_remembered_and_next_lookup_does_not_contact_direct_source() {
             .get_text(&url, &SolverConfig::default(), &cancel)
             .unwrap_err();
         assert!(error.to_string().contains("solver"), "{error:#}");
+        assert!(
+            error
+                .downcast_ref::<onetagger_selected_providers::http::SolverFailure>()
+                .is_some()
+        );
     }
     assert_eq!(direct.join().unwrap().len(), 1);
 }
@@ -192,7 +197,8 @@ fn unresolved_or_malformed_solver_results_never_become_catalog_content() {
         let (url,direct)=server(vec![(403,"cf-mitigated: challenge\r\n","challenge".into())]);
         let (api,solver)=server(vec![(200,"",response)]);
         let config=SolverConfig{endpoint:Some(api),..Default::default()};
-        assert!(transport().get_text(&url,&config,&Arc::new(AtomicBool::new(false))).is_err());
+        let error=transport().get_text(&url,&config,&Arc::new(AtomicBool::new(false))).unwrap_err();
+        assert!(error.downcast_ref::<onetagger_selected_providers::http::SolverFailure>().is_some());
         direct.join().unwrap();assert_eq!(solver.join().unwrap().len(),1);
     }
     let (url, direct) = server(vec![(
@@ -412,4 +418,79 @@ fn mitigation_header_marks_source_even_when_challenge_body_is_interrupted() {
         assert!(store.requires_solver("fixture").unwrap());
     }
     direct.join().unwrap();
+}
+
+#[test]
+fn real_tagger_reports_solver_failures_as_unavailable_without_multiplying_requests() {
+    use cuerithm_autotag::{
+        AutotagConfig, CatalogEndpoints, CatalogLookupError, MatchStatus, ProviderFailureKind,
+        TagInput, Tagger,
+    };
+    use cuerithm_media::MediaInfo;
+    for failure in ["required", "unsupported", "unresolved", "transient"] {
+        let (url, direct) = server(vec![(403, "cf-mitigated: challenge\r\n", "blocked".into())]);
+        let responses = match failure {
+            "unsupported" => vec![(200, "", "not a FlareSolverr envelope".into())],
+            "unresolved" => vec![(
+                200,
+                "",
+                solved(
+                    &url,
+                    r#"<title>Just a moment...</title><script>var _cf_chl_opt={}</script>"#,
+                ),
+            )],
+            "transient" => vec![(500, "", r#"{"status":"error","message":"Timeout"}"#.into()); 2],
+            _ => vec![],
+        };
+        let expected = responses.len();
+        let mut config = AutotagConfig::default();
+        config.options.platforms = vec!["traxsource".into()];
+        let solver = if responses.is_empty() {
+            None
+        } else {
+            let (api, task) = server(responses);
+            config.solver.endpoint = Some(api);
+            Some(task)
+        };
+        let tagger = Tagger::with_endpoints(
+            CatalogEndpoints::for_local_server(&url, Duration::from_secs(1)).unwrap(),
+        )
+        .unwrap();
+        let input = TagInput {
+            path: "fixture.flac".into(),
+            source_sha256: "0".repeat(64),
+            duration_seconds: 300.,
+            media: MediaInfo {
+                codec: "flac".into(),
+                sample_rate: 44100,
+                channels: 2,
+                bits_per_sample: Some(16),
+                properties: Default::default(),
+                tags: [
+                    ("artist".into(), "Fixture Artist".into()),
+                    ("title".into(), "Fixture Track".into()),
+                ]
+                .into(),
+            },
+        };
+        let error = tagger.match_track(&input, &config).unwrap_err();
+        let evidence = error
+            .downcast_ref::<CatalogLookupError>()
+            .expect("provider failure must retain reviewable unavailable evidence");
+        assert_eq!(
+            evidence.outcome.status,
+            MatchStatus::Unavailable,
+            "{failure}"
+        );
+        assert_eq!(evidence.outcome.warnings.len(), 1, "{failure}");
+        assert_eq!(
+            evidence.outcome.warnings[0].kind,
+            ProviderFailureKind::Unavailable,
+            "{failure}: {error:#}"
+        );
+        assert_eq!(direct.join().unwrap().len(), 1, "{failure}");
+        if let Some(solver) = solver {
+            assert_eq!(solver.join().unwrap().len(), expected, "{failure}");
+        }
+    }
 }

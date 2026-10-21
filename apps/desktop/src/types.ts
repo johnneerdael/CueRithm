@@ -32,7 +32,7 @@ export interface TaggingOptions {
   [key:string]:unknown;
 }
 export interface SolverConfig {endpoint:string|null;timeout_seconds:number}
-export interface AutotagConfig {solver?:SolverConfig;options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean}
+export interface AutotagConfig {solver?:SolverConfig;options:TaggingOptions;no_match:"keep_existing"|"attention";analysis_tag_source:"measured"|"catalog";write_energy:boolean;required_tags?:string[]}
 export type CustomOptionValue = {type:"boolean";value:boolean}|{type:"number";min:number;max:number;step:number;value:number}|{type:"string";value:string;hidden:boolean|null}|{type:"tag";value:TagFrame}|{type:"option";values:string[];value:string}|{type:"button"};
 export interface TaggingProvider {id:string;name:string;maxThreads:number;supportedTags:string[];customOptions:{options:{id:string;label:string;tooltip:string|null;value:CustomOptionValue}[]}}
 export interface TaggingCatalog {defaults:AutotagConfig;providers:TaggingProvider[];access?:{id:string;requires_solver:boolean}[]}
