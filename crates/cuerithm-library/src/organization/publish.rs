@@ -6,6 +6,7 @@ use std::path::Path;
 pub(crate) enum Boundary {
     DirectoryCreated,
     StageReserved,
+    StageProgress,
     StageDurable,
     Published,
     SourceQuarantined,
@@ -161,13 +162,25 @@ impl crate::Library {
             matches(&fingerprint(&mut input)?, &file.original),
             "Source changed since organization planning"
         );
-        use std::io::{Seek, SeekFrom};
+        use std::io::{Read, Seek, SeekFrom, Write};
         input.seek(SeekFrom::Start(0))?;
         let mut output = destination.create(Path::new(&file.stage_name))?;
         record.files[index].staged = Some(fingerprint(&mut output)?);
         self.save_organization(record)?;
         boundary(Boundary::StageReserved)?;
-        std::io::copy(&mut input, &mut output)?;
+        let mut buffer = [0u8; 64 * 1024];
+        loop {
+            let count = match input.read(&mut buffer) {
+                Ok(count) => count,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error.into()),
+            };
+            if count == 0 {
+                break;
+            }
+            output.write_all(&buffer[..count])?;
+            boundary(Boundary::StageProgress)?;
+        }
         output.set_permissions(input.metadata()?.permissions())?;
         output.sync_all()?;
         destination.sync()?;

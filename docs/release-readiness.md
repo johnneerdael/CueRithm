@@ -14,13 +14,14 @@ claim complete Lexicon or OneTagger parity.
 | Analysis | Built-in OpenKeyScan key detection, local Lexicon-compatible timing and structural cues, saved grid/cue publication, and one compiled acoustic energy rating. Completed results change on explicit reanalysis. |
 | Tagging | Reused OneTagger Beatport/Traxsource integrations with persistent provider, matching, field, artwork and format settings. Provider availability is subject to the limits below. |
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
+| File organization | Opt-in Incoming naming/move/copy and manual complete-scope preview/apply/history/recovery/Undo use the same native coordinator. Required file/reference stages gate Ready; unchanged bytes retain analysis and playback snapshots. Native acceptance gates below remain distinct. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens remain unfinished. |
 | DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
 | Rekordbox foundation | Native encrypted copied-database reads/snapshots, target discovery, runtime key derivation, lossless analysis-file staging, and durable imported observations/baselines. These are backend foundations; the desktop Rekordbox Sync action remains unavailable. The five other DJ targets use the native Sync workspace. |
 
 No collection XML transport is part of the product. Plays, Last Played and
-Danceability, the remaining OneTagger workflows, and Mixed In Key segment-energy
+Danceability and Mixed In Key segment-energy
 or cue imitation are outside the approved scope.
 
 Smart playlists can explicitly include Incoming tracks; ordinary Tracks,
@@ -30,7 +31,7 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 12. Migration preserves existing tracks, jobs,
+The library upgrades to schema 17. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
@@ -43,6 +44,7 @@ unchanged until explicit reanalysis.
 | Next delivery | Dedicated duplicate/missing/unused-file maintenance screens and confirmations. Backend invoke commands are present, but the user-owned branded UI is not integrated here. | Review/apply/Undo/recovery through the final screens, explicit confirmation of removal and irreversible backup disposal, and large-library acceptance. |
 | Analysis parity | Complete cue-template/settings editor, custom-anchor extraction and equal tempo-bound options. Current preparation uses factory publication rows and the existing cue settings. | Equal-input comparisons of the remaining caller/settings paths and end-to-end saved results. |
 | Provider acceptance | Direct Traxsource requests returned HTTP 403. A read-only native probe with the configured Trawl transport fetched and matched a live track including release metadata, and correctly returned no-match for an empty search. No end-to-end file write or packaged-app acceptance is established. Beatport has a native successful probe, not universal catalog coverage. | A real native Traxsource match/write and representative provider coverage checks without bypassing failed required stages. |
+| Organization acceptance | Known linked references require path-only repair. Rekordbox references without a supported registered writer block organization; arbitrary external references cannot be discovered. Per-track native database backups can amplify storage and are included in conservative preflight. | Current-head native fixtures for publication/recovery/reference repair, plus separate native application reopen and large-library storage checks. Physical DJ player acceptance is not implied. |
 | Energy acceptance | The local formula matches the recorded usable synthetic helper cases. Real-music scalar-energy agreement and exact WebAudio resampling equivalence remain unmeasured. | A frozen real-music comparison with identical inputs/configuration and separately reported missing/unrated results. |
 | Analysis acceptance | Development-set timing/cue agreement does not prove unseen-track musical correctness or all cue configurations. | Independent held-out evaluation and broader native GUI comparisons, with raw detection and saved publication evaluated separately. |
 | Platform acceptance | Hosted builds/tests and generated fixtures do not establish every native interaction on all desktops. No Intel macOS release artifact is configured. | Final Windows/Linux native playback, import/settings/restart/recovery acceptance and representative common-format checks; a separate Intel build if added later. |
@@ -56,8 +58,13 @@ copies. Explicit disposal currently covers reviewed unused-file-removal backups;
 preparation/cleanup backup retention management remains outstanding. Disk-space
 claims must distinguish logical backup deletion from filesystem snapshot storage.
 
-The separate brand-kit UI worktree remains user-owned. This integration does not
-replace that work or claim to include its unmerged branding.
+The current application uses the existing CueRithm branding and Settings/table/player
+surfaces. Feature work extends those surfaces without replacing the theme.
+
+The [approved five-PR preparation program](plans/2026-10-20-002-feat-library-preparation-five-pr-delivery-plan.md)
+tracks organization, match review/editing, Curate/presets and individually accepted
+providers. Its implementation status is separate from this document's native
+acceptance and release-publication gates.
 
 ## Acceptance evidence and deliberate differences
 

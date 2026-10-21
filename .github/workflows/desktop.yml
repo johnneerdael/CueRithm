@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths-ignore: ['docs/**', 'README.md', '.github/PULL_REQUEST_TEMPLATE.md', '.github/scripts/**', '.github/workflows/pr-gate.yml', '.github/workflows/release.yml', '.github/workflows/pages.yml', 'mkdocs.yml', 'tools/release/**']
   workflow_dispatch:
+    inputs:
+      os:
+        description: 'Run only this runner, for example windows-2025. Ignored on main, which always runs every runner.'
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -16,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]') }}
+        os: ${{ fromJSON(inputs.os && github.ref != 'refs/heads/main' && format('["{0}"]', inputs.os) || (vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04","macos-15","windows-2025"]')) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -55,7 +60,7 @@ jobs:
           cargo +stable fmt --all -- --check
           cargo +stable clippy -p cuerithm-desktop -p cuerithm-library -p cuerithm-rekordbox --all-targets --locked -- -D warnings
       - name: Tagging, decoder, worker, recovery and playback tests
-        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop -p cuerithm-rekordbox --release --locked -- --test-threads=2
+        run: cargo +stable test -p cuerithm-autotag -p cuerithm-library -p cuerithm-media -p cuerithm-desktop -p cuerithm-rekordbox --release --locked --no-fail-fast -- --test-threads=2
       - name: Synthetic sync and linkage invariants
         shell: bash
         run: |

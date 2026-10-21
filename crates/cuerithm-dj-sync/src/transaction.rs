@@ -367,7 +367,7 @@ fn preflight_directories(journal: &FileJournal, restoring: bool) -> Result<()> {
     }
     Ok(())
 }
-fn safe_ancestors(path: &Path) -> Result<()> {
+pub(crate) fn safe_ancestors(path: &Path) -> Result<()> {
     ensure!(path.is_absolute(), "Sync publication path must be absolute");
     ensure!(
         !path.components().any(|part| matches!(

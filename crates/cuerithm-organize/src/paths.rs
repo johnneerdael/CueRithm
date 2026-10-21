@@ -103,6 +103,63 @@ pub fn collision_key(path: &Path) -> Result<String, String> {
         .collect();
     serde_json::to_string(&parts).map_err(|e| e.to_string())
 }
+/// Components of `path` for containment checks. A Win32 volume is keyed by what it names, and names
+/// compare caselessly only where the volume does: elsewhere `/Music/Rock` and `/Music/rock` can be
+/// different folders, and a scope that leaked across them would organize files outside the chosen folder.
+fn scope_components(path: &Path, caseless: bool) -> Vec<String> {
+    path.components()
+        .map(|part| {
+            if let Component::Prefix(prefix) = part {
+                return format!("p:{}", prefix_key(prefix.kind()));
+            }
+            if let Some(text) = part.as_os_str().to_str() {
+                return format!(
+                    "u:{}",
+                    if caseless {
+                        text.to_lowercase()
+                    } else {
+                        text.to_owned()
+                    }
+                );
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::ffi::OsStrExt;
+                format!("b:{:x?}", part.as_os_str().as_bytes())
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::ffi::OsStrExt;
+                format!(
+                    "w:{:x?}",
+                    part.as_os_str().encode_wide().collect::<Vec<_>>()
+                )
+            }
+        })
+        .collect()
+}
+fn within_with(root: &Path, path: &Path, caseless: bool) -> bool {
+    let (root, path) = (
+        scope_components(root, caseless),
+        scope_components(path, caseless),
+    );
+    path.starts_with(&root)
+}
+fn child_with(root: &Path, path: &Path, caseless: bool) -> bool {
+    let (root, path) = (
+        scope_components(root, caseless),
+        scope_components(path, caseless),
+    );
+    path.len() == root.len() + 1 && path.starts_with(&root)
+}
+/// Whether `path` is `root` or inside it, however Windows spells the volume or cases the names.
+pub fn is_within(root: &Path, path: &Path) -> bool {
+    within_with(root, path, cfg!(windows))
+}
+/// Whether `path` is directly inside `root`, with the same Windows normalization as `is_within`.
+pub fn is_direct_child(root: &Path, path: &Path) -> bool {
+    child_with(root, path, cfg!(windows))
+}
 /// Strings stay strings; non-Unicode native paths retain originating OS units.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NativePath(pub PathBuf);
@@ -191,6 +248,47 @@ mod tests {
             key(Prefix::Disk(b'C')),
             key(Prefix::DeviceNS(OsStr::new("C")))
         );
+    }
+    #[test]
+    fn scope_matching_is_exact_except_where_the_volume_is_caseless() {
+        let within = |root: &str, path: &str, caseless| {
+            within_with(Path::new(root), Path::new(path), caseless)
+        };
+        assert!(within("/Music/Rock", "/Music/Rock/a.flac", false));
+        assert!(within("/Music/Rock", "/Music/Rock", false));
+        // Case-sensitive volumes keep these two folders apart, so a scope must not leak.
+        assert!(!within("/Music/Rock", "/Music/rock/a.flac", false));
+        assert!(within("/Music/Rock", "/Music/rock/a.flac", true));
+        // A longer sibling name and a deeper root are not inside.
+        assert!(!within("/Music/Rock", "/Music/Rockabilly/a.flac", true));
+        assert!(!within("/Music/Rock/sub", "/Music/Rock/a.flac", false));
+    }
+    #[test]
+    fn a_direct_child_is_one_component_below_its_folder() {
+        let child = |root: &str, path: &str, caseless| {
+            child_with(Path::new(root), Path::new(path), caseless)
+        };
+        assert!(child("/Music/Rock", "/Music/Rock/a.flac", false));
+        assert!(!child("/Music/Rock", "/Music/Rock/sub/a.flac", false));
+        assert!(!child("/Music/Rock", "/Music/Rock", false));
+        assert!(child("/Music/Rock", "/Music/rock/a.flac", true));
+        assert!(!child("/Music/Rock", "/Music/rock/a.flac", false));
+    }
+    #[cfg(windows)]
+    #[test]
+    fn verbatim_plain_and_differently_cased_windows_paths_are_the_same_folder() {
+        assert!(is_within(
+            Path::new(r"\\?\C:\Music"),
+            Path::new(r"c:\music\Song.flac")
+        ));
+        assert!(is_direct_child(
+            Path::new(r"C:\Music"),
+            Path::new(r"\\?\c:\MUSIC\Song.flac")
+        ));
+        assert!(!is_within(
+            Path::new(r"C:\Music"),
+            Path::new(r"D:\Music\Song.flac")
+        ));
     }
     #[cfg(windows)]
     #[test]

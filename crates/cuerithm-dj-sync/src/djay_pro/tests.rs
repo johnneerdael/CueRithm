@@ -1025,3 +1025,28 @@ fn encoded_date_filter_fields_use_native_date_and_relative_value_tags() {
     assert_eq!(relative.get("periodValue"), Some(&Value::Double(2.0)));
     assert_eq!(relative.get("period"), Some(&Value::Small(1)));
 }
+
+#[test]
+fn path_only_repair_keeps_other_native_collections_and_location_fields() {
+    let (_folder, path) = database();
+    let input = library();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let source = &input.tracks[0].path;
+    let destination = PathBuf::from("/music/renamed mix.mp3");
+    let id = super::reference_id(&path, source).unwrap();
+    let conn = Connection::open(&path).unwrap();
+    let before=conn.prepare("SELECT collection,key,data,metadata FROM database2 WHERE collection!='localMediaItemLocations' ORDER BY rowid").unwrap().query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,Option<Vec<u8>>>(3)?))).unwrap().collect::<rusqlite::Result<Vec<_>>>().unwrap();
+    drop(conn);
+    let mut expected = get(&path, "localMediaItemLocations", &id);
+    if let Some(Value::Array(values)) = expected.get("sourceURIs") {
+        let mut values = values.clone();
+        values[0] = Value::Uri(file_uri(&destination).unwrap());
+        expected.set("sourceURIs", Value::Array(values));
+    }
+    super::repair_reference(&path, source, &destination, &id).unwrap();
+    assert_eq!(get(&path, "localMediaItemLocations", &id), expected);
+    assert_eq!(super::reference_id(&path, &destination).unwrap(), id);
+    let conn = Connection::open(&path).unwrap();
+    let after=conn.prepare("SELECT collection,key,data,metadata FROM database2 WHERE collection!='localMediaItemLocations' ORDER BY rowid").unwrap().query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,Vec<u8>>(2)?,r.get::<_,Option<Vec<u8>>>(3)?))).unwrap().collect::<rusqlite::Result<Vec<_>>>().unwrap();
+    assert_eq!(before, after);
+}
