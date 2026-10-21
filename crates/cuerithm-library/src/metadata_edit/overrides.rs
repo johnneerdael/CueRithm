@@ -58,7 +58,7 @@ impl MetadataEditService {
             "UPDATE metadata_edit_rows SET state='queued',error=NULL WHERE id=?1",
             [row_id],
         )?;
-        tx.execute("UPDATE metadata_edit_batches SET state='partial',updated=?1 WHERE state='queued' AND id!=?2 AND EXISTS(SELECT 1 FROM metadata_edit_rows r WHERE r.batch_id=metadata_edit_batches.id AND r.state='superseded') AND NOT EXISTS(SELECT 1 FROM metadata_edit_rows r WHERE r.batch_id=metadata_edit_batches.id AND r.state IN ('queued','ready','recovery_required'))",params![now(),batch])?;
+        Library::retire_superseded_batches_tx(tx, batch)?;
         Library::bump(tx)?;
         Ok(())
     }
@@ -140,6 +140,16 @@ impl Library {
         tx.execute("UPDATE metadata_edit_overrides SET state='committed',updated=?1,receipt_json=?4 WHERE job_id=?2 AND claimed_attempt=?3",params![now(),run.id,run.attempt,receipt])?;
         tx.execute("UPDATE metadata_edit_rows SET state='written',error=NULL,result_json=?1 WHERE batch_id=?2 AND track_id=?3 AND state='queued'",params![receipt,batch,run.track_id])?;
         Self::settle_override_batch_tx(tx, &batch, &draft, revision)
+    }
+    /// A newer saved override replaced a queued row. Any other batch left with nothing waiting
+    /// becomes `partial`, and its draft follows so Pending stops listing it as queued.
+    fn retire_superseded_batches_tx(
+        tx: &rusqlite::Transaction<'_>,
+        newer_batch: &str,
+    ) -> Result<()> {
+        tx.execute("UPDATE metadata_edit_batches SET state='partial',updated=?1 WHERE state='queued' AND id!=?2 AND EXISTS(SELECT 1 FROM metadata_edit_rows r WHERE r.batch_id=metadata_edit_batches.id AND r.state='superseded') AND NOT EXISTS(SELECT 1 FROM metadata_edit_rows r WHERE r.batch_id=metadata_edit_batches.id AND r.state IN ('queued','ready','recovery_required'))",params![now(),newer_batch])?;
+        tx.execute("UPDATE metadata_edit_drafts SET state='partial',updated=?1 WHERE state='queued' AND EXISTS(SELECT 1 FROM metadata_edit_batches b WHERE b.draft_id=metadata_edit_drafts.id AND b.draft_revision=metadata_edit_drafts.revision AND b.state='partial' AND b.id!=?2)",params![now(),newer_batch])?;
+        Ok(())
     }
     /// Settle a batch once no row is waiting, ranked as `finish_batch` ranks it: a failed,
     /// cancelled or superseded row makes it `partial`, otherwise `saved`, and the draft follows.
@@ -332,11 +342,7 @@ mod settle_tests {
         }
         (temp, lib)
     }
-    fn settle(lib: &Library) -> (String, String) {
-        let mut conn = lib.conn().unwrap();
-        let tx = conn.transaction().unwrap();
-        Library::settle_override_batch_tx(&tx, "b", "d", 1).unwrap();
-        tx.commit().unwrap();
+    fn states(conn: &rusqlite::Connection) -> (String, String) {
         let state = |table: &str, id: &str| {
             conn.query_row(
                 &format!("SELECT state FROM {table} WHERE id=?1"),
@@ -349,6 +355,41 @@ mod settle_tests {
             state("metadata_edit_batches", "b"),
             state("metadata_edit_drafts", "d"),
         )
+    }
+    fn settle(lib: &Library) -> (String, String) {
+        let mut conn = lib.conn().unwrap();
+        let tx = conn.transaction().unwrap();
+        Library::settle_override_batch_tx(&tx, "b", "d", 1).unwrap();
+        tx.commit().unwrap();
+        states(&conn)
+    }
+    fn retire(lib: &Library, newer_batch: &str) -> (String, String) {
+        let mut conn = lib.conn().unwrap();
+        let tx = conn.transaction().unwrap();
+        Library::retire_superseded_batches_tx(&tx, newer_batch).unwrap();
+        tx.commit().unwrap();
+        states(&conn)
+    }
+    #[test]
+    fn superseding_a_batchs_only_waiting_row_retires_the_batch_and_its_draft_together() {
+        let (_t, lib) = batch_with(&["written", "superseded"]);
+        assert_eq!(retire(&lib, "newer"), ("partial".into(), "partial".into()));
+    }
+    #[test]
+    fn a_superseded_batch_with_another_row_still_waiting_stays_queued() {
+        for waiting in ["queued", "ready", "recovery_required"] {
+            let (_t, lib) = batch_with(&["superseded", waiting]);
+            assert_eq!(
+                retire(&lib, "newer"),
+                ("queued".into(), "queued".into()),
+                "{waiting}"
+            );
+        }
+    }
+    #[test]
+    fn the_newer_batch_is_never_retired_by_its_own_override() {
+        let (_t, lib) = batch_with(&["written", "superseded"]);
+        assert_eq!(retire(&lib, "b"), ("queued".into(), "queued".into()));
     }
     #[test]
     fn a_settled_batch_with_no_other_outcome_is_saved() {
