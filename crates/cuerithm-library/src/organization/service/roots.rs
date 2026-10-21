@@ -8,7 +8,7 @@ impl Library {
         let path = std::path::absolute(path)?;
         let (_, authority) = Parent::capture(&path)?;
         ensure!(
-            !path.starts_with(self.data_dir().canonicalize()?),
+            !cuerithm_organize::paths::is_within(&self.data_dir().canonicalize()?, &path),
             "Choose a music folder outside application data"
         );
         let encoded = NativePath::new(&path).0;

@@ -291,12 +291,10 @@ fn release_time_native_alias_precedes_old_date_and_preserves_precision() {
         .library
         .organization_preview_page(&preview.id, 0, 100)
         .unwrap();
+    // The preview path uses the native separator, so compare components, not text.
     assert!(
-        page.rows[0]
-            .after_path
-            .as_ref()
-            .unwrap()
-            .ends_with("2026/2026-10-20 - Title.flac")
+        std::path::Path::new(page.rows[0].after_path.as_ref().unwrap())
+            .ends_with(std::path::Path::new("2026").join("2026-10-20 - Title.flac"))
     );
 }
 

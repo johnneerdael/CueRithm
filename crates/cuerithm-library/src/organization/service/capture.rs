@@ -107,8 +107,9 @@ impl Library {
                 .into_iter()
                 .filter_map(|(id, path)| match bytes_path(&path) {
                     Ok(path)
-                        if path.starts_with(&root)
-                            && (*recursive || path.parent() == Some(root.as_path())) =>
+                        if cuerithm_organize::paths::is_within(&root, &path)
+                            && (*recursive
+                                || cuerithm_organize::paths::is_direct_child(&root, &path)) =>
                     {
                         Some(Ok(id))
                     }
@@ -142,7 +143,7 @@ impl Library {
         );
         let path = bytes_path(&row.path)?;
         ensure!(
-            !path.starts_with(self.data_dir().canonicalize()?),
+            !cuerithm_organize::paths::is_within(&self.data_dir().canonicalize()?, &path),
             "Application cache files cannot be organized"
         );
         let (parent, source_parent) =
