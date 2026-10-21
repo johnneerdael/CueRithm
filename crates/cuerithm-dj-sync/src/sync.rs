@@ -1756,12 +1756,14 @@ mod tests {
             &library,
             &SyncOptions::default(),
         );
+        let error = result.unwrap_err();
+        #[cfg(target_os = "linux")]
+        let expected = "Case-colliding host entries";
+        #[cfg(not(target_os = "linux"))]
+        let expected = "reference changed";
         assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("reference changed"),
-            "a reference changed between readonly phases must refuse a preview"
+            error.to_string().contains(expected),
+            "a reference changed between readonly phases must refuse a preview: {error:#}"
         );
         assert_eq!(fs::read(&database).unwrap(), before);
     }
