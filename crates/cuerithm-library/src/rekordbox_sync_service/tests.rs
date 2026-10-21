@@ -1044,6 +1044,10 @@ fn explicit_cue_review_replaces_listed_known_hot_cues_and_transfers_only_verifie
 #[test]
 fn native_database_hardlinks_cannot_become_hashed_sources_or_asset_inputs() {
     let f = fixture(false);
+    assert!(ensure_not_native_file(&f.native, &f.native).is_err());
+    let copy = f._dir.path().join("distinct-source.wav");
+    fs::copy(&f.native, &copy).unwrap();
+    ensure_not_native_file(&f.native, &copy).unwrap();
     let alias = f._dir.path().join("native-as-audio.wav");
     fs::hard_link(&f.native, &alias).unwrap();
     assert!(ensure_not_native_file(&f.native, &alias).is_err());

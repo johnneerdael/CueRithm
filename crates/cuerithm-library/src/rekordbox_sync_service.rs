@@ -122,7 +122,7 @@ fn ensure_not_native_file(target: &Path, candidate: &Path) -> Result<()> {
         {
             let _ = (a, b);
             ensure!(
-                target.canonicalize()? != candidate.canonicalize()?,
+                !same_file::is_same_file(target, candidate)?,
                 "Native database cannot be an audio source or analysis asset"
             );
         }
