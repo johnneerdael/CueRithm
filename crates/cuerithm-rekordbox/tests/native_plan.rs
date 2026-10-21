@@ -1034,9 +1034,12 @@ fn analysis_reference_creates_one_auxiliary_file_without_fake_status_columns() {
         .find(|r| r.table == "contentFile")
         .unwrap();
     assert!(file.id.contains("_%2FPIONEER%2FUSBANLZ%2F"));
+    let TargetValue::Text(local_path) = &file.values["rb_local_path"] else {
+        panic!("native analysis resource path must be text");
+    };
     assert_eq!(
-        file.values["rb_local_path"],
-        text("/share/PIONEER/USBANLZ/abc/def/ANLZ0000.DAT")
+        PathBuf::from(local_path),
+        PathBuf::from("/share/PIONEER/USBANLZ/abc/def/ANLZ0000.DAT")
     );
     assert!(!file.values.contains_key("rb_data_status"));
     assert_eq!(file.values["rb_local_usn"], TargetValue::Integer(42));
