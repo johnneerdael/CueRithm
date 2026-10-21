@@ -45,6 +45,10 @@ fn worker_count(available_cores: usize) -> usize {
 }
 pub struct PreparationService {
     library: Library,
+    #[cfg(feature = "autotag")]
+    review_runtime: MediaRuntime,
+    #[cfg(feature = "autotag")]
+    review_tagger: Arc<Tagger>,
     tx: SyncSender<Control>,
     stop: Arc<AtomicBool>,
     join: Mutex<Vec<JoinHandle<()>>>,
@@ -52,6 +56,11 @@ pub struct PreparationService {
     status: Arc<Mutex<ServiceStatus>>,
 }
 impl PreparationService {
+    #[cfg(feature = "autotag")]
+    pub(crate) fn match_review_context(&self) -> (&Library, &MediaRuntime, &Arc<Tagger>) {
+        (&self.library, &self.review_runtime, &self.review_tagger)
+    }
+
     pub fn start(library: Library, runtime: MediaRuntime) -> Result<Self> {
         let count = worker_count(thread::available_parallelism().map_or(1, |n| n.get()));
         Self::start_with_workers(library, runtime, count)
@@ -139,6 +148,10 @@ impl PreparationService {
         }
         Ok(Self {
             library,
+            #[cfg(feature = "autotag")]
+            review_runtime: runtime,
+            #[cfg(feature = "autotag")]
+            review_tagger: tagger,
             tx,
             stop,
             join: Mutex::new(joins),
@@ -457,11 +470,23 @@ impl Worker {
                 "Preparation is stopping"
             );
             #[cfg(feature = "autotag")]
-            if job.snapshot.settings.autotag_enabled || job.snapshot.settings.cleanup_enabled {
+            let editor_override = self.library.metadata_override_for_run(&job)?;
+            #[cfg(feature = "autotag")]
+            let protected_review = self
+                .library
+                .protected_match_review_for_run(&job, &self.runtime)?;
+            #[cfg(feature = "autotag")]
+            if job.snapshot.settings.autotag_enabled
+                || job.snapshot.settings.cleanup_enabled
+                || editor_override.is_some()
+                || protected_review.is_some()
+            {
                 let mut offline_config = cuerithm_autotag::AutotagConfig::default();
                 offline_config.options.tags.clear();
                 offline_config.write_energy = false;
-                let config = if job.snapshot.settings.autotag_enabled {
+                let config = if let Some(review) = &protected_review {
+                    &review.config
+                } else if job.snapshot.settings.autotag_enabled {
                     job.snapshot
                         .settings
                         .tagging
@@ -481,8 +506,14 @@ impl Worker {
                     media: audio.info.clone(),
                     duration_seconds: audio.clock.duration_seconds(),
                 };
+                let mut query = input.clone();
+                if let Some(patch) = &editor_override {
+                    crate::match_review::effective::project_query(&mut query, patch);
+                }
                 let folder = job.path.parent().context("Missing track folder")?;
-                let hint = if job.snapshot.settings.autotag_enabled && config.options.album_tagging
+                let hint = if protected_review.is_none()
+                    && job.snapshot.settings.autotag_enabled
+                    && config.options.album_tagging
                 {
                     let members = self
                         .library
@@ -497,15 +528,22 @@ impl Worker {
                 } else {
                     None
                 };
-                let matched = if job.snapshot.settings.autotag_enabled {
+                let matched = if let Some(review) = &protected_review {
+                    cuerithm_autotag::TagMatchOutcome {
+                        status: review.outcome.status,
+                        matches: review.outcome.matches.clone(),
+                        attempted: review.outcome.attempted.clone(),
+                        warnings: vec![],
+                    }
+                } else if job.snapshot.settings.autotag_enabled {
                     match self.tagger.match_track_with_album(
-                        &input,
+                        &query,
                         config,
                         &self.stop,
                         hint.as_ref(),
                     ) {
                         Ok(outcome) => {
-                            self.library.record_match_outcome(&job, &input, &outcome)?;
+                            self.library.record_match_outcome(&job, &query, &outcome)?;
                             outcome
                         }
                         Err(error) => {
@@ -514,7 +552,7 @@ impl Worker {
                             {
                                 self.library.record_match_outcome(
                                     &job,
-                                    &input,
+                                    &query,
                                     &failure.outcome,
                                 )?;
                             }
@@ -545,7 +583,28 @@ impl Worker {
                     bpm: crate::publication::tag_bpm(&result, &job.snapshot.settings)?,
                     energy: result.analysis.energy.as_ref().map(|e| e.level),
                 };
-                let mut plan = TagWritePlan::build(input, &matched, config, &measured)?;
+                let review_patch = protected_review
+                    .as_ref()
+                    .map(|review| review.patch.clone())
+                    .unwrap_or_default();
+                let patch = if let Some(edit) = &editor_override {
+                    crate::match_review::effective::overlay(review_patch, edit)
+                } else {
+                    review_patch
+                };
+                let protected = patch.protected_tags(&input.media)?;
+                let mut stage_config = config.clone();
+                stage_config
+                    .options
+                    .tags
+                    .retain(|field| !protected.contains(field));
+                stage_config
+                    .required_tags
+                    .retain(|field| !protected.contains(field));
+                let mut plan = TagWritePlan::build(input, &matched, &stage_config, &measured)?;
+                if editor_override.is_some() || !patch.is_noop() {
+                    plan = plan.with_editor_patch(patch)?;
+                }
                 if job.snapshot.settings.cleanup_enabled {
                     stage = "cleanup";
                     self.library.set_stage_for_run(&job, stage)?;
@@ -566,6 +625,21 @@ impl Worker {
                     &audio,
                     &self.library.data_dir().join("tagging"),
                 )?;
+                if let Some(review) = &protected_review {
+                    staged.provenance["manual_review"] = review.provenance.clone();
+                }
+                if (protected_review.is_some() || editor_override.is_some())
+                    && let Some(original) = job.snapshot.settings.tagging.as_ref()
+                {
+                    cuerithm_autotag::validate_review_required_fields(
+                        &staged.path,
+                        &staged.metadata,
+                        original,
+                    )?;
+                }
+                if editor_override.is_some() {
+                    staged.provenance["query_override"] = serde_json::json!({"kind":"protected_metadata_override","applied_before_catalog_query":true});
+                }
                 self.engine
                     .as_ref()
                     .context("Missing analysis engine")?
@@ -588,7 +662,10 @@ impl Worker {
                 let journal = self.library.begin_tag_write(&job, &mut staged, &result)?;
                 self.emit(&job, stage, "running");
                 self.library.publish_preparation(&job, &journal)?;
-                if job.snapshot.settings.autotag_enabled && config.options.album_tagging {
+                if protected_review.is_none()
+                    && job.snapshot.settings.autotag_enabled
+                    && config.options.album_tagging
+                {
                     let release = matched.matches.iter().find_map(|m| {
                         let provider = match m.track.platform.as_str() {
                             "beatport" => cuerithm_autotag::ProviderId::Beatport,

@@ -1,6 +1,6 @@
 # Release scope and outstanding gaps
 
-Updated 2026-10-20. This is the release-stabilization scope requested after the
+Updated 2026-10-21. This is the release-stabilization scope requested after the
 integration work. Finish and review the existing implementation before adding
 features. The broader product plans remain open; merging this release does not
 claim complete Lexicon or OneTagger parity.
@@ -15,6 +15,7 @@ claim complete Lexicon or OneTagger parity.
 | Tagging | Reused OneTagger Beatport/Traxsource integrations with persistent provider, matching, field, artwork and format settings. Provider availability is subject to the limits below. |
 | Cleanup | Eleven ordered Smart Fixes, genre/artist mappings, protected values, preview/apply and guarded persistent Undo for files and library together. |
 | File organization | Opt-in Incoming naming/move/copy and manual complete-scope preview/apply/history/recovery/Undo use the same native coordinator. Required file/reference stages gate Ready; unchanged bytes retain analysis and playback snapshots. Native acceptance gates below remain distinct. |
+| Match review and metadata | Source-bound catalog review, protected Incoming choices, typed common-field/artwork editing, durable drafts, guarded Save/Undo and recovery, with measured analysis/cues preserved. Temporary publication artifacts use native ownership and recoverable quarantine; unknown replacements remain visible for cleanup. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens remain unfinished. |
 | DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
@@ -31,7 +32,7 @@ library's time zone. Partial dates and timestamp strings remain unknown rather
 than acquiring an invented calendar day. See the
 [smart-rule adapter policies](research/smart-playlist-parity.md).
 
-The library upgrades to schema 17. Migration preserves existing tracks, jobs,
+The library upgrades to schema 20. Migration preserves existing tracks, jobs,
 cue ownership and legacy sync links; older applications refuse this newer
 schema. A database downgrade is not implemented. Completed analysis remains
 unchanged until explicit reanalysis.
@@ -45,6 +46,7 @@ unchanged until explicit reanalysis.
 | Analysis parity | Complete cue-template/settings editor, custom-anchor extraction and equal tempo-bound options. Current preparation uses factory publication rows and the existing cue settings. | Equal-input comparisons of the remaining caller/settings paths and end-to-end saved results. |
 | Provider acceptance | Direct Traxsource requests returned HTTP 403. A read-only native probe with the configured Trawl transport fetched and matched a live track including release metadata, and correctly returned no-match for an empty search. No end-to-end file write or packaged-app acceptance is established. Beatport has a native successful probe, not universal catalog coverage. | A real native Traxsource match/write and representative provider coverage checks without bypassing failed required stages. |
 | Organization acceptance | Known linked references require path-only repair. Rekordbox references without a supported registered writer block organization; arbitrary external references cannot be discovered. Per-track native database backups can amplify storage and are included in conservative preflight. | Current-head native fixtures for publication/recovery/reference repair, plus separate native application reopen and large-library storage checks. Physical DJ player acceptance is not implied. |
+| Metadata acceptance | Generated native fixtures cover supported formats, exact rating/comment/picture identities, staged interruptions, Incoming Move/Ready/Undo and unchanged PCM/analysis/cues. Synthetic browser captures validate both themes and compact layouts; controller tests cover draft flush and Quit receipts. | Final packaged native-window quit/reopen acceptance and broader representative user-library runs remain separate. Full binary-tag parity is not claimed. |
 | Energy acceptance | The local formula matches the recorded usable synthetic helper cases. Real-music scalar-energy agreement and exact WebAudio resampling equivalence remain unmeasured. | A frozen real-music comparison with identical inputs/configuration and separately reported missing/unrated results. |
 | Analysis acceptance | Development-set timing/cue agreement does not prove unseen-track musical correctness or all cue configurations. | Independent held-out evaluation and broader native GUI comparisons, with raw detection and saved publication evaluated separately. |
 | Platform acceptance | Hosted builds/tests and generated fixtures do not establish every native interaction on all desktops. No Intel macOS release artifact is configured. | Final Windows/Linux native playback, import/settings/restart/recovery acceptance and representative common-format checks; a separate Intel build if added later. |

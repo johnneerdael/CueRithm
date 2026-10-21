@@ -11,11 +11,17 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct CheckpointSource {
     path: NativePath,
     parent: Authority,
     fingerprint: Fingerprint,
+}
+impl CheckpointSource {
+    #[cfg(feature = "autotag")]
+    pub(crate) fn parts(&self) -> (&NativePath, &Authority, &Fingerprint) {
+        (&self.path, &self.parent, &self.fingerprint)
+    }
 }
 #[derive(Serialize, Deserialize)]
 struct Payload {
@@ -34,6 +40,29 @@ fn evidence(conn: &Connection, track: &str) -> Result<String> {
     Ok(conn.query_row("SELECT json_array(analysis_json,metadata_json,native_metadata_json,tagging_json,title,artist,album,genre,musical_key,bpm,energy,duration,metadata_revision) FROM tracks WHERE id=?1",[track],|r|r.get(0))?)
 }
 impl Library {
+    #[cfg(feature = "autotag")]
+    pub(crate) fn queue_preparation_edit_tx(
+        tx: &rusqlite::Transaction<'_>,
+        track_id: &str,
+        job_id: &str,
+        attempt: u32,
+        source_hash: &str,
+    ) -> Result<crate::JobId> {
+        ensure!(tx.query_row("SELECT t.current_job=j.id AND t.id=?2 AND t.state='incoming' AND t.archived=0 AND t.source_hash=?4 AND j.attempts=?3 AND j.state IN ('attention','queued') FROM jobs j JOIN tracks t ON t.id=j.track_id WHERE j.id=?1",params![job_id,track_id,attempt,source_hash],|r|r.get::<_,bool>(0))?,"Incoming source or preparation ownership changed; reload the edit");
+        Self::retire_cancelled_checkpoint_batch_tx(tx, job_id)?;
+        ensure!(!tx.query_row("SELECT EXISTS(SELECT 1 FROM preparation_checkpoints WHERE job_id=?1 AND state!='complete' AND (state!='prepared' OR batch_id IS NOT NULL))",[job_id],|r|r.get::<_,bool>(0))?,"Preparation has a staged or published organization operation; finish its captured recovery before editing metadata");
+        ensure!(!tx.query_row("SELECT EXISTS(SELECT 1 FROM tag_writes WHERE job_id=?1 AND state IN ('prepared','conflict'))",[job_id],|r|r.get::<_,bool>(0))?,"Tag publication needs recovery before accepting another metadata decision");
+        let (previous,revision,analysis):(String,String,Option<String>)=tx.query_row("SELECT j.source_hash,j.settings_revision,t.analysis_json FROM jobs j JOIN tracks t ON t.id=j.track_id WHERE j.id=?1",[job_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+        let analysis_source = analysis
+            .and_then(|s| serde_json::from_str::<camelot_core::FileAnalysis>(&s).ok())
+            .and_then(|r| r.media.map(|m| m.source_sha256))
+            .unwrap_or(previous);
+        tx.execute("INSERT INTO preparation_reuse(job_id,source_hash,analysis_source_hash,analysis_settings_revision) VALUES(?1,?2,?3,?4) ON CONFLICT(job_id) DO UPDATE SET source_hash=excluded.source_hash,analysis_source_hash=excluded.analysis_source_hash,analysis_settings_revision=excluded.analysis_settings_revision",params![job_id,source_hash,analysis_source,revision])?;
+        tx.execute("DELETE FROM preparation_checkpoints WHERE job_id=?1 AND state='prepared' AND batch_id IS NULL",[job_id])?;
+        ensure!(tx.execute("UPDATE jobs SET source_hash=?1,state='queued',stage='queued',error=NULL,updated=?2 WHERE id=?3 AND attempts=?4 AND state IN ('attention','queued')",params![source_hash,now(),job_id,attempt])?==1,"Preparation changed while accepting metadata");
+        Ok(job_id.to_owned())
+    }
+
     pub(crate) fn preparation_source_checkpoint(
         source: &std::path::Path,
         published: &std::path::Path,
@@ -430,6 +459,8 @@ impl Library {
             q.query_map([&batch.id], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?
         };
+        #[cfg(feature = "autotag")]
+        let mut final_proof = checkpoint.payload.source.clone();
         if operations.is_empty() {
             Self::verify_checkpoint_source(
                 checkpoint
@@ -443,6 +474,20 @@ impl Library {
             let record = self.organization_record(&id)?;
             for file in &record.files {
                 crate::organization::publish::verify_destination(file)?;
+            }
+            #[cfg(feature = "autotag")]
+            if let Some(main) = record.files.first() {
+                final_proof = Some(CheckpointSource {
+                    path: main.destination.clone(),
+                    parent: main.destination_parent.clone(),
+                    fingerprint: if main.unchanged {
+                        main.original.clone()
+                    } else {
+                        main.staged
+                            .clone()
+                            .context("Missing known published organization identity")?
+                    },
+                });
             }
         }
         let mut conn = self.conn()?;
@@ -486,6 +531,18 @@ impl Library {
             params![now(), run.id],
         )?;
         ensure!(tx.execute("UPDATE preparation_checkpoints SET state='complete',updated=?1 WHERE job_id=?2 AND batch_id=?3 AND attempt=?4",params![now(),run.id,batch.id,run.attempt])?==1,"Preparation batch binding changed");
+        #[cfg(feature = "autotag")]
+        Self::finish_protected_match_review_tx(&tx, run)?;
+        #[cfg(feature = "autotag")]
+        if let Some(proof) = final_proof {
+            Self::finalize_metadata_override_tx(
+                &tx,
+                run,
+                &proof.path,
+                &proof.parent,
+                &proof.fingerprint,
+            )?;
+        }
         Self::bump(&tx)?;
         tx.commit()?;
         drop(conn);
@@ -498,6 +555,50 @@ impl Library {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "autotag")]
+    #[test]
+    fn explicit_edit_queues_same_logical_job_without_claiming_an_attempt() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let library = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let source = root.join("source.flac");
+        std::fs::write(&source, b"stable source").unwrap();
+        let job = library
+            .enqueue(&[source], library.settings().unwrap().revision)
+            .unwrap()
+            .remove(0);
+        let run = library.claim_next().unwrap().unwrap();
+        library
+            .fail_for_run(&run, "matching", "requires review")
+            .unwrap();
+        let mut conn = library.conn().unwrap();
+        let tx = conn.transaction().unwrap();
+        let result = Library::queue_preparation_edit_tx(
+            &tx,
+            &run.track_id,
+            &job,
+            run.attempt,
+            &run.source_sha256,
+        );
+        assert_eq!(result.unwrap(), job);
+        let (state, attempt): (String, u32) = tx
+            .query_row("SELECT state,attempts FROM jobs WHERE id=?1", [&job], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(state, "queued");
+        assert_eq!(attempt, run.attempt);
+        assert!(
+            Library::queue_preparation_edit_tx(
+                &tx,
+                &run.track_id,
+                &job,
+                run.attempt + 1,
+                &run.source_sha256
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn a_completed_checkpoint_can_be_replaced_but_an_active_one_cannot() {
         let temp = tempfile::tempdir().unwrap();

@@ -82,6 +82,13 @@ local adaptations. The independent engine retains its MIT notices. The combined
 desktop distribution uses GPL-3.0-only, with corresponding source and notices.
 No Lexicon application code, user credentials or personal music are included.
 
+The desktop also uses a narrowly patched MIT-licensed `id3` 1.17.2 source copy in
+`vendor/id3`. Its upstream license is retained there; archive identity and local
+decoder changes are documented in `vendor/id3/CUERITHM_PATCH.md`. Include this
+source and notice in corresponding source archives. The patch preserves decoded
+duplicate records and supported frame status bits; it does not claim complete
+binary-tag preservation.
+
 
 ## Native WMA/ASF metadata writer
 

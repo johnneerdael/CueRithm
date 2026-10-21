@@ -641,3 +641,71 @@ fn configured_id3_upgrade_preserves_slashes_in_unselected_contributor_names() {
         Version::Id3v24
     );
 }
+
+#[test]
+fn cleanup_never_rewrites_a_value_the_user_reviewed() {
+    use cuerithm_autotag::{MetadataPatch, MetadataTextField, TextEdit};
+    let d = tempfile::tempdir().unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let source = d.path().join("source.flac");
+    std::fs::copy(
+        root.join("crates/cuerithm-media/tests/fixtures/metadata.flac"),
+        &source,
+    )
+    .unwrap();
+    let runtime = MediaRuntime::from_bundle(&root.join("tools/media-runtime/bin")).unwrap();
+    let input = input(&runtime, &source, d.path());
+    let before = read_metadata(&source, &input.media).unwrap();
+    let mut patch = MetadataPatch::default();
+    for (field, value) in [
+        (MetadataTextField::Title, "Reviewed_Title"),
+        (MetadataTextField::Genre, "reviewed genre"),
+    ] {
+        patch.text.insert(
+            field,
+            TextEdit::Set {
+                values: vec![value.into()],
+            },
+        );
+    }
+    let title_case = |field| SmartFix::TitleCase {
+        field,
+        uppercase: true,
+        lowercase: true,
+    };
+    let cleanup = CleanupConfig {
+        fixes: vec![
+            rule(
+                "underscores",
+                SmartFix::ReplaceCharacters {
+                    characters: "_".into(),
+                },
+            ),
+            rule("genre case", title_case(MetadataField::Genre)),
+            rule("album case", title_case(MetadataField::Album)),
+        ],
+        ..Default::default()
+    };
+    let staged = TagWritePlan::build(input, &no_match(), &config(), &AnalysisTags::default())
+        .unwrap()
+        .with_metadata_edits(vec![change(
+            &before,
+            MetadataField::Album,
+            &["unreviewed album"],
+        )])
+        .unwrap()
+        .with_editor_patch(patch)
+        .unwrap()
+        .with_cleanup(cleanup)
+        .unwrap()
+        .stage(&runtime, d.path())
+        .unwrap();
+    let after = read_metadata(&staged.path, &staged.metadata).unwrap();
+    assert_eq!(after.fields[&MetadataField::Title], vec!["Reviewed_Title"]);
+    assert_eq!(after.fields[&MetadataField::Genre], vec!["reviewed genre"]);
+    assert_eq!(
+        after.fields[&MetadataField::Album],
+        vec!["Unreviewed Album"],
+        "cleanup still normalizes every field the user did not review"
+    );
+}

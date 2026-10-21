@@ -4,8 +4,12 @@ import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 import {open} from "@tauri-apps/plugin-dialog";
 import type {Bridge,PreparationEvent,PlaybackEvent,LibraryChangeEvent} from "./types";
 import {nativeOrganization} from "./organization-api";
+import {nativeMetadataEditor} from "./editor-api";
+import {nativeMatchReview} from "./match-review-api";
 export const nativeBridge:Bridge={
   ...nativeOrganization,
+  ...nativeMetadataEditor,
+  ...nativeMatchReview,
   discoverDjTargets:()=>invoke("discover_dj_targets"),
   previewDjSync:request=>invoke("preview_dj_sync",{request}),
   discardDjSync:id=>invoke("discard_dj_sync",{id}),
@@ -31,6 +35,7 @@ export const nativeBridge:Bridge={
   applyCleanup:(planId,proposalIds)=>invoke("apply_cleanup",{planId,proposalIds}),
   cleanupHistory:()=>invoke("cleanup_history"),
   undoCleanup:batchId=>invoke("undo_cleanup",{batchId}),
+  onCatalogAccessChange:handler=>listen("catalog-access-change",()=>handler()),
   onLibraryChange:handler=>listen<LibraryChangeEvent>("library-change",event=>handler(event.payload)),
   getState:()=>invoke("library_state"),
   getMetadataFields:()=>invoke("metadata_fields"),
@@ -64,6 +69,22 @@ export const nativeBridge:Bridge={
     return Array.isArray(value)?value:value?[value]:[];
   },
   chooseFolder:async()=>{const value=await open({directory:true,multiple:false});return typeof value==="string"?value:null;},
+  onCloseRequest:async(handler,onError)=>{
+    const window=getCurrentWebviewWindow();let waiting=false,allowed=false,disposed=false;
+    const unlisten=await window.onCloseRequested(async event=>{
+      if(allowed)return;
+      event.preventDefault();if(waiting)return;waiting=true;
+      try{await handler();if(!disposed){allowed=true;await window.close();}}
+      catch(error){allowed=false;if(!disposed)onError(error);}
+      finally{waiting=false;}
+    });
+    return()=>{disposed=true;unlisten();};
+  },
+  registerExitGuard:()=>invoke("register_exit_guard"),
+  unregisterExitGuard:()=>invoke("unregister_exit_guard"),
+  completeExit:requestId=>invoke("complete_exit",{requestId}),
+  cancelExit:requestId=>invoke("cancel_exit",{requestId}),
+  onAppExitRequested:handler=>listen<{request_id:string}>("app-exit-requested",event=>handler(event.payload.request_id)),
 };
 export function errorMessage(error:unknown):string {
   return typeof error==="object"&&error!==null&&"message" in error?String(error.message):String(error);

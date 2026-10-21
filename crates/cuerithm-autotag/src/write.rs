@@ -28,6 +28,7 @@ pub struct TagWritePlan {
     metadata_edits: Vec<cuerithm_cleanup::FieldChange>,
     custom_tags: Vec<cuerithm_cleanup::CustomTag>,
     transfer: Option<crate::TransferPatch>,
+    editor_patch: Option<crate::MetadataPatch>,
 }
 pub struct StagedTagWrite {
     pub path: PathBuf,
@@ -43,6 +44,7 @@ pub struct StagedTagWrite {
     pub provenance: serde_json::Value,
     pub cleanup: Option<cuerithm_cleanup::CleanupReport>,
     pub native_metadata: cuerithm_cleanup::Metadata,
+    pub editor_receipt_json: Option<String>,
     workspace: PathBuf,
     private: Option<tempfile::TempDir>,
 }
@@ -144,6 +146,7 @@ impl TagWritePlan {
             metadata_edits: vec![],
             custom_tags: vec![],
             transfer: None,
+            editor_patch: None,
         })
     }
     pub fn with_custom_tags(mut self, tags: Vec<cuerithm_cleanup::CustomTag>) -> Result<Self> {
@@ -153,6 +156,11 @@ impl TagWritePlan {
         }
         .validate()?;
         self.custom_tags = tags;
+        Ok(self)
+    }
+    pub fn with_editor_patch(mut self, patch: crate::MetadataPatch) -> Result<Self> {
+        patch.validate()?;
+        self.editor_patch = Some(patch);
         Ok(self)
     }
     pub fn with_transfer(mut self, patch: crate::TransferPatch) -> Result<Self> {
@@ -199,7 +207,17 @@ impl TagWritePlan {
             expected.set(edit.field, edit.after.clone());
         }
         if let Some(config) = &self.cleanup {
-            let report = cuerithm_cleanup::apply(config, &expected)?;
+            let mut report = cuerithm_cleanup::apply(config, &expected)?;
+            if let Some(patch) = &self.editor_patch {
+                let reviewed = patch.reviewed_cleanup_fields();
+                report.changes.retain(|c| !reviewed.contains(&c.field));
+                for field in reviewed {
+                    report.metadata.set(
+                        field,
+                        expected.fields.get(&field).cloned().unwrap_or_default(),
+                    );
+                }
+            }
             crate::metadata::edit(tag, format, &report.changes)?;
             let expected = report.metadata.clone();
             Ok((Some(report), expected))
@@ -219,6 +237,7 @@ impl TagWritePlan {
         self.tags_are_noop()
             && self.cleanup.is_none()
             && self.metadata_edits.is_empty()
+            && self.editor_patch.as_ref().is_none_or(|p| p.is_noop())
             && self.transfer.as_ref().is_none_or(|p| p.before == p.after)
     }
     fn tags_are_noop(&self) -> bool {
@@ -277,9 +296,14 @@ impl TagWritePlan {
             );
         }
         std::fs::create_dir_all(cache)?;
-        let private = tempfile::Builder::new()
-            .prefix("cuerithm-tags-")
-            .tempdir_in(cache)?;
+        let mut private = tempfile::Builder::new();
+        private.prefix("cuerithm-tags-");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            private.permissions(std::fs::Permissions::from_mode(0o700));
+        }
+        let private = private.tempdir_in(cache)?;
         let format = self.input.audio_info(&self.config)?.format;
         let extension = match format {
             AudioFileFormat::FLAC => "flac",
@@ -349,6 +373,12 @@ impl TagWritePlan {
         let mut sidecars = Vec::new();
         let mut cleanup = None;
         let mut expected_metadata = None;
+        let mut expected_editor = None;
+        let mut editor_before = self
+            .editor_patch
+            .as_ref()
+            .map(|_| crate::read_metadata_snapshot(&backup, &audio.info))
+            .transpose()?;
         if !self.is_noop() {
             match format {
                 AudioFileFormat::WMA => {
@@ -362,6 +392,10 @@ impl TagWritePlan {
                             .unwrap_or("; "),
                     );
                     let request = self.apply(&mut tag, &format)?;
+                    if let Some(patch) = &self.editor_patch {
+                        editor_before = Some(crate::editing::native::snapshot_asf(&tag)?);
+                        patch.apply_asf(&mut tag)?;
+                    }
                     let (report, expected) = self.apply_cleanup(&mut tag, &format)?;
                     if let Some(patch) = &self.transfer {
                         patch.apply(&mut tag, &format)?;
@@ -372,8 +406,12 @@ impl TagWritePlan {
                         || self.metadata_edits.iter().any(|e| e.before != e.after)
                         || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
                         || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
+                        || self.editor_patch.as_ref().is_some_and(|p| !p.is_noop())
                     {
                         tag.save_file(&path)?;
+                    }
+                    if self.editor_patch.is_some() {
+                        expected_editor = Some(crate::editing::native::snapshot_asf(&tag)?);
                     }
                     if let Some(request) = request {
                         sidecars.push(crate::sidecar::stage(
@@ -400,6 +438,13 @@ impl TagWritePlan {
                     {
                         let tag = wrapper.tag_mut();
                         let request = self.apply(&mut **tag, &format)?;
+                        drop(tag);
+                        if let Some(patch) = &self.editor_patch {
+                            editor_before =
+                                Some(crate::editing::native::snapshot_tag(&wrapper, &format)?);
+                            patch.apply_tag(&mut wrapper, &format)?;
+                        }
+                        let tag = wrapper.tag_mut();
                         let (report, expected) = self.apply_cleanup(&mut **tag, &format)?;
                         if let Some(patch) = &self.transfer {
                             patch.apply(&mut **tag, &format)?;
@@ -410,6 +455,8 @@ impl TagWritePlan {
                             || self.metadata_edits.iter().any(|e| e.before != e.after)
                             || cleanup.as_ref().is_some_and(|r| !r.changes.is_empty())
                             || self.transfer.as_ref().is_some_and(|p| p.before != p.after)
+                            || self.editor_patch.as_ref().is_some_and(|p| !p.is_noop())
+                            || self.editor_patch.as_ref().is_some_and(|p| !p.is_noop())
                         {
                             tag.save_file(&path)?;
                         }
@@ -421,13 +468,27 @@ impl TagWritePlan {
                             )?);
                         }
                     }
+                    if self.editor_patch.is_some() {
+                        expected_editor =
+                            Some(crate::editing::native::snapshot_tag(&wrapper, &format)?);
+                    }
                 }
             }
         }
-        let after = runtime
+        let mut after = runtime
             .decode_cancellable(&path, cache, cancel)
             .context("Verify tagged audio")?;
+        if let Some(patch) = &self.editor_patch {
+            patch.project_release_date(&mut after.info);
+        }
         let native_metadata = crate::metadata::read_metadata(&path, &after.info)?;
+        if let Some(expected) = expected_editor {
+            let actual = crate::read_metadata_snapshot(&path, &after.info)?;
+            ensure!(
+                actual == expected,
+                "Native container cannot preserve this exact typed metadata edit; source remains unchanged"
+            );
+        }
         let fields_after = crate::fields::values(
             &path,
             &after.info,
@@ -504,6 +565,16 @@ impl TagWritePlan {
             .open(&path)?
             .sync_all()?;
         std::fs::set_permissions(&path, permissions)?;
+        let editor_receipt_json = editor_before
+            .map(|before| {
+                crate::read_metadata_snapshot(&path, &after.info).and_then(|after| {
+                    Ok(serde_json::to_string(&crate::MetadataEditorReceipt {
+                        before,
+                        after,
+                    })?)
+                })
+            })
+            .transpose()?;
         Ok(StagedTagWrite {
             source_path: audio.source_path.clone(),
             source_before_sha256: audio.source_sha256.clone(),
@@ -518,6 +589,7 @@ impl TagWritePlan {
             provenance,
             cleanup,
             native_metadata,
+            editor_receipt_json,
             workspace: private.path().to_owned(),
             private: Some(private),
         })
