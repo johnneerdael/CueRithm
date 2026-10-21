@@ -54,6 +54,43 @@ struct CaseState {
     earlier_operation_ids: Vec<String>,
 }
 
+impl CaseState {
+    fn remember_noop(&mut self, id: String) {
+        if let Some(previous) = self.noop_id.replace(id)
+            && self.noop_id.as_ref() != Some(&previous)
+            && !self.earlier_operation_ids.contains(&previous)
+        {
+            self.earlier_operation_ids.push(previous);
+        }
+    }
+
+    fn permits_operation(&self, id: &str, phase: &str) -> bool {
+        self.operation_id.as_deref() == Some(id)
+            || self.earlier_operation_ids.iter().any(|saved| saved == id)
+            || (matches!(phase, "restore" | "verify") && self.noop_id.as_deref() == Some(id))
+    }
+}
+
+#[test]
+fn private_history_retains_noop_operations_without_admitting_unrelated_ids() {
+    let mut state = CaseState {
+        operation_id: Some("primary".into()),
+        ..Default::default()
+    };
+    state.remember_noop("noop-one".into());
+    assert!(state.permits_operation("noop-one", "restore"));
+    assert!(state.permits_operation("noop-one", "verify"));
+    assert!(!state.permits_operation("noop-one", "apply"));
+    state.remember_noop("noop-two".into());
+    state.remember_noop("noop-two".into());
+    assert_eq!(state.earlier_operation_ids, ["noop-one"]);
+    assert!(state.permits_operation("noop-one", "restore"));
+    assert!(state.permits_operation("noop-two", "restore"));
+    assert!(state.permits_operation("primary", "restore"));
+    assert!(!state.permits_operation("unrelated", "restore"));
+    assert!(!state.permits_operation("unrelated", "verify"));
+}
+
 fn regular(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     ensure!(
@@ -901,6 +938,9 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             .context("Explicit bundled media runtime is required")?;
         let runtime = cuerithm_media::MediaRuntime::from_bundle(&runtime_root)?;
         initialize_local(case, &library, &runtime, &cancel)?;
+        // Restore and local edits invalidate captured smart membership. Refresh
+        // through the public API before explicitly materializing it again.
+        library.refresh_smart_lists(crate::model::now())?;
         ensure_settled(&library, &case.target.database)?;
         let before = native_proof(case, &cancel)?;
         let mut selected = request(case);
@@ -987,7 +1027,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             "Authored acceptance has unresolved field choices"
         );
         if phase == "noop" {
-            state.noop_id = Some(preview.id.clone());
+            state.remember_noop(preview.id.clone());
             write_private(&case.state_path(), &state)?;
             ensure!(
                 preview.changed_rows == 0 && op.plan.rows.is_empty(),
@@ -1047,8 +1087,7 @@ fn run_phase(case: &Case, phase: &str) -> Result<Value> {
             .or(state.operation_id.as_deref())
             .context("Run the private preview phase first")?;
         ensure!(
-            state.operation_id.as_deref() == Some(id)
-                || state.earlier_operation_ids.iter().any(|saved| saved == id),
+            state.permits_operation(id, phase),
             "Operation is outside this private acceptance history"
         );
         let operation = case.verify_operation(&library, id)?;
