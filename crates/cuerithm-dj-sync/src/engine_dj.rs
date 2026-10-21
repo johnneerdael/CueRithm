@@ -1237,7 +1237,7 @@ fn write_smart_playlist(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{SyncBeat, SyncCue, SyncPlaylist};
     use flate2::read::ZlibDecoder;
@@ -1520,7 +1520,9 @@ mod tests {
         let source = source_dir.path().canonicalize().unwrap().join(filename);
         std::fs::write(&source, b"authored unmapped audio").unwrap();
         let library_root = database.parent().unwrap().parent().unwrap();
-        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"engine_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\Users\\DJ\\Music\\Engine Library","host_root":library_root}]}})).unwrap();
+        let mapped = root.join("unrelated-prefix");
+        std::fs::create_dir(&mapped).unwrap();
+        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"engine_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\Users\\DJ\\Music\\Engine Library","host_root":mapped}]}})).unwrap();
         let mut input = SyncLibrary {
             tracks: vec![track(source.clone())],
             playlists: vec![SyncPlaylist {
@@ -1598,7 +1600,7 @@ mod tests {
         assert!(!library_root.join(native).exists());
         assert_eq!(std::fs::read(source).unwrap(), b"authored unmapped audio");
     }
-    pub(super) fn fixture() -> (tempfile::TempDir, PathBuf) {
+    pub(crate) fn fixture() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Engine Library/Database2/m.db");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();

@@ -416,7 +416,9 @@ mod tests {
         let source = source_dir.path().canonicalize().unwrap().join(filename);
         audio(&source);
         let original = fs::read(&source).unwrap();
-        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"pioneer_usb","path":output,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":output}]}})).unwrap();
+        let mapped = root.join("unrelated-prefix");
+        fs::create_dir(&mapped).unwrap();
+        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"pioneer_usb","path":output,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":mapped}]}})).unwrap();
         let mut input = library(&source, "unmapped");
         input.tracks[0].native_path = Some(PathBuf::from(r"C:\forged.wav"));
         let journals = root.join("journals");

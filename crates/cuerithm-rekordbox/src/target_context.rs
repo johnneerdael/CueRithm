@@ -2,8 +2,12 @@
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::{Cell, RefCell},
+    collections::{HashMap, HashSet},
+    ffi::OsString,
     fs,
     path::{Component, Path, PathBuf},
+    time::SystemTime,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,7 +84,300 @@ struct InstallationObservation {
     sha256: Option<String>,
 }
 
+/// Resolve paths within one preparation. Verify before accepting the result.
+/// The cache belongs to this resolver alone; create a new resolver per operation.
+/// Directory changes invalidate the operation rather than refreshing earlier paths.
+pub struct TargetPathResolver<'a> {
+    environment: &'a TargetEnvironment,
+    roots: Vec<TargetPathSnapshot>,
+    directories: RefCell<HashMap<PathBuf, DirectoryCaseIndex>>,
+    directory_enumerations: Cell<usize>,
+    invalidated: Cell<bool>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct DirectoryStamp {
+    identity: PhysicalIdentity,
+    modified: SystemTime,
+    length: u64,
+    #[cfg(unix)]
+    changed: (i64, i64),
+}
+
+struct DirectoryCaseIndex {
+    stamp: DirectoryStamp,
+    names: HashSet<OsString>,
+    // None records a collision. Never pick an arbitrary one of these names.
+    folded: HashMap<String, Option<OsString>>,
+}
+
+impl DirectoryStamp {
+    fn capture(path: &Path) -> Result<Self> {
+        let metadata = fs::metadata(path).context("Inspect mapped directory identity")?;
+        ensure!(
+            metadata.is_dir(),
+            "Mapped reference parent is not a directory"
+        );
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt;
+        Ok(Self {
+            identity: physical_identity(path)?,
+            modified: metadata
+                .modified()
+                .context("Inspect mapped directory modification time")?,
+            length: metadata.len(),
+            #[cfg(unix)]
+            changed: (metadata.ctime(), metadata.ctime_nsec()),
+        })
+    }
+}
+
+impl DirectoryCaseIndex {
+    fn capture(path: &Path, enumerations: &Cell<usize>) -> Result<Self> {
+        let stamp = DirectoryStamp::capture(path)?;
+        let mut names = HashSet::new();
+        let mut folded = HashMap::new();
+        enumerations.set(enumerations.get() + 1);
+        for entry in read_mapped_directory(path).context("Inspect mapped directory")? {
+            let name = entry.context("Read mapped directory entry")?.file_name();
+            if let Some(text) = name.to_str() {
+                match folded.entry(fold(text)) {
+                    std::collections::hash_map::Entry::Vacant(entry) => {
+                        entry.insert(Some(name.clone()));
+                    }
+                    std::collections::hash_map::Entry::Occupied(mut entry) => {
+                        entry.insert(None);
+                    }
+                }
+            }
+            names.insert(name);
+        }
+        ensure!(
+            stamp == DirectoryStamp::capture(path)?,
+            "Mapped directory changed during path preparation; preview again"
+        );
+        Ok(Self {
+            stamp,
+            names,
+            folded,
+        })
+    }
+}
+
+impl TargetPathResolver<'_> {
+    pub fn is_native(&self) -> bool {
+        self.environment.is_native()
+    }
+
+    /// Number of directory index scans attempted by this operation, including
+    /// final verification. Contains no paths and is never serialized.
+    #[doc(hidden)]
+    pub fn directory_enumerations(&self) -> usize {
+        self.directory_enumerations.get()
+    }
+
+    fn observation<T>(&self, observed: Result<T>) -> Result<T> {
+        if observed.is_err() {
+            self.invalidated.set(true);
+        }
+        observed
+    }
+
+    fn require_unchanged(&self, unchanged: bool) -> Result<()> {
+        if !unchanged {
+            self.invalidated.set(true);
+            bail!("Mapped directory changed during path preparation; preview again");
+        }
+        Ok(())
+    }
+
+    fn verify_roots(&self) -> Result<()> {
+        ensure!(
+            !self.invalidated.get(),
+            "Path preparation was invalidated; preview again"
+        );
+        for root in &self.roots {
+            self.observation(root.verify())?;
+        }
+        Ok(())
+    }
+
+    /// Re-enumerate each indexed directory once, including raw names and coarse
+    /// timestamp filesystems. Call after all projected paths have been prepared.
+    pub fn verify(&self) -> Result<()> {
+        self.observation(self.environment.validate())?;
+        self.verify_roots()?;
+        for (path, expected) in self.directories.borrow().iter() {
+            let observed = self.observation(DirectoryCaseIndex::capture(
+                path,
+                &self.directory_enumerations,
+            ))?;
+            self.require_unchanged(
+                expected.names == observed.names && expected.stamp == observed.stamp,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn host_component(&self, directory: &Path, component: &str) -> Result<OsString> {
+        let canonical = match directory.canonicalize() {
+            Ok(path) => path,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(component.into());
+            }
+            Err(error) => return Err(error).context("Resolve mapped directory"),
+        };
+        let mut directories = self.directories.borrow_mut();
+        let index = match directories.entry(canonical.clone()) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => entry.insert(self.observation(
+                DirectoryCaseIndex::capture(&canonical, &self.directory_enumerations),
+            )?),
+        };
+        let observed = self.observation(DirectoryStamp::capture(&canonical))?;
+        self.require_unchanged(index.stamp == observed)?;
+        match index.folded.get(&fold(component)) {
+            Some(Some(name)) => Ok(name.clone()),
+            Some(None) => bail!("Case-colliding host entries cannot share a Windows reference"),
+            None => Ok(component.into()),
+        }
+    }
+
+    fn resolve_under(&self, root: &Path, parts: &[String]) -> Result<PathBuf> {
+        let canonical_root = directory_root(root)?;
+        let mut result = root.to_owned();
+        for part in parts {
+            validate_windows_component(part)?;
+            let name = self.host_component(&result, part)?;
+            result.push(name);
+            match fs::symlink_metadata(&result) {
+                Ok(_) => ensure!(
+                    result.canonicalize()?.starts_with(&canonical_root),
+                    "Mapped reference escapes its physical root"
+                ),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).context("Inspect mapped reference"),
+            }
+        }
+        Ok(result)
+    }
+}
+
+impl TargetPathResolver<'_> {
+    /// Project a physical source into the selected destination's path namespace.
+    /// No source existence requirement is imposed on Native references.
+    pub fn to_native(&self, path: &Path) -> Result<PathBuf> {
+        let TargetEnvironment::WindowsCompatibility { mappings, .. } = self.environment else {
+            return Ok(path.to_owned());
+        };
+        self.verify_roots()?;
+        validate_host_absolute(path)?;
+        path_text(path)?;
+        // Select by physical ancestry, never by an alias's selected spelling:
+        // both spellings of the same source must choose the same nested root.
+        let physical_source = physical_path(path)?;
+        let mut candidates = Vec::new();
+        for mapping in mappings {
+            let canonical = directory_root(&mapping.host_root)?;
+            if let Ok(relative) = physical_source.strip_prefix(&canonical) {
+                let parts = host_components(relative)?;
+                candidates.push((canonical.components().count(), mapping, parts));
+            }
+        }
+        candidates.sort_by_key(|(length, _, _)| std::cmp::Reverse(*length));
+        let Some((length, mapping, parts)) = candidates.first() else {
+            bail!("Source has no selected Windows drive mapping");
+        };
+        ensure!(
+            candidates
+                .iter()
+                .filter(|(other, _, _)| other == length)
+                .count()
+                == 1,
+            "Ambiguous reverse Windows mapping"
+        );
+        let source = self.resolve_under(&mapping.host_root, parts)?;
+        // A spelling which resolves to a different host entry must never be published.
+        ensure!(
+            same_host_reference(path, &source)?,
+            "Source spelling resolves to a different host file"
+        );
+        let mut native = WindowsPath::parse(&mapping.windows_root)?;
+        // Retain the host's actual spelling, including case and Unicode.
+        native
+            .parts
+            .extend(host_components(source.strip_prefix(&mapping.host_root)?)?);
+        let projected = native.render();
+        ensure!(
+            self.resolve_windows(&native)? == source,
+            "Mapping overlap changes the projected source"
+        );
+        Ok(PathBuf::from(projected))
+    }
+
+    pub fn to_host(&self, path: &Path) -> Result<PathBuf> {
+        if self.is_native() {
+            return Ok(path.to_owned());
+        }
+        self.verify_roots()?;
+        let native = WindowsPath::parse(path_text(path)?)?;
+        let host = self.resolve_windows(&native)?;
+        let reverse = WindowsPath::parse(path_text(&self.to_native(&host)?)?)?;
+        ensure!(
+            reverse.folded() == native.folded(),
+            "Windows reference has an ambiguous reverse alias"
+        );
+        Ok(host)
+    }
+
+    fn resolve_windows(&self, path: &WindowsPath) -> Result<PathBuf> {
+        let TargetEnvironment::WindowsCompatibility { mappings, .. } = self.environment else {
+            unreachable!()
+        };
+        let mut candidates = Vec::new();
+        for mapping in mappings {
+            let root = WindowsPath::parse(&mapping.windows_root)?;
+            if root.contains(path) {
+                candidates.push((root.parts.len(), mapping));
+            }
+        }
+        candidates.sort_by_key(|(length, _)| std::cmp::Reverse(*length));
+        let Some((length, mapping)) = candidates.first() else {
+            bail!("Windows reference has no selected drive mapping");
+        };
+        ensure!(
+            candidates
+                .iter()
+                .filter(|(other, _)| other == length)
+                .count()
+                == 1,
+            "Ambiguous Windows drive mapping"
+        );
+        self.resolve_under(&mapping.host_root, &path.parts[*length..])
+    }
+}
+
 impl TargetEnvironment {
+    pub fn resolver(&self) -> Result<TargetPathResolver<'_>> {
+        self.validate()?;
+        let mut roots = Vec::new();
+        if let Self::WindowsCompatibility {
+            prefix, mappings, ..
+        } = self
+        {
+            roots.push(TargetPathSnapshot::capture(prefix)?);
+            for mapping in mappings {
+                roots.push(TargetPathSnapshot::capture(&mapping.host_root)?);
+            }
+        }
+        Ok(TargetPathResolver {
+            environment: self,
+            roots,
+            directories: RefCell::new(HashMap::new()),
+            directory_enumerations: Cell::new(0),
+            invalidated: Cell::new(false),
+        })
+    }
     pub fn is_native(&self) -> bool {
         matches!(self, Self::Native)
     }
@@ -140,96 +437,20 @@ impl TargetEnvironment {
         Ok(())
     }
 
-    /// Project a physical source into the selected destination's path namespace.
-    /// No source existence requirement is imposed on Native references.
+    /// Resolve one path without retaining a cache across operations.
+    /// Use `resolver()` for a collection of paths within one preparation.
     pub fn to_native(&self, path: &Path) -> Result<PathBuf> {
-        let Self::WindowsCompatibility { mappings, .. } = self else {
-            return Ok(path.to_owned());
-        };
-        self.validate()?;
-        validate_host_absolute(path)?;
-        path_text(path)?;
-        // Select by physical ancestry, never by an alias's selected spelling:
-        // both spellings of the same source must choose the same nested root.
-        let physical_source = physical_path(path)?;
-        let mut candidates = Vec::new();
-        for mapping in mappings {
-            let canonical = directory_root(&mapping.host_root)?;
-            if let Ok(relative) = physical_source.strip_prefix(&canonical) {
-                let parts = host_components(relative)?;
-                candidates.push((canonical.components().count(), mapping, parts));
-            }
-        }
-        candidates.sort_by_key(|(length, _, _)| std::cmp::Reverse(*length));
-        let Some((length, mapping, parts)) = candidates.first() else {
-            bail!("Source has no selected Windows drive mapping");
-        };
-        ensure!(
-            candidates
-                .iter()
-                .filter(|(other, _, _)| other == length)
-                .count()
-                == 1,
-            "Ambiguous reverse Windows mapping"
-        );
-        let source = resolve_under(&mapping.host_root, parts)?;
-        // A spelling which resolves to a different host entry must never be published.
-        ensure!(
-            same_host_reference(path, &source)?,
-            "Source spelling resolves to a different host file"
-        );
-        let mut native = WindowsPath::parse(&mapping.windows_root)?;
-        // Retain the host's actual spelling, including case and Unicode.
-        native
-            .parts
-            .extend(host_components(source.strip_prefix(&mapping.host_root)?)?);
-        let projected = native.render();
-        ensure!(
-            self.resolve_windows(&native)? == source,
-            "Mapping overlap changes the projected source"
-        );
-        Ok(PathBuf::from(projected))
+        let resolver = self.resolver()?;
+        let projected = resolver.to_native(path)?;
+        resolver.verify()?;
+        Ok(projected)
     }
 
     pub fn to_host(&self, path: &Path) -> Result<PathBuf> {
-        if self.is_native() {
-            return Ok(path.to_owned());
-        }
-        self.validate()?;
-        let native = WindowsPath::parse(path_text(path)?)?;
-        let host = self.resolve_windows(&native)?;
-        let reverse = WindowsPath::parse(path_text(&self.to_native(&host)?)?)?;
-        ensure!(
-            reverse.folded() == native.folded(),
-            "Windows reference has an ambiguous reverse alias"
-        );
+        let resolver = self.resolver()?;
+        let host = resolver.to_host(path)?;
+        resolver.verify()?;
         Ok(host)
-    }
-
-    fn resolve_windows(&self, path: &WindowsPath) -> Result<PathBuf> {
-        let Self::WindowsCompatibility { mappings, .. } = self else {
-            unreachable!()
-        };
-        let mut candidates = Vec::new();
-        for mapping in mappings {
-            let root = WindowsPath::parse(&mapping.windows_root)?;
-            if root.contains(path) {
-                candidates.push((root.parts.len(), mapping));
-            }
-        }
-        candidates.sort_by_key(|(length, _)| std::cmp::Reverse(*length));
-        let Some((length, mapping)) = candidates.first() else {
-            bail!("Windows reference has no selected drive mapping");
-        };
-        ensure!(
-            candidates
-                .iter()
-                .filter(|(other, _)| other == length)
-                .count()
-                == 1,
-            "Ambiguous Windows drive mapping"
-        );
-        resolve_under(&mapping.host_root, &path.parts[*length..])
     }
 
     pub fn freeze(&self) -> Result<TargetEnvironmentSnapshot> {
@@ -415,47 +636,15 @@ fn directory_root(path: &Path) -> Result<PathBuf> {
     path.canonicalize()
         .context("Resolve selected target directory")
 }
-fn resolve_under(root: &Path, parts: &[String]) -> Result<PathBuf> {
-    let canonical_root = directory_root(root)?;
-    let mut result = root.to_owned();
-    for part in parts {
-        validate_windows_component(part)?;
-        let mut matches = Vec::new();
-        match fs::read_dir(&result) {
-            Ok(entries) => {
-                for entry in entries {
-                    let entry = entry.context("Read mapped directory entry")?;
-                    if entry
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|name| fold(name) == fold(part))
-                    {
-                        matches.push(entry.file_name());
-                    }
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error).context("Inspect mapped directory"),
-        }
-        ensure!(
-            matches.len() <= 1,
-            "Case-colliding host entries cannot share a Windows reference"
-        );
-        result.push(
-            matches
-                .first()
-                .map_or_else(|| std::ffi::OsStr::new(part), |p| p.as_os_str()),
-        );
-        match fs::symlink_metadata(&result) {
-            Ok(_) => ensure!(
-                result.canonicalize()?.starts_with(&canonical_root),
-                "Mapped reference escapes its physical root"
-            ),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error).context("Inspect mapped reference"),
-        }
-    }
-    Ok(result)
+fn read_mapped_directory(path: &Path) -> std::io::Result<fs::ReadDir> {
+    #[cfg(test)]
+    DIRECTORY_ENUMERATIONS.with(|count| count.set(count.get() + 1));
+    fs::read_dir(path)
+}
+
+#[cfg(test)]
+thread_local! {
+    static DIRECTORY_ENUMERATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 fn same_host_reference(requested: &Path, resolved: &Path) -> Result<bool> {
     Ok(physical_path(requested)? == physical_path(resolved)?)
@@ -593,6 +782,119 @@ fn installation_observations(path: &Path) -> Result<Vec<InstallationObservation>
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn operation_resolver_enumerates_flat_library_directories_a_bounded_number_of_times() {
+        let root = tempfile::tempdir().unwrap();
+        let music = root.path().join("Music");
+        fs::create_dir(&music).unwrap();
+        for index in 0..128 {
+            fs::write(music.join(format!("track-{index:03}.wav")), b"authored").unwrap();
+        }
+        let env = environment(root.path(), &[("C:\\", root.path())]);
+        DIRECTORY_ENUMERATIONS.with(|count| count.set(0));
+        let resolver = env.resolver().unwrap();
+        for index in 0..128 {
+            let source = music.join(format!("track-{index:03}.wav"));
+            let native = PathBuf::from(format!("C:\\Music\\track-{index:03}.wav"));
+            assert_eq!(resolver.to_native(&source).unwrap(), native);
+            assert_eq!(resolver.to_host(&native).unwrap(), source);
+        }
+        resolver.verify().unwrap();
+        let enumerations = DIRECTORY_ENUMERATIONS.with(|count| count.get());
+        assert_eq!(resolver.directory_enumerations(), enumerations);
+        assert!(
+            enumerations <= 4,
+            "enumerated two directories {enumerations} times for 128 tracks"
+        );
+    }
+
+    #[test]
+    fn operation_resolver_refuses_directory_entry_changes_after_paths_were_resolved() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("Song.wav"), b"authored").unwrap();
+        let env = environment(root.path(), &[("C:\\", root.path())]);
+        let resolver = env.resolver().unwrap();
+        resolver.to_host(Path::new("C:\\song.wav")).unwrap();
+        fs::write(root.path().join("another.wav"), b"new entry").unwrap();
+        assert!(resolver.verify().is_err());
+        assert!(resolver.to_host(Path::new("C:\\song.wav")).is_err());
+        let next_environment = env.clone();
+        let fresh = next_environment.resolver().unwrap();
+        fresh.to_host(Path::new("C:\\song.wav")).unwrap();
+        fresh.verify().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn operation_resolver_rechecks_directory_entries_when_modification_time_is_restored() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("Song.wav"), b"authored").unwrap();
+        let modified = fs::metadata(root.path()).unwrap().modified().unwrap();
+        let env = environment(root.path(), &[("C:\\", root.path())]);
+        let resolver = env.resolver().unwrap();
+        resolver.to_host(Path::new("C:\\Song.wav")).unwrap();
+        fs::write(root.path().join("new.wav"), b"new entry").unwrap();
+        fs::File::open(root.path())
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+        assert_eq!(
+            fs::metadata(root.path()).unwrap().modified().unwrap(),
+            modified
+        );
+        assert!(resolver.verify().is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn operation_resolver_rejects_selected_mapping_symlink_retargeting() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("first");
+        let second = root.path().join("second");
+        fs::create_dir(&first).unwrap();
+        fs::create_dir(&second).unwrap();
+        fs::write(first.join("song.wav"), b"first").unwrap();
+        fs::write(second.join("song.wav"), b"second").unwrap();
+        let selected = root.path().join("selected");
+        symlink(&first, &selected).unwrap();
+        let env = environment(root.path(), &[("C:\\", &selected)]);
+        let resolver = env.resolver().unwrap();
+        resolver.to_host(Path::new("C:\\song.wav")).unwrap();
+        fs::remove_file(&selected).unwrap();
+        symlink(&second, &selected).unwrap();
+        assert!(resolver.verify().is_err());
+        assert!(resolver.to_host(Path::new("C:\\song.wav")).is_err());
+        // Restoring the original physical root cannot revive an operation whose
+        // observations already failed. A new operation captures fresh evidence.
+        fs::remove_file(&selected).unwrap();
+        symlink(&first, &selected).unwrap();
+        assert!(resolver.verify().is_err());
+        assert!(resolver.to_host(Path::new("C:\\song.wav")).is_err());
+        let fresh = env.resolver().unwrap();
+        fresh.to_host(Path::new("C:\\song.wav")).unwrap();
+        fresh.verify().unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn operation_resolver_refuses_new_case_collisions_and_fresh_resolvers_also_reject_them() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("Song.wav"), b"authored").unwrap();
+        let env = environment(root.path(), &[("C:\\", root.path())]);
+        let resolver = env.resolver().unwrap();
+        resolver.to_native(&root.path().join("Song.wav")).unwrap();
+        fs::write(root.path().join("song.wav"), b"different source").unwrap();
+        assert!(resolver.verify().is_err());
+        assert!(resolver.to_host(Path::new("C:\\Song.wav")).is_err());
+        assert!(
+            env.resolver()
+                .unwrap()
+                .to_host(Path::new("C:\\Song.wav"))
+                .is_err()
+        );
+    }
 
     fn environment(root: &Path, mappings: &[(&str, &Path)]) -> TargetEnvironment {
         TargetEnvironment::WindowsCompatibility {

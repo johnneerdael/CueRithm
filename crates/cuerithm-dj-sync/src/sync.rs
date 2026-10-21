@@ -12,6 +12,12 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+#[cfg(test)]
+thread_local! {
+    static PREPARATION_DIRECTORY_ENUMERATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static AFTER_SQLITE_SNAPSHOT: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+}
+
 pub type PlaylistOwnershipContexts =
     BTreeMap<PathBuf, (Option<PathBuf>, crate::ownership::PlaylistOwnershipRequest)>;
 pub type PlaylistOwnershipReports =
@@ -146,6 +152,12 @@ fn sqlite_snapshot(
         rusqlite::Connection::open_with_flags(source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     connection.busy_timeout(std::time::Duration::from_secs(5))?;
     connection.backup("main", stage, None)?;
+    #[cfg(test)]
+    AFTER_SQLITE_SNAPSHOT.with_borrow_mut(|hook| {
+        if let Some(hook) = hook.take() {
+            hook();
+        }
+    });
     Ok(())
 }
 fn list_files(root: &Path) -> Result<Vec<PathBuf>> {
@@ -308,9 +320,9 @@ pub(crate) fn windows_volume_root(path: &Path) -> Option<String> {
 }
 
 fn compatibility_serato_library(
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<PathBuf> {
-    let users = environment.to_host(Path::new("C:\\users"))?;
+    let users = resolver.to_host(Path::new("C:\\users"))?;
     let mut candidates = Vec::new();
     let mut inspected = 0usize;
     for user in fs::read_dir(users)? {
@@ -338,6 +350,7 @@ fn project_windows_smartlists(
     library: &mut SyncLibrary,
     target: &SyncTarget,
     options: &SyncOptions,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Vec<String> {
     use cuerithm_smartlists::{Operator, RuleValue};
     if target.environment.is_native() || options.materialize_smartlists {
@@ -371,7 +384,7 @@ fn project_windows_smartlists(
                     Some("its location rule could match different tracks with these Windows paths");
                 break;
             }
-            let Ok(native) = target.environment.to_native(path) else {
+            let Ok(native) = resolver.to_native(path) else {
                 reason = Some("its location rule has no clear Windows drive mapping");
                 break;
             };
@@ -516,6 +529,9 @@ pub fn prepare_sync_owned_with_runtime(
     let transaction = FileTransaction::create(journal_root)?;
     let build_directory = build::BuildDirectory::new(transaction.path())?;
     let build = build_directory.path();
+    let mut resolver = target.environment.resolver()?;
+    #[cfg(test)]
+    let mut resolution_scans = 0;
     let mut before = BTreeMap::new();
     let mut sources = BTreeMap::new();
     let mut input_paths = std::collections::BTreeSet::new();
@@ -540,6 +556,7 @@ pub fn prepare_sync_owned_with_runtime(
         sources.insert(track.path.clone(), Some(hash));
         input_paths.insert(fs::canonicalize(&track.path)?);
     }
+    let mut engine_classification_reference = None;
     let copies_media = match target.software {
         DjSoftware::PioneerUsb => true,
         DjSoftware::EngineDj => {
@@ -548,9 +565,32 @@ pub fn prepare_sync_owned_with_runtime(
                 .parent()
                 .and_then(Path::parent)
                 .context("Engine Library folder is missing")?;
-            options.engine_copy_audio || engine_device_library(&target.environment.to_native(root)?)
+            if options.engine_copy_audio {
+                true
+            } else {
+                let native = resolver.to_native(root)?;
+                let copies = engine_device_library(&native);
+                engine_classification_reference = Some((root.to_owned(), native));
+                copies
+            }
         }
         _ => false,
+    };
+    // Owned device copies use relative references and djay stores only source
+    // URIs. Their physical databases need no Windows drive projection.
+    let native_target = if copies_media || target.software == DjSoftware::DjayPro {
+        None
+    } else {
+        Some(resolver.to_native(&target.path)?)
+    };
+    let native_source_root = if target.software != DjSoftware::Serato4 {
+        None
+    } else {
+        target
+            .source_root
+            .as_deref()
+            .map(|root| resolver.to_native(root))
+            .transpose()?
     };
     let mut references = std::collections::BTreeSet::new();
     for track in &mut library.tracks {
@@ -560,7 +600,7 @@ pub fn prepare_sync_owned_with_runtime(
         if copies_media {
             continue;
         }
-        let reference = destination_reference(&target.environment.to_native(&track.path)?);
+        let reference = destination_reference(&resolver.to_native(&track.path)?);
         track.native_path = (reference != track.path).then_some(reference);
         if !target.environment.is_native()
             || cfg!(windows)
@@ -591,7 +631,12 @@ pub fn prepare_sync_owned_with_runtime(
             }
         }
     }
-    context_warnings.extend(project_windows_smartlists(&mut library, &target, options));
+    context_warnings.extend(project_windows_smartlists(
+        &mut library,
+        &target,
+        options,
+        &resolver,
+    ));
     let library = &library;
     let mut replacements: BTreeMap<PathBuf, PathBuf> = BTreeMap::new();
     let mut deletions = std::collections::BTreeSet::<PathBuf>::new();
@@ -610,7 +655,7 @@ pub fn prepare_sync_owned_with_runtime(
                 target.path.clone()
             };
             let home = original.parent().context("VirtualDJ folder missing")?;
-            let primary_volume = windows_volume_root(&target.environment.to_native(&original)?);
+            let primary_volume = windows_volume_root(&resolver.to_native(&original)?);
             let mut local_tracks = Vec::new();
             let mut other_drives = BTreeMap::<PathBuf, Vec<crate::SyncTrack>>::new();
             for track in &library.tracks {
@@ -624,7 +669,7 @@ pub fn prepare_sync_owned_with_runtime(
                         "{}/VirtualDJ/database.xml",
                         volume.trim_end_matches('/')
                     ));
-                    let database = target.environment.to_host(&native)?;
+                    let database = resolver.to_host(&native)?;
                     ensure!(
                         database.is_file(),
                         "VirtualDJ drive database is missing; initialize this drive in VirtualDJ first"
@@ -756,7 +801,15 @@ pub fn prepare_sync_owned_with_runtime(
                 .context("Engine Library folder is missing")?;
             related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(root)?);
             let stage = build.join("engine/Database2/m.db");
+            // SQLite backup may create shared-memory sidecars in mapped directories.
+            // Finish the read-only cache before that owned mutation.
+            resolver.verify()?;
+            #[cfg(test)]
+            {
+                resolution_scans += resolver.directory_enumerations();
+            }
             sqlite_snapshot(&database, &stage, &mut before)?;
+            resolver = target.environment.resolver()?;
             let portable = copies_media;
             if portable {
                 let (projected, media) =
@@ -779,7 +832,7 @@ pub fn prepare_sync_owned_with_runtime(
             } else {
                 let report = crate::engine_dj::write_staged_owned(
                     &stage,
-                    &destination_reference(&target.environment.to_native(root)?),
+                    &destination_reference(&resolver.to_native(root)?),
                     library,
                     options,
                     contexts
@@ -798,15 +851,21 @@ pub fn prepare_sync_owned_with_runtime(
                 target.path.clone()
             };
             let stage = build.join("djay/MediaLibrary.db");
+            resolver.verify()?;
+            #[cfg(test)]
+            {
+                resolution_scans += resolver.directory_enumerations();
+            }
             sqlite_snapshot(&database, &stage, &mut before)?;
-            let report = crate::djay_pro::write_owned_in_environment(
+            resolver = target.environment.resolver()?;
+            let report = crate::djay_pro::write_owned_with_resolver(
                 &stage,
                 library,
                 options,
                 contexts
                     .get(&database)
                     .map_or(&empty_ownership, |(_, request)| request),
-                &target.environment,
+                &resolver,
             )?;
             ownership.insert(database.clone(), (None, report));
             replacements.insert(database, stage);
@@ -829,7 +888,7 @@ pub fn prepare_sync_owned_with_runtime(
             let local_library = if parent.join("master.sqlite").is_file() {
                 parent.to_path_buf()
             } else if target.source_root.is_some() && !target.environment.is_native() {
-                compatibility_serato_library(&target.environment)?
+                compatibility_serato_library(&resolver)?
             } else if target.source_root.is_some() {
                 #[cfg(windows)]
                 let local = std::env::var_os("LOCALAPPDATA")
@@ -854,7 +913,13 @@ pub fn prepare_sync_owned_with_runtime(
                 &local_library,
             )?);
             let staged_master = build.join("serato/master.sqlite");
+            resolver.verify()?;
+            #[cfg(test)]
+            {
+                resolution_scans += resolver.directory_enumerations();
+            }
             sqlite_snapshot(&master, &staged_master, &mut before)?;
+            resolver = target.environment.resolver()?;
             let mut master_request = contexts
                 .get(&master)
                 .map_or_else(Default::default, |(_, r)| r.clone());
@@ -869,10 +934,10 @@ pub fn prepare_sync_owned_with_runtime(
             } else {
                 groups.insert(database.clone(), (None, vec![]));
                 for track in &library.tracks {
-                    let (path, root) = crate::serato4::location_for_track_in_environment(
+                    let (path, root) = crate::serato4::location_for_track_with_resolver(
                         &local_library,
                         &track.path,
-                        &target.environment,
+                        &resolver,
                     )?;
                     groups
                         .entry(path)
@@ -911,11 +976,17 @@ pub fn prepare_sync_owned_with_runtime(
                         .file_name()
                         .context("Serato database name missing")?,
                 );
+                resolver.verify()?;
+                #[cfg(test)]
+                {
+                    resolution_scans += resolver.directory_enumerations();
+                }
                 sqlite_snapshot(&original, &stage, &mut before)?;
+                resolver = target.environment.resolver()?;
                 let report = crate::serato4::write_database_owned(
                     &stage,
                     root.as_ref()
-                        .map(|root| target.environment.to_native(root))
+                        .map(|root| resolver.to_native(root))
                         .transpose()?
                         .as_deref(),
                     &group,
@@ -927,7 +998,7 @@ pub fn prepare_sync_owned_with_runtime(
                 let mut aggregate = crate::serato4::refresh_master_owned(
                     &staged_master,
                     &stage,
-                    &target.environment.to_native(&original)?,
+                    &resolver.to_native(&original)?,
                     &master_request,
                     &report,
                 )?;
@@ -1081,6 +1152,44 @@ pub fn prepare_sync_owned_with_runtime(
             staged: Some(staged),
         });
     }
+    // A phase boundary permits our own journal/SQLite writes, not a change to
+    // any previously selected Windows reference. Recheck those references with
+    // the final shared index before accepting the prepared publications.
+    if let Some((root, native)) = engine_classification_reference {
+        ensure!(
+            resolver.to_native(&root)? == native,
+            "Engine library classification reference changed during preparation"
+        );
+    }
+    if let Some(native_target) = native_target {
+        ensure!(
+            resolver.to_native(&target.path)? == native_target,
+            "Destination target reference changed during preparation"
+        );
+    }
+    if target.software == DjSoftware::Serato4 {
+        ensure!(
+            target
+                .source_root
+                .as_deref()
+                .map(|root| resolver.to_native(root))
+                .transpose()?
+                == native_source_root,
+            "Destination source root reference changed during preparation"
+        );
+    }
+    if !copies_media {
+        for track in &library.tracks {
+            ensure!(
+                destination_reference(&resolver.to_native(&track.path)?) == track.reference_path(),
+                "Selected destination reference changed during preparation"
+            );
+        }
+    }
+    resolver.verify()?;
+    #[cfg(test)]
+    PREPARATION_DIRECTORY_ENUMERATIONS.set(resolution_scans + resolver.directory_enumerations());
+    drop(resolver);
     transaction.add_batch(
         &files,
         &normalized_directories.into_values().collect::<Vec<_>>(),
@@ -1539,6 +1648,122 @@ mod tests {
         assert!(!xml.contains("FilterFolder"));
         assert!(xml.contains(r"C:\Music\one.wav"));
         assert!(!xml.contains("foreign.wav"));
+    }
+    #[test]
+    fn mapped_preparation_reuses_directory_indexes_across_128_tracks() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let music = root.join("Music");
+        let home = root.join("VirtualDJ");
+        fs::create_dir(&music).unwrap();
+        fs::create_dir(&home).unwrap();
+        fs::write(
+            home.join("database.xml"),
+            br#"<VirtualDJ_Database Version="8.5"/>"#,
+        )
+        .unwrap();
+        let mut library = SyncLibrary::default();
+        for index in 0..128 {
+            let source = music.join(format!("track-{index}.wav"));
+            fs::write(&source, b"authored source, no decoder").unwrap();
+            library.tracks.push(SyncTrack {
+                id: index.to_string(),
+                path: source,
+                bpm: 120.,
+                duration_seconds: 1.,
+                ..Default::default()
+            });
+        }
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":home.join("database.xml"),"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":root}]}})).unwrap();
+        let journals = root.join("journals");
+        let preview = prepare_sync(&journals, target, &library, &SyncOptions::default()).unwrap();
+        assert_eq!(
+            PREPARATION_DIRECTORY_ENUMERATIONS.get(),
+            6,
+            "one scan and one final verification for the mapping root, Music and VirtualDJ directories"
+        );
+        apply_sync(&journals, &preview.id).unwrap();
+        let xml = fs::read_to_string(home.join("database.xml")).unwrap();
+        assert_eq!(xml.matches("<Song ").count(), 128);
+        assert!(!xml.contains(root.to_str().unwrap()));
+        restore_sync(&journals, &preview.id).unwrap();
+    }
+
+    #[test]
+    fn mapped_engine_preparation_counts_indexes_across_both_readonly_phases() {
+        let (dir, database) = crate::engine_dj::tests::fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let music = root.join("Music");
+        fs::create_dir(&music).unwrap();
+        let mut library = SyncLibrary::default();
+        for index in 0..128 {
+            let source = music.join(format!("track-{index}.wav"));
+            fs::write(&source, b"authored source").unwrap();
+            library.tracks.push(SyncTrack {
+                id: index.to_string(),
+                path: source,
+                bpm: 120.,
+                duration_seconds: 1.,
+                sample_rate: 48000,
+                ..Default::default()
+            });
+        }
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"engine_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"mappings":[{"windows_root":"C:\\Users\\DJ","host_root":root}]}})).unwrap();
+        prepare_sync(
+            &root.join("journals"),
+            target,
+            &library,
+            &SyncOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            PREPARATION_DIRECTORY_ENUMERATIONS.get(),
+            16,
+            "each of four directories is scanned and verified once in each of two readonly phases"
+        );
+    }
+    #[test]
+    fn mapped_engine_revalidates_selected_references_across_sqlite_snapshot_phases() {
+        let (dir, database) = crate::engine_dj::tests::fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let music = root.join("Music");
+        fs::create_dir(&music).unwrap();
+        let source = music.join("Song.wav");
+        let changed = music.join("song.wav");
+        fs::write(&source, b"authored source").unwrap();
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"engine_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"mappings":[{"windows_root":"C:\\Users\\DJ","host_root":root}]}})).unwrap();
+        let library = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "selected".into(),
+                path: source.clone(),
+                bpm: 120.,
+                duration_seconds: 1.,
+                sample_rate: 48000,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let before = fs::read(&database).unwrap();
+        AFTER_SQLITE_SNAPSHOT.set(Some(Box::new(move || {
+            #[cfg(target_os = "linux")]
+            fs::write(changed, b"case-colliding foreign source").unwrap();
+            #[cfg(not(target_os = "linux"))]
+            fs::rename(source, changed).unwrap();
+        })));
+        let result = prepare_sync(
+            &root.join("journals"),
+            target,
+            &library,
+            &SyncOptions::default(),
+        );
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("reference changed"),
+            "a reference changed between readonly phases must refuse a preview"
+        );
+        assert_eq!(fs::read(&database).unwrap(), before);
     }
     #[test]
     fn private_request_reopens_raw_sources_dependencies_and_ownership_paths() {

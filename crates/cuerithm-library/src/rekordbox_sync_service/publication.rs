@@ -166,7 +166,12 @@ fn acknowledge(
     verify_environment(op, cancel)?;
     verify_sources(library, op, cancel)?;
     let mut collection = lease.read_collection(CollectionReadOptions::default(), cancel)?;
-    project_collection(&op.target, &mut collection)?;
+    {
+        let paths = op.target.environment.resolver()?;
+        project_collection(&paths, &mut collection)?;
+        paths.verify()?;
+        verify_environment(op, cancel)?;
+    }
     // A new native content path may be a separately published compatible copy.
     // Bind its verified identity to the ORIGINAL local track before observation,
     // so import cannot create a second local song or preparation job for a copy.
@@ -225,6 +230,47 @@ fn acknowledge(
         .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
     verify_environment(op, cancel)?;
     verify_sources(library, op, cancel)?;
+    // Cache asset path observations in one read-only phase before the local
+    // ledger transaction can create journals in a mapped ancestor. Never carry
+    // an unverified case index across our own SQLite directory mutations.
+    let paths = op.target.environment.resolver()?;
+    let mut asset_observations = BTreeMap::new();
+    for accepted in &op.acknowledgements {
+        if !matches!(accepted.field.as_str(), "beat_grid" | "artwork") {
+            continue;
+        }
+        let published = collection
+            .tracks
+            .iter()
+            .find(|track| track.identity.content_id == accepted.content_id)
+            .context("Acknowledged native track is absent")?;
+        let observed = match accepted.field.as_str() {
+            "beat_grid" => published
+                .source
+                .analysis_path
+                .as_deref()
+                .filter(|path| !path.is_empty())
+                .map(|path| assets::grid_observation_resolved(&op.target, &paths, path))
+                .transpose()?
+                .unwrap_or(Value::Null),
+            "artwork" => published
+                .source
+                .artwork_path
+                .as_deref()
+                .filter(|path| !path.is_empty())
+                .map(|path| assets::artwork_observation_resolved(&op.target, &paths, path, cancel))
+                .transpose()?
+                .unwrap_or(Value::Null),
+            _ => unreachable!(),
+        };
+        asset_observations.insert(
+            (accepted.content_id.clone(), accepted.field.clone()),
+            observed,
+        );
+    }
+    paths.verify()?;
+    drop(paths);
+    verify_environment(op, cancel)?;
     let mut connection = library.conn()?;
     let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     verify_local_rows(&tx, op)?;
@@ -335,22 +381,10 @@ fn acknowledge(
         let mut fields: BTreeMap<String, NativeFieldBaseline> = serde_json::from_str(&saved)?;
         for accepted in accepted {
             let value = match accepted.field.as_str() {
-                "beat_grid" => published
-                    .source
-                    .analysis_path
-                    .as_deref()
-                    .filter(|p| !p.is_empty())
-                    .map(|p| assets::grid_observation(&op.target, p))
-                    .transpose()?
-                    .unwrap_or(Value::Null),
-                "artwork" => published
-                    .source
-                    .artwork_path
-                    .as_deref()
-                    .filter(|p| !p.is_empty())
-                    .map(|p| assets::artwork_observation(&op.target, p, cancel))
-                    .transpose()?
-                    .unwrap_or(Value::Null),
+                "beat_grid" | "artwork" => asset_observations
+                    .get(&(content.clone(), accepted.field.clone()))
+                    .cloned()
+                    .context("Published asset observation is unavailable")?,
                 _ => remote
                     .get(&accepted.field)
                     .cloned()

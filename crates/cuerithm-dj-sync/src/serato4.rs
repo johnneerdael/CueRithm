@@ -45,8 +45,18 @@ pub fn location_for_track_in_environment(
     audio_path: &Path,
     environment: &cuerithm_rekordbox::TargetEnvironment,
 ) -> Result<(PathBuf, Option<PathBuf>)> {
-    let audio = native_serato_path(&environment.to_native(audio_path)?)?;
-    let local = native_serato_path(&environment.to_native(local_library)?)?;
+    let resolver = environment.resolver()?;
+    let result = location_for_track_with_resolver(local_library, audio_path, &resolver)?;
+    resolver.verify()?;
+    Ok(result)
+}
+pub(crate) fn location_for_track_with_resolver(
+    local_library: &Path,
+    audio_path: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<(PathBuf, Option<PathBuf>)> {
+    let audio = native_serato_path(&resolver.to_native(audio_path)?)?;
+    let local = native_serato_path(&resolver.to_native(local_library)?)?;
     let root = if audio.starts_with("//") {
         let components: Vec<_> = audio.trim_start_matches('/').split('/').collect();
         ensure!(
@@ -86,7 +96,7 @@ pub fn location_for_track_in_environment(
         );
         return Ok((path, None));
     };
-    let root = environment.to_host(Path::new(&root))?;
+    let root = resolver.to_host(Path::new(&root))?;
     let info = root.join("_Serato_").join("Library").join("location.info");
     let database = if info.is_file() {
         let text = std::fs::read_to_string(&info).context("Read Serato network location.info")?;
@@ -825,23 +835,15 @@ fn reference_portable(path: &Path, root: Option<&Path>) -> Result<String> {
         None => portable_id(path),
     }
 }
-pub(crate) fn reference_id(database: &Path, root: Option<&Path>, source: &Path) -> Result<String> {
-    reference_id_in_environment(
-        database,
-        root,
-        source,
-        &cuerithm_rekordbox::TargetEnvironment::Native,
-    )
-}
-pub(crate) fn reference_id_in_environment(
+pub(crate) fn reference_id_with_resolver(
     database: &Path,
     physical_root: Option<&Path>,
     physical_source: &Path,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<String> {
-    let projected_source = crate::destination_reference(&environment.to_native(physical_source)?);
+    let projected_source = crate::destination_reference(&resolver.to_native(physical_source)?);
     let projected_root = physical_root
-        .map(|root| environment.to_native(root))
+        .map(|root| resolver.to_native(root))
         .transpose()?;
     let root = projected_root.as_deref();
     let source = projected_source.as_path();
@@ -879,47 +881,30 @@ pub(crate) fn reference_id_in_environment(
             }
         };
         ensure!(
-            same_file::is_same_file(environment.to_host(&actual)?, physical_source)?,
+            same_file::is_same_file(resolver.to_host(&actual)?, physical_source)?,
             "Serato normalized path identifies another physical source"
         );
     }
     Ok(ids[0].0.to_string())
 }
-pub(crate) fn repair_reference(
-    database: &Path,
-    root: Option<&Path>,
-    source: &Path,
-    destination: &Path,
-    expected: &str,
-) -> Result<()> {
-    repair_reference_in_environment(
-        database,
-        root,
-        source,
-        destination,
-        expected,
-        &cuerithm_rekordbox::TargetEnvironment::Native,
-    )
-}
-pub(crate) fn repair_reference_in_environment(
+pub(crate) fn repair_reference_with_resolver(
     database: &Path,
     physical_root: Option<&Path>,
     physical_source: &Path,
     physical_destination: &Path,
     expected: &str,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<()> {
     ensure!(
-        reference_id_in_environment(database, physical_root, physical_source, environment)?
-            == expected,
+        reference_id_with_resolver(database, physical_root, physical_source, resolver)? == expected,
         "Serato native track identity changed"
     );
     let projected_root = physical_root
-        .map(|root| environment.to_native(root))
+        .map(|root| resolver.to_native(root))
         .transpose()?;
-    let projected_source = crate::destination_reference(&environment.to_native(physical_source)?);
+    let projected_source = crate::destination_reference(&resolver.to_native(physical_source)?);
     let projected_destination =
-        crate::destination_reference(&environment.to_native(physical_destination)?);
+        crate::destination_reference(&resolver.to_native(physical_destination)?);
     let root = projected_root.as_deref();
     let source = projected_source.as_path();
     let destination = projected_destination.as_path();
@@ -933,6 +918,7 @@ pub(crate) fn repair_reference_in_environment(
     }
     let old = normalize(&reference_portable(source, root)?);
     let new = reference_portable(destination, root)?;
+    resolver.verify()?;
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     let tx = conn.transaction()?;
     let rows = tx

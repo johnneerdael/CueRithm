@@ -23,9 +23,13 @@ fn relative(path: &str) -> Result<PathBuf> {
     );
     Ok(path)
 }
-fn asset_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
+fn asset_relative_resolved(
+    target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
+    path: &str,
+) -> Result<PathBuf> {
     if path.as_bytes().get(1) == Some(&b':') || path.starts_with("\\\\") || path.starts_with("//") {
-        let mapped = target.environment.to_host(Path::new(path))?;
+        let mapped = paths.to_host(Path::new(path))?;
         let root = target.asset_root.canonicalize()?;
         let mut physical = None;
         let mut logical_root = None;
@@ -65,8 +69,12 @@ fn asset_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
     relative(path)
 }
 // Native image paths resolve under the selected share directory.
-fn artwork_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
-    let relative = asset_relative(target, path)?;
+fn artwork_relative_resolved(
+    target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
+    path: &str,
+) -> Result<PathBuf> {
+    let relative = asset_relative_resolved(target, paths, path)?;
     ensure!(
         relative.starts_with("PIONEER/Artwork"),
         "Invalid native artwork resource reference"
@@ -204,6 +212,7 @@ fn entry_owned(
 pub(super) fn build(
     library: &Library,
     target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
     id: &str,
     track: &SyncTrack,
     native_audio_path: &Path,
@@ -222,7 +231,7 @@ pub(super) fn build(
 ) -> Result<Bundle> {
     let physical_audio_path = native_audio_path;
     let native_audio_reference =
-        audio_reference(target, native_audio_path, remote, rewrite_audio_reference)?;
+        audio_reference_resolved(paths, native_audio_path, remote, rewrite_audio_reference)?;
     let native_audio_path = native_audio_reference.as_path();
     let workspace = root(library)
         .join("operations")
@@ -245,7 +254,7 @@ pub(super) fn build(
             .and_then(|r| r.source.analysis_path.as_deref())
             .filter(|p| !p.is_empty())
         {
-            let old = asset_relative(target, old)?;
+            let old = asset_relative_resolved(target, paths, old)?;
             let regenerated = if regenerate_waveforms {
                 ensure!(
                     ["DAT", "EXT", "2EX"].iter().all(|extension| target
@@ -294,8 +303,8 @@ pub(super) fn build(
                                         .to_str()
                                         .context("Native audio path is not Unicode")?
                                     && (rewrite_audio_reference
-                                        || !same_native_audio(
-                                            target,
+                                        || !same_native_audio_resolved(
+                                            paths,
                                             &tag.audio_path()?,
                                             physical_audio_path,
                                         )) =>
@@ -495,7 +504,7 @@ pub(super) fn build(
                 .and_then(|r| r.source.artwork_path.as_deref())
                 .filter(|p| !p.is_empty())
             {
-                let old = artwork_relative(target, old)?;
+                let old = artwork_relative_resolved(target, paths, old)?;
                 let mut equal = true;
                 for (suffix, bytes) in [("", &art.main), ("_m", &art.medium), ("_s", &art.small)] {
                     let relative = artwork_sibling(&old, suffix)?;
@@ -572,8 +581,15 @@ pub(super) fn add_publications(
     transaction.add_batch(publications, &directories)
 }
 
-pub(super) fn grid_observation(target: &RekordboxSyncTarget, path: &str) -> Result<Value> {
-    let file = source(&target.asset_root, &asset_relative(target, path)?)?;
+pub(super) fn grid_observation_resolved(
+    target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
+    path: &str,
+) -> Result<Value> {
+    let file = source(
+        &target.asset_root,
+        &asset_relative_resolved(target, paths, path)?,
+    )?;
     ensure_not_native_file(&target.database, &file)?;
     let parsed = AnlzFile::parse(&fs::read(file)?, ParseLimits::default())?;
     let tag = parsed
@@ -583,16 +599,45 @@ pub(super) fn grid_observation(target: &RekordboxSyncTarget, path: &str) -> Resu
         .context("Native grid observation is unavailable")?;
     Ok(serde_json::to_value(tag.beats()?)?)
 }
+pub(super) fn artwork_observation_resolved(
+    target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
+    path: &str,
+    cancel: &CancellationToken,
+) -> Result<Value> {
+    let file = source(
+        &target.asset_root,
+        &artwork_relative_resolved(target, paths, path)?,
+    )?;
+    ensure_not_native_file(&target.database, &file)?;
+    Ok(json!(file_sha256_cancellable(&file, cancel)?))
+}
+
+#[cfg(test)]
+fn asset_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
+    let paths = target.environment.resolver()?;
+    let relative = asset_relative_resolved(target, &paths, path)?;
+    paths.verify()?;
+    Ok(relative)
+}
+#[cfg(test)]
+fn artwork_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
+    let paths = target.environment.resolver()?;
+    let relative = artwork_relative_resolved(target, &paths, path)?;
+    paths.verify()?;
+    Ok(relative)
+}
+#[cfg(test)]
 pub(super) fn artwork_observation(
     target: &RekordboxSyncTarget,
     path: &str,
     cancel: &CancellationToken,
 ) -> Result<Value> {
-    let file = source(&target.asset_root, &artwork_relative(target, path)?)?;
-    ensure_not_native_file(&target.database, &file)?;
-    Ok(json!(file_sha256_cancellable(&file, cancel)?))
+    let paths = target.environment.resolver()?;
+    let value = artwork_observation_resolved(target, &paths, path, cancel)?;
+    paths.verify()?;
+    Ok(value)
 }
-
 #[cfg(test)]
 mod environment_tests {
     use super::*;
@@ -754,6 +799,68 @@ mod environment_tests {
         assert_eq!(
             asset_relative(&target, ordinary.to_str().unwrap()).unwrap(),
             Path::new("old.DAT")
+        );
+    }
+    #[test]
+    fn native_artwork_observations_share_one_bounded_resolver_phase() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().canonicalize().unwrap();
+        let share = home.join("share");
+        let artwork = share.join("PIONEER/Artwork");
+        fs::create_dir_all(&artwork).unwrap();
+        for index in 0..128 {
+            fs::write(
+                artwork.join(format!("Cover{index:03}.jpg")),
+                b"authored artwork",
+            )
+            .unwrap();
+        }
+        let target = RekordboxSyncTarget {
+            id: "authored-bounded-assets".into(),
+            installation: TargetInstallation {
+                root: home.clone(),
+                executable: home.join("rekordbox.exe"),
+                version: "7.1".into(),
+                major: 7,
+                version_source: "explicit_version_hint".into(),
+            },
+            database: home.join("master.db"),
+            options_file: home.join("options.json"),
+            asset_root: share,
+            environment: TargetEnvironment::WindowsCompatibility {
+                prefix: home.clone(),
+                installation: None,
+                mappings: vec![DriveMapping {
+                    windows_root: "C:\\".into(),
+                    host_root: home,
+                }],
+            },
+        };
+        let paths = target.environment.resolver().unwrap();
+        let cancel = CancellationToken::default();
+        let expected =
+            json!(file_sha256_cancellable(&artwork.join("Cover000.jpg"), &cancel).unwrap());
+        for index in 0..128 {
+            assert_eq!(
+                artwork_observation_resolved(
+                    &target,
+                    &paths,
+                    &format!(r"C:\share\PIONEER\Artwork\Cover{index:03}.jpg"),
+                    &cancel
+                )
+                .unwrap(),
+                expected
+            );
+        }
+        paths.verify().unwrap();
+        assert!(
+            paths.directory_enumerations() > 0,
+            "Asset helpers must consume the supplied operation resolver"
+        );
+        assert!(
+            paths.directory_enumerations() <= 12,
+            "128 asset observations must reuse directory indices; observed {} enumerations",
+            paths.directory_enumerations()
         );
     }
 }

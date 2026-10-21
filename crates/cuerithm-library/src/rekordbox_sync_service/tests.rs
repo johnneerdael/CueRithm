@@ -3105,6 +3105,7 @@ fn native_pqt2_grid_staging_keeps_dat_ext_consistent_and_foreign_sections_unchan
     let bundle = assets::build(
         &f.library,
         &prior.target,
+        &prior.target.environment.resolver().unwrap(),
         "native-pqt2-test",
         &timed,
         &timed.path,
@@ -3167,6 +3168,7 @@ fn native_pqt2_grid_staging_keeps_dat_ext_consistent_and_foreign_sections_unchan
     let result = assets::build(
         &f.library,
         &prior.target,
+        &prior.target.environment.resolver().unwrap(),
         "native-pqt2-unsupported",
         &timed,
         &timed.path,
@@ -3790,6 +3792,22 @@ fn native_preflight_uses_selected_saved_executable_when_library_ids_are_equal() 
             },
         })
         .unwrap();
+    let discovery = DiscoveryPaths {
+        platform: DesktopPlatform::Linux,
+        install_roots: vec![],
+        settings_file: PathBuf::new(),
+        default_database_dir: PathBuf::new(),
+    };
+    assert!(
+        resolve_target(
+            &f.library,
+            &selected.id,
+            &discovery,
+            &CancellationToken::default()
+        )
+        .is_err(),
+        "An unbound same-ID selection must not silently substitute the first distinct saved executable"
+    );
     let unreadable = f
         .library
         .preflight_rekordbox_sync_configured(
@@ -3885,5 +3903,100 @@ fn unmapped_direct_audio_source_is_refused_when_compatible_audio_needs_no_copy()
     assert_eq!(
         directory_manifest(&prior.target.asset_root).unwrap(),
         before_assets
+    );
+}
+
+#[test]
+fn native_collection_projection_reuses_one_bounded_directory_index_phase() {
+    let f = windows_fixture(false);
+    let target = load(&f.library, &f.id).unwrap().target;
+    let home = f._dir.path().canonicalize().unwrap();
+    let music = home.join("Music");
+    fs::create_dir(&music).unwrap();
+    for index in 0..128 {
+        fs::write(
+            music.join(format!("Track{index:03}.flac")),
+            b"authored source identity",
+        )
+        .unwrap();
+    }
+    let mut collection = ReadOnlyDatabase::open(&f.native, &key())
+        .unwrap()
+        .read_collection(Default::default(), &CancellationToken::default())
+        .unwrap();
+    let authored = collection.tracks[0].clone();
+    collection.tracks = (0..128)
+        .map(|index| {
+            let mut track = authored.clone();
+            track.identity.content_id = format!("authored-{index}");
+            track.source.resolved_path = Some(format!("C:\\Music\\Track{index:03}.flac"));
+            track
+        })
+        .collect();
+    let paths = target.environment.resolver().unwrap();
+    project_collection(&paths, &mut collection).unwrap();
+    paths.verify().unwrap();
+    assert!(
+        paths.directory_enumerations() > 0,
+        "Projection must use the supplied operation resolver"
+    );
+    assert!(
+        paths.directory_enumerations() <= 6,
+        "128 native references must enumerate shared parents once per phase and once for verification, observed {}",
+        paths.directory_enumerations()
+    );
+    for (index, track) in collection.tracks.iter().enumerate() {
+        assert_eq!(
+            track.source.resolved_path.as_deref(),
+            music.join(format!("Track{index:03}.flac")).to_str()
+        );
+    }
+    fs::write(
+        music.join("unexpected-new-entry.flac"),
+        b"external directory change",
+    )
+    .unwrap();
+    assert!(
+        paths.verify().is_err(),
+        "A changed directory cannot be adopted after projection"
+    );
+}
+
+#[test]
+fn identical_named_native_setups_keep_unbound_selection_available() {
+    let f = fixture(false);
+    let target = f
+        .library
+        .configure_rekordbox_sync_target(manual_windows_request(&f))
+        .unwrap();
+    for name in ["A identical setup", "B identical setup"] {
+        f.library
+            .save_sync_target_configuration(SaveSyncTargetConfiguration {
+                id: None,
+                expected_revision: None,
+                name: name.into(),
+                target: SavedSyncTarget::Rekordbox {
+                    target: target.clone(),
+                },
+            })
+            .unwrap();
+    }
+    let discovery = DiscoveryPaths {
+        platform: DesktopPlatform::Linux,
+        install_roots: vec![],
+        settings_file: PathBuf::new(),
+        default_database_dir: PathBuf::new(),
+    };
+    assert_eq!(
+        resolve_target(
+            &f.library,
+            &target.id,
+            &discovery,
+            &CancellationToken::default()
+        )
+        .unwrap()
+        .installation
+        .executable,
+        target.installation.executable
     );
 }

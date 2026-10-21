@@ -255,10 +255,10 @@ fn verify_environment(op: &Operation, cancel: &CancellationToken) -> Result<()> 
 // Preserve native references in records and identities; project only file access
 // paths used for matching/import. An unmapped foreign track stays unavailable.
 fn project_collection(
-    target: &RekordboxSyncTarget,
+    paths: &TargetPathResolver<'_>,
     collection: &mut RekordboxCollection,
 ) -> Result<()> {
-    if target.environment.is_native() {
+    if paths.is_native() {
         return Ok(());
     }
     for track in &mut collection.tracks {
@@ -266,7 +266,7 @@ fn project_collection(
             .source
             .resolved_path
             .as_deref()
-            .and_then(|p| target.environment.to_host(Path::new(p)).ok())
+            .and_then(|p| paths.to_host(Path::new(p)).ok())
             .and_then(|p| p.to_str().map(str::to_owned));
     }
     Ok(())
@@ -277,13 +277,20 @@ fn resolve_target(
     paths: &DiscoveryPaths,
     cancel: &CancellationToken,
 ) -> Result<RekordboxSyncTarget> {
-    if let Some(configured) = library
+    let mut configured = library
         .configured_rekordbox_targets()?
         .into_iter()
-        .find(|target| target.id == id)
-    {
+        .filter(|target| target.id == id);
+    if let Some(selected) = configured.next() {
+        let selected_shape = digest(&selected)?;
+        for candidate in configured {
+            ensure!(
+                digest(&candidate)? == selected_shape,
+                "Choose a saved library setup: multiple distinct configurations refer to this rekordbox library"
+            );
+        }
         cancel.check()?;
-        return refresh_installation(configured);
+        return refresh_installation(selected);
     }
     targets(paths, cancel)?
         .into_iter()
@@ -349,18 +356,21 @@ fn resolve_request_target(
         cancel,
     )
 }
-fn same_native_audio(target: &RekordboxSyncTarget, native: &str, physical: &Path) -> bool {
+fn same_native_audio_resolved(
+    paths: &TargetPathResolver<'_>,
+    native: &str,
+    physical: &Path,
+) -> bool {
     physical.canonicalize().ok().is_some_and(|physical| {
-        target
-            .environment
+        paths
             .to_host(Path::new(native))
             .ok()
             .and_then(|path| path.canonicalize().ok())
             == Some(physical)
     })
 }
-fn audio_reference(
-    target: &RekordboxSyncTarget,
+fn audio_reference_resolved(
+    paths: &TargetPathResolver<'_>,
     physical: &Path,
     remote: Option<&ImportedTrack>,
     relocate: bool,
@@ -368,13 +378,32 @@ fn audio_reference(
     if !relocate
         && let Some(stored) = remote
             .and_then(|track| track.source.path.as_deref())
-            .filter(|stored| same_native_audio(target, stored, physical))
+            .filter(|stored| same_native_audio_resolved(paths, stored, physical))
     {
         return Ok(PathBuf::from(stored));
     }
     Ok(cuerithm_dj_sync::destination_reference(
-        &target.environment.to_native(physical)?,
+        &paths.to_native(physical)?,
     ))
+}
+#[cfg(test)]
+fn same_native_audio(target: &RekordboxSyncTarget, native: &str, physical: &Path) -> bool {
+    target.environment.resolver().is_ok_and(|paths| {
+        let matches = same_native_audio_resolved(&paths, native, physical);
+        paths.verify().is_ok() && matches
+    })
+}
+#[cfg(test)]
+fn audio_reference(
+    target: &RekordboxSyncTarget,
+    physical: &Path,
+    remote: Option<&ImportedTrack>,
+    relocate: bool,
+) -> Result<PathBuf> {
+    let paths = target.environment.resolver()?;
+    let reference = audio_reference_resolved(&paths, physical, remote, relocate)?;
+    paths.verify()?;
+    Ok(reference)
 }
 fn selected_configuration(
     library: &Library,

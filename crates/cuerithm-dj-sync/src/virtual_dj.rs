@@ -906,9 +906,9 @@ mod prepared_attribute_tests {
 fn refers_to_source(
     stored: &str,
     source: &Path,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<bool> {
-    let native = crate::destination_reference(&environment.to_native(source)?);
+    let native = crate::destination_reference(&resolver.to_native(source)?);
     let native = native
         .to_str()
         .context("VirtualDJ requires Unicode paths")?;
@@ -918,22 +918,15 @@ fn refers_to_source(
     if stored == native {
         return Ok(true);
     }
-    same_file::is_same_file(environment.to_host(Path::new(stored))?,source)
+    same_file::is_same_file(resolver.to_host(Path::new(stored))?,source)
         .context("Unresolvable normalized VirtualDJ reference; restore its source or repair this alias before organization")
 }
-pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
-    reference_id_in_environment(
-        database,
-        source,
-        &cuerithm_rekordbox::TargetEnvironment::Native,
-    )
-}
-pub(crate) fn reference_id_in_environment(
+pub(crate) fn reference_id_with_resolver(
     database: &Path,
     source: &Path,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<String> {
-    let native = crate::destination_reference(&environment.to_native(source)?);
+    let native = crate::destination_reference(&resolver.to_native(source)?);
     let native = native
         .to_str()
         .context("VirtualDJ requires Unicode paths")?;
@@ -954,11 +947,12 @@ pub(crate) fn reference_id_in_environment(
         "VirtualDJ source reference is missing or ambiguous"
     );
     ensure!(
-        refers_to_source(found[0], source, environment)?,
+        refers_to_source(found[0], source, resolver)?,
         "VirtualDJ normalized source path identifies another physical file"
     );
     Ok(path_key(native))
 }
+#[cfg(test)]
 pub(crate) fn repair_reference_bytes(
     bytes: &[u8],
     source: &Path,
@@ -973,6 +967,7 @@ pub(crate) fn repair_reference_bytes(
         &cuerithm_rekordbox::TargetEnvironment::Native,
     )
 }
+#[cfg(test)]
 pub(crate) fn repair_reference_bytes_in_environment(
     bytes: &[u8],
     source: &Path,
@@ -980,8 +975,21 @@ pub(crate) fn repair_reference_bytes_in_environment(
     database: bool,
     environment: &cuerithm_rekordbox::TargetEnvironment,
 ) -> Result<Option<Vec<u8>>> {
-    let native_source = crate::destination_reference(&environment.to_native(source)?);
-    let native_destination = crate::destination_reference(&environment.to_native(destination)?);
+    let resolver = environment.resolver()?;
+    let result =
+        repair_reference_bytes_with_resolver(bytes, source, destination, database, &resolver)?;
+    resolver.verify()?;
+    Ok(result)
+}
+pub(crate) fn repair_reference_bytes_with_resolver(
+    bytes: &[u8],
+    source: &Path,
+    destination: &Path,
+    database: bool,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<Option<Vec<u8>>> {
+    let native_source = crate::destination_reference(&resolver.to_native(source)?);
+    let native_destination = crate::destination_reference(&resolver.to_native(destination)?);
     let native_source = native_source
         .to_str()
         .context("VirtualDJ requires Unicode paths")?;
@@ -999,7 +1007,7 @@ pub(crate) fn repair_reference_bytes_in_environment(
         source: &Path,
         native_source: &str,
         destination: &str,
-        environment: &cuerithm_rekordbox::TargetEnvironment,
+        resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
         count: &mut usize,
     ) -> Result<()> {
         if node.name.eq_ignore_ascii_case("song") {
@@ -1008,7 +1016,7 @@ pub(crate) fn repair_reference_bytes_in_environment(
                     .attrs
                     .get(key)
                     .filter(|path| path_key(path) == path_key(native_source))
-                    .map(|path| refers_to_source(path, source, environment))
+                    .map(|path| refers_to_source(path, source, resolver))
                     .transpose()?
                     .unwrap_or(false)
                 {
@@ -1019,14 +1027,7 @@ pub(crate) fn repair_reference_bytes_in_environment(
         }
         for child in &mut node.children {
             if let Part::Node(child) = child {
-                replace(
-                    child,
-                    source,
-                    native_source,
-                    destination,
-                    environment,
-                    count,
-                )?;
+                replace(child, source, native_source, destination, resolver, count)?;
             }
         }
         Ok(())
@@ -1037,7 +1038,7 @@ pub(crate) fn repair_reference_bytes_in_environment(
         source,
         native_source,
         native_destination,
-        environment,
+        resolver,
         &mut count,
     )?;
     if database {
@@ -1057,7 +1058,7 @@ pub(crate) fn move_reference_between_databases(
     destination_bytes: &[u8],
     source: &Path,
     destination: &Path,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut from = parse(source_bytes)?;
     let mut to = parse(destination_bytes)?;
@@ -1071,12 +1072,12 @@ pub(crate) fn move_reference_between_databases(
             "Unsupported VirtualDJ drive database"
         );
     }
-    let native = crate::destination_reference(&environment.to_native(destination)?);
+    let native = crate::destination_reference(&resolver.to_native(destination)?);
     let native = native
         .to_str()
         .context("VirtualDJ requires Unicode paths")?;
     ensure!(!to.children.iter().any(|part|matches!(part,Part::Node(node) if node.name=="Song" && node.attrs.get("FilePath").is_some_and(|path|path_key(path)==path_key(native)))),"VirtualDJ destination already has a native track");
-    let native_source = crate::destination_reference(&environment.to_native(source)?);
+    let native_source = crate::destination_reference(&resolver.to_native(source)?);
     let source_key = path_key(
         native_source
             .to_str()
@@ -1088,7 +1089,7 @@ pub(crate) fn move_reference_between_databases(
             && node.name == "Song"
             && let Some(path) = node.attrs.get("FilePath")
             && path_key(path) == source_key
-            && refers_to_source(path, source, environment)?
+            && refers_to_source(path, source, resolver)?
         {
             indices.push(index);
         }
@@ -1108,10 +1109,10 @@ pub(crate) fn repair_legacy_playlist_bytes(
     bytes: &[u8],
     source: &Path,
     destination: &Path,
-    environment: &cuerithm_rekordbox::TargetEnvironment,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
 ) -> Result<Option<Vec<u8>>> {
     let text = std::str::from_utf8(bytes).context("VirtualDJ managed playlist is not UTF-8")?;
-    let native = crate::destination_reference(&environment.to_native(destination)?);
+    let native = crate::destination_reference(&resolver.to_native(destination)?);
     let native = native
         .to_str()
         .context("VirtualDJ requires Unicode paths")?;
@@ -1119,7 +1120,7 @@ pub(crate) fn repair_legacy_playlist_bytes(
         !native.contains(['\r', '\n']),
         "Newline in VirtualDJ playlist reference"
     );
-    let native_source = crate::destination_reference(&environment.to_native(source)?);
+    let native_source = crate::destination_reference(&resolver.to_native(source)?);
     let source_key = path_key(
         native_source
             .to_str()
@@ -1132,7 +1133,7 @@ pub(crate) fn repair_legacy_playlist_bytes(
         if !content.starts_with('#')
             && !content.is_empty()
             && path_key(content) == source_key
-            && refers_to_source(content, source, environment)?
+            && refers_to_source(content, source, resolver)?
         {
             changed = true;
             output.push_str(native);

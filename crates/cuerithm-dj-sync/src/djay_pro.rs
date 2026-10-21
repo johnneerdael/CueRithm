@@ -75,6 +75,16 @@ pub fn write_owned_in_environment(
     request: &crate::ownership::PlaylistOwnershipRequest,
     environment: &cuerithm_rekordbox::TargetEnvironment,
 ) -> Result<crate::ownership::PlaylistOwnershipReport> {
+    let resolver = environment.resolver()?;
+    write_owned_with_resolver(path, library, options, request, &resolver)
+}
+pub(crate) fn write_owned_with_resolver(
+    path: &Path,
+    library: &SyncLibrary,
+    options: &SyncOptions,
+    request: &crate::ownership::PlaylistOwnershipRequest,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<crate::ownership::PlaylistOwnershipReport> {
     let path = database_path(path);
     ensure!(
         path.is_file(),
@@ -102,17 +112,17 @@ pub fn write_owned_in_environment(
             .tracks
             .iter()
             .map(|track| {
-                let uri = if environment.is_native() {
+                let uri = if resolver.is_native() {
                     file_uri(track.reference_path())
                 } else {
                     file_uri(&crate::destination_reference(
-                        &environment.to_native(&track.path)?,
+                        &resolver.to_native(&track.path)?,
                     ))
                 };
                 Ok((track.path.clone(), uri?))
             })
             .collect::<Result<Vec<_>>>()?,
-        environment,
+        resolver,
     )?;
     let mut source_ids = HashMap::new();
     let mut bookmark_ids = HashMap::new();
@@ -185,6 +195,7 @@ pub fn write_owned_in_environment(
         source_ids.insert(identity, id.clone());
         ids.insert(track.id.clone(), id);
     }
+    resolver.verify()?;
     // Resolve every selected identity before any native track is changed.
     for (index, track) in library.tracks.iter().enumerate() {
         let uri = &lookup.selected[index].uri;
@@ -815,8 +826,8 @@ struct SelectedSource {
     uri: String,
     identity: UriIdentity,
 }
-struct SourceLookup<'a> {
-    environment: &'a cuerithm_rekordbox::TargetEnvironment,
+struct SourceLookup<'a, 'e> {
+    resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
     selected: Vec<SelectedSource>,
     exact: HashMap<UriIdentity, usize>,
     physical: HashMap<u64, Vec<usize>>,
@@ -848,14 +859,13 @@ fn uri_path(uri: &str) -> Option<PathBuf> {
     }
     Some(PathBuf::from(path))
 }
-impl<'a> SourceLookup<'a> {
+impl<'a, 'e> SourceLookup<'a, 'e> {
     fn new(
         sources: Vec<(PathBuf, String)>,
-        environment: &'a cuerithm_rekordbox::TargetEnvironment,
+        resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
     ) -> Result<Self> {
-        environment.validate()?;
         let mut result = Self {
-            environment,
+            resolver,
             selected: vec![],
             exact: HashMap::new(),
             physical: HashMap::new(),
@@ -870,7 +880,7 @@ impl<'a> SourceLookup<'a> {
             );
             let bucket = match physical_bucket(&path) {
                 Ok(bucket) => Some(bucket),
-                Err(_) if environment.is_native() => None,
+                Err(_) if resolver.is_native() => None,
                 Err(error) => return Err(error).context("Mapped djay source is unavailable"),
             };
             if let Some(bucket) = bucket {
@@ -900,7 +910,7 @@ impl<'a> SourceLookup<'a> {
         let identity = uri_identity(uri);
         // Native callers have historically been allowed to supply lexical paths
         // for libraries on another machine. Retain that exact URI contract.
-        let mut found = if self.environment.is_native() && self.exact.contains_key(&identity) {
+        let mut found = if self.resolver.is_native() && self.exact.contains_key(&identity) {
             Some(identity)
         } else {
             None
@@ -908,7 +918,7 @@ impl<'a> SourceLookup<'a> {
         if found.is_none()
             && !self.physical.is_empty()
             && let Some(native) = uri_path(uri)
-            && let Ok(host) = self.environment.to_host(&native)
+            && let Ok(host) = self.resolver.to_host(&native)
             && host.is_absolute()
             && let Ok(bucket) = physical_bucket(&host)
             && let Some(candidates) = self.physical.get(&bucket)
@@ -1549,7 +1559,7 @@ mod tests;
 
 fn reference_objects(
     tx: &Transaction<'_>,
-    lookup: &mut SourceLookup<'_>,
+    lookup: &mut SourceLookup<'_, '_>,
 ) -> Result<Vec<(String, Object)>> {
     let mut found = Vec::new();
     for (id, object) in objects(tx, "localMediaItemLocations")? {
@@ -1569,15 +1579,14 @@ fn reference_objects(
     }
     Ok(found)
 }
-fn reference_lookup<'a>(
+fn reference_lookup<'a, 'e>(
     source: &Path,
-    environment: &'a cuerithm_rekordbox::TargetEnvironment,
-) -> Result<SourceLookup<'a>> {
-    let uri = file_uri(&crate::destination_reference(
-        &environment.to_native(source)?,
-    ))?;
-    SourceLookup::new(vec![(source.to_owned(), uri)], environment)
+    resolver: &'a cuerithm_rekordbox::TargetPathResolver<'e>,
+) -> Result<SourceLookup<'a, 'e>> {
+    let uri = file_uri(&crate::destination_reference(&resolver.to_native(source)?))?;
+    SourceLookup::new(vec![(source.to_owned(), uri)], resolver)
 }
+#[cfg(test)]
 pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
     reference_id_in_environment(
         database,
@@ -1585,14 +1594,25 @@ pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
         &cuerithm_rekordbox::TargetEnvironment::Native,
     )
 }
+#[cfg(test)]
 pub(crate) fn reference_id_in_environment(
     database: &Path,
     source: &Path,
     environment: &cuerithm_rekordbox::TargetEnvironment,
 ) -> Result<String> {
+    let resolver = environment.resolver()?;
+    let result = reference_id_with_resolver(database, source, &resolver)?;
+    resolver.verify()?;
+    Ok(result)
+}
+pub(crate) fn reference_id_with_resolver(
+    database: &Path,
+    source: &Path,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<String> {
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let tx = conn.transaction()?;
-    let mut lookup = reference_lookup(source, environment)?;
+    let mut lookup = reference_lookup(source, resolver)?;
     let found = reference_objects(&tx, &mut lookup)?;
     ensure!(
         found.len() == 1,
@@ -1600,6 +1620,7 @@ pub(crate) fn reference_id_in_environment(
     );
     Ok(found[0].0.clone())
 }
+#[cfg(test)]
 pub(crate) fn repair_reference(
     database: &Path,
     source: &Path,
@@ -1614,6 +1635,7 @@ pub(crate) fn repair_reference(
         &cuerithm_rekordbox::TargetEnvironment::Native,
     )
 }
+#[cfg(test)]
 pub(crate) fn repair_reference_in_environment(
     database: &Path,
     source: &Path,
@@ -1621,10 +1643,20 @@ pub(crate) fn repair_reference_in_environment(
     expected: &str,
     environment: &cuerithm_rekordbox::TargetEnvironment,
 ) -> Result<()> {
+    let resolver = environment.resolver()?;
+    repair_reference_with_resolver(database, source, destination, expected, &resolver)
+}
+pub(crate) fn repair_reference_with_resolver(
+    database: &Path,
+    source: &Path,
+    destination: &Path,
+    expected: &str,
+    resolver: &cuerithm_rekordbox::TargetPathResolver<'_>,
+) -> Result<()> {
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     let tx = conn.transaction()?;
-    let mut from = reference_lookup(source, environment)?;
-    let mut to = reference_lookup(destination, environment)?;
+    let mut from = reference_lookup(source, resolver)?;
+    let mut to = reference_lookup(destination, resolver)?;
     let mut found = reference_objects(&tx, &mut from)?;
     ensure!(
         found.len() == 1 && found[0].0 == expected,
@@ -1636,6 +1668,7 @@ pub(crate) fn repair_reference_in_environment(
             .all(|(id, _)| id == expected),
         "djay destination already has a native track"
     );
+    resolver.verify()?;
     let (id, mut object) = found.remove(0);
     let destination_uri = to.selected[0].uri.clone();
     let Some(Value::Array(previous)) = object.get("sourceURIs") else {

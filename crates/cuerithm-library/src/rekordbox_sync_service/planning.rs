@@ -696,7 +696,17 @@ pub(super) fn preview(
         let snapshot = lease.snapshot(&workspace, key, cancel)?;
         (collection, before, snapshot)
     };
-    project_collection(&target, &mut collection)?;
+    // Observe mapped references before the local observation transaction can
+    // create/remove SQLite journals in a mapped ancestor shared by test setups.
+    {
+        let paths = target.environment.resolver()?;
+        project_collection(&paths, &mut collection)?;
+        paths.verify()?;
+        environment_snapshot.verify()?;
+        for root in &target_roots {
+            root.verify()?;
+        }
+    }
     let mut warnings = vec![];
     let capability = require_capability(&target, &snapshot.schema, cancel);
     let fixture_permit = match permit {
@@ -728,6 +738,9 @@ pub(super) fn preview(
     let revision = library.revision()?;
     let settings_revision = library.settings()?.revision;
     let mut local_library = library.native_sync_library(scope(&request.scope), runtime)?;
+    // All following path loops share one read-only directory-index phase.
+    // Journal writes above have completed; cached evidence is never refreshed.
+    let paths = target.environment.resolver()?;
     let mut sources = vec![];
     let mut reviews = vec![];
     let mut acknowledgements = vec![];
@@ -792,8 +805,7 @@ pub(super) fn preview(
         let source_differs = remote
             .and_then(|r| r.source.path.as_deref())
             .is_some_and(|path| {
-                target
-                    .environment
+                paths
                     .to_host(Path::new(path))
                     .ok()
                     .and_then(|p| p.canonicalize().ok())
@@ -833,7 +845,7 @@ pub(super) fn preview(
                 "beat_grid" => remote
                     .and_then(|r| r.source.analysis_path.as_deref())
                     .filter(|v| !v.is_empty())
-                    .map(|path| assets::grid_observation(&target, path))
+                    .map(|path| assets::grid_observation_resolved(&target, &paths, path))
                     .transpose()?,
                 "artwork" => remote
                     .map(|r| {
@@ -841,7 +853,9 @@ pub(super) fn preview(
                             .artwork_path
                             .as_deref()
                             .filter(|v| !v.is_empty())
-                            .map(|path| assets::artwork_observation(&target, path, cancel))
+                            .map(|path| {
+                                assets::artwork_observation_resolved(&target, &paths, path, cancel)
+                            })
                             .transpose()
                             .map(|value| value.unwrap_or(Value::Null))
                     })
@@ -1161,7 +1175,7 @@ pub(super) fn preview(
         }
         // Validate the file rekordbox will reference, after an explicitly
         // requested compatible copy has selected its publication location.
-        let projected = target.environment.to_native(&native_audio_path)?;
+        let projected = paths.to_native(&native_audio_path)?;
         let key = if target.environment.is_native() {
             projected.to_string_lossy().into_owned()
         } else {
@@ -1237,6 +1251,7 @@ pub(super) fn preview(
             let bundle = assets::build(
                 library,
                 &target,
+                &paths,
                 &id,
                 &timed,
                 &native_audio_path,
@@ -1278,7 +1293,7 @@ pub(super) fn preview(
             .collect();
         let cue_colors = write_cues.then_some(cue_colors);
         let destination_audio_path =
-            audio_reference(&target, &native_audio_path, remote, relocate_audio)?;
+            audio_reference_resolved(&paths, &native_audio_path, remote, relocate_audio)?;
         if fields.contains_key("source_path") {
             fields.insert(
                 "source_path".into(),
@@ -1473,6 +1488,11 @@ pub(super) fn preview(
                 .collect(),
         })
         .collect();
+    // Finish case/root verification before writing the prepared asset journal
+    // or the final local operation row. No mapped paths cross this boundary
+    // without their operation-scoped evidence being checked.
+    paths.verify()?;
+    drop(paths);
     cancel.check()?;
     let transaction = FileTransaction::create(&root(library).join("assets"))?;
     let asset_journal_id = transaction.inspect()?.id;

@@ -1707,3 +1707,88 @@ fn mapped_djay_native_hardlink_aliases_cannot_select_an_arbitrary_uuid() {
     );
     assert_eq!(std::fs::read(&database).unwrap(), before);
 }
+
+#[test]
+fn mapped_djay_reuses_directory_index_across_selected_and_native_uri_loops() {
+    let (folder, database) = database();
+    let music = folder.path().canonicalize().unwrap().join("Music");
+    std::fs::create_dir(&music).unwrap();
+    let mut input = SyncLibrary::default();
+    for index in 0..128 {
+        let source = music.join(format!("track-{index}.mp3"));
+        std::fs::write(&source, b"authored source").unwrap();
+        seed_location(
+            &database,
+            &format!("native-{index}"),
+            vec![Value::Uri(format!("file:///C:/music/TRACK-{index}.MP3"))],
+        );
+        input.tracks.push(SyncTrack {
+            id: index.to_string(),
+            path: source,
+            ..library().tracks.remove(0)
+        });
+    }
+    let environment:cuerithm_rekordbox::TargetEnvironment=serde_json::from_value(serde_json::json!({"kind":"windows_compatibility","prefix":folder.path().canonicalize().unwrap(),"mappings":[{"windows_root":"C:\\Music","host_root":music}]})).unwrap();
+    let resolver = environment.resolver().unwrap();
+    write_owned_with_resolver(
+        &database,
+        &input,
+        &SyncOptions::default(),
+        &Default::default(),
+        &resolver,
+    )
+    .unwrap();
+    assert_eq!(
+        resolver.directory_enumerations(),
+        2,
+        "one index read and one verification for all 256 selected/native URI resolutions"
+    );
+    for index in 0..128 {
+        assert_eq!(
+            get(&database, "mediaItems", &format!("native-{index}")).get("title"),
+            Some(&text("Café"))
+        );
+    }
+}
+
+#[test]
+fn mapped_djay_changed_cached_directory_refuses_before_database_write() {
+    let (_folder, database, source, target, input, _) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    let before = std::fs::read(&database).unwrap();
+    let resolver = target.environment.resolver().unwrap();
+    resolver.to_native(&source).unwrap();
+    std::fs::write(
+        source.with_file_name("new-sibling.mp3"),
+        b"directory changed",
+    )
+    .unwrap();
+    assert!(
+        write_owned_with_resolver(
+            &database,
+            &input,
+            &SyncOptions::default(),
+            &Default::default(),
+            &resolver
+        )
+        .is_err()
+    );
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+}
+
+#[test]
+fn mapped_djay_preparation_keeps_physical_database_outside_windows_mappings() {
+    let (folder, database, source, mut target, input, uris) =
+        mapped_case_fixture(r"C:\", "file:///C:/music/A.MP3");
+    target.environment=serde_json::from_value(serde_json::json!({"kind":"windows_compatibility","prefix":folder.path().canonicalize().unwrap(),"mappings":[{"windows_root":"C:\\Music","host_root":source.parent().unwrap()}]})).unwrap();
+    let initial = std::fs::read(&database).unwrap();
+    let journals = folder.path().join("journals");
+    let preview = crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+    crate::apply_sync(&journals, &preview.id).unwrap();
+    assert_eq!(
+        get(&database, "localMediaItemLocations", "native-case").get("sourceURIs"),
+        Some(&Value::Array(uris))
+    );
+    crate::restore_sync(&journals, &preview.id).unwrap();
+    assert_eq!(std::fs::read(database).unwrap(), initial);
+}

@@ -438,6 +438,10 @@ fn mapped_windows_sqlite_reference_repairs_preserve_native_ids_and_host_sources(
             approved_from_sha256: None,
         };
         let journals = root.join("journals");
+        assert!(
+            !journals.exists(),
+            "repair must create its own journal beside mapped source audio"
+        );
         let plan = prepare_path_repair(&journals, &snapshot, &change).unwrap();
         apply_path_repair(&journals, &plan.id).unwrap();
         let conn = rusqlite::Connection::open(&database).unwrap();
