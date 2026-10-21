@@ -47,7 +47,7 @@ Edits are persisted to a local draft while you type. **Draft saved locally** mea
 2. Choose **Preview changes** and inspect before/after values and per-field outcomes.
 3. Choose **Save changes** to publish that exact preview.
 
-++cmd+s++ or ++ctrl+s++ previews first, then saves an eligible preview. Changing the draft or source invalidates the old preview. Incoming edits become protected preparation overrides; already published organization/reference work must finish recovery before its naming evidence can be replaced.
+++cmd+s++ or ++ctrl+s++ previews first, then saves an eligible preview. Changing the draft or source invalidates the old preview. Incoming edits become protected preparation overrides: automatic tagging does not replace the fields you changed, and cleanup never rewrites a value you saved, though it still normalizes the fields you left alone. Already published organization/reference work must finish recovery before its naming evidence can be replaced.
 
 Closing or quitting waits for pending draft updates. A failed draft save keeps the editor open with an error. Retry persistence or explicitly confirm **Discard unsaved changes** to restore the last acknowledged local draft; this does not delete that durable draft or pretend the failed edits were saved. File publication uses its native journal for interruption recovery.
 

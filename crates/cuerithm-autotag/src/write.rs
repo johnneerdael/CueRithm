@@ -207,7 +207,17 @@ impl TagWritePlan {
             expected.set(edit.field, edit.after.clone());
         }
         if let Some(config) = &self.cleanup {
-            let report = cuerithm_cleanup::apply(config, &expected)?;
+            let mut report = cuerithm_cleanup::apply(config, &expected)?;
+            if let Some(patch) = &self.editor_patch {
+                let reviewed = patch.reviewed_cleanup_fields();
+                report.changes.retain(|c| !reviewed.contains(&c.field));
+                for field in reviewed {
+                    report.metadata.set(
+                        field,
+                        expected.fields.get(&field).cloned().unwrap_or_default(),
+                    );
+                }
+            }
             crate::metadata::edit(tag, format, &report.changes)?;
             let expected = report.metadata.clone();
             Ok((Some(report), expected))

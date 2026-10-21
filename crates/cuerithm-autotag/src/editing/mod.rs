@@ -141,6 +141,40 @@ impl MetadataPatch {
         }
         Ok(())
     }
+    /// Cleanup fields the user reviewed. Cleanup normalizes everything else, but never rewrites
+    /// a value the user saw in the preview, so the file holds exactly what was accepted.
+    pub(crate) fn reviewed_cleanup_fields(&self) -> Vec<cuerithm_cleanup::MetadataField> {
+        use MetadataTextField as F;
+        use cuerithm_cleanup::MetadataField as C;
+        let mut out = vec![];
+        for (field, edit) in &self.text {
+            if matches!(edit, TextEdit::Keep) {
+                continue;
+            }
+            out.extend(match field {
+                F::Title => Some(C::Title),
+                F::Artist => Some(C::Artist),
+                F::Album => Some(C::Album),
+                F::AlbumArtist => Some(C::AlbumArtist),
+                F::Genre => Some(C::Genre),
+                F::Comment => Some(C::Comment),
+                F::Grouping => Some(C::Grouping),
+                F::Label => Some(C::Label),
+                F::Remixer => Some(C::Remixer),
+                F::Version => Some(C::Mix),
+                F::Producer => Some(C::Producer),
+                F::Composer => Some(C::Composer),
+                F::Lyricist => Some(C::Lyricist),
+                _ => None,
+            });
+        }
+        if !self.comments.is_empty() {
+            out.push(C::Comment);
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
     pub fn protected_tags(&self) -> Vec<crate::SupportedTag> {
         use crate::SupportedTag as T;
         use MetadataTextField as F;
