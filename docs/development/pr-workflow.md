@@ -10,6 +10,7 @@ Pull requests are gated cheaply. The expensive builds do not run on every push: 
 
 Escape hatches:
 - Run the full builds earlier, before a review has finished, with `gh workflow run ci.yml --ref <branch>` and `gh workflow run desktop.yml --ref <branch>`. Only same-repository branches can be dispatched.
+- Rerun one runner on a PR branch, for example after fixing a Windows-only failure, with `gh workflow run desktop.yml --ref <branch> -f os=windows-2025`. A rerun of the old run cannot pick up a fix, because it checks out the same commit. The input is ignored on `main`, which always runs every runner.
 - A failed post-merge build is fixed by pushing directly to `main`; repository admins bypass the PR requirement. Docs-only pushes skip the builds.
 - Force a release (even for internal-only changes) or re-run a failed one with the `Release` workflow's manual dispatch on a green commit.
 - Test packaging without releasing by dispatching `Package desktop builds` with a commit SHA; the packages are kept as artifacts for 7 days.
