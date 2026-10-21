@@ -45,11 +45,16 @@ impl Write {
 impl MetadataEditService {
     pub fn apply(&self, preview: &str, cancel: &CancellationToken) -> Result<MetadataEditBatch> {
         cancel.check()?;
-        let text: String = self.library.conn()?.query_row(
-            "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
-            [preview],
-            |r| r.get(0),
-        )?;
+        let text: String = self
+            .library
+            .conn()?
+            .query_row(
+                "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
+                [preview],
+                |r| r.get(0),
+            )
+            .optional()?
+            .context("Metadata preview changed or already applied")?;
         let plan: FrozenPreview = serde_json::from_str(&text)?;
         ensure!(plan.public.can_apply, "No eligible metadata changes");
         for row in &plan.rows {
@@ -99,7 +104,7 @@ impl MetadataEditService {
                 .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
             let mut conn = self.library.conn()?;
             let tx = conn.transaction()?;
-            ensure!(tx.execute("UPDATE metadata_edit_previews SET state='applied' WHERE id=?1 AND state='preview' AND EXISTS(SELECT 1 FROM metadata_edit_drafts d WHERE d.id=metadata_edit_previews.draft_id AND d.revision=metadata_edit_previews.draft_revision AND d.state!='discarded')",[preview])?==1,"Metadata preview changed or already applied");
+            ensure!(tx.execute("DELETE FROM metadata_edit_previews WHERE id=?1 AND state='preview' AND EXISTS(SELECT 1 FROM metadata_edit_drafts d WHERE d.id=metadata_edit_previews.draft_id AND d.revision=metadata_edit_previews.draft_revision AND d.state!='discarded')",[preview])?==1,"Metadata preview changed or already applied");
             tx.execute(
                 "INSERT INTO metadata_edit_batches VALUES(?1,?2,?3,'apply','saving',?4,NULL,?5,?5)",
                 params![

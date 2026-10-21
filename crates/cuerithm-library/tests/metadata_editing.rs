@@ -343,6 +343,36 @@ fn a_newer_incoming_edit_retires_the_original_kept_for_the_one_it_replaces() {
     assert_eq!(storage.original_files, 1);
     assert_eq!(storage.original_bytes, before.len() as u64);
 }
+#[test]
+fn a_saved_preview_is_not_kept_and_cannot_be_saved_twice() {
+    let (_t, lib, service, track, _path) = fixture();
+    let preview = title_preview(&service, &track);
+    let saved = service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    let conn = rusqlite::Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
+    let kept: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_previews WHERE id=?1",
+            [&preview.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        kept, 0,
+        "the saved batch holds the plan; the preview copy is dropped"
+    );
+    let again = service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap_err()
+        .to_string();
+    assert!(again.contains("already applied"), "{again}");
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+}
 fn staging_dirs(lib: &Library) -> Vec<std::path::PathBuf> {
     let root = lib.data_dir().join("metadata-edits/staging");
     if !root.exists() {
