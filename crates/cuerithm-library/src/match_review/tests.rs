@@ -606,12 +606,30 @@ impl ReviewFixture {
         )
         .unwrap();
         let run = lib.claim_next().unwrap().unwrap();
-        let mut media = runtime.probe(&source).unwrap();
+        Self::reach_attention(&lib, &runtime, &source, &run);
+        Self {
+            _temp: temp,
+            lib,
+            runtime,
+            source,
+            run,
+            tagger: cuerithm_autotag::Tagger::with_backends(vec![std::sync::Arc::new(Expansion)])
+                .unwrap(),
+        }
+    }
+    /// Preparation found an ambiguous recording and stopped for review.
+    fn reach_attention(
+        lib: &Library,
+        runtime: &cuerithm_media::MediaRuntime,
+        source: &std::path::Path,
+        run: &crate::JobRun,
+    ) {
+        let mut media = runtime.probe(source).unwrap();
         media.tags.insert("title".into(), "Selected title".into());
         media.tags.insert("artist".into(), "Selected artist".into());
         media.tags.insert("version".into(), "Radio Edit".into());
         let input = TagInput {
-            path: source.clone(),
+            path: source.to_path_buf(),
             source_sha256: run.source_sha256.clone(),
             media,
             duration_seconds: 64.,
@@ -628,7 +646,7 @@ impl ReviewFixture {
             ..Default::default()
         };
         lib.record_match_outcome(
-            &run,
+            run,
             &input,
             &TagMatchOutcome {
                 status: MatchStatus::Ambiguous,
@@ -638,17 +656,43 @@ impl ReviewFixture {
             },
         )
         .unwrap();
-        lib.fail_for_run(&run, "matching", "Recording edition requires review")
+        lib.fail_for_run(run, "matching", "Recording edition requires review")
             .unwrap();
-        Self {
-            _temp: temp,
-            lib,
-            runtime,
-            source,
-            run,
-            tagger: cuerithm_autotag::Tagger::with_backends(vec![std::sync::Arc::new(Expansion)])
-                .unwrap(),
-        }
+    }
+    /// The user saved an edit for the Incoming track, and preparation stopped for review again
+    /// before publishing it.
+    fn with_saved_edit(
+        edit: impl FnOnce(&crate::MetadataEditService) -> crate::MetadataEditorPatch,
+    ) -> Self {
+        let mut f = Self::new();
+        let service = crate::MetadataEditService::new(f.lib.clone(), f.runtime.clone());
+        let draft = service
+            .create_draft(std::slice::from_ref(&f.run.track_id))
+            .unwrap();
+        let patch = edit(&service);
+        let draft = service
+            .update_draft(&draft.id, draft.revision, patch)
+            .unwrap();
+        let cancel = cuerithm_media::CancellationToken::default();
+        let preview = service.preview(&draft.id, draft.revision, &cancel).unwrap();
+        let queued = service.apply(&preview.id, &cancel).unwrap();
+        assert_eq!(queued.state, "queued", "{queued:?}");
+        f.run = f.lib.claim_next().unwrap().unwrap();
+        Self::reach_attention(&f.lib, &f.runtime, &f.source, &f.run);
+        f
+    }
+    fn with_saved_title_edit() -> Self {
+        use cuerithm_autotag::{MetadataTextField, TextEdit};
+        Self::with_saved_edit(|_| {
+            let mut patch = crate::MetadataEditorPatch::default();
+            patch.fields.text.insert(
+                MetadataTextField::Title,
+                TextEdit::Set {
+                    values: vec!["Saved edit title".into()],
+                },
+            );
+            patch
+        })
     }
     fn request(&self) -> super::MatchReviewRequest {
         let state = self
@@ -1089,6 +1133,7 @@ fn tag_temporary_rotation_keeps_path_and_native_receipts_atomic_on_database_fail
         b"unproven interrupted copy"
     );
 }
+
 #[test]
 fn explicit_requery_uses_folder_preset_matching_and_current_global_transport_only() {
     use cuerithm_autotag::{ChallengeStore, ProviderBackend, ProviderId};
@@ -1923,5 +1968,259 @@ fn recognized_candidate_uses_source_bound_consent_without_enabling_musicbrainz_g
     assert_eq!(
         decision.outcome.matches[0].recognition,
         candidate.recognition
+    );
+}
+
+fn previews(lib: &Library) -> i64 {
+    lib.conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM preparation_match_previews", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+}
+#[test]
+fn only_the_active_review_preview_is_kept_and_a_consumed_one_is_reclaimed() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let source = root.join("source.flac");
+    std::fs::copy(
+        repo.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+        &source,
+    )
+    .unwrap();
+    let runtime =
+        cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin")).unwrap();
+    let mut tagging = AutotagConfig::default();
+    tagging.options.platforms = vec!["beatport".into()];
+    tagging.options.parse_filename = false;
+    tagging.no_match = cuerithm_autotag::NoMatchPolicy::Attention;
+    lib.save_settings(crate::PreparationSettings {
+        autotag_enabled: true,
+        tagging: Some(tagging),
+        ..Default::default()
+    })
+    .unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&source),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let run = lib.claim_next().unwrap().unwrap();
+    let input = TagInput {
+        path: source.clone(),
+        source_sha256: run.source_sha256.clone(),
+        duration_seconds: 1.,
+        media: runtime.probe(&source).unwrap(),
+    };
+    lib.record_match_outcome(
+        &run,
+        &input,
+        &TagMatchOutcome {
+            status: MatchStatus::NoMatch,
+            matches: vec![],
+            attempted: vec![],
+            warnings: vec![],
+        },
+    )
+    .unwrap();
+    lib.fail_for_run(&run, "matching", "No match").unwrap();
+    let generation = lib
+        .track_match_review(&run.track_id)
+        .unwrap()
+        .unwrap()
+        .generation;
+    let preview = || {
+        lib.preview_match_review_with(
+            &cuerithm_autotag::Tagger::with_backends(vec![]).unwrap(),
+            &runtime,
+            super::MatchReviewRequest {
+                track_id: run.track_id.clone(),
+                generation: generation.clone(),
+                action: super::MatchReviewAction::KeepExistingOnce,
+                candidate_id: None,
+                fields: vec![],
+                acknowledge_conflicts: false,
+                allow_id3_upgrade: false,
+            },
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap()
+    };
+    let first = preview();
+    let second = preview();
+    assert_eq!(
+        previews(&lib),
+        1,
+        "a newer preview replaces the older one instead of accumulating"
+    );
+    let cancel = cuerithm_media::CancellationToken::default();
+    assert!(
+        lib.apply_match_review_with(&runtime, &first.id, &first.revision, &cancel)
+            .is_err(),
+        "the replaced preview can no longer be applied"
+    );
+    lib.apply_match_review_with(&runtime, &second.id, &second.revision, &cancel)
+        .unwrap();
+    assert_eq!(previews(&lib), 0, "an applied preview is not kept");
+    assert!(
+        lib.apply_match_review_with(&runtime, &second.id, &second.revision, &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("already consumed"),
+        "a consumed preview still explains itself"
+    );
+}
+
+#[test]
+fn a_saved_incoming_edit_is_shown_as_the_value_the_review_will_end_with() {
+    let f = ReviewFixture::with_saved_title_edit();
+    let cancel = cuerithm_media::CancellationToken::default();
+    let title = |preview: &super::MatchReviewPreview| {
+        preview
+            .fields
+            .iter()
+            .find(|field| field.field == "title")
+            .unwrap()
+            .clone()
+    };
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let blocked = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request.clone(), &cancel)
+        .unwrap();
+    let held = title(&blocked);
+    assert_eq!(held.before, vec!["Saved edit title"]);
+    assert_eq!(held.after, vec!["Saved edit title"]);
+    assert_eq!(
+        held.allowed_actions,
+        vec![super::MatchReviewFieldAction::Keep]
+    );
+    assert!(
+        !blocked.can_apply,
+        "replacing a field the saved edit sets cannot be promised: {:?}",
+        blocked.blockers
+    );
+    request.fields.retain(|decision| decision.field != "title");
+    let preview = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    assert!(preview.can_apply, "{:?}", preview.blockers);
+    assert_eq!(title(&preview).after, vec!["Saved edit title"]);
+    f.lib
+        .apply_match_review_with(&f.runtime, &preview.id, &preview.revision, &cancel)
+        .unwrap();
+    let service = crate::PreparationService::start_with_tagger(
+        f.lib.clone(),
+        f.runtime.clone(),
+        1,
+        std::sync::Arc::new(f.tagger),
+    )
+    .unwrap();
+    wait_for_job(&f.lib, &f.run.id, "completed");
+    service.shutdown();
+    let after =
+        cuerithm_autotag::read_metadata_snapshot(&f.source, &f.runtime.probe(&f.source).unwrap())
+            .unwrap();
+    assert_eq!(
+        after.text[&cuerithm_autotag::MetadataTextField::Title],
+        vec!["Saved edit title"],
+        "the file ends with what the preview showed"
+    );
+    assert_eq!(
+        after.text[&cuerithm_autotag::MetadataTextField::Label],
+        vec!["Expanded label"]
+    );
+}
+
+#[test]
+fn an_accepted_review_is_stored_for_its_job_without_a_write_only_history() {
+    let f = ReviewFixture::new();
+    let cancel = cuerithm_media::CancellationToken::default();
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let preview = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    f.lib
+        .apply_match_review_with(&f.runtime, &preview.id, &preview.revision, &cancel)
+        .unwrap();
+    let conn = f.lib.conn().unwrap();
+    let decisions: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM preparation_review_decisions WHERE job_id=?1",
+            [&f.run.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(decisions, 1);
+    let history: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '%decision_history%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(history, 0, "no write-only copy of every accepted decision");
+}
+
+#[test]
+fn saved_incoming_artwork_counts_and_cannot_be_replaced_by_a_review() {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let covered = repo.join("crates/cuerithm-media/tests/fixtures/covered.flac");
+    let f = ReviewFixture::with_saved_edit(|service| {
+        let runtime =
+            cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin"))
+                .unwrap();
+        let info = runtime.probe(&covered).unwrap();
+        let picture = cuerithm_autotag::read_metadata_snapshot(&covered, &info)
+            .unwrap()
+            .artwork
+            .remove(0);
+        let bytes =
+            cuerithm_autotag::metadata_artwork_bytes(&covered, &info, &picture.identity).unwrap();
+        let asset = service.import_artwork(bytes).unwrap();
+        let mut patch = crate::MetadataEditorPatch::default();
+        patch.artwork.push(crate::MetadataArtworkChoice {
+            target: None,
+            asset_id: Some(asset.id),
+            kind: Some(3),
+            description: None,
+        });
+        patch
+    });
+    let cancel = cuerithm_media::CancellationToken::default();
+    let mut request = f.request();
+    request.acknowledge_conflicts = true;
+    let kept = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request.clone(), &cancel)
+        .unwrap();
+    assert!(
+        kept.artwork.existing,
+        "the saved cover counts as the file's artwork"
+    );
+    request.fields.push(super::MatchReviewFieldDecision {
+        field: "albumArt".into(),
+        action: super::MatchReviewFieldAction::Replace,
+    });
+    let blocked = f
+        .lib
+        .preview_match_review_with(&f.tagger, &f.runtime, request, &cancel)
+        .unwrap();
+    assert!(!blocked.can_apply);
+    assert!(
+        blocked
+            .artwork
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("saved Incoming edit")),
+        "{:?}",
+        blocked.artwork
     );
 }

@@ -74,7 +74,9 @@ jobs:
         run: rustup toolchain install stable --profile minimal
       - name: Stamp selected application identity
         shell: bash
-        run: python3 tools/release/stamp-version.py "$CUERITHM_RELEASE_VERSION" .superpowers/release/tauri-version.json
+        run: |
+          python3 -m unittest discover -s tools/release -v
+          python3 tools/release/stamp-version.py "$CUERITHM_RELEASE_VERSION" .superpowers/release/tauri-version.json
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: pnpm --dir apps/desktop tauri build --config "$GITHUB_WORKSPACE/.superpowers/release/tauri-version.json" --bundles app

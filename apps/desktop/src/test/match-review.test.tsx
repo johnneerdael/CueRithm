@@ -45,6 +45,18 @@ describe("match review evidence and decisions",()=>{
   expect(screen.getByRole("button",{name:"Use selected match"})).toBeEnabled();
   expect(bridge.previewMatchReview).toHaveBeenCalledTimes(previews);
  });
+ it("adopts a newer catalog generation when preparation settles, dropping the choice made against the old one",async()=>{
+  const {bridge,review}=fixture();let access:()=>void=()=>{};
+  bridge.onCatalogAccessChange=vi.fn(async listener=>{access=listener;return()=>{};});
+  render(<MatchReview bridge={bridge} trackId="a" onClose={()=>{}} onPending={()=>{}} onChanged={()=>{}}/>);
+  fireEvent.click(await screen.findByRole("radio",{name:"Beatport · Borrowed Light · Club Mix"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Use selected match"})).toBeEnabled());
+  bridge.trackMatchReview=vi.fn(async():Promise<MatchReviewState>=>({...review,generation:"generation-2",candidates:[{...review.candidates[0],id:"radio",version:"Radio Edit"}]}));
+  act(()=>access());
+  expect(await screen.findByRole("radio",{name:"Beatport · Borrowed Light · Radio Edit"})).not.toBeChecked();
+  expect(screen.queryByRole("radio",{name:"Beatport · Borrowed Light · Club Mix"})).toBeNull();
+  expect(screen.getByRole("button",{name:"Use selected match"})).toBeDisabled();
+ });
  it("cancels a queued decision before it acquires the native operation lease",async()=>{
   const {bridge}=fixture();let release!:()=>void;
   const blocking=inspectorOperation(bridge,()=>new Promise<void>(resolve=>{release=resolve;}));

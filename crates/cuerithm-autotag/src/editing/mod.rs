@@ -141,7 +141,52 @@ impl MetadataPatch {
         }
         Ok(())
     }
-    pub fn protected_tags(&self) -> Vec<crate::SupportedTag> {
+    /// Cleanup fields the user reviewed. Cleanup normalizes everything else, but never rewrites
+    /// a value the user saw in the preview, so the file holds exactly what was accepted.
+    pub(crate) fn reviewed_cleanup_fields(&self) -> Vec<cuerithm_cleanup::MetadataField> {
+        use MetadataTextField as F;
+        use cuerithm_cleanup::MetadataField as C;
+        let mut out = vec![];
+        for (field, edit) in &self.text {
+            if matches!(edit, TextEdit::Keep) {
+                continue;
+            }
+            out.extend(match field {
+                F::Title => Some(C::Title),
+                F::Artist => Some(C::Artist),
+                F::Album => Some(C::Album),
+                F::AlbumArtist => Some(C::AlbumArtist),
+                F::Genre => Some(C::Genre),
+                F::Comment => Some(C::Comment),
+                F::Grouping => Some(C::Grouping),
+                F::Label => Some(C::Label),
+                F::Remixer => Some(C::Remixer),
+                F::Version => Some(C::Mix),
+                F::Producer => Some(C::Producer),
+                F::Composer => Some(C::Composer),
+                F::Lyricist => Some(C::Lyricist),
+                _ => None,
+            });
+        }
+        if !self.comments.is_empty() {
+            out.push(C::Comment);
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+    /// Automatic-tagging fields this edit replaces, so the matched value must not be written first.
+    /// Only fields that share a native field with the edit are protected: the original date shares
+    /// Vorbis `ORIGINALDATE` with the publish date, but has its own field in ID3, MP4 and WMA.
+    pub fn protected_tags(
+        &self,
+        media: &cuerithm_media::MediaInfo,
+    ) -> anyhow::Result<Vec<crate::SupportedTag>> {
+        use onetagger_tag::AudioFileFormat as F;
+        let vorbis = matches!(crate::input::audio_format(media)?, F::FLAC | F::OGG);
+        Ok(self.protected_for(vorbis))
+    }
+    fn protected_for(&self, vorbis: bool) -> Vec<crate::SupportedTag> {
         use crate::SupportedTag as T;
         use MetadataTextField as F;
         let mut out = vec![];
@@ -171,7 +216,7 @@ impl MetadataPatch {
         if !matches!(self.release_date, ValueEdit::Keep) {
             out.push(T::ReleaseDate)
         }
-        if !matches!(self.original_date, ValueEdit::Keep) {
+        if vorbis && !matches!(self.original_date, ValueEdit::Keep) {
             out.push(T::PublishDate)
         }
         if !matches!(self.track_number, ValueEdit::Keep) {
@@ -180,9 +225,8 @@ impl MetadataPatch {
         if !matches!(self.track_total, ValueEdit::Keep) {
             out.push(T::TrackTotal)
         }
-        if !matches!(self.disc_number, ValueEdit::Keep)
-            || !matches!(self.disc_total, ValueEdit::Keep)
-        {
+        // The catalog supplies no disc total, so a total-only edit keeps the matched disc number.
+        if !matches!(self.disc_number, ValueEdit::Keep) {
             out.push(T::DiscNumber)
         }
         if !matches!(self.bpm, ValueEdit::Keep) {

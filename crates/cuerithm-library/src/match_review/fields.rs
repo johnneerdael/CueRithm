@@ -47,8 +47,58 @@ fn candidate_date(candidate: &CatalogMatch) -> Vec<String> {
         .into_iter()
         .collect()
 }
+/// What a saved Incoming edit leaves in a field. Preparation applies that edit over any accepted
+/// review, so the review must start from, and cannot replace, the value it will produce.
+fn held_value(
+    saved: &MetadataPatch,
+    id: &str,
+    field: Option<F>,
+    before: &[String],
+) -> Option<Vec<String>> {
+    fn one<T: ToString>(edit: &ValueEdit<T>) -> Option<Vec<String>> {
+        match edit {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(vec![value.to_string()]),
+            ValueEdit::Clear => Some(vec![]),
+        }
+    }
+    if let Some(field) = field {
+        return match saved.text.get(&field)? {
+            TextEdit::Keep => None,
+            TextEdit::Set { values } => Some(values.clone()),
+            TextEdit::Clear => Some(vec![]),
+            TextEdit::Append { values } => {
+                let mut out = before.to_vec();
+                for value in values {
+                    if !out.contains(value) {
+                        out.push(value.clone());
+                    }
+                }
+                Some(out)
+            }
+        };
+    }
+    match id {
+        "releaseDate" => match &saved.release_date {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(date(Some(value))),
+            ValueEdit::Clear => Some(vec![]),
+        },
+        "publishDate" => match &saved.original_date {
+            ValueEdit::Keep => None,
+            ValueEdit::Set { value } => Some(date(Some(value))),
+            ValueEdit::Clear => Some(vec![]),
+        },
+        "trackNumber" => one(&saved.track_number),
+        "trackTotal" => one(&saved.track_total),
+        "discNumber" => one(&saved.disc_number),
+        "bpm" => one(&saved.bpm),
+        _ => None,
+    }
+}
 pub(super) fn make_fields(
     native: &MetadataSnapshot,
+    saved: Option<&MetadataPatch>,
     candidate: Option<&CatalogMatch>,
     request: &MatchReviewRequest,
     short_title: bool,
@@ -231,6 +281,8 @@ pub(super) fn make_fields(
     let mut fields = vec![];
     let mut blockers = vec![];
     for (id, label, native_field, multi, before, proposed) in specs {
+        let held = saved.and_then(|saved| held_value(saved, id, native_field, &before));
+        let before = held.clone().unwrap_or(before);
         let action = request
             .fields
             .iter()
@@ -258,7 +310,7 @@ pub(super) fn make_fields(
             None
         };
         let mut allowed_actions = vec![MatchReviewFieldAction::Keep];
-        if track.is_some() && capability_reason.is_none() {
+        if track.is_some() && capability_reason.is_none() && held.is_none() {
             allowed_actions.push(MatchReviewFieldAction::Replace);
             if multi {
                 allowed_actions.push(MatchReviewFieldAction::Append);
@@ -266,7 +318,14 @@ pub(super) fn make_fields(
         }
         let mut reason = capability_reason;
         let after = if !allowed_actions.contains(&action) {
-            reason.get_or_insert_with(|| "This action is not supported for this field".to_owned());
+            reason.get_or_insert_with(|| {
+                if held.is_some() {
+                    "Your saved Incoming edit sets this field and takes priority; edit the metadata again to change it"
+                } else {
+                    "This action is not supported for this field"
+                }
+                .to_owned()
+            });
             before.clone()
         } else if action != MatchReviewFieldAction::Keep && proposed.is_empty() {
             reason = Some(
@@ -426,7 +485,7 @@ mod catalog_facts_tests {
         let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
         let candidate = candidate();
         let (fields, patch, blockers) =
-            make_fields(&native, Some(&candidate), &request(), false).unwrap();
+            make_fields(&native, None, Some(&candidate), &request(), false).unwrap();
         assert!(blockers.is_empty());
         assert_eq!(
             fields
@@ -448,13 +507,55 @@ mod catalog_facts_tests {
         ));
     }
     #[test]
+    fn saved_original_date_takes_priority_over_selected_recording_date() {
+        let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
+        let candidate = candidate();
+        let mut saved = MetadataPatch::default();
+        saved.original_date = ValueEdit::Set {
+            value: TransferDate {
+                year: 2018,
+                month: Some(3),
+                day: None,
+            },
+        };
+        let mut request = request();
+        request.fields = vec![MatchReviewFieldDecision {
+            field: "publishDate".into(),
+            action: MatchReviewFieldAction::Replace,
+        }];
+        let (fields, patch, blockers) =
+            make_fields(&native, Some(&saved), Some(&candidate), &request, false).unwrap();
+        let field = fields
+            .iter()
+            .find(|field| field.field == "publishDate")
+            .unwrap();
+        assert_eq!(field.before, vec!["2018-03"]);
+        assert_eq!(field.after, vec!["2018-03"]);
+        assert_eq!(field.proposed, vec!["2020"]);
+        assert_eq!(field.allowed_actions, vec![MatchReviewFieldAction::Keep]);
+        assert!(
+            field
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("saved Incoming edit")
+        );
+        assert!(!blockers.is_empty());
+        assert!(patch.is_noop());
+        request.fields.clear();
+        let (_, patch, blockers) =
+            make_fields(&native, Some(&saved), Some(&candidate), &request, false).unwrap();
+        assert!(blockers.is_empty());
+        assert!(patch.is_noop());
+    }
+    #[test]
     fn musicbrainz_identifier_choices_are_explicitly_read_only_in_review() {
         let native: MetadataSnapshot = serde_json::from_value(serde_json::json!({})).unwrap();
         let candidate = candidate();
         let mut request = request();
         request.fields.clear();
         let (fields, patch, blockers) =
-            make_fields(&native, Some(&candidate), &request, false).unwrap();
+            make_fields(&native, None, Some(&candidate), &request, false).unwrap();
         assert!(blockers.is_empty());
         let id = fields
             .iter()

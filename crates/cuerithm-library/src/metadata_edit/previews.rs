@@ -135,6 +135,49 @@ impl Library {
         }
         Ok(())
     }
+    /// A queued Incoming edit that a newer one replaced can never be undone or executed, so its
+    /// retained original and workspace are removed; the row keeps its history without the stage.
+    pub(crate) fn retire_superseded_metadata_stages(&self) -> Result<()> {
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
+        let _tag = self
+            .inner
+            .tag_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+        let mut skipped = 0;
+        loop {
+            let rows = {
+                let conn = self.conn()?;
+                let mut query=conn.prepare("SELECT id,payload_json FROM metadata_edit_rows WHERE state='superseded' AND json_type(payload_json,'$.stage')='object' ORDER BY rowid LIMIT 50 OFFSET ?1")?;
+                query
+                    .query_map([skipped], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?
+            };
+            if rows.is_empty() {
+                return Ok(());
+            }
+            for (id, payload) in rows {
+                let retired = (|| -> Result<()> {
+                    let row: FrozenRow = serde_json::from_str(&payload)?;
+                    if let Some(stage) = row.stage {
+                        retire_stage(self, &stage)?;
+                    }
+                    Ok(())
+                })();
+                if retired.is_ok() {
+                    self.conn()?.execute("UPDATE metadata_edit_rows SET payload_json=json_set(payload_json,'$.stage',json('null')) WHERE id=?1",[id])?;
+                } else {
+                    skipped += 1;
+                }
+            }
+        }
+    }
     pub(crate) fn retire_metadata_previews(&self) -> Result<()> {
         let _organization = self
             .inner

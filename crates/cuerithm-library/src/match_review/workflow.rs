@@ -139,8 +139,30 @@ impl Library {
             .next()
             .context("Missing native metadata source")?
             .native;
+        // Preparation applies a saved Incoming edit over the accepted review, so preview that result.
+        let saved = capture
+            .public
+            .job_id
+            .as_deref()
+            .map(|job| {
+                self.metadata_override_for_query(
+                    &request.track_id,
+                    job,
+                    &capture.public.source_sha256,
+                )
+            })
+            .transpose()?
+            .flatten();
+        // The saved edit's artwork is applied after the review's, so it decides what the file keeps.
+        let saved_artwork = saved.as_ref().map(|s| s.artwork.as_slice()).unwrap_or(&[]);
+        let has_artwork = native.artwork.iter().any(|picture| {
+            !saved_artwork.iter().any(|edit| {
+                edit.replacement.is_none() && edit.target.as_ref() == Some(&picture.identity)
+            })
+        }) || saved_artwork.iter().any(|edit| edit.replacement.is_some());
         let (fields, mut patch, field_blockers) = super::fields::make_fields(
             &native,
+            saved.as_ref(),
             selected.as_ref(),
             &request,
             capture.config.options.short_title,
@@ -219,7 +241,9 @@ impl Library {
         let mut artwork_target: Option<ArtworkIdentity> = None;
         let mut art_reason: Option<String> = None;
         if art_action != MatchReviewFieldAction::Keep {
-            if art_action != MatchReviewFieldAction::Replace {
+            if !saved_artwork.is_empty() {
+                art_reason = Some("Your saved Incoming edit changes the artwork and takes priority; edit the metadata again to change it".into());
+            } else if art_action != MatchReviewFieldAction::Replace {
                 art_reason=Some("Artwork supports Keep or Replace; choose exact additional covers in the metadata editor".into());
             } else if art_url.is_none() {
                 art_reason = Some("The selected candidate has no supported artwork URL".into());
@@ -254,7 +278,7 @@ impl Library {
                 .config
                 .required_tags
                 .contains(&cuerithm_autotag::SupportedTag::AlbumArt)
-            && native.artwork.is_empty()
+            && !has_artwork
             && asset.is_none()
         {
             blockers.push("Required artwork is absent; load and explicitly replace the front cover before accepting".into());
@@ -283,7 +307,7 @@ impl Library {
             candidate,
             fields,
             artwork: MatchReviewArtwork {
-                existing: !native.artwork.is_empty(),
+                existing: has_artwork,
                 candidate_url: art_url,
                 action: art_action,
                 reason: art_reason,
@@ -317,16 +341,24 @@ impl Library {
             )?,
             "Catalog query changed while previewing"
         );
+        tx.execute(
+            "DELETE FROM preparation_match_previews WHERE track_id=?1",
+            [&public.track_id],
+        )?;
         tx.execute("INSERT INTO preparation_match_previews(id,track_id,generation,revision,payload_json,state,created) VALUES(?1,?2,?3,?4,?5,'preview',?6)",params![public.id,public.track_id,public.generation,public.revision,payload,now()])?;
         tx.commit()?;
         Ok(public)
     }
     pub(super) fn load_match_preview(&self, id: &str, revision: &str) -> Result<Preview> {
-        let (state, saved, json): (String, String, String) = self.conn()?.query_row(
-            "SELECT state,revision,payload_json FROM preparation_match_previews WHERE id=?1",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
+        let (state, saved, json): (String, String, String) = self
+            .conn()?
+            .query_row(
+                "SELECT state,revision,payload_json FROM preparation_match_previews WHERE id=?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?
+            .context("Match review preview changed or was already consumed")?;
         ensure!(
             state == "preview" && saved == revision,
             "Match review preview changed or was already consumed"
@@ -382,6 +414,8 @@ impl Library {
                 preview.artwork_target.as_ref(),
             )?;
             if patch.is_noop() {
+                self.conn()?
+                    .execute("DELETE FROM preparation_match_previews WHERE id=?1", [id])?;
                 return Ok(MatchReviewApplyResult {
                     state: "unchanged".into(),
                     job_id: None,
@@ -397,10 +431,8 @@ impl Library {
                     patch,
                     cancel,
                 )?;
-            self.conn()?.execute(
-                "UPDATE preparation_match_previews SET state='applied' WHERE id=?1",
-                [id],
-            )?;
+            self.conn()?
+                .execute("DELETE FROM preparation_match_previews WHERE id=?1", [id])?;
             return Ok(MatchReviewApplyResult {
                 state: batch.state.clone(),
                 job_id: None,
@@ -438,7 +470,7 @@ impl Library {
             )?,
             "Candidate generation changed before accepting review"
         );
-        ensure!(tx.execute("UPDATE preparation_match_previews SET state='applied' WHERE id=?1 AND revision=?2 AND state='preview'",params![id,revision])?==1,"Review was already accepted");
+        ensure!(tx.execute("DELETE FROM preparation_match_previews WHERE id=?1 AND revision=?2 AND state='preview'",params![id,revision])?==1,"Review was already accepted");
         let job = preview
             .public
             .job_id
@@ -610,10 +642,17 @@ impl Library {
             let tx = conn.transaction()?;
             Self::validate_review_capture_tx(&tx, &before)?;
             ensure!(tx.execute("UPDATE preparation_match_generations SET generation=?1,settings_revision=?2,payload_json=?3 WHERE track_id=?4 AND generation=?5",params![pending.public.generation,snapshot.revision,serde_json::to_string(&pending)?,track,generation])?==1,"Another query replaced this generation");
-            tx.execute("UPDATE preparation_match_previews SET state='invalidated' WHERE track_id=?1 AND state='preview'",[track])?;
+            tx.execute(
+                "DELETE FROM preparation_match_previews WHERE track_id=?1",
+                [track],
+            )?;
             tx.commit()?;
         }
-        let audio = runtime.decode(&before.path.path()?, &self.data_dir().join("cache/media"))?;
+        let audio = runtime.decode_cancellable(
+            &before.path.path()?,
+            &self.data_dir().join("cache/media"),
+            cancel,
+        )?;
         cancel.check()?;
         ensure!(
             audio.source_sha256 == before.public.source_sha256,
@@ -783,7 +822,7 @@ impl Library {
             )?,
             "Catalog generation changed while loading artwork"
         );
-        ensure!(tx.query_row("SELECT state='preview' AND revision=?2 FROM preparation_match_previews WHERE id=?1",params![id,revision],|r|r.get::<_,bool>(0))?,"Review was accepted or invalidated while loading artwork");
+        ensure!(tx.query_row("SELECT state='preview' AND revision=?2 FROM preparation_match_previews WHERE id=?1",params![id,revision],|r|r.get::<_,bool>(0)).optional()?.unwrap_or(false),"Review was accepted or invalidated while loading artwork");
         tx.execute("INSERT OR IGNORE INTO preparation_review_artwork(generation,candidate_id,url_digest,asset_json,source_json) VALUES(?1,?2,?3,?4,?5)",params![preview.public.generation,candidate_id,url_hash,serde_json::to_string(&asset)?,downloaded.source])?;
         let(saved,json):(String,String)=tx.query_row("SELECT url_digest,asset_json FROM preparation_review_artwork WHERE generation=?1 AND candidate_id=?2",params![preview.public.generation,candidate_id],|r|Ok((r.get(0)?,r.get(1)?)))?;
         ensure!(

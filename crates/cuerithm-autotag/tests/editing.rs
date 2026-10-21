@@ -495,3 +495,196 @@ fn serialized_editor_input_cannot_request_internal_undo_record_restoration() {
     assert!(encoded.get("restored_ratings").is_none());
     assert!(encoded.get("artwork_order").is_none());
 }
+
+fn auto_tagged_date(path: &Path) -> Option<onetagger_tag::TagDate> {
+    onetagger_tag::Tag::load_file(path, false)
+        .unwrap()
+        .tag()
+        .get_date()
+}
+#[test]
+fn release_date_edits_use_the_field_automatic_tagging_reads_and_writes() {
+    let (d, runtime, paths) = fixtures();
+    for path in paths {
+        let wma = path.extension().is_some_and(|e| e == "wma");
+        if !wma {
+            // The date automatic tagging stored is the date the editor shows.
+            let mut tag = onetagger_tag::Tag::load_file(&path, true).unwrap();
+            tag.tag_mut().set_date(
+                &onetagger_tag::TagDate {
+                    year: 2019,
+                    month: Some(3),
+                    day: Some(8),
+                },
+                true,
+            );
+            tag.tag_mut().save_file(&path).unwrap();
+            let info = runtime.probe(&path).unwrap();
+            assert_eq!(
+                read_metadata_snapshot(&path, &info).unwrap().release_date,
+                Some(TransferDate {
+                    year: 2019,
+                    month: Some(3),
+                    day: Some(8)
+                }),
+                "{}",
+                path.display()
+            );
+        }
+        let mut patch = MetadataPatch::default();
+        patch.allow_id3_upgrade = true;
+        patch.release_date = ValueEdit::Set {
+            value: TransferDate {
+                year: 2026,
+                month: Some(10),
+                day: Some(5),
+            },
+        };
+        let staged = stage(&runtime, &path, patch, d.path());
+        let edited = read_metadata_snapshot(&staged.path, &staged.metadata).unwrap();
+        assert_eq!(
+            edited.release_date,
+            Some(TransferDate {
+                year: 2026,
+                month: Some(10),
+                day: Some(5)
+            }),
+            "{}",
+            path.display()
+        );
+        if !wma {
+            // Other software reading the automatic-tagging field sees the edit, and no second
+            // release field is left behind to contradict it.
+            let date = auto_tagged_date(&staged.path).unwrap();
+            assert_eq!(
+                (date.year, date.month, date.day),
+                (2026, Some(10), Some(5)),
+                "{}",
+                path.display()
+            );
+            let tags = onetagger_tag::Tag::load_file(&staged.path, false)
+                .unwrap()
+                .tag()
+                .all_tags();
+            for key in tags.keys() {
+                assert!(
+                    !matches!(
+                        key.to_ascii_uppercase().as_str(),
+                        "TDRL" | "RELEASETIME" | "RELEASEDATE" | "RELEASE_DATE"
+                    ),
+                    "{} gained {key}",
+                    path.display()
+                );
+            }
+        }
+        let mut clear = MetadataPatch::default();
+        clear.release_date = ValueEdit::Clear;
+        let cleared = stage(&runtime, &staged.path, clear, d.path());
+        assert_eq!(
+            read_metadata_snapshot(&cleared.path, &cleared.metadata)
+                .unwrap()
+                .release_date,
+            None,
+            "{}",
+            path.display()
+        );
+        if !wma {
+            assert!(
+                auto_tagged_date(&cleared.path).is_none(),
+                "{}",
+                path.display()
+            );
+        }
+    }
+}
+#[test]
+fn id3v23_release_dates_split_across_year_and_day_month_are_shown_whole() {
+    let (d, runtime, paths) = fixtures();
+    let path = paths
+        .iter()
+        .find(|p| p.extension().is_some_and(|e| e == "mp3"))
+        .unwrap();
+    let mut tag = id3::Tag::new();
+    tag.set_text("TYER", "2019");
+    tag.set_text("TDAT", "0803");
+    tag.write_to_path(path, id3::Version::Id3v23).unwrap();
+    let info = runtime.probe(path).unwrap();
+    assert_eq!(
+        read_metadata_snapshot(path, &info).unwrap().release_date,
+        Some(TransferDate {
+            year: 2019,
+            month: Some(3),
+            day: Some(8)
+        })
+    );
+    let mut patch = MetadataPatch::default();
+    patch.allow_id3_upgrade = true;
+    patch.release_date = ValueEdit::Set {
+        value: TransferDate {
+            year: 2026,
+            month: None,
+            day: None,
+        },
+    };
+    let staged = stage(&runtime, path, patch, d.path());
+    let written = id3::Tag::read_from_path(&staged.path).unwrap();
+    assert!(
+        written.get("TYER").is_none() && written.get("TDAT").is_none(),
+        "the old split date must not survive next to the new one"
+    );
+    assert_eq!(
+        read_metadata_snapshot(&staged.path, &staged.metadata)
+            .unwrap()
+            .release_date,
+        Some(TransferDate {
+            year: 2026,
+            month: None,
+            day: None
+        })
+    );
+}
+
+#[test]
+fn edits_only_suppress_the_automatic_tags_that_share_their_native_field() {
+    let (_d, runtime, paths) = fixtures();
+    let mut totals = MetadataPatch::default();
+    totals.disc_total = ValueEdit::Set { value: 3 };
+    let mut disc = MetadataPatch::default();
+    disc.disc_number = ValueEdit::Set { value: 2 };
+    let mut original = MetadataPatch::default();
+    original.original_date = ValueEdit::Set {
+        value: TransferDate {
+            year: 2020,
+            month: None,
+            day: None,
+        },
+    };
+    for path in paths {
+        let media = runtime.probe(&path).unwrap();
+        let vorbis = path
+            .extension()
+            .is_some_and(|e| e == "flac" || e == "ogg" || e == "opus");
+        let shown = path.display();
+        assert!(
+            !totals
+                .protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::DiscNumber),
+            "a disc total edit keeps the matched disc number: {shown}"
+        );
+        assert!(
+            disc.protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::DiscNumber),
+            "{shown}"
+        );
+        assert_eq!(
+            original
+                .protected_tags(&media)
+                .unwrap()
+                .contains(&SupportedTag::PublishDate),
+            vorbis,
+            "only Vorbis stores the publish date where the original date is edited: {shown}"
+        );
+    }
+}

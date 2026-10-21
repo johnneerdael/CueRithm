@@ -6,11 +6,13 @@ use cuerithm_autotag::{
 };
 use cuerithm_media::CancellationToken;
 impl MetadataEditService {
-    pub(super) fn prepare_incoming_undo(
+    /// Stage the inverse of every committed Incoming override; nothing is published here.
+    pub(super) fn stage_incoming_undo(
         &self,
         original: &str,
+        offset: usize,
         cancel: &CancellationToken,
-    ) -> Result<Vec<FrozenRow>> {
+    ) -> Result<Vec<super::journal::JournaledRow>> {
         let rows = {
             let conn = self.library.conn()?;
             let mut q=conn.prepare("SELECT o.job_id,o.payload_json,o.receipt_json,o.final_json,r.payload_json FROM metadata_edit_overrides o JOIN metadata_edit_rows r ON r.batch_id=o.batch_id AND r.track_id=o.track_id WHERE o.batch_id=?1 AND o.state='committed' AND o.undo_batch_id IS NULL AND o.final_json IS NOT NULL ORDER BY r.ordinal")?;
@@ -25,8 +27,8 @@ impl MetadataEditService {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?
         };
-        let mut prepared = Vec::new();
-        for (job, patch, receipt, proof, frozen) in rows {
+        let mut journaled = vec![];
+        for (index, (job, patch, receipt, proof, frozen)) in rows.into_iter().enumerate() {
             let old: FrozenRow = serde_json::from_str(&frozen)?;
             let outcome = (|| -> Result<FrozenRow> {
                 cancel.check()?;
@@ -64,8 +66,7 @@ impl MetadataEditService {
                     },
                     capture,
                     stage: Some(stage),
-                    undo_of: None,
-                    override_of: Some(job.clone()),
+                    undo: Some(UndoLink::Override(job.clone())),
                 })
             })();
             let row = match outcome {
@@ -78,9 +79,16 @@ impl MetadataEditService {
                     row
                 }
             };
-            prepared.push(row);
+            journaled.push(super::journal::JournaledRow {
+                id: uuid::Uuid::new_v4().to_string(),
+                ordinal: offset + index,
+                track_id: row.public.track_id.clone(),
+                state: row.public.outcome.clone(),
+                payload: bounded_json(&row)?,
+                error: row.public.error.clone(),
+            });
         }
-        Ok(prepared)
+        Ok(journaled)
     }
     fn inverse_incoming_patch(
         &self,

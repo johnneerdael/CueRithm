@@ -62,11 +62,16 @@ impl MetadataEditService {
         after_link: impl FnOnce() -> Result<()>,
     ) -> Result<MetadataEditBatch> {
         cancel.check()?;
-        let text: String = self.library.conn()?.query_row(
-            "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
-            [preview],
-            |r| r.get(0),
-        )?;
+        let text: String = self
+            .library
+            .conn()?
+            .query_row(
+                "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
+                [preview],
+                |r| r.get(0),
+            )
+            .optional()?
+            .context("Metadata preview changed or already applied")?;
         let plan: FrozenPreview = serde_json::from_str(&text)?;
         ensure!(
             plan.public.can_apply
@@ -125,7 +130,7 @@ impl MetadataEditService {
                 .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
             let mut conn = self.library.conn()?;
             let tx = conn.transaction()?;
-            ensure!(tx.execute("UPDATE metadata_edit_previews SET state='applied' WHERE id=?1 AND state='preview' AND EXISTS(SELECT 1 FROM metadata_edit_drafts d WHERE d.id=metadata_edit_previews.draft_id AND d.revision=metadata_edit_previews.draft_revision AND d.state!='discarded')",[preview])?==1,"Metadata preview changed or already applied");
+            ensure!(tx.execute("DELETE FROM metadata_edit_previews WHERE id=?1 AND state='preview' AND EXISTS(SELECT 1 FROM metadata_edit_drafts d WHERE d.id=metadata_edit_previews.draft_id AND d.revision=metadata_edit_previews.draft_revision AND d.state!='discarded')",[preview])?==1,"Metadata preview changed or already applied");
             tx.execute(
                 "INSERT INTO metadata_edit_batches VALUES(?1,?2,?3,'apply','saving',?4,NULL,?5,?5)",
                 params![
@@ -184,20 +189,19 @@ impl MetadataEditService {
                 continue;
             }
             let outcome = (|| -> Result<()> {
-                if row.capture.public.state == "incoming" {
+                if row.undo.is_none() && row.capture.public.state == "incoming" {
                     anyhow::bail!("Incoming override outbox is missing; create a fresh preview");
                 }
                 let existing:Option<String>=self.library.conn()?.query_row("SELECT id FROM metadata_edit_writes WHERE row_id=?1 ORDER BY created DESC LIMIT 1",[&id],|r|r.get(0)).optional()?;
                 let write = if let Some(write) = existing {
                     write
                 } else {
-                    self.begin_write_owned(
-                        batch,
-                        &id,
-                        &row,
-                        row.undo_of.clone(),
-                        row.override_of.clone(),
-                    )?
+                    let (undo_of, override_of) = match &row.undo {
+                        Some(UndoLink::Write(original)) => (Some(original.clone()), None),
+                        Some(UndoLink::Override(job)) => (None, Some(job.clone())),
+                        None => (None, None),
+                    };
+                    self.begin_write_owned(batch, &id, &row, undo_of, override_of)?
                 };
                 self.publish_write(&write, cancel)?;
                 row.public.outcome = "written".into();
@@ -247,16 +251,6 @@ impl MetadataEditService {
     ) -> Result<()> {
         self.library.conn()?.execute("UPDATE metadata_edit_rows SET state=?1,error=?2,result_json=COALESCE(?3,result_json) WHERE id=?4",params![state,error,result,id])?;
         Ok(())
-    }
-    #[cfg(test)]
-    fn begin_write(
-        &self,
-        batch: &str,
-        row_id: &str,
-        row: &FrozenRow,
-        undo_of: Option<String>,
-    ) -> Result<String> {
-        self.begin_write_owned(batch, row_id, row, undo_of, None)
     }
     pub(super) fn begin_write_owned(
         &self,
@@ -685,6 +679,7 @@ impl MetadataEditService {
         tx.commit()?;
         drop(conn);
         self.library.retire_unwritten_metadata_stages(id)?;
+        self.library.retire_superseded_metadata_stages()?;
         self.batch(id)
     }
     pub fn history_page(&self, offset: usize, limit: usize) -> Result<MetadataEditHistoryPage> {
@@ -842,6 +837,24 @@ impl MetadataEditService {
         curation: Option<&str>,
         after_link: impl FnOnce() -> Result<()>,
     ) -> Result<MetadataEditBatch> {
+        let undo = self.journal_undo_linked(batch, cancel, curation)?;
+        after_link()?;
+        self.run_batch(&undo, None, cancel)
+    }
+    #[cfg(test)]
+    fn journal_undo(&self, batch: &str, cancel: &CancellationToken) -> Result<String> {
+        self.journal_undo_linked(batch, cancel, None)
+    }
+    /// Stage every inverse row, then commit the Undo batch with all of its rows at once.
+    ///
+    /// Nothing is restored until this returns, so a crash can never leave recovery with only some of
+    /// the rows and a batch that would finish as undone while other tracks were never reverted.
+    fn journal_undo_linked(
+        &self,
+        batch: &str,
+        cancel: &CancellationToken,
+        curation: Option<&str>,
+    ) -> Result<String> {
         cancel.check()?;
         let mut original = self.batch(batch)?;
         if curation.is_some() {
@@ -869,8 +882,9 @@ impl MetadataEditService {
             can_recover: false,
             error: None,
         };
-        let mut prepared = Vec::new();
-        for id in &ids {
+        let mut journaled = vec![];
+        for (ordinal, id) in ids.iter().enumerate() {
+            let row_id = uuid::Uuid::new_v4().to_string();
             let (_, old) = self.load_write(id)?;
             let result = (|| -> Result<FrozenRow> {
                 cancel.check()?;
@@ -944,44 +958,50 @@ impl MetadataEditService {
                     },
                     capture,
                     stage: Some(stage),
-                    undo_of: Some(id.clone()),
-                    override_of: None,
+                    undo: Some(UndoLink::Write(id.clone())),
                 })
             })();
-            let row = match result {
-                Ok(row) => row,
+            match result {
+                Ok(row) => journaled.push(JournaledRow {
+                    id: row_id,
+                    ordinal,
+                    track_id: row.public.track_id.clone(),
+                    state: "ready".into(),
+                    payload: bounded_json(&row)?,
+                    error: None,
+                }),
                 Err(error) => {
                     let mut row = old.row;
                     row.stage = None;
                     row.public.outcome = "failed".into();
                     row.public.error = Some(format!("{error:#}"));
-                    row
+                    journaled.push(JournaledRow {
+                        id: row_id,
+                        ordinal,
+                        track_id: row.public.track_id.clone(),
+                        state: "failed".into(),
+                        payload: bounded_json(&row)?,
+                        error: row.public.error.clone(),
+                    });
                 }
-            };
-            prepared.push(row);
+            }
         }
-        prepared.extend(self.prepare_incoming_undo(batch, cancel)?);
-        let mut bytes = 0usize;
-        let prepared = prepared
-            .into_iter()
-            .map(|row| {
-                let payload = bounded_json(&row)?;
-                bytes = bytes.saturating_add(payload.len());
-                ensure!(
-                    bytes <= MAX_METADATA_JSON,
-                    "Complete Undo exceeds64MiB; narrow the saved batch"
-                );
-                Ok((uuid::Uuid::new_v4().to_string(), row, payload))
-            })
-            .collect::<Result<Vec<_>>>()?;
+        journaled.extend(self.stage_incoming_undo(batch, ids.len(), cancel)?);
         ensure!(
-            !prepared.is_empty(),
+            !journaled.is_empty(),
             "Metadata Undo has no owned inverse rows"
         );
+        let bytes = journaled
+            .iter()
+            .fold(0usize, |bytes, row| bytes.saturating_add(row.payload.len()));
+        ensure!(
+            bytes <= MAX_METADATA_JSON,
+            "Complete Undo exceeds64MiB; narrow the saved batch"
+        );
         let json = bounded_json(&undo)?;
-        let mut child_conn = self.library.conn()?;
-        let child_tx = child_conn.transaction()?;
-        child_tx.execute(
+        let mut conn = self.library.conn()?;
+        let tx = conn.transaction()?;
+        tx.execute(
             "INSERT INTO metadata_edit_batches VALUES(?1,?2,?3,'undo','saving',?4,?5,?6,?6)",
             params![
                 undo.id,
@@ -992,18 +1012,30 @@ impl MetadataEditService {
                 undo.created
             ],
         )?;
-        for (ordinal, (row_id, row, payload)) in prepared.iter().enumerate() {
-            child_tx.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json,error) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![row_id,undo.id,row.public.track_id,ordinal,row.public.outcome,payload,row.public.error])?;
+        for row in &journaled {
+            tx.execute("INSERT INTO metadata_edit_rows(id,batch_id,track_id,ordinal,state,payload_json,error) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![row.id,undo.id,row.track_id,row.ordinal,row.state,row.payload,row.error])?;
         }
         if let Some(id) = curation {
-            let track = &prepared[0].1.public.track_id;
-            crate::Library::link_curation_child_tx(&child_tx, id, None, &undo.id, track)?;
+            crate::Library::link_curation_child_tx(
+                &tx,
+                id,
+                None,
+                &undo.id,
+                &journaled[0].track_id,
+            )?;
         }
-        child_tx.commit()?;
-        drop(child_conn);
-        after_link()?;
-        self.run_batch(&undo.id, None, cancel)
+        tx.commit()?;
+        Ok(undo.id)
     }
+}
+/// One Undo row staged and ready to be committed with its batch.
+pub(super) struct JournaledRow {
+    pub id: String,
+    pub ordinal: usize,
+    pub track_id: String,
+    pub state: String,
+    pub payload: String,
+    pub error: Option<String>,
 }
 fn ensure_unreserved(
     conn: &rusqlite::Connection,
@@ -1034,6 +1066,7 @@ impl crate::Library {
             [],
         )?;
         self.retire_metadata_previews()?;
+        self.retire_superseded_metadata_stages()?;
         self.conn()?.execute("UPDATE metadata_edit_batches SET state='recovery_required',updated=?1 WHERE state='saving'",[now()])?;
         self.conn()?.execute("UPDATE metadata_edit_rows SET state='recovery_required',error='Metadata save interrupted; recover retained native evidence' WHERE state='ready' AND EXISTS(SELECT 1 FROM metadata_edit_writes w WHERE w.row_id=metadata_edit_rows.id AND w.state IN ('prepared','publishing','recovery_required'))",[])?;
         let _organization = self

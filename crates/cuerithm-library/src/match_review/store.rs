@@ -261,7 +261,10 @@ impl Library {
                 ),
             "Track changed while catalog evidence was captured"
         );
-        tx.execute("UPDATE preparation_match_previews SET state='invalidated' WHERE track_id=?1 AND state='preview'",[&run.track_id])?;
+        tx.execute(
+            "DELETE FROM preparation_match_previews WHERE track_id=?1",
+            [&run.track_id],
+        )?;
         tx.execute("INSERT INTO preparation_match_generations(track_id,job_id,generation,attempt,source_hash,settings_revision,payload_json,created) VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(track_id) DO UPDATE SET job_id=excluded.job_id,generation=excluded.generation,attempt=excluded.attempt,source_hash=excluded.source_hash,settings_revision=excluded.settings_revision,payload_json=excluded.payload_json,created=excluded.created",params![capture.public.track_id,capture.public.job_id,capture.public.generation,capture.public.attempt,capture.public.source_sha256,capture.public.settings_revision,serde_json::to_string(capture)?,now()])?;
         Ok(())
     }
@@ -491,7 +494,10 @@ impl Library {
                 let mut conn = self.conn()?;
                 let tx = conn.transaction()?;
                 Self::validate_review_capture_tx(&tx, &capture)?;
-                tx.execute("UPDATE preparation_match_previews SET state='invalidated' WHERE track_id=?1 AND state='preview'",[track_id])?;
+                tx.execute(
+                    "DELETE FROM preparation_match_previews WHERE track_id=?1",
+                    [track_id],
+                )?;
                 tx.execute("INSERT INTO preparation_match_generations(track_id,job_id,generation,attempt,source_hash,settings_revision,payload_json,created) VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(track_id) DO UPDATE SET job_id=excluded.job_id,generation=excluded.generation,attempt=excluded.attempt,source_hash=excluded.source_hash,settings_revision=excluded.settings_revision,payload_json=excluded.payload_json,created=excluded.created",params![track_id,capture.public.job_id,capture.public.generation,capture.public.attempt,capture.public.source_sha256,capture.public.settings_revision,serde_json::to_string(&capture)?,now()])?;
                 tx.commit()?;
                 capture

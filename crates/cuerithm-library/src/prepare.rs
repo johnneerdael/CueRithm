@@ -635,7 +635,7 @@ impl Worker {
                 } else {
                     review_patch
                 };
-                let protected = patch.protected_tags();
+                let protected = patch.protected_tags(&input.media)?;
                 let mut stage_config = config.clone();
                 stage_config
                     .options

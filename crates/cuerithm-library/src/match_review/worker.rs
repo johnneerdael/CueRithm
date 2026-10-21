@@ -35,7 +35,6 @@ pub(super) fn store_decision_tx(
         payload.len() <= 8 * 1024 * 1024,
         "Protected review decision exceeds storage limit"
     );
-    tx.execute("INSERT INTO preparation_review_decision_history(id,job_id,payload_json,created) VALUES(?1,?2,?3,?4)",params![decision.preview_id,job,payload,now()])?;
     tx.execute("INSERT INTO preparation_review_decisions(job_id,track_id,source_hash,settings_revision,generation,accepted_attempt,claimed_attempt,payload_json,binding_json,state,created,updated) VALUES(?1,?2,?3,?4,?5,?6,NULL,?7,?8,'pending',?9,?9) ON CONFLICT(job_id) DO UPDATE SET source_hash=excluded.source_hash,settings_revision=excluded.settings_revision,generation=excluded.generation,accepted_attempt=excluded.accepted_attempt,claimed_attempt=NULL,payload_json=excluded.payload_json,binding_json=excluded.binding_json,state='pending',updated=excluded.updated",params![job,capture.public.track_id,capture.public.source_sha256,capture.public.settings_revision,capture.public.generation,capture.public.attempt,payload,serde_json::to_string(&binding)?,now()])?;
     Ok(())
 }
