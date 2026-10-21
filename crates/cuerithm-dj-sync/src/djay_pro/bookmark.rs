@@ -66,13 +66,8 @@ fn read(bytes: &[u8]) -> Result<PathBuf> {
                 "invalid bookmark path array"
             );
             let mut path = PathBuf::from("/");
-            for offset in array.chunks_exact(4) {
-                let component = item(
-                    bytes,
-                    base,
-                    u32::from_le_bytes(offset.try_into()?) as usize,
-                    0x100,
-                )?;
+            for offset in array.as_chunks::<4>().0 {
+                let component = item(bytes, base, u32::from_le_bytes(*offset) as usize, 0x100)?;
                 let component =
                     std::str::from_utf8(component).context("invalid bookmark path UTF-8")?;
                 ensure!(
