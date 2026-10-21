@@ -3577,6 +3577,7 @@ dependencies = [
  "onetagger-tag",
  "onetagger-tagger",
  "reqwest 0.12.28",
+ "roxmltree",
  "scraper",
  "serde",
  "serde_json",
