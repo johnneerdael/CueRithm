@@ -1,4 +1,4 @@
-use cuerithm_autotag::{AutotagConfig, CatalogEndpoints, ProviderId, Tagger};
+use cuerithm_autotag::{AlbumHint, AutotagConfig, CatalogEndpoints, ProviderId, TagInput, Tagger};
 use std::{
     io::{Read, Write},
     net::TcpListener,
@@ -87,6 +87,64 @@ fn full_release_preserves_order_metadata_and_excludes_recommendations() {
         assert_eq!(track.catalog_number.as_deref(), Some("FIX001"));
         assert_eq!(track.release_date.unwrap().to_string(), "2026-01-02");
         assert_eq!(track.label.as_deref(), Some("Fixture Label"));
+    }
+}
+
+#[test]
+fn cached_release_matches_each_track_without_reopening_catalog_pages() {
+    let (tagger, server) = fixture(album());
+    let mut config = config();
+    config.options.album_tagging = true;
+    config.options.match_duration = true;
+    config.options.strictness = 1.;
+    config.options.tags = Tagger::provider_options()
+        .into_iter()
+        .find(|provider| provider.id == "traxsource")
+        .unwrap()
+        .supported_tags;
+    let cancel = Arc::new(AtomicBool::new(false));
+    let album = tagger
+        .get_album(ProviderId::Traxsource, "456", &config, &cancel)
+        .unwrap()
+        .unwrap();
+    assert!(server.join().unwrap().starts_with("GET /title/456/"));
+    // The fixture listener is closed: any redundant track/release request now fails.
+    let hint = AlbumHint {
+        provider: ProviderId::Traxsource,
+        album,
+    };
+    for track in &hint.album.tracks {
+        let input = TagInput {
+            path: "fixture.flac".into(),
+            source_sha256: "0".repeat(64),
+            duration_seconds: track.duration.as_secs_f64(),
+            media: cuerithm_media::MediaInfo {
+                codec: "flac".into(),
+                sample_rate: 44100,
+                channels: 2,
+                bits_per_sample: Some(16),
+                properties: Default::default(),
+                tags: [
+                    ("title".into(), track.full_title()),
+                    ("artist".into(), track.artists[0].clone()),
+                ]
+                .into(),
+            },
+        };
+        let result = tagger
+            .match_track_with_album(&input, &config, &cancel, Some(&hint))
+            .unwrap();
+        assert_eq!(result.matches.len(), 1);
+        assert_eq!(
+            result.matches[0].reason,
+            onetagger_tagger::MatchReason::Album
+        );
+        assert_eq!(&result.matches[0].track, track);
+        assert_eq!(
+            result.matches[0].track.art.as_deref(),
+            Some("https://example.test/art.jpg")
+        );
+        assert!(result.warnings.is_empty());
     }
 }
 #[test]

@@ -348,8 +348,14 @@ impl Tagger {
                 }
                 ensure!(!cancel.load(Ordering::Relaxed), "Tagging is stopping");
                 let mut matched = found.remove(0);
-                b.source
-                    .extend_cancellable(&mut matched.track, config, cancel)?;
+                // Traxsource album tracks already contain the full release metadata.
+                // Re-extending would fetch the track page and that same release again.
+                if provider != ProviderId::Traxsource
+                    || matched.reason != onetagger_tagger::MatchReason::Album
+                {
+                    b.source
+                        .extend_cancellable(&mut matched.track, config, cancel)?;
+                }
                 Ok(Some(matched))
             })();
             match result {
