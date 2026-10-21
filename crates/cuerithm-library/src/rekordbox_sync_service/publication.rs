@@ -9,15 +9,46 @@ fn mark(library: &Library, op: &mut Operation, status: &str) -> Result<()> {
     save(&connection, op)
 }
 fn current_target(
+    library: &Library,
+    require_current_configuration: bool,
     op: &Operation,
     cancel: &CancellationToken,
 ) -> Result<(DatabaseKey, DatabaseSchema)> {
     let paths = DiscoveryPaths::current()?;
-    let current = resolve_target(&op.target.id, &paths, cancel)?;
-    ensure!(
-        digest(&current)? == digest(&op.target)?,
-        "Discovered native destination changed"
-    );
+    verify_environment(op, cancel)?;
+    let current = if require_current_configuration {
+        if let Some(binding) = &op.configuration {
+            library.verify_sync_target_configuration(
+                binding,
+                &SavedSyncTarget::Rekordbox {
+                    target: op
+                        .configuration_target
+                        .as_ref()
+                        .unwrap_or(&op.target)
+                        .clone(),
+                },
+            )?;
+        }
+        let current = resolve_request_target(library, &op.request, &paths, cancel)?;
+        ensure!(
+            digest(&current)? == digest(&op.target)?,
+            "Configured native destination changed"
+        );
+        if matches!(
+            current.installation.version_source.as_str(),
+            "version_resource" | "bundle_plist"
+        ) {
+            let inspected = inspect_manual_installation(&current.installation.executable, None)?;
+            ensure!(
+                inspected.version == current.installation.version
+                    && inspected.major == current.installation.major,
+                "Installed rekordbox version changed; create a new preview"
+            );
+        }
+        current
+    } else {
+        op.target.clone()
+    };
     let key = key_for(&current, paths.platform, cancel)?;
     let db = ReadOnlyDatabase::open(&current.database, &key)?;
     let schema = db.schema()?;
@@ -132,8 +163,10 @@ fn acknowledge(
         "Native publication proof changed before acknowledgement"
     );
     transaction(library, op)?.verify_applied()?;
+    verify_environment(op, cancel)?;
     verify_sources(library, op, cancel)?;
-    let collection = lease.read_collection(CollectionReadOptions::default(), cancel)?;
+    let mut collection = lease.read_collection(CollectionReadOptions::default(), cancel)?;
+    project_collection(&op.target, &mut collection)?;
     // A new native content path may be a separately published compatible copy.
     // Bind its verified identity to the ORIGINAL local track before observation,
     // so import cannot create a second local song or preparation job for a copy.
@@ -190,6 +223,7 @@ fn acknowledge(
         .tag_gate
         .lock()
         .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+    verify_environment(op, cancel)?;
     verify_sources(library, op, cancel)?;
     let mut connection = library.conn()?;
     let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
@@ -268,9 +302,11 @@ fn acknowledge(
                 ensure!(
                     published
                         .source
-                        .path
+                        .resolved_path
                         .as_deref()
-                        .is_some_and(|path| Path::new(path) == media.native_path),
+                        .is_some_and(|path| Path::new(path).canonicalize().ok().is_some_and(
+                            |physical| media.native_path.canonicalize().ok() == Some(physical)
+                        )),
                     "Published native audio relationship differs from the prepared source proof"
                 );
             }
@@ -374,6 +410,7 @@ fn apply(
         .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
     cancel.check()?;
     guard()?;
+    verify_environment(op, cancel)?;
     verify_sources(library, op, cancel)?;
     {
         let connection = library.conn()?;
@@ -394,6 +431,7 @@ fn apply(
     files.apply(|| {
         cancel.check()?;
         lease.state(cancel)?;
+        verify_environment(op, cancel)?;
         guard()?;
         Ok(())
     })?;
@@ -406,6 +444,7 @@ fn apply(
         lease.apply_rows_frozen_checked(&op.plan, &op.before, &op.after, cancel, || {
             verify_local_rows(&local_tx, op)?;
             verify_native_observation(&local_tx, op)?;
+            verify_environment(op, cancel)?;
             verify_source_bytes(op, cancel)?;
             files.verify_applied()?;
             guard()?;
@@ -458,6 +497,7 @@ fn restore_finish(
         .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
     guard()?;
     cancel.check()?;
+    verify_environment(op, cancel)?;
     verify_restore_sources(op, cancel)?;
     verify_ledger(library, op)?;
     if op.status != "restoring" {
@@ -501,6 +541,7 @@ fn restore_finish(
         transaction(library, op)?.verify_applied()?;
         // Switch database references back FIRST. Old immutable assets were never
         // replaced. Only then remove newly created versioned resources.
+        verify_environment(op, cancel)?;
         guard()?;
         let restored =
             lease.restore_snapshot_checked(snapshot, key, &op.before, &op.after, cancel)?;
@@ -512,6 +553,7 @@ fn restore_finish(
     transaction(library, op)?.restore(|| {
         cancel.check()?;
         lease.state(cancel)?;
+        verify_environment(op, cancel)?;
         guard()?;
         Ok(())
     })?;
@@ -539,6 +581,7 @@ fn recover(
     }
     cancel.check()?;
     guard()?;
+    verify_environment(op, cancel)?;
     let lease = NativeDatabaseLease::acquire(&op.target.database, key, cancel)?;
     ensure!(
         matches!(op.status.as_str(), "publishing" | "native_published"),
@@ -562,6 +605,7 @@ fn recover(
     transaction(library, op)?.restore(|| {
         cancel.check()?;
         lease.state(cancel)?;
+        verify_environment(op, cancel)?;
         guard()?;
         Ok(())
     })?;
@@ -582,7 +626,7 @@ impl Library {
         if op.status == "applied" {
             return op.outcome.context("Applied native outcome missing");
         }
-        let (key, _) = current_target(&op, cancel)?;
+        let (key, _) = current_target(self, true, &op, cancel)?;
         apply(self, &mut op, &key, cancel, &ensure_closed)
     }
     pub fn restore_rekordbox_sync(
@@ -599,7 +643,7 @@ impl Library {
             matches!(op.status.as_str(), "applied" | "native_published"),
             "Recover the interrupted native operation before restoring"
         );
-        let (key, _) = current_target(&op, cancel)?;
+        let (key, _) = current_target(self, false, &op, cancel)?;
         restore_finish(self, &mut op, &key, cancel, &ensure_closed)
     }
     pub fn recover_rekordbox_sync(
@@ -612,7 +656,7 @@ impl Library {
         if matches!(op.status.as_str(), "applied" | "restored" | "rolled_back") {
             return op.outcome.context("Settled native outcome missing");
         }
-        let (key, _) = current_target(&op, cancel)?;
+        let (key, _) = current_target(self, false, &op, cancel)?;
         recover(self, &mut op, &key, cancel, &ensure_closed)
     }
 }

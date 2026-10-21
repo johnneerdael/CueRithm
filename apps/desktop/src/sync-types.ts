@@ -1,6 +1,7 @@
 import type {NativePath} from "./native-paths";
+import type {TargetEnvironment,SyncConfigurationBinding} from "./sync-target-types";
 export type DjSoftware="virtual_dj"|"engine_dj"|"djay_pro"|"serato4"|"pioneer_usb";
-export interface SyncTarget {software:DjSoftware;path:NativePath;source_root:NativePath|null}
+export interface SyncTarget {software:DjSoftware;path:NativePath;source_root:NativePath|null;environment?:TargetEnvironment}
 export interface DiscoveredTarget {software:DjSoftware;path:string}
 export type SyncTextField="title"|"artist"|"album"|"genre"|"label"|"comment"|"key";
 export interface SyncOptions {
@@ -17,7 +18,7 @@ export interface SyncOptions {
   add_album_art:boolean;
   extra_cue_markers:boolean;
 }
-export interface DjSyncRequest {target:SyncTarget;scope:{type:"full"}|{type:"playlist";id:string}|{type:"changed"};options:SyncOptions}
+export interface DjSyncRequest {target:SyncTarget;scope:{type:"full"}|{type:"playlist";id:string}|{type:"changed"};options:SyncOptions;configuration?:SyncConfigurationBinding|null}
 export interface FileChange {target:NativePath;before_sha256:string|null;after_sha256:string|null;bytes:number}
 export interface DirectoryChange {target:NativePath;before_manifest:unknown;after_exists:boolean}
 export interface CaseRenameChange {from:NativePath;to:NativePath}

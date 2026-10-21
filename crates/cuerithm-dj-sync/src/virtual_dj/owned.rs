@@ -10,7 +10,12 @@ fn relative(path: &Path) -> Result<PathBuf> {
     ensure!(
         path.components()
             .all(|c| matches!(c, std::path::Component::Normal(_)))
-            && path.starts_with(NAMESPACE),
+            && (path.starts_with(NAMESPACE)
+                || path.starts_with("Playlists/CueRithm")
+                || (path.parent() == Some(Path::new("Folders/Filters"))
+                    && path
+                        .file_name()
+                        .is_some_and(|name| name.to_string_lossy().starts_with("CueRithm-")))),
         "Invalid VirtualDJ ownership path"
     );
     Ok(path.into())
@@ -65,6 +70,16 @@ fn order_files(
     }
     Ok(())
 }
+fn order_name(home: &Path, path: &Path) -> String {
+    if home.join("MyLists").is_dir() {
+        path.file_stem()
+    } else {
+        path.file_name()
+    }
+    .unwrap()
+    .to_string_lossy()
+    .into_owned()
+}
 fn merge_order(previous: Vec<String>, selected: Vec<String>) -> Vec<String> {
     let selected_set: BTreeSet<_> = selected.iter().cloned().collect();
     let mut pending = selected.into_iter();
@@ -88,8 +103,27 @@ pub fn write_owned(
     options: &SyncOptions,
     request: &PlaylistOwnershipRequest,
 ) -> Result<PlaylistOwnershipReport> {
+    write_owned_partitioned(path, library, &library.tracks, options, request)
+}
+pub fn write_owned_partitioned(
+    path: &Path,
+    library: &SyncLibrary,
+    database_tracks: &[crate::SyncTrack],
+    options: &SyncOptions,
+    request: &PlaylistOwnershipRequest,
+) -> Result<PlaylistOwnershipReport> {
+    let home = if path.is_dir() {
+        path.to_owned()
+    } else {
+        path.parent().context("VirtualDJ home missing")?.to_owned()
+    };
+    let identity = if home.join("MyLists").is_dir() {
+        IDENTITY
+    } else {
+        "virtualdj-8.5-legacy"
+    };
     ensure!(
-        request.previous.identity.is_empty() || request.previous.identity == IDENTITY,
+        request.previous.identity.is_empty() || request.previous.identity == identity,
         "VirtualDJ library identity changed"
     );
     let database = if path.is_dir() {
@@ -127,28 +161,22 @@ pub fn write_owned(
         }
     }
     let files = playlist_files(home, library, options)?;
-    let mut destinations = BTreeMap::<String, PathBuf>::new();
-    // The ordinary generator gives exact paths including empty-folder order files.
-    for node in &library.playlists {
-        let mut parts = vec![playlist_component(node)];
-        let mut parent = node.parent_id.as_ref();
-        let mut seen = BTreeSet::new();
-        while let Some(id) = parent {
-            ensure!(seen.insert(id), "Cyclic VirtualDJ source hierarchy");
-            let p = library
-                .playlists
-                .iter()
-                .find(|p| &p.id == id)
-                .context("VirtualDJ parent missing")?;
-            parts.push(playlist_component(p));
-            parent = p.parent_id.as_ref();
-        }
-        let mut relative = PathBuf::from(NAMESPACE);
-        for part in parts.into_iter().rev() {
-            relative.push(part);
-        }
-        destinations.insert(node.id.clone(), relative);
-    }
+    let mut destinations: BTreeMap<String, PathBuf> = playlist_paths(home, library, options)?
+        .into_iter()
+        .map(|(id, path)| Ok((id, path.strip_prefix(home)?.to_owned())))
+        .collect::<Result<_>>()?;
+    let folder_ids: BTreeSet<_> = library
+        .playlists
+        .iter()
+        .filter(|p| p.folder)
+        .map(|p| p.id.clone())
+        .chain(
+            previous
+                .values()
+                .filter(|b| home.join(&b.locator).is_dir())
+                .map(|b| b.source_id.clone()),
+        )
+        .collect();
     let folder_moves: Vec<_> = library
         .playlists
         .iter()
@@ -228,7 +256,12 @@ pub fn write_owned(
         }
     }
     let mut originals = BTreeMap::new();
-    order_files(home, &home.join(NAMESPACE), &mut originals)?;
+    let namespace = if home.join("MyLists").is_dir() {
+        NAMESPACE
+    } else {
+        "Playlists/CueRithm"
+    };
+    order_files(home, &home.join(namespace), &mut originals)?;
     let mut transformed_orders = BTreeMap::<PathBuf, Vec<String>>::new();
     for (dir, entries) in originals {
         if deleted.iter().any(|id| {
@@ -241,10 +274,9 @@ pub fn write_owned(
         let new_dir = translated(&dir);
         let target = transformed_orders.entry(new_dir.clone()).or_default();
         for entry in entries {
-            let owned = old_paths.iter().find(|(p, _)| {
-                p.parent() == Some(dir.as_path())
-                    && p.file_stem().is_some_and(|s| s == entry.as_str())
-            });
+            let owned = old_paths
+                .iter()
+                .find(|(p, _)| p.parent() == Some(dir.as_path()) && order_name(home, p) == entry);
             if let Some((_, id)) = owned {
                 if retired.contains(id) {
                     target.push(entry);
@@ -253,7 +285,7 @@ pub fn write_owned(
                 if let Some(new) = destinations.get(id)
                     && new.parent() == Some(new_dir.as_path())
                 {
-                    target.push(new.file_stem().unwrap().to_string_lossy().into_owned());
+                    target.push(order_name(home, new));
                 }
             } else {
                 target.push(entry);
@@ -314,11 +346,11 @@ pub fn write_owned(
         }
     }
     for (id, destination) in &destinations {
-        if destination.extension().is_some_and(|s| s == "subfolders") && !retired.contains(id) {
+        if folder_ids.contains(id) && !retired.contains(id) {
             fs::create_dir_all(home.join(destination))?;
         }
     }
-    super::write(&database, library, options)?;
+    super::write_partitioned(&database, library, database_tracks, options)?;
     for (file, bytes) in files {
         if file.file_name().is_some_and(|s| s == "order") {
             let dir = file.parent().unwrap().strip_prefix(home)?.to_path_buf();
@@ -368,7 +400,7 @@ pub fn write_owned(
     }
     Ok(PlaylistOwnershipReport {
         current: PlaylistOwnership {
-            identity: IDENTITY.into(),
+            identity: identity.into(),
             bindings: bindings.into_values().collect(),
         },
         deleted,
@@ -382,6 +414,7 @@ mod tests {
     fn fixture() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().canonicalize().unwrap().join("database.xml");
+        fs::create_dir(path.parent().unwrap().join("MyLists")).unwrap();
         fs::write(&path, b"<VirtualDJ_Database Version=\"8.5\"/>").unwrap();
         (dir, path)
     }
@@ -409,6 +442,114 @@ mod tests {
                 },
             ],
         }
+    }
+    #[test]
+    fn windows_context_virtualdj_legacy_playlists_preserve_capability_and_owned_removal() {
+        let (_dir, path) = fixture();
+        let home = path.parent().unwrap();
+        fs::remove_dir(home.join("MyLists")).unwrap();
+        fs::create_dir(home.join("Playlists")).unwrap();
+        fs::write(home.join("Playlists/foreign.m3u"), b"foreign").unwrap();
+        let mut input = library("Sets");
+        input.tracks.push(crate::SyncTrack {
+            native_path: None,
+            id: "one".into(),
+            path: PathBuf::from(r"D:\Music\one.wav"),
+            ..Default::default()
+        });
+        input.playlists[1].track_ids.push("one".into());
+        let first = write_owned(&path, &input, &Default::default(), &Default::default()).unwrap();
+        assert!(!home.join("MyLists").exists());
+        let leaf = first
+            .current
+            .bindings
+            .iter()
+            .find(|b| b.source_id == "leaf")
+            .unwrap();
+        assert!(leaf.locator.starts_with("Playlists/CueRithm/"));
+        assert!(leaf.locator.ends_with(".m3u"));
+        assert_eq!(
+            fs::read_to_string(home.join(&leaf.locator)).unwrap(),
+            "#EXTVDJ:\nD:\\Music\\one.wav\n"
+        );
+        input.playlists.retain(|p| p.id != "leaf");
+        let removed = write_owned(
+            &path,
+            &input,
+            &Default::default(),
+            &PlaylistOwnershipRequest {
+                previous: first.current.clone(),
+                removed: BTreeSet::from(["leaf".into()]),
+            },
+        )
+        .unwrap();
+        assert!(removed.deleted.contains("leaf"));
+        assert!(!home.join(&leaf.locator).exists());
+        assert_eq!(
+            fs::read(home.join("Playlists/foreign.m3u")).unwrap(),
+            b"foreign"
+        );
+    }
+    #[test]
+    fn legacy_native_filter_materialization_moves_only_its_owned_representation() {
+        use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+        let (_dir, path) = fixture();
+        let home = path.parent().unwrap();
+        fs::remove_dir(home.join("MyLists")).unwrap();
+        fs::create_dir_all(home.join("Folders/Filters")).unwrap();
+        let foreign = home.join("Folders/Filters/foreign.vdjfolder");
+        fs::write(&foreign, b"native foreign filter").unwrap();
+        let mut input = library("Sets");
+        input.playlists[1].smart = Some(SmartDefinition {
+            match_all: true,
+            rules: vec![SmartRule {
+                id: "rule".into(),
+                field: "artist".into(),
+                operator: Operator::StringContains,
+                value: RuleValue::Text("Authored".into()),
+                or: false,
+            }],
+        });
+        let native = write_owned(&path, &input, &Default::default(), &Default::default()).unwrap();
+        let filter = native
+            .current
+            .bindings
+            .iter()
+            .find(|b| b.source_id == "leaf")
+            .unwrap();
+        assert_eq!(
+            Path::new(&filter.locator).parent(),
+            Some(Path::new("Folders/Filters"))
+        );
+        assert_eq!(
+            parse(&fs::read(home.join(&filter.locator)).unwrap())
+                .unwrap()
+                .name,
+            "FilterFolder"
+        );
+        let materialized = write_owned(
+            &path,
+            &input,
+            &SyncOptions {
+                materialize_smartlists: true,
+                ..Default::default()
+            },
+            &PlaylistOwnershipRequest {
+                previous: native.current.clone(),
+                removed: Default::default(),
+            },
+        )
+        .unwrap();
+        assert!(!home.join(&filter.locator).exists());
+        let list = materialized
+            .current
+            .bindings
+            .iter()
+            .find(|b| b.source_id == "leaf")
+            .unwrap();
+        assert!(list.locator.ends_with(".m3u"));
+        assert_eq!(fs::read(foreign).unwrap(), b"native foreign filter");
+        assert!(!home.join("MyLists").exists());
     }
     #[test]
     fn dotted_names_keep_owned_hierarchy_distinct_paths_and_order() {

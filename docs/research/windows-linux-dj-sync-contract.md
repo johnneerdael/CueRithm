@@ -1,7 +1,7 @@
 # Windows and Linux DJ sync contract audit
 
 Date: 2026-10-21. Scope: the existing CueRithm destinations, Windows Lexicon
-1.11.14, and the proposed Linux Wine/Proton target flow. This is a contract audit,
+1.11.14, and the Linux Wine/Proton target flow. This is a contract audit,
 not a claim that every target application was run on Windows or Linux.
 
 ## Provenance and evidence levels
@@ -24,12 +24,12 @@ source music, identifying library records or credentials are published.
 
 | Destination | Seen contract or gap | Implementation status |
 | --- | --- | --- |
-| VirtualDJ | Windows includes `virtualdj8.exe`, a configurable home folder, per-drive databases, and modern versus legacy playlist layouts. | Process aliases, native Windows HomeFolder discovery and matched POI payload preservation corrected; Wine setup, routing and layout work remain. |
-| Engine DJ | Windows relative paths can require cross-drive absolute references. Copying audio remains a distinct option. | Current cross-drive restriction needs target-context handling. |
-| djay | Windows file URI encoding differs from a simple POSIX URI. Bitrate and album track number are represented in native records. | Numeric fields and equivalent Windows URI matching corrected; explicit Windows context remains. |
-| Serato 4 | Root, external and network library routing is distinct; native play counts have no current local producer. | Retain existing routing and native play history; explicit drive context remains. |
+| VirtualDJ | Windows includes `virtualdj8.exe`, a configurable home folder, per-drive databases, and modern versus legacy playlist layouts. | Process aliases, native HomeFolder discovery, POI preservation, mapped drive routing and observed playlist layouts implemented. |
+| Engine DJ | Windows relative paths can require cross-drive absolute references. Copying audio remains a distinct option. | Mapped desktop references distinguish same-drive relative and cross-drive absolute paths; device-copy behavior remains separate. |
+| djay | Windows file URI encoding differs from a simple POSIX URI. Bitrate and album track number are represented in native records. | Numeric fields, equivalent URI identity and mapped source references implemented. |
+| Serato 4 | Root, external and network library routing is distinct; native play counts have no current local producer. | Explicit drive context keeps physical routing separate from native references and preserves native history. |
 | Pioneer USB | Legacy ANLZ and modern SQL encode loop activation independently. Both catalogs carry bitrate and track number. | Activation and numeric fields corrected; converted PCM copies use output bitrate. |
-| Native rekordbox 6/7 | Windows settings use roaming Pioneer directories and the same desktop data/asset families. | Replace exact-build restriction with supported schema/protocol checks and add manual Windows/Wine configuration. |
+| Native rekordbox 6/7 | Windows settings use roaming Pioneer directories and the same desktop data/asset families. | Supported family/schema/header/asset checks replace the exact-build gate; manual Windows/Wine targets and captured context implemented. |
 
 ## Confirmed corrections
 
@@ -84,9 +84,12 @@ and URIs stored in the target database. Equivalent mapped references must reuse
 native identities. Mapping and installation changes must invalidate previews and
 remain captured for recovery and restore.
 
-The existing general Sync screen already accepts a manual library path, but
-that alone does not establish Windows/Wine parity. The native rekordbox screen
-also needs manual target configuration. The proposed design is recorded in
+Both Sync screens now expose saved manual target configuration. The shared setup
+separates Native from Windows through Wine/Proton, with explicit prefix,
+installation and mappings. Native rekordbox also accepts selected executable,
+database, Agent options and asset locations. Saving never starts publication.
+Configuration revisions and frozen filesystem observations invalidate stale
+previews; recovery and restore retain captured context. The approved design is in
 `../superpowers/specs/2026-10-21-windows-linux-dj-sync-parity-design.md`.
 
 ## Independent checks and limits

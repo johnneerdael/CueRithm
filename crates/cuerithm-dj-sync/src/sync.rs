@@ -20,12 +20,30 @@ pub type PlaylistOwnershipReports =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncTarget {
     pub software: DjSoftware,
+    #[serde(
+        default,
+        skip_serializing_if = "cuerithm_rekordbox::TargetEnvironment::is_native"
+    )]
+    pub environment: cuerithm_rekordbox::TargetEnvironment,
     /// Native database path; Pioneer USB uses its drive root.
     #[serde(with = "crate::path_serde")]
     pub path: PathBuf,
     /// Original external/network volume root for a Serato location database.
     #[serde(default, with = "crate::path_serde::option")]
     pub source_root: Option<PathBuf>,
+}
+impl SyncTarget {
+    /// The selected installation is a preview precondition, not a library identity.
+    pub fn identity_target(&self) -> Self {
+        let mut target = self.clone();
+        if let cuerithm_rekordbox::TargetEnvironment::WindowsCompatibility {
+            installation, ..
+        } = &mut target.environment
+        {
+            *installation = None;
+        }
+        target
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncPreview {
@@ -47,6 +65,14 @@ pub struct SyncPreview {
 }
 #[derive(Serialize, Deserialize)]
 struct PreparedRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    related_roots: Vec<cuerithm_rekordbox::TargetPathSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_root: Option<cuerithm_rekordbox::TargetPathSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    selected_target: Option<SyncTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    environment: Option<cuerithm_rekordbox::TargetEnvironmentSnapshot>,
     target: SyncTarget,
     #[serde(with = "crate::path_serde::map")]
     sources: BTreeMap<PathBuf, Option<String>>,
@@ -248,6 +274,120 @@ fn engine_device_library(root: &Path) -> bool {
         || root.starts_with("/mnt")
 }
 
+/// Remove filesystem-only Windows verbatim prefixes from a serialized DJ reference.
+pub fn destination_reference(path: &Path) -> PathBuf {
+    let Some(text) = path.to_str() else {
+        return path.to_owned();
+    };
+    if let Some(local) = text.strip_prefix("\\\\?\\") {
+        if local
+            .get(..4)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("UNC\\"))
+        {
+            return PathBuf::from(format!("\\\\{}", &local[4..]));
+        }
+        if local.as_bytes().get(1) == Some(&b':') {
+            return PathBuf::from(local);
+        }
+    }
+    path.to_owned()
+}
+
+pub(crate) fn windows_volume_root(path: &Path) -> Option<String> {
+    let reference = destination_reference(path);
+    let path = reference.to_str()?.replace('\\', "/");
+    let path = path.strip_prefix("//?/").unwrap_or(&path);
+    if path.as_bytes().get(1) == Some(&b':') && path.as_bytes().get(2) == Some(&b'/') {
+        return Some(path[..3].to_owned());
+    }
+    let unc = path.strip_prefix("//")?;
+    let mut parts = unc.split('/');
+    let server = parts.next()?;
+    let share = parts.next()?;
+    (!server.is_empty() && !share.is_empty()).then(|| format!("//{server}/{share}"))
+}
+
+fn compatibility_serato_library(
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<PathBuf> {
+    let users = environment.to_host(Path::new("C:\\users"))?;
+    let mut candidates = Vec::new();
+    let mut inspected = 0usize;
+    for user in fs::read_dir(users)? {
+        inspected += 1;
+        ensure!(
+            inspected <= 256,
+            "Too many Windows user folders; select the Serato root library explicitly"
+        );
+        let user = user?;
+        if user.file_type()?.is_dir() {
+            let library = user.path().join("AppData/Local/Serato/Library");
+            if library.join("master.sqlite").is_file() {
+                candidates.push(library);
+            }
+        }
+    }
+    ensure!(
+        candidates.len() == 1,
+        "Select the Windows Serato root library; no unambiguous master database was found in the selected drive mapping"
+    );
+    Ok(candidates.remove(0))
+}
+
+fn project_windows_smartlists(
+    library: &mut SyncLibrary,
+    target: &SyncTarget,
+    options: &SyncOptions,
+) -> Vec<String> {
+    use cuerithm_smartlists::{Operator, RuleValue};
+    if target.environment.is_native() || options.materialize_smartlists {
+        return vec![];
+    }
+    let mut warnings = Vec::new();
+    for playlist in &mut library.playlists {
+        let Some(definition) = &mut playlist.smart else {
+            continue;
+        };
+        let mut reason = None;
+        if target.software == DjSoftware::DjayPro {
+            reason = Some("current djay on Windows requires ordinary playlists");
+        }
+        for rule in &mut definition.rules {
+            if rule.field != "location" {
+                continue;
+            }
+            let RuleValue::Text(value) = &mut rule.value else {
+                reason = Some("its location rule cannot be used with these Windows paths");
+                break;
+            };
+            let path = Path::new(value);
+            if !path.is_absolute()
+                || !matches!(
+                    rule.operator,
+                    Operator::StringEquals | Operator::StringNotEquals
+                )
+            {
+                reason =
+                    Some("its location rule could match different tracks with these Windows paths");
+                break;
+            }
+            let Ok(native) = target.environment.to_native(path) else {
+                reason = Some("its location rule has no clear Windows drive mapping");
+                break;
+            };
+            *value = native.to_string_lossy().into_owned();
+        }
+        if let Some(reason) = reason {
+            playlist.smart = None;
+            warnings.push(format!(
+                "Smart playlist '{}' exports its saved tracks because {reason}",
+                playlist.name
+            ));
+        }
+    }
+    warnings
+}
+
 fn serato_group(
     library: &SyncLibrary,
     tracks: Vec<crate::SyncTrack>,
@@ -356,8 +496,17 @@ pub fn prepare_sync_owned_with_runtime(
     } else {
         crate::timing::export_library(&library, target.software)?
     };
-    let library = &library;
+    let mut library = library;
+    // Destination projections never replace the physical source evidence and are
+    // always derived here, including when a caller supplied native_path.
+    let environment = target.environment.freeze()?;
     ensure_closed(target.software)?;
+    let selected_target = target.clone();
+    let target_root = cuerithm_rekordbox::TargetPathSnapshot::capture(if target.path.is_dir() {
+        &target.path
+    } else {
+        target.path.parent().context("DJ library parent missing")?
+    })?;
     let mut target = target;
     target.path = fs::canonicalize(&target.path)
         .context("DJ target was not found; initialize it in the DJ app first")?;
@@ -391,12 +540,67 @@ pub fn prepare_sync_owned_with_runtime(
         sources.insert(track.path.clone(), Some(hash));
         input_paths.insert(fs::canonicalize(&track.path)?);
     }
+    let copies_media = match target.software {
+        DjSoftware::PioneerUsb => true,
+        DjSoftware::EngineDj => {
+            let database = crate::engine_dj::resolve_database_path(&target.path)?;
+            let root = database
+                .parent()
+                .and_then(Path::parent)
+                .context("Engine Library folder is missing")?;
+            options.engine_copy_audio || engine_device_library(&target.environment.to_native(root)?)
+        }
+        _ => false,
+    };
+    let mut references = std::collections::BTreeSet::new();
+    for track in &mut library.tracks {
+        track.native_path = None;
+        // Device-owned audio is named by the adapter after copying; the original
+        // physical source does not need a destination-visible Windows spelling.
+        if copies_media {
+            continue;
+        }
+        let reference = destination_reference(&target.environment.to_native(&track.path)?);
+        track.native_path = (reference != track.path).then_some(reference);
+        if !target.environment.is_native()
+            || cfg!(windows)
+            || matches!(target.software, DjSoftware::VirtualDj | DjSoftware::Serato4)
+        {
+            let reference = track
+                .reference_path()
+                .to_str()
+                .context("Destination requires Unicode source paths")?
+                .replace('\\', "/")
+                .to_lowercase();
+            ensure!(
+                references.insert(reference),
+                "Selected source paths collide in the Windows destination"
+            );
+        }
+    }
+    let mut context_warnings = Vec::new();
+    if copies_media {
+        for playlist in &mut library.playlists {
+            if playlist.smart.as_ref().is_some_and(|definition| {
+                definition.rules.iter().any(|rule| rule.field == "location")
+            }) {
+                playlist.smart = None;
+                if !options.materialize_smartlists {
+                    context_warnings.push(format!("Smart playlist '{}' exports its saved tracks because copied audio uses new file locations",playlist.name));
+                }
+            }
+        }
+    }
+    context_warnings.extend(project_windows_smartlists(&mut library, &target, options));
+    let library = &library;
     let mut replacements: BTreeMap<PathBuf, PathBuf> = BTreeMap::new();
     let mut deletions = std::collections::BTreeSet::<PathBuf>::new();
     let mut directories = Vec::<crate::transaction::DirectoryChange>::new();
     let mut warnings = crate::smart_fallbacks(library, options, target.software);
+    warnings.extend(context_warnings);
     let mut ownership = PlaylistOwnershipReports::new();
     let empty_ownership = crate::ownership::PlaylistOwnershipRequest::default();
+    let mut related_roots = Vec::new();
     match target.software {
         DjSoftware::Rekordbox => anyhow::bail!("Use the native rekordbox collection workflow"),
         DjSoftware::VirtualDj => {
@@ -406,25 +610,64 @@ pub fn prepare_sync_owned_with_runtime(
                 target.path.clone()
             };
             let home = original.parent().context("VirtualDJ folder missing")?;
+            let primary_volume = windows_volume_root(&target.environment.to_native(&original)?);
+            let mut local_tracks = Vec::new();
+            let mut other_drives = BTreeMap::<PathBuf, Vec<crate::SyncTrack>>::new();
+            for track in &library.tracks {
+                let volume = windows_volume_root(track.reference_path());
+                if let Some(volume) = volume.filter(|volume| {
+                    primary_volume
+                        .as_ref()
+                        .is_some_and(|primary| !primary.eq_ignore_ascii_case(volume))
+                }) {
+                    let native = PathBuf::from(format!(
+                        "{}/VirtualDJ/database.xml",
+                        volume.trim_end_matches('/')
+                    ));
+                    let database = target.environment.to_host(&native)?;
+                    ensure!(
+                        database.is_file(),
+                        "VirtualDJ drive database is missing; initialize this drive in VirtualDJ first"
+                    );
+                    other_drives
+                        .entry(fs::canonicalize(database)?)
+                        .or_default()
+                        .push(track.clone());
+                } else {
+                    local_tracks.push(track.clone());
+                }
+            }
             let stage = build.join("virtualdj");
             let database = stage.join("database.xml");
             let mut captured = DirectorySnapshots::new();
-            for directory in [home.to_path_buf(), home.join("MyLists")] {
+            for directory in [
+                home.to_path_buf(),
+                home.join("MyLists"),
+                home.join("Playlists"),
+                home.join("Folders"),
+            ] {
                 captured.insert(
                     directory.clone(),
                     crate::transaction::directory_manifest(&directory)?,
                 );
             }
             copy_file(&original, &database, &mut before)?;
-            copy_tree(
-                &home.join("MyLists/CueRithm.subfolders"),
-                &stage.join("MyLists/CueRithm.subfolders"),
-                &mut before,
-                &mut captured,
-            )?;
-            let report = crate::virtual_dj::write_owned(
+            let playlist_roots = crate::virtual_dj::playlist_roots(home);
+            if home.join("MyLists").is_dir() {
+                fs::create_dir_all(stage.join("MyLists"))?;
+            }
+            for root in &playlist_roots {
+                copy_tree(
+                    root,
+                    &stage.join(root.strip_prefix(home)?),
+                    &mut before,
+                    &mut captured,
+                )?;
+            }
+            let report = crate::virtual_dj::write_owned_partitioned(
                 &database,
                 library,
+                &local_tracks,
                 options,
                 contexts
                     .get(&original)
@@ -460,7 +703,7 @@ pub fn prepare_sync_owned_with_runtime(
                 .collect();
             directories.extend(stage_directory_plan(&stage, home, Some(&captured))?);
             for (path, manifest) in &captured {
-                if path.starts_with(home.join("MyLists/CueRithm.subfolders"))
+                if playlist_roots.iter().any(|root| path.starts_with(root))
                     && manifest.is_some()
                     && !stage.join(path.strip_prefix(home)?).is_dir()
                 {
@@ -472,11 +715,37 @@ pub fn prepare_sync_owned_with_runtime(
                 }
             }
             for path in before.keys() {
-                if path.starts_with(home.join("MyLists/CueRithm.subfolders"))
+                if playlist_roots.iter().any(|root| path.starts_with(root))
                     && !replacements.contains_key(path)
                 {
                     deletions.insert(path.clone());
                 }
+            }
+            for (index, (original, tracks)) in other_drives.into_iter().enumerate() {
+                let stage = build
+                    .join("virtualdj-drives")
+                    .join(index.to_string())
+                    .join("database.xml");
+                related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(
+                    original
+                        .parent()
+                        .context("VirtualDJ drive library parent missing")?,
+                )?);
+                copy_file(&original, &stage, &mut before)?;
+                let group = SyncLibrary {
+                    tracks,
+                    playlists: vec![],
+                };
+                let report = crate::virtual_dj::write_owned(
+                    &stage,
+                    &group,
+                    options,
+                    contexts
+                        .get(&original)
+                        .map_or(&empty_ownership, |(_, request)| request),
+                )?;
+                ownership.insert(original.clone(), (None, report));
+                replacements.insert(original, stage);
             }
         }
         DjSoftware::EngineDj => {
@@ -485,9 +754,10 @@ pub fn prepare_sync_owned_with_runtime(
                 .parent()
                 .and_then(Path::parent)
                 .context("Engine Library folder is missing")?;
+            related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(root)?);
             let stage = build.join("engine/Database2/m.db");
             sqlite_snapshot(&database, &stage, &mut before)?;
-            let portable = options.engine_copy_audio || engine_device_library(root);
+            let portable = copies_media;
             if portable {
                 let (projected, media) =
                     crate::engine_dj::stage_device_media(&build.join("engine"), root, library)?;
@@ -509,7 +779,7 @@ pub fn prepare_sync_owned_with_runtime(
             } else {
                 let report = crate::engine_dj::write_staged_owned(
                     &stage,
-                    root,
+                    &destination_reference(&target.environment.to_native(root)?),
                     library,
                     options,
                     contexts
@@ -557,6 +827,8 @@ pub fn prepare_sync_owned_with_runtime(
             let parent = database.parent().context("Serato Library folder missing")?;
             let local_library = if parent.join("master.sqlite").is_file() {
                 parent.to_path_buf()
+            } else if target.source_root.is_some() && !target.environment.is_native() {
+                compatibility_serato_library(&target.environment)?
             } else if target.source_root.is_some() {
                 #[cfg(windows)]
                 let local = std::env::var_os("LOCALAPPDATA")
@@ -577,6 +849,9 @@ pub fn prepare_sync_owned_with_runtime(
                 master.is_file(),
                 "Open and close Serato 4 to initialize its master database"
             );
+            related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(
+                &local_library,
+            )?);
             let staged_master = build.join("serato/master.sqlite");
             sqlite_snapshot(&master, &staged_master, &mut before)?;
             let mut master_request = contexts
@@ -593,8 +868,11 @@ pub fn prepare_sync_owned_with_runtime(
             } else {
                 groups.insert(database.clone(), (None, vec![]));
                 for track in &library.tracks {
-                    let (path, root) =
-                        crate::serato4::location_for_track(&local_library, &track.path)?;
+                    let (path, root) = crate::serato4::location_for_track_in_environment(
+                        &local_library,
+                        &track.path,
+                        &target.environment,
+                    )?;
                     groups
                         .entry(path)
                         .or_insert_with(|| (root, vec![]))
@@ -610,7 +888,13 @@ pub fn prepare_sync_owned_with_runtime(
                 }
             }
             for (index, (original, (root, tracks))) in groups.into_iter().enumerate() {
+                related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(
+                    original
+                        .parent()
+                        .context("Serato location parent missing")?,
+                )?);
                 if let Some(root) = &root {
+                    related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(root)?);
                     let info = root.join("_Serato_/Library/location.info");
                     if info.exists() {
                         sources.insert(info.clone(), file_hash(&info)?);
@@ -629,7 +913,10 @@ pub fn prepare_sync_owned_with_runtime(
                 sqlite_snapshot(&original, &stage, &mut before)?;
                 let report = crate::serato4::write_database_owned(
                     &stage,
-                    root.as_deref(),
+                    root.as_ref()
+                        .map(|root| target.environment.to_native(root))
+                        .transpose()?
+                        .as_deref(),
                     &group,
                     &group_options,
                     contexts
@@ -639,7 +926,7 @@ pub fn prepare_sync_owned_with_runtime(
                 let mut aggregate = crate::serato4::refresh_master_owned(
                     &staged_master,
                     &stage,
-                    &original,
+                    &target.environment.to_native(&original)?,
                     &master_request,
                     &report,
                 )?;
@@ -800,6 +1087,11 @@ pub fn prepare_sync_owned_with_runtime(
     // add_batch has copied and fsynced every publication into persistent staged/.
     // Release adapter working copies before returning a durable preview.
     build_directory.close()?;
+    environment.verify()?;
+    target_root.verify()?;
+    for root in &related_roots {
+        root.verify()?;
+    }
     let journal = transaction.inspect()?;
     let preview = SyncPreview {
         id: journal.id,
@@ -825,6 +1117,10 @@ pub fn prepare_sync_owned_with_runtime(
     crate::transaction::durable_json(
         &transaction.path().join("request.json"),
         &PreparedRequest {
+            related_roots,
+            target_root: Some(target_root),
+            selected_target: Some(selected_target),
+            environment: Some(environment),
             target,
             sources,
             preview: preview.clone(),
@@ -839,6 +1135,39 @@ fn request(transaction: &FileTransaction) -> Result<PreparedRequest> {
         transaction.path().join("request.json"),
     )?)?)
 }
+fn verify_environment(prepared: &PreparedRequest) -> Result<()> {
+    for root in &prepared.related_roots {
+        root.verify()?;
+    }
+    if let Some(root) = &prepared.target_root {
+        root.verify()?;
+    }
+    if let Some(selected) = &prepared.selected_target {
+        ensure!(
+            fs::canonicalize(&selected.path)? == prepared.target.path
+                && selected
+                    .source_root
+                    .as_ref()
+                    .map(fs::canonicalize)
+                    .transpose()?
+                    == prepared.target.source_root,
+            "Selected DJ library location changed after preview"
+        );
+    }
+    if let Some(snapshot) = &prepared.environment {
+        ensure!(
+            snapshot.environment == prepared.target.environment,
+            "Sync target environment changed after preview"
+        );
+        snapshot.verify()?;
+    } else {
+        ensure!(
+            prepared.target.environment.is_native(),
+            "Sync preview has no captured target environment; preview again"
+        );
+    }
+    Ok(())
+}
 fn dependency_checks<'a>(
     prepared: &'a PreparedRequest,
     journal: &FileJournal,
@@ -851,7 +1180,7 @@ fn dependency_checks<'a>(
         .filter(|(path, _)| !changed.contains(path))
         .collect()
 }
-fn is_sqlite_sidecar(path: &Path) -> bool {
+pub(crate) fn is_sqlite_sidecar(path: &Path) -> bool {
     let name = path.to_string_lossy();
     ["-wal", "-shm", "-journal"]
         .iter()
@@ -860,6 +1189,7 @@ fn is_sqlite_sidecar(path: &Path) -> bool {
 pub fn apply_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
     let transaction = FileTransaction::open(journal_root, id)?;
     let prepared = request(&transaction)?;
+    verify_environment(&prepared)?;
     for (path, hash) in &prepared.sources {
         ensure!(
             file_hash(path)? == *hash,
@@ -875,6 +1205,7 @@ pub fn apply_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
         .collect();
     let first = std::cell::Cell::new(true);
     transaction.apply(|| {
+        verify_environment(&prepared)?;
         ensure_closed(prepared.target.software)?;
         for (path, hash) in if first.replace(false) {
             &all
@@ -894,6 +1225,7 @@ pub fn apply_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
 pub fn restore_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
     let transaction = FileTransaction::open(journal_root, id)?;
     let prepared = request(&transaction)?;
+    verify_environment(&prepared)?;
     let planned = transaction.inspect()?;
     let all = dependency_checks(&prepared, &planned);
     let sidecars: Vec<_> = all
@@ -903,6 +1235,7 @@ pub fn restore_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
         .collect();
     let first = std::cell::Cell::new(true);
     transaction.restore(|| {
+        verify_environment(&prepared)?;
         ensure_closed(prepared.target.software)?;
         for (path, hash) in if first.replace(false) {
             &all
@@ -919,6 +1252,10 @@ pub fn restore_sync(journal_root: &Path, id: &str) -> Result<FileJournal> {
     })?;
     verify_sync_restored(journal_root, id)
 }
+/// Verify captured mappings before a service changes acknowledgement metadata.
+pub fn verify_sync_environment(journal_root: &Path, id: &str) -> Result<()> {
+    verify_environment(&request(&FileTransaction::open(journal_root, id)?)?)
+}
 pub fn sync_preview(journal_root: &Path, id: &str) -> Result<SyncPreview> {
     request(&FileTransaction::open(journal_root, id)?).map(|p| p.preview)
 }
@@ -928,6 +1265,7 @@ pub fn sync_ownership(journal_root: &Path, id: &str) -> Result<PlaylistOwnership
 pub fn verify_sync_applied(journal_root: &Path, id: &str) -> Result<FileJournal> {
     let transaction = FileTransaction::open(journal_root, id)?;
     let prepared = request(&transaction)?;
+    verify_environment(&prepared)?;
     ensure_closed(prepared.target.software)?;
     let journal = transaction.verify_applied()?;
     let changes: BTreeMap<_, _> = journal.changes.iter().map(|c| (&c.target, c)).collect();
@@ -953,6 +1291,7 @@ pub fn verify_sync_applied(journal_root: &Path, id: &str) -> Result<FileJournal>
 pub fn verify_sync_restored(journal_root: &Path, id: &str) -> Result<FileJournal> {
     let transaction = FileTransaction::open(journal_root, id)?;
     let prepared = request(&transaction)?;
+    verify_environment(&prepared)?;
     ensure_closed(prepared.target.software)?;
     let journal = transaction.verify_restored()?;
     let changes: std::collections::BTreeSet<_> =
@@ -983,6 +1322,8 @@ pub fn export_media_is_independent(target: &SyncTarget, options: &SyncOptions) -
                     .path
                     .parent()
                     .and_then(Path::parent)
+                    .and_then(|root| target.environment.to_native(root).ok())
+                    .as_deref()
                     .is_some_and(engine_device_library)))
 }
 
@@ -990,6 +1331,214 @@ pub fn export_media_is_independent(target: &SyncTarget, options: &SyncOptions) -
 mod tests {
     use super::*;
     use crate::SyncTrack;
+    #[test]
+    fn windows_context_virtualdj_routes_external_drive_database_and_ignores_supplied_projection() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let local = root.join("drive_c");
+        let external = root.join("drive_d");
+        let home = local.join("Users/DJ/VirtualDJ");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(external.join("VirtualDJ")).unwrap();
+        let database = home.join("database.xml");
+        let external_database = external.join("VirtualDJ/database.xml");
+        let initial=br#"<VirtualDJ_Database Version="8.5"><Song FilePath="C:\foreign.wav"/></VirtualDJ_Database>"#;
+        let external_initial=br#"<VirtualDJ_Database Version="8.5"><Song FilePath="D:\foreign.wav"/></VirtualDJ_Database>"#;
+        fs::write(&database, initial).unwrap();
+        fs::write(&external_database, external_initial).unwrap();
+        let source = external.join("one.wav");
+        fs::write(&source, b"authored source").unwrap();
+        let track = SyncTrack {
+            native_path: None,
+            id: "one".into(),
+            path: source,
+            ..Default::default()
+        };
+        let mut value = serde_json::to_value(&track).unwrap();
+        value["native_path"] = serde_json::json!(r"C:\forged.wav");
+        let input = SyncLibrary {
+            tracks: vec![serde_json::from_value(value).unwrap()],
+            ..Default::default()
+        };
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({
+            "software":"virtual_dj","path":database,"source_root":null,
+            "environment":{"kind":"windows_compatibility","prefix":root,"installation":null,
+              "mappings":[{"windows_root":"C:\\","host_root":local},{"windows_root":"D:\\","host_root":external}]}
+        })).unwrap();
+        let journals = root.join("journals");
+        let preview = prepare_sync(&journals, target, &input, &Default::default()).unwrap();
+        apply_sync(&journals, &preview.id).unwrap();
+        assert_eq!(
+            fs::read(&database).unwrap(),
+            initial,
+            "local drive remains untouched"
+        );
+        let xml = fs::read_to_string(&external_database).unwrap();
+        assert!(xml.contains(r"D:\one.wav"));
+        assert!(xml.contains(r"D:\foreign.wav"));
+        assert!(!xml.contains("forged"));
+        assert!(!xml.contains(root.to_str().unwrap()));
+        restore_sync(&journals, &preview.id).unwrap();
+        assert_eq!(fs::read(&external_database).unwrap(), external_initial);
+    }
+    #[test]
+    fn windows_context_location_rules_map_or_materialize_captured_membership_without_host_paths() {
+        use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let home = root.join("VirtualDJ");
+        fs::create_dir_all(home.join("MyLists")).unwrap();
+        let database = home.join("database.xml");
+        fs::write(&database, br#"<VirtualDJ_Database Version="8.5"/>"#).unwrap();
+        let source = root.join("one.wav");
+        fs::write(&source, b"authored source").unwrap();
+        let playlists = [
+            ("mapped", Operator::StringEquals),
+            ("fallback", Operator::StringContains),
+        ]
+        .into_iter()
+        .map(|(id, operator)| crate::SyncPlaylist {
+            id: id.into(),
+            name: id.into(),
+            track_ids: vec!["one".into()],
+            smart: Some(SmartDefinition {
+                match_all: true,
+                rules: vec![SmartRule {
+                    id: "location".into(),
+                    field: "location".into(),
+                    operator,
+                    value: RuleValue::Text(source.to_string_lossy().into_owned()),
+                    or: false,
+                }],
+            }),
+            ..Default::default()
+        })
+        .collect();
+        let input = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "one".into(),
+                path: source,
+                ..Default::default()
+            }],
+            playlists,
+        };
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":database,"source_root":null,
+            "environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":root}]}})).unwrap();
+        let options = SyncOptions {
+            smart_context: Some(crate::SmartExportContext {
+                time_zone: "UTC".into(),
+                native_time_zone: "UTC".into(),
+                key_mixing_mode: cuerithm_smartlists::KeyMixingMode::Harmonic,
+            }),
+            ..Default::default()
+        };
+        let journals = root.join("journals");
+        let preview = prepare_sync(&journals, target, &input, &options).unwrap();
+        assert!(
+            preview
+                .warnings
+                .iter()
+                .any(|message| message.contains("fallback") && message.contains("saved tracks"))
+        );
+        apply_sync(&journals, &preview.id).unwrap();
+        let mut filters = 0;
+        let mut lists = 0;
+        for file in &preview.files {
+            if file
+                .target
+                .extension()
+                .is_some_and(|extension| extension == "vdjfolder")
+            {
+                let xml = fs::read_to_string(&file.target).unwrap();
+                assert!(!xml.contains(root.to_str().unwrap()));
+                assert!(xml.contains(r"C:\one.wav"));
+                if xml.contains("FilterFolder") {
+                    filters += 1;
+                } else {
+                    assert!(xml.contains("VirtualFolder"));
+                    assert!(xml.contains("<song "));
+                    lists += 1;
+                }
+            }
+        }
+        assert_eq!((filters, lists), (1, 1));
+        restore_sync(&journals, &preview.id).unwrap();
+    }
+    #[test]
+    fn windows_unc_volume_roots_handle_native_verbatim_paths() {
+        for value in [
+            r"\\server\share\Users\DJ\VirtualDJ\database.xml",
+            r"\\?\UNC\server\share\Users\DJ\VirtualDJ\database.xml",
+        ] {
+            assert_eq!(
+                windows_volume_root(Path::new(value)).as_deref(),
+                Some("//server/share")
+            );
+        }
+    }
+    #[test]
+    fn windows_context_location_prefix_does_not_include_native_foreign_sibling_mapping() {
+        use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let selected = root.join("selected");
+        let other = root.join("other");
+        fs::create_dir(&selected).unwrap();
+        fs::create_dir(&other).unwrap();
+        let home = root.join("VirtualDJ");
+        fs::create_dir_all(home.join("MyLists")).unwrap();
+        let database = home.join("database.xml");
+        fs::write(&database,br#"<VirtualDJ_Database Version="8.5"><Song FilePath="C:\Music2\foreign.wav"/></VirtualDJ_Database>"#).unwrap();
+        let source = selected.join("one.wav");
+        fs::write(&source, b"authored source").unwrap();
+        let input = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "one".into(),
+                path: source,
+                ..Default::default()
+            }],
+            playlists: vec![crate::SyncPlaylist {
+                id: "prefix".into(),
+                name: "Prefix".into(),
+                track_ids: vec!["one".into()],
+                smart: Some(SmartDefinition {
+                    match_all: true,
+                    rules: vec![SmartRule {
+                        id: "location".into(),
+                        field: "location".into(),
+                        operator: Operator::StringStartsWith,
+                        value: RuleValue::Text(selected.to_string_lossy().into_owned()),
+                        or: false,
+                    }],
+                }),
+                ..Default::default()
+            }],
+        };
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":root},{"windows_root":"C:\\Music","host_root":selected},{"windows_root":"C:\\Music2","host_root":other}]}})).unwrap();
+        let journals = root.join("journals");
+        let preview = prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+        assert!(
+            preview
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Prefix") && warning.contains("saved tracks"))
+        );
+        apply_sync(&journals, &preview.id).unwrap();
+        let list = preview
+            .files
+            .iter()
+            .find(|file| {
+                file.target
+                    .extension()
+                    .is_some_and(|extension| extension == "vdjfolder")
+            })
+            .unwrap();
+        let xml = fs::read_to_string(&list.target).unwrap();
+        assert!(xml.contains("VirtualFolder"));
+        assert!(!xml.contains("FilterFolder"));
+        assert!(xml.contains(r"C:\Music\one.wav"));
+        assert!(!xml.contains("foreign.wav"));
+    }
     #[test]
     fn private_request_reopens_raw_sources_dependencies_and_ownership_paths() {
         #[cfg(unix)]
@@ -1007,6 +1556,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let transaction = FileTransaction::create(dir.path()).unwrap();
         let target = SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::EngineDj,
             path: raw.clone(),
             source_root: Some(raw.clone()),
@@ -1047,6 +1597,10 @@ mod tests {
         assert_eq!(restored.directories[0].target, raw);
         assert_eq!(restored.renames[0].temporary, raw);
         let prepared = PreparedRequest {
+            related_roots: vec![],
+            target_root: None,
+            selected_target: None,
+            environment: None,
             target: target.clone(),
             sources: BTreeMap::from([(raw.clone(), Some("audio".into()))]),
             preconditions: BTreeMap::from([(raw.clone(), None)]),
@@ -1212,6 +1766,7 @@ mod tests {
         .unwrap();
         let library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "t".into(),
                 path: audio,
                 duration_seconds: 60.,
@@ -1225,6 +1780,7 @@ mod tests {
         let preview = prepare_sync(
             &journal_root,
             SyncTarget {
+                environment: Default::default(),
                 software: DjSoftware::VirtualDj,
                 path: database.clone(),
                 source_root: None,
@@ -1270,6 +1826,7 @@ mod tests {
         let result = prepare_sync(
             &journal_root,
             SyncTarget {
+                environment: Default::default(),
                 software: DjSoftware::VirtualDj,
                 path: database.clone(),
                 source_root: None,
@@ -1345,6 +1902,7 @@ mod tests {
             .unwrap();
         let journal = transaction.inspect().unwrap();
         let target = SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::EngineDj,
             path: database.clone(),
             source_root: None,
@@ -1365,6 +1923,10 @@ mod tests {
         crate::transaction::durable_json(
             &transaction.path().join("request.json"),
             &PreparedRequest {
+                related_roots: vec![],
+                target_root: None,
+                selected_target: None,
+                environment: None,
                 target,
                 sources: BTreeMap::new(),
                 preview,

@@ -15,6 +15,7 @@ fn database() -> (tempfile::TempDir, PathBuf) {
 fn library() -> SyncLibrary {
     SyncLibrary {
         tracks: vec![SyncTrack {
+            native_path: None,
             export_timing: None,
             native_timeline: None,
             id: "one".into(),
@@ -1412,4 +1413,51 @@ fn distinct_selected_sources_cannot_overwrite_one_native_alias_identity() {
         get(&path, "localMediaItemLocations", "unselected").get("nativeFact"),
         Some(&text("keep"))
     );
+}
+
+#[test]
+fn windows_context_djay_uses_windows_uri_and_retains_equivalent_native_identity() {
+    let (folder, database) = database();
+    let root = folder.path().canonicalize().unwrap();
+    let source = root.join("café & mix.mp3");
+    std::fs::write(&source, b"authored source").unwrap();
+    let mut input = library();
+    input.tracks[0].path = PathBuf::from(r"D:\Music\café & mix.mp3");
+    write(&database, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    input.tracks[0].id = "renamed-source".into();
+    for playlist in &mut input.playlists {
+        for track in &mut playlist.track_ids {
+            *track = "renamed-source".into();
+        }
+    }
+    input.tracks[0].path = source;
+    let target: crate::SyncTarget = serde_json::from_value(serde_json::json!({
+        "software":"djay_pro", "path":database, "source_root":null,
+        "environment":{"kind":"windows_compatibility", "prefix":root,"installation":null,
+          "mappings":[{"windows_root":"D:\\Music","host_root":root}]}
+    }))
+    .unwrap();
+    let journals = root.join("journals");
+    let preview = crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+    crate::apply_sync(&journals, &preview.id).unwrap();
+    let conn = Connection::open(&database).unwrap();
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM database2 WHERE collection='mediaItems'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    let location = get(&database, "localMediaItemLocations", &id);
+    assert_eq!(
+        location.get("sourceURIs"),
+        Some(&Value::Array(vec![Value::Uri(
+            "file:///D:/Music/caf%C3%A9%20&%20mix.mp3".into()
+        )]))
+    );
+    drop(conn);
+    crate::restore_sync(&journals, &preview.id).unwrap();
 }

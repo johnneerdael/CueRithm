@@ -162,6 +162,7 @@ mod tests {
     fn active_loop_requires_a_loop_end_before_native_writes() {
         let mut library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "track".into(),
                 path: std::env::temp_dir().join("synthetic-active.wav"),
                 duration_seconds: 10.,
@@ -197,11 +198,13 @@ mod tests {
         let mut library = SyncLibrary {
             tracks: vec![
                 SyncTrack {
+                    native_path: None,
                     id: "one".into(),
                     path: original,
                     ..Default::default()
                 },
                 SyncTrack {
+                    native_path: None,
                     id: "two".into(),
                     path: alias,
                     ..Default::default()
@@ -222,6 +225,7 @@ mod tests {
     #[test]
     fn rejects_ambiguous_tracks_bad_timing_and_cycles_before_target_writes() {
         let track = SyncTrack {
+            native_path: None,
             id: "track".into(),
             path: std::env::temp_dir().join("track.wav"),
             duration_seconds: 60.,

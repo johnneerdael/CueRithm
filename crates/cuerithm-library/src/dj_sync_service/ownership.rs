@@ -23,7 +23,7 @@ pub(super) struct Tombstone {
 fn path(root: &Path, target: &SyncTarget) -> Result<PathBuf> {
     Ok(root
         .join("ownership")
-        .join(format!("{}.json", digest(target)?)))
+        .join(format!("{}.json", digest(&target.identity_target())?)))
 }
 pub(super) fn read(root: &Path, target: &SyncTarget) -> Result<OwnershipLedger> {
     match File::open(path(root, target)?) {
@@ -181,7 +181,7 @@ pub(super) fn ensure_settled(root: &Path, target: &SyncTarget) -> Result<()> {
             continue;
         }
         if let Ok(preview) = cuerithm_dj_sync::sync_preview(root, &id)
-            && digest(&preview.target)? == digest(target)?
+            && digest(&preview.target.identity_target())? == digest(&target.identity_target())?
         {
             let settled = read_library_journal(&transaction).is_ok_and(|saved| match state {
                 JournalState::Applied => saved.acknowledged,

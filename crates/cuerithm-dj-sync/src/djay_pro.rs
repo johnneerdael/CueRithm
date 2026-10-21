@@ -81,7 +81,7 @@ pub fn write_owned(
     let mut reviewed_uris = HashSet::new();
     for track in &library.tracks {
         ensure!(
-            reviewed_uris.insert(uri_identity(&file_uri(&track.path)?)),
+            reviewed_uris.insert(uri_identity(&file_uri(track.reference_path())?)),
             "Duplicate selected djay source URI identity"
         );
     }
@@ -135,7 +135,7 @@ pub fn write_owned(
     }
     let mut resolved_ids = HashSet::new();
     for track in &library.tracks {
-        let uri = file_uri(&track.path)?;
+        let uri = file_uri(track.reference_path())?;
         let identity = uri_identity(&uri);
         let primary = source_ids.get(&identity);
         let stored = bookmark_ids.get(&identity);
@@ -156,7 +156,7 @@ pub fn write_owned(
     }
     // Resolve every selected identity before any native track is changed.
     for track in &library.tracks {
-        let uri = file_uri(&track.path)?;
+        let uri = file_uri(track.reference_path())?;
         let entity_ids = entity_ids(&tx, track, &mut entities)?;
         write_track(&tx, &ids[&track.id], track, &uri, &entity_ids, options)?;
     }
@@ -243,7 +243,7 @@ fn validate(library: &SyncLibrary) -> Result<()> {
             );
             previous = Some(beat.seconds);
         }
-        file_uri(&track.path)?;
+        file_uri(track.reference_path())?;
     }
     let mut playlists = HashMap::new();
     for playlist in &library.playlists {

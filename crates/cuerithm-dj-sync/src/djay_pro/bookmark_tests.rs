@@ -49,6 +49,7 @@ fn stored_bookmark_path_recovers_existing_native_uuid() {
     tx.commit().unwrap();
     let library = SyncLibrary {
         tracks: vec![SyncTrack {
+            native_path: None,
             id: "source".into(),
             path: "/music/café & mix.wav".into(),
             ..Default::default()
@@ -143,6 +144,7 @@ fn competing_native_bookmark_and_uri_identities_fail_without_writes() {
             .unwrap();
         let library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "source".into(),
                 path: "/music/track.wav".into(),
                 ..Default::default()

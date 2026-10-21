@@ -13,6 +13,20 @@ function prepared(id:string):SyncPreview{return {id,target:{software:"virtual_dj
 function enterDestination(){fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/VirtualDJ"}});}
 
 describe("native DJ sync",()=>{
+ it("previews Windows references from an explicit Wine setup and invalidates it after mapping edits",async()=>{
+  const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>prepared("mapped"));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);enterDestination();
+  fireEvent.change(screen.getByRole("combobox",{name:"Application environment"}),{target:{value:"windows_compatibility"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Wine or Proton prefix"}),{target:{value:"/games/prefix"}});
+  fireEvent.click(screen.getByRole("button",{name:"Add drive mapping"}));
+  fireEvent.change(screen.getByRole("textbox",{name:"Windows root 1"}),{target:{value:"D:\\Music"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Host folder 1"}),{target:{value:"/mnt/music"}});
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledWith(expect.objectContaining({target:expect.objectContaining({environment:{kind:"windows_compatibility",prefix:"/games/prefix",installation:null,mappings:[{windows_root:"D:\\Music",host_root:"/mnt/music"}]}})})));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeEnabled());
+  fireEvent.change(screen.getByRole("textbox",{name:"Windows root 1"}),{target:{value:"E:\\Music"}});
+  await waitFor(()=>expect(bridge.discardDjSync).toHaveBeenCalledWith("mapped"));expect(screen.getByRole("button",{name:"Sync to VirtualDJ"})).toBeDisabled();
+ });
  it("restores destination, scope and options after remount without restoring a preview",async()=>{
   const bridge=fakeBridge([]);
   bridge.discoverDjTargets=vi.fn(async()=>[{software:"pioneer_usb" as const,path:"/Volumes/Discovered"}]);
@@ -42,7 +56,7 @@ describe("native DJ sync",()=>{
   expect(bridge.previewDjSync).toHaveBeenCalledTimes(1);
   const saved=JSON.parse(localStorage.getItem(preferencesKey)!);
   expect(Object.keys(saved).sort()).toEqual(["profiles","software","version"]);
-  expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["options","path","playlistId","scope"]);
+  expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["environment","options","path","playlistId","scope","sourceRoot"]);
  });
  it("keeps independent destination, playlist selection and field mappings for each target",async()=>{
   const bridge=fakeBridge([]);

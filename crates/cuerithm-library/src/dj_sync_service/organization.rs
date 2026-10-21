@@ -60,11 +60,11 @@ impl Library {
                 .target
                 .clone()
                 .context("Known native export has no registered target")?;
-            let key = digest(&target)?;
+            let key = digest(&target.identity_target())?;
             let mut matching = histories
                 .iter()
                 .filter(|h| {
-                    digest(&h.request.target).is_ok_and(|hash| hash == key)
+                    digest(&h.request.target.identity_target()).is_ok_and(|hash| hash == key)
                         && h.track_hashes.get(track) == baseline.track_hashes.get(track)
                 })
                 .collect::<Vec<_>>();
@@ -138,6 +138,8 @@ impl Library {
     pub(crate) fn plan_organization_ownership(
         &self,
         target: &SyncTarget,
+        before_files: &BTreeMap<PathBuf, Option<String>>,
+        after_files: &BTreeMap<PathBuf, Option<String>>,
     ) -> Result<OrganizationOwnershipTransition> {
         let root = self.data_dir().join("sync");
         let before = ownership::read(&root, target)?;
@@ -147,6 +149,25 @@ impl Library {
         );
         let mut after = before.clone();
         after.registration = ownership::registration(target)?;
+        if target.software == DjSoftware::VirtualDj {
+            for (database, (_, state)) in &mut after.stores {
+                let home = database.parent().context("VirtualDJ home missing")?;
+                for binding in &mut state.bindings {
+                    let path = home.join(&binding.locator);
+                    if let (Some(Some(before)), Some(Some(current))) =
+                        (before_files.get(&path), after_files.get(&path))
+                        && before != current
+                    {
+                        ensure!(
+                            binding.fingerprint == *before
+                                && file_hash(&path)?.as_ref() == Some(current),
+                            "Owned VirtualDJ playlist changed outside the acknowledged path repair"
+                        );
+                        binding.fingerprint = current.clone();
+                    }
+                }
+            }
+        }
         Ok(OrganizationOwnershipTransition {
             target: target.clone(),
             before,
@@ -201,10 +222,13 @@ impl Library {
         }];
         let track_hashes = BTreeMap::from([(track.into(), "fixture-native-projection".into())]);
         let saved = LibraryJournal {
+            target_root: None,
+            selected_target: None,
             version: 1,
             id: journal.id.clone(),
             revision: self.revision()?,
             request: DjSyncRequest {
+                configuration: None,
                 target: target.clone(),
                 options: SyncOptions {
                     engine_copy_audio: independent,

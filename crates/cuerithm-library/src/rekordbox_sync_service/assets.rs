@@ -8,7 +8,12 @@ pub(super) struct Bundle {
     pub publications: Vec<FilePublication>,
 }
 fn relative(path: &str) -> Result<PathBuf> {
-    let path = PathBuf::from(path.trim_start_matches('/'));
+    let text = path.replace('\\', "/");
+    ensure!(
+        !text.starts_with("//") && !text.contains(':'),
+        "Invalid relative native asset reference"
+    );
+    let path = PathBuf::from(text.trim_start_matches('/'));
     ensure!(
         !path.as_os_str().is_empty()
             && path
@@ -18,14 +23,55 @@ fn relative(path: &str) -> Result<PathBuf> {
     );
     Ok(path)
 }
-// Native ImagePath includes /PIONEER and resolves relative to share, as does
-// AnalysisDataPath. Do not accept the unshipped /Artwork-only reference.
-fn artwork_relative(path: &str) -> Result<PathBuf> {
+fn asset_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
+    if path.as_bytes().get(1) == Some(&b':') || path.starts_with("\\\\") || path.starts_with("//") {
+        let mapped = target.environment.to_host(Path::new(path))?;
+        let root = target.asset_root.canonicalize()?;
+        let mut physical = None;
+        let mut logical_root = None;
+        // Compare physical roots while retaining native share-relative spelling,
+        // including PIONEER paths through contained directory aliases. Resolve an
+        // absent output suffix through its nearest existing ancestor.
+        for ancestor in mapped.ancestors() {
+            let canonical = match ancestor.canonicalize() {
+                Ok(canonical) => canonical,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error).context("Native asset reference is unavailable"),
+            };
+            if physical.is_none() {
+                physical = Some(canonical.join(mapped.strip_prefix(ancestor)?));
+            }
+            if canonical == root {
+                logical_root = Some(ancestor);
+                break;
+            }
+        }
+        ensure!(
+            physical.is_some_and(|physical| physical.starts_with(&root)),
+            "Native asset reference escaped selected share directory"
+        );
+        let relative = mapped.strip_prefix(
+            logical_root.context("Native asset reference escaped selected share directory")?,
+        )?;
+        ensure!(
+            !relative.as_os_str().is_empty()
+                && relative
+                    .components()
+                    .all(|part| matches!(part, std::path::Component::Normal(_))),
+            "Invalid native asset reference"
+        );
+        return Ok(relative.to_owned());
+    }
+    relative(path)
+}
+// Native image paths resolve under the selected share directory.
+fn artwork_relative(target: &RekordboxSyncTarget, path: &str) -> Result<PathBuf> {
+    let relative = asset_relative(target, path)?;
     ensure!(
-        path.starts_with("/PIONEER/Artwork/"),
+        relative.starts_with("PIONEER/Artwork"),
         "Invalid native artwork resource reference"
     );
-    relative(path)
+    Ok(relative)
 }
 fn source(root: &Path, path: &Path) -> Result<PathBuf> {
     let joined = root.join(path);
@@ -174,6 +220,10 @@ pub(super) fn build(
     runtime: Option<&cuerithm_media::MediaRuntime>,
     cancel: &CancellationToken,
 ) -> Result<Bundle> {
+    let physical_audio_path = native_audio_path;
+    let native_audio_reference =
+        audio_reference(target, native_audio_path, remote, rewrite_audio_reference)?;
+    let native_audio_path = native_audio_reference.as_path();
     let workspace = root(library)
         .join("operations")
         .join(id)
@@ -195,7 +245,7 @@ pub(super) fn build(
             .and_then(|r| r.source.analysis_path.as_deref())
             .filter(|p| !p.is_empty())
         {
-            let old = relative(old)?;
+            let old = asset_relative(target, old)?;
             let regenerated = if regenerate_waveforms {
                 ensure!(
                     ["DAT", "EXT", "2EX"].iter().all(|extension| target
@@ -242,7 +292,13 @@ pub(super) fn build(
                                 if tag.audio_path()?.as_str()
                                     != native_audio_path
                                         .to_str()
-                                        .context("Native audio path is not Unicode")? =>
+                                        .context("Native audio path is not Unicode")?
+                                    && (rewrite_audio_reference
+                                        || !same_native_audio(
+                                            target,
+                                            &tag.audio_path()?,
+                                            physical_audio_path,
+                                        )) =>
                             {
                                 changes.push(NativeAnlzEdit::AudioPath {
                                     tag_index: index,
@@ -439,7 +495,7 @@ pub(super) fn build(
                 .and_then(|r| r.source.artwork_path.as_deref())
                 .filter(|p| !p.is_empty())
             {
-                let old = artwork_relative(old)?;
+                let old = artwork_relative(target, old)?;
                 let mut equal = true;
                 for (suffix, bytes) in [("", &art.main), ("_m", &art.medium), ("_s", &art.small)] {
                     let relative = artwork_sibling(&old, suffix)?;
@@ -517,7 +573,7 @@ pub(super) fn add_publications(
 }
 
 pub(super) fn grid_observation(target: &RekordboxSyncTarget, path: &str) -> Result<Value> {
-    let file = source(&target.asset_root, &relative(path)?)?;
+    let file = source(&target.asset_root, &asset_relative(target, path)?)?;
     ensure_not_native_file(&target.database, &file)?;
     let parsed = AnlzFile::parse(&fs::read(file)?, ParseLimits::default())?;
     let tag = parsed
@@ -532,7 +588,172 @@ pub(super) fn artwork_observation(
     path: &str,
     cancel: &CancellationToken,
 ) -> Result<Value> {
-    let file = source(&target.asset_root, &artwork_relative(path)?)?;
+    let file = source(&target.asset_root, &artwork_relative(target, path)?)?;
     ensure_not_native_file(&target.database, &file)?;
     Ok(json!(file_sha256_cancellable(&file, cancel)?))
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+    #[test]
+    fn windows_asset_references_resolve_only_inside_selected_share() {
+        let dir = tempfile::tempdir().unwrap();
+        let host = dir.path().canonicalize().unwrap();
+        let share = host.join("share");
+        fs::create_dir(&share).unwrap();
+        fs::write(share.join("old.DAT"), b"authored asset").unwrap();
+        let target = RekordboxSyncTarget {
+            id: "authored".into(),
+            installation: TargetInstallation {
+                root: host.clone(),
+                executable: host.join("rekordbox.exe"),
+                version: "7.1".into(),
+                major: 7,
+                version_source: "explicit_version_hint".into(),
+            },
+            database: host.join("master.db"),
+            options_file: host.join("options.json"),
+            asset_root: share.clone(),
+            environment: TargetEnvironment::WindowsCompatibility {
+                prefix: host.clone(),
+                installation: None,
+                mappings: vec![DriveMapping {
+                    windows_root: "C:\\".into(),
+                    host_root: host,
+                }],
+            },
+        };
+        assert_eq!(
+            asset_relative(&target, r"C:\share\old.DAT").unwrap(),
+            Path::new("old.DAT")
+        );
+        assert_eq!(
+            artwork_relative(&target, r"\PIONEER\Artwork\cover.jpg").unwrap(),
+            Path::new("PIONEER/Artwork/cover.jpg")
+        );
+        assert_eq!(
+            asset_relative(&target, r"C:\share\PIONEER\USBANLZ\future\ANLZ0000.DAT").unwrap(),
+            Path::new("PIONEER/USBANLZ/future/ANLZ0000.DAT")
+        );
+        assert!(asset_relative(&target, r"C:\outside.DAT").is_err());
+        assert!(asset_relative(&target, r"\\server\share\old.DAT").is_err());
+        assert!(asset_relative(&target, r"PIONEER\..\outside.DAT").is_err());
+        assert!(artwork_relative(&target, "/PIONEER/USBANLZ/old.DAT").is_err());
+        assert_eq!(
+            source(
+                &share,
+                &asset_relative(&target, r"C:\share\old.DAT").unwrap()
+            )
+            .unwrap(),
+            share.join("old.DAT")
+        );
+    }
+    #[cfg(unix)]
+    #[test]
+    fn mapped_asset_alias_uses_physical_containment_and_preserves_logical_share_path() {
+        use std::os::unix::fs::symlink;
+        let dir = tempfile::tempdir().unwrap();
+        let host = dir.path().canonicalize().unwrap();
+        let physical = host.join("physical");
+        let selected = host.join("selected");
+        let share = physical.join("share");
+        fs::create_dir_all(share.join("PIONEER/Artwork")).unwrap();
+        fs::create_dir_all(share.join("PIONEER/USBANLZ")).unwrap();
+        fs::write(share.join("PIONEER/Artwork/cover.jpg"), b"authored artwork").unwrap();
+        fs::write(share.join("PIONEER/USBANLZ/old.DAT"), b"authored analysis").unwrap();
+        fs::write(physical.join("outside.DAT"), b"outside selected share").unwrap();
+        symlink(&physical, &selected).unwrap();
+        let target = RekordboxSyncTarget {
+            id: "authored-alias".into(),
+            installation: TargetInstallation {
+                root: physical.clone(),
+                executable: physical.join("rekordbox.exe"),
+                version: "7.1".into(),
+                major: 7,
+                version_source: "explicit_version_hint".into(),
+            },
+            database: physical.join("master.db"),
+            options_file: physical.join("options.json"),
+            asset_root: share.canonicalize().unwrap(),
+            environment: TargetEnvironment::WindowsCompatibility {
+                prefix: host,
+                installation: None,
+                mappings: vec![DriveMapping {
+                    windows_root: "C:\\".into(),
+                    host_root: selected,
+                }],
+            },
+        };
+        let analysis = asset_relative(&target, r"C:\share\PIONEER\USBANLZ\old.DAT").unwrap();
+        assert_eq!(analysis, Path::new("PIONEER/USBANLZ/old.DAT"));
+        assert_eq!(
+            source(&target.asset_root, &analysis).unwrap(),
+            share.join("PIONEER/USBANLZ/old.DAT")
+        );
+        let artwork = artwork_relative(&target, r"C:\share\PIONEER\Artwork\cover.jpg").unwrap();
+        assert_eq!(artwork, Path::new("PIONEER/Artwork/cover.jpg"));
+        assert_eq!(
+            artwork_observation(
+                &target,
+                r"C:\share\PIONEER\Artwork\cover.jpg",
+                &CancellationToken::default()
+            )
+            .unwrap(),
+            json!(
+                file_sha256_cancellable(
+                    &share.join("PIONEER/Artwork/cover.jpg"),
+                    &CancellationToken::default()
+                )
+                .unwrap()
+            )
+        );
+        assert!(asset_relative(&target, r"C:\outside.DAT").is_err());
+        symlink(physical.join("outside.DAT"), share.join("escape.DAT")).unwrap();
+        assert!(asset_relative(&target, r"C:\share\escape.DAT").is_err());
+        symlink(
+            share.join("PIONEER/USBANLZ/old.DAT"),
+            share.join("alias.DAT"),
+        )
+        .unwrap();
+        assert!(
+            asset_relative(&target, r"C:\share\alias.DAT")
+                .and_then(|alias| source(&target.asset_root, &alias))
+                .is_err(),
+            "Final symbolic native asset files remain refused"
+        );
+        assert_eq!(
+            asset_relative(&target, "/PIONEER/USBANLZ/future/ANLZ0000.DAT").unwrap(),
+            Path::new("PIONEER/USBANLZ/future/ANLZ0000.DAT")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_windows_asset_references_match_verbatim_canonical_share_roots() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let share = canonical.join("share");
+        fs::create_dir(&share).unwrap();
+        fs::write(share.join("old.DAT"), b"authored analysis").unwrap();
+        let ordinary = cuerithm_dj_sync::destination_reference(&share.join("old.DAT"));
+        let target = RekordboxSyncTarget {
+            id: "authored-windows".into(),
+            installation: TargetInstallation {
+                root: canonical.clone(),
+                executable: canonical.join("rekordbox.exe"),
+                version: "7.1".into(),
+                major: 7,
+                version_source: "explicit_version_hint".into(),
+            },
+            database: canonical.join("master.db"),
+            options_file: canonical.join("options.json"),
+            asset_root: share.canonicalize().unwrap(),
+            environment: TargetEnvironment::Native,
+        };
+        assert_eq!(
+            asset_relative(&target, ordinary.to_str().unwrap()).unwrap(),
+            Path::new("old.DAT")
+        );
+    }
 }

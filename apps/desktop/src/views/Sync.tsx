@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useRef,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {ArrowRightLeft,FolderOpen,LoaderCircle,RefreshCw,RotateCcw,Search,Trash2} from "lucide-react";
 import type {Bridge} from "../types";
 import type {PlaylistWorkspace} from "../playlist-types";
@@ -9,6 +9,10 @@ import {useSyncPreferences} from "../sync-preferences";
 import type {DjSoftware,DjSyncHistoryEntry,DiscoveredTarget,DjSyncRequest,SyncOptions,SyncPreview,SyncTextField} from "../sync-types";
 import type {RekordboxBridge} from "../rekordbox-sync-types";
 import RekordboxSync from "./RekordboxSync";
+import SyncTargetSetup from "../components/SyncTargetSetup";
+import SavedSyncTargets from "../components/SavedSyncTargets";
+import type {SavedSyncTarget,SyncTargetConfiguration} from "../sync-target-types";
+import {sameDjTarget} from "../sync-target-types";
 
 const fields:SyncTextField[]=["title","artist","album","genre","label","comment","key"];
 function size(bytes:number){return bytes<1024?`${bytes} B`:bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(1)} MB`;}
@@ -19,7 +23,11 @@ export default function Sync(props:SyncProps){
 }
 function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
  const {software,choices,setSoftware,setChoices}=useSyncPreferences();
- const {path,scope,playlistId,options}=choices;
+ const {path,sourceRoot,environment,scope,playlistId,options}=choices;
+ const [configuration,setConfiguration]=useState<SyncTargetConfiguration|null>(null);
+ const target=useMemo(()=>({software,path:path.trim(),source_root:sourceRoot,...(environment.kind==="native"?{}:{environment})}),[software,path,sourceRoot,environment]);
+ const savedTarget=useMemo<SavedSyncTarget>(()=>({kind:"dj_library",target}),[target]);
+ const binding=configuration?.target.kind==="dj_library"&&sameDjTarget(configuration.target.target,target)?{id:configuration.id,revision:configuration.revision}:null;
  const setPath=(path:string)=>setChoices(previous=>({...previous,path}));
  const setScope=(scope:typeof choices.scope)=>setChoices(previous=>({...previous,scope}));
  const setPlaylistId=(playlistId:string)=>setChoices(previous=>({...previous,playlistId}));
@@ -29,7 +37,7 @@ function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
  const pendingDiscard=useRef<Promise<void>>(Promise.resolve());
  const info=syncTargets.find(t=>t.id===software)!;
  const playlists=workspace?.tree.nodes.filter(n=>!n.deleted)??[];
- const signature=JSON.stringify({software,path,scope,playlistId,options,revision});
+ const signature=JSON.stringify({software,path,sourceRoot,environment,scope,playlistId,options,revision,binding});
  const reloadHistory=useCallback(async()=>{const current=++historyRequest.current;const next=await bridge.djSyncHistory();if(alive.current&&current===historyRequest.current)setHistory(next);},[bridge]);
  const discardPrepared=useCallback((id:string)=>{const deletion=pendingDiscard.current.then(()=>bridge.discardDjSync(id));pendingDiscard.current=deletion.catch(()=>{});return deletion.then(async()=>{if(alive.current)await reloadHistory();});},[bridge,reloadHistory]);
  const clearPreview=useCallback(()=>{const id=activePreview.current;activePreview.current=null;setPreview(null);return id;},[]);
@@ -43,7 +51,7 @@ function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
  const canPreview=!!path.trim()&&(scope!=="playlist"||!!selected);
  const run=async(action:string,work:()=>Promise<void>)=>{if(operation.current)return;operation.current=true;setBusy(action);setError(null);setResult(null);try{await work();}catch(e){if(alive.current)setError(errorMessage(e));}finally{operation.current=false;if(alive.current){setBusy(null);void reloadHistory().catch(e=>{if(alive.current)setError(errorMessage(e));});}}};
  const prepare=()=>run("preview",async()=>{
-  const request:DjSyncRequest={target:{software,path:path.trim(),source_root:null},scope:scope==="playlist"?{type:"playlist",id:playlistId}:{type:scope},options};
+  const request:DjSyncRequest={target,scope:scope==="playlist"?{type:"playlist",id:playlistId}:{type:scope},options,...(binding?{configuration:binding}:{})};
   const current=++generation.current;const previous=clearPreview();if(previous)await discardPrepared(previous);
   await pendingDiscard.current;
   if(!alive.current||current!==generation.current)return;
@@ -63,7 +71,10 @@ function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
    <fieldset className="sync-controls" disabled={!!busy}>
     <div className="sync-destination">
      <label>Sync to<select aria-label="Sync to" value={software} onChange={e=>{setSoftware(e.target.value as DjSoftware);setResult(null);}}>{syncTargets.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+     <SavedSyncTargets bridge={bridge} kind="dj_library" software={software} value={path.trim()?savedTarget:null} disabled={!!busy} onSelected={saved=>{if(saved?.target.kind==="dj_library"){const selected=saved.target.target;if(typeof selected.path!=="string"||(selected.source_root!==null&&typeof selected.source_root!=="string")){setError("This saved setup uses a path that cannot be edited as text. Choose the library again.");return;}setChoices(previous=>({...previous,path:selected.path as string,sourceRoot:selected.source_root as string|null,environment:selected.environment??{kind:"native"}}));}setConfiguration(saved);}}/>
      <label>{info.location}<div className="sync-path"><input aria-label={info.location} placeholder={software==="pioneer_usb"?"Choose a mounted USB drive":"Choose your DJ library"} value={path} onChange={e=>setPath(e.target.value)}/><button type="button" className="secondary" aria-label="Choose sync destination" onClick={()=>void bridge.chooseFolder().then(value=>{if(value&&alive.current)setPath(value);}).catch(e=>setError(errorMessage(e)))}><FolderOpen size={15}/></button><button type="button" className="secondary" aria-label="Refresh DJ libraries" onClick={()=>void discover()}><RefreshCw size={14}/></button></div></label>
+     <SyncTargetSetup value={environment} onChange={environment=>setChoices(previous=>({...previous,environment}))} chooseFolder={()=>bridge.chooseFolder()}/>
+     {software==="serato4"?<label>External or network drive root (optional)<div className="sync-path"><input aria-label="Serato source drive root" value={sourceRoot??""} onChange={e=>setChoices(previous=>({...previous,sourceRoot:e.target.value||null}))}/><button type="button" className="secondary" aria-label="Choose Serato source drive root" onClick={()=>void bridge.chooseFolder().then(value=>{if(value&&alive.current)setChoices(previous=>({...previous,sourceRoot:value}));}).catch(e=>setError(errorMessage(e)))}><FolderOpen size={14}/></button></div></label>:null}
      {targets.filter(t=>t.software===software).length>1?<label>Found libraries<select aria-label="Found libraries" value={path} onChange={e=>setPath(e.target.value)}><option value="">Choose a library</option>{targets.filter(t=>t.software===software).map(t=><option key={t.path} value={t.path}>{t.path}</option>)}</select></label>:null}
      <label>What to sync<select aria-label="What to sync" value={scope} onChange={e=>setScope(e.target.value as typeof scope)}><option value="full">Full library</option><option value="playlist">Playlist or folder</option><option value="changed">Modified since last sync</option></select></label>
      {scope==="playlist"?<label>Playlist<select aria-label="Sync playlist" value={playlistId} onChange={e=>setPlaylistId(e.target.value)}><option value="">Choose a playlist or folder</option>{playlists.map(n=><option key={n.id} value={n.id}>{n.name}</option>)}</select></label>:null}

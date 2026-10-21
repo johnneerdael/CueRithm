@@ -18,6 +18,7 @@ fn virtualdj_reference_only_repair_preserves_external_metadata_cues_and_grid() {
     );
     std::fs::write(&database, &xml).unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: DjSoftware::VirtualDj,
         path: database.clone(),
         source_root: None,
@@ -84,6 +85,7 @@ fn sqlite_reference_repairs_preserve_track_ids_remote_metadata_and_performance_b
         }
         drop(conn);
         let target = SyncTarget {
+            environment: Default::default(),
             software,
             path: database.clone(),
             source_root: None,
@@ -145,6 +147,7 @@ fn changed_native_database_blocks_apply_without_overwriting_remote_edit() {
     )
     .unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: DjSoftware::VirtualDj,
         path: database.clone(),
         source_root: None,
@@ -195,6 +198,7 @@ fn case_normalization_cannot_adopt_a_different_physical_source() {
     )
     .unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: DjSoftware::VirtualDj,
         path: database,
         source_root: None,
@@ -218,6 +222,7 @@ fn interrupted_reference_publication_restores_only_its_own_known_bytes() {
         );
         std::fs::write(&database, &before).unwrap();
         let target = SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::VirtualDj,
             path: database.clone(),
             source_root: None,
@@ -306,6 +311,7 @@ fn separately_approved_original_revision_never_changes_destination_content_proof
     )
     .unwrap();
     let target = SyncTarget {
+        environment: Default::default(),
         software: DjSoftware::VirtualDj,
         path: database.clone(),
         source_root: None,
@@ -339,4 +345,178 @@ fn separately_approved_original_revision_never_changes_destination_content_proof
         std::fs::read(&source).unwrap(),
         b"approved changed original"
     );
+}
+
+#[test]
+fn mapped_windows_virtualdj_repair_routes_drives_and_legacy_membership_then_restores() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    let c = root.join("c");
+    let d = root.join("d");
+    let home = c.join("Users/DJ/VirtualDJ");
+    std::fs::create_dir_all(home.join("Playlists/CueRithm")).unwrap();
+    std::fs::create_dir_all(d.join("VirtualDJ")).unwrap();
+    let database = home.join("database.xml");
+    let other = d.join("VirtualDJ/database.xml");
+    let initial=br#"<VirtualDJ_Database Version="8.5"><Song FilePath="C:\old.wav" Custom="keep"><Poi Type="cue" Pos="99"/></Song><Song FilePath="C:\foreign.wav"/></VirtualDJ_Database>"#;
+    let other_initial=br#"<VirtualDJ_Database Version="8.5"><Song FilePath="D:\foreign.wav"/></VirtualDJ_Database>"#;
+    std::fs::write(&database, initial).unwrap();
+    std::fs::write(&other, other_initial).unwrap();
+    let list = home.join("Playlists/CueRithm/Owned.m3u");
+    std::fs::write(&list, b"#EXTVDJ:\r\nC:\\old.wav\r\n").unwrap();
+    let source = c.join("old.wav");
+    let destination = d.join("new.wav");
+    std::fs::write(&source, b"authored source").unwrap();
+    std::fs::copy(&source, &destination).unwrap();
+    let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":database,"source_root":null,
+       "environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":c},{"windows_root":"D:\\","host_root":d}]}})).unwrap();
+    let snapshot = inspect_path_reference(&target, &source).unwrap();
+    let change = SourcePathChange {
+        track_id: "authored".into(),
+        from: source.clone(),
+        to: destination.clone(),
+        source_sha256: file_hash(&source).unwrap().unwrap(),
+        approved_from_sha256: None,
+    };
+    let journals = root.join("journals");
+    let preview = prepare_path_repair(&journals, &snapshot, &change).unwrap();
+    apply_path_repair(&journals, &preview.id).unwrap();
+    cuerithm_dj_sync::verify_path_repair(&journals, &preview.id).unwrap();
+    assert!(
+        !std::fs::read_to_string(&database)
+            .unwrap()
+            .contains("old.wav")
+    );
+    let xml = std::fs::read_to_string(&other).unwrap();
+    assert!(xml.contains(r"D:\new.wav"));
+    assert!(xml.contains("Custom=\"keep\""));
+    assert!(xml.contains("Pos=\"99\""));
+    assert!(xml.contains(r"D:\foreign.wav"));
+    assert!(!xml.contains(root.to_str().unwrap()));
+    assert_eq!(
+        std::fs::read_to_string(&list).unwrap(),
+        "#EXTVDJ:\r\nD:\\new.wav\r\n"
+    );
+    assert!(inspect_path_reference(&target, &source).is_err());
+    assert!(inspect_path_reference(&target, &destination).is_ok());
+    cuerithm_dj_sync::restore_path_repair(&journals, &preview.id).unwrap();
+    assert_eq!(std::fs::read(&database).unwrap(), initial);
+    assert_eq!(std::fs::read(&other).unwrap(), other_initial);
+    assert_eq!(std::fs::read(&source).unwrap(), b"authored source");
+}
+
+#[test]
+fn mapped_windows_sqlite_reference_repairs_preserve_native_ids_and_host_sources() {
+    for software in [DjSoftware::EngineDj, DjSoftware::Serato4] {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let source = root.join("old.wav");
+        let destination = root.join("new.wav");
+        std::fs::write(&source, b"authored source").unwrap();
+        std::fs::copy(&source, &destination).unwrap();
+        let database = root.join(if software == DjSoftware::EngineDj {
+            "Engine Library/Database2/m.db"
+        } else {
+            "Serato/Library/root.sqlite"
+        });
+        std::fs::create_dir_all(database.parent().unwrap()).unwrap();
+        let conn = rusqlite::Connection::open(&database).unwrap();
+        if software == DjSoftware::EngineDj {
+            conn.execute_batch("CREATE TABLE Information(uuid TEXT,schemaVersionMajor INTEGER); INSERT INTO Information VALUES('native-db',3); CREATE TABLE Track(id INTEGER PRIMARY KEY,path TEXT,filename TEXT,title TEXT,cues BLOB); INSERT INTO Track VALUES(73,'../OLD.wav','old.wav','Remote title',X'00FF1700'); INSERT INTO Track VALUES(99,NULL,NULL,'Foreign streaming',NULL);").unwrap();
+        } else {
+            conn.execute_batch("PRAGMA user_version=12; CREATE TABLE master(revision INTEGER,last_sync_time INTEGER); INSERT INTO master VALUES(9,123); CREATE TABLE asset(id INTEGER PRIMARY KEY,portable_id TEXT,file_name TEXT,revision INTEGER,name TEXT,cues BLOB); INSERT INTO asset VALUES(73,'OLD.wav','old.wav',8,'Remote title',X'00FF1700');").unwrap();
+        }
+        drop(conn);
+        let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":software,"path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":root}]}})).unwrap();
+        let snapshot = inspect_path_reference(&target, &source).unwrap();
+        assert_eq!(snapshot.external_id, "73");
+        let change = SourcePathChange {
+            track_id: "authored".into(),
+            from: source.clone(),
+            to: destination,
+            source_sha256: file_hash(&source).unwrap().unwrap(),
+            approved_from_sha256: None,
+        };
+        let journals = root.join("journals");
+        let plan = prepare_path_repair(&journals, &snapshot, &change).unwrap();
+        apply_path_repair(&journals, &plan.id).unwrap();
+        let conn = rusqlite::Connection::open(&database).unwrap();
+        let query = if software == DjSoftware::EngineDj {
+            "SELECT id,filename,title,cues FROM Track"
+        } else {
+            "SELECT id,file_name,name,cues FROM asset"
+        };
+        let row: (i64, String, String, Vec<u8>) = conn
+            .query_row(query, [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap();
+        assert_eq!(
+            row,
+            (
+                73,
+                "new.wav".into(),
+                "Remote title".into(),
+                vec![0, 255, 23, 0]
+            )
+        );
+        if software == DjSoftware::EngineDj {
+            assert_eq!(
+                conn.query_row(
+                    "SELECT title FROM Track WHERE id=99 AND path IS NULL",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "Foreign streaming"
+            );
+        }
+        drop(conn);
+        cuerithm_dj_sync::restore_path_repair(&journals, &plan.id).unwrap();
+        assert!(source.is_file());
+    }
+}
+#[cfg(unix)]
+#[test]
+fn mapped_windows_reference_repair_refuses_retargeted_mapping_before_apply_or_restore() {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    let alias = root.join("mapped");
+    symlink(&root, &alias).unwrap();
+    let source = root.join("old.wav");
+    let destination = root.join("new.wav");
+    std::fs::write(&source, b"authored").unwrap();
+    std::fs::copy(&source, &destination).unwrap();
+    let database = root.join("database.xml");
+    std::fs::write(
+        &database,
+        br#"<VirtualDJ_Database Version="8.5"><Song FilePath="C:\old.wav"/></VirtualDJ_Database>"#,
+    )
+    .unwrap();
+    let target:SyncTarget=serde_json::from_value(serde_json::json!({"software":"virtual_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":alias}]}})).unwrap();
+    let snapshot = inspect_path_reference(&target, &source).unwrap();
+    let change = SourcePathChange {
+        track_id: "authored".into(),
+        from: source.clone(),
+        to: destination,
+        source_sha256: file_hash(&source).unwrap().unwrap(),
+        approved_from_sha256: None,
+    };
+    let journals = root.join("journals");
+    let plan = prepare_path_repair(&journals, &snapshot, &change).unwrap();
+    let different = root.join("different");
+    std::fs::create_dir(&different).unwrap();
+    std::fs::remove_file(&alias).unwrap();
+    symlink(&different, &alias).unwrap();
+    assert!(apply_path_repair(&journals, &plan.id).is_err());
+    std::fs::remove_file(&alias).unwrap();
+    symlink(&root, &alias).unwrap();
+    apply_path_repair(&journals, &plan.id).unwrap();
+    std::fs::remove_file(&alias).unwrap();
+    symlink(&different, &alias).unwrap();
+    assert!(cuerithm_dj_sync::restore_path_repair(&journals, &plan.id).is_err());
+    std::fs::remove_file(&alias).unwrap();
+    symlink(&root, &alias).unwrap();
+    cuerithm_dj_sync::restore_path_repair(&journals, &plan.id).unwrap();
 }

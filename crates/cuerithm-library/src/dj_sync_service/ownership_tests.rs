@@ -148,6 +148,7 @@ fn engine_drive_library_folder_and_database_share_one_target_baseline() {
     fs::write(&database, b"synthetic database location").unwrap();
     let resolve = |path: PathBuf| {
         canonical_target(SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::EngineDj,
             path,
             source_root: None,
@@ -286,6 +287,7 @@ fn djay_changed_after_an_acknowledged_deletion_is_a_valid_noop() {
     db.execute_batch("CREATE TABLE database2(rowid INTEGER PRIMARY KEY,collection TEXT NOT NULL,key TEXT NOT NULL,data BLOB,metadata BLOB,UNIQUE(collection,key));CREATE TABLE yap2(extension TEXT,key TEXT,data);").unwrap();
     drop(db);
     let target = SyncTarget {
+        environment: Default::default(),
         software: DjSoftware::DjayPro,
         path: database,
         source_root: None,

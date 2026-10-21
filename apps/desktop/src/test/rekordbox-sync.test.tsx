@@ -11,9 +11,32 @@ import type {RekordboxBridge,RekordboxSyncFieldReview,RekordboxSyncPreview,Rekor
 const target:RekordboxSyncTarget={id:"native-6",installation:{version:"6.8.5",major:6,root:"/Applications/rekordbox 6",executable:"/Applications/rekordbox 6/rekordbox",version_source:"bundle"},database:"/Synthetic/rekordbox/master.db",options_file:"/Synthetic/options.json",asset_root:"/Synthetic/rekordbox"};
 const field:RekordboxSyncFieldReview={track_id:"a",title:"Night drive",field:"title",local:{state:"present",value:"Night drive"},remote:{state:"present",value:"Night drive"},result:{state:"conflict",reason:"initial_acknowledgement",suggestion:"accept_equal"},decision:null};
 function prepared(id="plan",fields=[field]):RekordboxSyncPreview{return {id,target_id:target.id,library_revision:1,fields,entity_changes:[],pending_entities:[],tracks:1,changed_rows:2,skipped_fields:0,warnings:[],media_copies:0,copied_audio_bytes:0,can_apply:fields.every(f=>f.decision!==null)};}
-function bridge():RekordboxBridge{return {discover:vi.fn(async()=>[target]),preflight:vi.fn(async()=>({target,readable:true,writable:true,restrictions:[],schema_fingerprint:null,identity:null})),preview:vi.fn(async()=>prepared()),apply:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:1})),restore:vi.fn(async(_op,id)=>({id,status:"restored",tracks:1,changed_rows:2,acknowledged_fields:0,skipped_fields:0})),recover:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:0})),discard:vi.fn(async()=>{}),history:vi.fn(async()=>[]),cancel:vi.fn(async()=>true)};}
+function bridge():RekordboxBridge{return {configure:vi.fn(async()=>target),syncTargetConfigurations:vi.fn(async()=>[]),saveSyncTargetConfiguration:vi.fn(async request=>({id:request.id??"saved",name:request.name,revision:(request.expected_revision??0)+1,target:request.target})),deleteSyncTargetConfiguration:vi.fn(async()=>{}),discover:vi.fn(async()=>[target]),preflight:vi.fn(async()=>({target,readable:true,writable:true,restrictions:[],schema_fingerprint:null,identity:null})),preview:vi.fn(async()=>prepared()),apply:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:1})),restore:vi.fn(async(_op,id)=>({id,status:"restored",tracks:1,changed_rows:2,acknowledged_fields:0,skipped_fields:0})),recover:vi.fn(async(_op,id)=>({id,status:"applied",tracks:1,changed_rows:2,acknowledged_fields:1,skipped_fields:0})),discard:vi.fn(async()=>{}),history:vi.fn(async()=>[]),cancel:vi.fn(async()=>true)};}
 async function open(api:RekordboxBridge){render(<RekordboxSync bridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);await screen.findByText("Ready for preview");}
 describe("native rekordbox sync",()=>{
+ it("checks the selected saved revision and clears that binding when switching installed libraries",async()=>{
+  const api=bridge(),other={...target,id:"native-7",installation:{...target.installation,version:"7.2.0",major:7}};
+  vi.mocked(api.discover).mockResolvedValue([target,other]);
+  vi.mocked(api.syncTargetConfigurations).mockResolvedValue([{id:"authored-setup",name:"Saved decks",revision:4,target:{kind:"rekordbox",target}}]);
+  vi.mocked(api.preflight).mockImplementation(async(_op,id)=>({target:id===other.id?other:target,readable:true,writable:true,restrictions:[],schema_fingerprint:null,identity:null}));
+  await open(api);await screen.findByRole("option",{name:"Saved decks"});
+  fireEvent.change(screen.getByRole("combobox",{name:"Saved library setup"}),{target:{value:"authored-setup"}});
+  await waitFor(()=>expect(api.preflight).toHaveBeenCalledWith(expect.any(String),target.id,{id:"authored-setup",revision:4}));
+  fireEvent.change(screen.getByRole("combobox",{name:"rekordbox library"}),{target:{value:other.id}});
+  await waitFor(()=>expect(vi.mocked(api.preflight).mock.lastCall?.slice(1)).toEqual([other.id]));
+ });
+ it("saves a manually selected Windows library without starting a sync",async()=>{
+  const api=bridge();await open(api);
+  fireEvent.click(screen.getByText("Set up another library"));
+  fireEvent.change(screen.getByRole("textbox",{name:"Library setup name"}),{target:{value:"Proton rekordbox"}});
+  for(const [name,value] of [["rekordbox executable","/prefix/drive_c/rekordbox.exe"],["rekordbox database","/private/master.db"],["rekordbox Agent options","/private/options.json"],["rekordbox asset folder","/private/share"]])fireEvent.change(screen.getByRole("textbox",{name}),{target:{value}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Application environment"}),{target:{value:"windows_compatibility"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Wine or Proton prefix"}),{target:{value:"/prefix"}});
+  fireEvent.click(screen.getByRole("button",{name:"Save library setup"}));
+  await waitFor(()=>expect(api.configure).toHaveBeenCalledWith(expect.objectContaining({executable:"/prefix/drive_c/rekordbox.exe",database:"/private/master.db",environment:{kind:"windows_compatibility",prefix:"/prefix",installation:null,mappings:[]}})));
+  await waitFor(()=>expect(api.saveSyncTargetConfiguration).toHaveBeenCalledWith(expect.objectContaining({name:"Proton rekordbox",target:{kind:"rekordbox",target}})));
+  expect(api.preview).not.toHaveBeenCalled();expect(api.apply).not.toHaveBeenCalled();
+ });
  it("requires an explicit equal acknowledgement and a new server preview before applying its ID",async()=>{
   const api=bridge();await open(api);fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
   await screen.findByRole("button",{name:"Accept equal values"});expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
@@ -69,7 +92,7 @@ describe("native rekordbox sync",()=>{
   await waitFor(()=>expect(api.preview).toHaveBeenCalled());const op=vi.mocked(api.preview).mock.calls[0][0];fireEvent.click(screen.getByRole("button",{name:"Cancel"}));await waitFor(()=>expect(api.cancel).toHaveBeenCalledWith(op));expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeDisabled();await act(async()=>finish(prepared("cancelled")));await waitFor(()=>expect(api.discard).toHaveBeenCalledWith("cancelled"));
  });
  it("reports unavailable desktop support when no native installation is discovered",async()=>{
-  const api=bridge();vi.mocked(api.discover).mockResolvedValue([]);render(<RekordboxSync bridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);await screen.findByText("No supported rekordbox installation found. Native sync requires rekordbox 6 or 7 on macOS or Windows.");expect(api.preflight).not.toHaveBeenCalled();expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeDisabled();
+  const api=bridge();vi.mocked(api.discover).mockResolvedValue([]);render(<RekordboxSync bridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);await screen.findByText("No rekordbox library found. Select a native installation or configure its Windows library for Wine / Proton below.");expect(api.preflight).not.toHaveBeenCalled();expect(screen.getByRole("button",{name:"Preview rekordbox sync"})).toBeDisabled();
  });
  it("bulk skips only unresolved fields and retains explicit choices",async()=>{
   const api=bridge();vi.mocked(api.preview).mockResolvedValue(prepared("conflicts",[field,{...field,field:"artist",local:{state:"present",value:"Artist A"},remote:{state:"present",value:"Artist B"}}]));await open(api);fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));await screen.findByRole("region",{name:"rekordbox field review"});

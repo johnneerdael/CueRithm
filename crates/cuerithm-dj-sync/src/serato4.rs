@@ -32,8 +32,21 @@ pub fn location_for_track(
     local_library: &Path,
     audio_path: &Path,
 ) -> Result<(PathBuf, Option<PathBuf>)> {
-    let audio = native_serato_path(audio_path)?;
-    let local = native_serato_path(local_library)?;
+    location_for_track_in_environment(
+        local_library,
+        audio_path,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+
+/// Route through physical databases while retaining the native volume grammar.
+pub fn location_for_track_in_environment(
+    local_library: &Path,
+    audio_path: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<(PathBuf, Option<PathBuf>)> {
+    let audio = native_serato_path(&environment.to_native(audio_path)?)?;
+    let local = native_serato_path(&environment.to_native(local_library)?)?;
     let root = if audio.starts_with("//") {
         let components: Vec<_> = audio.trim_start_matches('/').split('/').collect();
         ensure!(
@@ -73,7 +86,7 @@ pub fn location_for_track(
         );
         return Ok((path, None));
     };
-    let root = PathBuf::from(root);
+    let root = environment.to_host(Path::new(&root))?;
     let info = root.join("_Serato_").join("Library").join("location.info");
     let database = if info.is_file() {
         let text = std::fs::read_to_string(&info).context("Read Serato network location.info")?;
@@ -198,17 +211,24 @@ fn write_database_inner_owned(
         now,
     )?;
     let mut ids = HashMap::new();
-    let existing: HashMap<String, i64> = tx
+    let rows = tx
         .prepare("SELECT portable_id,id FROM asset")?
         .query_map([], |r| {
             Ok((normalize(&r.get::<_, String>(0)?), r.get::<_, i64>(1)?))
         })?
-        .collect::<rusqlite::Result<_>>()?;
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut existing = HashMap::new();
+    for (reference, id) in rows {
+        ensure!(
+            existing.insert(reference, id).is_none(),
+            "Ambiguous Serato native source reference"
+        );
+    }
     for track in &library.tracks {
         let portable = if let Some(root) = source_root {
-            location_portable_id(&track.path, root)?
+            location_portable_id(track.reference_path(), root)?
         } else {
-            portable_id(&track.path)?
+            portable_id(track.reference_path())?
         };
         let asset_id = upsert_track(
             &tx,
@@ -806,6 +826,25 @@ fn reference_portable(path: &Path, root: Option<&Path>) -> Result<String> {
     }
 }
 pub(crate) fn reference_id(database: &Path, root: Option<&Path>, source: &Path) -> Result<String> {
+    reference_id_in_environment(
+        database,
+        root,
+        source,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+pub(crate) fn reference_id_in_environment(
+    database: &Path,
+    physical_root: Option<&Path>,
+    physical_source: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<String> {
+    let projected_source = crate::destination_reference(&environment.to_native(physical_source)?);
+    let projected_root = physical_root
+        .map(|root| environment.to_native(root))
+        .transpose()?;
+    let root = projected_root.as_deref();
+    let source = projected_source.as_path();
     let conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     ensure!(
@@ -840,7 +879,7 @@ pub(crate) fn reference_id(database: &Path, root: Option<&Path>, source: &Path) 
             }
         };
         ensure!(
-            same_file::is_same_file(&actual, source)?,
+            same_file::is_same_file(environment.to_host(&actual)?, physical_source)?,
             "Serato normalized path identifies another physical source"
         );
     }
@@ -853,10 +892,37 @@ pub(crate) fn repair_reference(
     destination: &Path,
     expected: &str,
 ) -> Result<()> {
+    repair_reference_in_environment(
+        database,
+        root,
+        source,
+        destination,
+        expected,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+pub(crate) fn repair_reference_in_environment(
+    database: &Path,
+    physical_root: Option<&Path>,
+    physical_source: &Path,
+    physical_destination: &Path,
+    expected: &str,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<()> {
     ensure!(
-        reference_id(database, root, source)? == expected,
+        reference_id_in_environment(database, physical_root, physical_source, environment)?
+            == expected,
         "Serato native track identity changed"
     );
+    let projected_root = physical_root
+        .map(|root| environment.to_native(root))
+        .transpose()?;
+    let projected_source = crate::destination_reference(&environment.to_native(physical_source)?);
+    let projected_destination =
+        crate::destination_reference(&environment.to_native(physical_destination)?);
+    let root = projected_root.as_deref();
+    let source = projected_source.as_path();
+    let destination = projected_destination.as_path();
     // A root.sqlite portable ID omits the drive. Cross-drive moves need a different
     // location database and cannot be represented by changing this one row.
     if root.is_none() {
@@ -882,9 +948,10 @@ pub(crate) fn repair_reference(
     let mut revision: i64 =
         tx.query_row("SELECT revision FROM master LIMIT 1", [], |row| row.get(0))?;
     let revision = next_revision(&mut revision)?;
-    let filename = destination
-        .file_name()
-        .and_then(|s| s.to_str())
+    let destination_text = native_serato_path(destination)?;
+    let filename = destination_text
+        .rsplit('/')
+        .next()
         .context("Serato requires a Unicode filename")?;
     let changed = tx.execute(
         "UPDATE asset SET portable_id=?1,file_name=?2,revision=?3 WHERE id=?4",

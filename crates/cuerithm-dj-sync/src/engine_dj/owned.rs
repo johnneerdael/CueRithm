@@ -284,6 +284,7 @@ pub fn write_staged_owned(
     }
     publish_structure(&tx, &before, &after, &affected, &targets)?;
     let mut tracks = HashMap::new();
+    let references = super::windows_reference_index(&tx, device_root)?;
     for track in &library.tracks {
         ensure!(
             !tracks.contains_key(&track.id),
@@ -291,7 +292,14 @@ pub fn write_staged_owned(
         );
         tracks.insert(
             track.id.clone(),
-            super::write_track(&tx, device_root, &identity, track, options)?,
+            super::write_track(
+                &tx,
+                device_root,
+                &identity,
+                track,
+                options,
+                references.as_ref(),
+            )?,
         );
     }
     for p in &library.playlists {

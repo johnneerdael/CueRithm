@@ -121,6 +121,7 @@ mod tests {
         }
         let library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 title: "Title".into(),
                 artist: "Artist".into(),
                 ..Default::default()

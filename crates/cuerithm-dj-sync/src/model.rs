@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -22,6 +22,13 @@ pub struct SyncTrack {
     pub id: String,
     #[serde(with = "crate::path_serde")]
     pub path: PathBuf,
+    /// Destination reference derived from the selected environment; never used for I/O.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::path_serde::option"
+    )]
+    pub native_path: Option<PathBuf>,
     pub title: String,
     pub artist: String,
     pub album: String,
@@ -111,6 +118,10 @@ pub struct SmartExportContext {
 }
 
 impl SyncTrack {
+    pub fn reference_path(&self) -> &Path {
+        self.native_path.as_deref().unwrap_or(&self.path)
+    }
+
     pub fn attribute_text(&self, field: &str) -> Option<&str> {
         match self.attributes.get(field) {
             Some(cuerithm_smartlists::FieldValue::Text(value)) => Some(value),

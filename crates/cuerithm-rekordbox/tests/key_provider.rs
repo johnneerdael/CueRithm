@@ -272,3 +272,37 @@ fn native_provider_accepts_the_observed_unpadded_aligned_option_variant() {
     .unwrap();
     assert_unlocks_fixture(d.path(), &key);
 }
+
+#[test]
+fn selected_windows_environment_uses_windows_key_source_on_linux() {
+    use cuerithm_rekordbox::{DriveMapping, TargetEnvironment};
+    let d = tempfile::tempdir().unwrap();
+    let source = fixture(d.path());
+    let root = d.path().canonicalize().unwrap();
+    let target = TargetInstallation {
+        root: root.clone(),
+        executable: source.executable,
+        version: "7.9.1".into(),
+        major: 7,
+        version_source: "explicit_version_hint".into(),
+    };
+    let environment = TargetEnvironment::WindowsCompatibility {
+        prefix: root.clone(),
+        installation: None,
+        mappings: vec![DriveMapping {
+            windows_root: "C:\\".into(),
+            host_root: root,
+        }],
+    };
+    assert!(
+        NativeKeySource::for_environment(&target, &environment, DesktopPlatform::Linux).is_ok()
+    );
+    assert!(
+        NativeKeySource::for_environment(
+            &target,
+            &TargetEnvironment::Native,
+            DesktopPlatform::Linux
+        )
+        .is_err()
+    );
+}

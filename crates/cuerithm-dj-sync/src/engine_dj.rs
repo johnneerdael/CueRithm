@@ -8,16 +8,10 @@ pub(crate) fn reference_id(database: &Path, base: &Path, source: &Path) -> Resul
         |row| row.get(0),
     )?;
     ensure!(major == 3, "Engine DJ path repair requires schema major 3");
-    let relative = relative_path(base, source)?;
-    let ids = conn
-        .prepare("SELECT id FROM Track WHERE path=?1")?
-        .query_map([relative], |row| row.get::<_, i64>(0))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    ensure!(
-        ids.len() == 1,
-        "Engine DJ source reference is missing or ambiguous"
-    );
-    Ok(ids[0].to_string())
+    Ok(existing_reference(&conn, base, source)?
+        .context("Engine DJ source reference is missing or ambiguous")?
+        .0
+        .to_string())
 }
 pub(crate) fn repair_reference(
     database: &Path,
@@ -32,20 +26,21 @@ pub(crate) fn repair_reference(
     );
     let mut conn = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     let tx = conn.transaction()?;
-    let from = relative_path(base, source)?;
+    let from = existing_reference(&tx, base, source)?
+        .context("Engine DJ source reference vanished")?
+        .1;
     let to = relative_path(base, destination)?;
-    let exists: i64 = tx.query_row(
-        "SELECT COUNT(*) FROM Track WHERE path=?1 AND path!=?2",
-        params![to, from],
-        |row| row.get(0),
-    )?;
     ensure!(
-        exists == 0,
+        existing_reference(&tx, base, destination)?
+            .is_none_or(|(id, _)| id.to_string() == expected),
         "Engine DJ destination already has a native track"
     );
-    let name = destination
-        .file_name()
-        .and_then(|s| s.to_str())
+    let destination_text = destination
+        .to_str()
+        .context("Engine DJ requires Unicode paths")?;
+    let name = destination_text
+        .rsplit(['/', '\\'])
+        .next()
         .context("Engine DJ requires a Unicode filename")?;
     ensure!(
         tx.execute(
@@ -122,6 +117,7 @@ pub fn stage_device_media(
             "Engine DJ device audio changed during copying"
         );
         track.path = original_library_root.join(&relative);
+        track.native_path = None;
         files.push((relative, staged));
     }
     Ok((projected, files))
@@ -177,12 +173,20 @@ pub fn write_staged(
     );
     let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let mut ids = HashMap::new();
+    let references = windows_reference_index(&tx, library_root)?;
     for track in &library.tracks {
         ensure!(
             ids.insert(track.id.clone(), 0).is_none(),
             "Duplicate source track ID"
         );
-        let id = write_track(&tx, library_root, &uuid, track, options)?;
+        let id = write_track(
+            &tx,
+            library_root,
+            &uuid,
+            track,
+            options,
+            references.as_ref(),
+        )?;
         ids.insert(track.id.clone(), id);
     }
     write_playlists(&tx, library, &ids, &uuid, options)?;
@@ -190,7 +194,152 @@ pub fn write_staged(
     Ok(())
 }
 
+type WindowsReferenceIndex = HashMap<String, Vec<(i64, String)>>;
+fn windows_reference_index(
+    connection: &Connection,
+    base: &Path,
+) -> Result<Option<WindowsReferenceIndex>> {
+    if windows_reference_key(base, base).is_none() {
+        return Ok(None);
+    }
+    let rows = connection
+        .prepare("SELECT id,path FROM Track WHERE path IS NOT NULL")?
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut index = WindowsReferenceIndex::new();
+    for (id, path) in rows {
+        if let Some(key) = windows_reference_key(base, Path::new(&path)) {
+            index.entry(key).or_default().push((id, path));
+        }
+    }
+    Ok(Some(index))
+}
+fn existing_reference(
+    connection: &Connection,
+    base: &Path,
+    source: &Path,
+) -> Result<Option<(i64, String)>> {
+    if let Some(identity) = windows_reference_key(base, source) {
+        let matches = connection
+            .prepare("SELECT id,path FROM Track WHERE path IS NOT NULL")?
+            .query_map([], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|(_, path)| {
+                windows_reference_key(base, Path::new(path)).as_ref() == Some(&identity)
+            })
+            .collect::<Vec<_>>();
+        ensure!(
+            matches.len() <= 1,
+            "Ambiguous Engine DJ native path identity"
+        );
+        Ok(matches.into_iter().next())
+    } else {
+        Ok(connection
+            .query_row(
+                "SELECT id,path FROM Track WHERE path=?1",
+                [relative_path(base, source)?],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?)
+    }
+}
+fn windows_reference_key(base: &Path, reference: &Path) -> Option<String> {
+    let base = crate::destination_reference(base)
+        .to_str()?
+        .replace('\\', "/");
+    if !(base.as_bytes().get(1) == Some(&b':') || base.starts_with("//")) {
+        return None;
+    }
+    let reference = crate::destination_reference(reference)
+        .to_str()?
+        .replace('\\', "/");
+    let full = if reference.as_bytes().get(1) == Some(&b':') || reference.starts_with("//") {
+        reference
+    } else if reference.starts_with('/') {
+        if base.as_bytes().get(1) != Some(&b':') {
+            return None;
+        }
+        format!("{}{reference}", &base[..2])
+    } else {
+        format!("{base}/{reference}")
+    };
+    let minimum = if full.starts_with("//") { 2 } else { 1 };
+    let mut parts = Vec::new();
+    for part in full.split('/') {
+        match part {
+            "." | "" => {}
+            ".." => {
+                if parts.len() <= minimum {
+                    return None;
+                }
+                parts.pop()?;
+            }
+            _ => {
+                if part.contains(':')
+                    && !(parts.is_empty() && part.len() == 2 && part.as_bytes()[1] == b':')
+                {
+                    return None;
+                }
+                parts.push(part.to_lowercase());
+            }
+        }
+    }
+    (parts.len() >= minimum).then(|| parts.join("/"))
+}
+
 fn relative_path(base: &Path, target: &Path) -> Result<String> {
+    let native_parts = |path: &Path| -> Option<(String, Vec<String>)> {
+        let text = path.to_str()?.replace('\\', "/");
+        let (root, rest) =
+            if text.as_bytes().get(1) == Some(&b':') && text.as_bytes().get(2) == Some(&b'/') {
+                (text[..2].to_owned(), text[3..].to_owned())
+            } else if let Some(unc) = text.strip_prefix("//") {
+                let mut parts = unc.splitn(3, '/');
+                (
+                    format!("//{}/{}", parts.next()?, parts.next()?),
+                    parts.next().unwrap_or("").to_owned(),
+                )
+            } else {
+                return None;
+            };
+        Some((
+            root,
+            rest.split('/')
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned)
+                .collect(),
+        ))
+    };
+    if let Some((target_root, target_parts)) = native_parts(target) {
+        ensure!(
+            !target_parts.iter().any(|p| p == "." || p == ".."),
+            "Normalize audio paths before Engine DJ sync"
+        );
+        let (base_root, base_parts) = native_parts(base)
+            .context("Engine DJ target and source use different path environments")?;
+        if !target_root.eq_ignore_ascii_case(&base_root) {
+            return Ok(target
+                .to_str()
+                .context("Engine DJ requires Unicode paths")?
+                .replace('\\', "/"));
+        }
+        let common = base_parts
+            .iter()
+            .zip(&target_parts)
+            .take_while(|(a, b)| a.eq_ignore_ascii_case(b))
+            .count();
+        return Ok(
+            std::iter::repeat_n("..".to_owned(), base_parts.len() - common)
+                .chain(target_parts[common..].iter().cloned())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+    }
     ensure!(
         base.is_absolute() && target.is_absolute(),
         "Engine DJ requires absolute library and audio paths"
@@ -225,6 +374,7 @@ fn write_track(
     uuid: &str,
     track: &SyncTrack,
     options: &SyncOptions,
+    references: Option<&WindowsReferenceIndex>,
 ) -> Result<i64> {
     ensure!(
         track.sample_rate > 0
@@ -236,12 +386,23 @@ fn write_track(
         track.bpm.is_finite() && track.bpm >= 0.0,
         "Invalid Engine DJ BPM"
     );
-    let relative = relative_path(base, &track.path)?;
-    let existing: Option<i64> = tx
-        .query_row("SELECT id FROM Track WHERE path=?1", [&relative], |r| {
-            r.get(0)
-        })
-        .optional()?;
+    let requested = relative_path(base, track.reference_path())?;
+    let found = if let Some(index) = references {
+        let key = windows_reference_key(base, track.reference_path())
+            .context("Invalid Engine DJ Windows reference")?;
+        let matches = index.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+        ensure!(
+            matches.len() <= 1,
+            "Ambiguous Engine DJ native path identity"
+        );
+        matches.first().cloned()
+    } else {
+        existing_reference(tx, base, track.reference_path())?
+    };
+    let relative = found
+        .as_ref()
+        .map_or(requested, |(_, reference)| reference.clone());
+    let existing = found.map(|(id, _)| id);
     let locked = match options.beatgrid_lock {
         BeatgridLock::Lock => true,
         BeatgridLock::Unlock => false,
@@ -1087,6 +1248,7 @@ mod tests {
 
     pub(super) fn track(path: PathBuf) -> SyncTrack {
         SyncTrack {
+            native_path: None,
             id: "source".into(),
             path,
             title: "Synthetic".into(),
@@ -1275,6 +1437,156 @@ mod tests {
         );
         assert_eq!(library.tracks[0].path, source);
     }
+    #[test]
+    fn windows_context_engine_desktop_cross_drive_references_keep_host_source_proofs() {
+        let (dir, database) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        Connection::open(&database).unwrap().execute("INSERT INTO Track(path,title,isBeatGridLocked) VALUES(NULL,'Foreign streaming track',0)",[]).unwrap();
+        let source = root.join("café & mix.wav");
+        std::fs::write(&source, b"authored source, decoder not invoked").unwrap();
+        let target: crate::SyncTarget = serde_json::from_value(serde_json::json!({
+            "software":"engine_dj", "path":database, "source_root":null,
+            "environment":{"kind":"windows_compatibility", "prefix":root, "installation":null,
+              "mappings":[{"windows_root":"C:\\", "host_root":root.join("Engine Library")},
+                          {"windows_root":"D:\\Music", "host_root":root}]}
+        }))
+        .unwrap();
+        let journals = root.join("journals");
+        let input = SyncLibrary {
+            tracks: vec![track(source.clone())],
+            ..Default::default()
+        };
+        let preview =
+            crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        let conn = Connection::open(&database).unwrap();
+        let path: String = conn
+            .query_row("SELECT path FROM Track WHERE title='Synthetic'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(path, "D:/Music/café & mix.wav");
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            b"authored source, decoder not invoked"
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT title FROM Track WHERE path='unrelated.wav'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "Keep"
+        );
+        drop(conn);
+        crate::restore_sync(&journals, &preview.id).unwrap();
+    }
+    #[test]
+    fn windows_reference_aliases_cannot_traverse_above_the_drive_or_share_root() {
+        for (base, source) in [
+            (r"C:\Music", r"..\..\D:\song.wav"),
+            (r"C:\", r"..\D:\song.wav"),
+            (r"\\server\share\Music", r"..\..\other\song.wav"),
+        ] {
+            assert!(windows_reference_key(Path::new(base), Path::new(source)).is_none());
+        }
+        assert_eq!(
+            windows_reference_key(Path::new(r"C:\Music"), Path::new(r"\song.wav")).as_deref(),
+            Some("c:/song.wav")
+        );
+    }
+    #[test]
+    fn windows_owned_audio_copy_accepts_unmapped_host_source_and_materializes_location_rules() {
+        use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+        let (dir, database) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let source_dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let filename = "CON.wav";
+        #[cfg(not(unix))]
+        let filename = "unmapped.wav";
+        let source = source_dir.path().canonicalize().unwrap().join(filename);
+        std::fs::write(&source, b"authored unmapped audio").unwrap();
+        let library_root = database.parent().unwrap().parent().unwrap();
+        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"engine_dj","path":database,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\Users\\DJ\\Music\\Engine Library","host_root":library_root}]}})).unwrap();
+        let mut input = SyncLibrary {
+            tracks: vec![track(source.clone())],
+            playlists: vec![SyncPlaylist {
+                id: "location".into(),
+                name: "Copy membership".into(),
+                track_ids: vec!["source".into()],
+                smart: Some(SmartDefinition {
+                    match_all: true,
+                    rules: vec![SmartRule {
+                        id: "location".into(),
+                        field: "location".into(),
+                        operator: Operator::StringEquals,
+                        value: RuleValue::Text(source.to_string_lossy().into_owned()),
+                        or: false,
+                    }],
+                }),
+                ..Default::default()
+            }],
+        };
+        input.tracks[0].native_path = Some(PathBuf::from(r"C:\forged.wav"));
+        let initial = std::fs::read(&database).unwrap();
+        let journals = root.join("journals");
+        assert!(
+            crate::prepare_sync(&journals, target.clone(), &input, &SyncOptions::default())
+                .is_err(),
+            "desktop references still require source mappings"
+        );
+        assert_eq!(std::fs::read(&database).unwrap(), initial);
+        let preview = crate::prepare_sync(
+            &journals,
+            target,
+            &input,
+            &SyncOptions {
+                engine_copy_audio: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            preview
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Copy membership")
+                    && warning.contains("saved tracks"))
+        );
+        std::fs::write(&source, b"changed source").unwrap();
+        assert!(crate::apply_sync(&journals, &preview.id).is_err());
+        assert_eq!(std::fs::read(&database).unwrap(), initial);
+        std::fs::write(&source, b"authored unmapped audio").unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        let conn = Connection::open(&database).unwrap();
+        let native: String = conn
+            .query_row(
+                "SELECT path FROM Track WHERE title='Synthetic'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(native.starts_with("Music/"));
+        assert!(!native.contains(source_dir.path().to_str().unwrap()));
+        assert!(!native.contains("forged"));
+        assert_eq!(
+            std::fs::read(library_root.join(&native)).unwrap(),
+            b"authored unmapped audio"
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM PlaylistEntity", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        drop(conn);
+        crate::restore_sync(&journals, &preview.id).unwrap();
+        assert_eq!(std::fs::read(&database).unwrap(), initial);
+        assert!(!library_root.join(native).exists());
+        assert_eq!(std::fs::read(source).unwrap(), b"authored unmapped audio");
+    }
     pub(super) fn fixture() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Engine Library/Database2/m.db");
@@ -1334,6 +1646,7 @@ mod tests {
         let preview = crate::prepare_sync(
             &journals,
             crate::SyncTarget {
+                environment: Default::default(),
                 software: crate::DjSoftware::EngineDj,
                 path: database.clone(),
                 source_root: None,

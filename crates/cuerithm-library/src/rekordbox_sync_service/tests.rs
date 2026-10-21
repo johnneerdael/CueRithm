@@ -117,7 +117,14 @@ fn fixture(change: bool) -> Fixture {
         )
         .unwrap();
     }
+    fs::create_dir_all(home.join("Authored.app")).unwrap();
+    fs::write(
+        home.join("Authored.app/rekordbox"),
+        b"authored executable fixture",
+    )
+    .unwrap();
     let target = RekordboxSyncTarget {
+        environment: TargetEnvironment::Native,
         id: "discovered".into(),
         installation: TargetInstallation {
             root: home.join("Authored.app"),
@@ -131,6 +138,7 @@ fn fixture(change: bool) -> Fixture {
         asset_root: share,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options: RekordboxSyncOptions::default(),
@@ -154,6 +162,11 @@ fn fixture(change: bool) -> Fixture {
     let ledger_before = ledger::capture(&library.conn().unwrap(), &observed.target_id).unwrap();
     let op = Operation {
         version: 1,
+        environment_snapshot: None,
+        installation_hash: None,
+        target_roots: vec![],
+        configuration: None,
+        configuration_target: None,
         id: id.clone(),
         target,
         native_target_id: observed.target_id,
@@ -585,6 +598,7 @@ fn metadata_preview(f: &Fixture, decision: Option<NativeFieldDecision>) -> Rekor
     planning::preview(
         &f.library,
         RekordboxSyncRequest {
+            configuration: None,
             target_id: prior.target.id.clone(),
             scope: RekordboxSyncScope::Full,
             options,
@@ -949,6 +963,7 @@ fn explicit_cue_review_replaces_listed_known_hot_cues_and_transfers_only_verifie
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -1091,6 +1106,7 @@ fn automatic_cue_proposals_cannot_take_unowned_native_slots() {
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -1299,6 +1315,7 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -1689,6 +1706,7 @@ fn explicit_source_only_relocation_rewrites_complete_bundle_paths_and_preserves_
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -1749,7 +1767,18 @@ fn explicit_source_only_relocation_rewrites_complete_bundle_paths_and_preserves_
 #[test]
 fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_import_or_clock_shift()
  {
-    let f = fixture(false);
+    compatible_audio_copy_roundtrip(false);
+}
+#[test]
+fn windows_compatible_audio_copy_uses_native_references_and_repeats_without_duplicates() {
+    compatible_audio_copy_roundtrip(true);
+}
+fn compatible_audio_copy_roundtrip(windows: bool) {
+    let f = if windows {
+        windows_fixture(false)
+    } else {
+        fixture(false)
+    };
     cue_fixture(&f);
     creation_columns(&f);
     let sources = f._dir.path().join("media");
@@ -1778,8 +1807,12 @@ fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_i
     f.library.conn().unwrap().execute("UPDATE tracks SET path=?1,source_hash=?2,metadata_json=?3,duration=?4 WHERE id='local'",params![crate::model::path_bytes(&original),hash,serde_json::to_string(&decoded.info).unwrap(),decoded.clock.duration_seconds()]).unwrap();
     open(&f.native)
         .execute(
-            "UPDATE djmdContent SET FolderPath='/missing/authored.flac' WHERE ID='1'",
-            [],
+            "UPDATE djmdContent SET FolderPath=?1 WHERE ID='1'",
+            [if windows {
+                r"C:\missing\authored.flac"
+            } else {
+                "/missing/authored.flac"
+            }],
         )
         .unwrap();
     let prior = load(&f.library, &f.id).unwrap();
@@ -1796,6 +1829,7 @@ fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_i
         nearest_color: false,
     };
     let mut request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -1868,7 +1902,14 @@ fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_i
         .iter()
         .find(|t| t.identity.content_id == native_id)
         .unwrap();
-    assert_eq!(native.source.path.as_deref(), proof.native_path.to_str());
+    let native_reference = cuerithm_dj_sync::destination_reference(
+        &prior
+            .target
+            .environment
+            .to_native(&proof.native_path)
+            .unwrap(),
+    );
+    assert_eq!(native.source.path.as_deref(), native_reference.to_str());
     assert_eq!(native.source.file_type, Some(11));
     assert_eq!(native.cues[0].start_seconds, Some(0.2));
     assert!(proof.native_path.is_file());
@@ -1910,7 +1951,7 @@ fn unsupported_source_needs_opt_in_and_publishes_owned_audio_without_duplicate_i
             .unwrap()
             .audio_path()
             .unwrap(),
-        proof.native_path.to_str().unwrap()
+        native_reference.to_str().unwrap()
     );
     let repeat = planning::preview(
         &f.library,
@@ -2035,6 +2076,7 @@ fn artwork_uses_pioneer_root_for_native_references_and_repeated_source_choice_is
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -2275,6 +2317,7 @@ fn replacing_prepared_pcm_rebuilds_known_waveforms_and_retains_opaque_analysis_d
         nearest_color: false,
     };
     let request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -2407,6 +2450,7 @@ fn recreated_cue_ids_remain_unowned_after_remote_acknowledgement() {
         nearest_color: false,
     };
     let mut request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -2592,6 +2636,7 @@ fn importing_recreated_playlist_and_mytag_links_never_reclaims_their_owned_ids()
         nearest_color: false,
     };
     let mut request = RekordboxSyncRequest {
+        configuration: None,
         target_id: prior.target.id.clone(),
         scope: RekordboxSyncScope::Full,
         options,
@@ -3036,3 +3081,636 @@ fn native_pqt2_grid_staging_keeps_dat_ext_consistent_and_foreign_sections_unchan
 }
 
 mod restore_gates;
+
+fn windows_fixture(change: bool) -> Fixture {
+    let f = fixture(change);
+    let mut op = load(&f.library, &f.id).unwrap();
+    let home = f._dir.path().canonicalize().unwrap();
+    op.target.environment = TargetEnvironment::WindowsCompatibility {
+        prefix: home.clone(),
+        installation: None,
+        mappings: vec![DriveMapping {
+            windows_root: "C:\\".into(),
+            host_root: home,
+        }],
+    };
+    op.environment_snapshot = Some(op.target.environment.freeze().unwrap());
+    op.installation_hash = Some(
+        file_sha256_cancellable(
+            &op.target.installation.executable,
+            &CancellationToken::default(),
+        )
+        .unwrap(),
+    );
+    op.target_roots = capture_target_roots(&op.target).unwrap();
+    save(&f.library.conn().unwrap(), &op).unwrap();
+    f
+}
+
+#[test]
+fn old_native_journals_default_environment_and_new_stability_proofs() {
+    let f = fixture(false);
+    let op = load(&f.library, &f.id).unwrap();
+    let mut json = serde_json::to_value(&op).unwrap();
+    for key in [
+        "environment_snapshot",
+        "installation_hash",
+        "target_roots",
+        "configuration",
+        "configuration_target",
+    ] {
+        json.as_object_mut().unwrap().remove(key);
+    }
+    assert!(json["target"].get("environment").is_none());
+    let old: Operation = serde_json::from_value(json).unwrap();
+    assert!(old.target.environment.is_native());
+    assert!(old.environment_snapshot.is_none());
+    assert!(old.target_roots.is_empty());
+}
+
+#[test]
+fn compatible_installation_updates_keep_target_identity_but_invalidate_previews() {
+    let f = windows_fixture(true);
+    let op = load(&f.library, &f.id).unwrap();
+    let before_id = stable_target_id(
+        &op.target.installation,
+        &op.target.database,
+        &op.target.options_file,
+        &op.target.asset_root,
+        &op.target.environment,
+    )
+    .unwrap();
+    let mut updated = op.target.installation.clone();
+    updated.version = "7.99.1".into();
+    updated.root = updated.root.join("new-versioned-installation");
+    updated.executable = updated.root.join("rekordbox.exe");
+    assert_eq!(
+        before_id,
+        stable_target_id(
+            &updated,
+            &op.target.database,
+            &op.target.options_file,
+            &op.target.asset_root,
+            &op.target.environment
+        )
+        .unwrap()
+    );
+    let mut relocated_environment = op.target.environment.clone();
+    if let TargetEnvironment::WindowsCompatibility { installation, .. } = &mut relocated_environment
+    {
+        *installation = Some(updated.root.clone());
+    }
+    assert_eq!(
+        before_id,
+        stable_target_id(
+            &updated,
+            &op.target.database,
+            &op.target.options_file,
+            &op.target.asset_root,
+            &relocated_environment
+        )
+        .unwrap()
+    );
+    fs::write(
+        &op.target.installation.executable,
+        b"changed compatible installer",
+    )
+    .unwrap();
+    let before = fs::read(&f.native).unwrap();
+    assert!(
+        publication::fixture_apply(
+            &f.library,
+            &f.id,
+            &key(),
+            &CancellationToken::default(),
+            &|| Ok(())
+        )
+        .is_err()
+    );
+    assert_eq!(fs::read(&f.native).unwrap(), before);
+    assert!(!f.new_asset.exists());
+}
+
+#[test]
+fn windows_music_alias_preserves_native_id_reference_foreign_bytes_and_repeat_noop() {
+    let f = windows_fixture(false);
+    add_local(&f, "Updated title");
+    open(&f.native)
+        .execute("UPDATE djmdContent SET FolderPath=?1", [r"C:\authored.wav"])
+        .unwrap();
+    let preview = metadata_preview(&f, Some(NativeFieldDecision::UseLocal));
+    assert_eq!(preview.tracks, 1);
+    let op = load(&f.library, &preview.id).unwrap();
+    assert_eq!(op.resolved[0].identity.content_id, "1");
+    assert_eq!(
+        op.sources[0].path,
+        f._dir.path().canonicalize().unwrap().join("authored.wav")
+    );
+    assert_eq!(
+        op.plan
+            .rows
+            .iter()
+            .filter(|r| r.table == "djmdContent")
+            .count(),
+        1
+    );
+    publication::fixture_apply(
+        &f.library,
+        &preview.id,
+        &key(),
+        &CancellationToken::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    let c = open(&f.native);
+    assert_eq!(
+        c.query_row("SELECT FolderPath FROM djmdContent", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        r"C:\authored.wav"
+    );
+    assert_eq!(
+        c.query_row("SELECT hex(payload) FROM unknownRows", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "BEEF"
+    );
+    assert_eq!(
+        c.query_row("SELECT hex(Opaque) FROM djmdContent", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "00FF"
+    );
+    drop(c);
+    let mut request = op.request.clone();
+    request.decisions.clear();
+    let repeat = planning::preview(
+        &f.library,
+        request,
+        op.target,
+        &key(),
+        None,
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .unwrap();
+    assert_eq!(repeat.changed_rows, 0);
+    f.library.discard_rekordbox_sync(&repeat.id).unwrap();
+    publication::fixture_restore(
+        &f.library,
+        &preview.id,
+        &key(),
+        &CancellationToken::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(title(&f), "Before");
+}
+
+#[test]
+fn windows_context_recovery_retains_original_assets_and_restores_without_saved_setup() {
+    let f = windows_fixture(true);
+    let calls = Cell::new(0);
+    assert!(
+        publication::fixture_apply(
+            &f.library,
+            &f.id,
+            &key(),
+            &CancellationToken::default(),
+            &|| {
+                calls.set(calls.get() + 1);
+                if calls.get() == 4 {
+                    anyhow::bail!("authored interruption");
+                }
+                Ok(())
+            }
+        )
+        .is_err()
+    );
+    let op = load(&f.library, &f.id).unwrap();
+    assert!(matches!(
+        op.status.as_str(),
+        "publishing" | "native_published"
+    ));
+    let outcome = publication::fixture_recover(
+        &f.library,
+        &f.id,
+        &key(),
+        &CancellationToken::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    if outcome.status == "applied" {
+        publication::fixture_restore(
+            &f.library,
+            &f.id,
+            &key(),
+            &CancellationToken::default(),
+            &|| Ok(()),
+        )
+        .unwrap();
+    }
+    assert_eq!(title(&f), "Before");
+    assert_eq!(
+        fs::read(&f.old_asset).unwrap(),
+        b"original complete resource"
+    );
+    assert!(!f.new_asset.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn replaced_native_asset_root_invalidates_prepared_windows_operation() {
+    let f = windows_fixture(true);
+    let op = load(&f.library, &f.id).unwrap();
+    let moved = op.target.asset_root.with_extension("retained");
+    fs::rename(&op.target.asset_root, &moved).unwrap();
+    fs::create_dir(&op.target.asset_root).unwrap();
+    let before = fs::read(&f.native).unwrap();
+    assert!(
+        publication::fixture_apply(
+            &f.library,
+            &f.id,
+            &key(),
+            &CancellationToken::default(),
+            &|| Ok(())
+        )
+        .is_err()
+    );
+    assert_eq!(before, fs::read(&f.native).unwrap());
+    assert!(!f.new_asset.exists());
+}
+
+fn manual_windows_request(f: &Fixture) -> RekordboxManualTarget {
+    let home = f._dir.path().canonicalize().unwrap();
+    let executable = home.join("rekordbox.exe");
+    let options_file = home.join("options.json");
+    fs::write(&executable, b"MZ authored installation, never execute").unwrap();
+    fs::write(&options_file, b"{} no credentials read during setup").unwrap();
+    RekordboxManualTarget {
+        executable,
+        version_hint: Some("7.3.42".into()),
+        database: f.native.clone(),
+        options_file,
+        asset_root: home.join("share"),
+        environment: TargetEnvironment::WindowsCompatibility {
+            prefix: home.clone(),
+            installation: None,
+            mappings: vec![DriveMapping {
+                windows_root: "C:\\".into(),
+                host_root: home,
+            }],
+        },
+    }
+}
+
+#[test]
+fn manual_native_setup_is_portable_and_patch_updates_do_not_replace_identity() {
+    let f = fixture(false);
+    let request = manual_windows_request(&f);
+    let initial = f
+        .library
+        .configure_rekordbox_sync_target(request.clone())
+        .unwrap();
+    assert!(!initial.environment.is_native());
+    let mut updated = request.clone();
+    updated.version_hint = Some("7.99.123.4".into());
+    assert_eq!(
+        initial.id,
+        f.library
+            .configure_rekordbox_sync_target(updated)
+            .unwrap()
+            .id
+    );
+    let mut invalid = request;
+    invalid.version_hint = Some("8.0".into());
+    assert!(f.library.configure_rekordbox_sync_target(invalid).is_err());
+}
+
+#[test]
+fn deleting_saved_native_setup_invalidates_apply_before_any_native_file_changes() {
+    let f = fixture(true);
+    let target = f
+        .library
+        .configure_rekordbox_sync_target(manual_windows_request(&f))
+        .unwrap();
+    let saved = f
+        .library
+        .save_sync_target_configuration(SaveSyncTargetConfiguration {
+            id: None,
+            expected_revision: None,
+            name: "Authored Wine library".into(),
+            target: SavedSyncTarget::Rekordbox {
+                target: target.clone(),
+            },
+        })
+        .unwrap();
+    let mut op = load(&f.library, &f.id).unwrap();
+    op.target = target;
+    op.configuration = Some(SyncConfigurationBinding {
+        id: saved.id.clone(),
+        revision: saved.revision,
+    });
+    op.environment_snapshot = Some(op.target.environment.freeze().unwrap());
+    op.installation_hash = Some(
+        file_sha256_cancellable(
+            &op.target.installation.executable,
+            &CancellationToken::default(),
+        )
+        .unwrap(),
+    );
+    op.target_roots = capture_target_roots(&op.target).unwrap();
+    save(&f.library.conn().unwrap(), &op).unwrap();
+    f.library
+        .delete_sync_target_configuration(&saved.id, saved.revision)
+        .unwrap();
+    let before = fs::read(&f.native).unwrap();
+    let error = f
+        .library
+        .apply_rekordbox_sync(&f.id, &CancellationToken::default())
+        .unwrap_err();
+    assert!(error.to_string().contains("removed"), "{error:#}");
+    assert_eq!(fs::read(&f.native).unwrap(), before);
+    // Recovery/restore obtains its target from the durable operation, independent
+    // of the removed setup. The authored SQL key enters only the fixture seam.
+    publication::fixture_apply(
+        &f.library,
+        &f.id,
+        &key(),
+        &CancellationToken::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    publication::fixture_restore(
+        &f.library,
+        &f.id,
+        &key(),
+        &CancellationToken::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(title(&f), "Before");
+}
+
+#[test]
+fn saved_native_patch_update_refreshes_live_version_without_changing_saved_identity() {
+    let f = fixture(false);
+    let mut request = manual_windows_request(&f);
+    let executable = request.executable.clone();
+    let write_version = |patch: u32| {
+        let mut bytes = vec![0u8; 512];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&64u32.to_le_bytes());
+        bytes[64..68].copy_from_slice(b"PE\0\0");
+        bytes[70..72].copy_from_slice(&1u16.to_le_bytes());
+        bytes[88..96].copy_from_slice(b".rsrc\0\0\0");
+        bytes[104..108].copy_from_slice(&128u32.to_le_bytes());
+        bytes[108..112].copy_from_slice(&256u32.to_le_bytes());
+        bytes[256..264].copy_from_slice(&[0xbd, 4, 0xef, 0xfe, 0, 0, 1, 0]);
+        bytes[272..276].copy_from_slice(&(7u32 << 16).to_le_bytes());
+        bytes[276..280].copy_from_slice(&(patch << 16).to_le_bytes());
+        fs::write(&executable, bytes).unwrap();
+    };
+    write_version(1);
+    request.version_hint = None;
+    let target = f.library.configure_rekordbox_sync_target(request).unwrap();
+    assert_eq!(target.installation.version, "7.0.1.0");
+    let saved = f
+        .library
+        .save_sync_target_configuration(SaveSyncTargetConfiguration {
+            id: None,
+            expected_revision: None,
+            name: "Updateable Windows setup".into(),
+            target: SavedSyncTarget::Rekordbox {
+                target: target.clone(),
+            },
+        })
+        .unwrap();
+    write_version(2);
+    let paths = DiscoveryPaths {
+        platform: DesktopPlatform::Linux,
+        install_roots: vec![],
+        settings_file: PathBuf::new(),
+        default_database_dir: PathBuf::new(),
+    };
+    let current = resolve_target(
+        &f.library,
+        &target.id,
+        &paths,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(current.id, target.id);
+    assert_eq!(current.installation.version, "7.0.2.0");
+    f.library
+        .verify_sync_target_configuration(
+            &SyncConfigurationBinding {
+                id: saved.id,
+                revision: saved.revision,
+            },
+            &SavedSyncTarget::Rekordbox { target },
+        )
+        .unwrap();
+}
+
+#[test]
+fn native_preview_binds_explicit_saved_record_when_names_share_one_library_id() {
+    let f = fixture(false);
+    add_local(&f, "Updated title");
+    let target = f
+        .library
+        .configure_rekordbox_sync_target(manual_windows_request(&f))
+        .unwrap();
+    open(&f.native)
+        .execute("UPDATE djmdContent SET FolderPath=?1", [r"C:\authored.wav"])
+        .unwrap();
+    let save_named = |name: &str| {
+        f.library
+            .save_sync_target_configuration(SaveSyncTargetConfiguration {
+                id: None,
+                expected_revision: None,
+                name: name.into(),
+                target: SavedSyncTarget::Rekordbox {
+                    target: target.clone(),
+                },
+            })
+            .unwrap()
+    };
+    let first = save_named("A first setup");
+    let chosen = save_named("Z selected setup");
+    let prior = load(&f.library, &f.id).unwrap();
+    f.library.discard_rekordbox_sync(&f.id).unwrap();
+    let request = RekordboxSyncRequest {
+        configuration: Some(SyncConfigurationBinding {
+            id: chosen.id.clone(),
+            revision: chosen.revision,
+        }),
+        target_id: target.id.clone(),
+        scope: RekordboxSyncScope::Full,
+        options: RekordboxSyncOptions {
+            metadata_fields: BTreeSet::from(["title".into()]),
+            cues: false,
+            beat_grid: false,
+            artwork: false,
+            playlists: false,
+            my_tags: false,
+            ..Default::default()
+        },
+        decisions: BTreeMap::from([(
+            "local".into(),
+            BTreeMap::from([("title".into(), NativeFieldDecision::UseLocal)]),
+        )]),
+    };
+    let preview = planning::preview(
+        &f.library,
+        request,
+        target,
+        &key(),
+        None,
+        &CancellationToken::default(),
+        planning::PreviewPermit::AuthoredFixture,
+    )
+    .unwrap();
+    let op = load(&f.library, &preview.id).unwrap();
+    assert_eq!(op.configuration.as_ref().unwrap().id, chosen.id);
+    assert_ne!(op.configuration.as_ref().unwrap().id, first.id);
+    f.library
+        .delete_sync_target_configuration(&first.id, first.revision)
+        .unwrap();
+    f.library
+        .verify_sync_target_configuration(
+            op.configuration.as_ref().unwrap(),
+            &SavedSyncTarget::Rekordbox {
+                target: op.configuration_target.clone().unwrap(),
+            },
+        )
+        .unwrap();
+    f.library
+        .delete_sync_target_configuration(&chosen.id, chosen.revision)
+        .unwrap();
+    let before = fs::read(&f.native).unwrap();
+    assert!(
+        f.library
+            .apply_rekordbox_sync(&preview.id, &CancellationToken::default())
+            .unwrap_err()
+            .to_string()
+            .contains("removed")
+    );
+    assert_eq!(before, fs::read(&f.native).unwrap());
+    assert_eq!(prior.target.database, op.target.database);
+}
+
+#[test]
+fn equivalent_windows_audio_references_retain_exact_native_spelling() {
+    let f = windows_fixture(false);
+    add_local(&f, "Authored");
+    let target = load(&f.library, &f.id).unwrap().target;
+    let physical = f._dir.path().canonicalize().unwrap().join("authored.wav");
+    let mut collection = ReadOnlyDatabase::open(&f.native, &key())
+        .unwrap()
+        .read_collection(Default::default(), &CancellationToken::default())
+        .unwrap();
+    collection.tracks[0].source.path = Some("c:/authored.wav".into());
+    assert_eq!(
+        audio_reference(&target, &physical, Some(&collection.tracks[0]), false).unwrap(),
+        Path::new("c:/authored.wav")
+    );
+    assert_eq!(
+        audio_reference(&target, &physical, Some(&collection.tracks[0]), true).unwrap(),
+        Path::new(r"C:\authored.wav")
+    );
+    assert!(same_native_audio(&target, r"c:\AUTHORED.wav", &physical));
+}
+
+#[test]
+fn native_preflight_uses_selected_saved_executable_when_library_ids_are_equal() {
+    let f = fixture(false);
+    f.library.discard_rekordbox_sync(&f.id).unwrap();
+    let request = manual_windows_request(&f);
+    let fixture_reference: Value = serde_json::from_str(include_str!(
+        "../../../cuerithm-rekordbox/tests/fixtures/native-key/reference.json"
+    ))
+    .unwrap();
+    fs::write(
+        &request.options_file,
+        serde_json::to_vec(&json!({"options":[["dp",fixture_reference["ciphertext"]]]})).unwrap(),
+    )
+    .unwrap();
+    open(&f.native)
+        .execute_batch("PRAGMA rekey='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+        .unwrap();
+    let invalid = f
+        .library
+        .configure_rekordbox_sync_target(request.clone())
+        .unwrap();
+    let invalid_saved = f
+        .library
+        .save_sync_target_configuration(SaveSyncTargetConfiguration {
+            id: None,
+            expected_revision: None,
+            name: "A unavailable key source".into(),
+            target: SavedSyncTarget::Rekordbox {
+                target: invalid.clone(),
+            },
+        })
+        .unwrap();
+    let mut selected_request = request;
+    selected_request.executable = f
+        ._dir
+        .path()
+        .canonicalize()
+        .unwrap()
+        .join("selected-installation/rekordbox.exe");
+    fs::create_dir(selected_request.executable.parent().unwrap()).unwrap();
+    let mut image = b"MZ authored data-only PE fixture".to_vec();
+    image.extend([0u8; 128]);
+    image.extend(b"rekordbox_client\0");
+    image.extend(b"0123456789abcdef\0");
+    fs::write(&selected_request.executable, image).unwrap();
+    let selected = f
+        .library
+        .configure_rekordbox_sync_target(selected_request)
+        .unwrap();
+    assert_eq!(invalid.id, selected.id);
+    let selected_saved = f
+        .library
+        .save_sync_target_configuration(SaveSyncTargetConfiguration {
+            id: None,
+            expected_revision: None,
+            name: "Z selected key source".into(),
+            target: SavedSyncTarget::Rekordbox {
+                target: selected.clone(),
+            },
+        })
+        .unwrap();
+    let unreadable = f
+        .library
+        .preflight_rekordbox_sync_configured(
+            &invalid.id,
+            Some(SyncConfigurationBinding {
+                id: invalid_saved.id,
+                revision: invalid_saved.revision,
+            }),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert!(!unreadable.readable);
+    let readable = f
+        .library
+        .preflight_rekordbox_sync_configured(
+            &selected.id,
+            Some(SyncConfigurationBinding {
+                id: selected_saved.id,
+                revision: selected_saved.revision,
+            }),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!(
+        readable.target.installation.executable,
+        selected.installation.executable
+    );
+    assert!(readable.readable, "{:?}", readable.restrictions);
+    // Authored schemas remain read-only even when the selected key source works.
+    assert!(!readable.writable);
+}

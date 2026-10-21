@@ -161,6 +161,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             rekordbox_sync_commands::discover_rekordbox_targets,
+            rekordbox_sync_commands::configure_rekordbox_sync_target,
             rekordbox_sync_commands::preflight_rekordbox_sync,
             rekordbox_sync_commands::preview_rekordbox_sync,
             rekordbox_sync_commands::apply_rekordbox_sync,
@@ -257,6 +258,9 @@ pub fn run() {
             organization_commands::organization_alternates,
             organization_commands::resolve_organization_alternate,
             sync_commands::discover_dj_targets,
+            sync_commands::sync_target_configurations,
+            sync_commands::save_sync_target_configuration,
+            sync_commands::delete_sync_target_configuration,
             sync_commands::preview_dj_sync,
             sync_commands::discard_dj_sync,
             sync_commands::apply_dj_sync,

@@ -33,6 +33,32 @@ pub struct TargetEnvironmentSnapshot {
     installation: Vec<InstallationObservation>,
 }
 
+/// Selected library-directory identity, independent of database file replacement.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetPathSnapshot {
+    root: RootObservation,
+}
+
+impl TargetPathSnapshot {
+    pub fn capture(path: &Path) -> Result<Self> {
+        directory_root(path)?;
+        let root = observe_root(path)?;
+        ensure!(
+            fs::metadata(&root.canonical)?.is_dir(),
+            "Select a target directory"
+        );
+        Ok(Self { root })
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        ensure!(
+            Self::capture(&self.root.selected)? == *self,
+            "Selected target directory changed since preview"
+        );
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct RootObservation {
     selected: PathBuf,
@@ -859,5 +885,42 @@ mod tests {
             *selected = Some(installation);
         }
         assert!(env.freeze().is_err());
+    }
+
+    #[test]
+    fn target_directory_snapshot_allows_database_replacement_and_survives_serialization() {
+        let root = tempfile::tempdir().unwrap();
+        let database = root.path().join("database.sqlite");
+        fs::write(&database, b"first database").unwrap();
+        let snapshot = TargetPathSnapshot::capture(root.path()).unwrap();
+        let snapshot: TargetPathSnapshot =
+            serde_json::from_slice(&serde_json::to_vec(&snapshot).unwrap()).unwrap();
+        fs::rename(&database, root.path().join("retired.sqlite")).unwrap();
+        fs::write(&database, b"replacement database").unwrap();
+        snapshot.verify().unwrap();
+        assert!(TargetPathSnapshot::capture(&database).is_err());
+        assert!(TargetPathSnapshot::capture(Path::new("relative")).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn target_directory_snapshot_rejects_selected_symlink_retarget_and_same_path_replacement() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let first = root.path().join("first");
+        let second = root.path().join("second");
+        fs::create_dir(&first).unwrap();
+        fs::create_dir(&second).unwrap();
+        let selected = root.path().join("selected");
+        symlink(&first, &selected).unwrap();
+        let snapshot = TargetPathSnapshot::capture(&selected).unwrap();
+        snapshot.verify().unwrap();
+        fs::remove_file(&selected).unwrap();
+        symlink(&second, &selected).unwrap();
+        assert!(snapshot.verify().is_err());
+        let snapshot = TargetPathSnapshot::capture(&first).unwrap();
+        fs::rename(&first, root.path().join("retired")).unwrap();
+        fs::create_dir(&first).unwrap();
+        assert!(snapshot.verify().is_err());
     }
 }

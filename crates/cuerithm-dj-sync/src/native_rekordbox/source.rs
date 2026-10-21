@@ -305,6 +305,7 @@ pub fn prepare_native_rekordbox_source(
     // Validate timing under the native target before returning a playable source.
     timing::offset_seconds(
         &SyncTrack {
+            native_path: None,
             path: native_path.clone(),
             sample_rate,
             export_timing: Some(export_timing.clone()),

@@ -434,7 +434,7 @@ fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 27);
+    assert_eq!(version, 28);
     let count: i64 = conn
         .query_row(
             "SELECT count(*) FROM native_reconciliation_plans",
@@ -498,7 +498,7 @@ fn schema_twenty_three_upgrade_preserves_released_preset_curation_and_catalog_da
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        27
+        28
     );
     assert!(
         conn.query_row(

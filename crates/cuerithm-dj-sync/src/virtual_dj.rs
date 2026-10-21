@@ -3,7 +3,7 @@
 mod owned;
 use crate::{SyncLibrary, SyncOptions, SyncTrack};
 use anyhow::{Context, Result, bail, ensure};
-pub use owned::write_owned;
+pub use owned::{write_owned, write_owned_partitioned};
 use quick_xml::{
     Reader, Writer,
     events::{BytesEnd, BytesStart, BytesText, Event},
@@ -134,10 +134,17 @@ fn path_key(path: &str) -> String {
     path.replace('\\', "/").to_lowercase()
 }
 fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Result<()> {
-    song.attr(
-        "FilePath",
-        track.path.to_str().context("Non-UTF-8 audio path")?,
-    );
+    let reference = track
+        .reference_path()
+        .to_str()
+        .context("Non-UTF-8 audio path")?;
+    if song
+        .attrs
+        .get("FilePath")
+        .is_none_or(|stored| path_key(stored) != path_key(reference))
+    {
+        song.attr("FilePath", reference);
+    }
     if let Ok(meta) = fs::metadata(&track.path) {
         song.attr("FileSize", meta.len());
     }
@@ -333,7 +340,14 @@ fn safe_name(name: &str, id: &str) -> String {
         &hash[..8]
     )
 }
-fn playlist_component(node: &crate::SyncPlaylist) -> String {
+fn playlist_component(node: &crate::SyncPlaylist, modern: bool) -> String {
+    if !modern {
+        return if node.folder {
+            safe_name(&node.name, &node.id)
+        } else {
+            format!("{}.m3u", safe_name(&node.name, &node.id))
+        };
+    }
     format!(
         "{}.{}",
         safe_name(&node.name, &node.id),
@@ -344,43 +358,91 @@ fn playlist_component(node: &crate::SyncPlaylist) -> String {
         }
     )
 }
-fn playlist_files(
+pub(crate) fn playlist_roots(home: &Path) -> Vec<PathBuf> {
+    if home.join("MyLists").is_dir() {
+        vec![home.join("MyLists/CueRithm.subfolders")]
+    } else {
+        vec![
+            home.join("Playlists/CueRithm"),
+            home.join("Folders/Filters"),
+        ]
+    }
+}
+fn playlist_paths(
     root: &Path,
     library: &SyncLibrary,
     options: &SyncOptions,
-) -> Result<Vec<(PathBuf, Vec<u8>)>> {
-    let mut paths = BTreeMap::new();
+) -> Result<BTreeMap<String, PathBuf>> {
+    let modern = root.join("MyLists").is_dir();
     let nodes: BTreeMap<_, _> = library
         .playlists
         .iter()
         .map(|p| (p.id.as_str(), p))
         .collect();
+    let mut paths = BTreeMap::new();
     for node in &library.playlists {
-        let mut parts = vec![playlist_component(node)];
+        if !modern
+            && matches!(
+                crate::smart_rules::compile(node, library, options, crate::DjSoftware::VirtualDj),
+                Ok(Some(crate::smart_rules::NativeSmart::VirtualDj(_)))
+            )
+        {
+            paths.insert(
+                node.id.clone(),
+                root.join("Folders/Filters").join(format!(
+                    "CueRithm-{}.vdjfolder",
+                    safe_name(&node.name, &node.id)
+                )),
+            );
+            continue;
+        }
+        let mut parts = vec![playlist_component(node, modern)];
         let mut parent = node.parent_id.as_deref();
         let mut seen = BTreeSet::from([node.id.as_str()]);
         while let Some(id) = parent {
             ensure!(seen.insert(id), "Playlist hierarchy contains a cycle");
-            let p = nodes.get(id).context("Playlist parent is missing")?;
-            ensure!(p.folder, "Playlist parent must be a folder");
-            parts.push(playlist_component(p));
-            parent = p.parent_id.as_deref();
+            let parent_node = nodes.get(id).context("Playlist parent is missing")?;
+            ensure!(parent_node.folder, "Playlist parent must be a folder");
+            parts.push(playlist_component(parent_node, modern));
+            parent = parent_node.parent_id.as_deref();
         }
-        let mut path = root.join("MyLists/CueRithm.subfolders");
+        let mut path = root.join(if modern {
+            "MyLists/CueRithm.subfolders"
+        } else {
+            "Playlists/CueRithm"
+        });
         for part in parts.into_iter().rev() {
             path.push(part);
         }
-        paths.insert(node.id.as_str(), path);
+        paths.insert(node.id.clone(), path);
     }
+    Ok(paths)
+}
+fn playlist_files(
+    root: &Path,
+    library: &SyncLibrary,
+    options: &SyncOptions,
+) -> Result<Vec<(PathBuf, Vec<u8>)>> {
+    let paths = playlist_paths(root, library, options)?;
     let tracks: BTreeMap<_, _> = library.tracks.iter().map(|t| (t.id.as_str(), t)).collect();
     let mut output = vec![];
     let mut orders: BTreeMap<PathBuf, Vec<String>> = BTreeMap::new();
     for node in &library.playlists {
         let path = &paths[node.id.as_str()];
-        orders
-            .entry(path.parent().unwrap().into())
-            .or_default()
-            .push(path.file_stem().unwrap().to_string_lossy().into_owned());
+        if !path.starts_with(root.join("Folders/Filters")) {
+            orders
+                .entry(path.parent().unwrap().into())
+                .or_default()
+                .push(
+                    if root.join("MyLists").is_dir() {
+                        path.file_stem().unwrap()
+                    } else {
+                        path.file_name().unwrap()
+                    }
+                    .to_string_lossy()
+                    .into_owned(),
+                );
+        }
         if node.folder {
             orders.entry(path.clone()).or_default();
             continue;
@@ -394,13 +456,34 @@ fn playlist_files(
             output.push((path.clone(), list.bytes()?));
             continue;
         }
+        if path.extension().is_some_and(|ext| ext == "m3u") {
+            let mut contents = String::new();
+            for id in &node.track_ids {
+                let track = tracks
+                    .get(id.as_str())
+                    .context("Playlist references a missing track")?;
+                let reference = track.reference_path().to_str().context("Non-UTF-8 path")?;
+                ensure!(
+                    !reference.contains(['\r', '\n']),
+                    "Newline in VirtualDJ playlist path"
+                );
+                contents.push_str("#EXTVDJ:\n");
+                contents.push_str(reference);
+                contents.push('\n');
+            }
+            output.push((path.clone(), contents.into_bytes()));
+            continue;
+        }
         let mut list = Node::new("VirtualFolder");
         for (idx, id) in node.track_ids.iter().enumerate() {
             let track = tracks
                 .get(id.as_str())
                 .context("Playlist references a missing track")?;
             let mut song = Node::new("song");
-            song.attr("path", track.path.to_str().context("Non-UTF-8 path")?);
+            song.attr(
+                "path",
+                track.reference_path().to_str().context("Non-UTF-8 path")?,
+            );
             song.attr("idx", idx);
             list.children.push(Part::Node(song));
         }
@@ -421,6 +504,14 @@ fn playlist_files(
 /// `path` is the VirtualDJ home folder, or its `database.xml`.
 /// Only matching tracks and CueRithm's MyLists namespace are updated.
 pub fn write(path: &Path, library: &SyncLibrary, options: &SyncOptions) -> Result<()> {
+    write_partitioned(path, library, &library.tracks, options)
+}
+fn write_partitioned(
+    path: &Path,
+    library: &SyncLibrary,
+    database_tracks: &[SyncTrack],
+    options: &SyncOptions,
+) -> Result<()> {
     let database = if path.is_dir() {
         path.join("database.xml")
     } else {
@@ -448,8 +539,8 @@ pub fn write(path: &Path, library: &SyncLibrary, options: &SyncOptions) -> Resul
             );
         }
     }
-    for track in &library.tracks {
-        let key = path_key(track.path.to_str().context("Non-UTF-8 path")?);
+    for track in database_tracks {
+        let key = path_key(track.reference_path().to_str().context("Non-UTF-8 path")?);
         if let Some(index) = indices.get(&key) {
             if let Part::Node(song) = &mut root.children[*index] {
                 track_xml(song, track, options)?;
@@ -462,7 +553,14 @@ pub fn write(path: &Path, library: &SyncLibrary, options: &SyncOptions) -> Resul
     }
     // Finish all serialization and validation before writing any target file.
     let mut files = playlist_files(home, library, options)?;
-    files.push((database, root.bytes()?));
+    files.push((
+        database.clone(),
+        if database_tracks.is_empty() {
+            fs::read(&database)?
+        } else {
+            root.bytes()?
+        },
+    ));
     for (path, bytes) in files {
         fs::create_dir_all(path.parent().unwrap())?;
         fs::write(path, bytes)?;
@@ -477,10 +575,12 @@ mod tests {
     #[test]
     fn native_units_escaping_and_unknown_data_survive() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("MyLists")).unwrap();
         let path = dir.path().join("database.xml");
         fs::write(&path,r#"<VirtualDJ_Database Version="8.5"><Song FilePath="/music/A &amp; B.wav" Custom="keep"><Tags User1="retained"/><Scan Phase="1" BeatGrid="old"/><Poi Type="automix" Pos="9"/><Poi Type="cue" Pos="1"/></Song><Song FilePath="/other.wav"/></VirtualDJ_Database>"#).unwrap();
         let library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "a".into(),
                 path: "/music/A & B.wav".into(),
                 title: "<Hello> & friends".into(),
@@ -534,10 +634,12 @@ mod tests {
     #[test]
     fn only_active_loops_autotrigger_and_foreign_pois_survive() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("MyLists")).unwrap();
         let path = dir.path().join("database.xml");
         fs::write(&path, r#"<VirtualDJ_Database Version="8.5"><Song FilePath="/synthetic.wav"><Poi Type="automix" Pos="9" AutoTrigger="keep"/><Poi Type="loop" Name="old" AutoTrigger="yes"/></Song></VirtualDJ_Database>"#).unwrap();
         let mut library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "track".into(),
                 path: "/synthetic.wav".into(),
                 bpm: 120.,
@@ -586,10 +688,12 @@ mod tests {
     #[test]
     fn preserve_grids_keeps_scan_and_grid_pois() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("MyLists")).unwrap();
         let path = dir.path().join("database.xml");
         fs::write(&path,r#"<VirtualDJ_Database Version="8.5"><Song FilePath="/a"><Scan BeatGrid="original" Bpm="0.75" Phase="0.4"/><Poi Type="beatgrid" Pos="2.5" Bpm="80"/></Song></VirtualDJ_Database>"#).unwrap();
         let library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "a".into(),
                 path: "/a".into(),
                 bpm: 120.,
@@ -621,6 +725,7 @@ mod native_smart_tests {
     #[test]
     fn native_filter_folder_toggle_and_empty_folder_are_real_files() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("MyLists")).unwrap();
         let root = dir.path();
         fs::write(
             root.join("database.xml"),
@@ -707,6 +812,7 @@ mod prepared_attribute_tests {
     #[test]
     fn exports_prepared_metadata_used_by_native_rules() {
         let mut track = SyncTrack {
+            native_path: None,
             path: "/synthetic/missing.flac".into(),
             ..Default::default()
         };
@@ -743,10 +849,40 @@ mod prepared_attribute_tests {
     }
 }
 
-pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
-    let source = source
+fn refers_to_source(
+    stored: &str,
+    source: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<bool> {
+    let native = crate::destination_reference(&environment.to_native(source)?);
+    let native = native
         .to_str()
-        .context("VirtualDJ requires a Unicode source path")?;
+        .context("VirtualDJ requires Unicode paths")?;
+    if path_key(stored) != path_key(native) {
+        return Ok(false);
+    }
+    if stored == native {
+        return Ok(true);
+    }
+    same_file::is_same_file(environment.to_host(Path::new(stored))?,source)
+        .context("Unresolvable normalized VirtualDJ reference; restore its source or repair this alias before organization")
+}
+pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
+    reference_id_in_environment(
+        database,
+        source,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+pub(crate) fn reference_id_in_environment(
+    database: &Path,
+    source: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<String> {
+    let native = crate::destination_reference(&environment.to_native(source)?);
+    let native = native
+        .to_str()
+        .context("VirtualDJ requires Unicode paths")?;
     let root = parse(&fs::read(database)?)?;
     let found = root
         .children
@@ -755,7 +891,7 @@ pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
             Part::Node(node) if node.name == "Song" => node
                 .attrs
                 .get("FilePath")
-                .filter(|path| path_key(path) == path_key(source)),
+                .filter(|path| path_key(path) == path_key(native)),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -763,13 +899,11 @@ pub(crate) fn reference_id(database: &Path, source: &Path) -> Result<String> {
         found.len() == 1,
         "VirtualDJ source reference is missing or ambiguous"
     );
-    if found[0] != source {
-        ensure!(
-            same_file::is_same_file(Path::new(found[0]), Path::new(source))?,
-            "VirtualDJ normalized source path identifies another physical file"
-        );
-    }
-    Ok(path_key(source))
+    ensure!(
+        refers_to_source(found[0], source, environment)?,
+        "VirtualDJ normalized source path identifies another physical file"
+    );
+    Ok(path_key(native))
 }
 pub(crate) fn repair_reference_bytes(
     bytes: &[u8],
@@ -777,29 +911,53 @@ pub(crate) fn repair_reference_bytes(
     destination: &Path,
     database: bool,
 ) -> Result<Option<Vec<u8>>> {
-    let source = source
+    repair_reference_bytes_in_environment(
+        bytes,
+        source,
+        destination,
+        database,
+        &cuerithm_rekordbox::TargetEnvironment::Native,
+    )
+}
+pub(crate) fn repair_reference_bytes_in_environment(
+    bytes: &[u8],
+    source: &Path,
+    destination: &Path,
+    database: bool,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<Option<Vec<u8>>> {
+    let native_source = crate::destination_reference(&environment.to_native(source)?);
+    let native_destination = crate::destination_reference(&environment.to_native(destination)?);
+    let native_source = native_source
         .to_str()
-        .context("VirtualDJ requires a Unicode source path")?;
-    let destination = destination
+        .context("VirtualDJ requires Unicode paths")?;
+    let native_destination = native_destination
         .to_str()
-        .context("VirtualDJ requires a Unicode destination path")?;
+        .context("VirtualDJ requires Unicode paths")?;
     let mut root = parse(bytes)?;
     if database {
-        let target = path_key(destination);
-        let old = path_key(source);
-        ensure!(!root.children.iter().any(|part| matches!(part,Part::Node(node) if node.name=="Song" && node.attrs.get("FilePath").is_some_and(|p|path_key(p)==target && path_key(p)!=old))),"VirtualDJ destination already has a native track");
+        let target = path_key(native_destination);
+        let old = path_key(native_source);
+        ensure!(!root.children.iter().any(|part|matches!(part,Part::Node(node) if node.name=="Song" && node.attrs.get("FilePath").is_some_and(|p|path_key(p)==target && path_key(p)!=old))),"VirtualDJ destination already has a native track");
     }
-    fn replace(node: &mut Node, source: &str, destination: &str, count: &mut usize) -> Result<()> {
+    fn replace(
+        node: &mut Node,
+        source: &Path,
+        native_source: &str,
+        destination: &str,
+        environment: &cuerithm_rekordbox::TargetEnvironment,
+        count: &mut usize,
+    ) -> Result<()> {
         if node.name.eq_ignore_ascii_case("song") {
             for key in ["FilePath", "path"] {
-                let matches = match node.attrs.get(key) {
-                    Some(path) if path_key(path) == path_key(source) => {
-                        path == source || same_file::is_same_file(Path::new(path), Path::new(source))
-                            .context("Unresolvable normalized VirtualDJ reference; restore its source or repair this alias before organization")?
-                    }
-                    _ => false,
-                };
-                if matches {
+                if node
+                    .attrs
+                    .get(key)
+                    .filter(|path| path_key(path) == path_key(native_source))
+                    .map(|path| refers_to_source(path, source, environment))
+                    .transpose()?
+                    .unwrap_or(false)
+                {
                     node.attr(key, destination);
                     *count += 1;
                 }
@@ -807,13 +965,27 @@ pub(crate) fn repair_reference_bytes(
         }
         for child in &mut node.children {
             if let Part::Node(child) = child {
-                replace(child, source, destination, count)?;
+                replace(
+                    child,
+                    source,
+                    native_source,
+                    destination,
+                    environment,
+                    count,
+                )?;
             }
         }
         Ok(())
     }
     let mut count = 0;
-    replace(&mut root, source, destination, &mut count)?;
+    replace(
+        &mut root,
+        source,
+        native_source,
+        native_destination,
+        environment,
+        &mut count,
+    )?;
     if database {
         ensure!(
             count == 1,
@@ -825,6 +997,97 @@ pub(crate) fn repair_reference_bytes(
     } else {
         Ok(Some(root.bytes()?))
     }
+}
+pub(crate) fn move_reference_between_databases(
+    source_bytes: &[u8],
+    destination_bytes: &[u8],
+    source: &Path,
+    destination: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<(Vec<u8>, Vec<u8>)> {
+    let mut from = parse(source_bytes)?;
+    let mut to = parse(destination_bytes)?;
+    for root in [&from, &to] {
+        ensure!(
+            root.name == "VirtualDJ_Database"
+                && root
+                    .attrs
+                    .get("Version")
+                    .is_some_and(|version| version == "8.5"),
+            "Unsupported VirtualDJ drive database"
+        );
+    }
+    let native = crate::destination_reference(&environment.to_native(destination)?);
+    let native = native
+        .to_str()
+        .context("VirtualDJ requires Unicode paths")?;
+    ensure!(!to.children.iter().any(|part|matches!(part,Part::Node(node) if node.name=="Song" && node.attrs.get("FilePath").is_some_and(|path|path_key(path)==path_key(native)))),"VirtualDJ destination already has a native track");
+    let native_source = crate::destination_reference(&environment.to_native(source)?);
+    let source_key = path_key(
+        native_source
+            .to_str()
+            .context("VirtualDJ requires Unicode paths")?,
+    );
+    let mut indices = Vec::new();
+    for (index, part) in from.children.iter().enumerate() {
+        if let Part::Node(node) = part
+            && node.name == "Song"
+            && let Some(path) = node.attrs.get("FilePath")
+            && path_key(path) == source_key
+            && refers_to_source(path, source, environment)?
+        {
+            indices.push(index);
+        }
+    }
+    ensure!(
+        indices.len() == 1,
+        "VirtualDJ source reference changed or is ambiguous"
+    );
+    let Part::Node(mut song) = from.children.remove(indices[0]) else {
+        unreachable!()
+    };
+    song.attr("FilePath", native);
+    to.children.push(Part::Node(song));
+    Ok((from.bytes()?, to.bytes()?))
+}
+pub(crate) fn repair_legacy_playlist_bytes(
+    bytes: &[u8],
+    source: &Path,
+    destination: &Path,
+    environment: &cuerithm_rekordbox::TargetEnvironment,
+) -> Result<Option<Vec<u8>>> {
+    let text = std::str::from_utf8(bytes).context("VirtualDJ managed playlist is not UTF-8")?;
+    let native = crate::destination_reference(&environment.to_native(destination)?);
+    let native = native
+        .to_str()
+        .context("VirtualDJ requires Unicode paths")?;
+    ensure!(
+        !native.contains(['\r', '\n']),
+        "Newline in VirtualDJ playlist reference"
+    );
+    let native_source = crate::destination_reference(&environment.to_native(source)?);
+    let source_key = path_key(
+        native_source
+            .to_str()
+            .context("VirtualDJ requires Unicode paths")?,
+    );
+    let mut changed = false;
+    let mut output = String::new();
+    for line in text.split_inclusive('\n') {
+        let content = line.trim_end_matches(['\r', '\n']);
+        if !content.starts_with('#')
+            && !content.is_empty()
+            && path_key(content) == source_key
+            && refers_to_source(content, source, environment)?
+        {
+            changed = true;
+            output.push_str(native);
+            output.push_str(&line[content.len()..]);
+        } else {
+            output.push_str(line);
+        }
+    }
+    Ok(changed.then(|| output.into_bytes()))
 }
 
 #[cfg(test)]
@@ -896,6 +1159,7 @@ mod poi_preservation_tests {
         .unwrap();
         let input = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "synthetic".into(),
                 path: "/synthetic.wav".into(),
                 bpm: 120.,

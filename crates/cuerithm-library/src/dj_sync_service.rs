@@ -23,6 +23,8 @@ mod ownership_tests;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DjSyncRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration: Option<crate::SyncConfigurationBinding>,
     pub target: SyncTarget,
     pub options: SyncOptions,
     pub scope: DjSyncScope,
@@ -48,6 +50,10 @@ pub(crate) struct Source {
 }
 #[derive(Serialize, Deserialize)]
 struct LibraryJournal {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_root: Option<cuerithm_rekordbox::TargetPathSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    selected_target: Option<SyncTarget>,
     version: u32,
     id: String,
     revision: u64,
@@ -124,7 +130,25 @@ impl Library {
     ) -> Result<SyncPreview> {
         let root = self.data_dir().join("sync");
         let _lease = service_lock(&root)?;
+        let selected_target = request.target.clone();
+        let target_root =
+            cuerithm_rekordbox::TargetPathSnapshot::capture(if selected_target.path.is_dir() {
+                &selected_target.path
+            } else {
+                selected_target
+                    .path
+                    .parent()
+                    .context("DJ library parent missing")?
+            })?;
         request.target = canonical_target(request.target)?;
+        if let Some(binding) = &request.configuration {
+            self.verify_sync_target_configuration(
+                binding,
+                &crate::SavedSyncTarget::DjLibrary {
+                    target: request.target.clone(),
+                },
+            )?;
+        }
         self.ensure_organization_references_settled(&request.target)?;
         let preview_registration = ownership::registration(&request.target)?;
         ownership::ensure_settled(&root, &request.target)?;
@@ -269,6 +293,8 @@ impl Library {
         )?;
         request.target = preview.target.clone();
         let mut saved = LibraryJournal {
+            target_root: Some(target_root),
+            selected_target: Some(selected_target),
             version: 1,
             id: preview.id.clone(),
             revision,
@@ -332,8 +358,20 @@ impl Library {
         let _lease = service_lock(&root)?;
         let transaction = FileTransaction::open(&root, id)?;
         let mut saved = read_library_journal(&transaction)?;
+        verify_target_selection(&saved)?;
         self.ensure_organization_references_settled(&saved.request.target)?;
+        cuerithm_dj_sync::verify_sync_environment(&root, id)?;
         let result = (|| -> Result<FileJournal> {
+            if transaction.inspect()?.state != JournalState::Applied
+                && let Some(binding) = &saved.request.configuration
+            {
+                self.verify_sync_target_configuration(
+                    binding,
+                    &crate::SavedSyncTarget::DjLibrary {
+                        target: saved.request.target.clone(),
+                    },
+                )?;
+            }
             #[cfg(feature = "autotag")]
             let _tag_gate = if saved.request.target.software == DjSoftware::Serato4 {
                 Some(
@@ -452,7 +490,9 @@ impl Library {
         let _lease = service_lock(&root)?;
         let transaction = FileTransaction::open(&root, id)?;
         let mut saved = read_library_journal(&transaction)?;
+        verify_target_selection(&saved)?;
         self.ensure_organization_references_settled(&saved.request.target)?;
+        cuerithm_dj_sync::verify_sync_environment(&root, id)?;
         let result = (|| -> Result<FileJournal> {
             let current = transaction.inspect()?;
             let ledger = ownership::read(&root, &saved.request.target)?;
@@ -759,7 +799,22 @@ fn playlist_hashes(library: &SyncLibrary) -> Result<BTreeMap<String, String>> {
         .map(|(position, playlist)| Ok((playlist.id.clone(), digest(&(position, playlist))?)))
         .collect()
 }
-fn canonical_target(mut target: SyncTarget) -> Result<SyncTarget> {
+fn verify_target_selection(saved: &LibraryJournal) -> Result<()> {
+    if let Some(root) = &saved.target_root {
+        root.verify()?;
+    }
+    if let Some(selected) = &saved.selected_target {
+        let current = canonical_target(selected.clone())?;
+        ensure!(
+            current.path == saved.request.target.path
+                && current.source_root == saved.request.target.source_root,
+            "Selected DJ library location changed after preview"
+        );
+    }
+    Ok(())
+}
+pub(crate) fn canonical_target(mut target: SyncTarget) -> Result<SyncTarget> {
+    target.environment.validate()?;
     target.path = fs::canonicalize(target.path).context("DJ target was not found")?;
     // Normalize file/folder spellings so both selections share one durable baseline.
     target.path = match target.software {
@@ -778,7 +833,7 @@ fn canonical_target(mut target: SyncTarget) -> Result<SyncTarget> {
 fn baseline_path(root: &Path, target: &SyncTarget) -> Result<PathBuf> {
     Ok(root
         .join("baselines")
-        .join(format!("{}.json", digest(target)?)))
+        .join(format!("{}.json", digest(&target.identity_target())?)))
 }
 fn read_baseline(root: &Path, target: &SyncTarget) -> Result<Option<Baseline>> {
     let path = baseline_path(root, target)?;
@@ -792,11 +847,12 @@ fn read_baseline(root: &Path, target: &SyncTarget) -> Result<Option<Baseline>> {
     ensure!(baseline.version == 1, "Unsupported DJ baseline version");
     ensure!(
         digest(
-            baseline
+            &baseline
                 .target
                 .as_ref()
                 .context("Baseline target missing")?
-        )? == digest(target)?,
+                .identity_target()
+        )? == digest(&target.identity_target())?,
         "DJ baseline target mismatch"
     );
     Ok(Some(baseline))
@@ -1059,9 +1115,11 @@ mod tests {
             params![crate::model::path_bytes(&source),source_hash,analysis.to_string(),serde_json::to_string(&media).unwrap()]).unwrap();
         let home = root.join("VirtualDJ");
         fs::create_dir(&home).unwrap();
+        fs::create_dir(home.join("MyLists")).unwrap();
         let database = home.join("database.xml");
         fs::write(&database, b"<VirtualDJ_Database Version=\"8.5\"/>").unwrap();
         let target = SyncTarget {
+            environment: Default::default(),
             software: DjSoftware::VirtualDj,
             path: database,
             source_root: None,
@@ -1070,9 +1128,275 @@ mod tests {
     }
     pub(super) fn request(target: &SyncTarget, scope: DjSyncScope) -> DjSyncRequest {
         DjSyncRequest {
+            configuration: None,
             target: target.clone(),
             options: SyncOptions::default(),
             scope,
+        }
+    }
+    fn windows_target(target: &SyncTarget, root: &Path) -> SyncTarget {
+        let mut json = serde_json::to_value(target).unwrap();
+        json["environment"] = json!({
+            "kind":"windows_compatibility", "prefix":root,
+            "installation":null,
+            "mappings":[{"windows_root":"C:\\", "host_root":root}]
+        });
+        serde_json::from_value(json).unwrap()
+    }
+    #[test]
+    fn windows_context_service_preserves_reference_and_foreign_tracks_then_noops_and_restores() {
+        let (dir, library, native) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let target = windows_target(&native, &root);
+        let original = br#"<VirtualDJ_Database Version="8.5"><Song FilePath="c:/AUTHORED.wav" Custom="preserve"/><Song FilePath="D:\foreign.wav"/></VirtualDJ_Database>"#;
+        fs::write(&target.path, original).unwrap();
+        let source = library.track_path("a").unwrap();
+        let before = fs::read(&source).unwrap();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        library.apply_dj_sync(&preview.id).unwrap();
+        let xml = fs::read_to_string(&target.path).unwrap();
+        assert_eq!(
+            xml.matches("<Song ").count(),
+            2,
+            "reuse equivalent Windows reference"
+        );
+        assert!(xml.contains("c:/AUTHORED.wav"));
+        assert!(xml.contains("D:\\foreign.wav"));
+        assert!(!xml.contains(root.to_str().unwrap()));
+        assert_eq!(fs::read(&source).unwrap(), before);
+        let repeated = library
+            .preview_dj_sync(request(&target, DjSyncScope::Changed))
+            .unwrap();
+        assert_eq!(repeated.tracks, 0);
+        library.discard_dj_sync(&repeated.id).unwrap();
+        library.restore_dj_sync(&preview.id).unwrap();
+        assert_eq!(fs::read(&target.path).unwrap(), original);
+    }
+    #[cfg(unix)]
+    #[test]
+    fn windows_context_service_refuses_changed_mapping_at_apply_recovery_and_restore() {
+        use std::os::unix::fs::symlink;
+        let (dir, library, native) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let alias = root.join("mapped-root");
+        let replacement = root.join("replacement");
+        fs::create_dir(&replacement).unwrap();
+        symlink(&root, &alias).unwrap();
+        let mut json = serde_json::to_value(windows_target(&native, &root)).unwrap();
+        json["environment"]["mappings"][0]["host_root"] = json!(&alias);
+        let target: SyncTarget = serde_json::from_value(json).unwrap();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        fs::remove_file(&alias).unwrap();
+        symlink(&replacement, &alias).unwrap();
+        assert!(library.apply_dj_sync(&preview.id).is_err());
+        fs::remove_file(&alias).unwrap();
+        symlink(&root, &alias).unwrap();
+        cuerithm_dj_sync::apply_sync(&library.data_dir().join("sync"), &preview.id).unwrap();
+        fs::remove_file(&alias).unwrap();
+        symlink(&replacement, &alias).unwrap();
+        assert!(library.apply_dj_sync(&preview.id).is_err());
+        assert!(library.restore_dj_sync(&preview.id).is_err());
+        fs::remove_file(&alias).unwrap();
+        symlink(&root, &alias).unwrap();
+        library.restore_dj_sync(&preview.id).unwrap();
+    }
+    #[test]
+    fn captured_windows_configuration_changes_block_apply_but_not_captured_recovery_or_restore() {
+        let (dir, library, native) = fixture();
+        let target = windows_target(&native, &dir.path().canonicalize().unwrap());
+        let saved = library
+            .save_sync_target_configuration(crate::SaveSyncTargetConfiguration {
+                id: None,
+                expected_revision: None,
+                name: "Decks".into(),
+                target: crate::SavedSyncTarget::DjLibrary {
+                    target: target.clone(),
+                },
+            })
+            .unwrap();
+        let mut selected = request(&target, DjSyncScope::Full);
+        selected.configuration = Some(crate::SyncConfigurationBinding {
+            id: saved.id.clone(),
+            revision: 1,
+        });
+        let preview = library.preview_dj_sync(selected).unwrap();
+        let before = fs::read(&target.path).unwrap();
+        library
+            .save_sync_target_configuration(crate::SaveSyncTargetConfiguration {
+                id: Some(saved.id.clone()),
+                expected_revision: Some(1),
+                name: "Updated decks".into(),
+                target: saved.target,
+            })
+            .unwrap();
+        assert!(library.apply_dj_sync(&preview.id).is_err());
+        assert_eq!(fs::read(&target.path).unwrap(), before);
+        library.discard_dj_sync(&preview.id).unwrap();
+        let mut selected = request(&target, DjSyncScope::Full);
+        selected.configuration = Some(crate::SyncConfigurationBinding {
+            id: saved.id.clone(),
+            revision: 2,
+        });
+        let preview = library.preview_dj_sync(selected).unwrap();
+        cuerithm_dj_sync::apply_sync(&library.data_dir().join("sync"), &preview.id).unwrap();
+        library
+            .delete_sync_target_configuration(&saved.id, 2)
+            .unwrap();
+        library.apply_dj_sync(&preview.id).unwrap();
+        library.restore_dj_sync(&preview.id).unwrap();
+        assert_eq!(fs::read(&target.path).unwrap(), before);
+    }
+    #[test]
+    fn old_native_journal_without_environment_or_configuration_still_recovers_and_restores() {
+        let (_dir, library, target) = fixture();
+        let before = fs::read(&target.path).unwrap();
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        let operation = library.data_dir().join("sync").join(&preview.id);
+        let request_path = operation.join("request.json");
+        let mut old: serde_json::Value =
+            serde_json::from_reader(File::open(&request_path).unwrap()).unwrap();
+        for field in [
+            "environment",
+            "target_root",
+            "selected_target",
+            "related_roots",
+        ] {
+            old.as_object_mut().unwrap().remove(field);
+        }
+        assert!(old["target"].get("environment").is_none());
+        atomic_json(&request_path, &old).unwrap();
+        let library_path = operation.join("library.json");
+        let mut old: serde_json::Value =
+            serde_json::from_reader(File::open(&library_path).unwrap()).unwrap();
+        old["request"]
+            .as_object_mut()
+            .unwrap()
+            .remove("configuration");
+        atomic_json(&library_path, &old).unwrap();
+        cuerithm_dj_sync::apply_sync(&library.data_dir().join("sync"), &preview.id).unwrap();
+        library.apply_dj_sync(&preview.id).unwrap();
+        library.restore_dj_sync(&preview.id).unwrap();
+        assert_eq!(fs::read(&target.path).unwrap(), before);
+    }
+    #[test]
+    fn windows_installation_updates_keep_acknowledged_library_identity() {
+        let (dir, library, native) = fixture();
+        let root = dir.path().canonicalize().unwrap();
+        let mut target = windows_target(&native, &root);
+        let first = root.join("first.exe");
+        let second = root.join("second.exe");
+        fs::write(&first, b"authored first installation").unwrap();
+        fs::write(&second, b"authored second installation").unwrap();
+        if let cuerithm_rekordbox::TargetEnvironment::WindowsCompatibility {
+            installation, ..
+        } = &mut target.environment
+        {
+            *installation = Some(first);
+        }
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        library.apply_dj_sync(&preview.id).unwrap();
+        if let cuerithm_rekordbox::TargetEnvironment::WindowsCompatibility {
+            installation, ..
+        } = &mut target.environment
+        {
+            *installation = Some(second);
+        }
+        let next = library
+            .preview_dj_sync(request(&target, DjSyncScope::Changed))
+            .unwrap();
+        assert_eq!(
+            next.tracks, 0,
+            "compatible installation selection retains prior baseline"
+        );
+        library.discard_dj_sync(&next.id).unwrap();
+    }
+    #[test]
+    fn replaced_same_spelling_library_parent_refuses_apply_and_restore() {
+        let (dir, library, target) = fixture();
+        let home = target.path.parent().unwrap();
+        let displaced = dir.path().join("original-home");
+        let preview = library
+            .preview_dj_sync(request(&target, DjSyncScope::Full))
+            .unwrap();
+        let replace = || {
+            fs::rename(home, &displaced).unwrap();
+            fs::create_dir(home).unwrap();
+            fs::copy(displaced.join("database.xml"), &target.path).unwrap();
+        };
+        let reinstate = || {
+            fs::remove_dir_all(home).unwrap();
+            fs::rename(&displaced, home).unwrap();
+        };
+        replace();
+        assert!(library.apply_dj_sync(&preview.id).is_err());
+        reinstate();
+        library.apply_dj_sync(&preview.id).unwrap();
+        replace();
+        assert!(library.restore_dj_sync(&preview.id).is_err());
+        reinstate();
+        library.restore_dj_sync(&preview.id).unwrap();
+    }
+    #[test]
+    fn windows_owned_playlist_sync_survives_organization_and_changed_resync() {
+        for modern in [false, true] {
+            let (dir, library, native) = fixture();
+            let root = dir.path().canonicalize().unwrap();
+            if !modern {
+                fs::remove_dir(native.path.parent().unwrap().join("MyLists")).unwrap();
+            }
+            let target = windows_target(&native, &root);
+            library.conn().unwrap().execute_batch("INSERT INTO playlists(id,kind,name,position,last_edit_id) VALUES('owned','playlist','Owned',0,'fixture'); INSERT INTO playlist_members(playlist_id,track_id,position) VALUES('owned','a',0);").unwrap();
+            let preview = library
+                .preview_dj_sync(request(&target, DjSyncScope::Full))
+                .unwrap();
+            library.apply_dj_sync(&preview.id).unwrap();
+            let source = library.track_path("a").unwrap();
+            let destination = root.join("managed/new.wav");
+            fs::create_dir(destination.parent().unwrap()).unwrap();
+            let references = library.organization_reference_snapshot("a").unwrap();
+            assert!(references.blockers.is_empty(), "{:?}", references.blockers);
+            let operation = library
+                .plan_organization(crate::organization::OrganizationRequest {
+                    track_id: "a".into(),
+                    mode: crate::organization::OrganizationMode::Move,
+                    source_root: source.parent().unwrap().into(),
+                    destination_root: destination.parent().unwrap().into(),
+                    files: vec![(source.clone(), destination.clone())],
+                })
+                .unwrap();
+            library
+                .bind_organization_references(&operation, &references.digest)
+                .unwrap();
+            library.execute_organization(&operation).unwrap();
+            let guard = library.repair_organization_references(&operation).unwrap();
+            library
+                .acknowledge_organization_references_checked(&operation, &guard)
+                .unwrap();
+            drop(guard);
+            let cleanup = library
+                .verify_acknowledged_organization_references(&operation)
+                .unwrap();
+            library
+                .execute_organization_checked(&operation, &cleanup)
+                .unwrap();
+            drop(cleanup);
+            let next = library
+                .preview_dj_sync(request(&target, DjSyncScope::Changed))
+                .unwrap();
+            library.apply_dj_sync(&next.id).unwrap();
+            assert!(
+                fs::read_to_string(&target.path)
+                    .unwrap()
+                    .contains(r"C:\managed\new.wav")
+            );
         }
     }
     #[test]
@@ -1275,10 +1599,12 @@ mod tests {
         let mut library = SyncLibrary {
             tracks: vec![
                 SyncTrack {
+                    native_path: None,
                     id: "a".into(),
                     ..Default::default()
                 },
                 SyncTrack {
+                    native_path: None,
                     id: "b".into(),
                     ..Default::default()
                 },
@@ -1429,6 +1755,7 @@ mod tests {
         use cuerithm_dj_sync::SyncTrack;
         let mut library = SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: "art".into(),
                 artwork: Some(vec![0, 1, 2, 3]),
                 ..Default::default()
@@ -1601,6 +1928,7 @@ mod timing_profile_tests {
         let hash = file_hash(&source).unwrap().unwrap();
         let mut library = SyncLibrary {
             tracks: vec![cuerithm_dj_sync::SyncTrack {
+                native_path: None,
                 id: "track".into(),
                 path: source.clone(),
                 sample_rate: 44100,
@@ -1658,6 +1986,7 @@ mod timing_profile_tests {
         };
         let mut library = SyncLibrary {
             tracks: vec![cuerithm_dj_sync::SyncTrack {
+                native_path: None,
                 id: "track".into(),
                 export_timing: Some(profile),
                 ..Default::default()

@@ -403,6 +403,65 @@ mod tests {
     use cuerithm_rekordbox::anlz::{AnlzFile, AnlzTag, ParseLimits};
     mod path_tests;
     #[test]
+    fn windows_owned_audio_usb_copy_accepts_unmapped_host_source_and_keeps_device_references() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let output = root.join("usb");
+        fs::create_dir(&output).unwrap();
+        let source_dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let filename = "CON.wav";
+        #[cfg(not(unix))]
+        let filename = "unmapped.wav";
+        let source = source_dir.path().canonicalize().unwrap().join(filename);
+        audio(&source);
+        let original = fs::read(&source).unwrap();
+        let target:crate::SyncTarget=serde_json::from_value(serde_json::json!({"software":"pioneer_usb","path":output,"source_root":null,"environment":{"kind":"windows_compatibility","prefix":root,"installation":null,"mappings":[{"windows_root":"C:\\","host_root":output}]}})).unwrap();
+        let mut input = library(&source, "unmapped");
+        input.tracks[0].native_path = Some(PathBuf::from(r"C:\forged.wav"));
+        let journals = root.join("journals");
+        let preview =
+            crate::prepare_sync(&journals, target, &input, &SyncOptions::default()).unwrap();
+        crate::apply_sync(&journals, &preview.id).unwrap();
+        let dbpath = output.join("PIONEER/rekordbox/exportLibrary.db");
+        let db = database::prepare(&dbpath, &dbpath).unwrap();
+        let native: String = db
+            .query_row("SELECT path FROM content", [], |row| row.get(0))
+            .unwrap();
+        drop(db);
+        assert!(native.starts_with("/Contents/CueRithm/"));
+        assert!(!native.contains(source_dir.path().to_str().unwrap()));
+        assert!(!native.contains("forged"));
+        assert_eq!(
+            fs::read(output.join(native.trim_start_matches('/'))).unwrap(),
+            original
+        );
+        let analysis = preview
+            .files
+            .iter()
+            .find(|file| {
+                file.target
+                    .extension()
+                    .is_some_and(|extension| extension == "DAT")
+            })
+            .unwrap();
+        let parsed =
+            AnlzFile::parse(&fs::read(&analysis.target).unwrap(), ParseLimits::default()).unwrap();
+        assert_eq!(
+            parsed
+                .tags()
+                .iter()
+                .find(|tag| tag.fourcc() == *b"PPTH")
+                .unwrap()
+                .audio_path()
+                .unwrap(),
+            native
+        );
+        crate::restore_sync(&journals, &preview.id).unwrap();
+        assert!(!output.join(native.trim_start_matches('/')).exists());
+        assert_eq!(fs::read(source).unwrap(), original);
+    }
+    #[test]
     fn encrypted_catalog_uses_observed_native_sqlcipher_v4_profile() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("catalog.db");
@@ -445,6 +504,7 @@ mod tests {
     fn library(path: &Path, id: &str) -> SyncLibrary {
         SyncLibrary {
             tracks: vec![SyncTrack {
+                native_path: None,
                 id: id.into(),
                 path: path.into(),
                 title: format!("Synthetic {id}"),

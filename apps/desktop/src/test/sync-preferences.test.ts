@@ -12,7 +12,7 @@ describe("sync choice storage",()=>{
   expect(saved.profiles.engine_dj).toMatchObject({path:"/Engine",scope:"changed",playlistId:"set",options:{engine_copy_audio:true,materialize_smartlists:true,nearest_color:false,skip_beatgrids:false,beatgrid_lock:"lock",key_notation:"camelot",usb_cue_destination:"both",usb_cdj_compatibility:"detect",field_mappings:{comment:"genre"}}});
   expect(Object.keys(saved.profiles)).toEqual(["virtual_dj","engine_dj","djay_pro","serato4","pioneer_usb"]);
   expect(Object.keys(saved).sort()).toEqual(["profiles","software","version"]);
-  expect(Object.keys(saved.profiles.engine_dj).sort()).toEqual(["options","path","playlistId","scope"]);
+  expect(Object.keys(saved.profiles.engine_dj).sort()).toEqual(["environment","options","path","playlistId","scope","sourceRoot"]);
   expect(saved.profiles.engine_dj.options).not.toHaveProperty("unknown");
   expect(saved.profiles.engine_dj.options.field_mappings).toEqual({comment:"genre"});
   expect(saved.profiles.djay_pro).toMatchObject({path:"",scope:"full",playlistId:""});
