@@ -26,5 +26,70 @@ class Release(unittest.TestCase):
         self.assertEqual(public, ["Z"])
 
 
+class Page(unittest.TestCase):
+    def test_users_see_their_changes_first_and_developer_detail_is_collapsed(self):
+        text = rn.render(["Organize your files"], ["tidy CI"], ["test(autotag): reset sockets"])
+        visible, collapsed = text.split("<details>")
+        self.assertIn("## What's new", visible)
+        self.assertIn("- Organize your files", visible)
+        self.assertNotIn("tidy CI", visible)
+        self.assertNotIn("test(autotag)", visible)
+        self.assertIn("<summary>", collapsed)
+        self.assertIn("tidy CI", collapsed)
+        self.assertIn("test(autotag): reset sockets", collapsed)
+        self.assertTrue(text.rstrip().endswith("</details>"))
+
+    def test_no_developer_block_when_there_is_nothing_for_developers(self):
+        text = rn.render(["Organize your files"], [], [])
+        self.assertNotIn("<details>", text)
+        self.assertIn("- Organize your files", text)
+
+    def test_a_release_without_user_facing_changes_says_so_before_the_detail(self):
+        text = rn.render([], ["tidy CI"], [])
+        visible = text.split("<details>")[0]
+        self.assertIn("No user-facing changes.", visible)
+        self.assertNotIn("tidy CI", visible)
+
+    def test_nothing_at_all_still_says_no_user_facing_changes(self):
+        self.assertIn("No user-facing changes.", rn.render([], [], []))
+
+
+SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+class Branded(unittest.TestCase):
+    def page(self, version="0.1.8", **kwargs):
+        return rn.render(["Organize your files"], ["tidy CI"], [], repo="owner/repo", sha=SHA, version=version, **kwargs)
+
+    def test_the_banner_comes_first_pinned_to_the_commit_and_switches_with_the_theme(self):
+        text = self.page()
+        self.assertTrue(text.startswith("<picture>"))
+        base = f"https://raw.githubusercontent.com/owner/repo/{SHA}/docs/assets/brand"
+        self.assertIn(f'<source media="(prefers-color-scheme: dark)" srcset="{base}/readme-dark.png">', text)
+        self.assertIn(f'src="{base}/readme-light.png"', text)
+        self.assertIn('alt="CueRithm. Know your music. Shape your set."', text)
+
+    def test_the_status_line_names_the_stage_and_links_the_source_commit(self):
+        self.assertIn(f"**Release (pre-1.0).** Source: [{SHA[:12]}](https://github.com/owner/repo/commit/{SHA}).", self.page())
+        self.assertIn("**Release.** Source:", self.page(version="1.0.0"))
+
+    def test_the_page_reads_banner_then_changes_then_downloads_then_developer_detail(self):
+        text = self.page()
+        order = [text.index(part) for part in ["<picture>", "**Release", "## What's new", "## Downloads", "<details>"]]
+        self.assertEqual(order, sorted(order))
+
+    def test_downloads_say_what_to_get_for_each_system_and_how_it_is_signed(self):
+        text = self.page()
+        table = text.split("## Downloads")[1].split("<details>")[0]
+        self.assertIn("| Download | Platform | Signing / distribution |", table)
+        for needle in ["macOS", "Apple Silicon", "notarized", "no Intel", "Windows", "SmartScreen", "Linux", "DEB"]:
+            self.assertIn(needle, table)
+
+    def test_no_banner_or_downloads_without_a_repository(self):
+        text = rn.render(["Organize your files"], [], [])
+        self.assertNotIn("<picture>", text)
+        self.assertNotIn("## Downloads", text)
+
+
 if __name__ == "__main__":
     unittest.main()
