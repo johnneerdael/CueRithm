@@ -6,7 +6,7 @@ status: research-evidence
 
 # OneTagger provider credentials and accountless capabilities
 
-Checked 2026-10-21 against public service documentation and OneTagger commit `36523f71f2d9a5947912f3cb930f1a31fcb2e3ee`. No personal credential files were accessed, accounts created or tokens obtained. After the documentation review, one explicitly authorized anonymous Discogs search request was made with a public sample query; its sanitized result is recorded below. No other provider API was called. Documentation/source inspection and this single request do not establish broad endpoint health or successful tagging.
+Checked 2026-10-21 against public service documentation and OneTagger commit `36523f71f2d9a5947912f3cb930f1a31fcb2e3ee`. No personal credential files were accessed, accounts created or tokens obtained. After the documentation review, one explicitly authorized anonymous Discogs search request was made with a public sample query; its sanitized result is recorded below. This section records that initial research checkpoint; subsequent PR5 development checks are documented separately in [provider acceptance](pr5-provider-acceptance.md). Documentation/source inspection and this single request do not establish broad endpoint health or successful tagging.
 
 The pinned builders mark **Spotify, Discogs and BPM Supreme** as requiring authentication. That is an upstream implementation decision, not a complete service capability model: current anonymous Discogs search also returned HTTP200 in the bounded check below, while Musixmatch's supported API requires a key even though OneTagger's unofficial desktop-client adapter requests no user credentials.
 
@@ -55,6 +55,10 @@ These are the received header values; the remaining/used figures do not establis
 
 ## Consequence for the selected provider program
 
-End users do not need to register developer applications merely to use CueRithm. Keep public lookup providers accountless where supported; request personal authentication only for an independently chosen provider/capability. If Spotify is ever accepted, design an application-owned registration with a suitable installed-app flow rather than requiring every user to create client credentials. Existing Spotify feature exclusions remain unchanged.
+End users do not need to register developer applications merely to use CueRithm. Keep public lookup providers accountless where supported; request personal authentication only for an independently chosen provider/capability. The user subsequently chose to skip Spotify entirely. Keep its historical credential research separate from current delivery scope; no Spotify setup is exposed.
 
-SonoVault is separate from the twelve pinned adapters: users choosing it provide a personal API key, with the approved [free-key signup link](https://sonovault.now/signup). Musicfetch remains excluded. This inventory does not approve additional adapters or extend PR3 scope.
+SonoVault is separate from the twelve pinned adapters: users choosing it provide a personal API key, with the approved [free-key signup link](https://sonovault.now/signup). Musicfetch remains excluded. The user subsequently clarified that PR5 must also port and validate the existing iTunes, BPM Supreme, Bandcamp and Deezer metadata adapters. The matrix informs their implementation and technical acceptance; it does not imply current runtime health or extend PR3 scope.
+
+The user subsequently excluded Beatsource after its merger into Beatport. Historical adapter and issue records remain evidence, not a shipped provider. See [the operator announcement](https://www.beatsource.com/) and [PR5 acceptance](pr5-provider-acceptance.md).
+
+Juno Download is also excluded by the final user decision after failed live access and closure reports, as recorded in [PR5 acceptance](pr5-provider-acceptance.md).

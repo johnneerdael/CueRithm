@@ -12,9 +12,62 @@ Open **Settings > Automatic tagging** to configure tagging for new tracks, watch
 | --- | --- | --- |
 | **Automatic tagging** | off | Catalog lookups need the internet. Analysis and cues stay offline. |
 | **Recovery backups** | n/a | Read-only. Size and count of retained original files. |
-| **Providers** | Beatport, then Traxsource | Order and selection. One or both. |
+| **Providers** | Beatport, then Traxsource | Select and order providers. Additional providers are opt-in. |
 | **Combine providers** | off | Off: first provider with a match wins. On: apply matches from every provider in order. |
 | **No catalog match** | Keep existing tags and finish | Or *Keep in Incoming for attention*. |
+
+## Provider setup
+
+| Provider | ID | End-user setup |
+| --- | --- | --- |
+| Beatport | `beatport` | No account. |
+| Traxsource | `traxsource` | No account; a detected challenge may require a solver. |
+| MusicBrainz | `musicbrainz` | No account or API key. |
+| SonoVault | `sonovault` | Optional personal API key and verified email. |
+| Discogs | `discogs` | Anonymous by default; optional verified personal token. |
+| iTunes | `itunes` | No account. |
+| BPM Supreme | `bpmsupreme` | Optional account email and password. |
+| Bandcamp | `bandcamp` | No account; source restrictions can affect access. |
+| Deezer | `deezer` | No account. |
+
+**Set up** and **Manage** open credential controls for the optional providers.
+**Save**, **Test**, **Replace** and **Remove** act immediately on the system
+credential store. **Save settings** separately saves provider selection, order,
+field policies and other preparation rules. Saving a key does not enable a
+provider. Key and password inputs stay masked and are cleared after submission
+or when leaving; saved secrets are never shown or exported. User key files are not discovered
+automatically. Follow [Set up catalog tagging](../learn/auto-tagging.md#provider-setup)
+for the steps.
+
+SonoVault links to [Get a free API key](https://sonovault.now/signup). Verify the
+account email first. **Test saved SonoVault connection** uses one metadata credit,
+without uploading audio or invoking recognition. Mock/test keys do not establish
+live access. Rate or quota messages show known timing only; unknown remaining
+allowance and reset times are not estimated. If no reset is known after a quota
+error, check the allowance before explicitly testing again.
+
+Discogs needs no developer application registration. Anonymous access is capped
+at 25 requests/minute; a successfully verified account token allows up to 60.
+Stricter server limits still apply. Provider budgets are shared across libraries
+and retained across restarts. Private setup can be busy in a second CueRithm
+process; offline analysis and editing remain usable.
+
+Spotify is skipped. AudD and RapidAPI are not selectable; their trial/research
+evaluation does not enable audio uploads in this interface.
+
+## Identify unresolved recordings
+
+This section is collapsed and off by default. **Allow fingerprint lookup** permits
+sending a locally generated Chromaprint fingerprint and duration to AcoustID;
+the audio file is not uploaded. **Identify unresolved tracks** enables the
+fallback, with one lookup per preparation attempt. Save settings to apply it.
+The build supplies the registered application key. If absent, the controls show
+that lookup is unavailable; end users do not obtain an application key.
+
+Results stay in Incoming for recording/release edition review, even when a
+recording is recognized. Short clips may be unavailable. Measured analysis stays
+independent. Fingerprint consent is local and is excluded from portable presets,
+along with credentials and local folder connections.
 
 ## Cloudflare challenge solver
 
@@ -32,12 +85,12 @@ Byparr or Trawl, source status, privacy and troubleshooting.
 | --- | --- | --- |
 | **Matching strictness** | 0.70 | Minimum title similarity (0 to 1) for an accepted match. |
 | **Match duration** / **Maximum duration difference** | off / 30 s | Rejects candidates whose length differs from the track by more than the allowance. |
-| **Match by embedded IDs** | off | Beatport only: uses a stored Beatport track ID or an ISRC for an exact match. |
+| **Match by embedded IDs** | off | Use provider IDs or ISRC where the selected provider supports them. Identity and edition checks still apply. |
 | **Read artist and title from filename** | off | When tags are missing. Template default `%artists% - %title%`. |
 | **Title cleanup pattern** | empty | A regular expression removed from the title before matching. |
 | **Skip already tagged** | off | Skips the catalog lookup for files carrying a CueRithm or legacy OneTagger tagging marker. Analysis and cues still run. |
-| **Album matching** | off | When enough Incoming files in one folder match the same Beatport release (ratio default 0.5), use that release's track list for the rest. |
-| **Tagging concurrency** | 16 | Beatport lookups in parallel (1 to 64). Traxsource always runs one at a time. |
+| **Album matching** | off | When enough Incoming files in one folder match the same Beatport or Traxsource release (ratio default 0.5), use that release's track list for the rest. |
+| **Tagging concurrency** | 16 | Shared catalog concurrency (1 to 64). Provider-specific pacing and serial limits still apply. |
 | **Ordering** | Best match | Or oldest or newest release. |
 | Beatport: **Max pages** | 1 | 1 to 10 pages of 50 results. |
 | Beatport: **Ignore version when matching** | off | Ignores mix text while scoring titles. Known edition, recording ID and duration conflicts still require review. |
@@ -49,6 +102,12 @@ Each field has **Write** and **Overwrite** checkboxes, and there is a global **O
 Genre, BPM, style, label and release date are on by default. Title, artist, album, key, artwork, ISRC, identifiers and the tagging marker are off.
 
 Fields the providers can supply include title, version, artist, album artist, album, BPM, genre, style, label, URL, release and publish date, key, album art, remixer, catalogue number, track number and total, ISRC, duration and provider IDs. Each field shows which providers can fill it.
+
+MusicBrainz review distinguishes the recording, release, release group and release
+track. Scoped identifiers and ordered artist credits are read-only evidence in
+Review; common metadata, dates and selected artwork use the normal field choices.
+A recording's first-release date is not assumed to be the selected release date.
+Incomplete dates keep their precision. Artwork is optional and provider-specific.
 
 ## How measured values are written
 

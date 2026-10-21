@@ -33,7 +33,7 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 - [ ] PR2: implemented and ready for review in #14, stacked on #13 — automatic/manual organization and reference repair with solver-only retry continuity. The user manages review and merge; hosted checks remain merge gates.
 - [ ] PR3: implemented and ready for review in #16, stacked on #14 — source-bound review, typed metadata/artwork editing, durable drafts, guarded publication/recovery/Undo and Incoming analysis reuse. Packaged native-window acceptance remains separate.
 - [ ] PR4: implemented and ready for review — Curate, durable mapped publication/recovery and immutable preparation presets/folder assignments, refreshed onto main's complete Traxsource release support and the fetched preparation-integrity review fixes. See the [implementation detail](2026-10-21-feat-curate-and-preparation-presets-implementation-plan.md). The user manages review and merge; packaged native-window acceptance remains separate.
-- [ ] PR5: MusicBrainz, optional personal-key SonoVault, optional-auth Discogs, accepted identification and shared automation.
+- [ ] PR5: port and validate OneTagger’s iTunes, BPM Supreme, Bandcamp and Deezer metadata adapters alongside MusicBrainz, optional personal-key SonoVault, optional-auth Discogs, accepted identification and shared automation.
 
 ## PR1 — Preparation integrity and organization engine
 
@@ -87,11 +87,22 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 **Merge gate:** routine curation is fast and durable; failed drafts remain discoverable. Presets reproduce preparation choices without exporting secrets or silently changing provider selections; detected-source restrictions still apply. Both themes retain the table/player hierarchy and accessible navigation.
 
-## PR5 — MusicBrainz, SonoVault, Discogs and optional identification
+## PR5 — OneTagger metadata providers, MusicBrainz, SonoVault, Discogs and optional identification
 
-**Design:** extend Automatic tagging's existing provider order/field-policy controls. Show setup, ready, missing key, verification failure, rate-wait and exhausted-quota states without blocking offline analysis. Every new provider starts opt-in; existing configurations do not silently enable it. Each adapter has its own accepted/not-yet-accepted status. MusicBrainz, SonoVault and Discogs are named scope; other catalogs remain separately accepted candidates, not an obligation to import all twelve OneTagger adapters.
+**Design:** extend Automatic tagging's existing provider order/field-policy controls. Show setup, ready, missing key, verification failure, rate-wait and exhausted-quota states without blocking offline analysis. Every new provider starts opt-in; existing configurations do not silently enable it. Port and validate the existing OneTagger metadata adapters for **iTunes, BPM Supreme, Bandcamp and Deezer** as named PR5 deliverables, alongside MusicBrainz, SonoVault and Discogs. Preserve existing Beatport and Traxsource support. These four are existing upstream adapters to reuse and repair, not new recognition-service proposals requiring another scope decision. Each needs technical acceptance before activation; record a concrete blocker for any capability that cannot work today rather than silently omitting the provider. Musixmatch lyrics remain outside this metadata scope.
 
 **Implementation seams:** extend hardcoded `ProviderId`, config validation, catalog and backend construction in `crates/cuerithm-autotag/src/{lib.rs,config.rs,providers.rs}`. Split focused MusicBrainz/SonoVault clients into new provider modules; do not reuse browser-impersonating store clients. Inject credentials and canonical application identity from desktop/library construction into the shared `Arc<Tagger>` in `prepare.rs`. Add native credential commands/storage, bridge types/status and settings UI. Implement identification and report/headless operations through existing library locks/journals, not direct files or another network server.
+
+### Existing OneTagger metadata adapter ports
+
+Start from the pinned upstream adapters and the complete issue disposition ledger; preserve provenance/licensing and adapt them to the shared candidate, preparation, credential and request-scheduling contracts. Characterize useful behavior before repairs. Do not transplant obsolete endpoints, embedded client identities or unbounded retries unchanged.
+
+- **Bandcamp:** port catalog search/detail/release parsing and website-token handling where used. Apply the current global solver only to appropriate scraper requests; persist detected Cloudflare unavailability when no compatible solver is configured.
+- **iTunes and Deezer:** port their existing search/lookup metadata paths; retain accountless access where supported and validate current responses, paging, edition identity and artwork capabilities independently.
+- **BPM Supreme:** port personal-account setup, session lifecycle and catalog matching through native credential storage; distinguish login/access failure from no match.
+- **Spotify:** explicitly excluded by the user’s subsequent decision; do not expose its metadata adapter, account setup or legacy Audio Features.
+
+All four use existing ordered-provider and field-policy controls, optional enablement, shared cancellation/pacing/retries, truthful access states and final effective metadata before organization. Add provider fixtures under `crates/cuerithm-autotag/tests/` (one module per provider) plus credential/setup coverage in `apps/desktop/src/test/provider-credentials.test.tsx`. Cover upstream issue regressions, malformed/partial responses, missing fields, release versus recording identity, pagination, expired sessions/tokens, rate limits, detected Cloudflare with and without solver, and native-write preservation. Bounded live acceptance is separate from fixture success. Technical acceptance is a quality gate within this approved scope, not another product-approval round.
 
 ### MusicBrainz and release-aware artwork
 
@@ -139,3 +150,7 @@ The [complete issue ledger](../research/onetagger-issue-audit.md) remains the ac
 For each implementation PR run relevant tests first, then required workspace format/clippy/test/release-build checks and desktop tests/build for the changed surface. Use native OS/container fixtures for file writes, meaningful fault injection for recovery, synthetic DJ-library copies for references, and permitted service checks for providers. Final PR5 acceptance repeats the full configured Incoming → analysis → tags/cleanup → naming → Tracks/automatic playlists path with review and failure/restart cases. Preserve user music, installed applications and identifying evidence.
 
 No approved unit is lost: U0–U3 → PR1; U4a/U4b/U5/U6 → PR2; U7/U8 → PR3; U9/presets U10 → PR4; provider U10/U11 → PR5. Previously deferred normalization, extra analysis models, streaming libraries, binary-tag parity, unsupported formats/platforms, older DJ-software versions and legacy OneTagger runtime remain outside this program. Optional service activation still requires that service's individual acceptance; it does not reopen approval for the local feature work.
+
+Implementation scope update (2026-10-21): the user excluded Beatsource after its merger into Beatport. No Beatsource provider, setup entry or placeholder is shipped. Spotify remains excluded by user decision.
+
+Implementation scope update (2026-10-21): the user also excluded Juno Download after failed live access and reports of store closure. No Juno Download provider or disabled placeholder is shipped.

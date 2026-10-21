@@ -6,7 +6,7 @@ status: acceptance-candidates
 
 # User-suggested recognition APIs
 
-These candidates extend PR5's identification research. The RapidAPI listings/pricing were inspected in a browser because their static pages expose little documentation. AudD's public site and API docs were read; its dashboard redirects to login. No account signup, subscription, key read, provider request or audio upload was performed.
+These candidates extend PR5's identification research. The RapidAPI listings/pricing were inspected in a browser because their static pages expose little documentation. AudD's public site and API docs were read; its dashboard redirects to login. No account signup, subscription, key read, provider request or audio upload was performed during this initial research. The later explicitly authorized one-request AudD public-demo result is recorded in [PR5 acceptance](pr5-provider-acceptance.md).
 
 The observed products identify recordings and return catalog context. No documented replacement for Spotify's danceability/valence/acousticness/instrumentalness descriptor vector was established. A Spotify result block is catalog metadata, not Audio Features permission or computation. Keep CueRithm's own measured analysis separate.
 

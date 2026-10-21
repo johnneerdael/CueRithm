@@ -30,6 +30,26 @@ A failed stage sets the track to *Needs attention*. It stays in Incoming with th
 
 Press the **retry** icon on the row to try again. Saving **Settings** re-queues ordinary failed preparation with the new settings. Interrupted file organization keeps its captured settings and recovery evidence. Its history entry offers **Retry in Incoming** to resume that work. An unpublished naming failure can use a corrected organization rule without repeating verified analysis; staged or published operations must finish or be safely cancelled first.
 
+Catalog ambiguity and known recording/edition conflicts open **Review**. Compare
+the current and proposed fields, choose which values to use, then preview and
+apply. Accepted choices resume the same captured operation; ordinary Retry does
+not silently choose another candidate. Use **Requery** for a fresh lookup under
+the current provider policy. **Keep existing once** is available for an eligible
+Incoming job without requiring a provider connection. Offline metadata editing
+also remains available. See [Review and edit metadata](metadata-editing.md).
+
+If an optional provider needs setup, use **Settings > Automatic tagging > Set up**
+or **Manage**. Credential actions are separate from **Save settings**. Rejected
+keys, unverified email, rate/quota limits and unavailable sources are provider
+failures, not successful no-match results. The [setup guide](../learn/auto-tagging.md#provider-setup)
+explains the available actions and request limits.
+
+With fingerprint identification enabled and consent saved, unresolved readable
+tracks may receive AcoustID/MusicBrainz candidates. Those candidates require
+edition review even when a recording is recognized. Short clips may not be
+identifiable. This fallback uploads no audio and does not replace measured
+analysis. Naming remains last, after accepted tags and cleanup.
+
 ### What "ready" requires
 
 A track becomes ready only when it has a key, a positive BPM with a non-empty beatgrid, an energy rating from 1 to 10 and at least one cue, with all positions inside the track. Configured required tagging, cleanup and organization must also finish, including reference repair and recoverable file cleanup. Otherwise it stays in Incoming. Retrying an interrupted organization operation reuses verified analysis when its source and captured settings still match.

@@ -161,3 +161,19 @@ upstream dependency notices with corresponding source/build materials.
 
 Reference application code, binaries, user music, personal database records and
 license credentials are not included in this implementation or its fixtures.
+
+## Recording identification
+
+The GPL desktop integrates `rusty-chromaprint` 0.3.0 from
+[darksv/rusty-chromaprint](https://github.com/darksv/rusty-chromaprint).
+Its published Cargo manifest declares MIT licensing. The exact package checksum
+is pinned in `Cargo.lock`. This Rust port of Chromaprint links into the
+application; it does not require users to install `fpcalc`, a C++ runtime or a
+Python interpreter. A local generated-signal comparison against Chromaprint's
+`fpcalc` established fingerprint compatibility for that fixture, not recognition
+accuracy on a music collection.
+
+AcoustID and MusicBrainz are optional network services, not embedded databases.
+Their application identification, rate limits and data capabilities are enforced
+separately. No personal provider token or private music is included in the
+application source, presets or reports.
