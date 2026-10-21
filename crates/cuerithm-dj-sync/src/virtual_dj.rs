@@ -227,7 +227,33 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
         scan.attrs.remove("BeatGrid");
     }
     scan.attr("Key", &key);
-    song.children.retain(|part| !matches!(part, Part::Node(n) if n.name == "Poi" && matches!(n.attrs.get("Type").map(String::as_str), Some("cue"|"loop"))));
+    let mut previous_pois = BTreeMap::<(String, u16), Vec<Node>>::new();
+    for part in std::mem::take(&mut song.children) {
+        match part {
+            Part::Node(node)
+                if node.name == "Poi"
+                    && matches!(
+                        node.attrs.get("Type").map(String::as_str),
+                        Some("cue" | "loop")
+                    ) =>
+            {
+                if let Some(number) = node
+                    .attrs
+                    .get("Num")
+                    .and_then(|value| value.parse::<u16>().ok())
+                    .filter(|number| *number > 0)
+                {
+                    previous_pois
+                        .entry((node.attrs["Type"].clone(), number))
+                        .or_default()
+                        .push(node);
+                }
+                // Unmatched and unnumbered cue/loop POIs keep the existing
+                // complete cue-set replacement policy; no new ownership implied.
+            }
+            other => song.children.push(other),
+        }
+    }
     if !options.skip_beatgrids {
         song.children.retain(|part| !matches!(part, Part::Node(n) if n.name == "Poi" && n.attrs.get("Type").is_some_and(|v| v == "beatgrid")));
         // Every exported tempo marker establishes a grid position, in seconds.
@@ -239,17 +265,34 @@ fn track_xml(song: &mut Node, track: &SyncTrack, options: &SyncOptions) -> Resul
             song.children.push(Part::Node(poi));
         }
     }
+    let mut selected_pois = BTreeSet::new();
     for cue in &track.cues {
-        let mut poi = Node::new("Poi");
-        poi.attr(
-            "Type",
-            if cue.end_seconds.is_some() {
-                "loop"
-            } else {
-                "cue"
-            },
+        let kind = if cue.end_seconds.is_some() {
+            "loop"
+        } else {
+            "cue"
+        };
+        let number = u16::from(cue.index) + 1;
+        let identity = (kind.to_owned(), number);
+        ensure!(
+            selected_pois.insert(identity.clone()),
+            "Duplicate VirtualDJ source POI identity"
         );
-        poi.attr("Num", u16::from(cue.index) + 1);
+        let mut poi = if let Some(mut matches) = previous_pois.remove(&identity) {
+            ensure!(
+                matches.len() == 1,
+                "Ambiguous VirtualDJ native POI identity"
+            );
+            matches.pop().unwrap()
+        } else {
+            Node::new("Poi")
+        };
+        // Reuse unknown attributes and children, replacing only controlled fields.
+        for controlled in ["Color", "Size", "Slot", "AutoTrigger"] {
+            poi.attrs.remove(controlled);
+        }
+        poi.attr("Type", kind);
+        poi.attr("Num", number);
         poi.attr("Name", &cue.name);
         poi.attr("Pos", format!("{:.6}", cue.start_seconds));
         if let Some(color) = cue.color {
@@ -835,5 +878,232 @@ mod path_reference_tests {
             .to_string()
             .contains("Unresolvable normalized VirtualDJ reference")
         );
+    }
+}
+
+#[cfg(test)]
+mod poi_preservation_tests {
+    use super::*;
+    use crate::SyncCue;
+
+    fn fixture(pois: &str, cues: Vec<SyncCue>) -> (tempfile::TempDir, PathBuf, SyncLibrary) {
+        let folder = tempfile::tempdir().unwrap();
+        let database = folder.path().join("database.xml");
+        fs::write(
+            &database,
+            format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="/synthetic.wav">{pois}<Poi Type="automix" Pos="9" Native="foreign"/></Song><Song FilePath="/foreign.wav" Native="unrelated"/></VirtualDJ_Database>"#),
+        )
+        .unwrap();
+        let input = SyncLibrary {
+            tracks: vec![SyncTrack {
+                id: "synthetic".into(),
+                path: "/synthetic.wav".into(),
+                bpm: 120.,
+                duration_seconds: 20.,
+                cues,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        (folder, database, input)
+    }
+    fn pois(database: &Path) -> Vec<Node> {
+        let root = parse(&fs::read(database).unwrap()).unwrap();
+        let song = root
+            .children
+            .into_iter()
+            .find_map(|part| match part {
+                Part::Node(node) if node.name == "Song" => Some(node),
+                _ => None,
+            })
+            .unwrap();
+        song.children
+            .into_iter()
+            .filter_map(|part| match part {
+                Part::Node(node) if node.name == "Poi" => Some(node),
+                _ => None,
+            })
+            .collect()
+    }
+    #[test]
+    fn matched_cue_retains_native_attributes_and_nested_payload() {
+        let (_folder, database, input) = fixture(
+            r#"<Poi Type="cue" Num="1" Name="old" Pos="1" Color="123" Size="8" Slot="1" AutoTrigger="yes" Point="native-point" Extension="keep"><NativeData Mode="opaque"><Value Key="sentinel"/><!--native-comment--></NativeData></Poi>"#,
+            vec![SyncCue {
+                index: 0,
+                name: "new".into(),
+                start_seconds: 2.,
+                ..Default::default()
+            }],
+        );
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        let nodes = pois(&database);
+        let cue = nodes
+            .iter()
+            .find(|node| node.attrs.get("Type").is_some_and(|ty| ty == "cue"))
+            .unwrap();
+        assert_eq!(cue.attrs["Name"], "new");
+        assert_eq!(cue.attrs["Pos"], "2.000000");
+        assert_eq!(cue.attrs["Extension"], "keep");
+        assert_eq!(cue.attrs["Point"], "native-point");
+        for controlled in ["Color", "Size", "Slot", "AutoTrigger"] {
+            assert!(!cue.attrs.contains_key(controlled));
+        }
+        let Part::Node(payload) = &cue.children[0] else {
+            panic!("native child lost")
+        };
+        assert_eq!(payload.name, "NativeData");
+        assert_eq!(payload.attrs["Mode"], "opaque");
+        let Part::Node(value) = &payload.children[0] else {
+            panic!("nested child lost")
+        };
+        assert_eq!(value.attrs["Key"], "sentinel");
+        assert!(
+            matches!(&payload.children[1], Part::Raw(Event::Comment(comment)) if comment.as_ref() == "native-comment")
+        );
+        assert!(nodes.iter().any(|node| {
+            node.attrs
+                .get("Native")
+                .is_some_and(|value| value == "foreign")
+        }));
+        let first = fs::read(&database).unwrap();
+        assert!(String::from_utf8_lossy(&first).contains("Native=\"unrelated\""));
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        assert_eq!(fs::read(database).unwrap(), first);
+    }
+    #[test]
+    fn matched_loop_retains_payload_and_clears_stale_activation() {
+        let (_folder, database, mut input) = fixture(
+            r#"<Poi Type="loop" Num="2" Slot="2" Name="old" Pos="1" Size="8" AutoTrigger="yes" Color="123" Extension="loop-state"><NativeLoop Value="keep"/></Poi>"#,
+            vec![SyncCue {
+                index: 1,
+                name: "saved".into(),
+                start_seconds: 2.,
+                end_seconds: Some(4.),
+                ..Default::default()
+            }],
+        );
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        let nodes = pois(&database);
+        let saved = nodes
+            .iter()
+            .find(|node| node.attrs.get("Type").is_some_and(|ty| ty == "loop"))
+            .unwrap();
+        assert_eq!(saved.attrs["Pos"], "2.000000");
+        assert_eq!(saved.attrs["Size"], "4");
+        assert_eq!(saved.attrs["Slot"], "2");
+        assert!(!saved.attrs.contains_key("AutoTrigger"));
+        assert!(!saved.attrs.contains_key("Color"));
+        assert_eq!(saved.attrs["Extension"], "loop-state");
+        let Part::Node(payload) = &saved.children[0] else {
+            panic!("native loop child lost")
+        };
+        assert_eq!(payload.attrs["Value"], "keep");
+        input.tracks[0].cues[0].active_loop = true;
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        let nodes = pois(&database);
+        let active = nodes
+            .iter()
+            .find(|node| node.attrs.get("Type").is_some_and(|ty| ty == "loop"))
+            .unwrap();
+        assert_eq!(active.attrs["AutoTrigger"], "yes");
+        assert_eq!(active.attrs["Extension"], "loop-state");
+    }
+    #[test]
+    fn type_changes_do_not_transplant_unrelated_native_payload() {
+        let (_folder, database, input) = fixture(
+            r#"<Poi Type="cue" Num="3" Pos="1" CueOnly="old"><CuePayload/></Poi><Poi Type="loop" Num="4" Pos="3" LoopOnly="foreign"/>"#,
+            vec![SyncCue {
+                index: 2,
+                start_seconds: 2.,
+                end_seconds: Some(4.),
+                ..Default::default()
+            }],
+        );
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        let nodes = pois(&database);
+        let native = nodes
+            .iter()
+            .filter(|node| {
+                matches!(
+                    node.attrs.get("Type").map(String::as_str),
+                    Some("cue" | "loop")
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(native.len(), 1);
+        assert_eq!(native[0].attrs["Type"], "loop");
+        assert_eq!(native[0].attrs["Num"], "3");
+        assert!(!native[0].attrs.contains_key("CueOnly"));
+        assert!(!native[0].attrs.contains_key("LoopOnly"));
+        assert!(native[0].children.is_empty());
+    }
+    #[test]
+    fn ambiguous_poi_identity_preserves_source_and_target_bytes() {
+        for duplicate_source in [false, true] {
+            let native = if duplicate_source {
+                r#"<Poi Type="cue" Num="1" Pos="1" Extension="first"/>"#
+            } else {
+                r#"<Poi Type="cue" Num="1" Pos="1" Extension="first"/><Poi Type="cue" Num="01" Pos="2" Extension="second"/>"#
+            };
+            let cue = SyncCue {
+                index: 0,
+                start_seconds: 2.,
+                ..Default::default()
+            };
+            let (folder, database, mut input) = fixture(
+                native,
+                if duplicate_source {
+                    vec![cue.clone(), cue]
+                } else {
+                    vec![cue]
+                },
+            );
+            let source = folder.path().join("source.wav");
+            fs::write(&source, b"synthetic source bytes").unwrap();
+            input.tracks[0].path = source.clone();
+            let original = fs::read_to_string(&database)
+                .unwrap()
+                .replace("/synthetic.wav", source.to_str().unwrap());
+            fs::write(&database, &original).unwrap();
+            assert!(write(&database, &input, &SyncOptions::default()).is_err());
+            assert_eq!(fs::read(&database).unwrap(), original.as_bytes());
+            assert_eq!(fs::read(&source).unwrap(), b"synthetic source bytes");
+        }
+    }
+    #[test]
+    fn unmatched_and_unnumbered_cues_keep_existing_replacement_scope() {
+        let (_folder, database, input) = fixture(
+            r#"<Poi Type="cue" Num="4" Name="stale"/><Poi Type="loop" Num="-1" Slot="3" Name="slot-only"/><Poi Type="loop" Name="unnumbered"/><Poi Type="action" Num="7" Action="native-action"/><Poi Type="load" Name="native-load"/>"#,
+            vec![SyncCue {
+                index: 0,
+                name: "replacement".into(),
+                start_seconds: 2.,
+                ..Default::default()
+            }],
+        );
+        write(&database, &input, &SyncOptions::default()).unwrap();
+        let nodes = pois(&database);
+        let replacements = nodes
+            .iter()
+            .filter(|node| {
+                matches!(
+                    node.attrs.get("Type").map(String::as_str),
+                    Some("cue" | "loop")
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(replacements.len(), 1);
+        assert_eq!(replacements[0].attrs["Name"], "replacement");
+        assert!(nodes.iter().any(|node| {
+            node.attrs
+                .get("Action")
+                .is_some_and(|value| value == "native-action")
+        }));
+        assert!(nodes.iter().any(|node| {
+            node.attrs
+                .get("Name")
+                .is_some_and(|value| value == "native-load")
+        }));
     }
 }

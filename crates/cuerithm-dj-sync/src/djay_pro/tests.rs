@@ -1093,3 +1093,76 @@ fn equal_tempo_phase_reset_anchors_are_preserved() {
     unsupported[2].bpm = 130.;
     assert!(beatgrid(&unsupported).is_err());
 }
+
+#[test]
+fn optional_numeric_metadata_updates_without_resetting_native_history() {
+    use cuerithm_smartlists::FieldValue;
+    let (_folder, path) = database();
+    let mut input = library();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    let mut item = get(&path, "mediaItems", &id);
+    item.set("bitRate", Value::U16(256));
+    item.set("albumTrackNumber", Value::U16(3));
+    item.set("nativeFact", text("keep"));
+    let mut user = get(&path, "mediaItemUserData", &id);
+    user.set("playCount", Value::Double(12.));
+    let mut conn = Connection::open(&path).unwrap();
+    let tx = conn.transaction().unwrap();
+    upsert(&tx, "mediaItems", &id, &item).unwrap();
+    upsert(&tx, "mediaItemUserData", &id, &user).unwrap();
+    tx.commit().unwrap();
+    input.tracks[0].attributes = [
+        ("bitrate".into(), FieldValue::Number(320.9)),
+        ("trackNumber".into(), FieldValue::Number(7.)),
+    ]
+    .into();
+    for attributes in [
+        input.tracks[0].attributes.clone(),
+        Default::default(),
+        [
+            ("bitrate".into(), FieldValue::Null),
+            ("trackNumber".into(), FieldValue::Null),
+        ]
+        .into(),
+    ] {
+        input.tracks[0].attributes = attributes;
+        write(&path, &input, &SyncOptions::default()).unwrap();
+        let item = get(&path, "mediaItems", &id);
+        assert_eq!(item.get("bitRate"), Some(&Value::U16(320)));
+        assert_eq!(item.get("albumTrackNumber"), Some(&Value::U16(7)));
+        assert_eq!(item.get("nativeFact"), Some(&text("keep")));
+        assert_eq!(
+            get(&path, "mediaItemUserData", &id).get("playCount"),
+            Some(&Value::Double(12.))
+        );
+    }
+}
+
+#[test]
+fn invalid_optional_numeric_metadata_does_not_commit_djay_changes() {
+    use cuerithm_smartlists::FieldValue;
+    let (_folder, path) = database();
+    let input = library();
+    write(&path, &input, &SyncOptions::default()).unwrap();
+    let id = stable_id("track", "one", false);
+    let before = get(&path, "mediaItems", &id);
+    for (field, value) in [
+        ("bitrate", FieldValue::Number(-1.)),
+        ("bitrate", FieldValue::Number(f64::NAN)),
+        ("bitrate", FieldValue::Number(65536.)),
+        ("bitrate", FieldValue::Text("320".into())),
+        ("trackNumber", FieldValue::Number(7.5)),
+        ("trackNumber", FieldValue::Number(65536.)),
+        ("trackNumber", FieldValue::Boolean(true)),
+    ] {
+        let mut invalid = input.clone();
+        invalid.tracks[0].title = "must not commit".into();
+        invalid.tracks[0].attributes.insert(field.into(), value);
+        assert!(
+            write(&path, &invalid, &SyncOptions::default()).is_err(),
+            "{field}"
+        );
+        assert_eq!(get(&path, "mediaItems", &id), before);
+    }
+}

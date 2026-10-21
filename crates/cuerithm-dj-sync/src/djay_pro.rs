@@ -348,6 +348,23 @@ fn write_track(
     item.set("bpm", Value::Double(track.bpm));
     item.set("duration", Value::Double(track.duration_seconds));
     item.set("sampleRate", Value::U32(track.sample_rate));
+    for (source, native) in [("bitrate", "bitRate"), ("trackNumber", "albumTrackNumber")] {
+        match track.attributes.get(source) {
+            None | Some(cuerithm_smartlists::FieldValue::Null) => {}
+            Some(cuerithm_smartlists::FieldValue::Number(value)) => {
+                ensure!(
+                    value.is_finite()
+                        && *value >= 0.
+                        && *value <= f64::from(u16::MAX)
+                        && (source == "bitrate" || value.fract() == 0.),
+                    "Invalid djay source {source}"
+                );
+                // Native UInt16 bitrate truncates fractional kilobits/second.
+                item.set(native, Value::U16(value.trunc() as u16));
+            }
+            Some(_) => bail!("Invalid djay source {source}"),
+        }
+    }
     if let Some(year) = track.year {
         item.set("year", Value::U16(year));
     } else {

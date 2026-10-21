@@ -245,19 +245,40 @@ pub(super) fn write(
     for record in records {
         let t = &record.track;
         tx.execute(
-            "INSERT INTO content(content_id,path) VALUES(?1,?2) ON CONFLICT(content_id) DO NOTHING",
+            "INSERT INTO content(content_id,path,bitrate,trackNo) VALUES(?1,?2,0,0) ON CONFLICT(content_id) DO NOTHING",
             params![record.id, record.path],
         )?;
-        tx.execute("UPDATE content SET title=?2,titleForSearch=NULL,subtitle='',bpmx100=?3,length=?4,trackNo=0,discNo=0,
+        tx.execute("UPDATE content SET title=?2,titleForSearch=NULL,subtitle='',bpmx100=?3,length=?4,discNo=0,
             artist_id_artist=?5,artist_id_remixer=0,artist_id_originalArtist=0,artist_id_composer=0,artist_id_lyricist=0,
             album_id=?6,genre_id=?7,label_id=?8,key_id=?9,color_id=0,djComment=?10,rating=?11,releaseYear=?12,
             releaseDate='',dateCreated=COALESCE(dateCreated,date('now')),dateAdded=COALESCE(dateAdded,date('now')),fileName=?13,
-            fileSize=?14,fileType=?15,bitrate=0,bitDepth=16,samplingRate=?16,isrc='',djPlayCount=COALESCE(djPlayCount,0),
+            fileSize=?14,fileType=?15,bitDepth=16,samplingRate=?16,isrc='',djPlayCount=COALESCE(djPlayCount,0),
             isHotCueAutoLoadOn=1,isKuvoDeliverStatusOn=1,kuvoDeliveryComment='',masterDbId=?17,masterContentId=?1,
             analysisDataFilePath=?18,path=?19,color_id=?20,analysedBits=41,contentLink=853760,hasModified=0 WHERE content_id=?1",
             params![record.id,t.title,(t.bpm*100.0).round() as u32,t.duration_seconds.floor() as u32,record.artist,record.album,
                 record.genre,record.label,record.key,t.comment,t.rating.min(5),t.year.unwrap_or(0),record.path.rsplit('/').next().unwrap_or_default(),
                 record.file_size,record.file_type,t.sample_rate,master,record.analysis_path,record.path,super::color_id(t.color,options.nearest_color)])?;
+        for (source, native) in [("bitrate", "bitrate"), ("trackNumber", "trackNo")] {
+            let value = match t.attributes.get(source) {
+                // Normal preview synthesizes Null for unavailable source facts.
+                None | Some(cuerithm_smartlists::FieldValue::Null) => continue,
+                Some(cuerithm_smartlists::FieldValue::Number(value)) => {
+                    ensure!(
+                        value.is_finite()
+                            && *value >= 0.
+                            && *value <= f64::from(u32::MAX)
+                            && (source == "bitrate" || value.fract() == 0.),
+                        "Invalid USB source {source}"
+                    );
+                    value.trunc() as u32
+                }
+                Some(_) => anyhow::bail!("Invalid USB source {source}"),
+            };
+            tx.execute(
+                &format!("UPDATE content SET {native}=?1 WHERE content_id=?2"),
+                params![value, record.id],
+            )?;
+        }
         if record.artwork > 0 {
             let path = format!(
                 "/{pioneer}/Artwork/{:05}/b{}.jpg",
@@ -288,10 +309,11 @@ pub(super) fn write(
                 .flatten()
             {
                 tx.execute("INSERT INTO cue(content_id,kind,colorTableIndex,cueComment,isActiveLoop,beatLoopNumerator,beatLoopDenominator,
-                    inUsec,outUsec,in150FramePerSec,out150FramePerSec) VALUES(?1,?2,0,?3,0,?4,?5,?6,?7,?8,?9)",
+                    inUsec,outUsec,in150FramePerSec,out150FramePerSec) VALUES(?1,?2,0,?3,?10,?4,?5,?6,?7,?8,?9)",
                     params![record.id,kind,cue.name,if cue.end_seconds.is_some(){4}else{0},if cue.end_seconds.is_some(){1}else{0},
                         (cue.start_seconds*1e6).floor() as u64,cue.end_seconds.map(|s|(s*1e6).floor() as u64),
-                        (cue.start_seconds*150.0).floor() as u64,cue.end_seconds.map(|s|(s*150.0).floor() as u64)])?;
+                        (cue.start_seconds*150.0).floor() as u64,cue.end_seconds.map(|s|(s*150.0).floor() as u64),
+                        cue.active_loop && cue.end_seconds.is_some()])?;
             }
         }
     }

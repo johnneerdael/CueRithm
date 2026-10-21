@@ -213,6 +213,11 @@ pub(super) fn fix_copy(runtime: &MediaRuntime, track: &mut SyncTrack, target: &P
     });
     track.sample_rate = audio.clock.sample_rate;
     track.duration_seconds = audio.clock.duration_seconds();
+    // The staged copy is stereo PCM16; its bitrate is independent of the source.
+    track.attributes.insert(
+        "bitrate".into(),
+        cuerithm_smartlists::FieldValue::Number(f64::from(audio.clock.sample_rate) * 32. / 1000.),
+    );
     Ok(())
 }
 
