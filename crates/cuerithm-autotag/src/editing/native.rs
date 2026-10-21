@@ -61,16 +61,26 @@ pub(super) const TEXT_FIELDS: &[MetadataTextField] = &[
     MetadataTextField::Isrc,
     MetadataTextField::Key,
 ];
+/// Fields that hold a full date. The release date is the one `TagImpl::get_date`/`set_date` use
+/// for automatic tagging, so edits and automatic tagging always agree on where it lives.
 fn date_keys(format: &F, original: bool) -> &'static [&'static str] {
     match (format, original) {
-        (F::FLAC | F::OGG, false) => &["RELEASETIME", "RELEASEDATE", "RELEASE_DATE"],
+        (F::FLAC | F::OGG, false) => &["DATE"],
         (F::FLAC | F::OGG, true) => &["ORIGINALDATE"],
-        (F::MP4, false) => &["----:com.apple.iTunes:RELEASETIME", "©day"],
+        (F::MP4, false) => &["©day"],
         (F::MP4, true) => &["----:com.apple.iTunes:ORIGINALDATE"],
         (F::WMA, false) => &["RELEASETIME", "WM/Year"],
         (F::WMA, true) => &["WM/OriginalReleaseTime"],
-        (_, false) => &["TDRL"],
+        (_, false) => &["TDRC"],
         (_, true) => &["TDOR", "TORY"],
+    }
+}
+/// Every field one edit of a date replaces; ID3v2.3 keeps the release date in `TYER` and `TDAT`.
+fn date_owned(format: &F, original: bool) -> &'static [&'static str] {
+    match (format, original) {
+        (F::FLAC | F::OGG | F::MP4 | F::WMA, _) => date_keys(format, original),
+        (_, false) => &["TDRC", "TYER", "TDAT"],
+        (_, true) => date_keys(format, original),
     }
 }
 fn parse_date(value: &str) -> Option<TransferDate> {
@@ -99,6 +109,17 @@ fn read_date(tag: &dyn TagImpl, format: &F, original: bool) -> Option<TransferDa
     date_keys(format, original)
         .iter()
         .find_map(|k| first(tag, k).and_then(|v| parse_date(&v)))
+        .or_else(|| {
+            // ID3v2.3 splits the release date across TYER and TDAT; the tag layer knows how to join them.
+            let date = if original { None } else { tag.get_date() }?;
+            let date = TransferDate {
+                year: date.year,
+                month: date.month,
+                day: date.day,
+            };
+            super::validate_date(&date).ok()?;
+            Some(date)
+        })
 }
 fn number(tag: &dyn TagImpl, key: &str) -> Option<u16> {
     first(tag, key)?
@@ -421,12 +442,20 @@ fn common_apply(tag: &mut dyn TagImpl, f: &F, patch: &MetadataPatch) -> Result<(
         if matches!(edit, ValueEdit::Keep) {
             continue;
         }
-        let keys = date_keys(f, original);
-        for key in keys {
+        for key in date_owned(f, original) {
             tag.remove_raw(key);
         }
         if let ValueEdit::Set { value } = edit {
-            tag.set_native(keys[0], vec![date_string(value)]);
+            let text = date_string(value);
+            // Windows reads the year from WM/Year, so a WMA release date keeps both fields.
+            if *f == F::WMA && !original {
+                tag.set_native("WM/Year", vec![value.year.to_string()]);
+                if value.month.is_some() {
+                    tag.set_native("RELEASETIME", vec![text]);
+                }
+            } else {
+                tag.set_native(date_keys(f, original)[0], vec![text]);
+            }
         }
     }
     if !matches!(patch.bpm, ValueEdit::Keep) {
