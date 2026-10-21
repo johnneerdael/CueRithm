@@ -13,10 +13,17 @@ struct Server {
     url: String,
     seen: Arc<Mutex<Vec<(String, String)>>>,
     stop: Arc<AtomicBool>,
+    accepted: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
 }
 impl Server {
     fn new(handler: impl Fn(&str, &str) -> (u16, String) + Send + 'static) -> Self {
+        Self::with_accepted_nonblocking(false, handler)
+    }
+    fn with_accepted_nonblocking(
+        inherited_nonblocking: bool,
+        handler: impl Fn(&str, &str) -> (u16, String) + Send + 'static,
+    ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -24,11 +31,19 @@ impl Server {
         let stop = Arc::new(AtomicBool::new(false));
         let log = seen.clone();
         let done = stop.clone();
+        let accepted = Arc::new(AtomicBool::new(false));
+        let accepted_signal = accepted.clone();
         let handle = thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
             while !done.load(Ordering::Relaxed) && Instant::now() < deadline {
                 match listener.accept() {
                     Ok((mut socket, _)) => {
+                        // Emulate BSD accept inheritance on every test platform.
+                        if inherited_nonblocking {
+                            socket.set_nonblocking(true).unwrap();
+                        }
+                        socket.set_nonblocking(false).unwrap();
+                        accepted_signal.store(true, Ordering::Release);
                         socket
                             .set_read_timeout(Some(Duration::from_millis(500)))
                             .unwrap();
@@ -87,9 +102,42 @@ impl Server {
             url,
             seen,
             stop,
+            accepted,
             thread: Some(handle),
         }
     }
+}
+#[test]
+fn fixture_accepts_a_delayed_request_after_nonblocking_listener_accept() {
+    let server = Server::with_accepted_nonblocking(true, |method, path| {
+        assert_eq!((method, path), ("GET", "/delayed"));
+        (200, "delayed request received".into())
+    });
+    let mut client =
+        std::net::TcpStream::connect(server.url.trim_start_matches("http://")).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !server.accepted.load(Ordering::Acquire) {
+        assert!(
+            Instant::now() < deadline,
+            "fixture did not accept the client"
+        );
+        thread::yield_now();
+    }
+    // Longer than the listener's 2ms polling interval, within the read timeout.
+    thread::sleep(Duration::from_millis(25));
+    client
+        .write_all(b"GET /delayed HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\n\r\n")
+        .unwrap();
+    let mut response = String::new();
+    client.read_to_string(&mut response).unwrap();
+    assert!(response.ends_with("delayed request received"));
+    assert_eq!(
+        server.seen.lock().unwrap().as_slice(),
+        &[("GET".into(), "/delayed".into())]
+    );
 }
 impl Drop for Server {
     fn drop(&mut self) {
