@@ -30,7 +30,6 @@ impl MetadataEditService {
         let mut journaled = vec![];
         for (index, (job, patch, receipt, proof, frozen)) in rows.into_iter().enumerate() {
             let old: FrozenRow = serde_json::from_str(&frozen)?;
-            let row_id = uuid::Uuid::new_v4().to_string();
             let outcome = (|| -> Result<FrozenRow> {
                 cancel.check()?;
                 let proof: super::overrides::FinalOverride = serde_json::from_str(&proof)?;
@@ -74,13 +73,14 @@ impl MetadataEditService {
                 Ok(row) => row,
                 Err(error) => {
                     let mut row = old;
+                    row.stage = None;
                     row.public.outcome = "failed".into();
                     row.public.error = Some(format!("{error:#}"));
                     row
                 }
             };
             journaled.push(super::journal::JournaledRow {
-                id: row_id,
+                id: uuid::Uuid::new_v4().to_string(),
                 ordinal: offset + index,
                 track_id: row.public.track_id.clone(),
                 state: row.public.outcome.clone(),

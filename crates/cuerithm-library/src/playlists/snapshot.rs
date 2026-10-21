@@ -340,6 +340,21 @@ impl Library {
         ] {
             insert(&mut catalog, id, label, kind, true);
         }
+        insert(
+            &mut catalog,
+            "user_rating",
+            "User rating",
+            FieldKind::Number,
+            false,
+        );
+        insert(
+            &mut catalog,
+            "curation_notes",
+            "Curate notes",
+            FieldKind::Text,
+            true,
+        );
+        let curation_values = crate::curation::smart_values(&tx)?;
         let mut dynamic_kinds: BTreeMap<String, Option<FieldKind>> = BTreeMap::new();
         let mut tag_choices = vec![];
         let mut category_choices = vec![];
@@ -403,7 +418,7 @@ impl Library {
             catalog.fields.get_mut("rating").unwrap().unavailable_reason =
                 Some("Native star-rating reading is unavailable in this build".into());
         }
-        let mut statement = tx.prepare("SELECT id,name FROM custom_tag_categories ORDER BY id")?;
+        let mut statement = tx.prepare("SELECT c.id,c.name FROM custom_tag_categories c LEFT JOIN curation_group_properties g ON g.category_id=c.id WHERE COALESCE(g.deleted,0)=0 ORDER BY c.id")?;
         for row in
             statement.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
         {
@@ -413,7 +428,7 @@ impl Library {
         }
         drop(statement);
         let mut statement =
-            tx.prepare("SELECT id,category_id,name FROM custom_tags ORDER BY id")?;
+            tx.prepare("SELECT t.id,t.category_id,t.name FROM custom_tags t LEFT JOIN curation_value_properties v ON v.tag_id=t.id LEFT JOIN curation_group_properties g ON g.category_id=t.category_id WHERE COALESCE(v.deleted,0)=0 AND COALESCE(g.deleted,0)=0 ORDER BY t.id")?;
         for row in statement.query_map([], |r| {
             Ok((
                 r.get::<_, String>(0)?,
@@ -560,6 +575,16 @@ impl Library {
                 .fields
                 .insert("incoming".into(), FieldValue::Boolean(incoming));
             row.track.tags = linked.remove(&id).unwrap_or_default();
+            let (rating, notes) = curation_values.get(&id).cloned().unwrap_or_default();
+            row.track.fields.insert(
+                "user_rating".into(),
+                rating
+                    .map(|rating| FieldValue::Number(rating.into()))
+                    .unwrap_or(FieldValue::Null),
+            );
+            row.track
+                .fields
+                .insert("curation_notes".into(), FieldValue::Text(notes));
             for (key, value) in [
                 ("title", title),
                 ("artist", artist),

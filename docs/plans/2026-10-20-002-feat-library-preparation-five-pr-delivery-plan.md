@@ -29,11 +29,11 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 ## Execution status
 
-- [ ] PR1: implemented and ready for review in #13 — metadata integrity, planner and recoverable internal organization engine, refreshed onto main's global solver feature. The user manages review and merge; hosted checks remain merge gates.
-- [ ] PR2: implemented and ready for review in #14, stacked on #13 — automatic/manual organization and reference repair with solver-only retry continuity. The user manages review and merge; hosted checks remain merge gates.
-- [ ] PR3: implemented — source-bound review, typed metadata/artwork editing, durable drafts, guarded publication/recovery/Undo and Incoming analysis reuse. Local validation is recorded in its pull request; packaged native-window acceptance remains separate.
-- [ ] PR4: Curate and presets.
-- [ ] PR5: MusicBrainz, optional personal-key SonoVault, optional-auth Discogs, accepted identification and shared automation.
+- [x] PR1: merged in #13 — metadata integrity, planner and recoverable internal organization engine.
+- [x] PR2: merged in #14 — automatic/manual organization, reference repair and the final preparation/Windows-path review fixes.
+- [ ] PR3: implemented in #16 and refreshed onto current main — source-bound review, typed metadata/artwork editing, durable drafts, guarded publication/recovery/Undo and Incoming analysis reuse. The user manages review and merge; packaged native-window acceptance remains separate.
+- [ ] PR4: implemented in #19, stacked on refreshed #16 — Curate, durable mapped publication/recovery and immutable preparation presets/folder assignments. The user manages review and merge; packaged native-window acceptance remains separate.
+- [ ] PR5: implemented and ready for review; local workspace, affected follow-up, frontend and release validation passed — MusicBrainz, optional SonoVault/Volumo/BPM Supreme, accountless or optional-auth Discogs, iTunes, Bandcamp, Deezer, consented AcoustID identification and shared automation. Beatsource, Juno Download and Spotify are excluded by user decision. Bounded live Volumo acceptance passed.
 
 ## PR1 — Preparation integrity and organization engine
 
@@ -87,11 +87,22 @@ PR1 is an intentionally internal foundation. PR2 is the first usable new organiz
 
 **Merge gate:** routine curation is fast and durable; failed drafts remain discoverable. Presets reproduce preparation choices without exporting secrets or silently changing provider selections; detected-source restrictions still apply. Both themes retain the table/player hierarchy and accessible navigation.
 
-## PR5 — MusicBrainz, SonoVault, Discogs and optional identification
+## PR5 — OneTagger metadata providers, MusicBrainz, SonoVault, Discogs and optional identification
 
-**Design:** extend Automatic tagging's existing provider order/field-policy controls. Show setup, ready, missing key, verification failure, rate-wait and exhausted-quota states without blocking offline analysis. Every new provider starts opt-in; existing configurations do not silently enable it. Each adapter has its own accepted/not-yet-accepted status. MusicBrainz, SonoVault and Discogs are named scope; other catalogs remain separately accepted candidates, not an obligation to import all twelve OneTagger adapters.
+**Design:** extend Automatic tagging's existing provider order/field-policy controls. Show setup, ready, missing key, verification failure, rate-wait and exhausted-quota states without blocking offline analysis. Every new provider starts opt-in; existing configurations do not silently enable it. Port and validate the existing OneTagger metadata adapters for **iTunes, BPM Supreme, Bandcamp and Deezer** as named PR5 deliverables, alongside MusicBrainz, SonoVault and Discogs. Preserve existing Beatport and Traxsource support. These four are existing upstream adapters to reuse and repair, not new recognition-service proposals requiring another scope decision. Each needs technical acceptance before activation; record a concrete blocker for any capability that cannot work today rather than silently omitting the provider. Musixmatch lyrics remain outside this metadata scope.
 
 **Implementation seams:** extend hardcoded `ProviderId`, config validation, catalog and backend construction in `crates/cuerithm-autotag/src/{lib.rs,config.rs,providers.rs}`. Split focused MusicBrainz/SonoVault clients into new provider modules; do not reuse browser-impersonating store clients. Inject credentials and canonical application identity from desktop/library construction into the shared `Arc<Tagger>` in `prepare.rs`. Add native credential commands/storage, bridge types/status and settings UI. Implement identification and report/headless operations through existing library locks/journals, not direct files or another network server.
+
+### Existing OneTagger metadata adapter ports
+
+Start from the pinned upstream adapters and the complete issue disposition ledger; preserve provenance/licensing and adapt them to the shared candidate, preparation, credential and request-scheduling contracts. Characterize useful behavior before repairs. Do not transplant obsolete endpoints, embedded client identities or unbounded retries unchanged.
+
+- **Bandcamp:** port catalog search/detail/release parsing and website-token handling where used. Apply the current global solver only to appropriate scraper requests; persist detected Cloudflare unavailability when no compatible solver is configured.
+- **iTunes and Deezer:** port their existing search/lookup metadata paths; retain accountless access where supported and validate current responses, paging, edition identity and artwork capabilities independently.
+- **BPM Supreme:** port personal-account setup, session lifecycle and catalog matching through native credential storage; distinguish login/access failure from no match.
+- **Spotify:** explicitly excluded by the user’s subsequent decision; do not expose its metadata adapter, account setup or legacy Audio Features.
+
+All four use existing ordered-provider and field-policy controls, optional enablement, shared cancellation/pacing/retries, truthful access states and final effective metadata before organization. Add provider fixtures under `crates/cuerithm-autotag/tests/` (one module per provider) plus credential/setup coverage in `apps/desktop/src/test/provider-credentials.test.tsx`. Cover upstream issue regressions, malformed/partial responses, missing fields, release versus recording identity, pagination, expired sessions/tokens, rate limits, detected Cloudflare with and without solver, and native-write preservation. Bounded live acceptance is separate from fixture success. Technical acceptance is a quality gate within this approved scope, not another product-approval round.
 
 ### MusicBrainz and release-aware artwork
 
@@ -108,7 +119,7 @@ Keep recording, release/release-group, artist credits, ISRC, track/disc position
 - Send `x-api-key` only from Rust to approved SonoVault HTTPS origins; reject credential-bearing redirects to other origins. Replacing/removing a key invalidates old credential generations and cancels/revalidates queued work so deletion cannot resurrect a saved key.
 - Start with search/ISRC/platform-link metadata capabilities, preserving version/duration/release evidence. The free tier currently documents 1,000 monthly requests and 20/minute. Observe rate/quota headers and distinguish invalid key, unverified email, plan restriction, temporary rate wait and monthly exhaustion. Never loop retries on an exhausted monthly allowance or silently invoke paid endpoints. Recognition is paid and remains a separate explicit entitlement/consent decision. [API documentation](https://sonovault.now/docs).
 
-The developer's `.sonovault` is in the main checkout, outside the implementation worktrees and is **development acceptance input only**. Plan generation does not read it. A later explicitly invoked native smoke harness may read it without echoing/copying it, make a bounded public-metadata request and emit sanitized status/aggregate results only. Normal builds, CI and the installed application must not discover/import that file automatically. Do not upload user music or spend paid recognition credits as a side effect of testing a key.
+The developer's personal `.sonovault` is in the home directory, outside the implementation worktrees, and is **development acceptance input only**. Plan generation does not read it. A later explicitly invoked native smoke harness may read it without echoing/copying it, make a bounded public-metadata request and emit sanitized status/aggregate results only. Normal builds, CI and the installed application must not discover/import that file automatically. Do not upload user music or spend paid recognition credits as a side effect of testing a key.
 
 **Optional personal-account decision:** the user reviewed the section 9 concern and clarified that a key is required only to use the optional SonoVault provider, never to use CueRithm. Proceed with that design, without shared keys, account pooling, quota multiplication or a hosted broker. This records the user's interpretation rather than claiming vendor clearance. Section 7's field, retention and export distinctions still inform source capabilities; do not infer unrestricted database/native-export rights from an API response or delete necessary recovery evidence to fit a cache policy. [Current terms](https://sonovault.now/terms).
 
@@ -139,3 +150,9 @@ The [complete issue ledger](../research/onetagger-issue-audit.md) remains the ac
 For each implementation PR run relevant tests first, then required workspace format/clippy/test/release-build checks and desktop tests/build for the changed surface. Use native OS/container fixtures for file writes, meaningful fault injection for recovery, synthetic DJ-library copies for references, and permitted service checks for providers. Final PR5 acceptance repeats the full configured Incoming → analysis → tags/cleanup → naming → Tracks/automatic playlists path with review and failure/restart cases. Preserve user music, installed applications and identifying evidence.
 
 No approved unit is lost: U0–U3 → PR1; U4a/U4b/U5/U6 → PR2; U7/U8 → PR3; U9/presets U10 → PR4; provider U10/U11 → PR5. Previously deferred normalization, extra analysis models, streaming libraries, binary-tag parity, unsupported formats/platforms, older DJ-software versions and legacy OneTagger runtime remain outside this program. Optional service activation still requires that service's individual acceptance; it does not reopen approval for the local feature work.
+
+Implementation scope update (2026-10-21): the user excluded Beatsource after its merger into Beatport. No Beatsource provider, setup entry or placeholder is shipped. Spotify remains excluded by user decision.
+
+Implementation scope update (2026-10-21): the user also excluded Juno Download after failed live access and reports of store closure. No Juno Download provider or disabled placeholder is shipped.
+
+Volumo scope addition (2026-10-21): the user accepted Volumo in place of the excluded Beatsource/Juno providers, retaining Traxsource. Add an optional personal-token provider through the existing native setup, shared scheduler, field policy, review and preparation services. The official public API resolves an ISRC to a store link; metadata comes from the identity-checked public track page. Support ISRC and known Volumo track IDs, without claiming undocumented free-text API search. Require exact ISRC/track/release binding, precise release dates, bounded anonymous page/artwork reads, separate bearer-authenticated API requests and existing detected-Cloudflare behavior. Default off; portable presets contain no tokens. Start conservatively at 20 requests/minute and honor stricter remote waits; this is a CueRithm ceiling, not a published vendor allowance. Validate synthetic malformed/swap/auth/cancel fixtures and a single explicit public metadata lookup using the private development token. [Official API](https://volumo.com/api-doc/).

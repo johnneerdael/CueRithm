@@ -29,6 +29,7 @@ pub enum TrackSort {
     Bpm,
     Energy,
     Added,
+    UserRating,
     PlaylistOrder,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,6 +42,8 @@ pub struct TrackQuery {
     pub limit: u32,
     pub cursor: Option<String>,
     pub playlist_id: Option<String>,
+    pub curation: Option<crate::CurationFilter>,
+    pub expected_revision: Option<u64>,
 }
 impl Default for TrackQuery {
     fn default() -> Self {
@@ -52,6 +55,8 @@ impl Default for TrackQuery {
             limit: 100,
             cursor: None,
             playlist_id: None,
+            curation: None,
+            expected_revision: None,
         }
     }
 }
@@ -92,6 +97,7 @@ pub struct JobSummary {
     pub error: Option<String>,
     pub attempts: u32,
 }
+#[derive(Clone)]
 pub struct JobRun {
     pub attempt: u32,
     pub id: JobId,

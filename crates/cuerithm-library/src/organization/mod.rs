@@ -8,8 +8,9 @@ pub(crate) use copy_conflicts::OrganizationReferenceSourceProof;
 mod copy_conflicts_tests;
 mod journal;
 mod native;
+pub(crate) use native::Parent as NativeParent;
 #[cfg(feature = "autotag")]
-pub(crate) use native::{Parent as NativeParent, matches as same_native_file};
+pub(crate) use native::matches as same_native_file;
 mod publish;
 mod recovery;
 pub(crate) mod service;

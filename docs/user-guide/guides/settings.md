@@ -1,6 +1,6 @@
 # Settings reference
 
-Open **Settings** at the bottom of the sidebar, or the sliders button at the top right of the library. CueRithm saves settings in the library. **Save settings** appears at the top (it reads *Saving…* then *Settings saved*); Library preferences and Smart Playlists have their own save buttons. Appearance saves immediately.
+Open **Settings** at the bottom of the sidebar, or the sliders button at the top right of the library. CueRithm saves preparation settings in the library. **Save settings** appears at the top (it reads *Saving…* then *Settings saved*); Library preferences and Smart Playlists have their own save buttons. Appearance and provider credential actions save immediately.
 
 ## Incoming { #incoming }
 
@@ -27,6 +27,18 @@ Completed tracks enter Tracks automatically. Original audio files stay in place 
 
 See [Automatic tagging settings](tagging-settings.md).
 
+Ten catalog providers are listed. Additional providers are opt-in; SonoVault and
+Volumo require personal API keys when chosen, and BPM Supreme uses an optional account.
+MusicBrainz needs no key, and Discogs supports anonymous access. Provider **Save**,
+**Test**, **Replace** and **Remove** affect the system credential store immediately.
+They do not save your global preparation draft or enable a provider. **Save
+settings** applies provider choices and field rules. See [provider setup](../learn/auto-tagging.md#provider-setup).
+
+**Identify unresolved recordings** is a separate, off-by-default fingerprint
+fallback. Consent permits sending a locally generated fingerprint and duration
+to AcoustID, without audio. The build provides its application identity. Results
+require edition review, and local consent is excluded from portable presets.
+
 ## Cleanup { #cleanup }
 
 <figure markdown>
@@ -40,7 +52,7 @@ See [Automatic tagging settings](tagging-settings.md).
 
 ## File organization { #file-organization }
 
-The default is **Leave files in place**. Choose Rename in place, Move to folder or Copy to folder, a filename pattern, missing-value handling and collision policy. Move and copy use a destination selected with the native folder picker. **Save settings** applies the rule to future Incoming preparation. Examples use invented metadata; the complete actual scope is checked before publication. See [File organization](file-organization.md) for manual previews, linked libraries, recovery and Undo.
+The default is **Leave files in place**. Choose Rename in place, Move to folder or Copy to folder, a filename pattern, missing-value handling and collision policy. Move and copy use a destination selected with the native folder picker. **Save settings** applies the rule to future Incoming preparation. Naming runs last after accepted tagging and cleanup, before Ready. Examples use invented metadata; the complete actual scope is checked before publication. See [File organization](file-organization.md) for manual previews, linked libraries, recovery and Undo.
 
 ## Library preferences { #library-preferences }
 
