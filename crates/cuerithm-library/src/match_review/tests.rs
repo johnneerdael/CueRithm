@@ -1085,3 +1085,106 @@ fn tag_temporary_rotation_keeps_path_and_native_receipts_atomic_on_database_fail
         b"unproven interrupted copy"
     );
 }
+
+fn previews(lib: &Library) -> i64 {
+    lib.conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM preparation_match_previews", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+}
+#[test]
+fn only_the_active_review_preview_is_kept_and_a_consumed_one_is_reclaimed() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let lib = Library::open(&root.join("data/library.sqlite")).unwrap();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let source = root.join("source.flac");
+    std::fs::copy(
+        repo.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+        &source,
+    )
+    .unwrap();
+    let runtime =
+        cuerithm_media::MediaRuntime::from_bundle(&repo.join("tools/media-runtime/bin")).unwrap();
+    let mut tagging = AutotagConfig::default();
+    tagging.options.platforms = vec!["beatport".into()];
+    tagging.options.parse_filename = false;
+    tagging.no_match = cuerithm_autotag::NoMatchPolicy::Attention;
+    lib.save_settings(crate::PreparationSettings {
+        autotag_enabled: true,
+        tagging: Some(tagging),
+        ..Default::default()
+    })
+    .unwrap();
+    lib.enqueue(
+        std::slice::from_ref(&source),
+        lib.settings().unwrap().revision,
+    )
+    .unwrap();
+    let run = lib.claim_next().unwrap().unwrap();
+    let input = TagInput {
+        path: source.clone(),
+        source_sha256: run.source_sha256.clone(),
+        duration_seconds: 1.,
+        media: runtime.probe(&source).unwrap(),
+    };
+    lib.record_match_outcome(
+        &run,
+        &input,
+        &TagMatchOutcome {
+            status: MatchStatus::NoMatch,
+            matches: vec![],
+            attempted: vec![],
+            warnings: vec![],
+        },
+    )
+    .unwrap();
+    lib.fail_for_run(&run, "matching", "No match").unwrap();
+    let generation = lib
+        .track_match_review(&run.track_id)
+        .unwrap()
+        .unwrap()
+        .generation;
+    let preview = || {
+        lib.preview_match_review_with(
+            &cuerithm_autotag::Tagger::with_backends(vec![]).unwrap(),
+            &runtime,
+            super::MatchReviewRequest {
+                track_id: run.track_id.clone(),
+                generation: generation.clone(),
+                action: super::MatchReviewAction::KeepExistingOnce,
+                candidate_id: None,
+                fields: vec![],
+                acknowledge_conflicts: false,
+                allow_id3_upgrade: false,
+            },
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap()
+    };
+    let first = preview();
+    let second = preview();
+    assert_eq!(
+        previews(&lib),
+        1,
+        "a newer preview replaces the older one instead of accumulating"
+    );
+    let cancel = cuerithm_media::CancellationToken::default();
+    assert!(
+        lib.apply_match_review_with(&runtime, &first.id, &first.revision, &cancel)
+            .is_err(),
+        "the replaced preview can no longer be applied"
+    );
+    lib.apply_match_review_with(&runtime, &second.id, &second.revision, &cancel)
+        .unwrap();
+    assert_eq!(previews(&lib), 0, "an applied preview is not kept");
+    assert!(
+        lib.apply_match_review_with(&runtime, &second.id, &second.revision, &cancel)
+            .unwrap_err()
+            .to_string()
+            .contains("already consumed"),
+        "a consumed preview still explains itself"
+    );
+}

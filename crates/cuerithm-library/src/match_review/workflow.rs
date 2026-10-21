@@ -299,16 +299,24 @@ impl Library {
             )?,
             "Catalog query changed while previewing"
         );
+        tx.execute(
+            "DELETE FROM preparation_match_previews WHERE track_id=?1",
+            [&public.track_id],
+        )?;
         tx.execute("INSERT INTO preparation_match_previews(id,track_id,generation,revision,payload_json,state,created) VALUES(?1,?2,?3,?4,?5,'preview',?6)",params![public.id,public.track_id,public.generation,public.revision,payload,now()])?;
         tx.commit()?;
         Ok(public)
     }
     pub(super) fn load_match_preview(&self, id: &str, revision: &str) -> Result<Preview> {
-        let (state, saved, json): (String, String, String) = self.conn()?.query_row(
-            "SELECT state,revision,payload_json FROM preparation_match_previews WHERE id=?1",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
+        let (state, saved, json): (String, String, String) = self
+            .conn()?
+            .query_row(
+                "SELECT state,revision,payload_json FROM preparation_match_previews WHERE id=?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?
+            .context("Match review preview changed or was already consumed")?;
         ensure!(
             state == "preview" && saved == revision,
             "Match review preview changed or was already consumed"
@@ -364,6 +372,8 @@ impl Library {
                 preview.artwork_target.as_ref(),
             )?;
             if patch.is_noop() {
+                self.conn()?
+                    .execute("DELETE FROM preparation_match_previews WHERE id=?1", [id])?;
                 return Ok(MatchReviewApplyResult {
                     state: "unchanged".into(),
                     job_id: None,
@@ -379,10 +389,8 @@ impl Library {
                     patch,
                     cancel,
                 )?;
-            self.conn()?.execute(
-                "UPDATE preparation_match_previews SET state='applied' WHERE id=?1",
-                [id],
-            )?;
+            self.conn()?
+                .execute("DELETE FROM preparation_match_previews WHERE id=?1", [id])?;
             return Ok(MatchReviewApplyResult {
                 state: batch.state.clone(),
                 job_id: None,
@@ -420,7 +428,7 @@ impl Library {
             )?,
             "Candidate generation changed before accepting review"
         );
-        ensure!(tx.execute("UPDATE preparation_match_previews SET state='applied' WHERE id=?1 AND revision=?2 AND state='preview'",params![id,revision])?==1,"Review was already accepted");
+        ensure!(tx.execute("DELETE FROM preparation_match_previews WHERE id=?1 AND revision=?2 AND state='preview'",params![id,revision])?==1,"Review was already accepted");
         let job = preview
             .public
             .job_id
@@ -579,7 +587,10 @@ impl Library {
             let tx = conn.transaction()?;
             Self::validate_review_capture_tx(&tx, &before)?;
             ensure!(tx.execute("UPDATE preparation_match_generations SET generation=?1,settings_revision=?2,payload_json=?3 WHERE track_id=?4 AND generation=?5",params![pending.public.generation,snapshot.revision,serde_json::to_string(&pending)?,track,generation])?==1,"Another query replaced this generation");
-            tx.execute("UPDATE preparation_match_previews SET state='invalidated' WHERE track_id=?1 AND state='preview'",[track])?;
+            tx.execute(
+                "DELETE FROM preparation_match_previews WHERE track_id=?1",
+                [track],
+            )?;
             tx.commit()?;
         }
         let audio = runtime.decode(&before.path.path()?, &self.data_dir().join("cache/media"))?;
@@ -714,7 +725,7 @@ impl Library {
             )?,
             "Catalog generation changed while loading artwork"
         );
-        ensure!(tx.query_row("SELECT state='preview' AND revision=?2 FROM preparation_match_previews WHERE id=?1",params![id,revision],|r|r.get::<_,bool>(0))?,"Review was accepted or invalidated while loading artwork");
+        ensure!(tx.query_row("SELECT state='preview' AND revision=?2 FROM preparation_match_previews WHERE id=?1",params![id,revision],|r|r.get::<_,bool>(0)).optional()?.unwrap_or(false),"Review was accepted or invalidated while loading artwork");
         tx.execute("INSERT OR IGNORE INTO preparation_review_artwork(generation,candidate_id,url_digest,asset_json) VALUES(?1,?2,?3,?4)",params![preview.public.generation,candidate_id,url_hash,serde_json::to_string(&asset)?])?;
         let(saved,json):(String,String)=tx.query_row("SELECT url_digest,asset_json FROM preparation_review_artwork WHERE generation=?1 AND candidate_id=?2",params![preview.public.generation,candidate_id],|r|Ok((r.get(0)?,r.get(1)?)))?;
         ensure!(
