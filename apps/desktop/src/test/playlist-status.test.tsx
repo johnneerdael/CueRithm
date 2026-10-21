@@ -38,7 +38,7 @@ describe("smart playlist status",()=>{
   bridge.getPlaylists=vi.fn(async()=>state);
   render(<App bridge={bridge}/>);fireEvent.click(await screen.findByRole("button",{name:"Folder Sets"}));
   await screen.findByText("Showing saved results from available smart playlists.");
-  expect(screen.getByRole("heading",{name:"No tracks in this playlist"})).toBeInTheDocument();
+  expect(await screen.findByRole("heading",{name:"No tracks in this playlist"})).toBeInTheDocument();
  });
  it("does not show an evaluation warning for a ready manual-only folder",async()=>{
   const bridge=fakeBridge([track("a")]),state=workspace();
