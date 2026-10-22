@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 16 · 22 October 2026 · Required engineering reference.
+Revision 17 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–16 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–17 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -28,10 +28,13 @@ Fourteen older 08 fixtures remain conditional observations with upstream failure
 Run 10 adds 12 IDs and eight new request identities: 307 IDs / 285 requests in the
 combined ledger. The earlier 277-request benchmark is preserved. All 12 new files
 match local numeric extraction, but none passes the original absolute-origin gate;
-the reviewed scope is a grid-unqualified key diagnostic (F119). There is no
-promoted replacement model or completed 100% qualification.
+the reviewed scope is a grid-unqualified key diagnostic (F119). A separate
+real-recording test repeats 12 recordings three times; run 11 contains three
+exact-prefix variants of one real recording. These are not added to the synthetic
+benchmark or counted as independent songs (F121–F122). There is no promoted
+replacement model or completed 100% qualification.
 
-Evidence references E001–E132 identify immutable private source snapshots by
+Evidence references E001–E138 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -1558,6 +1561,66 @@ PCM, native and supported-format gates.
 
 **Evidence:** E128–E132.
 
+#### F121 — Three passes preserve analytical results for twelve real recordings
+
+**Type:** Measured MIK repeatability observation.
+
+All 36 captured analyses succeed: each of twelve real recordings appears once in
+three scan blocks. All 36 within-recording pairings have byte-identical
+HAR-exposed request bodies and exactly identical parsed analytical results,
+including confidence and complete cues. Full response bytes and full parsed JSON
+are identical in zero pairings; the only changing fields are the three key,
+energy and cue profiling times.
+
+**Scope:** These recordings and three passes in one owner-supplied capture.
+Body-byte equality concerns HAR-exposed content after any HAR base64 decoding,
+not headers, compressed wire bytes, packets or encrypted traffic. No new model
+fit, agent-controlled vendor call or training-label admission is involved.
+
+**Rules out / prevents:** Separate analytical repeatability from variable runtime
+reporting. The observed stability is compatible with both fresh deterministic
+computation and caching. It does not establish a cache hit, cache key, universal
+absence of randomness or the server's model architecture.
+
+**Evidence:** E133, E134.
+
+#### F122 — One real recording retains final decisions under one-second suffix edits
+
+**Type:** Controlled real-source MIK observation.
+
+Three files preserve every original stereo PCM sample and gain: unchanged,
+appended one second of exact digital zeros, and appended one second of seeded
+noise. All three captured analysis inputs match local extraction exactly; the
+unchanged baseline also matches all analytical results from its three earlier
+passes. MainKey, overall energy and the complete window-energy sequence stay
+unchanged. All eight ordered cues retain their count, order and non-time fields.
+Silence preserves their timestamp bits exactly; noise changes timestamp bits by
+at most 5.6844×10⁻¹⁴ seconds, retaining complete agreement within 1 ns.
+
+Confidence responds: the silence and noise changes are respectively
++0.0001953840 and −0.0065430999. The returned whole-track segment endpoint increases
+one second in both variants. The actual key input changes 21 of 352 values for
+silence and 288 for noise; relative L2 differences are about 0.01896% and 0.16676%.
+Duration and energy-input fields also change, so the suffixes are not identical
+analysis inputs despite exact preservation of the original audio prefix.
+
+**Scope:** One underlying spent real recording, not three independent songs or a
+replacement-model accuracy measurement. Original 44.1 kHz stereo PCM16 is kept
+exactly; the noise is −30 dBFS RMS before quantisation with declared 5 ms edges
+and seeded TPDF. The original mastered level is an explicit inherited-source
+exception, not a pass of the −1 dBFS controlled-synthesis contract. Postscan PCM
+and FLAC audio-frame bytes match protected masters despite changed metadata.
+
+**Rules out / prevents:** “100%” here describes consistency of the predeclared
+final decisions across this contrast under the 1 ns criterion. It is not full
+response byte identity, universal robustness, unseen-music qualification or
+accuracy of our replacement. Confidence remains a separate responsive field.
+Changed confidence contradicts blind reuse of the unchanged complete original
+analysis for these edits; it does not identify cache bypass, fresh computation,
+cache keys, server architecture or the request field causing the change.
+
+**Evidence:** E135–E138.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -1696,7 +1759,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E132 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E138 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1835,3 +1898,9 @@ retain prior IDs or explicitly version replacement evidence.
 | E130 | `bdd555d09b8a4acdc939c0af0355c689ba7c198150e79708919e1e8a19c7a0d1` |
 | E131 | `08ee7056dc4de8f89b383135c0f65409d6ce0cc4c3e002d3529ff213503afb1b` |
 | E132 | `3f3f09fbb0003ff7266edae6cd15d5678b75eae837698a5ab9331573498268fc` |
+| E133 | `7c72a3ce7e91d621a3f95f9dbbe6c790b7e49cd6792780976f9230ff1cc21588` |
+| E134 | `a11074b3a33a53af90bdfd5ad736eea08d726ee136d9a76cb6710ad3d8c69c1c` |
+| E135 | `08c918cd96f1a7a08aaca411db6b8245a2f5619bac5d0b515d981abf4087f8f6` |
+| E136 | `509ffce9bf8978ca5df9d339af8b3aef1d9c6708e9da9f9c934604a583905739` |
+| E137 | `2b66f7ff7d3d746bc9153cb9a1d3973c8ab040f335403168439fca19b0f9dce7` |
+| E138 | `7cd0bad6654ba2161a60a1f7199ec3f14f8ae84647aa93cf93ad9f9b9009e547` |
