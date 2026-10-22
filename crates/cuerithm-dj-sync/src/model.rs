@@ -10,6 +10,7 @@ pub enum DjSoftware {
     Serato4,
     PioneerUsb,
     Rekordbox,
+    Mixxx,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -108,6 +109,60 @@ pub struct SyncOptions {
     pub beatgrid_lock: BeatgridLock,
     pub add_album_art: bool,
     pub extra_cue_markers: bool,
+    /// Omitted while default so existing baselines and journals keep their hashes.
+    #[serde(skip_serializing_if = "MixxxOptions::is_default")]
+    pub mixxx: MixxxOptions,
+}
+
+/// What a Mixxx sync does with tracks that are already in the Mixxx library.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MixxxExistingTracks {
+    /// Add missing tracks and playlists; leave existing Mixxx tracks untouched.
+    #[default]
+    Keep,
+    /// CueRithm replaces the selected data of tracks already in Mixxx.
+    Replace,
+}
+
+/// Which Mixxx container CueRithm playlists become.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MixxxContainer {
+    /// Ordered playlists; keeps order and duplicates.
+    #[default]
+    Playlists,
+    /// Unordered, de-duplicated crates.
+    Crates,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MixxxOptions {
+    pub existing_tracks: MixxxExistingTracks,
+    pub container: MixxxContainer,
+    /// With `Replace`: title, artist, album, genre, comment, year, rating and colour.
+    pub replace_metadata: bool,
+    /// With `Replace`: the harmonic key.
+    pub replace_key: bool,
+    /// With `Replace`: hot cues and saved loops.
+    pub replace_cues: bool,
+}
+impl Default for MixxxOptions {
+    fn default() -> Self {
+        Self {
+            existing_tracks: MixxxExistingTracks::default(),
+            container: MixxxContainer::default(),
+            replace_metadata: true,
+            replace_key: true,
+            replace_cues: true,
+        }
+    }
+}
+impl MixxxOptions {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,6 +243,61 @@ pub struct AppliedTiming {
     pub target: DjSoftware,
     pub offset_seconds: f64,
     pub profile_sha256: String,
+}
+
+#[cfg(test)]
+mod mixxx_option_tests {
+    use super::*;
+    #[test]
+    fn mixxx_options_default_is_omitted_from_serialization() {
+        let value = serde_json::to_value(SyncOptions::default()).unwrap();
+        assert!(
+            value.get("mixxx").is_none(),
+            "default block must not change existing hashes"
+        );
+    }
+    #[test]
+    fn old_options_json_deserializes_with_default_mixxx_block() {
+        let options: SyncOptions =
+            serde_json::from_str(r#"{"nearest_color":true,"skip_beatgrids":false}"#).unwrap();
+        assert!(options.mixxx.is_default());
+        assert_eq!(options.mixxx.existing_tracks, MixxxExistingTracks::Keep);
+        assert_eq!(options.mixxx.container, MixxxContainer::Playlists);
+        assert!(
+            options.mixxx.replace_metadata
+                && options.mixxx.replace_key
+                && options.mixxx.replace_cues
+        );
+    }
+    #[test]
+    fn mixxx_options_round_trip_non_default() {
+        let options = SyncOptions {
+            mixxx: MixxxOptions {
+                existing_tracks: MixxxExistingTracks::Replace,
+                container: MixxxContainer::Crates,
+                replace_metadata: false,
+                replace_key: true,
+                replace_cues: false,
+            },
+            ..SyncOptions::default()
+        };
+        let json = serde_json::to_value(&options).unwrap();
+        assert_eq!(json["mixxx"]["existing_tracks"], "replace");
+        assert_eq!(json["mixxx"]["container"], "crates");
+        let back: SyncOptions = serde_json::from_value(json).unwrap();
+        assert_eq!(back.mixxx, options.mixxx);
+    }
+    #[test]
+    fn partial_mixxx_block_keeps_remaining_defaults() {
+        let options: SyncOptions =
+            serde_json::from_str(r#"{"mixxx":{"existing_tracks":"replace"}}"#).unwrap();
+        assert_eq!(options.mixxx.existing_tracks, MixxxExistingTracks::Replace);
+        assert!(options.mixxx.replace_cues, "unspecified toggles stay on");
+    }
+    #[test]
+    fn software_serializes_as_mixxx() {
+        assert_eq!(serde_json::to_value(DjSoftware::Mixxx).unwrap(), "mixxx");
+    }
 }
 
 #[cfg(test)]

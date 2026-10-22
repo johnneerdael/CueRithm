@@ -648,6 +648,7 @@ pub fn prepare_sync_owned_with_runtime(
     let mut related_roots = Vec::new();
     match target.software {
         DjSoftware::Rekordbox => anyhow::bail!("Use the native rekordbox collection workflow"),
+        DjSoftware::Mixxx => anyhow::bail!("Mixxx sync is not wired yet"),
         DjSoftware::VirtualDj => {
             let original = if target.path.is_dir() {
                 target.path.join("database.xml")

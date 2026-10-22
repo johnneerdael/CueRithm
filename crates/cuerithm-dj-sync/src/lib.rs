@@ -5,6 +5,7 @@ pub use model::*;
 pub mod discovery;
 pub mod djay_pro;
 pub mod engine_dj;
+pub mod mixxx;
 pub mod serato4;
 mod validation;
 pub mod virtual_dj;

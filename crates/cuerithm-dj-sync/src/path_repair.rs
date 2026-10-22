@@ -160,6 +160,7 @@ fn external_id_at(
         DjSoftware::PioneerUsb => {
             anyhow::bail!("Independent device copy has no desktop source-path reference")
         }
+        DjSoftware::Mixxx => anyhow::bail!("Mixxx path repair is not wired yet"),
         DjSoftware::Rekordbox => {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }
@@ -527,6 +528,7 @@ pub fn prepare_path_repair(
             &resolver,
         )?,
         DjSoftware::PioneerUsb => anyhow::bail!("Independent device copy cannot be path-repaired"),
+        DjSoftware::Mixxx => anyhow::bail!("Mixxx path repair is not wired yet"),
         DjSoftware::Rekordbox => {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }
