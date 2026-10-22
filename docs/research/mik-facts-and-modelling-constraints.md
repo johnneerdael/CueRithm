@@ -43,13 +43,13 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | --- | --- | --- |
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
-| Window energy | 26,944/29,892 (90.14%) | Only 200/1,288 entire sequences match; class 8 regresses and class 10 remains 0/2 (F101). |
+| Window energy | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match; class 9 falls 11→10/18 and class 10 remains 0/2. Full coverage changes group coverage and loss mass (F118). |
 | Complete cue lists | 200/1,288 (15.53%) within 1 ns | 196 timestamp-bit-exact; full-list fixes/regressions 7/6. Selected placement falls 571→568; the prior position-only reference remains better (F106). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
 These are spent development comparisons using captured client features. They do
 not measure unseen music or the complete decoded-audio path. The synthetic check
-uses previously inspected diagnostics. No replacement model is promoted.
+uses previously inspected diagnostics. No product-default replacement is promoted.
 
 ## Immediate exclusions
 
