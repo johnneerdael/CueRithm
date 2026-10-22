@@ -8,12 +8,17 @@ can restore.
 
 ## Before you sync
 
-1. **Start Mixxx once** so it creates its library, then **quit it**. CueRithm will not
-   write while Mixxx is open and never closes it for you.
-2. Use **Mixxx 2.4 or newer**. CueRithm recognizes the library formats used by
-   Mixxx 2.4, 2.5 and the current development versions, and refuses anything else
-   with a message that names the version it found. Open an older library in a current
-   Mixxx once to upgrade it.
+1. **Quit Mixxx.** CueRithm will not write while Mixxx is open and never closes it for
+   you. If you have never started Mixxx, you can sync first: CueRithm creates the
+   library, and Mixxx starts with your tracks and does not ask for a music folder. (On
+   macOS, start the Mixxx download once first, so that macOS creates its container.)
+2. Use **Mixxx 2.4 or newer**. CueRithm goes by the library itself, not by a list of
+   releases: it was checked with Mixxx 2.5, and it also writes the libraries of newer
+   Mixxx releases as long as Mixxx still says older software can use them and the tables
+   have the layout CueRithm writes. The preview tells you when the library is newer than
+   what CueRithm was checked with. It refuses a library that needs newer software, with
+   a message that names the version, and an older library until you have opened it in a
+   current Mixxx once to upgrade it.
 3. If Mixxx did not close properly last time, open and quit it normally. CueRithm
    stops when it finds a half-written library file.
 
@@ -22,12 +27,28 @@ the **Mixxx settings folder** or its `mixxxdb.sqlite` file:
 
 | System | Where Mixxx keeps its library |
 | --- | --- |
-| macOS | `~/Library/Application Support/Mixxx` |
+| macOS, the Mixxx download | `~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx` |
+| macOS, a build you made yourself | `~/Library/Application Support/Mixxx` |
 | Windows | `%LOCALAPPDATA%\Mixxx` |
 | Linux | `~/.mixxx` |
 | Linux, Flatpak | `~/.var/app/org.mixxx.Mixxx/.mixxx` |
 
 If you started Mixxx with `--settings-path`, choose that folder.
+
+## Start from nothing, or replace everything
+
+If the folder you choose has no Mixxx library, CueRithm creates one: all of Mixxx's
+tables, an Auto DJ playlist, and your tracks, cues, keys, beatgrids and playlists. The
+folder itself is created too, when the folder above it exists. The preview says so, and
+**Restore backup** removes what was created.
+
+**Mixxx library → Replace the whole library** does the same over a library Mixxx
+already has, as you can with rekordbox. The new library holds what is in this sync and
+nothing else: tracks, playlists, crates, history and play counts that Mixxx had are not
+carried over. The preview counts them, the old library is kept in the sync's backup,
+and **Restore backup** brings it back. It needs the full library, not a single
+playlist or only the changes. Mixxx's saved waveform analyses are not carried
+over either, so Mixxx analyzes the tracks again.
 
 ## Choose a mode
 
@@ -94,8 +115,11 @@ active, and cues beyond slot 36. The preview names skipped cues. **Do not send
 beatgrids** leaves the grid to Mixxx's own analysis. **Beatgrid locks** sets Mixxx's
 BPM lock so Mixxx will not re-analyze a grid you trust.
 
-CueRithm does not change Mixxx's settings, the folders it scans, play counts, replay
-gain or cover art.
+CueRithm does not change Mixxx's settings, play counts, replay gain or cover art. It
+changes the list of folders Mixxx scans in one case only: when that list is empty.
+Mixxx then asks you to choose a music folder every time it starts, so CueRithm adds
+the folders that hold the synced tracks (never your home folder or a drive root) and
+says so in the preview. A list you have built is never touched.
 
 ## Timing
 
@@ -134,15 +158,34 @@ The Flatpak version of Mixxx can only read your Music folder, `/media` and
 folders, which Mixxx would show as missing.
 
 Tracks outside the folders Mixxx scans still play and stay in its library, but Mixxx
-will not find new files next to them. CueRithm does not change that list; add the
-folder in Mixxx's preferences if you want it scanned.
+will not find new files next to them. CueRithm does not add folders to a list that
+already has one; add the folder in Mixxx's preferences if you want it scanned.
+
+## Mixxx on macOS runs in a sandbox
+
+The Mixxx download for macOS is an App Sandbox application. It can read your Music and
+Downloads folders and any folder you chose in one of its own file dialogs, and it asks
+before reading anything else. That is why its library sits inside
+`~/Library/Containers/org.mixxx.mixxx`. Music on an external drive or elsewhere in your
+home folder still plays, but Mixxx asks you to pick the folder the first time it needs
+it, and a folder CueRithm added to its scan list does not count as chosen. The preview
+counts the tracks this affects. Keeping the music in `~/Music` avoids it.
+
+macOS may also ask whether CueRithm may access data of another app, because the
+library is in Mixxx's container. That prompt has not been tested with the CueRithm
+application.
 
 ## What has been tested
 
-The Mixxx library format was read from Mixxx's source code and checked with generated
-libraries for the two supported schema versions. The macOS decoder timing was measured
-with the same Apple calls Mixxx makes. See the
+The Mixxx library format was read from Mixxx's source code. On macOS, the installed
+Mixxx 2.5.6 was then run against libraries CueRithm wrote (an existing library, one
+replaced whole, one made before Mixxx had ever run, and one Mixxx had left empty): it
+started without asking for a music folder, found the library current, read the grids
+and keys, left the BPM-locked grids alone, and changed none of the synced rows. The
+macOS decoder timing was measured with the same Apple calls Mixxx makes. See the
 [format notes](https://github.com/johnneerdael/Cuerithm/blob/main/docs/research/mixxx-sync-contract.md)
 for what was measured and what was only read. Windows and Linux builds of Mixxx have
 not been run against CueRithm yet, so their timing for MP3 is derived from Mixxx's
-source and their AAC timing is unverified, as described above.
+source and their AAC timing is unverified, as described above. Nor has Mixxx 2.4 or a
+newer Mixxx than 2.5, or a library on an external drive on macOS, where Mixxx asks for
+access.

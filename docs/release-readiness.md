@@ -20,7 +20,7 @@ claim complete Lexicon or OneTagger parity.
 | Preparation presets | Immutable portable rule revisions, local folder assignments and per-source capture extend Settings. Import/export excludes credentials, global transport and native destination grants; disconnected folders and destinations require explicit reconnection. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens now expose scanning, review, apply, Undo/Restore and recovery; final packaged/native acceptance remains separate. |
-| DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx (schema 39-40) adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
+| DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx (schema 39 and newer, by Mixxx's own compatibility marker) adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
 | Native rekordbox Sync | Direct desktop synchronization, explicit field/conflict decisions, native identities, database/assets publication, recovery/restore and playlist/MyTag previews. Exact macOS builds 6.8.7.0303 and 7.2.19.0342 are write-accepted after private application-created-library tests; other builds and Windows remain read-only. The five other DJ targets retain their Sync workspace. |
 
 No collection XML transport is part of the product. Plays, Last Played and
@@ -125,9 +125,22 @@ stabilization change.
 
 `crates/cuerithm-dj-sync` adds independent current-format adapters for VirtualDJ,
 Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx, with a desktop Sync workspace.
-Mixxx writes its SQLite library directly in an Add only or Manage library mode; its
-storage contract, measured MP3 alignment and unverified AAC/Windows/Linux runtime
-gaps are recorded in `docs/research/mixxx-sync-contract.md`.
+Mixxx writes its SQLite library directly in an Add only or Manage library mode, can
+create a library where Mixxx has none and replace a whole one, and was run as the
+installed Mixxx 2.5.6 on macOS (168 checks passed). Its storage contract, measured MP3
+alignment and the unverified AAC, Windows, Linux and newer-Mixxx gaps are recorded in
+`docs/research/mixxx-sync-contract.md`.
+
+Mixxx feature coverage (tests are the evidence; the installed Mixxx 2.5.6 on macOS adds
+the runs noted):
+
+| Capability | Status |
+| --- | --- |
+| Tracks, metadata, playlists and crates | Covered. Adapter and service tests for both containers; the installed Mixxx ran with playlists |
+| Hot cues with names, colours and saved loops | Covered. Slots, names, exact RGB, loops and the rows Mixxx's loader would discard are tested; the installed Mixxx ran with names, positions and a loop |
+| Beatgrids with correct timing across audio formats | Partly. WAV, FLAC and MP3 are checked in the installed Mixxx on macOS and AAC with the same CoreAudio calls; MP3 on Linux and Windows is derived from Mixxx's source. AIFF, Ogg Vorbis, ALAC, Opus and WMA assume no shift and are not measured, so this stays open |
+| Preview, conflict handling and recoverable backups | Covered. Preview, stale-preview, running-Mixxx, half-written-library and ambiguous-match refusals, and byte-identical restore after update, create and replace are tested |
+| Protection for changes users make inside Mixxx | Covered. Add only never touches existing tracks, Manage replaces only the chosen groups, edited playlists are reset or appended to, hidden and locked rows and a user's scan folders are untouched, and the staged copy is verified before publishing |
 Implemented behavior includes measured export timing, supported native smart-rule
 compilation with exact whole-list fallbacks, durable playlist ownership and owned
 removal propagation, batch staging, typed file/directory/case-rename journals and

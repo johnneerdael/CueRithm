@@ -5,8 +5,9 @@ CueRithm 0.1 is early software. This page lists what is missing or unfinished, s
 Native [DJ software Sync](../guides/sync.md) is available in the current worktree for
 VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and [Mixxx](../guides/sync-mixxx.md). Direct rekordbox
 writes support macOS builds 6.8.7.0303 and 7.2.19.0342; other builds remain read-only. Acceptance in native DJ apps and on physical players remains separate from
-implementation and fixture tests. Mixxx has not been run on Windows or Linux against
-this sync, and AAC and WMA cue alignment in Mixxx is unverified.
+implementation and fixture tests. Mixxx 2.5.6 on macOS has been run against this sync
+(see [Sync to Mixxx](../guides/sync-mixxx.md)); Mixxx has not been run on Windows or
+Linux against it, and AAC and WMA cue alignment in Mixxx is unverified on those systems.
 
 ## Not in the app
 

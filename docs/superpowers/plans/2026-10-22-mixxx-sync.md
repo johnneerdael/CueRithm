@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Supported Mixxx schema: **39 and 40 only**; read from `settings` row `mixxx.schema_version`; refuse others with a message naming the version and the supported window.
+- Supported Mixxx schema: **39 and newer** (checked against 39 and 40); read from `settings` row `mixxx.schema.version`; a schema above 40 is accepted only when `mixxx.schema.min_compatible_version` is 40 or lower and the tables keep the shape the writer needs; older and incompatible libraries are refused with a message naming the version.
 - Cue and loop `position`/`length` are REAL **frames × 2**; hot cue slots `0..=35`; types `1` hot cue and `4` loop only are written or replaced.
 - New `library` rows: `header_parsed = 1`, `source_synchronized_ms` NULL, `mixxx_deleted = 0`; existing rows never get `source_synchronized_ms` changed.
 - `beats_version` is `BeatGrid-2.0` or `BeatMap-1.0`; `keys_version` is `KeyMap-1.0`; frames are at the file's own sample rate.
@@ -20,7 +20,7 @@
 - Mixxx timing offsets (samples), from file-header facts and not from `Mp3TimingCase`: MP3 without an Info/Xing frame `−F` (`F` = 1152 at ≥ 32 kHz, else 576); Info/Xing frame without a `LAME`/`Lavf`/`Lavc` identifier `0`; with such an identifier `+(encoder delay + 529)`; lossless/PCM/Ogg/Opus 0; AAC (`.m4a`/`.mp4`/`.aac`) and WMA 0 with a warning.
 - Cue colours are written as exact RGB; `nearest_color` is ignored for Mixxx.
 - Native environment only; Wine/Proton environments are rejected.
-- Never write music tags, edit `directories`, delete Mixxx tracks, or add markers/columns to the Mixxx database. Hidden playlists (`hidden != 0`) and locked containers are never modified.
+- Never write music tags, edit a `directories` list that has a row (an empty one is seeded so Mixxx does not prompt at every start), delete Mixxx tracks, or add markers/columns to the Mixxx database. Hidden playlists (`hidden != 0`) and locked containers are never modified.
 - Authored fixture DDL must be written independently; no upstream schema text is copied. Fixtures, tests and docs contain no private paths or music.
 - Run from the worktree root. Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 
@@ -218,7 +218,7 @@
 
 **Files:** Create `tools/mixxx-acceptance/README.md` and `tools/mixxx-acceptance/run.sh`; results in `docs/research/mixxx-sync-contract.md` (new section *Runtime acceptance*).
 
-- [ ] **Step 1:** Launch `/Applications/Mixxx.app/Contents/MacOS/Mixxx --settings-path <scratch> --log-level debug` once so Mixxx creates its own database, then quit it (SIGTERM) and confirm `settings.mixxx.schema_version`.
+- [ ] **Step 1:** Launch `/Applications/Mixxx.app/Contents/MacOS/Mixxx --settings-path <scratch> --log-level debug` once so Mixxx creates its own database, then quit it (SIGTERM) and confirm `settings.mixxx.schema.version`.
 - [ ] **Step 2:** With a small generated library (a click MP3 with a LAME header, a FLAC, a WAV), write a Mixxx-shaped sync through the real adapter (a `#[ignore]` integration test reading the scratch path from an env var), in both modes.
 - [ ] **Step 3:** Relaunch Mixxx on the same folder loading the MP3 into deck 1 (`mixxx <file>`); capture the log and the post-quit database. Pass only when the log shows `Successfully deserialized Beats (BeatGrid-2.0)`, the key is read, hot cues load, no "Initializing track metadata … from file" line appears for adapter-written tracks, and the database still holds our grid, key and cues after Mixxx exits.
 - [ ] **Step 4:** Record what passed, what could not be run (Windows, Linux, audible alignment) and any residual in the contract document; do not claim more. **Step 5:** Commit `test(mixxx): installed-application acceptance record`.

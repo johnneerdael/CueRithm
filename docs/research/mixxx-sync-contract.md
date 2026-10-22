@@ -12,12 +12,13 @@ the end and is not implied by any source observation below.
 | --- | --- |
 | Mixxx source, development line | `main` at `2086fe0e55` (`project(mixxx VERSION 2.7.0)`), schema 40 |
 | Mixxx released lines | Tags `2.3.0` (schema 32), `2.4.0` and `2.5.0`/`2.5.6` (schema 39) |
-| Installed application | Mixxx 2.5.6 macOS bundle, executable `Contents/MacOS/Mixxx` |
+| Installed application | Mixxx 2.5.6 macOS bundle from the project's release (built Mar 25 2026), executable `Contents/MacOS/Mixxx`; run on macOS 15.8 (24H23, arm64) |
 | Upstream docs | Mixxx 2.5 manual, chapter *Library*; Serato metadata wiki page |
 
 Paths below are upstream repository paths (`src/...`, `res/...`). "Measured" marks
 results produced by running tools on generated files; everything else was read from
-source. Source reading does not establish behavior of a running player.
+source. Source reading does not establish behavior of a running player, so where the
+installed Mixxx 2.5.6 could be asked, its own log or entitlements are quoted.
 
 ## Platform data locations
 
@@ -28,12 +29,50 @@ Mixxx runs natively on all three desktop systems and keeps one SQLite file,
 | --- | --- | --- |
 | Linux | `$HOME/.mixxx/` | `MIXXX_SETTINGS_PATH ".mixxx/"` (`CMakeLists.txt`); XDG is deliberately not used |
 | Linux, official Flatpak `org.mixxx.Mixxx` | `$HOME/.var/app/org.mixxx.Mixxx/.mixxx/` | `--persist=.mixxx` in `packaging/flatpak/org.mixxx.Mixxx.yaml`; music mounts keep host paths for `~/Music`, `/media`, `/run/media` |
-| macOS | `~/Library/Application Support/Mixxx/` | `QStandardPaths::AppLocalDataLocation`, organization name intentionally unset (`src/main.cpp`) |
+| macOS, official build (App Sandboxed) | `~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/` | the same Qt rule, but inside the sandbox container; see below |
+| macOS, a build that is not sandboxed | `~/Library/Application Support/Mixxx/` | `QStandardPaths::AppLocalDataLocation`, organization name intentionally unset (`src/main.cpp`) |
 | Windows | `%LOCALAPPDATA%\Mixxx\` | same Qt rule |
 
 `--settings-path <dir>` overrides the folder, so manual selection must stay
-available. The installed macOS application had not been launched on the host
-used here, so no per-user library existed to inspect.
+available.
+
+### The macOS App Sandbox
+
+The released macOS build is an **App Sandbox** application. Evidence from the installed
+2.5.6 bundle, not only from source:
+
+- `codesign -d --entitlements -` lists `com.apple.security.app-sandbox`,
+  `com.apple.security.assets.music.read-write`,
+  `com.apple.security.files.downloads.read-write`,
+  `com.apple.security.files.user-selected.read-write` and
+  `com.apple.security.files.bookmarks.app-scope`.
+- Mixxx's own debug log reports `QStandardPaths::writableLocation(HomeLocation):
+  "~/Library/Containers/org.mixxx.mixxx/Data"` and an `AppDataLocation` inside it, and
+  looks for a `sandbox.cfg` (its store of security-scoped bookmarks, `src/util/sandbox.cpp`).
+- The library of the person whose machine this was measured on is in the container
+  (`mixxxdb.sqlite`, `soundconfig.xml`, `analysis`, `controllers`, `effects`), and
+  `~/Library/Application Support/Mixxx` does not exist.
+
+What follows for an external tool:
+
+1. **Where the library is.** The container path above comes first; a build that is not
+   sandboxed (for example one built from source) uses the plain path.
+2. **A settings folder outside the container cannot be used by Mixxx.** Started with
+   `--settings-path` pointing outside it, Mixxx 2.5.6 could not create its database
+   (`QSqlError("14", "Error opening database", "unable to open database file")`, then
+   its dialog "Unable to establish a database connection"), although an ordinary process
+   could create a database at the same place. `src/util/sandbox.cpp` on `main`
+   (`ensureSettingsPathAccessible`) documents the cause: outside the container, without
+   a security-scoped bookmark, the sandbox "acts as a read-only filesystem". Test
+   libraries for Mixxx on macOS therefore have to live inside the container.
+3. **Which music Mixxx can read.** Only the Music and Downloads folders and what the user
+   has chosen in a file dialog (or added to the library, which stores a bookmark).
+   Tracks anywhere else are asked for when Mixxx first needs them. CueRithm reports the
+   tracks of a sync that fall outside Music, Downloads and Mixxx's own `directories`.
+4. **Another app's container.** Reading and writing `mixxxdb.sqlite` there from outside
+   Mixxx worked from the command-line tools used for these measurements. macOS also has
+   a per-app prompt for access to other apps' data; whether it appears for the CueRithm
+   application was **not** tested.
 
 ## Schema window
 
@@ -48,12 +87,33 @@ that CueRithm cannot assume a newer schema is safe. Released lines use:
 | 2.4, 2.5 | 39 |
 | development (2.6/2.7) | 40 (adds `library.tuning_frequency_hz FLOAT DEFAULT 0.0`) |
 
-Supported write window: **schema 39 and 40**. Schema is read from
-`settings.name = 'mixxx.schema_version'` (`src/database/schemamanager.cpp`).
-Anything older must be opened once in a current Mixxx to migrate; anything newer
-is read-only until reviewed. Column availability is checked with
-`PRAGMA table_info`, and the writer names only columns that exist, so the optional
-schema-40 column is written only when present.
+What the adapter accepts is decided from the library, not from a list of releases, so
+a Mixxx released after this code keeps working as long as it keeps the format.
+
+- **Floor: schema 39.** Anything older predates the beat, key and cue formats written and
+  must be opened once in a current Mixxx to migrate.
+- **Version.** Read from `settings.name = 'mixxx.schema.version'`
+  (`src/database/schemamanager.cpp`).
+- **Newer than 40, Mixxx's own rule.** The same table holds
+  `mixxx.schema.min_compatible_version`, the oldest software that can still use the
+  library, and `mixxx.schema.last_used_version`. `SchemaManager::upgradeToSchemaVersion`
+  refuses to open a newer library from software whose schema is below the marker
+  (`NewerVersionIncompatible`), and a library that does not store one counts as compatible
+  only with itself. The adapter applies that rule with 40, the newest schema it was
+  checked against: a library of schema 41 or later whose marker is 40 or lower is accepted
+  and the preview says so; a higher marker is refused with a message naming both numbers.
+  Every revision from 7 onward has declared `min_compatible="3"`.
+- **Shape.** Whatever the version, every column the writer names must exist, and no table
+  it inserts into may have a column that is `NOT NULL`, has no default, is not the row id
+  and is not one the writer names: a new mandatory column means a row now needs something
+  CueRithm does not know how to supply. Optional columns, such as schema 40's
+  `library.tuning_frequency_hz`, are written only when present.
+
+What this cannot detect is a release that keeps every column and the marker but changes
+what a value means, for instance a new beats format that no longer reads the one written.
+That would show only in a run against that release.
+
+A library CueRithm *creates* is always schema 39, which every later Mixxx upgrades itself.
 
 ## Tables used
 
@@ -66,10 +126,34 @@ Observed from `res/schema.xml` and the DAOs (`src/library/dao/`):
   `PlaylistTracks(id, playlist_id, track_id, position, pl_datetime_added)`
 - `crates(id, name UNIQUE, count, show, locked, autodj_source)` and
   `crate_tracks(crate_id, track_id, UNIQUE(crate_id, track_id))`
-- `directories(directory UNIQUE)`: folders Mixxx scans. The adapter never edits it.
+- `directories(directory UNIQUE)`: folders Mixxx scans. While it is empty Mixxx shows
+  "Choose music library directory" at every start (`CoreServices::initialize` in
+  `src/coreservices.cpp`: `loadRootDirs().isEmpty()`, which counts rows whether or not
+  the folder exists; the `skipInvalidOrMissing` parameter defaults to `false`). A library
+  that CueRithm fills would keep asking, so the adapter inserts rows into an **empty**
+  list only: the outermost folder of each synced track, because
+  `DirectoryDAO::addDirectory` drops a folder that lies inside another one. It skips
+  the home folder and drive roots, and never edits a list that has any row.
 
 There are no triggers or persistent views. `crate_summary` is a temporary view that
 Mixxx creates at runtime (`src/library/trackset/crate/cratestorage.cpp`).
+
+## Foreign keys
+
+Mixxx opens its database with foreign keys **off** (SQLite's default, and Qt's SQLite
+driver does not change it), and its schema could not be written with them on. In a
+library created by Mixxx 2.5.6:
+
+- `library.location INTEGER REFERENCES track_locations(location)` names the text column
+  `location`, but the column holds `track_locations.id`.
+- `cues.track_id`, `PlaylistTracks.track_id` and `crate_tracks.track_id` reference a table
+  `"library_old"`, left behind when a migration renamed `library`. No such table exists.
+
+A SQLite build that turns foreign keys on by default, as the one bundled with `rusqlite`
+does, fails every one of those inserts (`FOREIGN KEY constraint failed`, or
+`no such table: main.library_old`). Writers must run `PRAGMA foreign_keys = OFF`, as Mixxx
+does. This was found only by running against a library Mixxx made; a database authored
+from the documented contract had hidden it.
 
 ## Track identity and insertion
 
@@ -190,6 +274,30 @@ smart crates (smart crates are mentioned only as unsupported for Serato imports)
 Consequences for CueRithm data: folders flatten to a path-like name, and smart
 playlists export their captured members as ordinary lists.
 
+## Creating a library
+
+A Mixxx that has never been started has no library, and on Windows and Linux no settings
+folder. A library CueRithm writes there must be one Mixxx accepts as current, or Mixxx
+would start migrating a half-made file.
+
+- **Layout.** The tables, indexes and views Mixxx 2.5.6 creates for a new profile, read from
+  `sqlite_master` of a library it made (26 tables; the statements are verbatim, including
+  the `library_old` references). Mixxx 2.4 and 2.5 are both schema 39 and create the same
+  layout.
+- **Rows.** `settings`: `mixxx.schema.version` 39, `mixxx.schema.min_compatible_version` 3,
+  `mixxx.schema.last_used_version` 39. `Playlists`: the Auto DJ playlist (`hidden = 1`) and
+  `historyPlaceholder` (`hidden = -1`, `locked = 1`), which the schema migrations insert.
+  Today's history playlist and `mixxx.db.model.autodj.ColumnsSorting` are written by Mixxx at
+  run time and are not created.
+- **Version.** Always 39. A newer Mixxx upgrades 39 to 40 itself, as it would any older
+  library, so one template serves every supported Mixxx.
+- **Licence.** The layout is the structure of a GPL-2.0-or-later program's database, copied
+  so that CueRithm can interoperate with it. It is a single file, `schema39.sql`, with its
+  provenance in its header.
+- **macOS.** The sandboxed download keeps its library in a container that macOS creates
+  when the application is first started. Until then there is nothing to write into, and
+  CueRithm does not create another application's container.
+
 ## Process and database locking
 
 Mixxx sets no SQLite journal pragma, so the file uses the default rollback journal
@@ -220,6 +328,11 @@ file is opened with the highest-priority provider that supports its type. Read f
 | macOS | Apple CoreAudio (`Higher`; its list includes `mp3`) | Apple CoreAudio (`Higher`) | libsndfile and the format libraries |
 | Windows | MAD / libmad (`Default`) | Media Foundation (`Higher`) | libsndfile and the format libraries |
 | Linux | MAD / libmad (`Default`) | FAAD through `SoundSourceM4A` (`Default`) | libsndfile and the format libraries |
+
+On the installed macOS bundle the log confirms the first row: for both `mp3` and
+`m4a` Mixxx 2.5.6 lists `4 (higher): "Apple CoreAudio Version 15.8 (Build 24H23)"` and
+`1 (lowest): "FFmpeg 6.0"`, and no MAD provider is built in. The Linux and Windows rows
+come from the source only.
 
 FFmpeg is registered everywhere it is built, but its hint is `Lowest`
 (`SoundSourceProviderFFmpeg::getPriorityHint`), so it only opens a file when nothing
@@ -367,6 +480,46 @@ it; a libmad probe, or a run of Mixxx itself, would settle them.
 | Rekordbox USB export | Mixxx's Rekordbox feature reads `export.pdb`/ANLZ and imports cues when a track is played from the drive | Not a library sync: needs a drive and acts per played track |
 | Native database | direct, atomic, covers everything | **Chosen** |
 
+## Runtime acceptance
+
+`tools/mixxx-acceptance/run.py` drives the installed Mixxx 2.5.6 (macOS, App Sandboxed
+build, CoreAudio) with its own `--settings-path`, inside Mixxx's container, and checks
+what is in its database and what its debug log says. It never touches the person's own
+library. The last run passed **168 of 168 checks**. Four scenarios, each on its own
+library, with three click tracks (WAV, FLAC, MP3):
+
+| Scenario | What was done | What was observed |
+| --- | --- | --- |
+| fresh | Mixxx made an empty library; CueRithm added the tracks through the real preview and apply path | Mixxx's first start stopped at "Choose music library directory" with an empty `directories`; after the sync the next start did not, the library scan found the same three tracks, and nothing was rewritten |
+| existing | Mixxx added the tracks itself; CueRithm replaced grid, key and cues in place | the same row ids; Mixxx deserialized the grids and keys and its analyzer reported `BpmLocked` for all three; rows unchanged after Mixxx's scan |
+| overwrite | As existing, then the whole library was replaced | only CueRithm's tracks and playlist remained; the tables, indexes and views, the schema settings and Mixxx's two default playlists equalled what Mixxx itself had made |
+| created | No settings folder at all; CueRithm created the library | the same equality with a library Mixxx made; Mixxx started without prompting or upgrading ("Database schema is up-to-date at version 39"), read the grids, and left the rows alone |
+
+In every scenario the written first beat was within 2 frames of CoreAudio's first click
+(the probe's threshold is 16), hot cues and the loop were `frames x 2` with the same
+shift, and the key was A minor with source *user*. The log lines relied on are
+`Successfully deserialized Beats ("BeatGrid-2.0")`, `Successfully deserialized KeyMap`,
+`Track is BpmLocked: Beat calculation will not start` and `Database schema is up-to-date`.
+
+Defects the earlier, fixture-only tests had not shown, found by the first runs and fixed:
+
+1. the schema version is stored under `mixxx.schema.version`, not `mixxx.schema_version`,
+   so the adapter would have refused every real library;
+2. Mixxx's schema declares foreign keys it does not satisfy (see *Foreign keys*), so
+   writing with SQLite's foreign keys on failed on every track;
+3. a Mixxx started on an empty `directories` waits for a music folder at every start.
+
+What the run does **not** show: Windows, Linux or Flatpak (no such system was available);
+Mixxx 2.4, or 2.6 and later, so that Mixxx's own upgrade of a library CueRithm created
+from schema 39 to 40 was not run; playback or the waveform inside Mixxx (the grid was
+compared with CoreAudio's decoder through the probe, and Mixxx loaded and deserialized
+it); a folder CueRithm adds to the scan list outside Music, Downloads and Mixxx's own
+container, for which the sandbox is expected to ask for access; the CueRithm application
+itself (the sync ran through the same preview and apply code from a test harness, not
+from the desktop UI), including any macOS prompt for access to another application's
+container. In the *existing* and *overwrite* scenarios the row in `directories` was
+inserted by the script, standing in for choosing the folder in Mixxx's dialog.
+
 ## Not established
 
 - **Linux and Windows.** No Linux or Windows system, and no libmad, Media Foundation
@@ -378,9 +531,10 @@ it; a libmad probe, or a run of Mixxx itself, would settle them.
   calls `SoundSourceCoreAudio` makes, on one macOS version (15.8) and one set of
   encoders. Apple can change its tag rules between releases, which is why the adapter
   asks `AudioFile` instead of predicting them. Playback inside the Mixxx application
-  is covered separately, in *Runtime acceptance* below when that section exists.
+  is covered separately, in *Runtime acceptance* below.
 - **Opus** pre-skip alignment was read from the format specification, not measured.
 - **Mixxx versions** other than schema 39 and 40, and builds without MAD or CoreAudio.
 - **Schema 40 against a running Mixxx.** Mixxx 2.5.6 (schema 39) is the only release
-  available on the development machine; schema 40 was exercised with an authored
-  fixture only.
+  available on the development machine; schema 40 was exercised with a schema-39
+  library plus the one column Mixxx's source adds, and the upgrade of a library CueRithm
+  created from 39 to 40 by a newer Mixxx was not run.

@@ -38,8 +38,9 @@ This document records decisions.
 
 - No writing into music files or Serato-style tags; the source music is never
   modified.
-- No edits to Mixxx's settings, its `directories` scan list, or any table the
-  adapter does not own the rows of. No markers or extra columns in the Mixxx
+- No edits to Mixxx's settings, to a `directories` scan list that has any row, or to
+  any table the adapter does not own the rows of. The one exception is filling an
+  empty scan list (below). No markers or extra columns in the Mixxx
   database. CueRithm never deletes Mixxx tracks.
 - No Windows-compatibility (Wine/Proton) environment: Mixxx is native everywhere,
   so only the native environment is accepted.
@@ -116,7 +117,8 @@ crates/cuerithm-dj-sync/src/
   exactly as the djay Pro adapter does. Apply, recovery, restore and backup are the
   existing transaction machinery.
 - Discovery adds the per-platform locations from the research document, the Flatpak
-  folder included. The process guard knows the executable names.
+  folder and, on macOS, the App Sandbox container of the official build (listed before
+  the plain `Application Support` folder). The process guard knows the executable names.
 - `SyncOptions` gains a nested `mixxx` options block, omitted from serialization when
   default so existing baselines and journals keep their hashes.
 - Timing gets a Mixxx rule in `timing.rs` that follows the decoder this system's Mixxx
@@ -184,7 +186,9 @@ deletion.
   Problems with individual cues, loops or slots are warnings that name the track.
 - Flatpak Mixxx can only read `~/Music`, `/media` and `/run/media` unless the user
   grants more; for a library under `.var/app/org.mixxx.Mixxx` the preview warns about
-  tracks outside those folders.
+  tracks outside those folders. The sandboxed macOS build reads only Music, Downloads
+  and folders the user chose; for a library in its container the preview warns about
+  tracks outside those and outside Mixxx's own `directories`.
 - Mixxx must be closed. The process list is read fresh at preview and again at
   apply; a failure to read it blocks the sync. Mixxx is never killed.
 - A write is preceded by the existing durable backup and journal; Restore returns
@@ -200,8 +204,8 @@ deletion.
 
 ## Validation and acceptance
 
-Authored fixtures create Mixxx-shaped databases for schema 39 and 40 with
-independently written DDL (no upstream schema text is copied) and cover: the
+Fixtures create Mixxx-shaped databases for schema 39 and 40 (and newer, to test the
+version rule) from the table definitions Mixxx 2.5.6 itself wrote, and cover: the
 schema window and refusals; insertion and update per mode; location matching
 including case folding, Windows drive and UNC spelling and ambiguity; every
 protobuf message against golden bytes checked with `protoc --decode` against
@@ -220,7 +224,11 @@ runs are outside what this host can do and stay listed as unverified.
 ## Decisions made without asking (flag if wrong)
 
 - *Add only* is the default mode, *Playlists* the default container.
-- Schema window 39–40 only; older databases must be upgraded by Mixxx first.
+- Schema 39 is the floor; older databases must be upgraded by Mixxx first. Newer
+  ones are accepted by the library's own marker, not a release list: a schema above 40
+  (the newest checked) whose `mixxx.schema.min_compatible_version` is 40 or lower, with
+  every named column present and no new mandatory column, is written and reported in
+  the preview. This is Mixxx's own rule for opening a newer library.
 - `source_synchronized_ms` stays NULL on rows the adapter creates.
 - Hot cue and loop rows are replaced as a set per track; other cue types survive.
 - AAC alignment is measured on macOS and declared unverified on Linux and Windows;
@@ -230,3 +238,17 @@ runs are outside what this host can do and stay listed as unverified.
 - Cover art, record label, active-loop state and cue slots above 35 are not
   transferred; colours are exact RGB.
 - Edited CueRithm-owned containers are reset or appended to, never a sync error.
+- A folder with no Mixxx library (a Mixxx never started) gets a new schema-39 library
+  built from the layout Mixxx 2.5.6 itself creates, and a settings folder that is also
+  missing is created when its parent exists. *Replace the whole library* builds the
+  same new library in place of an existing one, from the full library only; the old
+  file is kept in the journal and restore returns it. Both reset ownership, since the
+  playlists CueRithm owned are gone. Mixxx opens its database with foreign keys off
+  and the adapter must too. Only the full scope may replace a library, because a
+  partial scope would leave most tracks out.
+- Mixxx asks for a music folder at every start while `directories` is empty, so the
+  adapter fills an empty list with the outermost folder of each synced track (never
+  the home folder or a drive root) and says so in the preview. A list with any row is
+  never edited, and it is checked before commit. On the sandboxed macOS build a folder
+  the adapter adds has no permission bookmark, so the preview still warns about tracks
+  outside Music, Downloads and folders with a bookmark in `sandbox.cfg`.
