@@ -57,6 +57,12 @@ The release gate checks all seven logical components: the Rust floor plus engine
 
 The trailers are the maintainer's assertion that the other results remain valid. Never retain a component affected by the patch. The release log records the exact checked commits, workflow runs and jobs used. Packaging still builds the selected release source on every platform.
 
+Release can tag the tip of `main` from a checked ancestor when intervening changes
+contain only documentation, root `AGENTS.md` contributor guidance or the allowed
+release tooling. Guidance-only pushes may have started redundant checks; they do
+not invalidate unchanged application and build inputs. Application or build
+changes still block promotion from the older checked source.
+
 `.github/scripts/` holds the gate and release-note logic; run its tests with `python3 -m unittest discover -s .github/scripts`.
 
 The release gate and note generator both use the latest global `v*` tag as their
