@@ -1,6 +1,8 @@
 //! Native Mixxx library adapter. It edits a staged copy of `mixxxdb.sqlite`; the
 //! caller publishes it through the shared journal. See
 //! `docs/research/mixxx-sync-contract.md` for the observed storage contract.
+mod beats;
+mod keys;
 mod proto;
 
 use anyhow::{Result, ensure};
