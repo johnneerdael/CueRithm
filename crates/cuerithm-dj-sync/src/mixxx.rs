@@ -12,7 +12,9 @@ mod proto;
 mod schema;
 #[cfg(test)]
 mod staged_tests;
-mod tracks;
+#[cfg(test)]
+mod sync_tests;
+pub(crate) mod tracks;
 mod verify;
 
 use crate::{
@@ -44,6 +46,11 @@ pub fn database_candidates(home: &Path, local_app_data: Option<&Path>) -> Vec<Pa
         // Windows.
         local.join("Mixxx").join(DATABASE_FILE),
     ]
+}
+
+/// Refuse a library a crashed Mixxx left half-written. Runs before anything is read.
+pub(crate) fn preflight(database: &Path) -> Result<()> {
+    schema::ensure_closed_cleanly(database)
 }
 
 /// Accept the settings folder or the database file itself.

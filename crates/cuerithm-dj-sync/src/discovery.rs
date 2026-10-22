@@ -126,8 +126,23 @@ pub fn process_matches(software: DjSoftware, command: &str) -> bool {
         }
     }
 }
+#[cfg(test)]
+thread_local! {
+    static PROCESS_GUARD: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+/// Tests only: answer the process check without looking at the real process list,
+/// which would otherwise depend on what the developer happens to have open.
+#[cfg(test)]
+pub(crate) fn pretend_target_running(running: bool) {
+    PROCESS_GUARD.set(Some(running));
+}
 /// Obtain a fresh OS process snapshot; inspection failure must not imply a closed app.
 pub fn ensure_closed(software: DjSoftware) -> Result<()> {
+    #[cfg(test)]
+    if let Some(running) = PROCESS_GUARD.get() {
+        ensure!(!running, "Close the target DJ software before syncing");
+        return Ok(());
+    }
     #[cfg(target_os = "linux")]
     {
         ensure!(

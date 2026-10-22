@@ -501,6 +501,10 @@ pub fn prepare_sync_owned_with_runtime(
         target.software != DjSoftware::Rekordbox,
         "Use the native rekordbox collection workflow"
     );
+    ensure!(
+        target.software != DjSoftware::Mixxx || target.environment.is_native(),
+        "Mixxx runs natively on Windows, macOS and Linux; choose the native environment"
+    );
     let library = crate::formatting::format_library(library, options)?;
     validate_library(&library)?;
     // USB conversion happens after optional PCM transcoding, on the output's clock.
@@ -648,7 +652,37 @@ pub fn prepare_sync_owned_with_runtime(
     let mut related_roots = Vec::new();
     match target.software {
         DjSoftware::Rekordbox => anyhow::bail!("Use the native rekordbox collection workflow"),
-        DjSoftware::Mixxx => anyhow::bail!("Mixxx sync is not wired yet"),
+        DjSoftware::Mixxx => {
+            let database = crate::mixxx::resolve_database_path(&target.path)?;
+            crate::mixxx::preflight(&database)?;
+            related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(
+                database.parent().context("Mixxx settings folder missing")?,
+            )?);
+            let stage = build.join("mixxx/mixxxdb.sqlite");
+            resolver.verify()?;
+            #[cfg(test)]
+            {
+                resolution_scans += resolver.directory_enumerations();
+            }
+            sqlite_snapshot(&database, &stage, &mut before)?;
+            resolver = target.environment.resolver()?;
+            let staged = crate::mixxx::write_staged_owned(
+                &stage,
+                &database,
+                library,
+                options,
+                contexts
+                    .get(&database)
+                    .map_or(&empty_ownership, |(_, request)| request),
+            )?;
+            ownership.insert(database.clone(), (None, staged.ownership));
+            warnings.extend(staged.warnings);
+            // A library that already matches publishes nothing; its preconditions
+            // still guard against an edit between preview and apply.
+            if staged.changed {
+                replacements.insert(database, stage);
+            }
+        }
         DjSoftware::VirtualDj => {
             let original = if target.path.is_dir() {
                 target.path.join("database.xml")
