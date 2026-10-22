@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 15 · 22 October 2026 · Required engineering reference.
+Revision 16 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–15 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–16 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -14,21 +14,24 @@ register; the private companion uses the same IDs and retains the underlying
 audio, capture audits and identifying evidence. Historical reports can describe
 earlier hypotheses; the scoped exclusions here govern current work.
 
-The record covers controlled runs 01–09 (including rejected 06 and replacement
+The record covers controlled runs 01–10 (including rejected 06 and replacement
 06B), local mechanism investigations, and an independently recomputed assessment
 of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-recorded alongside input/data audits in F078–F118 and retained in separate experiment records.
+recorded alongside input/data audits in F078–F120 and retained in separate experiment records.
 
-There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
-281 IDs / 263 requests are qualified against local extraction. Fourteen older
-08 fixtures remain conditional observations with upstream failures. All 64 new
-09 fixtures pass local-request and decoded-audio checks. There is no promoted
-replacement model and no established 99% agreement result.
+The frozen through-09 set has 295 captured synthetic fixture IDs and 277 distinct
+retained requests; 281 IDs / 263 requests are qualified against local extraction.
+Fourteen older 08 fixtures remain conditional observations with upstream failures.
+Run 10 adds 12 IDs and eight new request identities: 307 IDs / 285 requests in the
+combined ledger. The earlier 277-request benchmark is preserved. All 12 new files
+match local numeric extraction, but none passes the original absolute-origin gate;
+the reviewed scope is a grid-unqualified key diagnostic (F119). There is no
+promoted replacement model or completed 100% qualification.
 
-Evidence references E001–E127 identify immutable private source snapshots by
+Evidence references E001–E132 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -42,6 +45,7 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | Target | Exact agreement | Main remaining gap |
 | --- | --- | --- |
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
+| Key unaccepted balanced diagnostic | 1,212/1,288 (94.10%) | Against the current control, corrects 18 but regresses 26; major matches rise 18→30/34 while minor matches fall 1,202→1,182/1,254 (F120). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
 | Window energy comparison control | 26,944/29,892 (90.14%) | 200/1,288 entire sequences match; retained as a reproducible control, not an exact recovered rule (F101). |
 | Window energy unaccepted challenger | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match, but 783 previously correct windows and 73 complete sequences regress; class 9 falls 11→10/18, class 10 remains 0/2 (F118). |
@@ -1491,6 +1495,69 @@ arbitrary later inner selection still requires matched or nested exclusions.
 
 **Evidence:** E126, E127.
 
+
+#### F119 — Tested tempo, pad voicing and lead register retain E major in one controlled context
+
+**Type:** Controlled MIK observation.
+
+All eight major cells in a complete 2×2×2 matrix return E major (12B); the minor
+control returns E minor (9A). None of the 12 one-factor edges changes MainKey.
+The exact copy and fresh rerender have identical analytical results; variable
+profiling durations are separate. A dither-only replicate retains MainKey while
+confidence and small timing values change. The historical major/minor baselines
+reproduce PCM, all ten analysis-input fields and all five common analytical
+response fields exactly. Major confidence varies from about 0.4040 to 0.6523.
+
+**Scope:** One E-tonic A-arrangement context: tempo 126/140, compact versus
+root/fifth-down-an-octave pad voicing, and the original versus octave-lowered lead.
+There are 12 files, ten distinct requests and nine musical construction conditions;
+eight request identities are additional to the frozen 277. Parsed numeric equality
+does not imply identical JSON encodings of 0 and 0.0. F057 already records the
+detected downbeat near authored beat 15: 0/12 pass the original 3 ms absolute-origin
+gate. The failed qualification is preserved; independent review permits only a
+key diagnostic of the total audio→extractor→MIK intervention, including possible
+timing mediation. Tempo also changes duration, density and envelope overlaps;
+lead transposition changes which harmonics fall below the declared ceiling.
+
+**Rules out / prevents:** These changes, individually and in the tested
+combinations, are insufficient to reproduce the earlier B-arrangement major-
+construction→minor result in this A context. This is not general register/tempo
+invariance or evidence that those inputs are ignored: confidences change. Do not
+claim direct register causality, cue/grid qualification, twelve independent
+recordings, server architecture or broad real-music accuracy.
+
+**Evidence:** E128, E129.
+
+#### F120 — A frozen key alternative solves the targeted synthetics but regresses known minor tracks
+
+**Type:** Model experiment result.
+
+Predictions saved before run 10 give the current key control 1/12 file matches
+(1/10 distinct requests), versus 12/12 (10/10) for an already fitted class-balanced
+variant. No model was refitted on these clips. On the same 1,288 spent real
+requests, the alternative has 1,194 cases correct in both models, 18 corrections,
+26 regressions and 50 failures in both. All 26 regressions have MIK minor targets:
+eight parallel-mode errors, seven relative-mode errors and eleven other-tonic
+errors. Major matches rise 18→30/34; minor matches fall 1,202→1,182/1,254.
+
+**Scope:** Frozen captured-feature key classifiers; the alternative weights the
+24 target classes during training. The comparison is 1,220→1,212 against the
+current control. F096's 40 corrections/44 regressions instead compare the same
+alternative with the older 1,216 control; those historical figures remain valid.
+The corrected case audit requires opposite modes for a relative-major/minor error;
+a same-mode shift of three semitones is a different-tonic error. Three earlier
+diagnostic annotations were corrected, with raw predictions and totals unchanged.
+The new synthetic family is linked to its historical parents for future splitting.
+
+**Rules out / prevents:** A perfect small controlled batch is not acceptance of
+the alternative. Preserve its 26 real regressions and the other historical known-
+correct witnesses alongside the synthetic correction. Do not mix comparison
+baselines, infer exact MIK class priors or choose models using reference answers.
+An input-derived correction still needs the declared regression, unseen-music,
+PCM, native and supported-format gates.
+
+**Evidence:** E128–E132.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -1629,7 +1696,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E127 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E132 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1763,3 +1830,8 @@ retain prior IDs or explicitly version replacement evidence.
 | E125 | `1d423db0e11f65548aac2a392a4765fc7c3cdc5445e4e0a28caeb409b30ba93d` |
 | E126 | `6c7efc74b19c93b865a79009c295629f47df197ae3531a46e90117f6ec3151e2` |
 | E127 | `1bb16ed05019925ac1109e8d15e4482d06f6e99a163a73e9185a7d890ea04272` |
+| E128 | `064018b014cdc7b066d0ef2644e667f7c1f4a2cb9bb2caa2a4e5d8323ab0dab1` |
+| E129 | `1c6cdaa97709944f51f70ad9cb7123f2059ebe35ea54a4b2be5173adfe429cbb` |
+| E130 | `bdd555d09b8a4acdc939c0af0355c689ba7c198150e79708919e1e8a19c7a0d1` |
+| E131 | `08ee7056dc4de8f89b383135c0f65409d6ce0cc4c3e002d3529ff213503afb1b` |
+| E132 | `3f3f09fbb0003ff7266edae6cd15d5678b75eae837698a5ab9331573498268fc` |
