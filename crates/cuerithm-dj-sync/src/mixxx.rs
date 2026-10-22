@@ -3,8 +3,11 @@
 //! `docs/research/mixxx-sync-contract.md` for the observed storage contract.
 mod beats;
 mod cues;
+#[cfg(test)]
+pub(crate) mod fixture;
 mod keys;
 mod proto;
+mod schema;
 
 use anyhow::{Result, ensure};
 use std::path::{Path, PathBuf};
