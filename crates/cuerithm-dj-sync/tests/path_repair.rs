@@ -2,6 +2,12 @@ use cuerithm_dj_sync::{
     DjSoftware, SourcePathChange, SyncTarget, apply_path_repair, inspect_path_reference,
     prepare_path_repair, transaction::file_hash,
 };
+fn native_reference(path: &std::path::Path) -> String {
+    cuerithm_dj_sync::destination_reference(path)
+        .to_str()
+        .unwrap()
+        .to_owned()
+}
 #[test]
 fn virtualdj_reference_only_repair_preserves_external_metadata_cues_and_grid() {
     let dir = tempfile::tempdir().unwrap();
@@ -11,8 +17,8 @@ fn virtualdj_reference_only_repair_preserves_external_metadata_cues_and_grid() {
     std::fs::write(&source, b"invented fixture audio").unwrap();
     std::fs::copy(&source, &destination).unwrap();
     let database = canonical.join("database.xml");
-    let old = source.to_str().unwrap();
-    let new = destination.to_str().unwrap();
+    let old = native_reference(&source);
+    let new = native_reference(&destination);
     let xml = format!(
         r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{old}" Custom="external"><Tags Author="Remote artist"/><Scan BeatGrid="remote grid"/><Poi Type="cue" Pos="99"/></Song><Song FilePath="/unrelated.wav"/></VirtualDJ_Database>"#
     );
@@ -36,8 +42,8 @@ fn virtualdj_reference_only_repair_preserves_external_metadata_cues_and_grid() {
     assert_eq!(std::fs::read_to_string(&database).unwrap(), xml);
     apply_path_repair(&root, &plan.id).unwrap();
     let output = std::fs::read_to_string(database).unwrap();
-    assert!(output.contains(new));
-    assert!(!output.contains(old));
+    assert!(output.contains(&new));
+    assert!(!output.contains(&old));
     for expected in [
         "external",
         "Remote artist",
@@ -142,7 +148,7 @@ fn changed_native_database_blocks_apply_without_overwriting_remote_edit() {
         &database,
         format!(
             r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/></VirtualDJ_Database>"#,
-            source.display()
+            native_reference(&source)
         ),
     )
     .unwrap();
@@ -193,7 +199,7 @@ fn case_normalization_cannot_adopt_a_different_physical_source() {
         &database,
         format!(
             r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/></VirtualDJ_Database>"#,
-            other.display()
+            native_reference(&other)
         ),
     )
     .unwrap();
@@ -218,7 +224,7 @@ fn interrupted_reference_publication_restores_only_its_own_known_bytes() {
         let database = root.join("database.xml");
         let before = format!(
             r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"><Poi Pos="37"/></Song></VirtualDJ_Database>"#,
-            source.display()
+            native_reference(&source)
         );
         std::fs::write(&database, &before).unwrap();
         let target = SyncTarget {
@@ -255,7 +261,7 @@ fn interrupted_reference_publication_restores_only_its_own_known_bytes() {
         assert!(
             std::fs::read_to_string(&database)
                 .unwrap()
-                .contains(destination.to_str().unwrap())
+                .contains(&native_reference(&destination))
         );
         if external_edit {
             let edited = std::fs::read_to_string(&database)
@@ -306,7 +312,7 @@ fn separately_approved_original_revision_never_changes_destination_content_proof
         &database,
         format!(
             r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{}"/></VirtualDJ_Database>"#,
-            source.display()
+            native_reference(&source)
         ),
     )
     .unwrap();
@@ -332,14 +338,14 @@ fn separately_approved_original_revision_never_changes_destination_content_proof
     assert!(
         std::fs::read_to_string(&database)
             .unwrap()
-            .contains(source.to_str().unwrap())
+            .contains(&native_reference(&source))
     );
     std::fs::write(&destination, b"captured audio").unwrap();
     apply_path_repair(&journals, &plan.id).unwrap();
     assert!(
         std::fs::read_to_string(&database)
             .unwrap()
-            .contains(destination.to_str().unwrap())
+            .contains(&native_reference(&destination))
     );
     assert_eq!(
         std::fs::read(&source).unwrap(),
@@ -392,7 +398,7 @@ fn mapped_windows_virtualdj_repair_routes_drives_and_legacy_membership_then_rest
     assert!(xml.contains("Custom=\"keep\""));
     assert!(xml.contains("Pos=\"99\""));
     assert!(xml.contains(r"D:\foreign.wav"));
-    assert!(!xml.contains(root.to_str().unwrap()));
+    assert!(!xml.contains(&native_reference(&root)));
     assert_eq!(
         std::fs::read_to_string(&list).unwrap(),
         "#EXTVDJ:\r\nD:\\new.wav\r\n"
