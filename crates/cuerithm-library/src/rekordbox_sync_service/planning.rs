@@ -966,7 +966,11 @@ pub(super) fn preview(
                 decision,
             });
         }
-        if matches!(request.scope, RekordboxSyncScope::Changed) && !relevant && chosen.is_empty() {
+        if remote.is_some()
+            && matches!(request.scope, RekordboxSyncScope::Changed)
+            && !relevant
+            && chosen.is_empty()
+        {
             continue;
         }
         ensure_not_native_file(&target.database, &track.path)?;
@@ -1042,11 +1046,6 @@ pub(super) fn preview(
             !source_differs || !(write_cues || write_grid) || relocate_audio,
             "Native audio location differs; explicitly use the CueRithm source location before exporting timing"
         );
-        let any_write =
-            !fields.is_empty() || write_cues || write_grid || write_artwork || clear_artwork;
-        if remote.is_none() && !any_write {
-            continue;
-        }
         if remote.is_none() && !matches!(fields.get("title"), Some(TargetValue::Text(_))) {
             pending_creation_choice = true;
             continue;
