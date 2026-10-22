@@ -393,16 +393,30 @@ fn restore(tx: &Transaction<'_>, found: Found) -> Result<bool> {
     Ok(changed > 0)
 }
 
+/// Everything needed to add one track.
+struct NewTrack<'a> {
+    layout: &'a Layout,
+    key: &'a str,
+    /// A `track_locations` row left without a library row, to reuse.
+    existing_location: Option<i64>,
+    track: &'a SyncTrack,
+    options: &'a SyncOptions,
+    plan: &'a Plan,
+}
+
 fn insert(
     tx: &Transaction<'_>,
-    layout: &Layout,
-    key: &str,
-    existing_location: Option<i64>,
-    track: &SyncTrack,
-    options: &SyncOptions,
-    plan: &Plan,
+    new: &NewTrack<'_>,
     warnings: &mut Vec<String>,
 ) -> Result<(i64, i64)> {
+    let NewTrack {
+        layout,
+        key,
+        existing_location,
+        track,
+        options,
+        plan,
+    } = *new;
     let location_id = match existing_location {
         Some(id) => id,
         None => {
@@ -556,8 +570,18 @@ pub(super) fn write_tracks(
             )?;
         }
         let plan = plan(track, options, warnings)?;
-        let (library_id, location_id) =
-            insert(tx, layout, &key, existing, track, options, &plan, warnings)?;
+        let (library_id, location_id) = insert(
+            tx,
+            &NewTrack {
+                layout,
+                key: &key,
+                existing_location: existing,
+                track,
+                options,
+                plan: &plan,
+            },
+            warnings,
+        )?;
         write_cues(tx, library_id, &plan.cues)?;
         index.insert(
             key,
@@ -862,7 +886,9 @@ mod tests {
 
     #[test]
     fn replace_mode_updates_selected_groups_only() {
-        let toggles: [(&str, fn(&mut MixxxOptions), &[&str]); 3] = [
+        type Restrict = fn(&mut MixxxOptions);
+        type Toggle = (&'static str, Restrict, &'static [&'static str]);
+        let toggles: [Toggle; 3] = [
             (
                 "metadata",
                 |o| {

@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::{Context, Result, bail, ensure};
 use rusqlite::{Connection, Transaction, params};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 pub(super) const IDENTITY: &str = "mixxx:mixxxdb.sqlite";
 
@@ -407,10 +407,10 @@ struct Cache {
 }
 impl Cache {
     fn get(&mut self, connection: &Connection, kind: Kind) -> Result<&mut BTreeMap<i64, Native>> {
-        if !self.maps.contains_key(&kind) {
-            self.maps.insert(kind, load(connection, kind)?);
-        }
-        Ok(self.maps.get_mut(&kind).expect("just inserted"))
+        Ok(match self.maps.entry(kind) {
+            Entry::Vacant(slot) => slot.insert(load(connection, kind)?),
+            Entry::Occupied(slot) => slot.into_mut(),
+        })
     }
 }
 
@@ -608,8 +608,8 @@ pub(super) fn write_containers(
     for want in &wanted {
         let binding = bindings.get_mut(&want.source_id).expect("bound above");
         let (bound_kind, id) = parse_locator(&binding.locator).context("Invalid Mixxx locator")?;
-        if !final_state.contains_key(&bound_kind) {
-            final_state.insert(bound_kind, load(tx, bound_kind)?);
+        if let Entry::Vacant(slot) = final_state.entry(bound_kind) {
+            slot.insert(load(tx, bound_kind)?);
         }
         let native = final_state[&bound_kind]
             .get(&id)

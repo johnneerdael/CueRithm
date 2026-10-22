@@ -50,6 +50,7 @@ libc = "0.2"
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem","Win32_Foundation"] }
 
 [dev-dependencies]
+cuerithm-dj-sync = { path = "../cuerithm-dj-sync", features = ["test-support"] }
 hound.workspace = true
 tar = "0.4"
 flate2 = "1"

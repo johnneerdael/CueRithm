@@ -3,8 +3,8 @@
 //! `docs/research/mixxx-sync-contract.md` for the observed storage contract.
 mod beats;
 mod cues;
-#[cfg(test)]
-pub(crate) mod fixture;
+#[cfg(any(test, feature = "test-support"))]
+pub mod fixture;
 mod keys;
 mod lame;
 mod owned;
@@ -137,7 +137,13 @@ fn write_staged(
         options,
         case_insensitive,
         &mut warnings,
-    )?;
+    )
+    .with_context(|| {
+        format!(
+            "Writing tracks to a Mixxx schema {} library",
+            layout.version
+        )
+    })?;
     let containers = owned::write_containers(
         &transaction,
         library,
@@ -145,7 +151,13 @@ fn write_staged(
         request,
         &tracks.library_ids,
         &mut warnings,
-    )?;
+    )
+    .with_context(|| {
+        format!(
+            "Writing playlists to a Mixxx schema {} library",
+            layout.version
+        )
+    })?;
     #[cfg(test)]
     AFTER_WRITE.with_borrow_mut(|slot| {
         if let Some(hook) = slot.take() {

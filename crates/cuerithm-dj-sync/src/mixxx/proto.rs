@@ -119,7 +119,7 @@ pub(super) mod decode {
         Ok(out)
     }
 
-    fn only<'a>(parsed: &'a [(u32, Field)], field: u32) -> Result<&'a Field> {
+    fn only(parsed: &[(u32, Field)], field: u32) -> Result<&Field> {
         let mut matching = parsed.iter().filter(|(number, _)| *number == field);
         let found = matching
             .next()

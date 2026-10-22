@@ -153,7 +153,8 @@ pub(crate) mod fixtures {
             let mut frame = vec![0u8; 417];
             frame[0] = 0xFF;
             frame[1] = 0xE0 | (self.version << 3) | (0b01 << 1) | u8::from(!self.crc);
-            frame[2] = (9 << 4) | (0 << 2);
+            // Bitrate index 9, sample-rate index 0 (44.1 kHz), no padding.
+            frame[2] = 9 << 4;
             frame[3] = (if self.mono { 0b11 } else { 0b01 }) << 6;
             let side = match (self.version == 3, self.mono) {
                 (true, true) => 17,

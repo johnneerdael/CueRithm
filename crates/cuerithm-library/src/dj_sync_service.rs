@@ -19,6 +19,8 @@ mod organization;
 mod ownership;
 pub(crate) use organization::{KnownDjReference, OrganizationOwnershipTransition};
 #[cfg(test)]
+mod mixxx_tests;
+#[cfg(test)]
 mod ownership_tests;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -824,6 +826,9 @@ pub(crate) fn canonical_target(mut target: SyncTarget) -> Result<SyncTarget> {
             cuerithm_dj_sync::engine_dj::resolve_database_path(&target.path)?
         }
         DjSoftware::Serato4 if target.path.is_dir() => target.path.join("root.sqlite"),
+        DjSoftware::Mixxx if target.path.is_dir() => {
+            cuerithm_dj_sync::mixxx::resolve_database_path(&target.path)?
+        }
         _ => target.path,
     };
     target.path = fs::canonicalize(target.path).context("DJ database was not found")?;
