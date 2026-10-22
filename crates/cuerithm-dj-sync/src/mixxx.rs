@@ -9,6 +9,7 @@ mod keys;
 mod lame;
 mod owned;
 mod proto;
+mod repair;
 mod schema;
 #[cfg(test)]
 mod staged_tests;
@@ -23,6 +24,7 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 pub(crate) use lame::mp3_start;
+pub(crate) use repair::{reference_id, repair_reference};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 

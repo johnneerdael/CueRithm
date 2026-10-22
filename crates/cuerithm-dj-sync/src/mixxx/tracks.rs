@@ -152,7 +152,7 @@ fn probe_audio(path: &Path) -> Option<(u32, u32)> {
     ))
 }
 
-fn split_location(key: &str) -> (String, String) {
+pub(super) fn split_location(key: &str) -> (String, String) {
     match key.rsplit_once('/') {
         Some((directory, name)) => {
             let directory = if directory.is_empty() || directory.ends_with(':') {
