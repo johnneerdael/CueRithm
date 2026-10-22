@@ -16,6 +16,26 @@ fn profile_hash(profile: Option<&SourceExportTiming>) -> Result<String> {
         Sha256::digest(serde_json::to_vec(&profile)?)
     ))
 }
+/// Mixxx's decoders against CueRithm's FFmpeg clock, from the file's own MP3 header
+/// facts rather than a measured profile. Only MP3 differs; AAC, WMA and the rest are
+/// zero (their alignment is reported to the user instead of guessed).
+fn mixxx_offset(track: &SyncTrack, extension: &str) -> Result<f64> {
+    if extension != "mp3" {
+        return Ok(0.);
+    }
+    ensure!(
+        track.sample_rate > 0,
+        "Track has no sample rate for its MP3 timing"
+    );
+    let start = crate::mixxx::mp3_start(&track.path)
+        .with_context(|| format!("Read MP3 start of track {}", track.id))?;
+    let dropped = if start.info_frame {
+        0.
+    } else {
+        f64::from(start.first_frame_samples)
+    };
+    Ok((f64::from(start.trim.unwrap_or(0)) - dropped) / f64::from(track.sample_rate))
+}
 pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
     let extension = track
         .path
@@ -23,6 +43,9 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
         .and_then(|p| p.to_str())
         .unwrap_or("")
         .to_lowercase();
+    if target == DjSoftware::Mixxx {
+        return mixxx_offset(track, &extension);
+    }
     let Some(profile) = &track.export_timing else {
         ensure!(
             target != DjSoftware::Rekordbox,

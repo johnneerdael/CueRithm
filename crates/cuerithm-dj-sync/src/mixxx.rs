@@ -6,6 +6,7 @@ mod cues;
 #[cfg(test)]
 pub(crate) mod fixture;
 mod keys;
+mod lame;
 mod owned;
 mod proto;
 mod schema;
@@ -19,6 +20,7 @@ use crate::{
     ownership::{PlaylistOwnershipReport, PlaylistOwnershipRequest},
 };
 use anyhow::{Context, Result, ensure};
+pub(crate) use lame::mp3_start;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
