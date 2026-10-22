@@ -1,6 +1,10 @@
 # MIK facts register and modelling constraints
 
-Revision 1 · 22 October 2026 · Required engineering reference.
+Revision 2 · 22 October 2026 · Required engineering reference.
+
+Revision 2 records the owner's authorization of private MIK cue-model research.
+It supersedes revision 1's prohibition. The 74 findings and their evidence
+identities are unchanged; the product's validated Lexicon DSP remains in place.
 
 Read this register before changing feature extraction, key/BPM/energy analysis,
 training, evaluation or model promotion. Cite relevant F-numbers and the register
@@ -14,7 +18,8 @@ The record covers controlled runs 01–09 (including rejected 06 and replacement
 of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
-model was trained while compiling this register.
+model was trained while compiling revision 1. Later experimental fits are
+reported separately; this revision changes research authorization, not a result.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -42,8 +47,8 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
   denominators (F001–F004). An upstream refusal is still an end-to-end failure.
 - Prior guessed bundles and failed partial prototypes are not the starting
   weights for the new programme (F059–F063).
-- The product cue path remains the validated Lexicon DSP. Cue observations below
-  preserve evidence; they do not authorize restarting MIK cue inference.
+- Private MIK cue-model research is permitted by the owner. The product cue path
+  remains the validated Lexicon DSP; research does not promote a replacement.
 
 ## Findings
 
@@ -513,7 +518,7 @@ Across 277 distinct synthetic requests, no identical complete ordered rounded-la
 
 **Evidence:** E039.
 
-### Observed cues; no new cue inference
+### Observed cue evidence
 
 #### F048 — Short cue gaps refute universal wide spacing
 
@@ -769,7 +774,7 @@ The audited union has 157 groups of repeated complete retained requests and zero
 
 **Evidence:** E013.
 
-### Observed cues; no new cue inference
+### Observed cue evidence
 
 #### F074 — The old restricted output space excludes most observed lists
 
@@ -790,7 +795,8 @@ Only 104/277 synthetic lists satisfy the joint historical restrictions: addition
 | Window energy | Fresh multiclass kernel SVM on the 183 emitted, already scaled values | Add separate RMS as an ablation; compare ordinal/SVR-plus-quantisation explicitly; one compact tree/MLP challenger only if useful | Best-supported SVM lineage. Kernel, objective and sufficiency of 183 remain hypotheses. Do not automatically overwrite shipped scaling. |
 | Overall energy | Constrained system identification of retained information/selection, then a bounded feature-based whole-track baseline | Ordered/duration/RMS/raw-feature summaries versus continuous window scores; small tree model or sequence model as competing implementations | Histogram-only and fixed monotone rounded-label reducers are already impossible on witnesses. Symbolic/program search is useful only on inputs that can distinguish those witnesses. |
 | MIK confidence | Separate target after MainKey/energy classification is usable | Compare calibrated classifier output with a separately fitted confidence regressor | A probability-like number does not prove its construction. Do not rename model probabilities “MIK confidence”. |
-| Product cues | Preserve current validated Lexicon DSP | Captured cue facts remain observation/benchmark evidence only | Current AGENTS.md says not to restart MIK cue inference. The independent reviewer’s structured-selector proposal is a research recommendation, not authorization to change this boundary. |
+| Private cue research | Fresh structured selection from the complete observed score timeline; cue-energy prediction is a separate target | Compare rule/program hypotheses with a bounded learned sequence selector; preserve headers, origin, duplicate/negative outputs and observed spacing | Owner-authorized research. F048–F058, F069 and F074 constrain representation; no hidden architecture is identified. |
+| Product cues | Preserve current validated Lexicon DSP | Research results remain separate until product review | Private research authorization does not promote a replacement or attach energy labels to product structural cues. |
 
 The generic decision is a hybrid: keep deterministic PCM-to-request DSP, learn the classifications from actual request/response pairs, and identify whole-track aggregation separately. Do not begin with an end-to-end waveform transformer or one neural model for every output merely because compute is available. Neural alternatives are not excluded; they must earn selection in the same frozen comparison.
 
@@ -811,7 +817,7 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
 5. How remaining upstream timing refusals are resolved without changing the verified feature profile. Removing a guard is not a verified fix.
 6. Rare-class support in a clean, overlap-audited training ledger, especially 6B and energy 7/9/10. No more synthetic batch is a prerequisite.
 7. Independent real-music generalisation and a defensible unseen evaluation after extensive historical development exposure.
-8. Exact cue-selection/energy mechanisms remain unresolved observational questions; current scope prohibits restarting their inference.
+8. Exact cue-selection/energy mechanisms remain unresolved; private cue-model research is now authorized, with product Lexicon DSP preserved.
 9. Runtime optional CoreML/stem paths, model internals and future versions beyond bounded static evidence.
 10. A validated deployable default meeting 99% across the requested domains. None exists in this evidence.
 
@@ -870,8 +876,8 @@ The proposed full-bank key classification and SVM energy baseline are reasonable
 experiments. RBF, a particular multiclass objective and confidence mapping remain
 choices to test. Patent embodiments and symbol names do not establish current
 server weights or architecture; binned timing correlations and absolute runtimes
-do not identify a kernel (F015–F016, F071–F072). The proposed cue selector does not
-override the current product boundary. The failed partial MLP is evidence about
+do not identify a kernel (F015–F016, F071–F072). The proposed cue selector may now be
+investigated privately; it does not override the current product boundary. The failed partial MLP is evidence about
 that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
