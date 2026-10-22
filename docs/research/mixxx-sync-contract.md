@@ -200,21 +200,98 @@ Flatpak command) and `mixxx.exe` (Windows).
 
 ## Timing model
 
-CueRithm's canonical clock is the FFmpeg-decoded stereo 44.1 kHz PCM
-(`crates/cuerithm-media/src/decode.rs`); Mixxx positions are frames at the file's own
-rate. Seconds convert to frames with the source sample rate. The remaining
-difference is how each decoder trims the start.
+Cue and loop positions, and beat positions, are only useful if they land on the same
+audio sample in Mixxx as in CueRithm. They do not automatically: CueRithm analyzes the
+PCM that FFmpeg decodes (`crates/cuerithm-media/src/decode.rs`), and Mixxx positions
+are frames of whatever decoder Mixxx picked for the file, at the file's own sample
+rate. The two decoders start the stream in different places for MP3. This section
+records which decoder Mixxx uses on each system, what each does at the start of the
+file, and the offset the adapter adds to a CueRithm position as a result.
 
-Mixxx's libmad MP3 source drops the first MP3 frame unconditionally and applies no
-other trim (`src/sources/soundsourcemp3.cpp`; its comment records that files without
-an Info frame lose real samples). FFmpeg drops the Info frame when present and, when
-it finds a LAME tag, also trims `encoder_delay + 529` samples.
+### Which decoder Mixxx uses
 
-Measured with `lame` and FFmpeg 9.0.2 on a generated 44.1 kHz click track
-(`encoder_delay = 576`), the burst onset against its true position. The four files
-are synthetic variants of one encode; their names describe the header, and they are
-**not** the letters of `cuerithm-media`'s `Mp3TimingCase`, a different heuristic that
-also promotes files by channel mode and that the Mixxx rule does not use:
+Mixxx registers one decoder ("SoundSource provider") per file type and priority, and a
+file is opened with the highest-priority provider that supports its type. Read from
+`src/sources/soundsourceproxy.cpp` (`registerPlatformAndFallbackSoundSourceProviders`,
+`registerProviders`) and each provider's `getPriorityHint`:
+
+| System | MP3 | AAC, M4A, MP4 | WAV, AIFF, FLAC, Ogg, Opus |
+| --- | --- | --- | --- |
+| macOS | Apple CoreAudio (`Higher`; its list includes `mp3`) | Apple CoreAudio (`Higher`) | libsndfile and the format libraries |
+| Windows | MAD / libmad (`Default`) | Media Foundation (`Higher`) | libsndfile and the format libraries |
+| Linux | MAD / libmad (`Default`) | FAAD through `SoundSourceM4A` (`Default`) | libsndfile and the format libraries |
+
+FFmpeg is registered everywhere it is built, but its hint is `Lowest`
+(`SoundSourceProviderFFmpeg::getPriorityHint`), so it only opens a file when nothing
+else can. A build without MAD or without CoreAudio changes the row; the adapter
+assumes the default build of each system.
+
+CueRithm picks the decoder from the system it runs on, because Mixxx's library is a
+file on that same machine. A library copied to another system plays with that system's
+decoder and may be misaligned by the differences below.
+
+### macOS: CoreAudio, measured
+
+`SoundSourceCoreAudio::tryOpen` opens the file with `ExtAudioFileOpenURL`, sets a
+float client format, and reads the converter's `AudioConverterPrimeInfo`. It then
+declares the stream's frames as `IndexRange::forward(leadingFrames, totalFrames)`, so a
+sample that `ExtAudioFile` returns at output position `p` is Mixxx frame
+`leadingFrames + p`.
+
+`tools/mixxx-acceptance/coreaudio_probe.c` makes those calls on a click track, and
+`tools/mixxx-acceptance/decoder_table.py` compares the result with CueRithm's FFmpeg
+decode. Measured on macOS 15.8 (24H23, arm64) with `lame` 4.0 and FFmpeg 9.0.2; every
+file is one second of silence, a click, then silence. `priming` is the packet-table
+value from `AudioFileGetProperty(kAudioFilePropertyPacketTableInfo)`, `-1` when the
+file has none; `add` is Mixxx frame minus CueRithm position, in samples:
+
+| File | priming | add |
+| --- | ---: | ---: |
+| `lame`, constant bitrate, LAME tag | 576 | 0 |
+| `lame -V2`, Xing and LAME tag | 576 | 0 |
+| `lame`, mono | 576 | 0 |
+| FFmpeg `libmp3lame` (tag identifier `Lavc`) | 576 | 0 |
+| LAME tag with its CRC broken | 576 | 0 |
+| `lame -t`: no Info frame | -1 | **-529** |
+| Info frame, identifier replaced with `XXXX`, `GOGO` or `Bolt` | -1 | **-529** |
+| Info frame, identifier hand-patched to `Lavf` or `Lavc` | -1 | **+576** |
+| AAC in M4A, Apple encoder | 2112 | 0 |
+| AAC in M4A, FFmpeg encoder | 1024 | 0 |
+| ALAC in M4A | 0 | 0 |
+| AAC in ADTS (`.aac`) | -1 | 0 |
+| FLAC, WAV | 0 or -1 | 0 |
+
+`leadingFrames` was 0 for every file. What happens is that `ExtAudioFile` discards the
+529 samples (528 + 1) of decoder delay that any MP3 decoder produces, plus the
+file's priming frames when `AudioFile` found a packet table: the table's valid-frame
+count equals the original length exactly (132,300 for the three-second test file).
+FFmpeg trims `encoder delay + 529` only when it trusts a `LAME`, `Lavf` or `Lavc` tag,
+so the two clocks differ by `FFmpeg trim - CoreAudio trim`. The two rows with
+hand-patched identifiers show that Apple does not read tags by the same rule as FFmpeg
+(it accepted FFmpeg's own `Lavc63.1` tag and rejected a patched one), and Apple also
+reads gapless data from places FFmpeg does not (an `iTunSMPB` comment, for example).
+So the adapter does not predict Apple's rule: on macOS it asks `AudioFile` for the
+packet table's priming frames, which is what `ExtAudioFile` trims, and adds
+
+`(FFmpeg trim) - (529 + priming)`, where priming is 0 when there is no table.
+
+Every MP3 row above follows from that formula. AAC needs no offset for the Apple and
+FFmpeg encoders measured, because both decoders discard the same priming, and the
+lossless rows need none because neither decoder trims them.
+
+### Linux and Windows: MAD, read from source and a measured decoder alignment
+
+`SoundSourceMp3` (libmad) drops the first MP3 frame unconditionally, on the assumption
+that it is an Info frame, and trims nothing else (`src/sources/soundsourcemp3.cpp`; its
+own comment records that files without an Info frame lose real samples, and that the
+behavior is kept so existing cues stay valid). FFmpeg drops the Info frame when
+present and, when it trusts a tag, trims `encoder delay + 529`.
+
+Measured with `lame` and FFmpeg on a generated 44.1 kHz click track
+(`encoder_delay = 576`), the burst onset against its true position. The four files are
+synthetic variants of one encode; their names describe the header, and they are **not**
+the letters of `cuerithm-media`'s `Mp3TimingCase`, a different heuristic that also
+promotes files by channel mode and that the Mixxx rule does not use:
 
 | Synthetic header variant | FFmpeg trim | FFmpeg onset | Mixxx onset (derived) | Mixxx - CueRithm clock |
 | --- | ---: | ---: | ---: | ---: |
@@ -223,37 +300,50 @@ also promotes files by channel mode and that the Mixxx rule does not use:
 | Info frame, `LAME` identifier, CRC broken | 1105 | -1 | +1104 | +1105 samples (+25.06 ms) |
 | Info frame, `LAME` identifier, valid CRC | 1105 | -1 | +1104 | +1105 samples (+25.06 ms) |
 
-FFmpeg does not verify the LAME CRC. A second measurement patched the 4-byte
-encoder identifier of a valid tag: `LAME`, `Lavf` and `Lavc` all trimmed 1105
-samples, while `GOGO`, `XING`, four zero bytes and `Bolt` trimmed nothing, and a
-`Xing` marker trimmed exactly like `Info`. FFmpeg's own `libmp3lame` output carries
-`Lavc` and a delay of 576. An untrimmed decode with libmpg123 (`mpg123 --no-gapless`,
-a second independent decoder) places the burst at +1104 in all four variants,
-matching FFmpeg's untrimmed alignment, so the raw decoder alignment does not depend on
-the decoder. The Mixxx column combines that measured alignment with the libmad
-first-frame behavior read from source; libmad itself was not run.
+FFmpeg does not verify the LAME CRC. A second measurement patched the 4-byte encoder
+identifier of a valid tag: `LAME`, `Lavf` and `Lavc` all trimmed 1105 samples, while
+`GOGO`, `XING`, four zero bytes and `Bolt` trimmed nothing, and a `Xing` marker trimmed
+exactly like `Info`. An untrimmed decode with libmpg123 (`mpg123 --no-gapless`, a
+second independent decoder) places the burst at +1104 in all four variants, matching
+FFmpeg's untrimmed alignment, so the raw decoder alignment does not depend on the
+decoder. The Mixxx column combines that measured alignment with the libmad behavior
+read from source; **libmad itself was not run**, and no Windows or Linux system was
+used.
 
-The rule therefore follows header facts, read from the file, not a case letter:
+The rule, from header facts read from the file:
 
 - no Xing/Info frame: `-F`, where `F` is the first-frame length (1152 samples at
   MPEG-1 rates of 32 kHz and above, 576 below);
 - Info/Xing frame without a `LAME`/`Lavf`/`Lavc` identifier: `0`;
 - Info/Xing frame with such an identifier: `+(encoder_delay + 529)`, the delay being
-  the 12-bit value at frame offset `marker + 141` (marker at `4 + side_info`).
+  the 12-bit value at frame offset `marker + 141` when the tag carries the usual
+  fields (marker at `4 + side_info`; the position follows the Xing flags).
+
+### What the adapter adds
 
 Offsets are in the source file's own frames and apply additively to cue starts, loop
-ends and beat positions. A cue that lands before the first Mixxx sample (possible
-only for the first rule) is moved to the start.
+ends and beat positions. A cue that lands before the first Mixxx sample (possible only
+for the `-F` and `-529` cases) is moved to the start.
 
-Other formats: lossless/PCM and Ogg (libsndfile, Ogg Vorbis) have no start trim;
-Opus uses opusfile, which applies the pre-skip as FFmpeg does. Offset 0.
+| Format | macOS | Linux and Windows |
+| --- | --- | --- |
+| MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above |
+| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders | 0, **not verified**: Media Foundation (Windows) and FAAD (Linux) were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
+| WAV, AIFF, FLAC, Ogg Vorbis | 0 | 0 |
+| Opus | 0 | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does; not measured here |
+| WMA | 0, may not play | 0, plays only if Mixxx was built with FFmpeg (or Media Foundation on Windows); not verified |
 
-AAC (`.m4a`, `.mp4`, ADTS `.aac`) is **not resolved**. The Linux FAAD backend and the
-Windows Media Foundation backend use 2112 only as a seek prefetch and show no start
-trim, while the macOS CoreAudio backend uses ExtAudioFile. Alignment therefore may
-differ per platform; the adapter writes offset 0 and warns for these sources rather
-than claim an aligned result. WMA depends on the Mixxx build's Media Foundation or
-FFmpeg support and gets the same warning.
+The preview warns for each case marked not verified.
+
+### Reproducing
+
+```sh
+python3 tools/mixxx-acceptance/decoder_table.py
+```
+
+builds the probe, generates every file above and prints the table (macOS with `clang`,
+`afconvert`, `ffmpeg` and `lame`). The Linux and Windows rows are not reproducible with
+it; a libmad probe, or a run of Mixxx itself, would settle them.
 
 ## Representation gaps and chosen conversions
 
@@ -279,11 +369,18 @@ FFmpeg support and gets the same warning.
 
 ## Not established
 
-- No installed Mixxx was run against an adapter-written library at the time of
-  this document. See the acceptance record in the implementation notes.
-- libmad was not executed; its alignment is the measured raw decoder alignment
-  plus the first-frame drop read from source.
-- AAC alignment on each platform backend.
-- Behavior of Mixxx versions other than schema 39 and 40.
-- Windows and Linux hosts: path, process and database behavior was read from
+- **Linux and Windows.** No Linux or Windows system, and no libmad, Media Foundation
+  or FAAD decoder, was run. Their MP3 alignment is a measured raw-decoder alignment
+  plus libmad's first-frame drop read from source; their AAC alignment is
+  unverified. Path, process and database behavior on those systems was read from
   source and exercised by authored fixtures on macOS only.
+- **CoreAudio outside the probe.** The macOS offsets were measured with the CoreAudio
+  calls `SoundSourceCoreAudio` makes, on one macOS version (15.8) and one set of
+  encoders. Apple can change its tag rules between releases, which is why the adapter
+  asks `AudioFile` instead of predicting them. Playback inside the Mixxx application
+  is covered separately, in *Runtime acceptance* below when that section exists.
+- **Opus** pre-skip alignment was read from the format specification, not measured.
+- **Mixxx versions** other than schema 39 and 40, and builds without MAD or CoreAudio.
+- **Schema 40 against a running Mixxx.** Mixxx 2.5.6 (schema 39) is the only release
+  available on the development machine; schema 40 was exercised with an authored
+  fixture only.

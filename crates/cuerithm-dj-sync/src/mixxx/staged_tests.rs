@@ -2,10 +2,20 @@
 use super::*;
 use crate::{
     MixxxContainer, MixxxExistingTracks, MixxxOptions, SyncBeat, SyncCue, SyncPlaylist, SyncTrack,
-    mixxx::{after_write, fixture},
+    mixxx::{Host, Mp3Decoder, after_write, fixture},
 };
 use rusqlite::types::Value;
 use sha2::{Digest, Sha256};
+
+/// A Linux or Windows system (MAD decodes MP3) and a macOS one (CoreAudio).
+const LINUX: Host = Host {
+    case_insensitive: false,
+    decoder: Mp3Decoder::Mad,
+};
+const MACOS: Host = Host {
+    case_insensitive: true,
+    decoder: Mp3Decoder::CoreAudio,
+};
 
 struct Env {
     directory: tempfile::TempDir,
@@ -72,7 +82,7 @@ impl Env {
             library,
             options,
             request,
-            false,
+            LINUX,
         )
     }
 }
@@ -289,7 +299,7 @@ fn unsupported_schema_is_refused_before_anything_is_written() {
 }
 
 #[test]
-fn aac_and_wma_sources_add_one_timing_warning() {
+fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
     let env = Env::new(39);
     let library = SyncLibrary {
         tracks: vec![
@@ -300,24 +310,72 @@ fn aac_and_wma_sources_add_one_timing_warning() {
         ],
         playlists: vec![],
     };
-    let staged = env
-        .run(&library, &options(MixxxExistingTracks::Keep), &none())
-        .unwrap();
-    let timing: Vec<_> = staged
+    let run = |host: Host, library: &SyncLibrary| {
+        write_staged(
+            &env.database,
+            &env.database,
+            library,
+            &options(MixxxExistingTracks::Keep),
+            &none(),
+            host,
+        )
+        .unwrap()
         .warnings
-        .iter()
-        .filter(|w| w.contains("AAC or WMA"))
-        .collect();
-    assert_eq!(timing.len(), 1);
-    assert!(timing[0].starts_with("3 AAC or WMA track(s)") && timing[0].contains("not verified"));
-    let lossless = SyncLibrary {
-        tracks: vec![env.track("d", "d.flac")],
+    };
+    // Linux and Windows decode AAC with FAAD or Media Foundation: unverified.
+    let linux = run(LINUX, &library);
+    let aac: Vec<_> = linux.iter().filter(|w| w.contains("AAC track")).collect();
+    assert_eq!(aac.len(), 1, "{linux:?}");
+    assert!(aac[0].starts_with("2 AAC track(s)") && aac[0].contains("not verified"));
+    assert_eq!(linux.iter().filter(|w| w.contains("WMA track")).count(), 1);
+    // macOS decodes AAC with CoreAudio, measured to match: no AAC warning there.
+    let env_two = Env::new(39);
+    let library = SyncLibrary {
+        tracks: vec![
+            env_two.track("a", "a.m4a"),
+            env_two.track("b", "b.WMA"),
+            env_two.track("c", "c.aac"),
+        ],
         playlists: vec![],
     };
-    let staged = env
-        .run(&lossless, &options(MixxxExistingTracks::Keep), &none())
-        .unwrap();
-    assert!(staged.warnings.iter().all(|w| !w.contains("AAC or WMA")));
+    let mac = write_staged(
+        &env_two.database,
+        &env_two.database,
+        &library,
+        &options(MixxxExistingTracks::Keep),
+        &none(),
+        MACOS,
+    )
+    .unwrap()
+    .warnings;
+    assert!(mac.iter().all(|w| !w.contains("AAC track")), "{mac:?}");
+    assert_eq!(
+        mac.iter().filter(|w| w.contains("WMA track")).count(),
+        1,
+        "WMA is never verified"
+    );
+    // Lossless sources warn about nothing on either system.
+    let env_three = Env::new(39);
+    let lossless = SyncLibrary {
+        tracks: vec![env_three.track("d", "d.flac")],
+        playlists: vec![],
+    };
+    let quiet = write_staged(
+        &env_three.database,
+        &env_three.database,
+        &lossless,
+        &options(MixxxExistingTracks::Keep),
+        &none(),
+        LINUX,
+    )
+    .unwrap()
+    .warnings;
+    assert!(
+        quiet
+            .iter()
+            .all(|w| !w.contains("AAC") && !w.contains("WMA")),
+        "{quiet:?}"
+    );
 }
 
 #[test]
@@ -384,7 +442,7 @@ fn flatpak_library_warns_about_tracks_outside_visible_folders() {
         &library,
         &options(MixxxExistingTracks::Keep),
         &none(),
-        false,
+        LINUX,
     )
     .unwrap();
     assert!(
@@ -407,7 +465,7 @@ fn flatpak_library_warns_about_tracks_outside_visible_folders() {
         &library,
         &options(MixxxExistingTracks::Keep),
         &none(),
-        false,
+        LINUX,
     )
     .unwrap();
     assert!(staged.warnings.iter().all(|w| !w.contains("Flatpak")));

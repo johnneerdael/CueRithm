@@ -202,7 +202,11 @@ pub(crate) mod fixtures {
 mod tests {
     use super::fixtures::Frame;
     use super::*;
-    use crate::{DjSoftware, SyncBeat, SyncCue, SyncLibrary, SyncTrack, timing};
+    use crate::{
+        DjSoftware, SyncBeat, SyncCue, SyncLibrary, SyncTrack,
+        mixxx::{Mp3Decoder, decoder::pretend_host},
+        timing,
+    };
 
     #[test]
     fn mp3_start_reads_info_frame_identifier_and_delay_for_mono_and_stereo_mpeg1_and_mpeg2() {
@@ -438,6 +442,9 @@ mod tests {
     }
 
     fn mp3_track(directory: &Path, sample_rate: u32, frame: &Frame) -> SyncTrack {
+        // These tests pin the Linux and Windows decoder; macOS is covered in decoder.rs
+        // and coreaudio.rs against live CoreAudio.
+        pretend_host(Mp3Decoder::Mad);
         let path = directory.join("song.mp3");
         std::fs::write(&path, frame.file(Some(64), 0)).unwrap();
         SyncTrack {

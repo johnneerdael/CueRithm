@@ -119,14 +119,16 @@ crates/cuerithm-dj-sync/src/
   folder included. The process guard knows the executable names.
 - `SyncOptions` gains a nested `mixxx` options block, omitted from serialization when
   default so existing baselines and journals keep their hashes.
-- Timing gets a Mixxx rule in `timing.rs`. For MP3 it reads two header facts from the
-  file (Info/Xing frame present; `LAME`/`Lavf`/`Lavc` identifier with its encoder
-  delay) and applies the three offsets in the research document; it does not use the
-  media crate's `Mp3TimingCase` letters or need a measured profile, so it works
-  without the media runtime. Lossless, PCM, Ogg and Opus are zero. AAC (`.m4a`,
-  `.mp4`, `.aac`) and WMA are zero with a warning that alignment is unverified.
-  A cue pushed before the first Mixxx sample is moved to the start; a loop that
-  would end before it is skipped with a warning.
+- Timing gets a Mixxx rule in `timing.rs` that follows the decoder this system's Mixxx
+  uses (research document, *Timing model*): Apple CoreAudio on macOS, MAD on Linux and
+  Windows. For MP3 it reads the file's header facts (Info/Xing frame; `LAME`, `Lavf` or
+  `Lavc` identifier and its encoder delay) and, on macOS, asks CoreAudio's `AudioFile`
+  for the priming it will discard, because Apple's tag rules differ from FFmpeg's. It
+  does not use the media crate's `Mp3TimingCase` letters or a measured profile, so it
+  works without the media runtime. Lossless, PCM and Ogg are zero; AAC is zero and was
+  measured on macOS only; AAC on Linux and Windows and all WMA are zero with a warning
+  that alignment is unverified. A cue pushed before the first Mixxx sample is moved to
+  the start; a loop that would end before it is skipped with a warning.
 - Moving a synced file in CueRithm's Organize flow repairs the Mixxx reference
   (`mixxx/repair.rs`: the `track_locations` row), so a synced library stays
   organizable. Without it every synced track would block reorganization.
@@ -221,7 +223,8 @@ runs are outside what this host can do and stay listed as unverified.
 - Schema window 39–40 only; older databases must be upgraded by Mixxx first.
 - `source_synchronized_ms` stays NULL on rows the adapter creates.
 - Hot cue and loop rows are replaced as a set per track; other cue types survive.
-- AAC and WMA alignment is declared unverified instead of guessed.
+- AAC alignment is measured on macOS and declared unverified on Linux and Windows;
+  WMA is unverified everywhere. Nothing is guessed.
 - No change to `cuerithm-media` (its timing identity would invalidate saved
   measurements); MP3 start offsets come from the file header, not a case letter.
 - Cover art, record label, active-loop state and cue slots above 35 are not

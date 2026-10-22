@@ -16,10 +16,17 @@ fn profile_hash(profile: Option<&SourceExportTiming>) -> Result<String> {
         Sha256::digest(serde_json::to_vec(&profile)?)
     ))
 }
-/// Mixxx's decoders against CueRithm's FFmpeg clock, from the file's own MP3 header
-/// facts rather than a measured profile. Only MP3 differs; AAC, WMA and the rest are
-/// zero (their alignment is reported to the user instead of guessed).
+/// Mixxx's decoder for this system against CueRithm's FFmpeg clock, from the file's own
+/// MP3 header and, on macOS, Apple's own reading of it, not a measured profile. Only MP3
+/// differs: AAC is zero where it was measured (macOS) and reported where it was not.
 fn mixxx_offset(track: &SyncTrack, extension: &str) -> Result<f64> {
+    mixxx_offset_with(track, extension, crate::mixxx::Mp3Decoder::host())
+}
+pub(crate) fn mixxx_offset_with(
+    track: &SyncTrack,
+    extension: &str,
+    decoder: crate::mixxx::Mp3Decoder,
+) -> Result<f64> {
     if extension != "mp3" {
         return Ok(0.);
     }
@@ -29,12 +36,10 @@ fn mixxx_offset(track: &SyncTrack, extension: &str) -> Result<f64> {
     );
     let start = crate::mixxx::mp3_start(&track.path)
         .with_context(|| format!("Read MP3 start of track {}", track.id))?;
-    let dropped = if start.info_frame {
-        0.
-    } else {
-        f64::from(start.first_frame_samples)
-    };
-    Ok((f64::from(start.trim.unwrap_or(0)) - dropped) / f64::from(track.sample_rate))
+    let priming = crate::mixxx::coreaudio_priming(&track.path, decoder)
+        .with_context(|| format!("Ask CoreAudio about track {}", track.id))?;
+    let samples = crate::mixxx::mp3_offset_samples(decoder, &start, priming);
+    Ok(samples as f64 / f64::from(track.sample_rate))
 }
 pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
     let extension = track

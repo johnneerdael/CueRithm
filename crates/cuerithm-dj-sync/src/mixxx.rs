@@ -1,8 +1,13 @@
 //! Native Mixxx library adapter. It edits a staged copy of `mixxxdb.sqlite`; the
 //! caller publishes it through the shared journal. See
 //! `docs/research/mixxx-sync-contract.md` for the observed storage contract.
+#[cfg(test)]
+mod acceptance;
 mod beats;
+#[cfg(target_os = "macos")]
+mod coreaudio;
 mod cues;
+mod decoder;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
 mod keys;
@@ -23,6 +28,7 @@ use crate::{
     ownership::{PlaylistOwnershipReport, PlaylistOwnershipRequest},
 };
 use anyhow::{Context, Result, ensure};
+pub(crate) use decoder::{Mp3Decoder, mp3_offset_samples};
 pub(crate) use lame::mp3_start;
 pub(crate) use repair::{reference_id, repair_reference};
 use rusqlite::Connection;
@@ -75,6 +81,34 @@ pub fn resolve_database_path(path: &Path) -> Result<PathBuf> {
     Ok(database)
 }
 
+/// CoreAudio's gapless priming for `path`. Only asked when CoreAudio is the decoder,
+/// which is only possible on macOS; elsewhere there is nothing to ask.
+pub(crate) fn coreaudio_priming(path: &Path, decoder: Mp3Decoder) -> Result<Option<u32>> {
+    #[cfg(target_os = "macos")]
+    if decoder == Mp3Decoder::CoreAudio {
+        return coreaudio::priming_frames(path);
+    }
+    let _ = (path, decoder);
+    Ok(None)
+}
+
+/// Facts about the system Mixxx runs on that change what is written or reported.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Host {
+    /// A and a differ only by case on this system's file systems.
+    pub case_insensitive: bool,
+    /// How this system's Mixxx decodes MP3 and AAC.
+    pub decoder: Mp3Decoder,
+}
+impl Host {
+    pub(crate) fn current() -> Self {
+        Self {
+            case_insensitive: tracks::case_insensitive_host(),
+            decoder: Mp3Decoder::host(),
+        }
+    }
+}
+
 /// What a staged write produced.
 #[derive(Debug)]
 pub struct StagedMixxx {
@@ -108,14 +142,7 @@ pub fn write_staged_owned(
     options: &SyncOptions,
     request: &PlaylistOwnershipRequest,
 ) -> Result<StagedMixxx> {
-    write_staged(
-        stage,
-        database,
-        library,
-        options,
-        request,
-        tracks::case_insensitive_host(),
-    )
+    write_staged(stage, database, library, options, request, Host::current())
 }
 
 fn write_staged(
@@ -124,7 +151,7 @@ fn write_staged(
     library: &SyncLibrary,
     options: &SyncOptions,
     request: &PlaylistOwnershipRequest,
-    case_insensitive: bool,
+    host: Host,
 ) -> Result<StagedMixxx> {
     let mut connection = Connection::open(stage).context("Cannot open the staged Mixxx library")?;
     let layout = schema::inspect(&connection)?;
@@ -137,7 +164,7 @@ fn write_staged(
         &layout,
         library,
         options,
-        case_insensitive,
+        host.case_insensitive,
         &mut warnings,
     )
     .with_context(|| {
@@ -178,13 +205,7 @@ fn write_staged(
         check == "ok",
         "The staged Mixxx library failed its integrity check: {check}"
     );
-    advisories(
-        &connection,
-        database,
-        library,
-        case_insensitive,
-        &mut warnings,
-    )?;
+    advisories(&connection, database, library, host, &mut warnings)?;
     warnings.insert(0, summary(&tracks, &containers));
     Ok(StagedMixxx {
         ownership: containers.report,
@@ -234,11 +255,12 @@ fn advisories(
     connection: &Connection,
     database: &Path,
     library: &SyncLibrary,
-    case_insensitive: bool,
+    host: Host,
     warnings: &mut Vec<String>,
 ) -> Result<()> {
+    let case_insensitive = host.case_insensitive;
     let mut keys = Vec::new();
-    let mut unverified_clock = 0usize;
+    let (mut aac, mut wma) = (0usize, 0usize);
     for track in &library.tracks {
         keys.push(tracks::location_key(&std::fs::canonicalize(&track.path)?)?);
         let extension = track
@@ -247,15 +269,25 @@ fn advisories(
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
-        if matches!(extension.as_str(), "m4a" | "mp4" | "aac" | "wma") {
-            unverified_clock += 1;
+        match extension.as_str() {
+            "m4a" | "mp4" | "aac" => aac += 1,
+            "wma" => wma += 1,
+            _ => {}
         }
     }
-    if unverified_clock > 0 {
+    // Measured on macOS, where Mixxx decodes AAC with CoreAudio; elsewhere it uses
+    // Media Foundation (Windows) or FAAD (Linux), which this has not been run against.
+    if aac > 0 && host.decoder == Mp3Decoder::Mad {
         warnings.push(format!(
-            "{unverified_clock} AAC or WMA track(s): Mixxx decodes these differently on each \
-             system, so their cues and grid may sit a few milliseconds off. This alignment is \
-             not verified."
+            "{aac} AAC track(s): Mixxx on this system decodes AAC with Media Foundation or FAAD, \
+             which CueRithm has not verified, so their cues and grid may sit a few milliseconds \
+             off."
+        ));
+    }
+    if wma > 0 {
+        warnings.push(format!(
+            "{wma} WMA track(s): Mixxx plays WMA only when it was built with FFmpeg or, on \
+             Windows, Media Foundation, and CueRithm has not verified how it aligns them."
         ));
     }
     let mut statement = connection.prepare("SELECT directory FROM directories")?;

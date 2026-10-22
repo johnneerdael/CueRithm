@@ -99,14 +99,19 @@ gain or cover art.
 
 ## Timing
 
-Mixxx's MP3 decoder starts a little differently from the one CueRithm analyzes with,
-so CueRithm shifts MP3 cues and grids to match Mixxx, by roughly 25 ms for typical
-files. The shift comes from each file's own header and is applied once. FLAC, WAV,
-AIFF, Ogg and Opus need none.
+MP3 files start slightly differently depending on the decoder, and Mixxx uses a
+different one on each system, so CueRithm shifts MP3 cues and grids to match **the
+Mixxx on the computer you sync from**. It reads each file's own header, and on macOS
+asks the system's audio decoder (the one Mixxx uses there) what it will skip. The shift
+is applied once and is usually zero on macOS and about 25 ms on Linux and Windows for
+typical LAME-encoded files. FLAC, WAV, AIFF and Ogg need none. If you copy a Mixxx
+library to another operating system, sync again from there.
 
-For **AAC** (`.m4a`, `.mp4`, `.aac`) and **WMA**, Mixxx decodes differently on each
-system and CueRithm cannot confirm the alignment, so the preview warns that cues
-may sit a few milliseconds off. Check one such track by ear before relying on them.
+**AAC** (`.m4a`, `.mp4`, `.aac`) was checked on macOS and needs no shift there. On
+Linux and Windows Mixxx uses different AAC decoders that have not been checked, so the
+preview warns that cues may sit a few milliseconds off. **WMA** only plays in Mixxx
+builds that include FFmpeg (or Media Foundation on Windows) and is not verified. Check
+one such track by ear before relying on its cues.
 
 ## Preview, apply and restore
 
@@ -135,7 +140,9 @@ folder in Mixxx's preferences if you want it scanned.
 ## What has been tested
 
 The Mixxx library format was read from Mixxx's source code and checked with generated
-libraries for the two supported schema versions. See the
+libraries for the two supported schema versions. The macOS decoder timing was measured
+with the same Apple calls Mixxx makes. See the
 [format notes](https://github.com/johnneerdael/Cuerithm/blob/main/docs/research/mixxx-sync-contract.md)
 for what was measured and what was only read. Windows and Linux builds of Mixxx have
-not been run against CueRithm yet, and AAC alignment is unverified as described above.
+not been run against CueRithm yet, so their timing for MP3 is derived from Mixxx's
+source and their AAC timing is unverified, as described above.
