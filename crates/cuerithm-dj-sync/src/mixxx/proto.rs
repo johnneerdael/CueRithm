@@ -63,9 +63,9 @@ pub(super) fn key_map(key_id: u8, id3_text: &str, source: u8) -> Vec<u8> {
     out
 }
 
-#[cfg(test)]
 pub(super) mod decode {
-    //! Independent minimal reader used to prove the encoders round-trip.
+    //! Minimal reader: proves the encoders round-trip in tests and lets the staged
+    //! database be checked before it is published.
     use anyhow::{Result, bail, ensure};
 
     #[derive(Debug, PartialEq)]

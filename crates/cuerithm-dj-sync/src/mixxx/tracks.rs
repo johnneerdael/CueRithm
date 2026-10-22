@@ -9,7 +9,10 @@ use super::{
 use crate::{BeatgridLock, MixxxExistingTracks, SyncLibrary, SyncOptions, SyncTrack};
 use anyhow::{Context, Result, ensure};
 use rusqlite::{Transaction, params, params_from_iter, types::Value};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 /// Whether this host's default file systems treat `A.mp3` and `a.mp3` as one file.
 pub(super) fn case_insensitive_host() -> bool {
@@ -117,6 +120,11 @@ pub(super) struct TrackOutcome {
     /// Tracks made visible again (`mixxx_deleted` or `fs_deleted` cleared).
     pub restored: usize,
     pub replaced_cues: usize,
+    /// Rows this sync inserted, and rows whose beat or key blobs it wrote. Only
+    /// these are decoded by the readback check; other rows hold Mixxx's own data.
+    pub created: BTreeSet<i64>,
+    pub grids: BTreeSet<i64>,
+    pub keys: BTreeSet<i64>,
 }
 
 fn filetype(path: &Path) -> String {
@@ -225,6 +233,63 @@ pub(super) fn write_cues(tx: &Transaction<'_>, track_id: i64, rows: &[CueRow]) -
     Ok(rows.len())
 }
 
+/// SQLite hands integral REAL values back as integers; compare numbers as numbers.
+fn same(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Integer(x), Value::Real(y)) | (Value::Real(y), Value::Integer(x)) => {
+            *x as f64 == *y
+        }
+        _ => a == b,
+    }
+}
+
+/// Keep only the columns whose value would actually change, so a repeat sync writes
+/// nothing.
+fn changed_columns(
+    tx: &Transaction<'_>,
+    id: i64,
+    wanted: Vec<(&'static str, Value)>,
+) -> Result<Vec<(&'static str, Value)>> {
+    if wanted.is_empty() {
+        return Ok(wanted);
+    }
+    let names: Vec<&str> = wanted.iter().map(|(name, _)| *name).collect();
+    let current: Vec<Value> = tx.query_row(
+        &format!("SELECT {} FROM library WHERE id = ?1", names.join(", ")),
+        [id],
+        |row| (0..names.len()).map(|i| row.get::<_, Value>(i)).collect(),
+    )?;
+    Ok(wanted
+        .into_iter()
+        .zip(current)
+        .filter(|((_, new), old)| !same(new, old))
+        .map(|(column, _)| column)
+        .collect())
+}
+
+/// Whether the track already holds exactly these hot cue and loop rows.
+fn cues_match(tx: &Transaction<'_>, track_id: i64, rows: &[CueRow]) -> Result<bool> {
+    let mut statement = tx.prepare(
+        "SELECT type, position, length, hotcue, label, color FROM cues
+         WHERE track_id = ?1 AND type IN (?2, ?3) ORDER BY hotcue, type",
+    )?;
+    let current = statement
+        .query_map(params![track_id, cues::HOT_CUE, cues::LOOP], |row| {
+            Ok(CueRow {
+                kind: row.get(0)?,
+                position: row.get(1)?,
+                length: row.get(2)?,
+                hotcue: row.get(3)?,
+                label: row.get(4)?,
+                color: row.get(5)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut wanted: Vec<&CueRow> = rows.iter().collect();
+    wanted.sort_by_key(|row| (row.hotcue, row.kind));
+    Ok(current.len() == wanted.len() && current.iter().zip(wanted).all(|(a, b)| a == b))
+}
+
 fn update(tx: &Transaction<'_>, id: i64, columns: &[(&'static str, Value)]) -> Result<()> {
     let assignments: Vec<String> = columns
         .iter()
@@ -280,20 +345,25 @@ fn replace(
         && let Some(key) = &plan.key
     {
         columns.extend(key_columns(key));
+        outcome.keys.insert(library_id);
     }
     if let Some(beats) = &plan.beats {
         columns.extend(beat_columns(beats));
+        outcome.grids.insert(library_id);
         match options.beatgrid_lock {
             BeatgridLock::Lock => columns.push(("bpm_lock", Value::Integer(1))),
             BeatgridLock::Unlock => columns.push(("bpm_lock", Value::Integer(0))),
             BeatgridLock::Default => {}
         }
     }
-    let replace_cues = mixxx.replace_cues && !plan.cues.is_empty();
+    let columns = changed_columns(tx, library_id, columns)?;
+    let replace_cues =
+        mixxx.replace_cues && !plan.cues.is_empty() && !cues_match(tx, library_id, &plan.cues)?;
     if columns.is_empty() && !replace_cues {
         outcome.kept += 1;
         return Ok(());
     }
+    let mut columns = columns;
     if !columns.is_empty() {
         // Without this Mixxx would read the file's tags on first load and overwrite
         // what was just written (it does so only for rows never parsed).
@@ -497,6 +567,13 @@ pub(super) fn write_tracks(
             },
         );
         outcome.library_ids.insert(track.id.clone(), library_id);
+        outcome.created.insert(library_id);
+        if plan.key.is_some() {
+            outcome.keys.insert(library_id);
+        }
+        if plan.beats.is_some() {
+            outcome.grids.insert(library_id);
+        }
         outcome.added += 1;
     }
     Ok(outcome)
