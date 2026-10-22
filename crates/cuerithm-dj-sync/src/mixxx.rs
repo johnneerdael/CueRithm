@@ -6,6 +6,7 @@ mod cues;
 #[cfg(test)]
 pub(crate) mod fixture;
 mod keys;
+mod owned;
 mod proto;
 mod schema;
 mod tracks;
