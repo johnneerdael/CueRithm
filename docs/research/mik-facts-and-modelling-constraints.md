@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 17 · 22 October 2026 · Required engineering reference.
+Revision 18 · 23 October 2026 CEST (22 October 2026 UTC) · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–17 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–18 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -15,7 +15,8 @@ audio, capture audits and identifying evidence. Historical reports can describe
 earlier hypotheses; the scoped exclusions here govern current work.
 
 The record covers controlled synthetic runs 01–10 (including rejected 06 and
-replacement 06B), the real-source suffix experiment in run 11, local mechanism
+replacement 06B), the bass/dither intervention in run 12, the real-source suffix
+experiment in run 11, local mechanism
 investigations, and an independently recomputed assessment of the supplied mixed
 track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
@@ -27,15 +28,17 @@ The frozen through-09 set has 295 captured synthetic fixture IDs and 277 distinc
 retained requests; 281 IDs / 263 requests are qualified against local extraction.
 Fourteen older 08 fixtures remain conditional observations with upstream failures.
 Run 10 adds 12 IDs and eight new request identities: 307 IDs / 285 requests in the
-combined ledger. The earlier 277-request benchmark is preserved. All 12 new files
+through-run-10 ledger. The earlier 277-request benchmark is preserved. All 12 new files
 match local numeric extraction, but none passes the original absolute-origin gate;
-the reviewed scope is a grid-unqualified key diagnostic (F119). A separate
+the reviewed scope is a grid-unqualified key diagnostic (F119). Run 12 has
+seven files and five distinct numeric requests in that same lineage, including
+two reused baselines and three explicit controls (F123–F124). A separate
 real-recording test repeats 12 recordings three times; run 11 contains three
 exact-prefix variants of one real recording. These are not added to the synthetic
 benchmark or counted as independent songs (F121–F122). There is no promoted
 replacement model or completed 100% qualification.
 
-Evidence references E001–E138 identify immutable private source snapshots by
+The current register contains 126 scoped findings. Evidence references E001–E155 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -411,13 +414,28 @@ The pair’s weighted-RMS 95 th percentile changes .3796841830→.5332594007, wi
 
 #### F032 — Nominal windows are not isolated acoustic support
 
-FFT frames use 2048 samples/hop 682. Inspected phase searches extend about 64 beats and reduced families about 128 beats forward, with interpolation/filter/smoothing support beyond nominal 32-beat windows.
+FFT frames use 2,048 samples/hop 682. The inspected phase search uses 256
+quarter-beat evaluation positions on an approximately 64-beat grid. Reduced
+families use 256 positions spaced one eighth of a beat on a 32-beat grid;
+first-to-last sample centers span 31.875 beats. Selected phase offsets,
+interpolation, filtering/smoothing and whole-file normalization still make the
+nominal 32-beat interval an incomplete description of acoustic support.
 
-**Scope:** The inspected feature implementation; exact support also depends on state and phase.
+**Correction, 23 October 2026 CEST (22 October 2026 UTC):** Revisions through 17 inherited an incorrect
+half-beat/about-128-beat reduction description from the original report. The
+current statement corrects that unit calculation (F125). The original report,
+source identities, old register snapshots and F033's measured restoration
+outcomes remain preserved. No audio, request, response or source algorithm changed.
 
-**Rules out / prevents:** Do not transfer a stationary template label solely because one 32-beat waveform interior is unchanged.
+**Scope:** The inspected source profile and exact captured-default/family-array
+reproductions. A sampling-grid width is not a closed acoustic-support bound;
+state, phase selection and normalization remain relevant.
 
-**Evidence:** E034.
+**Rules out / prevents:** Do not use 128 beats as the reduced-family grid width
+or transfer a stationary label solely because one 32-beat waveform interior is
+unchanged.
+
+**Evidence:** E034 (historical report containing the error), E148, E151, E152.
 
 #### F033 — The prefix attribution has an exact diagnostic closure
 
@@ -1622,6 +1640,143 @@ cache keys, server architecture or the request field causing the change.
 
 **Evidence:** E135–E138.
 
+
+#### F123 — Lowering the sine bass alone preserves keys in the tested A context
+
+**Type:** Controlled MIK observation.
+
+Lowering the same 108 sine-bass events from MIDI 40 to 28 preserves MainKey in
+both authored modes: major remains 12B and minor remains 9A. Confidence rises by
+0.0091878772 and 0.0062176585 respectively. Within each mode, window-energy labels
+and overall energy also stay unchanged. The exact copy and fresh six-stem rerender
+produce identical analytical responses, and both reused baselines reproduce their
+earlier analytical results exactly. Profiling durations remain separate.
+
+**Scope:** Seven files, four musical conditions and five distinct numeric requests
+from one linked E-tonic A-context family. Five unaffected stems, event schedules,
+gain, content initialization and primary dither are fixed. The bass edit also
+changes its finite-envelope waveform, interaction with the fixed kick, whole-mix
+RMS by about −0.25635 dB, and extracted features/timing. All seven actual inputs
+match local extraction. Protected masters and postscan PCM/audio-frame bytes are
+exact despite metadata changes. The inherited absolute-origin gate still fails.
+Cue count/order/energy labels agree within each bass pair, but cue times move up
+to 0.730635/0.680308 ms and exceed the cross-treatment 1 ns identity criterion.
+
+The frozen key control matches 2/7 files (2/5 distinct requests); the balanced
+candidate matches 7/7 (5/5). Its 26 known real-track regressions remain (F120).
+No model was fitted, accepted or promoted.
+
+**Rules out / prevents:** This particular bass-octave edit is insufficient to
+reproduce the earlier A/B key contrast in the fixed A context. It does not exclude
+bass/register effects generally, isolate a direct server-input cause, qualify the
+cue grid or establish independent real-music accuracy from related fixtures.
+
+**Evidence:** E139, E140, E143–E145, E147.
+
+#### F124 — One dither-only PCM contrast changes energy and a cue label
+
+**Type:** Controlled MIK observation with independently checked local inputs.
+
+Changing only the quantisation dither realization from 990901 to 990912 on the
+same authoritative float64 mix preserves MainKey 12B but changes overall energy
+5→4, the fourth nominal window 3→4, and the third ordered cue's EnergyLevel 3→4.
+The six-window sequence changes [4,4,4,3,6,4]→[4,4,4,4,6,4]. Copy/rerender controls
+with identical PCM and inputs retain exact analytical responses.
+
+Independent TPDF reconstruction reproduces all 4,032,000 mono PCM samples in both
+files. Their maximum difference is two 16-bit steps and difference RMS is
+−93.3177823 dBFS. In the authored pad-interlude mask at beats 96–128, PCM RMS changes
+only −0.0000053421 dB. The nearly aligned fourth captured window's separate
+VolumeRmsDb changes −0.0000055089 dB, while its emitted 183-value feature vector
+changes 8.31546486% in relative L2 norm. Scaled transient-count fields account for
+99.9999789% of squared coordinate change under the inspected reducer mapping.
+These are derived signal counts; authored events are identical.
+
+Fresh repeated local extraction and independent checks reproduce actual captured
+inputs exactly per PCM. Both frozen window classifiers predict 2 for both
+interludes, where MIK returns 3 and 4. Relative cue beats [0,33,81,129] stay fixed;
+the actual tempo/downbeat fields reconstruct both returned timestamp lists within
+5.69×10⁻¹⁴ seconds, although the clock fields and returned times themselves change.
+
+**Scope:** One declared dither-only physical-PCM contrast, with different numeric
+analysis inputs. The nominal interval is not a complete acoustic support mask
+(F032). The coordinate partition uses existing emitted scaling and is not causal
+feature importance. The initial capture audit left the intermediate route
+unresolved; F126 supplies a later bounded local trace. The server's decision/overall
+mechanism remains unresolved. No new fit, training admission,
+audition, product-default change or agent vendor call occurred.
+
+**Rules out / prevents:** Do not automatically copy energy/cue labels across tiny
+PCM or dither augmentations. This counterexample does not imply universal dither
+fragility, identical-input randomness, cache behaviour or server architecture.
+Preserve exact extraction instead of smoothing it to impose an unverified
+invariance. The identical-input repeatability in F121–F122 remains distinct.
+
+**Evidence:** E139–E144, E146, E147.
+
+
+#### F125 — The reduced-family unit correction is independently corroborated
+
+**Type:** Source/unit correction and reproduction audit.
+
+The original inspected source and the qualified private phase probe both use
+one-eighth-beat reduced-family spacing, a 32-beat grid of 256 positions. Independent
+reconstruction from saved raw band timelines reproduces all 43,008 family values
+across three interlude cases exactly. This confirms the correction in F032 and
+identifies the earlier half-beat/about-128-beat description as an inherited
+interpretation error.
+
+**Scope:** This local processing profile and the captured-default/family-array
+qualification. The separate phase search still evaluates a roughly 64-beat grid
+(63.75 beats between first and last centers, with zero endpoint weights), plus
+selected offsets, interpolation and signal-state support. These grid sizes do not
+define an isolated rectangular acoustic support mask.
+
+**Rules out / prevents:** Preserve the original report, source hashes and old fact
+versions. F033's observed restoration from frame 1015 and residual from 1018 remain
+recorded; the historical vocal pair was not rerendered here. Correct the unit
+interpretation explicitly instead of silently rewriting measurement history.
+
+**Evidence:** E148, E151, E152, E155.
+
+#### F126 — Local threshold-count arithmetic explains the large feature change
+
+**Type:** Local DSP intervention and independent reference-calculation result.
+
+Holding the dithered file at baseline whole-file normalization and independently
+estimated energy tempo leaves the interlude's feature discrepancy essentially
+unchanged at 8.31546%. All 84 naturally selected phases are exactly equal between
+the two files; forcing baseline phases leaves the dithered feature file
+byte-identical. Holding normalization, tempo and phases together still leaves
+64 of 70 interlude transient-count coordinates different.
+
+Independent calculations reproduce all 2,100 count coordinates exactly across
+five qualified runs, six windows and 70 count fields. The calculation includes
+reduction gain, cyclic geometric means, the 90th percentile, an inclusive threshold
+at half that percentile, integer counts and recorded scaling. In the 2,500–3,700 Hz
+even-transient field, the raw count changes 45→62: 24 of 128 sampled positions stop
+passing the threshold and 41 start passing it. This reconstructs the large
+count-coordinate change while the authored musical events stay fixed.
+
+**Scope:** Private local data-flow interventions with exact captured default
+features, a joint own-settings no-op, verified realized overrides and unchanged
+pre-normalization source timelines. Internal transient units/counts are distinct
+from PCM dBFS and authored event counts. Forcing a phase affects the next band's
+search center; the phase-only call retains the dithered file's energy tempo and
+does not freeze absolute sampling positions. The normalization-only intervention
+could affect the recomputed tempo generally; that tempo happens to remain exact
+in this pair.
+
+**Rules out / prevents:** The measured normalization/tempo differences and a
+phase-selection switch are insufficient explanations for this pair's large
+feature discrepancy. This closes the specific local count-coordinate arithmetic;
+it does not identify which server inputs cause the changed window, overall or
+cue labels. Intervened numeric inputs were never submitted to MIK. Preserve the
+matching extractor behaviour instead of imposing an unverified smoothing rule.
+No model was fitted or promoted, and no new audio or vendor capture was needed.
+
+**Evidence:** E149–E155.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -1760,7 +1915,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E138 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E155 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1905,3 +2060,20 @@ retain prior IDs or explicitly version replacement evidence.
 | E136 | `509ffce9bf8978ca5df9d339af8b3aef1d9c6708e9da9f9c934604a583905739` |
 | E137 | `2b66f7ff7d3d746bc9153cb9a1d3973c8ab040f335403168439fca19b0f9dce7` |
 | E138 | `7cd0bad6654ba2161a60a1f7199ec3f14f8ae84647aa93cf93ad9f9b9009e547` |
+| E139 | `8f58b337dee2f35b34b9ae2114306422d14f75dd1fab78855cee73e7c4e2e081` |
+| E140 | `59dc0872e75d2205cd36d07e64d90e4797d308c5b34725295518744bc50da7fc` |
+| E141 | `967902fb0651feb9e880c7d1715496526150890f6de3a8951158fa014f1174b1` |
+| E142 | `c4d2ac5eff7434c7696fe9ae70ecd2fd3abb490bc8fc95a457263506fbdc2061` |
+| E143 | `3f9a8c03d09a0d73186fa1bbb4a30a1c4e8a240199596b84e1f735f2bb1b62f4` |
+| E144 | `b3da8d6e551ab0944044fb045a56a7dfb79d8b6d3d2a457c1a829bab4721db84` |
+| E145 | `f7f11b6f7512a141e5c428661e4fb3f4092bdb99725e1df2a7aefd2435a4fe7c` |
+| E146 | `b30d67749bf79a635326ad3ad0693bbffa3e1486d578e3bd0b0c369984a0e7b3` |
+| E147 | `431de77f594f53c61d5bcd2e9abaa27ed30c3c18aed4bd9ea02b9326dd48c998` |
+| E148 | `1e9ac740d50caf6ecbb6f1868d1a21cc1661e8d4aec39f8d5128635d6d6c9df6` |
+| E149 | `1ede2c121cc62176595b096fc505309481ada4d78d9a18a7a4bfbca2f508a321` |
+| E150 | `6634182b081dc8dc41ec6133b79aeef5c5b2dd3007bfb6ed6769f88801ec737e` |
+| E151 | `a185001f1cbcbda35854ebcfc4eb726d702bff59875363800e011cacdba71ee2` |
+| E152 | `eff6f810534baec688f610a6bd9fc5e79bb53f23c8367512d55361c792d3ae5e` |
+| E153 | `ce8a8d4b92cedda3a93551d9b81c4c7a19530358d946aea63824db895d54fb43` |
+| E154 | `1054addf33c21e369468b1df643256152edb50b68b5f51098c15c5d7d173a6c2` |
+| E155 | `a1e28b3dec9f93a669a5ac519ac02fbd10e24b1fd97393b77580a0ae5c78f926` |
