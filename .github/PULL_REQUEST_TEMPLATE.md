@@ -9,6 +9,14 @@ Linux checks start once the gate passes (a completed Codex review of the latest 
 
 ## Changes
 
+<!--
+For extraction, key/BPM/energy analysis, training, evaluation or model promotion:
+cite the revision and relevant F-numbers from docs/research/mik-facts-and-modelling-constraints.md.
+State the inputs/target, counterexamples checked, split/lineage exposure and separate
+captured-feature versus end-to-end results. Explain non-applicability for other changes.
+If evidence contradicts a finding, link its explicit supersession rather than silently ignoring it.
+-->
+
 -
 
 ## Release notes

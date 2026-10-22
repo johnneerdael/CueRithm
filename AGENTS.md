@@ -36,6 +36,16 @@ Use focused Rust modules, explicit errors and standard formatting. Keep analysis
 
 Compute predictions from PCM and explicit configuration only. Never use source key/BPM/energy/cue tags, filenames or reference labels as predictions. Keep reference labels separate from engine inputs; tune on the tuning split and keep audio copies in one split. Leave held-out results untouched until engine/configuration freeze. Report exact key, BPM and cue agreement separately, including failures/unknowns in denominators. Synthetic tests do not establish real-music accuracy. Record engine/config/model identity for comparisons.
 
+## Required Facts Register Before Analysis or Modelling
+
+Before changing feature extraction, key/BPM/energy analysis, training, evaluation or model promotion, read [the facts register and modelling constraints](docs/research/mik-facts-and-modelling-constraints.md). Cite its revision and relevant `F001`–`F074` IDs (and later additions) in the experiment record and PR; explain when a change has no applicable findings. Historical notes do not override a scoped counterexample in the register.
+
+- State inputs, targets, preprocessing, invariances and output space before fitting. Check existing counterexamples before tuning; do not revive refuted sufficiency claims, silently remove witnesses or add per-file exceptions. Label intentionally lossy baselines explicitly.
+- Keep observations, hypotheses and modelling choices distinct. New contradictory evidence requires a versioned reproduction record and an explicit addition or supersession; preserve existing fact IDs and dated evidence. Update the tracked aggregate and private provenance together without publishing identifying material.
+- Freeze track-lineage groups before fitting. Copies, formats, edits, transpositions, dither and stem descendants stay in one split. Newly captured or renamed known tracks are not unseen validation. Reserve overlap-checked new music before target inspection if it will serve as the final test.
+- Report captured-feature prediction separately from end-to-end PCM results, with failures and unknowns in denominators. Use out-of-fold track-group predictions when training an overall learner on window-model outputs. Returned labels are oracle diagnostics, not deployable inference inputs.
+- The register does not authorize restarting Mixed In Key cue inference or replacing the validated Lexicon cue path. Default promotion still requires native Rust/ONNX parity, supported-format checks and a frozen independent evaluation.
+
 ## Commit & Pull Request Guidelines
 
 The canonical remote is `https://github.com/johnneerdael/Cuerithm`. Preserve upstream changes and use descriptive commits. Do not publish music, private library paths, per-track labels, decompiled code or packaged proprietary artifacts. Record actual validation and remaining agreement gaps. Do not manually cut releases.
