@@ -1,10 +1,11 @@
 # MIK facts register and modelling constraints
 
-Revision 2 · 22 October 2026 · Required engineering reference.
+Revision 6 · 22 October 2026 · Required engineering reference.
 
-Revision 2 records the owner's authorization of private MIK cue-model research.
-It supersedes revision 1's prohibition. The 74 findings and their evidence
-identities are unchanged; the product's validated Lexicon DSP remains in place.
+Revision 2 authorized private MIK cue-model research and superseded revision 1's
+prohibition. Revisions 3–6 add fresh grouped-development comparisons and exact
+whole-track pooling exclusions. Existing fact IDs and evidence identities are
+preserved; the product's validated Lexicon DSP remains in place.
 
 Read this register before changing feature extraction, key/BPM/energy analysis,
 training, evaluation or model promotion. Cite relevant F-numbers and the register
@@ -19,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-reported separately; this revision changes research authorization, not a result.
+summarized in F078–F092 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -27,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E041 identify immutable private source snapshots by
+Evidence references E001–E068 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -42,7 +43,11 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 - Activity, spectral brightness and vocal presence are interventions, not measured
   energy labels or proof of a semantic detector (F013, F031–F040).
 - Rounded window labels do not support a universal fixed monotone whole-track
-  reducer (F041–F047); label histograms also have conflicting targets (F065).
+  reducer (F041–F047). Label histograms have conflicting targets (F065), with a
+  measured maximum of 98.81% on the larger observed cohort (F075).
+- Uniform arithmetic pooling of hidden window values with any common rating
+  thresholds is excluded by an exact observed contradiction (F089–F090).
+  Other weights, nonlinear pooling and separate overall thresholds remain open.
 - Captured-feature prediction and end-to-end PCM prediction have separate
   denominators (F001–F004). An upstream refusal is still an end-to-end failure.
 - Prior guessed bundles and failed partial prototypes are not the starting
@@ -786,6 +791,230 @@ Only 104/277 synthetic lists satisfy the joint historical restrictions: addition
 
 **Evidence:** E012.
 
+### Fresh real-data audits
+
+#### F075 — Histogram-only overall energy cannot reach 99% on this cohort
+
+Among 6,386 selected requests, 76 groups with identical unweighted returned-label
+histograms have conflicting whole-track targets. Their exact frequencies force
+at least 76 errors: even an oracle lookup can match at most 6,310/6,386, or
+**98.80989665%**.
+
+**Scope:** Observed request rows in the fresh spent-development cohort. The
+histogram includes class counts and therefore window count. This is not a ceiling
+for order, duration, RMS, continuous features or an unseen population.
+
+**Rules out / prevents:** A deterministic unweighted-histogram-only reducer
+cannot meet 99% on this observed cohort. F065's earlier 27 conflicts alone did not
+establish that numeric ceiling; this calculation uses actual group frequencies.
+
+**Evidence:** E042, E043, E045.
+
+#### F076 — Exact feature collisions do not explain the current errors
+
+The 148,010 windows contain 52 repeated exact 183-feature groups, with zero label
+conflicts. Adding RMS gives the same result. All 6,386 key vectors are distinct.
+Complete ordered window-label vectors have 31 repeated groups and zero observed
+whole-track target conflicts.
+
+**Scope:** Observed exact repetitions only. No key-vector repetition exists here
+to test key repeat-label consistency. Absence of collisions does not establish
+input sufficiency or generalisation.
+
+**Rules out / prevents:** Do not infer sufficiency or a recovered model solely
+because an exact-collision audit passes.
+
+**Evidence:** E042.
+
+#### F077 — The complete cue representation covers all 6,386 selected lists
+
+The fresh intake retains 49,410 cues. Every list fits the complete score timeline
+plus its origin anchor. Two lists repeat positions; 219 include negative
+coordinates relative to the detected grid. All first cues match the request
+origin. Client-style timestamp reconstruction is bit-exact on 6,223 lists and
+within 1e−9 seconds on all 6,386.
+
+**Scope:** Oracle projection and formula diagnostics on spent development data,
+not selector predictions. Negative grid coordinates are not necessarily negative
+audio timestamps. Order, multiplicity and raw times are preserved.
+
+**Rules out / prevents:** Representability and oracle timestamp reconstruction
+are not cue-model accuracy. Do not replace ordered lists with sets or claim 100%
+cue prediction from this check.
+
+**Evidence:** E044.
+
+#### F078 — The first fresh full-input key comparison remains below target
+
+Thirteen declared models yield best exact MainKey agreement of 1,193/1,288, or
+92.6242%, on grouped spent-development validation. The selected model gets 8/34
+majors; the MLP gets 15/34 with lower aggregate accuracy. The selected independent
+refit's predictions and serialized bytes match.
+
+**Scope:** Fresh weights, train-only preprocessing and captured 352-value inputs.
+The same spent data served model selection; this is not unseen, all-format or
+end-to-end accuracy. There are 205 major requests overall: 171 training and 34
+validation.
+
+**Rules out / prevents:** Training fit near 100% does not establish
+generalisation. This result does not exclude SVMs, MLPs, other preprocessing or
+input sufficiency. No default is promoted.
+
+**Evidence:** E045, E046.
+
+#### F079 — The second fresh key comparison improves development agreement but remains incomplete
+
+Twenty-two declared shape/magnitude/class-weight candidates select a full-register sqrt-profile SVC at 1216/1288=94.4099 percent, versus 1193/1288 in the first comparison. Major agreement is 15/34; minor 1201/1254. Paired predictions correct 45 old errors and introduce 22 new ones. Independent refit predictions and model bytes match.
+
+**Scope:** Same spent grouped development split and captured 352-value inputs. No new independent sample. Fourteen of nineteen major errors choose relative or parallel minors; this is an error description, not its cause.
+
+**Rules out / prevents:** Do not report development selection as unseen or PCM-to-output qualification, or infer universal improvement on every track. No candidate is promoted.
+
+**Evidence:** E063, E055.
+
+
+#### F080 — The real-trained R2 key candidate fails broad synthetic transfer
+
+The frozen real-trained selected keyR2 candidate matches 174/277=62.8159 percent of existing distinct synthetic requests, including 0/48 major and 174/229 minor responses. There are no exact key-vector overlaps with the real intake.
+
+**Scope:** Posthoc spent synthetic diagnostics, not independent music or training examples for this candidate. Includes 14 old 08 captured-feature-only cases with unqualified local extraction. The test uses captured inputs throughout.
+
+**Rules out / prevents:** Its 94.41 percent real-development result is not evidence of broad controlled-stimulus parity. This failure does not exclude all SVMs or establish the cause as missing semantics, magnitude or register.
+
+**Evidence:** E056.
+
+
+#### F081 — The first fresh energy comparison leaves a large whole-track gap
+
+Six input-only whole-track and eight sampled-window candidates yield best 886/1288=68.7888 percent overall and 25047/29892=83.7916 percent window agreement. Raw 183/C100 beats the tested standardized window candidates; RMS added to standardized candidates does not recover that loss. Fresh selected refits match predictions, decision values and serialized bytes.
+
+**Scope:** Spent grouped captured-feature development;16000 training windows. Whole-track summaries are declared lossy baselines and use no oracle/predicted window labels. These fits do not identify the server mechanism.
+
+**Rules out / prevents:** Do not claim RMS irrelevance, complete window-sequence accuracy, unseen accuracy or native/default qualification from this model comparison.
+
+**Evidence:** E059, E058.
+
+
+#### F082 — A narrower window kernel improves development agreement without solving track-level parity
+
+Six fresh contrasts select raw 183/C100 with gamma four times the reference:26129/29892=87.4113 percent window agreement,1082 fewer mistakes. Only 123/1288 tracks have every window correct. Same 4855 training groups with 16000→32000 nested windows reaches 25476/29892=85.2268 percent at reference gamma. Tested weights on the appended RMS feature and balanced class weights do not improve the reference. Selected refit predictions, decisions and model bytes match.
+
+**Scope:** Fixed grouped development split. Numeric gamma is held fixed across RMS/sample contrasts. The doubled sample changes within-group context coverage, not independent group count. These are separate one-factor comparisons; combinations were not tested. Whole-track overall remains 886/1288.
+
+**Rules out / prevents:** A higher per-window score is not complete track/cue parity. These comparisons neither prove RMS unused nor establish the best architecture; no 99 percent or product-default claim follows.
+
+**Evidence:** E060.
+
+
+#### F083 — Combining the denser window sample with the narrower kernel improves agreement
+
+The third fresh comparison selects 26675/29892=89.2379 percent window agreement with 32000 windows from the same 4855 training groups. Exactly 177/1288 complete window sequences match. Independent selected refits match predictions, decision values and model bytes.
+
+**Scope:** Spent grouped captured-feature development. Compared with the second comparison winner, the winning configuration changes within-group window coverage while keeping its kernel setting. Whole-track energy remains 886/1288.
+
+**Rules out / prevents:** Per-window agreement is not whole-track, full cue or unseen parity. No additional independent songs or product-default qualification are established.
+
+**Evidence:** E061, E048.
+
+
+#### F084 — The first fresh complete cue baseline has large selection and energy gaps
+
+Fresh count, point-occurrence and cue-energy models produce 25/1288 complete timed and labelled lists. Count matches 1032/1288; entire positions match 224/1288. With true positions supplied, cue energy matches 6705/9922 labels. Export/reload checks pass; a complete independent three-model refit was not performed for this baseline.
+
+**Scope:** Spent grouped captured-feature development. Cue-energy training uses true cue positions; operational evaluation uses predicted positions. The origin-anchor construction is an observed-cohort hypothesis, not a universal theorem.
+
+**Rules out / prevents:** Oracle-position cue-energy accuracy is not complete cue parity. The score representation audit did not predict cues, and this poor baseline is not promoted.
+
+**Evidence:** E050, E052.
+
+
+#### F085 — A stronger repeat penalty repairs part of the cue decoder error
+
+With all fitted models and predicted counts fixed, alpha 1 reproduces all original lists exactly. Alpha 8 changes exact positions from 224 to 401/1288 and complete lists within 1 ns from 25 to 33/1288; 32 are bit-exact. The observed duplicate-list count falls from 810 to zero in validation.
+
+**Scope:** Posthoc spent-development decoder contrast. Selection still permits duplicate positions; the complete captured cohort includes two duplicate-position lists, both outside this validation subset.
+
+**Rules out / prevents:** Do not infer a universal uniqueness rule, a recovered server penalty or an unseen improvement. Correcting decoder repetitions does not solve cue energy or count.
+
+**Evidence:** E053.
+
+
+#### F086 — The tested cue-count loss affects complete-list agreement
+
+Holding the point model, energy model and alpha 8 decoder fixed, L1 count regression matches 1091/1288 counts versus Poisson 1032 and L2 1023. L1 yields 417 exact position lists and 36 complete lists within 1 ns, of which 35 are bit-exact. Fresh L1/L2 refit predictions and model bytes match. The constant training-mode count control matches 1080 counts.
+
+**Scope:** Spent grouped captured-feature development; only the count objective/control changes. All 1288 requests remain in each denominator.
+
+**Rules out / prevents:** The constant count is an explicitly restricted diagnostic, not a universal eight-cue rule. Better count agreement alone does not establish complete parity.
+
+**Evidence:** E049.
+
+
+#### F087 — Broader periodic score context improves the fresh cue-position candidate
+
+Appending 30 request-derived score-context features to the original 74, with point training rows/targets/weights/parameters fixed, raises exact complete positions from 417 to 571/1288 and complete labelled/timed lists from 36 to 43/1288. All 43 are bit-exact. L1 count, cue-energy model and alpha 8 decoder remain fixed. The original-feature refit is byte-exact; new model refits and validation forward outputs are exact.
+
+**Scope:** Spent grouped development. Periods are score-coordinate periods, including the slow-tempo half-beat convention; they do not prune candidates. No independent unseen or PCM-path qualification.
+
+**Rules out / prevents:** This supports the tested candidate feature addition, not identification of the server feature set or architecture. Count and cue-energy gaps remain; 43/1288 is not close to the requested full parity.
+
+**Evidence:** E051.
+
+
+#### F088 — The bounded linear tree and neural window controls do not beat the kernel reference
+
+On exactly the same 32000 training windows and 29892 validation windows, two linear SVM controls match 18599 and 18637 windows, LightGBM matches 24647, raw-input MLP 24312 and standardized MLP 24099. The R3 kernel reference remains best at 26675. Export/reload predictions match for all five new candidates; no convergence warnings are recorded.
+
+**Scope:** Spent grouped captured-feature comparison of five declared configurations. No new candidate wins selection, so no new selected-model independent refit is required; the retained R3 reference already has its pinned accepted refit.
+
+**Rules out / prevents:** Do not infer that all neural or tree models are excluded, or that the server uses an RBF SVM. This test changes declared model configurations, not training groups, labels or validation denominators.
+
+**Evidence:** E062.
+
+
+#### F089 — A shared equally spaced latent quantizer does not rescue arithmetic overall pooling
+
+Under a common clamped unit-width quantizer for window and overall labels, 1564/6386 rows have strictly disjoint feasible intervals for uniform arithmetic pooling of the window latent values. Another 190 are boundary-only: they fail the declared half-up rule but are not tie-independent exclusions. Captured binary 64 duration weighting retains all 1564 strict witnesses; its 85 additional strict gaps are only 6.04e-18 to 4.10e-16 label units and are precision-sensitive boundary perturbations.
+
+**Scope:** Necessary per-row interval audit with unbounded end-class bins; independently recomputed with exact rational arithmetic. The tested hypothesis pools exactly the reported windows using the same unit-width thresholds for window and overall ratings.
+
+**Rules out / prevents:** This excludes the specified arithmetic-pooling/common-quantizer mechanism, not all continuous aggregation. Unequal thresholds, different/context-dependent weights, nonlinear pooling, different acoustic support or a separate overall classifier remain possible. Do not count microscopic duration perturbations as additional robust contradictions.
+
+**Evidence:** E065, E064.
+
+
+#### F090 — Uneven common thresholds cannot rescue uniform latent arithmetic pooling
+
+Eight observed responses supply an exact contradiction to uniform arithmetic pooling of unobserved window scores under any common strictly increasing finite rating thresholds shared by windows and whole-track output. Reconstructed positive rational multiples of their valid closed-bin inequalities imply `(139123129 / 7355852275) × (t_9 - t_1) ≤ 0`, contradicting `t_9 > t_1`. The certificate is checked in exact fractions and independently reconstructed from the captured labels.
+
+**Scope:** Necessary closed-bin relaxation of the 6386-row spent-development cohort, permitting every row its own latent values and unbounded clamped end bins. Positive affine normalization is optional: the independent proof also holds before normalization. Initial numerical-only attempts remain historical evidence; the R3 exact certificate establishes this exclusion.
+
+**Rules out / prevents:** This excludes uniform mean with a common quantizer, not duration/context weighting, nonlinear pooling, distinct overall thresholds or a separate whole-track model. A numerical infeasible status alone would not establish the fact, and the proof does not identify the actual mechanism.
+
+**Evidence:** E067, E068.
+
+
+#### F091 — Cue-to-next-cue acoustic summaries improve the energy-label candidate
+
+With the latest 571/1288 exact position lists held fixed, appending 189 request-only acoustic span features raises complete labelled/timed lists from 43 to 66/1288 within 1 ns; 64 are timestamp-bit-exact. At true positions, cue-energy agreement rises from 6705 to 7190/9922. Original 757-column training inputs match exactly; the original energy refit is byte-exact. The winning new independent refit has identical model bytes and validation numerical outputs.
+
+**Scope:** Spent grouped development with all 1288 requests retained. New inputs are overlap-duration means of the 183 acoustic features and separate RMSdB, plus explicit span/coverage metadata. Training uses true positions; operational validation uses the fixed predicted positions. Oracle-position accuracy is reported separately.
+
+**Rules out / prevents:** The 72.4652 percent conditional energy score is not complete cue parity; complete lists reach only 5.1242 percent. This does not identify the server aggregation interval or feature set, repair wrong positions, or establish unseen/PCM/default qualification.
+
+**Evidence:** E054, E047.
+
+
+#### F092 — The bounded whole-track scaling comparison does not improve the reference
+
+Six fresh SVC configurations on the same 5098 training and 1288 validation requests achieve 872,806,866,871,841 and 865 exact overall matches. None beats the retained 886/1288 reference. All 6386 stored input-only summaries are independently reconstructed exactly; each new exported model reproduces predictions and decision values. The retained reference already has its accepted independent refit.
+
+**Scope:** Spent grouped captured-feature development. Controls test raw 183-value means and raw/hybrid 1476-value summaries. Hybrid preserves 1464 acoustic values and standardizes 12 RMS/count/scalar values on training only; numeric gamma follows declared transformed-training variance and factors. Tail-weight changes also change that automatic gamma, so they are geometry/configuration contrasts.
+
+**Rules out / prevents:** These negative configurations do not exclude richer summaries, window-model outputs, sequence models or all SVCs. No oracle window labels enter these predictors, no new candidate is selected and no whole-track accuracy improvement is established.
+
+**Evidence:** E057, E066.
+
 ## Working method decision — proposed techniques
 
 
@@ -832,7 +1061,9 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
    claim complete reproduction. Reject that sufficiency claim before tuning, or
    label the representation as an intentionally lossy baseline. The 27 histogram
    conflict groups alone do not prove that 99% is unreachable: any numeric ceiling
-   needs the actual group sizes and target frequencies.
+   needs the actual group sizes and target frequencies. F075 supplies those
+   frequencies for the larger cohort and gives a 98.81% bound for histogram-only
+   predictors; it does not bound richer inputs.
 3. Preserve the counterexamples as development diagnostics. Do not add per-file
    exceptions, remove a failing witness or silently relabel it to rescue a model.
    Keep observation, hypothesis, project policy and modelling decision distinct.
@@ -882,7 +1113,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-Each digest identifies the evidence snapshot used for revision 1. These hashes
+E001–E046 retain the earlier snapshots; E047–E068 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -930,3 +1161,30 @@ retain prior IDs or explicitly version replacement evidence.
 | E039 | `be91503809ef913c04182b29db346d6ad55c4b27ff64b9220d4d16c13f43ae46` |
 | E040 | `bc40f9688434479230c8e16d1bad01ce3db7f645cb202b6da7aeffd4b57e75de` |
 | E041 | `7c8d01427a8c89df65f5927c42e63c3aeb7ff40ed336c759adb1a2fe7414f72d` |
+| E042 | `3db66aa6055df285df31f26f3c2c2959a26961fe59fe2b728ddd87ffb1de02d2` |
+| E043 | `05a6d0253bdfdff385fad9cd1577b3ce0fa4d2adb06ea8dff4c39376321b287f` |
+| E044 | `ab086ba24e16b64154d40ce926286ca8f293b76a70b222139d41fcb788ad68be` |
+| E045 | `df0bf2ff832614e99bd7b373a8fdd1e839ef9341f47f41b62b9b1ef84e6f0faf` |
+| E046 | `d9c920e0670fc965d2ddf4b38e26419c83d89f6242fd05c1f78e6fe3ab934466` |
+| E047 | `909c28c1b1c05902d67520b2b0f2f7dab1420e8bfb613a329c1c238a18e5a98f` |
+| E048 | `2223082c277615e334e149e7bee7e6a67ec2dc974a622a302948202eeb3843d6` |
+| E049 | `35e7385e968e5ac99aa7c8a0b2026b11bfdabe320505eebd9b480a0ac83c225f` |
+| E050 | `45fd759228bf9866f9889a392b79be1b263fc2bbcbc7dabf06ad7a35b5aad50e` |
+| E051 | `0b450c6041b7e538d21b0c21c7a4d870fd4ec06ad63b9574554a3308dd2004be` |
+| E052 | `9f44e489782ca65fcf9d9c30662ab5d5e112134ae986502b14872de83713bd91` |
+| E053 | `ed3773957e429f746a9f85a384549d6b9d16975d6fbda1460432d9b72c93f1c1` |
+| E054 | `d01928b6ce7c07460bb4f8842638752600243f27b32fc6df90d3bd2913559e57` |
+| E055 | `39d07fa6460de9590a108df94fbf7ca664575fadd8f7c7bf1999f80f0b204c87` |
+| E056 | `0a3e7a13259dfda389bcfaba261112e82d1e033ad7fafae106a47cdaff748610` |
+| E057 | `1de6cabe53eac3b6dd8aa32739b526b7526b535fc58a3de44f0834fc79416005` |
+| E058 | `ccb1443b5ce4336eb3042d332433c44fed7b637b1b4b880ee47ca6f595db08cd` |
+| E059 | `79c95325446c3daf456032711620d8b9e62325611a201237addf7cd759e48d41` |
+| E060 | `fa56d5a9c022c0433e1e1edbb5cc10fe776224983e67611bf23adecaa8b9f8ba` |
+| E061 | `3ef80d4d34f92a97fc6816e5fe93d51b24d6358173d218df44c696d677bf86a0` |
+| E062 | `94ac3e655d25c8fb84a51bbc8e2b99cfd36efe97ca3c99a3b4d373205c19d912` |
+| E063 | `f732f1f33072e767b9604319d9937648877b4253037c7af4f4b729d66ca0f972` |
+| E064 | `a5c84d5a663966780506002186cb44f1b99c5f321ca77491836b3f149182dd20` |
+| E065 | `38ca7f263a7aca739cac56a078bec9064f84b0b27ecc0bdbbb3e605540eff7c2` |
+| E066 | `c5e9aa4cb057f4c44142e11e916ad6c5e53a67f0461d6b2005a640462d487581` |
+| E067 | `0aca3cb9487c2c5703b82cca4c56b35f20b20cad75d576cb10d8cc43d25ef0ba` |
+| E068 | `80b2c4ee9a463975d4a351fa297ba03a1ce1e89d6028aba6300479625ee885b3` |
