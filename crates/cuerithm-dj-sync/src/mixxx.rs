@@ -2,6 +2,7 @@
 //! caller publishes it through the shared journal. See
 //! `docs/research/mixxx-sync-contract.md` for the observed storage contract.
 mod beats;
+mod cues;
 mod keys;
 mod proto;
 
