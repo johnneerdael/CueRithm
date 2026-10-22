@@ -1,6 +1,6 @@
 # MIK facts register and modelling constraints
 
-Revision 18 · 23 October 2026 · Required engineering reference.
+Revision 18 · 23 October 2026 CEST (22 October 2026 UTC) · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
 prohibition. Revisions 3–18 add fresh grouped-development comparisons, exact
@@ -421,7 +421,7 @@ first-to-last sample centers span 31.875 beats. Selected phase offsets,
 interpolation, filtering/smoothing and whole-file normalization still make the
 nominal 32-beat interval an incomplete description of acoustic support.
 
-**Correction, 23 October 2026:** Revisions through 17 inherited an incorrect
+**Correction, 23 October 2026 CEST (22 October 2026 UTC):** Revisions through 17 inherited an incorrect
 half-beat/about-128-beat reduction description from the original report. The
 current statement corrects that unit calculation (F125). The original report,
 source identities, old register snapshots and F033's measured restoration
