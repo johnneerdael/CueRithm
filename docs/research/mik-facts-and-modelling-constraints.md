@@ -43,13 +43,16 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | --- | --- | --- |
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
-| Window energy | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match; class 9 falls 11→10/18 and class 10 remains 0/2. Full coverage changes group coverage and loss mass (F118). |
+| Window energy comparison control | 26,944/29,892 (90.14%) | 200/1,288 entire sequences match; retained as a reproducible control, not an exact recovered rule (F101). |
+| Window energy unaccepted challenger | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match, but 783 previously correct windows and 73 complete sequences regress; class 9 falls 11→10/18, class 10 remains 0/2 (F118). |
 | Complete cue lists | 200/1,288 (15.53%) within 1 ns | 196 timestamp-bit-exact; full-list fixes/regressions 7/6. Selected placement falls 571→568; the prior position-only reference remains better (F106). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
 These are spent development comparisons using captured client features. They do
 not measure unseen music or the complete decoded-audio path. The synthetic check
-uses previously inspected diagnostics. No product-default replacement is promoted.
+uses previously inspected diagnostics. Controls are reproducible comparisons, not
+verified recovered rules. Earlier aggregate-only acceptance recommendations are
+audited at case level; acoustic causes remain unresolved. No product-default replacement is promoted.
 
 ## Immediate exclusions
 
@@ -1455,7 +1458,7 @@ alone would not establish complete-list parity.
 
 **Evidence:** E124, E125.
 
-#### F118 — Full training-window coverage improves the fixed window classifier
+#### F118 — Full training-window coverage gains aggregate matches but regresses known cases
 
 **Type:** Model experiment result.
 
@@ -1477,17 +1480,51 @@ prediction and displayed-score tie conventions are tested separately. Fits take
 225.058 and 224.692 seconds; total run time is 1,000.006 seconds. No new audio,
 capture, synthetic transfer, unseen/PCM/native or default qualification.
 
-**Rules out / prevents:** Accept 27,711 as the window-stage research reference.
-Do not hide the rare-class failures, attribute the gain solely to within-track
-density, or infer whole-track energy or complete-cue gains. Preserve the old
-reference/cache and construct newly matched group-excluded outputs before
-training downstream learners. Arbitrary later inner selection still requires
-matched or nested exclusions.
+**Rules out / prevents:** The earlier research-reference acceptance is withdrawn
+under the owner's case-level regression gate; the measured counts are unchanged.
+Keep 26,944 as a comparison control and 27,711 as an unaccepted challenger.
+Investigate all 783 window regressions and the 73 regressed complete sequences
+before treating a correction or combination as a replacement. Do not hide rare
+failures, attribute the gain solely to density, infer overall/cue gains or choose
+models using target labels. Group-excluded outputs may support diagnostics, but
+arbitrary later inner selection still requires matched or nested exclusions.
 
 **Evidence:** E126, E127.
 
+## Current owner direction: case-level correctness before acceptance
+
+The research target is 100% agreement on each final output: key, whole-track energy
+and complete ordered cue lists. Unseen-music, native inference, PCM extraction and
+supported-format qualification remain separate requirements.
+
+Begin each proposed change by identifying exactly what the component gets wrong.
+Record the same-case four-way split: both correct, corrected, regressed known
+matches and both wrong. Describe classes, musical/acoustic contexts and timing,
+then distinguish measured associations from hypotheses and experimentally tested
+causes. A higher aggregate score is insufficient to call a change a verified fix.
+
+Preserve known-correct cases as explicit regression witnesses. A regressing model
+may remain useful evidence or contribute to a tested combination; it does not
+silently replace the control. Any combination must use deployable audio-derived
+inputs, not the reference answer. Prior experiment counts and counterexamples
+remain factual; aggregate-only selection is not a verified fix under this policy.
+The F118 acceptance recommendation is explicitly withdrawn without erasing data.
+Historical controls have their own regressions: F101 corrects 1,113 windows but
+breaks 844 prior matches; F094 corrects 161 overall ratings but breaks 84; F096
+corrects 37 keys but breaks 33. Preserve those earlier known-correct cases too.
+Do not portray restoring a predecessor as recovering an exact rule. A genuine
+zero-regression result must also retain its narrow measured scope: F085 improves
+eight complete lists without observed regressions on its saved development set.
+
+Select models or algorithms independently for key, window energy, overall energy,
+cue placement and cue labels where their failure modes differ. Response-stage
+timings do not identify the hidden model families (F071–F072).
+
 ## Working method decision — proposed techniques
 
+This menu records proposed techniques, not an execution queue or a fixed final
+architecture. The case-level gate above takes precedence. A different method is
+permitted when the observed failure and a discriminating experiment justify it.
 
 | Target | First technique | Controlled challenger / diagnostic | Why this order |
 |---|---|---|---|
@@ -1519,7 +1556,7 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
 7. Independent real-music generalisation and a defensible unseen evaluation after extensive historical development exposure.
 8. Exact cue-selection/energy mechanisms remain unresolved; private cue-model research is now authorized, with product Lexicon DSP preserved.
 9. Runtime optional CoreML/stem paths, model internals and future versions beyond bounded static evidence.
-10. A validated deployable default meeting 99% across the requested domains. None exists in this evidence.
+10. A validated deployable default meeting the current 100% research target across the requested domains. None exists in this evidence.
 
 
 ## Mandatory workflow and maintenance
