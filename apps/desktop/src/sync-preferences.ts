@@ -9,11 +9,12 @@ interface SyncChoices {path:string;sourceRoot:string|null;environment:TargetEnvi
 export type SyncDestination=DjSoftware|"rekordbox";
 interface SyncPreferences {version:1;destination:SyncDestination;software:DjSoftware;profiles:Record<DjSoftware,SyncChoices>}
 const fields:SyncTextField[]=["title","artist","album","genre","label","comment","key"];
+const mixxxBooleans=["replace_metadata","replace_key","replace_cues"] as const;
 const booleans=["engine_copy_audio","materialize_smartlists","usb_cleanup_unused","skip_beatgrids","nearest_color","add_album_art","extra_cue_markers"] as const;
 function object(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
 function choice<T extends string>(value:unknown,values:readonly T[],fallback:T):T{return typeof value==="string"&&values.includes(value as T)?value as T:fallback;}
 function text(value:unknown):string{return typeof value==="string"&&!value.includes("\0")?value:"";}
-function defaults():SyncChoices{return {path:"",sourceRoot:null,environment:{kind:"native"},scope:"full",playlistId:"",options:{...defaultSyncOptions,field_mappings:{}}};}
+function defaults():SyncChoices{return {path:"",sourceRoot:null,environment:{kind:"native"},scope:"full",playlistId:"",options:{...defaultSyncOptions,field_mappings:{},mixxx:{...defaultSyncOptions.mixxx}}};}
 function environment(value:unknown):TargetEnvironment{const raw=object(value);return raw.kind==="windows_compatibility"?{kind:"windows_compatibility",prefix:text(raw.prefix),installation:text(raw.installation)||null,mappings:Array.isArray(raw.mappings)?raw.mappings.slice(0,64).map(value=>{const row=object(value);return {windows_root:text(row.windows_root),host_root:text(row.host_root)};}):[]}:{kind:"native"};}
 function profile(value:unknown):SyncChoices{
  const saved=object(value),raw=object(saved.options),options=defaults().options;
@@ -22,6 +23,10 @@ function profile(value:unknown):SyncChoices{
  options.usb_cue_destination=choice(raw.usb_cue_destination,["hot","memory","both"],options.usb_cue_destination);
  options.usb_cdj_compatibility=choice(raw.usb_cdj_compatibility,["off","detect","auto_fix"],options.usb_cdj_compatibility);
  options.beatgrid_lock=choice(raw.beatgrid_lock,["default","lock","unlock"],options.beatgrid_lock);
+ const mixxx=object(raw.mixxx);
+ options.mixxx.existing_tracks=choice(mixxx.existing_tracks,["keep","replace"],options.mixxx.existing_tracks);
+ options.mixxx.container=choice(mixxx.container,["playlists","crates"],options.mixxx.container);
+ for(const key of mixxxBooleans)if(typeof mixxx[key]==="boolean")options.mixxx[key]=mixxx[key];
  const mappings=object(raw.field_mappings);
  for(const field of fields)if(typeof mappings[field]==="string"&&fields.includes(mappings[field] as SyncTextField))options.field_mappings[field]=mappings[field] as SyncTextField;
  return {path:text(saved.path),sourceRoot:text(saved.sourceRoot)||null,environment:environment(saved.environment),scope:choice(saved.scope,["full","playlist","changed"],"full"),playlistId:text(saved.playlistId),options};
@@ -31,7 +36,7 @@ export function readSyncPreferences():SyncPreferences{
  try{const value=object(JSON.parse(localStorage.getItem(syncPreferencesKey)??"null"));if(value.version===1)saved=value;}catch{}
  const profiles=object(saved.profiles);
  const software=choice(saved.software,syncTargets.map(target=>target.id),"virtual_dj");
- return {version:1,destination:choice<SyncDestination>(saved.destination,[...syncTargets.map(target=>target.id),"rekordbox"],software),software,profiles:Object.fromEntries(syncTargets.map(target=>[target.id,profile(profiles[target.id])])) as Record<DjSoftware,SyncChoices>};
+ return {version:1,destination:choice<SyncDestination>(saved.destination,[...syncTargets.map(target=>target.id),"rekordbox"],software),software,profiles:Object.fromEntries(syncTargets.map(target=>{const saved=profile(profiles[target.id]);return [target.id,target.id==="mixxx"?{...saved,environment:{kind:"native"} as TargetEnvironment}:saved];})) as Record<DjSoftware,SyncChoices>};
 }
 /** Persist editable choices only. Prepared journals and operation state stay in Sync. */
 export function useSyncPreferences(){
