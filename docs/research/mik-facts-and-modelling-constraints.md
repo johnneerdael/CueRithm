@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 7 · 22 October 2026 · Required engineering reference.
+Revision 9 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–7 add fresh grouped-development comparisons and exact
+prohibition. Revisions 3–9 add fresh grouped-development comparisons and exact
 whole-track pooling exclusions. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F097 and retained in separate experiment records.
+summarized in F078–F100 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E077 identify immutable private source snapshots by
+Evidence references E001–E083 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -63,6 +63,10 @@ uses previously inspected diagnostics. No replacement model is promoted.
 - Uniform arithmetic pooling of hidden window values with any common rating
   thresholds is excluded by an exact observed contradiction (F089–F090).
   Other weights, nonlinear pooling and separate overall thresholds remain open.
+- Hard selection among five compared key predictions is capped at 98.52% on
+  the spent cohort (F098); this does not bound score fusion or new predictions.
+- Correct counts alone do not repair the fixed cue selector (F099). Retained
+  training examples include four additional occurrences at one position (F100).
 - Captured-feature prediction and end-to-end PCM prediction have separate
   denominators (F001–F004). An upstream refusal is still an end-to-end failure.
 - Prior guessed bundles and failed partial prototypes are not the starting
@@ -1084,6 +1088,38 @@ Without fitting to synthetic targets after selection, the R3 candidate matches 2
 
 **Evidence:** E072.
 
+#### F098 — Choosing among the compared hard key predictions cannot reach 99 percent on this cohort
+
+On the same 1288 development requests, at least one of the retained R2 and selected R3 models is correct on 1253 requests; adding balanced R3 raises this to 1263. Across all five compared saved model predictions, at least one is correct on 1269/1288=98.5248 percent. Nineteen requests are wrong in every member, including 11 where all five agree on the same wrong key. The five-model set contains a correct major answer on 30/34 major responses.
+
+**Scope:** Posthoc saved-output diversity diagnostic on spent grouped development. The reported union selects a member using the true target and is explicitly an oracle diagnostic, not a fitted or operational selector. Every saved validation row aligns before comparison; no new model, inference, data or service request is used.
+
+**Rules out / prevents:** No hard selection rule restricted to these exact five already computed answers can meet 99 percent on this cohort. This does not exclude score fusion, retraining, a new representation or a different model that can produce different answers. Do not report the oracle union as attained prediction accuracy.
+
+**Evidence:** E083, E082.
+
+
+#### F099 — Correct cue counts alone do not repair the frozen position selector
+
+The frozen point/count models and alpha 8 decoder reproduce 571/1288 exact position lists and 1091/1288 correct counts. Giving only the decoder the true additional-cue count raises exact position lists to 660/1288: 89 lists are corrected, none regress, and 628 remain wrong. The oracle-count selections match 7652 of 8634 additional target occurrences as multisets.
+
+**Scope:** Explicit oracle-count diagnostic on the same spent grouped captured-feature development requests. Point inputs/rates, legal coordinates, anchor construction and decoder penalty stay fixed. Target counts never enter point features or a fitted model; no fitting occurs. The unchanged selector is tested, not an optimal position predictor.
+
+**Rules out / prevents:** 660 is not operational accuracy, complete timed/energy-labelled cue parity, an unseen result or a universal selection ceiling. Count repair helps only part of this fixed pipeline; position ranking/context remains a separate gap. Multiset event overlap must not replace complete ordered-list agreement.
+
+**Evidence:** E079, E078.
+
+
+#### F100 — Retained cue-point training targets include multiplicity four
+
+The unchanged 360656-row cue-point training sample contains 326272 zero-occurrence rows, 34382 single-occurrence rows and two rows with four additional cue occurrences. The forced first anchor has already been subtracted. These targets sum to 34390 additional occurrences, exactly 39488 training cues minus 5098 forced anchors. The original 74 feature hash and all 5098 query samples/weights reproduce exactly.
+
+**Scope:** No-fit prospective ranking preflight and independent reconstruction of every retained training query on spent captured-feature development. The initial max 2 assumption was rejected before any real model fitting; corrected linear relevance gains [0,1,2,3,4] support all observed counts. Neither training targets nor sampled coordinates were collapsed, capped or removed.
+
+**Rules out / prevents:** Two duplicate-position lists do not imply maximum multiplicity two. Do not binarise or cap these occurrence targets without declaring a different experiment. This metadata audit is not a fitted model result, universal server repeat rule or proof that a ranking objective will improve predictions.
+
+**Evidence:** E081, E080.
+
 ## Working method decision — proposed techniques
 
 
@@ -1182,7 +1218,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E068 retain the earlier snapshots; E069–E077 add later reviewed evidence. These hashes
+E001–E077 retain the earlier snapshots; E078–E083 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1266,3 +1302,9 @@ retain prior IDs or explicitly version replacement evidence.
 | E075 | `67e1ff84efa22d7dc53e8769e92f0931c36cde611b237b30ce0aeb0ee0351771` |
 | E076 | `c57d6631587dba89478e127b4f71da9c61166253d7a89d85f5863d77b1d8b1bd` |
 | E077 | `101113d7021ef75970f1ce22ae7a63efa6ebb05e4cf98a432a71560c3692989b` |
+| E078 | `7b5b3b8b9a7ea7216aedb734a33e55cb90271262f148a746e9e86fc0a4b03d3c` |
+| E079 | `9517b340c3967399500be031673fd771f308ccb64497988c5a531649d63fc771` |
+| E080 | `0bd84b3493c0f5d9308a97727a4f5c6fadfb6e92c3fe81a1b6e9c04dded210bf` |
+| E081 | `cd9f172323e609399a920d6c10aa91266b056cd373debc87efa29d0b01386aeb` |
+| E082 | `e985214014d8df17422fae38739688153886f579c2e24d4fc6991b30c7285278` |
+| E083 | `9ec104afa85a5153669f571d75e561dba561bf99c37353e1bb92e88b82063a00` |
