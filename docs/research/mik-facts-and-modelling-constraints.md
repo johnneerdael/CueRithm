@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 6 · 22 October 2026 · Required engineering reference.
+Revision 7 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–6 add fresh grouped-development comparisons and exact
+prohibition. Revisions 3–7 add fresh grouped-development comparisons and exact
 whole-track pooling exclusions. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F092 and retained in separate experiment records.
+summarized in F078–F097 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E068 identify immutable private source snapshots by
+Evidence references E001–E077 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -1015,6 +1015,60 @@ Six fresh SVC configurations on the same 5098 training and 1288 validation reque
 
 **Evidence:** E057, E066.
 
+#### F093 — Grouped cross-fitting supplies honest window evidence for whole-track learning
+
+Three fresh window models predict all 118118 training windows while excluding the complete held track groups before sampling or fitting. All 29892 development windows use the pinned full-training reference and reproduce its accepted labels. Every one of 148010 windows is covered exactly once. Fold 0 independently refits with identical bytes and outputs; folds 1/2 have exact export/reload checks but were not independently refitted. All 6386 semantic summaries reproduce exactly.
+
+**Scope:** Same spent 5098/1288 request split. The builder never loads overall targets. Each fold uses 32000 training windows with cap 16/group and a training-only rare-class reserve. Ten fixed class slots and explicit availability flags preserve missing/binary cases. The 150 derived features are lossy summaries, not an identified server representation.
+
+**Rules out / prevents:** Cross-fitting removes the specific in-sample window-prediction shortcut; it does not make this historically spent development cohort unseen or prove input sufficiency. Do not claim all three folds were independently refitted.
+
+**Evidence:** E074, E073, E077.
+
+
+#### F094 — Honest window outputs improve the bounded whole-track candidate
+
+The four declared overall configurations match 926,963,959 and 830 of 1288 responses, versus the retained 886. The selected 31-leaf tree with original 1476 plus 150 window-output features reaches 963/1288=74.7671 percent. Selected independent refits reproduce labels, numerical decision values and model bytes exactly. Paired outputs correct 161 old errors and introduce 84 new ones. Ratings 8/9 match 16/50, including 0/3 rating 9.
+
+**Scope:** Spent grouped captured-feature development with group-excluded window outputs for training and the full-training window reference for validation. Comparing the winning tree against the retained SVC changes learner and inputs together; the matched SVC with combined inputs reaches 926, versus 830 using summaries of window-model outputs alone. The selected tree fits all 5098 training targets, which does not establish generalisation.
+
+**Rules out / prevents:** The improvement is not unseen or PCM-to-output accuracy, a recovered pooling formula, or a default promotion. Sparse high-rating coverage and large remaining errors prevent a 99 percent claim. No oracle window labels enter overall predictors.
+
+**Evidence:** E075, E076, E077.
+
+
+#### F095 — Cue-label sequence errors remain even at correct positions
+
+With true positions supplied to the fixed cue-energy models, entire energy-label lists match 99/1288 before the span addition and 142/1288 after it. The new model corrects 1019 individual labels and regresses 534, net 485, reproducing the 6705 to 7190 of 9922 label change. The unchanged selector has only 571 exact position lists; perfect energy labels cannot repair its other 717 lists.
+
+**Scope:** Posthoc saved-output development slices at explicitly oracle positions. First-cue agreement changes 896 to 936 of 1288; later cues 5809 to 6254 of 8634. All counts include the same fixed requests/cues.
+
+**Rules out / prevents:** Oracle energy-sequence agreement is not operational cue parity, and error counts do not identify their cause. The new model improves aggregate counts without improving every label or track; both placement and labelling remain bottlenecks.
+
+**Evidence:** E069.
+
+
+#### F096 — Shared harmonic candidate evidence improves the new key comparison modestly
+
+The four declared fresh configurations match 1191,1172,1220 and 1212 of 1288 development responses. The selected harmonic candidate model reaches 1220/1288=94.7205 percent versus 1216 for the retained R2 reference; it corrects 37 previous errors and regresses 33. Major agreement improves 15 to 18 of 34; minor agreement 1201 to 1202 of 1254. Independent selected refits match predictions, raw decisions and serialized bytes.
+
+**Scope:** Spent grouped captured-feature development: 5098 training requests and 1288 validation requests. All 352 absolute register/bank slots remain in the transformed 353 feature prefix; a declared 96 feature relative-pitch branch augments it. The balanced harmonic contrast reaches 30/34 majors but 1212 overall, exposing a tradeoff. The raw binary candidate without this branch reaches 1172; direct multiclass tree 1191. No target transpositions or authored-key substitutions are used.
+
+**Rules out / prevents:** The four-track net improvement is not universal per-track improvement, unseen or PCM-to-output accuracy, recovered server architecture, or default promotion. Major coverage is sparse and class balancing does not solve total agreement.
+
+**Evidence:** E070, E071.
+
+
+#### F097 — The frozen harmonic key candidate transfers better to spent synthetic diagnostics
+
+Without fitting to synthetic targets after selection, the R3 candidate matches 202/277=72.9242 percent distinct captured synthetic requests versus 174/277 for R2. Major responses improve 0 to 15 of 48; minor 174 to 187 of 229. The 295 fixture IDs deduplicate to 277 requests and 277 key vectors; exact key-vector overlap with the real intake is zero.
+
+**Scope:** The same previously inspected synthetic stress set, with 14 old 08 captured-feature-only requests whose local extraction remains unqualified. Selection and independent refit precede this diagnostic. These are model-versus-captured-label comparisons, separate from authored-key-versus-MIK construction comparisons.
+
+**Rules out / prevents:** This is stronger transfer on spent constructions, not independent unseen evaluation or native PCM-path validation. The remaining 33 major errors prevent claiming that harmonic features solved major-key behaviour; no causal or architecture identification follows.
+
+**Evidence:** E072.
+
 ## Working method decision — proposed techniques
 
 
@@ -1113,7 +1167,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E046 retain the earlier snapshots; E047–E068 add later reviewed evidence. These hashes
+E001–E068 retain the earlier snapshots; E069–E077 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1188,3 +1242,12 @@ retain prior IDs or explicitly version replacement evidence.
 | E066 | `c5e9aa4cb057f4c44142e11e916ad6c5e53a67f0461d6b2005a640462d487581` |
 | E067 | `0aca3cb9487c2c5703b82cca4c56b35f20b20cad75d576cb10d8cc43d25ef0ba` |
 | E068 | `80b2c4ee9a463975d4a351fa297ba03a1ce1e89d6028aba6300479625ee885b3` |
+| E069 | `a36fb967596643382bc3109bd642316dde7d0a9adab7181d127f5ac4d2954f02` |
+| E070 | `aca343433c433fcb8e7d106c8129920036638eac3aa6b838dce86ac76a731149` |
+| E071 | `3af456b8c2fb684d9c21db2da44fe0cd7eec962e21d1a2bd4fb98b9aed358428` |
+| E072 | `d16e55fdaf19f9ad4e20bdbe2872b376a84f6db7deca91d4b118b4137f128982` |
+| E073 | `2744fe66cd384c49040e909a57cc570ae3455ee9b7e1a0fa23397622ae6a6f03` |
+| E074 | `e744940190908aa2319c77f19d9c0560dbd3771d38cb8ab82a81d42813c4130b` |
+| E075 | `67e1ff84efa22d7dc53e8769e92f0931c36cde611b237b30ce0aeb0ee0351771` |
+| E076 | `c57d6631587dba89478e127b4f71da9c61166253d7a89d85f5863d77b1d8b1bd` |
+| E077 | `101113d7021ef75970f1ce22ae7a63efa6ebb05e4cf98a432a71560c3692989b` |
