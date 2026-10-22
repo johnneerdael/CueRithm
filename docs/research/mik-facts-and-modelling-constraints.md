@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 12 · 22 October 2026 · Required engineering reference.
+Revision 13 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–12 add fresh grouped-development comparisons and exact
+prohibition. Revisions 3–13 add fresh grouped-development comparisons and exact
 whole-track pooling exclusions. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F105 and retained in separate experiment records.
+summarized in F078–F106 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E096 identify immutable private source snapshots by
+Evidence references E001–E100 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -44,7 +44,7 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
 | Window energy | 26,944/29,892 (90.14%) | Only 200/1,288 entire sequences match; class 8 regresses and class 10 remains 0/2 (F101). |
-| Complete cue lists | 199/1,288 (15.45%) within 1 ns | 195 timestamp-bit-exact; fixed positions remain 571/1,288. The new label model corrects 153 complete lists and regresses 20 (F104). |
+| Complete cue lists | 200/1,288 (15.53%) within 1 ns | 196 timestamp-bit-exact; full-list fixes/regressions 7/6. Selected placement falls 571→568; the prior position-only reference remains better (F106). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
 These are spent development comparisons using captured client features. They do
@@ -1173,6 +1173,16 @@ Appending 970 duration-weighted quantiles to the same 1626 inputs with the same 
 
 **Evidence:** E096, E095, E094.
 
+#### F106 — Nearby predicted-window inputs give a nominal full-cue gain but regress placement
+
+Appending 90 local predicted-window fields to the same 104 point inputs changes complete timed/labelled lists within 1 ns from 199 to 200 of 1288: seven old failures are corrected and six formerly correct lists regress. Timestamp-bit-exact lists rise 195 to 196. Exact position lists fall 571 to 568, with 19 corrected and 22 regressed. Counts remain 1091/1288. The frozen full-list-first rule selects the new model; the prior model remains better for position-only agreement.
+
+**Scope:** Spent grouped captured-feature development with identical 360656 training point samples, 5098 training queries, targets including multiplicity four, weights, Poisson parameters, L1 count model, alpha8 decoder and legal coordinates. Only the 90 current/previous/following matched R3 OOF outputs are appended. The C2 all390 energy state is fixed, but new coordinates legitimately alter its spans and labels. Of 1288 requests, 116 position lists change and 85 of those change their energy-label vectors; all 1172 unchanged-position lists retain identical times and labels. Runtime reproduces all baseline coordinates/labels/timestamp bytes before fitting. Both candidate and independent repeat execute 300 boosting rounds/300 native trees, with raw model, all-tree canonical, rates/raw-score and prediction bytes identical. Only cache fold0 has an independent refit; other cache folds have reload checks.
+
+**Rules out / prevents:** The one-track net full-list gain is not evidence of a substantial or statistically established improvement, and this configuration does not improve placement overall. Do not generalise the earlier cue-label context gain into a placement gain, report the retained 571-placement reference as the selected new pipeline, or claim unseen/PCM/native/default parity. Preserve full-list and position-only tradeoffs.
+
+**Evidence:** E100, E099, E098, E097.
+
 ## Working method decision — proposed techniques
 
 
@@ -1271,7 +1281,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E088 retain the earlier snapshots; E089–E096 add later reviewed evidence. These hashes
+E001–E096 retain the earlier snapshots; E097–E100 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1374,3 +1384,7 @@ retain prior IDs or explicitly version replacement evidence.
 | E094 | `816139959a8488098e139d71f30239dc1c5d9f8f4d9ddfc7c98b21a2fa96139a` |
 | E095 | `07c240e0576990f3c157ab434c4404d33e10f5be39328078c0f409b28596d1c8` |
 | E096 | `104bacae0de7a2a3aaaba8e5dc8178c4688df75de634857c5531bae4f75a7ff6` |
+| E097 | `9094d975be7cfcf756f773d185093521c89d02ff45c9091c74ed843c491b9ad8` |
+| E098 | `a3516c14fe8a3381c4385d56ee53eb14564ed68a0878f8435b3728a07f789559` |
+| E099 | `93f48f765fe04d6dc6d0953cdefa9998cb254bae9dce0e65225025525b208634` |
+| E100 | `3fbdf6ffa2ee4ce46d78bbacff6a70910caec21573007c9cdf7d591fbcd1846c` |
