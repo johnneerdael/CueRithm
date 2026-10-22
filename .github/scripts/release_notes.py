@@ -42,12 +42,13 @@ def entries(commits, bodies):
 PRODUCT = "CueRithm"
 TAGLINE = "Know your music. Shape your set."
 RELEASE_BANNER = "docs/assets/brand/release-banner.png"
+# Use the supplied dark 1600x480 brand-kit banner unchanged.
 # One row per platform package that release.yml publishes; keep the two in step.
 DOWNLOADS = [
-    ("macOS DMG", "Apple Silicon (M1 and later); there is no Intel build", "Developer ID signed and Apple notarized"),
-    ("Windows portable ZIP", "x64", "unsigned; Windows SmartScreen may warn on first launch"),
-    ("Linux DEB", "x64", "unsigned package"),
-    ("Source and notices", "All platforms", "CueRithm and bundled decoder (FFmpeg) source, with third-party license notices"),
+    ("macOS DMG", "Apple Silicon (M1 and later); there is no Intel build", "Developer ID signed and Apple notarized", "Cuerithm-arm64-{version}.dmg"),
+    ("Windows portable ZIP", "x64", "unsigned; Windows SmartScreen may warn on first launch", "Cuerithm-windows-x64-{version}.zip"),
+    ("Linux DEB", "x64", "unsigned package", "Cuerithm-linux-x64-{version}.deb"),
+    ("Application source", "All platforms", "CueRithm source; bundled FFmpeg source is in the assets below", "cuerithm-source.tar.gz"),
 ]
 
 
@@ -62,24 +63,34 @@ def status(repo, sha, version):
     return f"**Release{stage}.** Source: [{sha[:12]}](https://github.com/{repo}/commit/{sha})."
 
 
-def downloads():
+def downloads(repo=None, version=None):
     rows = ["| Download | Platform | Signing / distribution |", "| --- | --- | --- |"]
-    return ["## Downloads", ""] + rows + [f"| {name} | {platform} | {signing} |" for name, platform, signing in DOWNLOADS] + [""]
+    base = f"https://github.com/{repo}/releases/download/v{version}" if repo and version else None
+    for name, platform, signing, filename in DOWNLOADS:
+        label = f"[{name}]({base}/{filename.format(version=version)})" if base else name
+        rows.append(f"| {label} | {platform} | {signing} |")
+    if base:
+        rows += ["", f"[Third-party license notices]({base}/THIRD_PARTY_NOTICES.md)."]
+    return ["## Downloads", ""] + rows + [""]
 
 
 def render(public, internal, other, repo=None, sha=None, version=None):
     branded = bool(repo and sha)
-    out = banner(repo, sha) + [status(repo, sha, version), ""] if branded else []
+    out = banner(repo, sha) + [f"{PRODUCT} — {TAGLINE}", ""] if branded else []
+    if branded and version and version.startswith("0."):
+        out += ["**Pre-1.0 release.**", ""]
     # People using the app read the top; developer detail stays available but collapsed.
     if public:
         out += ["## What's new", ""] + [f"- {item}" for item in public] + [""]
     else:
         out += ["No user-facing changes.", ""]
     if branded:
-        out += downloads()
+        out += downloads(repo, version)
     developer = [(title, items) for title, items in [("Internal", internal), ("Direct commits", other)] if items]
-    if developer:
-        out += ["<details>", "<summary>For developers</summary>", ""]
+    if branded or developer:
+        out += ["<details>", "<summary>Build and source verification</summary>", ""]
+        if branded:
+            out += [status(repo, sha, version), ""]
         for title, items in developer:
             out += [f"**{title}**", ""] + [f"- {item}" for item in items] + [""]
         out += ["</details>"]

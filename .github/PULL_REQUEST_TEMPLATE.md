@@ -24,10 +24,11 @@ If evidence contradicts a finding, link its explicit supersession rather than si
 <!--
 Write for the person using the app, not the person reading the diff. Each bullet is one change
 they can notice: what they can do now, or what behaves differently, in plain words. The bullets
-become this PR's entry on the release page.
+become this PR's entry on the release page. Start with a short bold benefit, then explain
+how it helps in one or two short sentences. Group related fixes into a single clear point.
 No crate, module or function names, and no internal terms (coordinator, planner, provenance,
 schema, reservation). If a DJ would ask "what does that mean for me?", rewrite it.
-  Good: Tracks that could match several editions now stay in Incoming instead of being tagged with a guess.
+  Good: **Review uncertain matches.** Tracks that could match several editions stay in Incoming for you to check.
   Not:  Add deterministic candidate evidence and cross-provider identity checks.
 If users cannot see the change, write one `Internal:` bullet saying what changed.
 Leave out test results and install information.
