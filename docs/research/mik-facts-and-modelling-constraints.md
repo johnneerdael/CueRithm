@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 10 · 22 October 2026 · Required engineering reference.
+Revision 12 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–10 add fresh grouped-development comparisons and exact
+prohibition. Revisions 3–12 add fresh grouped-development comparisons and exact
 whole-track pooling exclusions. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F102 and retained in separate experiment records.
+summarized in F078–F105 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E088 identify immutable private source snapshots by
+Evidence references E001–E096 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -44,7 +44,7 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
 | Window energy | 26,944/29,892 (90.14%) | Only 200/1,288 entire sequences match; class 8 regresses and class 10 remains 0/2 (F101). |
-| Complete cue lists | 66/1,288 (5.12%) within 1 ns | Only 64 are timestamp-bit-exact; position and energy-label errors remain (F091, F095). |
+| Complete cue lists | 199/1,288 (15.45%) within 1 ns | 195 timestamp-bit-exact; fixed positions remain 571/1,288. The new label model corrects 153 complete lists and regresses 20 (F104). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
 These are spent development comparisons using captured client features. They do
@@ -1141,6 +1141,38 @@ After byte-exact reproduction of the frozen 1288-request selector baseline, rank
 
 **Evidence:** E085, E084.
 
+#### F103 — Complete 24-key query ranking does not improve the accepted harmonic candidate model
+
+The two full-query ranking configurations match 1172 and 1157 of 1288 development keys, compared with 1220 for the accepted harmonic binary reference. Both match 8/34 major responses versus 18/34; minor matches are 1164 and 1149 of 1254 versus 1202. Each corrects 16 reference errors while introducing 64 and 79. The frozen exact-key/macro-recall selection retains the reference.
+
+**Scope:** Spent grouped captured-feature development, identical 5098 training requests and complete 24-candidate queries (122352 paired rows), 462 harmonic candidate features, one captured positive per query and retained positive/negative point weights 1 and 1/23. Truncations 1 and 4 change the ranking objective/group normalization as a declared combination. Both exports reload exactly. Each actual booster contains 85 trees/iterations; 500 is the configured maximum, not an executed-round count. The exact reason for fewer fitted rounds is not established by the review. No new selected independent refit is claimed.
+
+**Rules out / prevents:** These two complete-key ranking configurations regress total and major agreement. Neither failure proves that every ranking method fails, the 352 inputs are insufficient, the vendor uses a particular architecture, or extra features/observations cannot help. Preserve actual fitted-tree counts and do not relabel configured maxima as completed iterations. No unseen, PCM, native or default qualification follows.
+
+**Evidence:** E093, E092.
+
+
+#### F104 — Predicted window context improves cue labels while positions stay fixed
+
+With the selector, count model, positions and timestamps fixed, adding 150 cue-to-next-cue predicted-window summaries raises complete timed and labelled lists within 1 ns from 66 to 187 of 1288. Adding all 390 local/whole-track/span features reaches 199/1288 (15.4503 percent), with 195 timestamp-bit-exact lists versus 64. The selected all390 model corrects 153 old complete-list failures and regresses 20. Count agreement remains 1091 and exact position lists 571 of 1288.
+
+**Scope:** Spent grouped captured-feature development with the original 946 cue-energy inputs, learner, 39488 training cues and targets retained. Training window outputs exclude each entire track group and validation uses the matched accepted R3 branch. At true cue positions, individual label agreement rises 7190 to 8515 of 9922, correcting 1796 labels and regressing 471; complete oracle label sequences rise 142 to 435, with 331 corrected and 38 regressed. All390 class8 is 107/150 versus 33, class9 stays 0/3, and validation has no class10. All four executed fits have 300 boosting rounds and 3000 native trees. The selected independent repeat matches raw joblib bytes, all-tree canonical bytes, numerical outputs and both prediction files. Historical reference canonical state and exhaustive outputs match; its raw pickle container differs, explicitly reported under the frozen C2 contract.
+
+**Rules out / prevents:** Useful predicted context in this fitted cue-label pipeline does not identify the vendor architecture, improve its unchanged placement model, isolate the effects of all individual context blocks or establish unseen/PCM/default parity. Oracle-position agreement is not operational complete cue parity. Aggregate gains do not erase individual or rare-class failures; preserve the historical serialization limitation.
+
+**Evidence:** E090, E089, E091.
+
+
+#### F105 — The tested duration-weighted distribution expansion does not improve whole-track energy
+
+Appending 970 duration-weighted quantiles to the same 1626 inputs with the same accepted learner matches 958/1288 development overall ratings, below the retained reference 963. It corrects 31 errors and regresses 36. Ratings8-9 remain 16/50 in aggregate, with one corrected and one regressed track; rating9 remains 0/3. The predeclared selection retains the reference.
+
+**Scope:** Spent grouped captured-feature development, identical 5098 training requests, 1288 development requests, targets, groups, cache branch, parameters and seed. Added quantiles cover 183 raw acoustic fields, separate RMS and ten aligned window-model margins with duration weights. Existing inputs already include unweighted RMS and margin quantiles; the new branch is the declared combined expansion. The original prefix and full OOF cache invariants validate. The candidate has 500 executed boosting rounds and 4500 native trees; it reports 5098/5098 training labels, which is not generalisation. Export/reload labels, raw decisions and canonical bytes match. The accepted reference is reused with its pinned prior repeat receipt and runtime full label forward; no new selected refit is claimed because the candidate loses.
+
+**Rules out / prevents:** This combined feature expansion is not an improvement for this frozen learner/cohort. It does not show that distributions are irrelevant, exclude other representations or learners, or recover a universal overall-energy formula. Keep the prior model; do not promote perfect training agreement as unseen or PCM accuracy.
+
+**Evidence:** E096, E095, E094.
+
 ## Working method decision — proposed techniques
 
 
@@ -1239,7 +1271,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E083 retain the earlier snapshots; E084–E088 add later reviewed evidence. These hashes
+E001–E088 retain the earlier snapshots; E089–E096 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1334,3 +1366,11 @@ retain prior IDs or explicitly version replacement evidence.
 | E086 | `cd32d979409d6ba0c127aca6ac9593c1b398910be66df42886186198a8f95637` |
 | E087 | `aa851b5834243cc4134ae46f23a8978d681910624442f43f53ef7be19ba17040` |
 | E088 | `5822cb7283091cd9bde8a1b18ebbcb09acd2aea3f6d8c8bc3d9b007372f63332` |
+| E089 | `756938d8df0888f21ceb464a317e37bbcbb75aef7e649e645bfc3f13b34eef4a` |
+| E090 | `0dbbf3a3acc8ad9c552eea4c7da5193a643ae0cd19bb580c9e7de07b36f26930` |
+| E091 | `f78f97dc8a5218f202c9c945574f4951bfb9322d201532a269a450ea699f07d2` |
+| E092 | `5d0751048a6cdc8049958d2fc7c11e2685b81b696f6fdbec94b2100268f2b133` |
+| E093 | `b59b5924cc8c92ce978ed45227655669c476c6fc85e0ee7fdabdca8ebbd2f95e` |
+| E094 | `816139959a8488098e139d71f30239dc1c5d9f8f4d9ddfc7c98b21a2fa96139a` |
+| E095 | `07c240e0576990f3c157ab434c4404d33e10f5be39328078c0f409b28596d1c8` |
+| E096 | `104bacae0de7a2a3aaaba8e5dc8178c4688df75de634857c5531bae4f75a7ff6` |
