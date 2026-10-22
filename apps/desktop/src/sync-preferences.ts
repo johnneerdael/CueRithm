@@ -6,7 +6,8 @@ import type {TargetEnvironment} from "./sync-target-types";
 
 export const syncPreferencesKey="cuerithm-dj-sync-preferences-v1";
 interface SyncChoices {path:string;sourceRoot:string|null;environment:TargetEnvironment;scope:"full"|"playlist"|"changed";playlistId:string;options:SyncOptions}
-interface SyncPreferences {version:1;software:DjSoftware;profiles:Record<DjSoftware,SyncChoices>}
+export type SyncDestination=DjSoftware|"rekordbox";
+interface SyncPreferences {version:1;destination:SyncDestination;software:DjSoftware;profiles:Record<DjSoftware,SyncChoices>}
 const fields:SyncTextField[]=["title","artist","album","genre","label","comment","key"];
 const booleans=["engine_copy_audio","materialize_smartlists","usb_cleanup_unused","skip_beatgrids","nearest_color","add_album_art","extra_cue_markers"] as const;
 function object(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
@@ -29,16 +30,17 @@ export function readSyncPreferences():SyncPreferences{
  let saved:Record<string,unknown>={};
  try{const value=object(JSON.parse(localStorage.getItem(syncPreferencesKey)??"null"));if(value.version===1)saved=value;}catch{}
  const profiles=object(saved.profiles);
- return {version:1,software:choice(saved.software,syncTargets.map(target=>target.id),"virtual_dj"),profiles:Object.fromEntries(syncTargets.map(target=>[target.id,profile(profiles[target.id])])) as Record<DjSoftware,SyncChoices>};
+ const software=choice(saved.software,syncTargets.map(target=>target.id),"virtual_dj");
+ return {version:1,destination:choice<SyncDestination>(saved.destination,[...syncTargets.map(target=>target.id),"rekordbox"],software),software,profiles:Object.fromEntries(syncTargets.map(target=>[target.id,profile(profiles[target.id])])) as Record<DjSoftware,SyncChoices>};
 }
 /** Persist editable choices only. Prepared journals and operation state stay in Sync. */
 export function useSyncPreferences(){
  const [preferences,setPreferences]=useState(readSyncPreferences);
  useEffect(()=>{try{localStorage.setItem(syncPreferencesKey,JSON.stringify(preferences));}catch{}},[preferences]);
- const setSoftware=useCallback((software:DjSoftware)=>setPreferences(previous=>({...previous,software})),[]);
+ const setDestination=useCallback((destination:SyncDestination)=>setPreferences(previous=>({...previous,destination,software:destination==="rekordbox"?previous.software:destination})),[]);
  const setChoices=useCallback((update:SetStateAction<SyncChoices>)=>setPreferences(previous=>{
   const current=previous.profiles[previous.software],next=typeof update==="function"?update(current):update;
   return {...previous,profiles:{...previous.profiles,[previous.software]:next}};
  }),[]);
- return {software:preferences.software,choices:preferences.profiles[preferences.software],setSoftware,setChoices};
+ return {destination:preferences.destination,software:preferences.software,choices:preferences.profiles[preferences.software],setDestination,setChoices};
 }

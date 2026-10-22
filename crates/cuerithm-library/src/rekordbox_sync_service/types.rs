@@ -116,6 +116,9 @@ pub struct RekordboxSyncPreflight {
 pub struct RekordboxSyncFieldReview {
     pub track_id: String,
     pub title: String,
+    /// A missing destination track is an addition, not an unreadable field.
+    #[serde(default)]
+    pub new_track: bool,
     pub field: String,
     pub local: NativeFieldObservation,
     pub remote: NativeFieldObservation,

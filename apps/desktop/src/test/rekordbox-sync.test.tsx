@@ -1,6 +1,6 @@
 import {act,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {useState} from "react";
-import {describe,expect,it,vi} from "vitest";
+import {beforeEach,describe,expect,it,vi} from "vitest";
 import RekordboxSync from "../views/RekordboxSync";
 import RekordboxEntities from "../components/RekordboxEntities";
 import Sync from "../views/Sync";
@@ -8,6 +8,9 @@ import {fakeBridge} from "./bridge";
 import {allowedDecisions,rekordboxValueText} from "../components/RekordboxConflicts";
 import type {SyncTargetConfiguration} from "../sync-target-types";
 import type {RekordboxBridge,RekordboxSyncFieldReview,RekordboxSyncPreview,RekordboxSyncTarget} from "../rekordbox-sync-types";
+import {syncPreferencesKey} from "../sync-preferences";
+
+beforeEach(()=>localStorage.removeItem(syncPreferencesKey));
 
 const target:RekordboxSyncTarget={id:"native-6",installation:{version:"6.8.5",major:6,root:"/Applications/rekordbox 6",executable:"/Applications/rekordbox 6/rekordbox",version_source:"bundle"},database:"/Synthetic/rekordbox/master.db",options_file:"/Synthetic/options.json",asset_root:"/Synthetic/rekordbox"};
 const field:RekordboxSyncFieldReview={track_id:"a",title:"Night drive",field:"title",local:{state:"present",value:"Night drive"},remote:{state:"present",value:"Night drive"},result:{state:"conflict",reason:"initial_acknowledgement",suggestion:"accept_equal"},decision:null};
@@ -82,15 +85,19 @@ describe("native rekordbox sync",()=>{
   await screen.findByText("1 track · 2 rows changed · 1 field acknowledged · 1 field skipped");
   expect(screen.queryByText("Everything is already synced.")).not.toBeInTheDocument();
  });
- it("reviews pending new members, then concrete entities only after field choices and a fresh preview",async()=>{
-  const api=bridge();vi.mocked(api.preview).mockResolvedValueOnce({...prepared("pending",[{...field,remote:{state:"unavailable"}}]),can_apply:false,pending_entities:[{kind:"playlist",name:"Opening set",unresolved_members:1,member_titles:["Night drive"]}],entity_changes:[]});await open(api);
+ it("explains missing playlist members and includes them after enabling title metadata",async()=>{
+  const api=bridge();vi.mocked(api.preview).mockResolvedValueOnce({...prepared("pending",[]),can_apply:false,pending_entities:[{kind:"playlist",name:"Opening set",unresolved_members:1,member_titles:["Night drive"]}],entity_changes:[]});await open(api);
+  fireEvent.click(screen.getByText("Metadata fields"));
+  fireEvent.click(screen.getByRole("checkbox",{name:"title"}));
   fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
   const entities=await screen.findByRole("region",{name:"rekordbox playlist and My Tag review"});
-  expect(within(entities).getByText("Opening set")).toBeInTheDocument();expect(within(entities).getByText(/1 member awaiting track choices/)).toBeInTheDocument();expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
-  fireEvent.change(screen.getByRole("combobox",{name:"Choice for Night drive title"}),{target:{value:"use_local"}});
+  expect(within(entities).getByText("Opening set")).toBeInTheDocument();expect(within(entities).getByText(/1 member missing from this preview/)).toBeInTheDocument();expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
+  expect(within(entities).queryByText(/choose Use CueRithm/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox",{name:"title"}));
   expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeDisabled();
-  vi.mocked(api.preview).mockResolvedValueOnce({...prepared("complete",[{...field,decision:"use_local"}]),pending_entities:[],entity_changes:[{local_id:"private-local-id",kind:"playlist",action:"create",ownership:"new",materialized_smart:true,before:null,after:{name:"Opening set",parent_path:["Weekend"],representation:"ordinary",position:2,member_count:1,members:[{title:"Night drive",position:1,external:false}],external_member_count:0}}]});
-  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));await screen.findByText("Smart playlist exported as a track list");expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeEnabled();expect(vi.mocked(api.preview).mock.calls[1][1].decisions).toEqual({a:{title:"use_local"}});
+  vi.mocked(api.preview).mockResolvedValueOnce({...prepared("complete",[{...field,new_track:true,remote:{state:"unavailable"},result:{state:"proposed",decision:"use_local"},decision:"use_local"}]),pending_entities:[],entity_changes:[{local_id:"private-local-id",kind:"playlist",action:"create",ownership:"new",materialized_smart:true,before:null,after:{name:"Opening set",parent_path:["Weekend"],representation:"ordinary",position:2,member_count:1,members:[{title:"Night drive",position:1,external:false}],external_member_count:0}}]});
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));await screen.findByText("Smart playlist exported as a track list");expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeEnabled();expect(vi.mocked(api.preview).mock.calls[1][1].decisions).toEqual({});
+  expect(vi.mocked(api.preview).mock.calls[1][1].options.metadata_fields).toContain("title");
   expect(screen.getByRole("region",{name:"rekordbox playlist and My Tag review"})).not.toHaveTextContent("private-local-id");
  });
  it("shows readable profiles without enabling writes",async()=>{
@@ -143,11 +150,37 @@ describe("native rekordbox sync",()=>{
   const api=bridge();vi.mocked(api.preflight).mockResolvedValueOnce({target,readable:true,writable:false,restrictions:["rekordbox Agent is running. Close it before syncing."],schema_fingerprint:null,identity:null});render(<RekordboxSync bridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);await screen.findByText("rekordbox Agent is running. Close it before syncing.");
   fireEvent.click(screen.getByRole("button",{name:"Refresh rekordbox libraries"}));await screen.findByText("Ready for preview");expect(api.preflight).toHaveBeenCalledTimes(2);
  });
- it("keeps native sync in the existing workspace without changing the five adapter choices",async()=>{
-  const api=bridge();render(<Sync bridge={fakeBridge([])} rekordboxBridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);
-  expect(within(screen.getByRole("combobox",{name:"Sync to"})).getAllByRole("option")).toHaveLength(5);expect(api.discover).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button",{name:"rekordbox 6 / 7"}));await screen.findByText("Ready for preview");expect(screen.queryByRole("combobox",{name:"Sync to"})).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button",{name:"DJ libraries and USB"}));expect(screen.getByRole("combobox",{name:"Sync to"})).toBeInTheDocument();
+ it("offers rekordbox alongside the other destinations and restores it after remount",async()=>{
+  const api=bridge(),adapters=fakeBridge([]);
+  const view=render(<Sync bridge={adapters} rekordboxBridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);
+  expect(within(screen.getByRole("combobox",{name:"Sync to"})).getAllByRole("option")).toHaveLength(6);expect(api.discover).not.toHaveBeenCalled();
+  expect(screen.queryByRole("navigation",{name:"Sync destinations"})).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"rekordbox"}});
+  await screen.findByText("Ready for preview");expect(screen.getByRole("combobox",{name:"Sync to"})).toHaveValue("rekordbox");
+  expect(adapters.previewDjSync).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"virtual_dj"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/SavedDJ"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"rekordbox"}});
+  await screen.findByText("Ready for preview");view.unmount();
+  render(<Sync bridge={adapters} rekordboxBridge={api} workspace={null} revision={1} onChanged={()=>{}}/>);
+  await screen.findByText("Ready for preview");expect(screen.getByRole("combobox",{name:"Sync to"})).toHaveValue("rekordbox");
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"virtual_dj"}});
+  expect(screen.getByRole("textbox",{name:"VirtualDJ library folder"})).toHaveValue("/SavedDJ");
+ });
+ it("shows new tracks as automatic additions without field choices and applies the first preview",async()=>{
+  const api=bridge();
+  const newFields:RekordboxSyncFieldReview[]=[{...field,new_track:true,remote:{state:"unavailable"},result:{state:"proposed",decision:"use_local"},decision:"use_local"},{...field,new_track:true,field:"disc_number",local:{state:"present",value:null},remote:{state:"unavailable"},result:{state:"unchanged"},decision:null}];
+  vi.mocked(api.preview).mockResolvedValue({...prepared("new-track",newFields),can_apply:true});await open(api);
+  fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));
+  const additions=await screen.findByRole("region",{name:"New rekordbox tracks"});
+  expect(additions).toHaveTextContent("Night drive");expect(additions).toHaveTextContent("1 new track");
+  expect(screen.queryByRole("combobox",{name:/Choice for Night drive/})).not.toBeInTheDocument();
+  expect(screen.queryByText(/fields need a choice/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"Sync rekordbox"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"Sync rekordbox"}));
+  await waitFor(()=>expect(api.apply).toHaveBeenCalledWith(expect.any(String),"new-track"));
+  expect(vi.mocked(api.preview).mock.calls).toHaveLength(1);
+  expect(vi.mocked(api.preview).mock.calls[0][1].decisions).toEqual({});
  });
  it("uses explicit bulk values only where available and can reset the choices",async()=>{
   const api=bridge();vi.mocked(api.preview).mockResolvedValue(prepared("new",[{...field,remote:{state:"unavailable"}},{...field,field:"comment",local:{state:"present",value:null},remote:{state:"present",value:null}}]));await open(api);fireEvent.click(screen.getByRole("button",{name:"Preview rekordbox sync"}));await screen.findByRole("region",{name:"rekordbox field review"});
