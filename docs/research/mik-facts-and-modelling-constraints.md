@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 9 · 22 October 2026 · Required engineering reference.
+Revision 10 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–9 add fresh grouped-development comparisons and exact
+prohibition. Revisions 3–10 add fresh grouped-development comparisons and exact
 whole-track pooling exclusions. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F100 and retained in separate experiment records.
+summarized in F078–F102 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E083 identify immutable private source snapshots by
+Evidence references E001–E088 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -43,7 +43,7 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | --- | --- | --- |
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
-| Window energy | 26,675/29,892 (89.24%) | Only 177/1,288 entire window sequences match; this is a different target from whole-track energy (F083). |
+| Window energy | 26,944/29,892 (90.14%) | Only 200/1,288 entire sequences match; class 8 regresses and class 10 remains 0/2 (F101). |
 | Complete cue lists | 66/1,288 (5.12%) within 1 ns | Only 64 are timestamp-bit-exact; position and energy-label errors remain (F091, F095). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
@@ -1120,6 +1120,27 @@ The unchanged 360656-row cue-point training sample contains 326272 zero-occurren
 
 **Evidence:** E081, E080.
 
+#### F101 — The bounded kernel comparison improves window agreement but leaves rare ratings unresolved
+
+All six raw-183-feature kernel candidates converge. The selected RBF candidate matches 26944/29892 development windows (90.1378 percent), versus 26675/29892 (89.2379 percent) for the retained R3 reference. It corrects 1113 previous window errors and introduces 844. Complete window sequences rise from 177 to 200 of 1288 requests, with 96 corrected and 73 regressed sequences. Independent selected refits reproduce labels, raw decisions and serialized model bytes exactly.
+
+**Scope:** Spent grouped captured-feature development, identical 32000 training-window indices and 29892 validation windows. Polynomial degree-two/three alternatives are worse in this matrix. Macro recall slightly declines from 74.7601 to 74.6764 percent; class 8 falls from 495 to 479 correct of 647, and class 10 remains 0/2. The failed original R5 reporting run and three capped/ineligible R5B fits remain separate; only completed uncapped R5C is accepted.
+
+**Rules out / prevents:** A gain on common window ratings is not a solution for rare ratings, whole-track energy, complete cue parity, unseen music or native PCM prediction. Existing honest OOF feature caches remain their explicitly pinned R3 branch; replacing only validation outputs with R5C would invalidate the matched training representation.
+
+**Evidence:** E088, E087, E086.
+
+
+#### F102 — The two tested query-ranking replacements regress complete cue agreement
+
+After byte-exact reproduction of the frozen 1288-request selector baseline, ranking truncation 8 and 16 produce 558 and 564 exact position lists versus 571 for the reference. Complete timed/energy-labelled lists within 1 ns fall from 66 to 62 for both; bit-exact lists fall from 64 to 61. Positional fixes/regressions are 101/114 and 105/112; complete-list fixes/regressions are 7/11 and 8/12. The predeclared full-list selection retains the reference.
+
+**Scope:** Spent grouped captured-feature development. Both fresh rankers use the same 104 features, 360656 point samples, 5098 queries, occurrence targets including multiplicity four, weights, fixed L1 count model, span-energy classifier and alpha-8 repeat-capable decoder. The changed ranking objective plus raw-score utility link is an explicitly designed combination. Both model export/reload checks pass; no new winning independent refit is claimed because neither candidate wins.
+
+**Rules out / prevents:** These two objective/link configurations are not improvements. This does not exclude other ranking methods, different features, a structured decoder or a new model. Do not present partial event overlap, position-only changes or the occurrence of repeated predictions as complete cue parity or a recovered server rule.
+
+**Evidence:** E085, E084.
+
 ## Working method decision — proposed techniques
 
 
@@ -1218,7 +1239,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E077 retain the earlier snapshots; E078–E083 add later reviewed evidence. These hashes
+E001–E083 retain the earlier snapshots; E084–E088 add later reviewed evidence. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1308,3 +1329,8 @@ retain prior IDs or explicitly version replacement evidence.
 | E081 | `cd9f172323e609399a920d6c10aa91266b056cd373debc87efa29d0b01386aeb` |
 | E082 | `e985214014d8df17422fae38739688153886f579c2e24d4fc6991b30c7285278` |
 | E083 | `9ec104afa85a5153669f571d75e561dba561bf99c37353e1bb92e88b82063a00` |
+| E084 | `56c53f5a65566caec34710b5dded7669d7dda9d5bad46c4090a697ba800c8cdf` |
+| E085 | `7e8046939aaf67ff6bc378b2151d7695d493e862a1e7240323e4019a67ea5a90` |
+| E086 | `cd32d979409d6ba0c127aca6ac9593c1b398910be66df42886186198a8f95637` |
+| E087 | `aa851b5834243cc4134ae46f23a8978d681910624442f43f53ef7be19ba17040` |
+| E088 | `5822cb7283091cd9bde8a1b18ebbcb09acd2aea3f6d8c8bc3d9b007372f63332` |
