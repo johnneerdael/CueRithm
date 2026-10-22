@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 14 · 22 October 2026 · Required engineering reference.
+Revision 15 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–14 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–15 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-recorded alongside input/data audits in F078–F116 and retained in separate experiment records.
+recorded alongside input/data audits in F078–F118 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E123 identify immutable private source snapshots by
+Evidence references E001–E127 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -1427,6 +1427,65 @@ energy or complete-cue parity; matched existing OOF caches remain unchanged.
 **Evidence:** E121–E123.
 
 
+#### F117 — The bounded count-only search does not improve complete cues
+
+**Type:** Model experiment result.
+
+All 48 Optuna trials complete, with none failed or pruned. Two-fold training-group
+selection chooses a 600-tree depth-five CatBoost classifier on the original 22
+inputs: 4,391/5,098 counts, versus L1's 4,368 and the constant mode's 4,372.
+On 1,288 spent development requests it matches 1,088 counts versus 1,091, with
+18 corrections and 21 regressions. Complete positions fall 568→563, with eight
+corrections and 13 regressions. Complete timed and labelled lists fall 200→198,
+with four corrections and six regressions; timestamp-bit-exact lists fall
+196→194. Sixty-three lists change and 1,225 remain exactly unchanged.
+
+**Scope:** Two input-only representations and three techniques; no inner learned
+window outputs or target-bearing features. Fixed point, energy, decoder and
+matched window-cache states. Changed counts legitimately alter cue spans and
+labels. All 96 fold models, two control models, selection and every final list
+were independently recounted. Selected refits/reloads, canonical state, numeric
+outputs and labels match. Raw CatBoost containers differ only in verified GUID
+and finish-time metadata; normalizing only those fields restores byte identity.
+No new audio/capture, synthetic-transfer or unseen/PCM/native qualification.
+
+**Rules out / prevents:** Retain 200. Reject this selected configuration, not all
+count models, CatBoost or geometry/activity features. Better count selection
+alone would not establish complete-list parity.
+
+**Evidence:** E124, E125.
+
+#### F118 — Full training-window coverage improves the fixed window classifier
+
+**Type:** Model experiment result.
+
+Using all 118,118 training windows from 5,098 groups instead of 32,000 from 4,855
+raises exact window matches from 26,944 to 27,711 of 29,892: 1,550 corrections
+and 783 regressions. Complete ordered window-label sequences rise from 200 to
+307 of 1,288, with 180 corrections and 73 regressions. Rating 9 falls from
+11 to 10 of 18; rating 10 remains 0/2. Both converged fits have 31,040 support
+vectors. Model bytes, typed learned arrays, canonical state, scores, labels and
+reloads repeat exactly.
+
+**Scope:** One fixed raw-183-field RBF SVC, C100 and gamma .18616444995021475,
+with an uncapped solver and cache 8,192 MiB versus 256. Full coverage adds 86,118
+windows and 243 previously unsampled training groups; unit-window loss mass by
+track and class also changes. This is a combined training-design contrast.
+Independent full RBF, vote and OVR calculations match every label, with maximum
+score differences below 9e-12 against the declared 1e-7 tolerance. Exact-zero
+prediction and displayed-score tie conventions are tested separately. Fits take
+225.058 and 224.692 seconds; total run time is 1,000.006 seconds. No new audio,
+capture, synthetic transfer, unseen/PCM/native or default qualification.
+
+**Rules out / prevents:** Accept 27,711 as the window-stage research reference.
+Do not hide the rare-class failures, attribute the gain solely to within-track
+density, or infer whole-track energy or complete-cue gains. Preserve the old
+reference/cache and construct newly matched group-excluded outputs before
+training downstream learners. Arbitrary later inner selection still requires
+matched or nested exclusions.
+
+**Evidence:** E126, E127.
+
 ## Working method decision — proposed techniques
 
 
@@ -1533,7 +1592,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E123 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E127 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1663,3 +1722,7 @@ retain prior IDs or explicitly version replacement evidence.
 | E121 | `f7c6040f9ce91c65179000211bcb35c1fadea64596483eb3254c0eccba9d2954` |
 | E122 | `d327b7c8d04b49e91c838bc5288160f19de51e75546c3eaf9a152e9f8f433d21` |
 | E123 | `aee518ed5c3bb1b2d603760ce8fabe0f25ae7d537f74376bde1d307f4f6ea91a` |
+| E124 | `de7e54262a26a2001d6cc551401ef73da181596e1c322646ca9edb23245acbb0` |
+| E125 | `1d423db0e11f65548aac2a392a4765fc7c3cdc5445e4e0a28caeb409b30ba93d` |
+| E126 | `6c7efc74b19c93b865a79009c295629f47df197ae3531a46e90117f6ec3151e2` |
+| E127 | `1bb16ed05019925ac1109e8d15e4482d06f6e99a163a73e9185a7d890ea04272` |
