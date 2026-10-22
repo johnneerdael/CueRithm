@@ -1273,6 +1273,90 @@ fn creation_columns(f: &Fixture) {
     }
 }
 #[test]
+fn new_native_tracks_with_only_empty_metadata_require_title_before_apply() {
+    for scope in [RekordboxSyncScope::Full, RekordboxSyncScope::Changed] {
+        let f = fixture(false);
+        cue_fixture(&f);
+        creation_columns(&f);
+        open(&f.native)
+            .execute(
+                "UPDATE djmdContent SET FolderPath='/missing/authored.flac' WHERE ID='1'",
+                [],
+            )
+            .unwrap();
+        let prior = load(&f.library, &f.id).unwrap();
+        f.library.discard_rekordbox_sync(&f.id).unwrap();
+        let mut request = RekordboxSyncRequest {
+            configuration: None,
+            target_id: prior.target.id.clone(),
+            scope,
+            options: RekordboxSyncOptions {
+                metadata_fields: BTreeSet::from(["disc_number".into()]),
+                cues: false,
+                beat_grid: false,
+                artwork: false,
+                playlists: false,
+                my_tags: false,
+                materialize_smart_playlists: false,
+                convert_incompatible_audio: false,
+                nearest_color: false,
+            },
+            decisions: BTreeMap::new(),
+        };
+        let preview = planning::preview(
+            &f.library,
+            request.clone(),
+            prior.target.clone(),
+            &key(),
+            None,
+            &CancellationToken::default(),
+            planning::PreviewPermit::AuthoredFixture,
+        )
+        .unwrap();
+        assert_eq!(preview.fields.len(), 1);
+        assert!(preview.fields[0].new_track);
+        assert_eq!(preview.fields[0].field, "disc_number");
+        assert_eq!(
+            preview.fields[0].local,
+            NativeFieldObservation::Present(Value::Null)
+        );
+        assert!(
+            !preview.can_apply,
+            "Title-less additions need a new preview"
+        );
+        assert_eq!(preview.tracks, 0);
+        assert_eq!(preview.changed_rows, 0);
+        assert!(preview.pending_entities.is_empty());
+        assert!(preview.warnings.iter().any(|warning| warning
+            == "New rekordbox tracks need a title. Include title in Metadata fields without skipping it, then preview again."));
+        let op = load(&f.library, &preview.id).unwrap();
+        assert!(op.resolved.is_empty());
+        assert!(op.plan.rows.is_empty());
+        f.library.discard_rekordbox_sync(&preview.id).unwrap();
+
+        request.options.metadata_fields.insert("title".into());
+        let ready = planning::preview(
+            &f.library,
+            request,
+            prior.target,
+            &key(),
+            Some(&runtime()),
+            &CancellationToken::default(),
+            planning::PreviewPermit::AuthoredFixture,
+        )
+        .unwrap();
+        assert!(ready.can_apply);
+        assert_eq!(ready.tracks, 1);
+        assert!(
+            ready.fields.iter().any(|field| field.field == "title"
+                && field.decision == Some(NativeFieldDecision::UseLocal))
+        );
+        let op = load(&f.library, &ready.id).unwrap();
+        assert_eq!(op.resolved.len(), 1);
+        assert!(op.resolved[0].created);
+    }
+}
+#[test]
 fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local_songs() {
     let f = fixture(false);
     cue_fixture(&f);
