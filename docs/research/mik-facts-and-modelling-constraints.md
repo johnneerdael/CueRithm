@@ -14,9 +14,10 @@ register; the private companion uses the same IDs and retains the underlying
 audio, capture audits and identifying evidence. Historical reports can describe
 earlier hypotheses; the scoped exclusions here govern current work.
 
-The record covers controlled runs 01–10 (including rejected 06 and replacement
-06B), local mechanism investigations, and an independently recomputed assessment
-of the supplied mixed track ledger. Each item distinguishes observations,
+The record covers controlled synthetic runs 01–10 (including rejected 06 and
+replacement 06B), the real-source suffix experiment in run 11, local mechanism
+investigations, and an independently recomputed assessment of the supplied mixed
+track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
