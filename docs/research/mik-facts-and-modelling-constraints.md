@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 14 · 22 October 2026 · Required engineering reference.
+Revision 15 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–14 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–15 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-recorded alongside input/data audits in F078–F116 and retained in separate experiment records.
+recorded alongside input/data audits in F078–F118 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E123 identify immutable private source snapshots by
+Evidence references E001–E127 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -43,13 +43,16 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | --- | --- | --- |
 | Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
-| Window energy | 26,944/29,892 (90.14%) | Only 200/1,288 entire sequences match; class 8 regresses and class 10 remains 0/2 (F101). |
+| Window energy comparison control | 26,944/29,892 (90.14%) | 200/1,288 entire sequences match; retained as a reproducible control, not an exact recovered rule (F101). |
+| Window energy unaccepted challenger | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match, but 783 previously correct windows and 73 complete sequences regress; class 9 falls 11→10/18, class 10 remains 0/2 (F118). |
 | Complete cue lists | 200/1,288 (15.53%) within 1 ns | 196 timestamp-bit-exact; full-list fixes/regressions 7/6. Selected placement falls 571→568; the prior position-only reference remains better (F106). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
 These are spent development comparisons using captured client features. They do
 not measure unseen music or the complete decoded-audio path. The synthetic check
-uses previously inspected diagnostics. No replacement model is promoted.
+uses previously inspected diagnostics. Controls are reproducible comparisons, not
+verified recovered rules. Earlier aggregate-only acceptance recommendations are
+audited at case level; acoustic causes remain unresolved. No product-default replacement is promoted.
 
 ## Immediate exclusions
 
@@ -1427,8 +1430,101 @@ energy or complete-cue parity; matched existing OOF caches remain unchanged.
 **Evidence:** E121–E123.
 
 
+#### F117 — The bounded count-only search does not improve complete cues
+
+**Type:** Model experiment result.
+
+All 48 Optuna trials complete, with none failed or pruned. Two-fold training-group
+selection chooses a 600-tree depth-five CatBoost classifier on the original 22
+inputs: 4,391/5,098 counts, versus L1's 4,368 and the constant mode's 4,372.
+On 1,288 spent development requests it matches 1,088 counts versus 1,091, with
+18 corrections and 21 regressions. Complete positions fall 568→563, with eight
+corrections and 13 regressions. Complete timed and labelled lists fall 200→198,
+with four corrections and six regressions; timestamp-bit-exact lists fall
+196→194. Sixty-three lists change and 1,225 remain exactly unchanged.
+
+**Scope:** Two input-only representations and three techniques; no inner learned
+window outputs or target-bearing features. Fixed point, energy, decoder and
+matched window-cache states. Changed counts legitimately alter cue spans and
+labels. All 96 fold models, two control models, selection and every final list
+were independently recounted. Selected refits/reloads, canonical state, numeric
+outputs and labels match. Raw CatBoost containers differ only in verified GUID
+and finish-time metadata; normalizing only those fields restores byte identity.
+No new audio/capture, synthetic-transfer or unseen/PCM/native qualification.
+
+**Rules out / prevents:** Retain 200. Reject this selected configuration, not all
+count models, CatBoost or geometry/activity features. Better count selection
+alone would not establish complete-list parity.
+
+**Evidence:** E124, E125.
+
+#### F118 — Full training-window coverage gains aggregate matches but regresses known cases
+
+**Type:** Model experiment result.
+
+Using all 118,118 training windows from 5,098 groups instead of 32,000 from 4,855
+raises exact window matches from 26,944 to 27,711 of 29,892: 1,550 corrections
+and 783 regressions. Complete ordered window-label sequences rise from 200 to
+307 of 1,288, with 180 corrections and 73 regressions. Rating 9 falls from
+11 to 10 of 18; rating 10 remains 0/2. Both converged fits have 31,040 support
+vectors. Model bytes, typed learned arrays, canonical state, scores, labels and
+reloads repeat exactly.
+
+**Scope:** One fixed raw-183-field RBF SVC, C100 and gamma .18616444995021475,
+with an uncapped solver and cache 8,192 MiB versus 256. Full coverage adds 86,118
+windows and 243 previously unsampled training groups; unit-window loss mass by
+track and class also changes. This is a combined training-design contrast.
+Independent full RBF, vote and OVR calculations match every label, with maximum
+score differences below 9e-12 against the declared 1e-7 tolerance. Exact-zero
+prediction and displayed-score tie conventions are tested separately. Fits take
+225.058 and 224.692 seconds; total run time is 1,000.006 seconds. No new audio,
+capture, synthetic transfer, unseen/PCM/native or default qualification.
+
+**Rules out / prevents:** The earlier research-reference acceptance is withdrawn
+under the owner's case-level regression gate; the measured counts are unchanged.
+Keep 26,944 as a comparison control and 27,711 as an unaccepted challenger.
+Investigate all 783 window regressions and the 73 regressed complete sequences
+before treating a correction or combination as a replacement. Do not hide rare
+failures, attribute the gain solely to density, infer overall/cue gains or choose
+models using target labels. Group-excluded outputs may support diagnostics, but
+arbitrary later inner selection still requires matched or nested exclusions.
+
+**Evidence:** E126, E127.
+
+## Current owner direction: case-level correctness before acceptance
+
+The research target is 100% agreement on each final output: key, whole-track energy
+and complete ordered cue lists. Unseen-music, native inference, PCM extraction and
+supported-format qualification remain separate requirements.
+
+Begin each proposed change by identifying exactly what the component gets wrong.
+Record the same-case four-way split: both correct, corrected, regressed known
+matches and both wrong. Describe classes, musical/acoustic contexts and timing,
+then distinguish measured associations from hypotheses and experimentally tested
+causes. A higher aggregate score is insufficient to call a change a verified fix.
+
+Preserve known-correct cases as explicit regression witnesses. A regressing model
+may remain useful evidence or contribute to a tested combination; it does not
+silently replace the control. Any combination must use deployable audio-derived
+inputs, not the reference answer. Prior experiment counts and counterexamples
+remain factual; aggregate-only selection is not a verified fix under this policy.
+The F118 acceptance recommendation is explicitly withdrawn without erasing data.
+Historical controls have their own regressions: F101 corrects 1,113 windows but
+breaks 844 prior matches; F094 corrects 161 overall ratings but breaks 84; F096
+corrects 37 keys but breaks 33. Preserve those earlier known-correct cases too.
+Do not portray restoring a predecessor as recovering an exact rule. A genuine
+zero-regression result must also retain its narrow measured scope: F085 improves
+eight complete lists without observed regressions on its saved development set.
+
+Select models or algorithms independently for key, window energy, overall energy,
+cue placement and cue labels where their failure modes differ. Response-stage
+timings do not identify the hidden model families (F071–F072).
+
 ## Working method decision — proposed techniques
 
+This menu records proposed techniques, not an execution queue or a fixed final
+architecture. The case-level gate above takes precedence. A different method is
+permitted when the observed failure and a discriminating experiment justify it.
 
 | Target | First technique | Controlled challenger / diagnostic | Why this order |
 |---|---|---|---|
@@ -1460,7 +1556,7 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
 7. Independent real-music generalisation and a defensible unseen evaluation after extensive historical development exposure.
 8. Exact cue-selection/energy mechanisms remain unresolved; private cue-model research is now authorized, with product Lexicon DSP preserved.
 9. Runtime optional CoreML/stem paths, model internals and future versions beyond bounded static evidence.
-10. A validated deployable default meeting 99% across the requested domains. None exists in this evidence.
+10. A validated deployable default meeting the current 100% research target across the requested domains. None exists in this evidence.
 
 
 ## Mandatory workflow and maintenance
@@ -1533,7 +1629,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E123 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E127 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1663,3 +1759,7 @@ retain prior IDs or explicitly version replacement evidence.
 | E121 | `f7c6040f9ce91c65179000211bcb35c1fadea64596483eb3254c0eccba9d2954` |
 | E122 | `d327b7c8d04b49e91c838bc5288160f19de51e75546c3eaf9a152e9f8f433d21` |
 | E123 | `aee518ed5c3bb1b2d603760ce8fabe0f25ae7d537f74376bde1d307f4f6ea91a` |
+| E124 | `de7e54262a26a2001d6cc551401ef73da181596e1c322646ca9edb23245acbb0` |
+| E125 | `1d423db0e11f65548aac2a392a4765fc7c3cdc5445e4e0a28caeb409b30ba93d` |
+| E126 | `6c7efc74b19c93b865a79009c295629f47df197ae3531a46e90117f6ec3151e2` |
+| E127 | `1bb16ed05019925ac1109e8d15e4482d06f6e99a163a73e9185a7d890ea04272` |
