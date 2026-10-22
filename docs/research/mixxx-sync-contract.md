@@ -211,33 +211,49 @@ an Info frame lose real samples). FFmpeg drops the Info frame when present and, 
 it finds a LAME tag, also trims `encoder_delay + 529` samples.
 
 Measured with `lame` and FFmpeg 9.0.2 on a generated 44.1 kHz click track
-(`encoder_delay = 576`), the burst onset against its true position:
+(`encoder_delay = 576`), the burst onset against its true position. The four files
+are synthetic variants of one encode; their names describe the header, and they are
+**not** the letters of `cuerithm-media`'s `Mp3TimingCase`, a different heuristic that
+also promotes files by channel mode and that the Mixxx rule does not use:
 
-| MP3 header case (existing classifier) | FFmpeg trim | FFmpeg onset | Mixxx onset (derived) | Mixxx − CueRithm clock |
+| Synthetic header variant | FFmpeg trim | FFmpeg onset | Mixxx onset (derived) | Mixxx - CueRithm clock |
 | --- | ---: | ---: | ---: | ---: |
-| A: no Xing/Info frame | 0 | +1104 | +1104 − 1152 = −48 | −1152 samples (−26.12 ms) |
-| B: Info frame, no LAME identifier | 0 | +1104 | +1104 | 0 |
-| C: LAME identifier, CRC mismatch | 1105 | −1 | +1104 | +1105 samples (+25.06 ms) |
-| D: LAME identifier, valid CRC | 1105 | −1 | +1104 | +1105 samples (+25.06 ms) |
+| No Xing/Info frame | 0 | +1104 | +1104 - 1152 = -48 | -1152 samples (-26.12 ms) |
+| Info frame, identifier replaced | 0 | +1104 | +1104 | 0 |
+| Info frame, `LAME` identifier, CRC broken | 1105 | -1 | +1104 | +1105 samples (+25.06 ms) |
+| Info frame, `LAME` identifier, valid CRC | 1105 | -1 | +1104 | +1105 samples (+25.06 ms) |
 
-FFmpeg does not verify the LAME CRC, so C and D trim alike. An untrimmed decode with
-libmpg123 (`mpg123 --no-gapless`, a second independent decoder) places the burst at
-+1104 in all four cases, matching FFmpeg's untrimmed alignment, so the raw decoder
-alignment does not depend on the decoder. The Mixxx column combines that measured
-alignment with the libmad first-frame behavior read from source; libmad itself was
-not run. The offsets apply additively to cue starts, loop
-ends and beat positions, in the source file's own frames. For C and D the trim is
-`encoder_delay + 529` read from the LAME header rather than assumed to be 576; the
-first-frame length is 1152 samples for MPEG-1 rates (≥ 32 kHz) and 576 below.
+FFmpeg does not verify the LAME CRC. A second measurement patched the 4-byte
+encoder identifier of a valid tag: `LAME`, `Lavf` and `Lavc` all trimmed 1105
+samples, while `GOGO`, `XING`, four zero bytes and `Bolt` trimmed nothing, and a
+`Xing` marker trimmed exactly like `Info`. FFmpeg's own `libmp3lame` output carries
+`Lavc` and a delay of 576. An untrimmed decode with libmpg123 (`mpg123 --no-gapless`,
+a second independent decoder) places the burst at +1104 in all four variants,
+matching FFmpeg's untrimmed alignment, so the raw decoder alignment does not depend on
+the decoder. The Mixxx column combines that measured alignment with the libmad
+first-frame behavior read from source; libmad itself was not run.
+
+The rule therefore follows header facts, read from the file, not a case letter:
+
+- no Xing/Info frame: `-F`, where `F` is the first-frame length (1152 samples at
+  MPEG-1 rates of 32 kHz and above, 576 below);
+- Info/Xing frame without a `LAME`/`Lavf`/`Lavc` identifier: `0`;
+- Info/Xing frame with such an identifier: `+(encoder_delay + 529)`, the delay being
+  the 12-bit value at frame offset `marker + 141` (marker at `4 + side_info`).
+
+Offsets are in the source file's own frames and apply additively to cue starts, loop
+ends and beat positions. A cue that lands before the first Mixxx sample (possible
+only for the first rule) is moved to the start.
 
 Other formats: lossless/PCM and Ogg (libsndfile, Ogg Vorbis) have no start trim;
 Opus uses opusfile, which applies the pre-skip as FFmpeg does. Offset 0.
 
-AAC/M4A is **not resolved**. The Linux FAAD backend and the Windows Media Foundation
-backend use 2112 only as a seek prefetch and show no start trim, while the macOS
-CoreAudio backend uses ExtAudioFile. Alignment therefore may differ per platform;
-the adapter writes offset 0 and warns for AAC/M4A/MP4 sources rather than claim an
-aligned result.
+AAC (`.m4a`, `.mp4`, ADTS `.aac`) is **not resolved**. The Linux FAAD backend and the
+Windows Media Foundation backend use 2112 only as a seek prefetch and show no start
+trim, while the macOS CoreAudio backend uses ExtAudioFile. Alignment therefore may
+differ per platform; the adapter writes offset 0 and warns for these sources rather
+than claim an aligned result. WMA depends on the Mixxx build's Media Foundation or
+FFmpeg support and gets the same warning.
 
 ## Representation gaps and chosen conversions
 
@@ -245,7 +261,7 @@ aligned result.
 | --- | --- | --- |
 | Smart playlist | none | export captured members as an ordinary list |
 | Playlist folder | none | flatten to `Parent / Child` |
-| Record label | no column | not written; map it to comment or grouping with field mappings |
+| Record label | no column | not written; map Label into Comment with a field mapping if wanted |
 | Active loop flag | none | not written |
 | Cue slots above 35 | none | skipped with a warning |
 | Variable tempo | `BeatMap-1.0` | dense beat list built from the sparse anchors |
