@@ -1,10 +1,11 @@
 # MIK facts register and modelling constraints
 
-Revision 2 · 22 October 2026 · Required engineering reference.
+Revision 3 · 22 October 2026 · Required engineering reference.
 
-Revision 2 records the owner's authorization of private MIK cue-model research.
-It supersedes revision 1's prohibition. The 74 findings and their evidence
-identities are unchanged; the product's validated Lexicon DSP remains in place.
+Revision 2 authorized private MIK cue-model research and superseded revision 1's
+prohibition. Revision 3 adds F075–F078 from fresh development-data audits and the
+first fresh key comparison. Existing fact IDs and evidence identities are
+preserved; the product's validated Lexicon DSP remains in place.
 
 Read this register before changing feature extraction, key/BPM/energy analysis,
 training, evaluation or model promotion. Cite relevant F-numbers and the register
@@ -19,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-reported separately; this revision changes research authorization, not a result.
+summarized in F078 and retained in their separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -27,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E041 identify immutable private source snapshots by
+Evidence references E001–E046 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -42,7 +43,8 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 - Activity, spectral brightness and vocal presence are interventions, not measured
   energy labels or proof of a semantic detector (F013, F031–F040).
 - Rounded window labels do not support a universal fixed monotone whole-track
-  reducer (F041–F047); label histograms also have conflicting targets (F065).
+  reducer (F041–F047). Label histograms have conflicting targets (F065), with a
+  measured maximum of 98.81% on the larger observed cohort (F075).
 - Captured-feature prediction and end-to-end PCM prediction have separate
   denominators (F001–F004). An upstream refusal is still an end-to-end failure.
 - Prior guessed bundles and failed partial prototypes are not the starting
@@ -786,6 +788,77 @@ Only 104/277 synthetic lists satisfy the joint historical restrictions: addition
 
 **Evidence:** E012.
 
+### Fresh real-data audits
+
+#### F075 — Histogram-only overall energy cannot reach 99% on this cohort
+
+Among 6,386 selected requests, 76 groups with identical unweighted returned-label
+histograms have conflicting whole-track targets. Their exact frequencies force
+at least 76 errors: even an oracle lookup can match at most 6,310/6,386, or
+**98.80989665%**.
+
+**Scope:** Observed request rows in the fresh spent-development cohort. The
+histogram includes class counts and therefore window count. This is not a ceiling
+for order, duration, RMS, continuous features or an unseen population.
+
+**Rules out / prevents:** A deterministic unweighted-histogram-only reducer
+cannot meet 99% on this observed cohort. F065's earlier 27 conflicts alone did not
+establish that numeric ceiling; this calculation uses actual group frequencies.
+
+**Evidence:** E042, E043, E045.
+
+#### F076 — Exact feature collisions do not explain the current errors
+
+The 148,010 windows contain 52 repeated exact 183-feature groups, with zero label
+conflicts. Adding RMS gives the same result. All 6,386 key vectors are distinct.
+Complete ordered window-label vectors have 31 repeated groups and zero observed
+whole-track target conflicts.
+
+**Scope:** Observed exact repetitions only. No key-vector repetition exists here
+to test key repeat-label consistency. Absence of collisions does not establish
+input sufficiency or generalisation.
+
+**Rules out / prevents:** Do not infer sufficiency or a recovered model solely
+because an exact-collision audit passes.
+
+**Evidence:** E042.
+
+#### F077 — The complete cue representation covers all 6,386 selected lists
+
+The fresh intake retains 49,410 cues. Every list fits the complete score timeline
+plus its origin anchor. Two lists repeat positions; 219 include negative
+coordinates relative to the detected grid. All first cues match the request
+origin. Client-style timestamp reconstruction is bit-exact on 6,223 lists and
+within 1e−9 seconds on all 6,386.
+
+**Scope:** Oracle projection and formula diagnostics on spent development data,
+not selector predictions. Negative grid coordinates are not necessarily negative
+audio timestamps. Order, multiplicity and raw times are preserved.
+
+**Rules out / prevents:** Representability and oracle timestamp reconstruction
+are not cue-model accuracy. Do not replace ordered lists with sets or claim 100%
+cue prediction from this check.
+
+**Evidence:** E044.
+
+#### F078 — The first fresh full-input key comparison remains below target
+
+Thirteen declared models yield best exact MainKey agreement of 1,193/1,288, or
+92.6242%, on grouped spent-development validation. The selected model gets 8/34
+majors; the MLP gets 15/34 with lower aggregate accuracy. The selected independent
+refit's predictions and serialized bytes match.
+
+**Scope:** Fresh weights, train-only preprocessing and captured 352-value inputs.
+The same spent data served model selection; this is not unseen, all-format or
+end-to-end accuracy. There are 205 major requests overall: 171 training and 34
+validation.
+
+**Rules out / prevents:** Training fit near 100% does not establish
+generalisation. This result does not exclude SVMs, MLPs, other preprocessing or
+input sufficiency. No default is promoted.
+
+**Evidence:** E045, E046.
+
 ## Working method decision — proposed techniques
 
 
@@ -832,7 +905,9 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
    claim complete reproduction. Reject that sufficiency claim before tuning, or
    label the representation as an intentionally lossy baseline. The 27 histogram
    conflict groups alone do not prove that 99% is unreachable: any numeric ceiling
-   needs the actual group sizes and target frequencies.
+   needs the actual group sizes and target frequencies. F075 supplies those
+   frequencies for the larger cohort and gives a 98.81% bound for histogram-only
+   predictors; it does not bound richer inputs.
 3. Preserve the counterexamples as development diagnostics. Do not add per-file
    exceptions, remove a failing witness or silently relabel it to rescue a model.
    Keep observation, hypothesis, project policy and modelling decision distinct.
@@ -882,7 +957,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-Each digest identifies the evidence snapshot used for revision 1. These hashes
+E001–E041 retain the revision 1 snapshots; E042–E046 add revision 3 snapshots. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -930,3 +1005,8 @@ retain prior IDs or explicitly version replacement evidence.
 | E039 | `be91503809ef913c04182b29db346d6ad55c4b27ff64b9220d4d16c13f43ae46` |
 | E040 | `bc40f9688434479230c8e16d1bad01ce3db7f645cb202b6da7aeffd4b57e75de` |
 | E041 | `7c8d01427a8c89df65f5927c42e63c3aeb7ff40ed336c759adb1a2fe7414f72d` |
+| E042 | `3db66aa6055df285df31f26f3c2c2959a26961fe59fe2b728ddd87ffb1de02d2` |
+| E043 | `05a6d0253bdfdff385fad9cd1577b3ce0fa4d2adb06ea8dff4c39376321b287f` |
+| E044 | `ab086ba24e16b64154d40ce926286ca8f293b76a70b222139d41fcb788ad68be` |
+| E045 | `df0bf2ff832614e99bd7b373a8fdd1e839ef9341f47f41b62b9b1ef84e6f0faf` |
+| E046 | `d9c920e0670fc965d2ddf4b38e26419c83d89f6242fd05c1f78e6fe3ab934466` |
