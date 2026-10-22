@@ -1,10 +1,10 @@
 # MIK facts register and modelling constraints
 
-Revision 13 · 22 October 2026 · Required engineering reference.
+Revision 14 · 22 October 2026 · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–13 add fresh grouped-development comparisons and exact
-whole-track pooling exclusions. Existing fact IDs and evidence identities are
+prohibition. Revisions 3–14 add fresh grouped-development comparisons, exact
+whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
 Read this register before changing feature extraction, key/BPM/energy analysis,
@@ -20,7 +20,7 @@ of the supplied mixed track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-summarized in F078–F106 and retained in separate experiment records.
+recorded alongside input/data audits in F078–F116 and retained in separate experiment records.
 
 There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 281 IDs / 263 requests are qualified against local extraction. Fourteen older
@@ -28,7 +28,7 @@ There are 295 captured synthetic fixture IDs and 277 distinct retained requests;
 09 fixtures pass local-request and decoded-audio checks. There is no promoted
 replacement model and no established 99% agreement result.
 
-Evidence references E001–E100 identify immutable private source snapshots by
+Evidence references E001–E123 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -73,6 +73,16 @@ uses previously inspected diagnostics. No replacement model is promoted.
   weights for the new programme (F059–F063).
 - Private MIK cue-model research is permitted by the owner. The product cue path
   remains the validated Lexicon DSP; research does not promote a replacement.
+
+## Meaning and scope of a verified finding
+
+Verified model-experiment outcomes belong in this register alongside measured
+MIK outputs, source observations, data audits and mathematical exclusions. Each
+states what its evidence establishes. A failed configuration is not a disproof
+of its entire technique or a recovered server mechanism. Hypotheses and proposed
+experiments remain separate. New analysis of retained captures can establish a
+finding without new synthetic audio. Create new controlled audio when a specific
+falsifiable intervention can resolve an outstanding gap.
 
 ## Findings
 
@@ -1183,6 +1193,240 @@ Appending 90 local predicted-window fields to the same 104 point inputs changes 
 
 **Evidence:** E100, E099, E098, E097.
 
+### Verified later experiment and input-audit findings
+
+The following entries add independently checked results from retained captures.
+No new synthetic audio was created for these findings. Model outcomes, input
+observations and QA results are factual research evidence; their exclusions apply
+only to the stated experiment. They do not identify a hidden server architecture.
+
+#### F107 — The bounded direct-summary search does not improve overall energy
+
+**Type:** Model experiment result.
+
+A 24-trial Optuna search completed 21 trials and pruned three, with none failed.
+Grouped training-only selection chose a CatBoost regressor scoring 888/1,288,
+versus the retained 963: 87 errors corrected and 162 introduced. Synthetic
+transfer is 179/277. The same-input historical reference scores 886; the new
+model corrects 128 of its errors and introduces 126, a descriptive net two.
+
+**Scope:** Four model families and two direct summary representations on the
+same spent split. Selected labels, numbers and canonical state repeat; raw
+CatBoost containers differ in verified GUID/finish-time metadata.
+
+**Rules out / prevents:** Reject this selected replacement. Do not exclude
+CatBoost, tuning or richer representations generally, or present net two as
+established real-music improvement.
+
+**Evidence:** E101, E102.
+
+#### F108 — The first bounded M4 symbolic equation fails transfer
+
+**Type:** Model experiment result.
+
+Eight input columns selected on 2,549 inner-fit tracks support a size-15 equation
+selected on the other 2,549. It matches 777/1,288 spent development outputs,
+versus 963: 92 corrections and 278 regressions. Ratings 8–9 match 2/50. Synthetic
+transfer is 98/277; a constant-four imbalance control matches 238/277. Synthetic
+macro recall is 34.45%, versus 25% for that control. The equation misses one
+member of the retained monotone-reducer witness.
+
+**Scope:** Serial 64-bit Julia/SymbolicRegression search with pinned M4 packages.
+500,000 evaluations and 180 seconds are configured maxima, not verified executed
+counts. Independent formula/scaler/selection/transfer checks passed. No full
+training refit or repeat search was performed; 14 old 08 inputs remain conditional.
+
+**Rules out / prevents:** Reject this equation/feature-selection/search recipe.
+Do not exclude all symbolic regression or continuous/context-dependent rules.
+The constant-four control is not a replacement model.
+
+**Evidence:** E103–E106.
+
+#### F109 — The first fixed sequence recipe does not improve overall energy
+
+**Type:** Model experiment result.
+
+Position-aware pooling at epoch 14 wins inner selection, 1,784/2,549 versus
+1,773 for the GRU at epoch 12. The full-training refit scores 904/1,288 versus
+963, with 96 corrections and 155 regressions. Ratings 8–9 match 8/50. Synthetic
+transfer is 190/277 versus the constant-four control's 238/277.
+
+**Scope:** All 148,010 windows; 183 fields, RMS, relative position/duration and
+track context. Repeated full fitting, reloads and independent pooled inference
+match. Unselected epoch metrics have no saved per-epoch states to recount.
+Both models receive positions, so this is recurrent versus position-aware
+pooling, not order versus no order.
+
+**Rules out / prevents:** Reject this fixed recipe. Do not exclude all sequence,
+neural or pooling methods, or claim unseen/PCM/native qualification.
+
+**Evidence:** E107, E108.
+
+#### F110 — The bounded multitask sequence search does not beat the reference
+
+**Type:** Model experiment result.
+
+The planned 48-trial search reaches its 1,800-second between-trial limit after
+32 trials start: 29 complete, three prune and none fail. Grouped two-fold
+selection chooses a width-16 GRU with auxiliary window supervision. Epochs
+39/25 select 32 full-refit epochs. The fixed primary seed scores 907/1,288
+versus 963: 85 corrections and 141 regressions. Ratings 8–9 match 14/50 versus
+16/50. Prespecified diagnostic seeds score 903 and 918; neither is selected.
+Synthetic transfer reaches 211/277 versus constant four's 238/277; macro recall
+is 43.41% versus 25%.
+
+**Scope:** Auxiliary labels enter fit loss only. Both inner folds select epochs;
+these are selection scores, not an independent test. A trial may finish after
+the timeout. Primary state, containers, logits, ratings and reloads repeat
+exactly. Independent GRU arithmetic reproduces all final labels, with maximum
+logit differences below 2e-6. Fourteen old 08 cases remain conditional.
+
+**Rules out / prevents:** Retain 963. Reject this selected configuration, not all
+neural, auxiliary, ordinal or tuned models. Transfer measurements on existing
+synthetic captures are new evaluation evidence, without new audio/capture
+generation or established real-music parity.
+
+**Evidence:** E109, E110.
+
+#### F111 — The key-score cache meets its group and identity guards
+
+**Type:** Reproducibility and data audit.
+
+Ten 500-tree fits construct scores shaped [6,386, 2, 24]. All 5,098 training
+rows receive group-excluded scores from both harmonic bases; 1,288 development
+rows use matched full models. Fresh full fits reproduce current canonical
+exports and all 6,386 historical-object scores/labels exactly. Historical
+pickle bytes differ; their cause is not fully attributed. Both fold-zero fresh
+repeats match raw bytes, canonical state, scores and labels. All six fold
+exports reload exactly. Every fit fold observes all 24 keys, with sparse majors.
+
+**Scope:** Independently checked inputs, scalers, outputs and ledgers. Only fold
+zero has independent fold refits; full-reference guards are separate. Canonical
+comparison uses current-environment exports, not arbitrary-machine identity.
+This cache alone establishes no meta-model accuracy gain.
+
+**Rules out / prevents:** Do not train fusion on full-base in-sample outputs.
+Row-wise OOF does not guarantee safe selection on arbitrary later inner folds;
+matched/nested group exclusions remain necessary.
+
+**Evidence:** E111, E112.
+
+#### F112 — Request-only linkage leaves 664 groups quarantined
+
+**Type:** Capture identity and exposure audit.
+
+A supplied 4,135-entry capture contains 4,129 distinct selected-input hashes.
+Request-only linkage finds 664 unmatched entries/groups; 3,315 spent-overlap
+entries/3,313 groups; 40 sealed entries/39 groups; 115 diagnostic entries/112
+groups; and one prior identity with uncertain exposure. No new bridge between
+old groups is found. All 664 unmatched groups remain quarantined, with no labels
+admitted.
+
+**Scope:** Exact selected-input, key-vector, normalized-name and known-group
+linkage against 10,176 prior identity rows, the 6,386-row cohort and 79 sealed
+hashes. The request-only code/canary test supports no nested response-JSON
+decoding; independent component reconstruction verifies classification and
+quarantine without opening response labels.
+
+**Rules out / prevents:** Neither an owner-reported addition count nor 664
+nonmatches proves independent recordings, successful responses, class coverage
+or final-test eligibility. Keep recording/alias qualification and label blinding.
+
+**Evidence:** E113, E114.
+
+#### F113 — Fixed key fusion improves some majors but loses exact agreement
+
+**Type:** Model experiment result.
+
+Appending 48 full base margins and two own-candidate margins to the unchanged
+462-column harmonic prefix gives 1,218/1,288 versus 1,220: 15 corrections and
+17 regressions. Major matches rise 18→22/34 while minor matches fall
+1,202→1,196/1,254. Synthetic aggregate agreement rises 202→205/277, with 11
+corrections and eight regressions, but major matches fall 15→9/48; minors rise
+187→196/229. The exact-first rule retains 1,220.
+
+**Scope:** One fixed matched learner, group-excluded training scores and matched
+full bases for validation. The raw 352 fields remain; 400 external inputs form
+512 candidate columns, with all 24 possible answers. No meta-CV/tuning is claimed.
+Repeated bytes/state/margins/labels and the copied-base→meta inference chain match.
+Independent reconstruction shares the documented immutable harmonic helper and
+native boosting engine. Fourteen old 08 inputs remain conditional.
+
+**Rules out / prevents:** Do not hide the synthetic-major regression behind the
+aggregate increase, promote training fit as qualification, or exclude all fusion.
+
+**Evidence:** E115, E116.
+
+#### F114 — Adding the global acoustic vector does not improve this energy fit
+
+**Type:** Model experiment result.
+
+Appending 352 raw key-path acoustic values to the unchanged 1,626 energy inputs,
+with the same 31-leaf learner, gives 954/1,288 versus 963: 32 corrections and
+41 regressions. Ratings 8–9 match 13/50 versus 16/50. The candidate executes 500
+rounds/4,500 native trees and is rejected.
+
+**Scope:** Identical targets, groups, seed and R3 window-cache branch; no added
+scaler, key labels/predictions or tuning. All ownership, prefixes, semantic
+summaries, reference outputs and exported native inference were verified.
+The losing candidate has reload evidence only, not an independent fresh refit.
+No new synthetic audio/capture or transfer test was performed for this contrast.
+
+**Rules out / prevents:** Retain 963. This does not prove global acoustics are
+irrelevant or identify which request fields the server uses.
+
+**Evidence:** E117, E118.
+
+#### F115 — Every frozen request has one key segment and twelve zero pitch values
+
+**Type:** Request-input/schema observation.
+
+All 6,386 frozen requests have one key segment, beginning at zero and ending at
+request duration, with twelve finite zero PitchProbabilities values. Every first
+352-value vector reproduces its stored input. CuePointData is a string throughout,
+with lengths 176–12,120 characters. The twelve constant values provide no varying
+omitted signal in this cohort.
+
+**Scope:** Independent request-only rereading of 6,371 pinned JSON files and
+exactly 15 selected HAR request bodies, without response labels. Those bodies
+were resolved by the frozen source hash because the original capture filename
+now refers to updated bytes. One segment still contains the known periodic
+352-value bank representation.
+
+**Rules out / prevents:** Do not generalize to other versions/requests, discard
+nonzero pitch values elsewhere, infer input sufficiency or claim chronology is
+unused. Resolve immutable capture versions and verify semantic input identity.
+
+**Evidence:** E119, E120.
+
+
+#### F116 — The raw-feature SVR anchor loses to the matched classifier
+
+**Type:** Model experiment result.
+
+A fixed raw-183-field RBF SVR matches 20,948/29,892 window labels versus 26,944:
+996 corrections and 6,992 regressions. Complete window sequences fall 200→9 of
+1,288 tracks, with two corrected and 193 regressed. Both new fits converge in
+83,483 iterations with 9,267 support vectors. Repeated bytes/state/raw scores,
+decoded labels and reloads match. Independent full RBF calculations reproduce
+every decoded label, with maximum raw-score differences below 2.6e-12 against
+the predeclared 1e-7 tolerance.
+
+**Scope:** Same 32,000-window sample/4,855 groups and raw inputs as the reference;
+C100, gamma .18616444995021475, epsilon .49, an uncapped solver and declared
+1 GiB cache versus the reference's 256 MiB. The explicit model decoder is
+floor(score+.5), clamped to 1–10; it is not an identified MIK quantizer. Input, support-vector and raw-score arrays, and reference calculations, use
+float64; native solver internals are not independently certified all-double
+arithmetic.
+
+**Rules out / prevents:** Retain SVC. Reject this particular SVR/decoder recipe,
+not all regression or ordinal methods. Equal numeric C does not establish equal
+regularization across objectives. These are window results, not whole-track
+energy or complete-cue parity; matched existing OOF caches remain unchanged.
+
+**Evidence:** E121–E123.
+
+
 ## Working method decision — proposed techniques
 
 
@@ -1257,6 +1501,14 @@ Native Rust/ONNX numerical and label parity, supported-format checks, resource m
    measurements and product review are required before promoting a default. Keep
    Python out of the installed engine and preserve the Lexicon cue calculations.
 
+9. Preserve immutable fact, source and cache snapshots pinned by completed
+   experiments. Advance the current register/index through explicit versions;
+   do not rewrite a pinned artifact to make an old experiment appear reproducible.
+   Update tracked aggregates and the private evidence map together.
+10. For meta-model inner selection, rebuild base outputs and learned transforms
+    within matched/nested group exclusions. An existing OOF cache alone is not
+    automatically honest for a new validation split (F111).
+
 AGENTS.md makes this workflow mandatory for agents; the PR template makes the
 evidence review visible. These instructions do not mechanically prove scientific
 compliance. Existing review and merge checks still apply; no approval is implied
@@ -1281,7 +1533,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E096 retain the earlier snapshots; E097–E100 add later reviewed evidence. These hashes
+E001–E100 retain revision 13 snapshots; E101–E123 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -1388,3 +1640,26 @@ retain prior IDs or explicitly version replacement evidence.
 | E098 | `a3516c14fe8a3381c4385d56ee53eb14564ed68a0878f8435b3728a07f789559` |
 | E099 | `93f48f765fe04d6dc6d0953cdefa9998cb254bae9dce0e65225025525b208634` |
 | E100 | `3fbdf6ffa2ee4ce46d78bbacff6a70910caec21573007c9cdf7d591fbcd1846c` |
+| E101 | `6b1db5f2c733f3325f0a20ee4a0d1d445dfb5bf6e7872c9d54cba37e7a26e7e9` |
+| E102 | `5af1147851fc9fb3e41704dda6346849b6666ad938fc5f7f592b6cc726c2dac5` |
+| E103 | `086ff3b6128835ccf17dbfc8dd0a1b230e284e72a50d093aa8cb91c39939285e` |
+| E104 | `ff970424bbfa78b49ebbf4a549393809060b775cef443e823d739cf7f9ce23a7` |
+| E105 | `a2c31f52e067bdca72328b64d801f86e6fa2a46dfa6485f294a767d33f274665` |
+| E106 | `326333d549994250e9751edd7b431e6f58f29981382235b41b7b24f768b90a9b` |
+| E107 | `059acda53094a293d78b763678823beb012c4394c23806e3cc938a2d48081d57` |
+| E108 | `571252e4fdfa0a248f717b5481a1d382439a5da7bc8cf663c5ae44c812af2f3c` |
+| E109 | `a965e91fec73b3fc218c0d6825d006b2d35a38c0d2b1172db2e1926fa431e77c` |
+| E110 | `a59f3dc46f07bee85ed448ab1d8947d94e1148bd3f75165cba6f92111b173494` |
+| E111 | `b327355538008a8fdef0915c098a972dbc574d47932d1fef8a75994215982bee` |
+| E112 | `4b7252a4d5571aac3dce742986d04c2a27e19c89345ed1bb9c9b175cd373b0a0` |
+| E113 | `ab4d0d5d6747aa02938392c2dc8faf941134ee8df1bf873bba72e8f4b5fc2a3c` |
+| E114 | `23947b3d330253c99b8bd3a927043accbbbf94f3288a93190ba4c527ead7dd70` |
+| E115 | `f443adf6c27a8483d1806a4b61ebdd2c78f96d5376c349fb1d83b829ff20d882` |
+| E116 | `105b63555905dc363ad4f4b4eb8844b5a778cbe1fabb727255b65ce5e758adce` |
+| E117 | `112e797da75d1e84d46a56031da98c2d5bef425a0dcd64ae405ed18bbc647930` |
+| E118 | `2d58548c6e28b866ef2d1442c9d1298f3be02168efd515ffa34451fc88eefbbb` |
+| E119 | `c0398382602b139729032cf8ebb484006a5c77f19cd962173156d1c963fbdbf1` |
+| E120 | `1bcf01eab127c4bb5bd9bc22a7a0a94569aa1fbd69c7e831eab437141370b29b` |
+| E121 | `f7c6040f9ce91c65179000211bcb35c1fadea64596483eb3254c0eccba9d2954` |
+| E122 | `d327b7c8d04b49e91c838bc5288160f19de51e75546c3eaf9a152e9f8f433d21` |
+| E123 | `aee518ed5c3bb1b2d603760ce8fabe0f25ae7d537f74376bde1d307f4f6ea91a` |
