@@ -4,8 +4,8 @@ export type DjSoftware="virtual_dj"|"engine_dj"|"djay_pro"|"serato4"|"pioneer_us
 export interface SyncTarget {software:DjSoftware;path:NativePath;source_root:NativePath|null;environment?:TargetEnvironment}
 export interface DiscoveredTarget {software:DjSoftware;path:string}
 export type SyncTextField="title"|"artist"|"album"|"genre"|"label"|"comment"|"key";
-/** Mixxx only: what happens to tracks already in Mixxx, and what playlists become. */
-export interface MixxxOptions {existing_tracks:"keep"|"replace";container:"playlists"|"crates";replace_metadata:boolean;replace_key:boolean;replace_cues:boolean}
+/** Mixxx only: update the library or replace it whole, what happens to tracks already in Mixxx, and what playlists become. */
+export interface MixxxOptions {library:"update"|"overwrite";existing_tracks:"keep"|"replace";container:"playlists"|"crates";replace_metadata:boolean;replace_key:boolean;replace_cues:boolean}
 export interface SyncOptions {
   engine_copy_audio:boolean;
   materialize_smartlists:boolean;
@@ -37,4 +37,4 @@ export const syncTargets:{id:DjSoftware;name:string;location:string}[]=[
   {id:"pioneer_usb",name:"Pioneer USB",location:"Target USB drive"},
   {id:"mixxx",name:"Mixxx",location:"Mixxx settings folder"},
 ];
-export const defaultSyncOptions:SyncOptions={materialize_smartlists:false,engine_copy_audio:false,key_notation:"original",field_mappings:{},usb_cue_destination:"hot",usb_cdj_compatibility:"off",usb_cleanup_unused:false,skip_beatgrids:false,nearest_color:true,beatgrid_lock:"default",add_album_art:false,extra_cue_markers:false,mixxx:{existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true}};
+export const defaultSyncOptions:SyncOptions={materialize_smartlists:false,engine_copy_audio:false,key_notation:"original",field_mappings:{},usb_cue_destination:"hot",usb_cdj_compatibility:"off",usb_cleanup_unused:false,skip_beatgrids:false,nearest_color:true,beatgrid_lock:"default",add_album_art:false,extra_cue_markers:false,mixxx:{library:"update",existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true}};

@@ -519,14 +519,28 @@ pub fn prepare_sync_owned_with_runtime(
     let environment = target.environment.freeze()?;
     ensure_closed(target.software)?;
     let selected_target = target.clone();
-    let target_root = cuerithm_rekordbox::TargetPathSnapshot::capture(if target.path.is_dir() {
-        &target.path
+    let target_root = cuerithm_rekordbox::TargetPathSnapshot::capture(&if target.software
+        == DjSoftware::Mixxx
+    {
+        crate::mixxx::watched_folder(&target.path)?
+    } else if target.path.is_dir() {
+        target.path.clone()
     } else {
-        target.path.parent().context("DJ library parent missing")?
+        target
+            .path
+            .parent()
+            .context("DJ library parent missing")?
+            .to_path_buf()
     })?;
     let mut target = target;
-    target.path = fs::canonicalize(&target.path)
-        .context("DJ target was not found; initialize it in the DJ app first")?;
+    target.path = if target.software == DjSoftware::Mixxx {
+        // A Mixxx that was never started has no library, and on Windows and Linux no
+        // settings folder either; the sync makes them.
+        crate::mixxx::canonical_database_path(&target.path)?
+    } else {
+        fs::canonicalize(&target.path)
+            .context("DJ target was not found; initialize it in the DJ app first")?
+    };
     if let Some(root) = &target.source_root {
         target.source_root = Some(fs::canonicalize(root)?);
     }
@@ -653,10 +667,20 @@ pub fn prepare_sync_owned_with_runtime(
     match target.software {
         DjSoftware::Rekordbox => anyhow::bail!("Use the native rekordbox collection workflow"),
         DjSoftware::Mixxx => {
-            let database = crate::mixxx::resolve_database_path(&target.path)?;
-            crate::mixxx::preflight(&database)?;
+            let located = crate::mixxx::resolve_database_target(&target.path)?;
+            let database = located.database;
+            let folder = database
+                .parent()
+                .context("Mixxx settings folder missing")?
+                .to_path_buf();
+            // Replacing the whole library, or making the first one, starts from nothing.
+            let fresh = !located.exists || options.mixxx.library == crate::MixxxLibrary::Overwrite;
+            if located.exists {
+                crate::mixxx::preflight(&database)?;
+            }
+            // A Mixxx that was never started has no settings folder: guard its parent.
             related_roots.push(cuerithm_rekordbox::TargetPathSnapshot::capture(
-                database.parent().context("Mixxx settings folder missing")?,
+                &crate::mixxx::watched_folder(&database)?,
             )?);
             let stage = build.join("mixxx/mixxxdb.sqlite");
             resolver.verify()?;
@@ -664,22 +688,61 @@ pub fn prepare_sync_owned_with_runtime(
             {
                 resolution_scans += resolver.directory_enumerations();
             }
-            sqlite_snapshot(&database, &stage, &mut before)?;
+            let mut notices = Vec::new();
+            if located.exists {
+                sqlite_snapshot(&database, &stage, &mut before)?;
+                if fresh {
+                    notices.push(crate::mixxx::describe_replaced(&stage)?);
+                    fs::remove_file(&stage)?;
+                }
+            } else {
+                // Nothing to copy. Remember that the library and its sidecars are absent,
+                // so a library Mixxx makes before apply is noticed.
+                remember(&database, &mut before)?;
+                for suffix in ["-wal", "-shm", "-journal"] {
+                    let mut name = database.as_os_str().to_owned();
+                    name.push(suffix);
+                    remember(&PathBuf::from(name), &mut before)?;
+                }
+                fs::create_dir_all(stage.parent().unwrap())?;
+                notices.push(
+                    "Mixxx has no library here yet, so CueRithm creates one. Mixxx will use it \
+                     as it is the first time it starts."
+                        .to_owned(),
+                );
+            }
+            if fresh {
+                crate::mixxx::create_library(&stage)?;
+                if !folder.is_dir() {
+                    directories.extend(stage_directory_plan(&build.join("mixxx"), &folder, None)?);
+                }
+            }
             resolver = target.environment.resolver()?;
             let staged = crate::mixxx::write_staged_owned(
                 &stage,
                 &database,
                 library,
                 options,
-                contexts
-                    .get(&database)
-                    .map_or(&empty_ownership, |(_, request)| request),
+                // A library built from nothing has no playlists CueRithm owns yet.
+                if fresh {
+                    &empty_ownership
+                } else {
+                    contexts
+                        .get(&database)
+                        .map_or(&empty_ownership, |(_, request)| request)
+                },
             )?;
             ownership.insert(database.clone(), (None, staged.ownership));
+            // The summary line stays first.
+            let summary_at = warnings.len();
             warnings.extend(staged.warnings);
+            for (offset, notice) in notices.into_iter().enumerate() {
+                warnings.insert(summary_at + 1 + offset, notice);
+            }
             // A library that already matches publishes nothing; its preconditions
-            // still guard against an edit between preview and apply.
-            if staged.changed {
+            // still guard against an edit between preview and apply. One made from
+            // nothing always publishes.
+            if staged.changed || fresh {
                 replacements.insert(database, stage);
             }
         }
@@ -1288,8 +1351,14 @@ fn verify_environment(prepared: &PreparedRequest) -> Result<()> {
         root.verify()?;
     }
     if let Some(selected) = &prepared.selected_target {
+        let current = if selected.software == DjSoftware::Mixxx {
+            // The library, or its folder, may be one this sync creates.
+            crate::mixxx::canonical_database_path(&selected.path)?
+        } else {
+            fs::canonicalize(&selected.path)?
+        };
         ensure!(
-            fs::canonicalize(&selected.path)? == prepared.target.path
+            current == prepared.target.path
                 && selected
                     .source_root
                     .as_ref()

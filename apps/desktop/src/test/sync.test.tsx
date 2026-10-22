@@ -49,7 +49,7 @@ describe("Mixxx sync",()=>{
   await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(1));
   const request=vi.mocked(bridge.previewDjSync).mock.lastCall![0];
   expect(request.target).toEqual({software:"mixxx",path:"/Mixxx",source_root:null});
-  expect(request.options.mixxx).toEqual({existing_tracks:"replace",container:"crates",replace_metadata:true,replace_key:false,replace_cues:true});
+  expect(request.options.mixxx).toEqual({library:"update",existing_tracks:"replace",container:"crates",replace_metadata:true,replace_key:false,replace_cues:true});
   await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to Mixxx"})).toBeEnabled());
   expect(screen.getByText(/Mixxx: 1 track added; 2 replaced/)).toBeInTheDocument();
  });
@@ -64,6 +64,19 @@ describe("Mixxx sync",()=>{
   expect(screen.getByRole("checkbox",{name:"Replace hot cues and loops"})).not.toBeChecked();
   fireEvent.change(screen.getByRole("combobox",{name:"Existing Mixxx tracks"}),{target:{value:"replace"}});
   expect(screen.getByRole("checkbox",{name:"Replace hot cues and loops"})).not.toBeChecked();
+ });
+ it("offers to replace the whole Mixxx library and says what that means",async()=>{
+  const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>({...prepared("mixxx-overwrite"),target:{software:"mixxx" as const,path:"/Mixxx",source_root:null}}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);chooseMixxx();
+  fireEvent.change(screen.getByRole("textbox",{name:"Mixxx settings folder"}),{target:{value:"/Mixxx"}});
+  expect(screen.getByRole("combobox",{name:"Mixxx library"})).toHaveValue("update");
+  expect(screen.getByText(/If the folder has no Mixxx library yet, CueRithm creates one\./)).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("combobox",{name:"Mixxx library"}),{target:{value:"overwrite"}});
+  expect(screen.getByText(/builds a new Mixxx library from this sync and replaces the one in the folder/)).toBeInTheDocument();
+  expect(screen.getByRole("combobox",{name:"Existing Mixxx tracks"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(1));
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall![0].options.mixxx.library).toBe("overwrite");
  });
 });
 describe("native DJ sync",()=>{

@@ -22,18 +22,29 @@ fn capture_with(target: &SyncTarget, token: &impl Fn(&Path) -> Result<String>) -
             }
         }
     }
+    // A Mixxx that was never started has no library, and maybe no settings folder: the
+    // sync creates them, so before that they are recorded as absent.
+    let optional = |path: &Path| -> Result<Option<String>> {
+        match fs::symlink_metadata(path) {
+            Err(error)
+                if target.software == DjSoftware::Mixxx
+                    && error.kind() == std::io::ErrorKind::NotFound =>
+            {
+                Ok(None)
+            }
+            _ => token(path).map(Some),
+        }
+    };
     digest(&(
         "native-registration-v2",
         &target.path,
-        token(&target.path)?,
+        optional(&target.path)?,
         // A removable root's host mount directory (/Volumes, /media/user) is
         // outside the registered volume and may be recreated between mounts.
         if target.software == DjSoftware::PioneerUsb {
             None
         } else {
-            Some(token(
-                target.path.parent().context("DJ target parent missing")?,
-            )?)
+            optional(target.path.parent().context("DJ target parent missing")?)?
         },
         target
             .source_root

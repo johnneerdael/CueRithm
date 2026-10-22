@@ -43,7 +43,7 @@ fn setup() -> Setup {
 
 impl Setup {
     fn mixxx(&self) -> Connection {
-        Connection::open(self.settings.join(cuerithm_dj_sync::mixxx::DATABASE_FILE)).unwrap()
+        fixture::open(&self.settings.join(cuerithm_dj_sync::mixxx::DATABASE_FILE))
     }
     /// Another prepared track with its own audio file.
     fn add_track(&self, id: &str) {
@@ -142,12 +142,137 @@ fn mixxx_folder_and_file_targets_share_one_baseline() {
         digest(&folder.identity_target()).unwrap(),
         digest(&file.identity_target()).unwrap()
     );
-    // A folder without a library is refused rather than creating one.
+    // A folder with no library yet is where a sync would create one, and keeps one
+    // identity before and after.
     let empty = setup.root.join("no-mixxx-here");
     fs::create_dir(&empty).unwrap();
-    let mut missing = setup.target.clone();
-    missing.path = empty;
-    assert!(canonical_target(missing).is_err());
+    let mut future = setup.target.clone();
+    future.path = empty.clone();
+    let before = canonical_target(future.clone()).unwrap();
+    assert_eq!(
+        before.path,
+        empty.join(cuerithm_dj_sync::mixxx::DATABASE_FILE)
+    );
+    drop(fixture::create(&before.path, 39));
+    assert_eq!(canonical_target(future).unwrap().path, before.path);
+    // A file that is not a Mixxx library is still refused.
+    let stray = setup.root.join("notes.txt");
+    fs::write(&stray, b"x").unwrap();
+    let mut other = setup.target.clone();
+    other.path = stray;
+    assert!(canonical_target(other).is_err());
+}
+
+#[test]
+fn a_library_is_created_where_mixxx_has_none_and_restore_takes_it_away_again() {
+    let setup = setup();
+    setup.add_track("b");
+    setup.add_playlist("pl", "Warmup", &["a", "b"]);
+    // Mixxx was never started: no folder at all, in a place whose parent exists.
+    let folder = setup.root.join("never-started/mixxx");
+    fs::create_dir(setup.root.join("never-started")).unwrap();
+    let mut request = setup.request(DjSyncScope::Full, MixxxExistingTracks::Keep);
+    request.target.path = folder.clone();
+    let preview = setup.library.preview_dj_sync(request.clone()).unwrap();
+    assert!(
+        preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("Mixxx has no library here yet")),
+        "{:?}",
+        preview.warnings
+    );
+    assert!(!folder.exists(), "a preview creates nothing");
+    setup.library.apply_dj_sync(&preview.id).unwrap();
+
+    let database = folder.join(cuerithm_dj_sync::mixxx::DATABASE_FILE);
+    let connection = fixture::open(&database);
+    let (version, tracks, playlists, scanned): (String, i64, i64, i64) = (
+        connection
+            .query_row(
+                "SELECT value FROM settings WHERE name = 'mixxx.schema.version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap(),
+        connection
+            .query_row("SELECT COUNT(*) FROM library", [], |row| row.get(0))
+            .unwrap(),
+        connection
+            .query_row(
+                "SELECT COUNT(*) FROM Playlists WHERE hidden = 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap(),
+        connection
+            .query_row("SELECT COUNT(*) FROM directories", [], |row| row.get(0))
+            .unwrap(),
+    );
+    assert_eq!(
+        (version.as_str(), tracks, playlists),
+        ("39", 2, 1),
+        "Mixxx's own default playlists stay hidden and are not counted"
+    );
+    assert!(scanned >= 1, "Mixxx would otherwise ask for a music folder");
+    drop(connection);
+
+    // The same sync again has nothing to do.
+    let again = setup.library.preview_dj_sync(request).unwrap();
+    assert!(again.files.is_empty(), "{:?}", again.files);
+
+    setup.library.restore_dj_sync(&preview.id).unwrap();
+    assert!(!database.exists(), "restore removes the library it created");
+}
+
+#[test]
+fn replacing_the_whole_library_builds_a_new_one_and_restore_brings_the_old_one_back() {
+    let setup = setup();
+    setup.add_track("b");
+    setup.mixxx_knows("a", "Mixxx title for a");
+    let foreign = fixture::add_track(&setup.mixxx(), "/elsewhere/other.mp3", "Not in CueRithm");
+    fixture::add_playlist(&setup.mixxx(), "Mine in Mixxx", &[foreign]);
+    let original = setup.database_bytes();
+
+    let mut request = setup.request(DjSyncScope::Full, MixxxExistingTracks::Keep);
+    request.options.mixxx.library = cuerithm_dj_sync::MixxxLibrary::Overwrite;
+    let preview = setup.library.preview_dj_sync(request.clone()).unwrap();
+    assert!(
+        preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("Replacing the whole Mixxx library")
+                && w.contains("2 track(s)")
+                && w.contains("1 playlist(s)")),
+        "{:?}",
+        preview.warnings
+    );
+    setup.library.apply_dj_sync(&preview.id).unwrap();
+    let mut titles = setup.titles();
+    titles.sort();
+    assert_eq!(titles, ["Authored", "Title b"], "only CueRithm's tracks");
+    let names: Vec<String> = setup
+        .mixxx()
+        .prepare("SELECT name FROM Playlists WHERE hidden = 0")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(names.is_empty(), "Mixxx's own playlist is gone: {names:?}");
+
+    setup.library.restore_dj_sync(&preview.id).unwrap();
+    assert_eq!(setup.database_bytes(), original);
+
+    // A partial scope would leave most of the library out, so it is refused.
+    let mut partial = setup.request(DjSyncScope::Changed, MixxxExistingTracks::Keep);
+    partial.options.mixxx.library = cuerithm_dj_sync::MixxxLibrary::Overwrite;
+    let error = setup
+        .library
+        .preview_dj_sync(partial)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("needs the full library"), "{error}");
 }
 
 #[test]

@@ -57,6 +57,11 @@ pub(crate) fn repair_reference(
 ) -> Result<()> {
     let mut connection =
         Connection::open(database).context("Cannot open the staged Mixxx library")?;
+    // Mixxx runs with foreign keys off, and its own schema could not be written with
+    // them on: `library.location` references `track_locations(location)` but holds an
+    // id, and several tables reference a `library_old` that no longer exists. The
+    // SQLite bundled here turns them on by default.
+    connection.pragma_update(None, "foreign_keys", false)?;
     let transaction = connection.transaction()?;
     let from_key = key_of(from)?;
     let to_key = key_of(to)?;
@@ -122,7 +127,7 @@ mod tests {
             path
         }
         fn connection(&self) -> Connection {
-            Connection::open(&self.database).unwrap()
+            fixture::open(&self.database)
         }
         fn track(&self, path: &Path, title: &str) -> i64 {
             fixture::add_track(&self.connection(), &key_of(path).unwrap(), title)

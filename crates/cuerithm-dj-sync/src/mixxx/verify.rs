@@ -92,7 +92,16 @@ pub(super) struct Snapshot {
     library: BTreeMap<i64, Digest32>,
     cues: BTreeMap<i64, Digest32>,
     foreign: [Digest32; 3],
+    /// The folders Mixxx scans. Only an empty list may be filled in.
+    directories: Vec<String>,
     dangling: i64,
+}
+
+fn directories(connection: &Connection) -> Result<Vec<String>> {
+    let mut statement =
+        connection.prepare("SELECT directory FROM directories ORDER BY directory")?;
+    let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 impl Snapshot {
@@ -101,6 +110,7 @@ impl Snapshot {
             library: grouped_digests(connection, "SELECT * FROM library ORDER BY id", 0)?,
             cues: grouped_digests(connection, "SELECT * FROM cues ORDER BY track_id, id", 1)?,
             foreign: Self::foreign(connection)?,
+            directories: directories(connection)?,
             dangling: dangling(connection)?,
         })
     }
@@ -159,6 +169,10 @@ impl Snapshot {
         ensure!(
             Self::foreign(connection)? == self.foreign,
             "Mixxx settings or its Auto DJ and history playlists would change"
+        );
+        ensure!(
+            self.directories.is_empty() || directories(connection)? == self.directories,
+            "A list of folders Mixxx already scans would change"
         );
         ensure!(
             dangling(connection)? <= self.dangling,

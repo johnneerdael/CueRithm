@@ -4,6 +4,7 @@ use crate::{
     MixxxContainer, MixxxExistingTracks, MixxxOptions, SyncBeat, SyncCue, SyncPlaylist, SyncTrack,
     mixxx::{Host, Mp3Decoder, after_write, fixture},
 };
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use rusqlite::types::Value;
 use sha2::{Digest, Sha256};
 
@@ -32,10 +33,11 @@ impl Env {
         }
     }
     fn connection(&self) -> Connection {
-        Connection::open(&self.database).unwrap()
+        fixture::open(&self.database)
     }
     fn file(&self, name: &str) -> PathBuf {
         let path = self.directory.path().join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, b"not really audio").unwrap();
         path
     }
@@ -105,6 +107,15 @@ fn playlist(id: &str, name: &str, tracks: &[&str]) -> SyncPlaylist {
 }
 fn none() -> PlaylistOwnershipRequest {
     PlaylistOwnershipRequest::default()
+}
+fn scan_list(connection: &Connection) -> Vec<String> {
+    connection
+        .prepare("SELECT directory FROM directories ORDER BY directory")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
 }
 fn count(connection: &Connection, table: &str) -> i64 {
     connection
@@ -249,7 +260,7 @@ fn verification_rejects_corrupted_writes_and_nothing_is_committed() {
             "a changed setting",
             |c| {
                 c.execute(
-                    "UPDATE settings SET value = 'x' WHERE name = 'mixxx.schema_version'",
+                    "UPDATE settings SET value = 'x' WHERE name = 'mixxx.schema.version'",
                     [],
                 )
                 .unwrap();
@@ -282,8 +293,16 @@ fn verification_rejects_corrupted_writes_and_nothing_is_committed() {
 
 #[test]
 fn unsupported_schema_is_refused_before_anything_is_written() {
-    for (version, expected) in [(38, "older"), (41, "newer")] {
+    // 38 predates the formats written; 41 is refused only when Mixxx marks it as needing
+    // newer software than the one this was checked against.
+    for (version, needs, expected) in [(38, "3", "older"), (41, "41", "update CueRithm")] {
         let env = Env::new(version);
+        env.connection()
+            .execute(
+                "UPDATE settings SET value = ?1 WHERE name = 'mixxx.schema.min_compatible_version'",
+                [needs],
+            )
+            .unwrap();
         let before = env.hash();
         let library = SyncLibrary {
             tracks: vec![env.track("a", "a.mp3")],
@@ -294,8 +313,42 @@ fn unsupported_schema_is_refused_before_anything_is_written() {
             .unwrap_err()
             .to_string();
         assert!(error.contains(expected), "{error}");
-        assert_eq!(env.hash(), before);
+        assert_eq!(env.hash(), before, "{version}");
     }
+}
+
+#[test]
+fn a_newer_mixxx_release_that_keeps_the_format_is_written_and_reported() {
+    // A schema Mixxx has not released yet, marked usable by older software, as every
+    // schema so far has been.
+    let env = Env::new(52);
+    let library = SyncLibrary {
+        tracks: vec![env.track("a", "a.mp3")],
+        playlists: vec![],
+    };
+    let staged = env
+        .run(&library, &options(MixxxExistingTracks::Keep), &none())
+        .unwrap();
+    assert!(staged.changed);
+    assert!(
+        staged
+            .warnings
+            .iter()
+            .any(|w| w.contains("schema 52") && w.contains("newer than the newest CueRithm")),
+        "{:?}",
+        staged.warnings
+    );
+    assert_eq!(count(&env.connection(), "library"), 1);
+    // The schema version Mixxx wrote is left exactly as it was.
+    let version: String = env
+        .connection()
+        .query_row(
+            "SELECT value FROM settings WHERE name = 'mixxx.schema.version'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(version, "52");
 }
 
 #[test]
@@ -393,14 +446,17 @@ fn folders_mixxx_does_not_scan_are_reported_only_when_it_scans_some() {
             .warnings
             .iter()
             .all(|w| !w.contains("outside the folders Mixxx scans")),
-        "no folders configured"
+        "an empty list is seeded, so nothing is outside it"
     );
-    env.connection()
+    let connection = env.connection();
+    connection.execute("DELETE FROM directories", []).unwrap();
+    connection
         .execute(
             "INSERT INTO directories(directory) VALUES('/somewhere/else')",
             [],
         )
         .unwrap();
+    drop(connection);
     let outside = env
         .run(&library, &options(MixxxExistingTracks::Keep), &none())
         .unwrap();
@@ -469,6 +525,190 @@ fn flatpak_library_warns_about_tracks_outside_visible_folders() {
     )
     .unwrap();
     assert!(staged.warnings.iter().all(|w| !w.contains("Flatpak")));
+}
+
+#[test]
+fn macos_sandbox_warns_about_tracks_outside_the_folders_mixxx_may_read() {
+    let env = Env::new(39);
+    let library = SyncLibrary {
+        tracks: vec![env.track("a", "a.mp3")],
+        playlists: vec![],
+    };
+    // A library in a container-shaped path, so `sandbox.cfg` can sit beside it.
+    let container = env
+        .directory
+        .path()
+        .join("home/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx");
+    std::fs::create_dir_all(&container).unwrap();
+    let container_db = container.join("mixxxdb.sqlite");
+    let run = |database: &Path| {
+        write_staged(
+            &env.database,
+            database,
+            &library,
+            &options(MixxxExistingTracks::Keep),
+            &none(),
+            MACOS,
+        )
+        .unwrap()
+        .warnings
+    };
+    let flagged = |warnings: &[String]| {
+        warnings.iter().any(|w| {
+            w.contains("1 track(s)") && w.contains("sandbox") && w.contains("Music and Downloads")
+        })
+    };
+    // First sync: the scan list is empty, so CueRithm seeds it. That folder has no
+    // bookmark, so Mixxx may not read it.
+    let first = run(&container_db);
+    assert!(flagged(&first), "{first:?}");
+    assert_eq!(scan_list(&env.connection()).len(), 1);
+    // Later syncs see a folder in the list and still know nobody granted it.
+    let second = run(&container_db);
+    assert!(flagged(&second), "{second:?}");
+    // A library that is not the sandboxed build's has no such warning.
+    let plain = run(Path::new(
+        "/Users/dj/Library/Application Support/Mixxx/mixxxdb.sqlite",
+    ));
+    assert!(plain.iter().all(|w| !w.contains("sandbox")), "{plain:?}");
+    // Once the user has chosen that folder in Mixxx, its bookmark is in sandbox.cfg
+    // (the key is the base64 of the path) and the warning goes.
+    let root = std::fs::canonicalize(env.directory.path()).unwrap();
+    std::fs::write(
+        container.join("sandbox.cfg"),
+        format!(
+            "<MixxxMinimalSettings><group name=\"[OSXBookmark]\"><item name=\"{}\">AAAA</item></group></MixxxMinimalSettings>",
+            BASE64.encode(root.to_str().unwrap())
+        ),
+    )
+    .unwrap();
+    let granted = run(&container_db);
+    assert!(
+        granted.iter().all(|w| !w.contains("sandbox")),
+        "{granted:?}"
+    );
+
+    // Music inside Mixxx's own container needs no grant.
+    let inside = Env::new(39);
+    // The library's path is canonical in production, and so are the tracks' locations.
+    let own = std::fs::canonicalize(inside.directory.path())
+        .unwrap()
+        .join("home/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx");
+    std::fs::create_dir_all(&own).unwrap();
+    let library = SyncLibrary {
+        tracks: vec![inside.track(
+            "a",
+            "home/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/a.mp3",
+        )],
+        playlists: vec![],
+    };
+    let warnings = write_staged(
+        &inside.database,
+        &own.join("mixxxdb.sqlite"),
+        &library,
+        &options(MixxxExistingTracks::Keep),
+        &none(),
+        MACOS,
+    )
+    .unwrap()
+    .warnings;
+    assert!(
+        warnings.iter().all(|w| !w.contains("sandbox")),
+        "{warnings:?}"
+    );
+}
+
+#[test]
+fn an_empty_scan_list_is_seeded_once_and_a_users_list_is_left_alone() {
+    let env = Env::new(39);
+    let library = SyncLibrary {
+        tracks: vec![
+            env.track("a", "set/a.mp3"),
+            env.track("b", "set/deep/b.mp3"),
+            env.track("c", "other/c.mp3"),
+        ],
+        playlists: vec![],
+    };
+    let first = env
+        .run(&library, &options(MixxxExistingTracks::Keep), &none())
+        .unwrap();
+    let root = std::fs::canonicalize(env.directory.path()).unwrap();
+    let root = root.to_str().unwrap();
+    assert!(first.changed);
+    assert_eq!(
+        scan_list(&env.connection()),
+        vec![format!("{root}/other"), format!("{root}/set")],
+        "outermost folders only, none above the tracks"
+    );
+    assert!(
+        first
+            .warnings
+            .iter()
+            .any(|w| w.contains("Mixxx had no music folder")
+                && w.contains("the 2 folders that hold the synced tracks")),
+        "{:?}",
+        first.warnings
+    );
+    let before = env.hash();
+    let again = env
+        .run(&library, &options(MixxxExistingTracks::Keep), &none())
+        .unwrap();
+    assert!(!again.changed && env.hash() == before);
+    assert!(
+        again
+            .warnings
+            .iter()
+            .all(|w| !w.contains("no music folder"))
+    );
+
+    // A list the user built is not edited, however far the tracks are from it.
+    let env = Env::new(39);
+    env.connection()
+        .execute(
+            "INSERT INTO directories(directory) VALUES('/somewhere/else')",
+            [],
+        )
+        .unwrap();
+    let library = SyncLibrary {
+        tracks: vec![env.track("a", "a.mp3")],
+        playlists: vec![],
+    };
+    let staged = env
+        .run(&library, &options(MixxxExistingTracks::Keep), &none())
+        .unwrap();
+    assert_eq!(
+        scan_list(&env.connection()),
+        vec!["/somewhere/else".to_owned()]
+    );
+    assert!(
+        staged
+            .warnings
+            .iter()
+            .all(|w| !w.contains("no music folder"))
+    );
+}
+
+#[test]
+fn verification_rejects_an_edit_to_a_scan_list_the_user_built() {
+    let env = Env::new(39);
+    env.connection()
+        .execute(
+            "INSERT INTO directories(directory) VALUES('/somewhere/else')",
+            [],
+        )
+        .unwrap();
+    let library = SyncLibrary {
+        tracks: vec![env.track("a", "a.mp3")],
+        playlists: vec![],
+    };
+    after_write(|connection| {
+        connection.execute("DELETE FROM directories", []).unwrap();
+    });
+    let error = env
+        .run(&library, &options(MixxxExistingTracks::Keep), &none())
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("folders Mixxx already scans"), "{error}");
 }
 
 #[test]

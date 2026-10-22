@@ -1,81 +1,55 @@
-//! Authored Mixxx-shaped databases for tests. The DDL is written from the observed
-//! table and column contract (see `docs/research/mixxx-sync-contract.md`); no upstream
-//! schema text is copied. Only the tables and columns the adapter touches, plus the
-//! ones Mixxx's own loader reads, are modelled.
+//! Mixxx-shaped databases for tests. `create` builds them from the table definitions
+//! Mixxx 2.5.6 itself wrote (`schema39.sql`), not from an authored approximation: a first
+//! version of these fixtures was written from the observed contract and hid three
+//! defects that only a real library showed (the schema version key, and the foreign
+//! keys Mixxx's schema declares but does not satisfy).
 use rusqlite::{Connection, params, types::Value};
 use std::path::Path;
 
 /// A fresh database at `path` shaped like Mixxx schema `version` (any number, so tests
 /// can also build unsupported ones). Version 40 adds `library.tuning_frequency_hz`.
+/// Like Mixxx, the returned connection has foreign keys off. The two playlists a new
+/// Mixxx library starts with are removed, so tests can count the playlists they make;
+/// `with_default_playlists` puts them back.
 pub fn create(path: &Path, version: u32) -> Connection {
+    super::create::create(path).unwrap();
     let connection = Connection::open(path).unwrap();
     connection
-        .execute_batch(
-            "CREATE TABLE settings (
-                 name TEXT UNIQUE NOT NULL, value TEXT,
-                 locked INTEGER DEFAULT 0, hidden INTEGER DEFAULT 0);
-             CREATE TABLE track_locations (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT, location TEXT UNIQUE,
-                 filename TEXT, directory TEXT, filesize INTEGER,
-                 fs_deleted INTEGER, needs_verification INTEGER);
-             CREATE TABLE cues (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 track_id INTEGER NOT NULL REFERENCES library(id),
-                 type INTEGER DEFAULT 0 NOT NULL, position INTEGER DEFAULT -1 NOT NULL,
-                 length INTEGER DEFAULT 0 NOT NULL, hotcue INTEGER DEFAULT -1 NOT NULL,
-                 label TEXT DEFAULT '' NOT NULL, color INTEGER DEFAULT 4294901760 NOT NULL);
-             CREATE TABLE Playlists (
-                 id INTEGER PRIMARY KEY, name TEXT, position INTEGER,
-                 hidden INTEGER DEFAULT 0 NOT NULL, date_created TEXT,
-                 date_modified TEXT, locked INTEGER DEFAULT 0);
-             CREATE TABLE PlaylistTracks (
-                 id INTEGER PRIMARY KEY, playlist_id INTEGER REFERENCES Playlists(id),
-                 track_id INTEGER REFERENCES library(id), position INTEGER,
-                 pl_datetime_added TEXT);
-             CREATE TABLE crates (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL,
-                 count INTEGER DEFAULT 0, show INTEGER DEFAULT 1,
-                 locked INTEGER DEFAULT 0, autodj_source INTEGER DEFAULT 0);
-             CREATE TABLE crate_tracks (
-                 crate_id INTEGER NOT NULL REFERENCES crates(id),
-                 track_id INTEGER NOT NULL REFERENCES library(id),
-                 UNIQUE (crate_id, track_id));
-             CREATE TABLE directories (directory TEXT UNIQUE);",
-        )
+        .pragma_update(None, "foreign_keys", false)
         .unwrap();
-    let tuning = if version >= 40 {
-        ", tuning_frequency_hz REAL DEFAULT 0.0"
-    } else {
-        ""
-    };
     connection
-        .execute_batch(&format!(
-            "CREATE TABLE library (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 artist TEXT, title TEXT, album TEXT, album_artist TEXT DEFAULT '',
-                 year TEXT, genre TEXT, composer TEXT DEFAULT '', grouping TEXT DEFAULT '',
-                 tracknumber TEXT, tracktotal TEXT DEFAULT '//', filetype TEXT DEFAULT '?',
-                 location INTEGER REFERENCES track_locations(id), color INTEGER,
-                 comment TEXT, url TEXT, rating INTEGER DEFAULT 0,
-                 key TEXT DEFAULT '', key_id INTEGER DEFAULT 0, cuepoint INTEGER,
-                 bpm REAL, replaygain REAL DEFAULT 0, replaygain_peak REAL DEFAULT -1.0,
-                 wavesummaryhex BLOB, timesplayed INTEGER DEFAULT 0,
-                 last_played_at TEXT DEFAULT NULL, played INTEGER, mixxx_deleted INTEGER,
-                 header_parsed INTEGER DEFAULT 0, source_synchronized_ms INTEGER DEFAULT NULL,
-                 channels INTEGER, samplerate INTEGER, bitrate INTEGER, duration REAL,
-                 beats_version TEXT, beats_sub_version TEXT DEFAULT '', beats BLOB,
-                 bpm_lock INTEGER DEFAULT 0, keys_version TEXT, keys_sub_version TEXT,
-                 keys BLOB, coverart_source INTEGER DEFAULT 0, coverart_type INTEGER DEFAULT 0,
-                 coverart_location TEXT DEFAULT '', coverart_color INTEGER,
-                 coverart_digest BLOB, coverart_hash INTEGER DEFAULT 0,
-                 datetime_added TEXT DEFAULT CURRENT_TIMESTAMP{tuning});"
-        ))
+        .execute("DELETE FROM Playlists WHERE id IN (1, 2)", [])
         .unwrap();
+    if version >= 40 {
+        connection
+            .execute_batch("ALTER TABLE library ADD COLUMN tuning_frequency_hz REAL DEFAULT 0.0;")
+            .unwrap();
+    }
     connection
         .execute(
-            "INSERT INTO settings(name, value) VALUES('mixxx.schema_version', ?1)",
+            "UPDATE settings SET value = ?1 WHERE name = 'mixxx.schema.version'",
             [version.to_string()],
         )
+        .unwrap();
+    connection
+}
+
+/// The Auto DJ and history-placeholder playlists every new Mixxx library has.
+pub fn with_default_playlists(connection: &Connection) {
+    connection
+        .execute_batch(
+            "INSERT INTO Playlists(id, name, position, hidden, date_created, date_modified, locked)
+             VALUES (1, 'Auto DJ', 1, 1, datetime('now'), datetime('now'), 0),
+                    (2, 'historyPlaceholder', 2, -1, datetime('now'), datetime('now'), 1);",
+        )
+        .unwrap();
+}
+
+/// Open an existing test library the way Mixxx does: foreign keys off.
+pub fn open(path: &Path) -> Connection {
+    let connection = Connection::open(path).unwrap();
+    connection
+        .pragma_update(None, "foreign_keys", false)
         .unwrap();
     connection
 }

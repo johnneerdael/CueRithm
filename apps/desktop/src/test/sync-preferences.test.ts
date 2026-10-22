@@ -26,20 +26,20 @@ describe("sync choice storage",()=>{
  });
  it("defaults Mixxx to Add only with playlists, independently on every read",()=>{
   const first=readSyncPreferences();
-  expect(first.profiles.mixxx.options.mixxx).toEqual({existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true});
+  expect(first.profiles.mixxx.options.mixxx).toEqual({library:"update",existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true});
   first.profiles.mixxx.options.mixxx.existing_tracks="replace";
   expect(readSyncPreferences().profiles.mixxx.options.mixxx.existing_tracks).toBe("keep");
   expect(first.profiles.virtual_dj.options.mixxx.existing_tracks).toBe("keep");
  });
  it("keeps valid saved Mixxx choices, repairs malformed ones, and never restores a Wine environment for Mixxx",()=>{
-  localStorage.setItem(syncPreferencesKey,JSON.stringify({version:1,software:"mixxx",profiles:{mixxx:{path:"/Mixxx",environment:{kind:"windows_compatibility",prefix:"/p",installation:null,mappings:[]},options:{mixxx:{existing_tracks:"replace",container:"crates",replace_metadata:false,replace_key:"yes",replace_cues:false,unknown:1}}}}}));
+  localStorage.setItem(syncPreferencesKey,JSON.stringify({version:1,software:"mixxx",profiles:{mixxx:{path:"/Mixxx",environment:{kind:"windows_compatibility",prefix:"/p",installation:null,mappings:[]},options:{mixxx:{library:"overwrite",existing_tracks:"replace",container:"crates",replace_metadata:false,replace_key:"yes",replace_cues:false,unknown:1}}}}}));
   const saved=readSyncPreferences();
   expect(saved.software).toBe("mixxx");
   expect(saved.profiles.mixxx.path).toBe("/Mixxx");
   expect(saved.profiles.mixxx.environment).toEqual({kind:"native"});
-  expect(saved.profiles.mixxx.options.mixxx).toEqual({existing_tracks:"replace",container:"crates",replace_metadata:false,replace_key:true,replace_cues:false});
-  localStorage.setItem(syncPreferencesKey,JSON.stringify({version:1,software:"mixxx",profiles:{mixxx:{options:{mixxx:{existing_tracks:"everything",container:7}}}}}));
-  expect(readSyncPreferences().profiles.mixxx.options.mixxx).toEqual({existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true});
+  expect(saved.profiles.mixxx.options.mixxx).toEqual({library:"overwrite",existing_tracks:"replace",container:"crates",replace_metadata:false,replace_key:true,replace_cues:false});
+  localStorage.setItem(syncPreferencesKey,JSON.stringify({version:1,software:"mixxx",profiles:{mixxx:{options:{mixxx:{library:"everything",existing_tracks:"everything",container:7}}}}}));
+  expect(readSyncPreferences().profiles.mixxx.options.mixxx).toEqual({library:"update",existing_tracks:"keep",container:"playlists",replace_metadata:true,replace_key:true,replace_cues:true});
   localStorage.setItem(syncPreferencesKey,JSON.stringify({version:1,software:"mixxx",profiles:{mixxx:{options:{mixxx:"not an object"}}}}));
   expect(readSyncPreferences().profiles.mixxx.options.mixxx.existing_tracks).toBe("keep");
  });

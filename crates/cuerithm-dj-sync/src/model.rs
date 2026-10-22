@@ -114,6 +114,19 @@ pub struct SyncOptions {
     pub mixxx: MixxxOptions,
 }
 
+/// Whether a Mixxx sync works inside the library that is there or replaces it whole.
+/// A folder with no library yet gets a new one either way.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MixxxLibrary {
+    /// Add to and update the library Mixxx has.
+    #[default]
+    Update,
+    /// Build a new library from this sync and replace the existing one. What Mixxx had
+    /// is kept in the sync's backup.
+    Overwrite,
+}
+
 /// What a Mixxx sync does with tracks that are already in the Mixxx library.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -139,6 +152,7 @@ pub enum MixxxContainer {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MixxxOptions {
+    pub library: MixxxLibrary,
     pub existing_tracks: MixxxExistingTracks,
     pub container: MixxxContainer,
     /// With `Replace`: title, artist, album, genre, comment, year, rating and colour.
@@ -151,6 +165,7 @@ pub struct MixxxOptions {
 impl Default for MixxxOptions {
     fn default() -> Self {
         Self {
+            library: MixxxLibrary::default(),
             existing_tracks: MixxxExistingTracks::default(),
             container: MixxxContainer::default(),
             replace_metadata: true,
@@ -261,6 +276,7 @@ mod mixxx_option_tests {
         let options: SyncOptions =
             serde_json::from_str(r#"{"nearest_color":true,"skip_beatgrids":false}"#).unwrap();
         assert!(options.mixxx.is_default());
+        assert_eq!(options.mixxx.library, MixxxLibrary::Update);
         assert_eq!(options.mixxx.existing_tracks, MixxxExistingTracks::Keep);
         assert_eq!(options.mixxx.container, MixxxContainer::Playlists);
         assert!(
@@ -273,6 +289,7 @@ mod mixxx_option_tests {
     fn mixxx_options_round_trip_non_default() {
         let options = SyncOptions {
             mixxx: MixxxOptions {
+                library: MixxxLibrary::Overwrite,
                 existing_tracks: MixxxExistingTracks::Replace,
                 container: MixxxContainer::Crates,
                 replace_metadata: false,
@@ -282,6 +299,7 @@ mod mixxx_option_tests {
             ..SyncOptions::default()
         };
         let json = serde_json::to_value(&options).unwrap();
+        assert_eq!(json["mixxx"]["library"], "overwrite");
         assert_eq!(json["mixxx"]["existing_tracks"], "replace");
         assert_eq!(json["mixxx"]["container"], "crates");
         let back: SyncOptions = serde_json::from_value(json).unwrap();

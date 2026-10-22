@@ -24,6 +24,7 @@ function profile(value:unknown):SyncChoices{
  options.usb_cdj_compatibility=choice(raw.usb_cdj_compatibility,["off","detect","auto_fix"],options.usb_cdj_compatibility);
  options.beatgrid_lock=choice(raw.beatgrid_lock,["default","lock","unlock"],options.beatgrid_lock);
  const mixxx=object(raw.mixxx);
+ options.mixxx.library=choice(mixxx.library,["update","overwrite"],options.mixxx.library);
  options.mixxx.existing_tracks=choice(mixxx.existing_tracks,["keep","replace"],options.mixxx.existing_tracks);
  options.mixxx.container=choice(mixxx.container,["playlists","crates"],options.mixxx.container);
  for(const key of mixxxBooleans)if(typeof mixxx[key]==="boolean")options.mixxx[key]=mixxx[key];

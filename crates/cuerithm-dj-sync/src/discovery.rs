@@ -254,10 +254,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let home = root.path().join("home");
         let documents = root.path().join("documents");
-        let mac = home.join("Library/Application Support/Mixxx/mixxxdb.sqlite");
+        let mac = home.join(
+            "Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/mixxxdb.sqlite",
+        );
+        let unsandboxed = home.join("Library/Application Support/Mixxx/mixxxdb.sqlite");
         let flatpak = home.join(".var/app/org.mixxx.Mixxx/.mixxx/mixxxdb.sqlite");
         let redirected = root.path().join("Redirected/Mixxx/mixxxdb.sqlite");
-        for path in [&mac, &flatpak, &redirected] {
+        for path in [&mac, &unsandboxed, &flatpak, &redirected] {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, b"fixture").unwrap();
         }
@@ -272,7 +275,13 @@ mod tests {
         };
         // `.mixxx/mixxxdb.sqlite` is a directory, so `exists()` alone would accept it.
         let default = found(None);
-        assert!(default.contains(&mac) && default.contains(&flatpak));
+        assert!(
+            default.contains(&mac) && default.contains(&unsandboxed) && default.contains(&flatpak)
+        );
+        assert!(
+            default.iter().position(|p| p == &mac) < default.iter().position(|p| p == &unsandboxed),
+            "the sandbox container is the official build's library and comes first"
+        );
         assert!(!default.contains(&redirected));
         let with_local = found(Some(&root.path().join("Redirected")));
         assert!(with_local.contains(&redirected));

@@ -40,7 +40,7 @@ impl Env {
         self.settings.join("mixxxdb.sqlite")
     }
     fn connection(&self) -> Connection {
-        Connection::open(self.database()).unwrap()
+        fixture::open(&self.database())
     }
     fn hash(&self) -> String {
         format!(
@@ -339,8 +339,15 @@ fn refusals_name_their_reason_and_change_nothing() {
     assert!(error.contains("did not close cleanly"), "{error}");
     std::fs::remove_file(env.settings.join("mixxxdb.sqlite-journal")).unwrap();
 
-    // A newer schema than this CueRithm understands.
+    // A newer schema that Mixxx itself marks as needing newer software.
     let newer = Env::new(41);
+    newer
+        .connection()
+        .execute(
+            "UPDATE settings SET value = '41' WHERE name = 'mixxx.schema.min_compatible_version'",
+            [],
+        )
+        .unwrap();
     let error = newer
         .prepare(
             &newer.library(&["a"], vec![]),
@@ -349,28 +356,40 @@ fn refusals_name_their_reason_and_change_nothing() {
         )
         .unwrap_err()
         .to_string();
-    assert!(error.contains("newer than the supported 39-40"), "{error}");
+    assert!(
+        error.contains("needs software that knows schema 41") && error.contains("update CueRithm"),
+        "{error}"
+    );
     assert_eq!(env.hash(), before);
 
-    // A folder that holds no Mixxx library.
+    // A file that is not a Mixxx library, and a place where neither the folder nor the
+    // folder it would be in exists. (A folder with no library is not a refusal: the sync
+    // creates one.)
     let empty = tempfile::tempdir().unwrap();
-    let mut target = env.target();
-    target.path = empty.path().to_path_buf();
-    let error = prepare_sync_owned_with_runtime(
-        &env.journals,
-        target,
-        &library,
-        &options(MixxxExistingTracks::Keep),
-        None,
-        &none(),
-        &Default::default(),
-    )
-    .unwrap_err();
-    assert!(
-        format!("{error:#}").contains("DJ target")
-            || format!("{error:#}").contains("Mixxx library was not found"),
-        "{error:#}"
-    );
+    let stray = empty.path().join("notes.txt");
+    std::fs::write(&stray, b"not a library").unwrap();
+    for (path, reason) in [
+        (stray, "Choose the Mixxx settings folder"),
+        (
+            empty.path().join("a/b/mixxx"),
+            "Neither the Mixxx settings folder",
+        ),
+    ] {
+        let mut target = env.target();
+        target.path = path;
+        let error = prepare_sync_owned_with_runtime(
+            &env.journals,
+            target,
+            &library,
+            &options(MixxxExistingTracks::Keep),
+            None,
+            &none(),
+            &Default::default(),
+        )
+        .unwrap_err();
+        assert!(format!("{error:#}").contains(reason), "{error:#}");
+    }
+    assert!(!empty.path().join("a").exists(), "nothing was created");
 }
 
 #[test]
