@@ -36,6 +36,21 @@ decompiled code and proprietary packaged assets are deliberately excluded.
 An engineer without that evidence must request access before claiming to have
 reproduced a finding. Public aggregates alone do not enable full reproduction.
 
+
+## Latest completed development results
+
+| Target | Exact agreement | Main remaining gap |
+| --- | --- | --- |
+| Key | 1,220/1,288 (94.72%) | Only 18/34 major responses match; 37 prior errors corrected and 33 introduced (F096). |
+| Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
+| Window energy | 26,675/29,892 (89.24%) | Only 177/1,288 entire window sequences match; this is a different target from whole-track energy (F083). |
+| Complete cue lists | 66/1,288 (5.12%) within 1 ns | Only 64 are timestamp-bit-exact; position and energy-label errors remain (F091, F095). |
+| Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
+
+These are spent development comparisons using captured client features. They do
+not measure unseen music or the complete decoded-audio path. The synthetic check
+uses previously inspected diagnostics. No replacement model is promoted.
+
 ## Immediate exclusions
 
 - Key input is 352 register/bank values, not interchangeable with 12 chroma values
