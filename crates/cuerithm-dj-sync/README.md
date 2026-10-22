@@ -1,7 +1,7 @@
 # Native DJ library sync
 
 Independent Rust format adapters for VirtualDJ 8.5, current Engine DJ (schema 3),
-djay Pro (current TSBF/Yap library), Serato DJ Pro 4 and Pioneer USB. Older software
+djay Pro (current TSBF/Yap library), Serato DJ Pro 4, Pioneer USB and Mixxx (schema 39-40). Older software
 formats are outside this port. Rekordbox desktop retains its separate direct-only
 adapter; there is no Rekordbox XML transport.
 
@@ -44,6 +44,7 @@ Targets:
 | djay Pro | `MediaLibrary.db` binary records, playlists, native index invalidation |
 | Serato 4 | Root/location SQLite databases, aggregate master, native media tags |
 | Pioneer USB | Copied media, PDB, encrypted Device Library Plus, DAT/EXT/2EX and artwork |
+| Mixxx | `mixxxdb.sqlite`: tracks, BeatGrid/BeatMap and KeyMap blobs, hot cue and loop rows, playlists or crates (see below) |
 
 `SyncOptions` contains field mapping, key notation, palette conversion, grid
 preservation/locks and target-specific artwork/device/cue/compatibility settings.
@@ -55,3 +56,27 @@ only staged copies. No Python/Node runtime is required by the Rust adapters.
 Format tests use synthetic data. Reference parser/serializer comparisons establish
 format agreement, not actual acceptance by a running DJ application or CDJ hardware.
 See `docs/research/dj-software-formats.md` for the evidence boundary and open work.
+
+## Mixxx
+
+`mixxx` edits a staged copy of `mixxxdb.sqlite` (macOS `~/Library/Application
+Support/Mixxx`, Windows `%LOCALAPPDATA%\Mixxx`, Linux `~/.mixxx` or the Flatpak
+`~/.var/app/org.mixxx.Mixxx/.mixxx`) and the shared journal publishes it. The storage
+contract is in `docs/research/mixxx-sync-contract.md`; the decisions are in
+`docs/superpowers/specs/2026-10-22-mixxx-sync-design.md`.
+
+- **Modes.** `MixxxOptions.existing_tracks` is `Keep` (add only: tracks Mixxx lacks are
+  added, existing ones are untouched) or `Replace` (CueRithm replaces the grid, key, hot
+  cues and details chosen by `replace_*`). `container` writes playlists or crates.
+- **Schema.** Only schema 39 and 40 are written; the writer names only columns that
+  exist and checks every table it needs.
+- **Safety.** Rows are matched by canonical path (case-insensitive only where the file
+  system folds case; ambiguity is an error). New rows are written parsed but never
+  synchronized, so Mixxx does not re-read tags over them. The staged copy is read
+  back before it is published: unrelated rows are digest-identical and no cue Mixxx
+  would discard is written. A repeat sync publishes nothing.
+- **Timing.** MP3 offsets come from the first frame's Info/LAME header (`mixxx/lame.rs`),
+  not from a measured profile; AAC and WMA are zero and reported as unverified.
+- **Tests.** `src/mixxx/` holds authored fixtures (`fixture.rs`, also exported with the
+  `test-support` feature for other crates' tests). `real_encoder_files_match_what_ffmpeg_trims`
+  is opt-in: set `CUERITHM_MP3_SAMPLES` to a folder of `lame` and FFmpeg output.

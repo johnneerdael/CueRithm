@@ -20,7 +20,7 @@ claim complete Lexicon or OneTagger parity.
 | Preparation presets | Immutable portable rule revisions, local folder assignments and per-source capture extend Settings. Import/export excludes credentials, global transport and native destination grants; disconnected folders and destinations require explicit reconnection. |
 | Playlists | Ordinary lists/folders, local smart rules, automatic membership refresh, tools/generation, preview and guarded Undo, with native desktop controls. |
 | Maintenance | Native APIs for duplicate review, donor merge/Undo, missing/unused-file scans, reviewed removal/restore, parent cleanup and explicit backup disposal. Dedicated maintenance screens now expose scanning, review, apply, Undo/Restore and recovery; final packaged/native acceptance remains separate. |
-| DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4 and Pioneer USB adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
+| DJ software Sync | Current VirtualDJ 8.5, Engine DJ schema 3, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx (schema 39-40) adapters and desktop Sync. Native smart export with whole-list fallbacks, timing conversion, owned playlist identity/deletion, typed directory/case-rename journals and recoverable apply/restore acknowledgement are present. Native DJ/player acceptance is separate. |
 | Native rekordbox Sync | Direct desktop synchronization, explicit field/conflict decisions, native identities, database/assets publication, recovery/restore and playlist/MyTag previews. Exact macOS builds 6.8.7.0303 and 7.2.19.0342 are write-accepted after private application-created-library tests; other builds and Windows remain read-only. The five other DJ targets retain their Sync workspace. |
 
 No collection XML transport is part of the product. Plays, Last Played and
@@ -124,7 +124,10 @@ stabilization change.
 ## Native DJ sync
 
 `crates/cuerithm-dj-sync` adds independent current-format adapters for VirtualDJ,
-Engine DJ, djay Pro, Serato DJ Pro 4 and Pioneer USB, with a desktop Sync workspace.
+Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx, with a desktop Sync workspace.
+Mixxx writes its SQLite library directly in an Add only or Manage library mode; its
+storage contract, measured MP3 alignment and unverified AAC/Windows/Linux runtime
+gaps are recorded in `docs/research/mixxx-sync-contract.md`.
 Implemented behavior includes measured export timing, supported native smart-rule
 compilation with exact whole-list fallbacks, durable playlist ownership and owned
 removal propagation, batch staging, typed file/directory/case-rename journals and
