@@ -8,6 +8,7 @@ pub(crate) mod fixture;
 mod keys;
 mod proto;
 mod schema;
+mod tracks;
 
 use anyhow::{Result, ensure};
 use std::path::{Path, PathBuf};

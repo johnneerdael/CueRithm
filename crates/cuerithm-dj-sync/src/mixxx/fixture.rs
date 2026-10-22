@@ -2,7 +2,7 @@
 //! table and column contract (see `docs/research/mixxx-sync-contract.md`); no upstream
 //! schema text is copied. Only the tables and columns the adapter touches, plus the
 //! ones Mixxx's own loader reads, are modelled.
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, types::Value};
 use std::path::Path;
 
 /// A fresh database at `path` shaped like Mixxx schema `version` (any number, so tests
@@ -149,6 +149,62 @@ pub(crate) fn add_crate(connection: &Connection, name: &str, tracks: &[i64]) -> 
             .unwrap();
     }
     id
+}
+
+/// Every row of `sql` as owned values, for before/after comparisons.
+pub(crate) fn dump(connection: &Connection, sql: &str) -> Vec<Vec<Value>> {
+    let mut statement = connection.prepare(sql).unwrap();
+    let count = statement.column_count();
+    statement
+        .query_map([], |row| {
+            (0..count)
+                .map(|index| row.get::<_, Value>(index))
+                .collect::<rusqlite::Result<Vec<_>>>()
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+/// Column names of `table` in declaration order.
+pub(crate) fn column_names(connection: &Connection, table: &str) -> Vec<String> {
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT name FROM pragma_table_info('{table}') ORDER BY cid"
+        ))
+        .unwrap();
+    statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+pub(crate) fn column_index(connection: &Connection, table: &str, column: &str) -> usize {
+    column_names(connection, table)
+        .iter()
+        .position(|name| name == column)
+        .unwrap()
+}
+
+/// A valid silent 16-bit PCM WAV, so audio-property probing has something to read.
+pub(crate) fn write_wav(path: &Path, channels: u16, sample_rate: u32, frames: u32) {
+    let data = frames * u32::from(channels) * 2;
+    let mut bytes = Vec::with_capacity(44 + data as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&channels.to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * u32::from(channels) * 2).to_le_bytes());
+    bytes.extend_from_slice(&(channels * 2).to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data.to_le_bytes());
+    bytes.resize(44 + data as usize, 0);
+    std::fs::write(path, bytes).unwrap();
 }
 
 #[cfg(test)]
