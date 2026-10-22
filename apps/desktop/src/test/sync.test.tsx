@@ -107,7 +107,7 @@ describe("native DJ sync",()=>{
   expect(bridge.applyDjSync).not.toHaveBeenCalled();
   expect(bridge.previewDjSync).toHaveBeenCalledTimes(1);
   const saved=JSON.parse(localStorage.getItem(preferencesKey)!);
-  expect(Object.keys(saved).sort()).toEqual(["profiles","software","version"]);
+  expect(Object.keys(saved).sort()).toEqual(["destination","profiles","software","version"]);
   expect(Object.keys(saved.profiles.pioneer_usb).sort()).toEqual(["environment","options","path","playlistId","scope","sourceRoot"]);
  });
  it("keeps independent destination, playlist selection and field mappings for each target",async()=>{

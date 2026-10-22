@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import type {ReactNode} from "react";
 import {ArrowRightLeft,FolderOpen,LoaderCircle,RefreshCw,RotateCcw,Search,Trash2} from "lucide-react";
 import type {Bridge} from "../types";
 import type {PlaylistWorkspace} from "../playlist-types";
@@ -6,7 +7,8 @@ import {errorMessage} from "../api";
 import {pathKey,pathText} from "../native-paths";
 import {syncTargets} from "../sync-types";
 import {useSyncPreferences} from "../sync-preferences";
-import type {DjSoftware,DjSyncHistoryEntry,DiscoveredTarget,DjSyncRequest,SyncOptions,SyncPreview,SyncTextField} from "../sync-types";
+import type {SyncDestination} from "../sync-preferences";
+import type {DjSyncHistoryEntry,DiscoveredTarget,DjSyncRequest,SyncOptions,SyncPreview,SyncTextField} from "../sync-types";
 import type {RekordboxBridge} from "../rekordbox-sync-types";
 import RekordboxSync from "./RekordboxSync";
 import SyncTargetSetup from "../components/SyncTargetSetup";
@@ -18,11 +20,12 @@ const fields:SyncTextField[]=["title","artist","album","genre","label","comment"
 function size(bytes:number){return bytes<1024?`${bytes} B`:bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(1)} MB`;}
 type SyncProps={bridge:Bridge;workspace:PlaylistWorkspace|null;revision:number;onChanged:()=>void;rekordboxBridge?:RekordboxBridge};
 export default function Sync(props:SyncProps){
- const [native,setNative]=useState(false);
- return <div className="sync-workspace"><nav className="cleanup-tabs" aria-label="Sync destinations"><button className={!native?"active":""} aria-current={!native?"page":undefined} onClick={()=>setNative(false)}>DJ libraries and USB</button><button className={native?"active":""} aria-current={native?"page":undefined} onClick={()=>setNative(true)}>rekordbox 6 / 7</button></nav>{native?<RekordboxSync bridge={props.rekordboxBridge} workspace={props.workspace} revision={props.revision} onChanged={props.onChanged}/>:<AdapterSync {...props}/>}</div>;
+ const preferences=useSyncPreferences();
+ const destinationControl=<label>Sync to<select aria-label="Sync to" value={preferences.destination} onChange={e=>preferences.setDestination(e.target.value as SyncDestination)}><option value="rekordbox">rekordbox 6 / 7</option>{syncTargets.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>;
+ return <div className="sync-workspace">{preferences.destination==="rekordbox"?<RekordboxSync bridge={props.rekordboxBridge} workspace={props.workspace} revision={props.revision} onChanged={props.onChanged} destinationControl={destinationControl}/>:<AdapterSync {...props} preferences={preferences} destinationControl={destinationControl}/>}</div>;
 }
-function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
- const {software,choices,setSoftware,setChoices}=useSyncPreferences();
+function AdapterSync({bridge,workspace,revision,onChanged,preferences,destinationControl}:SyncProps&{preferences:ReturnType<typeof useSyncPreferences>;destinationControl:ReactNode}){
+ const {software,choices,setChoices}=preferences;
  const {path,sourceRoot,environment,scope,playlistId,options}=choices;
  const [configuration,setConfiguration]=useState<SyncTargetConfiguration|null>(null);
  const target=useMemo(()=>({software,path:path.trim(),source_root:sourceRoot,...(environment.kind==="native"?{}:{environment})}),[software,path,sourceRoot,environment]);
@@ -43,6 +46,7 @@ function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
  const clearPreview=useCallback(()=>{const id=activePreview.current;activePreview.current=null;setPreview(null);return id;},[]);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;generation.current++;historyRequest.current++;const id=activePreview.current;activePreview.current=null;if(id)void bridge.discardDjSync(id).catch(()=>{});};},[bridge]);
  useEffect(()=>{generation.current++;const id=clearPreview();if(id)void discardPrepared(id).catch(e=>{if(alive.current)setError(errorMessage(e));});},[signature,clearPreview,discardPrepared]);
+ useEffect(()=>setResult(null),[software]);
  const discover=useCallback(async()=>{try{const next=await bridge.discoverDjTargets();if(alive.current)setTargets(next);}catch(e){if(alive.current)setError(errorMessage(e));}},[bridge]);
  useEffect(()=>{void discover();void reloadHistory().catch(e=>{if(alive.current)setError(errorMessage(e));});},[discover,reloadHistory]);
  useEffect(()=>{if(!path){const found=targets.find(t=>t.software===software);if(found)setPath(found.path);}},[software,targets,path]);
@@ -70,7 +74,7 @@ function AdapterSync({bridge,workspace,revision,onChanged}:SyncProps){
    {result?<p className="sync-result" role="status">{result}</p>:null}
    <fieldset className="sync-controls" disabled={!!busy}>
     <div className="sync-destination">
-     <label>Sync to<select aria-label="Sync to" value={software} onChange={e=>{setSoftware(e.target.value as DjSoftware);setResult(null);}}>{syncTargets.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+     {destinationControl}
      <SavedSyncTargets bridge={bridge} kind="dj_library" software={software} value={path.trim()?savedTarget:null} disabled={!!busy} onSelected={saved=>{if(saved?.target.kind==="dj_library"){const selected=saved.target.target;if(typeof selected.path!=="string"||(selected.source_root!==null&&typeof selected.source_root!=="string")){setError("This saved setup uses a path that cannot be edited as text. Choose the library again.");return;}setChoices(previous=>({...previous,path:selected.path as string,sourceRoot:selected.source_root as string|null,environment:selected.environment??{kind:"native"}}));}setConfiguration(saved);}}/>
      <label>{info.location}<div className="sync-path"><input aria-label={info.location} placeholder={software==="pioneer_usb"?"Choose a mounted USB drive":"Choose your DJ library"} value={path} onChange={e=>setPath(e.target.value)}/><button type="button" className="secondary" aria-label="Choose sync destination" onClick={()=>void bridge.chooseFolder().then(value=>{if(value&&alive.current)setPath(value);}).catch(e=>setError(errorMessage(e)))}><FolderOpen size={15}/></button><button type="button" className="secondary" aria-label="Refresh DJ libraries" onClick={()=>void discover()}><RefreshCw size={14}/></button></div></label>
      <SyncTargetSetup value={environment} onChange={environment=>setChoices(previous=>({...previous,environment}))} chooseFolder={()=>bridge.chooseFolder()}/>

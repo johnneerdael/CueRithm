@@ -9,7 +9,7 @@ export interface RekordboxSyncOptions {metadata_fields:string[];cues:boolean;bea
 export type RekordboxSyncScope={scope:"full"}|{scope:"changed"}|{scope:"playlist";playlist_id:string};
 export type RekordboxDecisions=Record<string,Record<string,NativeFieldDecision>>;
 export interface RekordboxSyncRequest {target_id:string;scope:RekordboxSyncScope;options:RekordboxSyncOptions;decisions:RekordboxDecisions;configuration?:SyncConfigurationBinding|null}
-export interface RekordboxSyncFieldReview {track_id:string;title:string;field:string;local:NativeFieldObservation;remote:NativeFieldObservation;result:NativeReconciliation;decision:NativeFieldDecision|null}
+export interface RekordboxSyncFieldReview {track_id:string;title:string;new_track?:boolean;field:string;local:NativeFieldObservation;remote:NativeFieldObservation;result:NativeReconciliation;decision:NativeFieldDecision|null}
 export type RekordboxEntityKind="playlist"|"folder"|"category"|"tag";
 export interface RekordboxEntityMember {title:string;position:number|null;external:boolean}
 export interface RekordboxEntityState {name:string;parent_path:string[];representation:"folder"|"ordinary"|"native_smart"|"category"|"tag";position:number;member_count:number;members:RekordboxEntityMember[];external_member_count:number}

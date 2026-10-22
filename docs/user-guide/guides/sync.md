@@ -10,10 +10,11 @@ recoverable backup.
 
 ## Choose a destination
 
-The **DJ libraries and USB** tab contains the **Sync to** menu with five targets:
+Choose your destination in the **Sync to** menu:
 
 | Target | Choose |
 | --- | --- |
+| rekordbox 6 / 7 | An installed desktop rekordbox library |
 | VirtualDJ | A current VirtualDJ 8.5 library folder |
 | Engine DJ | A current Engine DJ library folder or target drive |
 | djay Pro | A current djay Media Library folder |
@@ -23,7 +24,7 @@ The **DJ libraries and USB** tab contains the **Sync to** menu with five targets
 Initialize desktop libraries in their DJ application first. Choose a discovered
 library, use the folder button to browse, or enter its location. The refresh button
 checks for libraries again. Older library formats are not a separate export target.
-Choose the **rekordbox 6 / 7** tab for a desktop rekordbox library. Pioneer USB
+Choose **rekordbox 6 / 7** in the same menu for a desktop rekordbox library. Pioneer USB
 exports to a drive rather than a desktop rekordbox library.
 
 Sync remembers the selected software and keeps the destination, scope and options
@@ -74,7 +75,7 @@ validation. Review the availability notice for the selected library.
 
 1. Close rekordbox and **rekordbox Agent**. The Agent can remain running after
    closing the main application.
-2. Open **Sync → rekordbox 6 / 7** and choose the installed library.
+2. Open **Sync**, choose **Sync to → rekordbox 6 / 7**, then choose the installed library.
 3. Choose the full library, a playlist or folder, or tracks modified since the last
    sync. Select the metadata, cues, beatgrids, artwork, playlists and My Tags to
    include. **Convert smart playlists to track lists** exports their saved members.
@@ -85,11 +86,12 @@ validation. Review the availability notice for the selected library.
    external members. Long lists show the first 50 tracks and the full count.
    Smart playlists identify when they become track lists; native smart rules are
    labelled separately when preserved.
-   When a new track has no native identity yet, its playlists and My Tags await
-   your choices. Include the track in the sync scope, choose **Use CueRithm** for
-   its title and any cues or beatgrid to send, then preview again. Sync remains
-   unavailable until that fresh preview contains the complete membership plan.
-5. Choose which values to use. The first sync requires explicit choices, including
+   Tracks absent from rekordbox appear under **New tracks**. They use the selected
+   CueRithm metadata, cues, beatgrid and artwork automatically; empty or unavailable
+   fields are omitted. Their playlists and My Tags are included in the same preview.
+   Include playlist and My Tag members in the sync scope so their track identities
+   can be created together.
+5. For tracks already in rekordbox, choose which values to use. The first sync requires explicit choices, including
    **Accept equal values** when both libraries already agree. Bulk choices apply to
    unresolved fields with available values and preserve choices already made.
 6. Preview again after changing choices. **Sync rekordbox** applies only this fresh

@@ -880,7 +880,24 @@ pub(super) fn preview(
                     owner: NativeFieldOwner::Unowned,
                     acknowledged: false,
                 });
-            let mut result = reconcile_field(&baseline, &local_observation, &remote_observation);
+            // A new track has no remote values to reconcile or overwrite.
+            // Export the selected data and leave absent values to native defaults.
+            let mut result = if remote.is_none() {
+                match &local_observation {
+                    NativeFieldObservation::Present(value)
+                        if !value.is_null()
+                            && value.as_str() != Some("")
+                            && !value.as_array().is_some_and(Vec::is_empty) =>
+                    {
+                        NativeReconciliation::Proposed {
+                            decision: NativeFieldDecision::UseLocal,
+                        }
+                    }
+                    _ => NativeReconciliation::Unchanged,
+                }
+            } else {
+                reconcile_field(&baseline, &local_observation, &remote_observation)
+            };
             if field == "cues"
                 && matches!(
                     result,
@@ -911,23 +928,37 @@ pub(super) fn preview(
             let decision =
                 field_choice(&local_observation, &remote_observation, &result, explicit)?;
             relevant |= !matches!(result, NativeReconciliation::Unchanged);
+            // Accept the native defaults for omitted new-track fields only
+            // after creation commits. Otherwise the next sync would ask about
+            // those same empty fields. This acknowledges without writing them.
+            let acknowledgement = decision
+                .filter(|d| *d != NativeFieldDecision::Skip)
+                .or_else(|| {
+                    (remote.is_none()
+                        && explicit.is_none()
+                        && matches!(result, NativeReconciliation::Unchanged))
+                    .then_some(NativeFieldDecision::UseRemote)
+                });
+            if let Some(decision) = acknowledgement
+                && let NativeFieldObservation::Present(value) = &local_observation
+            {
+                acknowledgements.push(FieldAcknowledgement {
+                    local_id: track.id.clone(),
+                    content_id: remote
+                        .map(|r| r.identity.content_id.clone())
+                        .unwrap_or_default(),
+                    field: field.clone(),
+                    local: value.clone(),
+                    decision,
+                });
+            }
             if let Some(decision) = decision.filter(|d| *d != NativeFieldDecision::Skip) {
-                if let NativeFieldObservation::Present(value) = &local_observation {
-                    acknowledgements.push(FieldAcknowledgement {
-                        local_id: track.id.clone(),
-                        content_id: remote
-                            .map(|r| r.identity.content_id.clone())
-                            .unwrap_or_default(),
-                        field: field.clone(),
-                        local: value.clone(),
-                        decision,
-                    });
-                }
                 chosen.insert(field.clone(), decision);
             }
             reviews.push(RekordboxSyncFieldReview {
                 track_id: track.id.clone(),
                 title: track.title.clone(),
+                new_track: remote.is_none(),
                 field,
                 local: local_observation,
                 remote: remote_observation,
@@ -1365,10 +1396,10 @@ pub(super) fn preview(
         &reserved,
     )?;
     if !pending_entities.is_empty() {
-        warnings.push("Playlist and My Tag changes await new track choices. Include their tracks in the sync scope, choose Use CueRithm for each new title, then preview again. All entity changes are withheld from this preview.".into());
+        warnings.push("Playlist and My Tag changes await missing tracks. Include their tracks and title metadata in the sync scope, then preview again. All entity changes are withheld from this preview.".into());
     }
     if pending_creation_choice {
-        warnings.push("New rekordbox tracks require an explicit Use CueRithm choice for title. Select title in Metadata fields and preview again after choosing.".into());
+        warnings.push("New rekordbox tracks need a title. Include title in Metadata fields without skipping it, then preview again.".into());
     }
     let playlist_plan = if pending_entities.is_empty()
         && (request.options.playlists || request.options.my_tags)

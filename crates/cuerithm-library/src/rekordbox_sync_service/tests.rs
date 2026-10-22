@@ -1308,7 +1308,7 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         .unwrap();
     f.library.conn().unwrap().execute_batch("INSERT INTO custom_tag_categories(id,name) VALUES('category','Mood'); INSERT INTO custom_tags(id,category_id,name) VALUES('tag','category','Warm'); INSERT INTO track_custom_tags(track_id,tag_id) VALUES('local','tag');").unwrap();
     let options = RekordboxSyncOptions {
-        metadata_fields: BTreeSet::from(["title".into()]),
+        metadata_fields: BTreeSet::from(["title".into(), "disc_number".into()]),
         cues: true,
         beat_grid: true,
         artwork: false,
@@ -1343,37 +1343,40 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         &CancellationToken::default(),
         planning::PreviewPermit::AuthoredFixture,
     )
-    .expect("First sync returns field choices before resolving new entity members");
-    assert!(!initial.can_apply);
-    assert_eq!(initial.pending_entities.len(), 2);
-    assert!(
-        initial
-            .pending_entities
-            .iter()
-            .any(|entity| entity.name == "Prepared set" && entity.unresolved_members == 1)
-    );
-    assert!(
-        initial
-            .pending_entities
-            .iter()
-            .any(|entity| entity.name == "Warm" && entity.kind == RekordboxEntityKind::Tag)
-    );
-    assert!(initial.entity_changes.is_empty());
+    .expect("New tracks and memberships are planned without field choices");
+    assert!(initial.can_apply);
+    assert!(initial.pending_entities.is_empty());
+    assert_eq!(initial.skipped_fields, 0);
+    assert_eq!(initial.entity_changes.len(), 3);
+    assert!(initial.fields.iter().any(
+        |field| field.field == "title" && field.decision == Some(NativeFieldDecision::UseLocal)
+    ));
+    let empty = initial
+        .fields
+        .iter()
+        .find(|field| field.field == "disc_number")
+        .unwrap();
+    assert!(matches!(empty.result, NativeReconciliation::Unchanged));
+    assert!(empty.decision.is_none());
     assert!(
         initial
             .fields
             .iter()
-            .any(|field| field.field == "title" && field.decision.is_none())
+            .all(|field| !matches!(field.result, NativeReconciliation::Conflict { .. }))
     );
     let initial_op = load(&f.library, &initial.id).unwrap();
     assert!(
-        initial_op.playlist_plan.is_none(),
-        "No partial membership mutation is publishable"
+        initial_op.playlist_plan.is_some(),
+        "New tracks and their memberships share one complete plan"
     );
-    assert!(initial_op.plan.rows.is_empty());
+    assert!(initial_op.resolved[0].created);
     f.library.discard_rekordbox_sync(&initial.id).unwrap();
     let mut tag_request = request.clone();
-    tag_request.decisions.clear();
+    tag_request
+        .decisions
+        .get_mut("local")
+        .unwrap()
+        .insert("title".into(), NativeFieldDecision::Skip);
     tag_request.options.playlists = false;
     let tags_only = planning::preview(
         &f.library,
@@ -1384,7 +1387,7 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         &CancellationToken::default(),
         planning::PreviewPermit::AuthoredFixture,
     )
-    .expect("My Tag dependencies also return the initial field review");
+    .expect("Explicitly skipped titles still withhold dependent My Tags");
     assert!(!tags_only.can_apply);
     assert_eq!(tags_only.pending_entities.len(), 1);
     assert_eq!(tags_only.pending_entities[0].name, "Warm");
@@ -1394,7 +1397,7 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         .decisions
         .get_mut("local")
         .unwrap()
-        .remove("title");
+        .insert("title".into(), NativeFieldDecision::Skip);
     let partial = planning::preview(
         &f.library,
         partial_request,
@@ -1404,14 +1407,16 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
         &CancellationToken::default(),
         planning::PreviewPermit::AuthoredFixture,
     )
-    .expect("Cue and grid choices can precede the explicit title creation choice");
+    .expect("An explicitly skipped title withholds track creation");
     assert!(!partial.can_apply);
     assert_eq!(partial.pending_entities.len(), 2);
     assert!(load(&f.library, &partial.id).unwrap().plan.rows.is_empty());
     f.library.discard_rekordbox_sync(&partial.id).unwrap();
+    let mut automatic_request = request.clone();
+    automatic_request.decisions.clear();
     let preview = planning::preview(
         &f.library,
-        request.clone(),
+        automatic_request,
         prior.target.clone(),
         &key(),
         Some(&runtime()),
@@ -1502,6 +1507,13 @@ fn new_native_tracks_and_owned_playlist_share_frozen_ids_without_duplicate_local
     .unwrap();
     assert_eq!(second.changed_rows, 0);
     assert_eq!(second.media_copies, 0);
+    assert_eq!(second.skipped_fields, 0);
+    assert!(
+        second
+            .fields
+            .iter()
+            .all(|field| matches!(field.result, NativeReconciliation::Unchanged))
+    );
     f.library.discard_rekordbox_sync(&second.id).unwrap();
     open(&f.native)
         .execute(
