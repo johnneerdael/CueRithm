@@ -19,6 +19,56 @@ pub(super) fn case_insensitive_host() -> bool {
     cfg!(any(target_os = "macos", windows))
 }
 
+/// Whether two location texts name one file on disk. A case-folded match is only a match
+/// when this says so: macOS and Windows are usually case-insensitive but can have
+/// case-sensitive volumes, where `A.mp3` and `a.mp3` are two files.
+pub(super) fn same_file(a: &str, b: &str) -> bool {
+    let (a, b) = (Path::new(a), Path::new(b));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        matches!(
+            (std::fs::metadata(a), std::fs::metadata(b)),
+            (Ok(x), Ok(y)) if x.dev() == y.dev() && x.ino() == y.ino()
+        )
+    }
+    #[cfg(not(unix))]
+    {
+        matches!(
+            (std::fs::canonicalize(a), std::fs::canonicalize(b)),
+            (Ok(x), Ok(y)) if x == y
+        )
+    }
+}
+
+type FileCheck = fn(&str, &str) -> bool;
+#[cfg(test)]
+thread_local! {
+    static SAME_FILE: std::cell::Cell<Option<FileCheck>> = const { std::cell::Cell::new(None) };
+}
+/// Test seam: what `same_file` answers until the guard is dropped. Tests build locations
+/// that do not exist on disk, and must not depend on the file system they run on.
+#[cfg(test)]
+pub(super) struct PretendSameFile;
+#[cfg(test)]
+impl Drop for PretendSameFile {
+    fn drop(&mut self) {
+        SAME_FILE.set(None);
+    }
+}
+#[cfg(test)]
+pub(super) fn pretend_same_file(check: FileCheck) -> PretendSameFile {
+    SAME_FILE.set(Some(check));
+    PretendSameFile
+}
+pub(super) fn file_check() -> FileCheck {
+    #[cfg(test)]
+    if let Some(check) = SAME_FILE.get() {
+        return check;
+    }
+    same_file
+}
+
 /// `track_locations.location` for a canonical path: forward slashes on Windows, the
 /// verbatim `\\?\` prefix removed, `\\?\UNC\server\share` as `//server/share`.
 /// Mixxx stores text, so a path that is not valid Unicode cannot be recorded.
@@ -100,13 +150,26 @@ impl Index {
         let Some(candidates) = self.folded.get(&key.to_lowercase()) else {
             return Ok(None);
         };
+        // A different spelling is only the same track when the file system agrees.
+        let same = file_check();
+        let candidates: Vec<&String> = candidates
+            .iter()
+            .filter(|candidate| same(key, candidate))
+            .collect();
+        if candidates.is_empty() {
+            return Ok(None);
+        }
         ensure!(
             candidates.len() == 1,
             "Mixxx library holds {} rows for this file ({}); remove the duplicates in Mixxx first",
             candidates.len(),
-            candidates.join(", ")
+            candidates
+                .iter()
+                .map(|c| c.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
-        Ok(Some(self.exact[&candidates[0]]))
+        Ok(Some(self.exact[candidates[0]]))
     }
 }
 
@@ -791,6 +854,7 @@ mod tests {
 
     #[test]
     fn case_insensitive_match_on_macos_and_windows_but_exact_on_linux() {
+        let _same = pretend_same_file(|_, _| true);
         for (insensitive, expected_rows) in [(true, 1), (false, 2)] {
             let mut s = setup(39);
             let (path, key) = s.file("Song.mp3");
@@ -809,7 +873,42 @@ mod tests {
     }
 
     #[test]
+    fn a_case_variant_on_a_case_sensitive_volume_is_a_different_track() {
+        // `Song.mp3` is in the library; `song.mp3` is another file that merely folds to the
+        // same text. The file system says they are not one file, so the second is added
+        // rather than silently merged into the first's row.
+        let _same = pretend_same_file(|_, _| false);
+        let mut s = setup(39);
+        let (path, key) = s.file("Song.mp3");
+        fixture::add_track(&s.connection, &key.to_uppercase(), "Existing");
+        let (outcome, _) = s
+            .run(
+                vec![full_track("t", &path)],
+                &options(MixxxExistingTracks::Keep),
+                true,
+            )
+            .unwrap();
+        assert_eq!(outcome.added, 1);
+        assert_eq!(
+            fixture::dump(&s.connection, "SELECT id FROM library").len(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_case_variant_of_the_same_file_is_matched_by_its_identity_not_its_spelling() {
+        // The real check, on whatever file system the tests run on: a path that is the file
+        // itself is the same file; a name that does not exist is not.
+        let s = setup(39);
+        let (_, key) = s.file("Song.mp3");
+        assert!(same_file(&key, &key));
+        assert!(!same_file(&key, &key.replace("Song", "Other")));
+        assert!(!same_file("/no/such/file.mp3", &key));
+    }
+
+    #[test]
     fn ambiguous_case_match_is_error_but_an_exact_row_wins() {
+        let _same = pretend_same_file(|_, _| true);
         let mut s = setup(39);
         let (path, key) = s.file("Song.mp3");
         fixture::add_track(&s.connection, &key.to_uppercase(), "Upper");

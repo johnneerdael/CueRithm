@@ -105,7 +105,7 @@ pub fn resolve_database_target(path: &Path) -> Result<DatabaseTarget> {
 
 /// The folder to watch for changes between preview and apply: the settings folder, or
 /// its parent while a Mixxx that was never started has not made one.
-pub(crate) fn watched_folder(path: &Path) -> Result<PathBuf> {
+pub fn watched_folder(path: &Path) -> Result<PathBuf> {
     let database = resolve_database_target(path)?.database;
     let folder = database.parent().context("Mixxx settings folder missing")?;
     if folder.is_dir() {
@@ -397,10 +397,19 @@ fn advisories(
         ));
     }
     if wma > 0 {
-        warnings.push(format!(
-            "{wma} WMA track(s): Mixxx plays WMA only when it was built with FFmpeg or, on \
-             Windows, Media Foundation, and CueRithm has not verified how it aligns them."
-        ));
+        warnings.push(if host.decoder == Mp3Decoder::CoreAudio {
+            // Read from the debug log of the macOS download, Mixxx 2.5.6: it lists no
+            // decoder for wma.
+            format!(
+                "{wma} WMA track(s): the Mixxx download for macOS has no WMA decoder (checked \
+                 in Mixxx 2.5.6), so they are added to the library but will not play there."
+            )
+        } else {
+            format!(
+                "{wma} WMA track(s): Mixxx plays WMA only when it was built with FFmpeg or, on \
+                 Windows, Media Foundation, and CueRithm has not verified how it aligns them."
+            )
+        });
     }
     let mut statement = connection.prepare("SELECT directory FROM directories")?;
     let scanned = statement

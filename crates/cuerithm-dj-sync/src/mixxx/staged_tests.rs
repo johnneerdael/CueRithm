@@ -402,10 +402,18 @@ fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
     .unwrap()
     .warnings;
     assert!(mac.iter().all(|w| !w.contains("AAC track")), "{mac:?}");
-    assert_eq!(
-        mac.iter().filter(|w| w.contains("WMA track")).count(),
-        1,
-        "WMA is never verified"
+    let wma: Vec<_> = mac.iter().filter(|w| w.contains("WMA track")).collect();
+    assert_eq!(wma.len(), 1, "{mac:?}");
+    assert!(
+        wma[0].contains("no WMA decoder") && wma[0].contains("will not play"),
+        "{wma:?}"
+    );
+    // Elsewhere WMA is only unverified, not known to be unplayable.
+    assert!(
+        linux
+            .iter()
+            .any(|w| w.contains("WMA track") && w.contains("has not verified")),
+        "{linux:?}"
     );
     // Lossless sources warn about nothing on either system.
     let env_three = Env::new(39);

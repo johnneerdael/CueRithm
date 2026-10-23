@@ -133,15 +133,21 @@ impl Library {
         let root = self.data_dir().join("sync");
         let _lease = service_lock(&root)?;
         let selected_target = request.target.clone();
-        let target_root =
-            cuerithm_rekordbox::TargetPathSnapshot::capture(if selected_target.path.is_dir() {
-                &selected_target.path
-            } else {
-                selected_target
-                    .path
-                    .parent()
-                    .context("DJ library parent missing")?
-            })?;
+        let target_root = cuerithm_rekordbox::TargetPathSnapshot::capture(&if selected_target
+            .software
+            == DjSoftware::Mixxx
+        {
+            // A library, or its whole settings folder, may not exist yet.
+            cuerithm_dj_sync::mixxx::watched_folder(&selected_target.path)?
+        } else if selected_target.path.is_dir() {
+            selected_target.path.clone()
+        } else {
+            selected_target
+                .path
+                .parent()
+                .context("DJ library parent missing")?
+                .to_path_buf()
+        })?;
         request.target = canonical_target(request.target)?;
         ensure!(
             request.target.software != DjSoftware::Mixxx

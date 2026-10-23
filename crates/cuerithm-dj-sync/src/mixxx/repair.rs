@@ -20,7 +20,14 @@ fn find(connection: &Connection, key: &str) -> Result<Vec<(i64, String)>> {
     if !exact.is_empty() || !case_insensitive_host() {
         return Ok(exact);
     }
-    read("SELECT id, location FROM track_locations WHERE lower(location) = lower(?1)")
+    // A row spelled differently is only this file's when the file system says so.
+    let same = super::tracks::file_check();
+    Ok(
+        read("SELECT id, location FROM track_locations WHERE lower(location) = lower(?1)")?
+            .into_iter()
+            .filter(|(_, location)| same(key, location))
+            .collect(),
+    )
 }
 
 fn key_of(path: &Path) -> Result<String> {

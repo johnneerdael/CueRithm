@@ -226,6 +226,24 @@ fn a_library_is_created_where_mixxx_has_none_and_restore_takes_it_away_again() {
 }
 
 #[test]
+fn a_library_is_created_from_a_target_spelled_as_the_missing_database_file() {
+    // The file spelling of a place where neither the library nor its folder exists.
+    let setup = setup();
+    setup.add_track("b");
+    fs::create_dir(setup.root.join("fresh-parent")).unwrap();
+    let folder = setup.root.join("fresh-parent/Mixxx");
+    let database = folder.join(cuerithm_dj_sync::mixxx::DATABASE_FILE);
+    let mut request = setup.request(DjSyncScope::Full, MixxxExistingTracks::Keep);
+    request.target.path = database.clone();
+    let preview = setup.library.preview_dj_sync(request).unwrap();
+    assert!(!folder.exists(), "a preview creates nothing");
+    setup.library.apply_dj_sync(&preview.id).unwrap();
+    assert!(database.is_file());
+    setup.library.restore_dj_sync(&preview.id).unwrap();
+    assert!(!database.exists());
+}
+
+#[test]
 fn replacing_the_whole_library_builds_a_new_one_and_restore_brings_the_old_one_back() {
     let setup = setup();
     setup.add_track("b");
