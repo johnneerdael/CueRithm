@@ -1,0 +1,323 @@
+[
+ {
+  "scene": "library-duplicates-scan",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "wait_for",
+    "Review groups"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-duplicates-review",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "wait_for",
+    "Review groups"
+   ],
+   [
+    "click",
+    "^button Review groups"
+   ],
+   [
+    "wait_for",
+    "Review duplicates"
+   ],
+   [
+    "wait",
+    "1.5"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-duplicates-selected",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "wait_for",
+    "Review groups"
+   ],
+   [
+    "click",
+    "^button Review groups"
+   ],
+   [
+    "wait_for",
+    "Review duplicates"
+   ],
+   [
+    "click",
+    "checkbox Select group 1\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 2\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 3\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 4\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 5\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 6\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 7\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 8\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 9\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 10\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 11\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 12\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 13\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 14\\b"
+   ],
+   [
+    "scroll",
+    "^container Duplicate review",
+    "down",
+    "0.5"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-duplicates-preview",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "wait_for",
+    "Review groups"
+   ],
+   [
+    "click",
+    "^button Review groups"
+   ],
+   [
+    "wait_for",
+    "Review duplicates"
+   ],
+   [
+    "click",
+    "checkbox Select group 1\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 2\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 3\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 4\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 5\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 6\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 7\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 8\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 9\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 10\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 11\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 12\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 13\\b"
+   ],
+   [
+    "click",
+    "checkbox Select group 14\\b"
+   ],
+   [
+    "click",
+    "^button Preview selected groups"
+   ],
+   [
+    "wait_for",
+    "Apply reviewed merge",
+    "90"
+   ],
+   [
+    "wait",
+    "1.5"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-missing-scan",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^tab Missing & broken"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "settle": 0.8
+ },
+ {
+  "scene": "library-history",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^tab History & recovery"
+   ],
+   [
+    "wait",
+    "1.5"
+   ]
+  ],
+  "settle": 0.8
+ },
+ {
+  "scene": "library-unused-files",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^tab Unused files"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "settle": 0.8
+ }
+]

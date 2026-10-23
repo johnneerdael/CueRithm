@@ -1,0 +1,457 @@
+{
+ "about/credits.md": [
+  "credits-and-open-source",
+  "onetagger",
+  "the-components",
+  "how-the-licences-fit-together",
+  "trademarks"
+ ],
+ "about/faq.md": [
+  "faq-and-troubleshooting",
+  "general",
+  "preparation",
+  "tagging",
+  "cleanup-and-playlists",
+  "technical"
+ ],
+ "about/index.md": [
+  "about-cuerithm",
+  "project-facts"
+ ],
+ "about/provenance.md": [
+  "how-cuerithm-was-made",
+  "what-i-studied",
+  "mixed-in-key",
+  "lexicon-dj",
+  "what-is-in-cuerithm",
+  "scope-of-the-work",
+  "where-else-the-ideas-come-from",
+  "questions-and-corrections"
+ ],
+ "about/roadmap.md": [
+  "roadmap-and-compatibility",
+  "available-now",
+  "not-in-the-app",
+  "known-limitations",
+  "in-development",
+  "bring-an-existing-dj-library-into-cuerithm",
+  "reconnect-moved-music",
+  "portable-backup-restore-and-lexicon-migration"
+ ],
+ "get-started/add-music.md": [
+  "add-your-music",
+  "watch-folders",
+  "which-files-are-accepted",
+  "when-does-a-file-start-processing",
+  "what-happens-next"
+ ],
+ "get-started/index.md": [
+  "get-started",
+  "what-you-need",
+  "files-and-saved-analysis"
+ ],
+ "get-started/install.md": [
+  "install",
+  "what-is-in-a-release",
+  "macos",
+  "windows",
+  "linux",
+  "check-that-the-install-is-healthy",
+  "where-cuerithm-keeps-its-data",
+  "uninstall"
+ ],
+ "get-started/main-window.md": [
+  "the-main-window",
+  "the-sidebar",
+  "the-header",
+  "the-track-table",
+  "the-player",
+  "light-and-dark"
+ ],
+ "get-started/shortcuts.md": [
+  "keyboard-shortcuts",
+  "mouse"
+ ],
+ "guides/catalog-solver.md": [
+  "cloudflare-challenge-solver",
+  "choose-a-service",
+  "configure-cuerithm",
+  "source-availability",
+  "timeouts-and-errors",
+  "data-sent-to-the-service"
+ ],
+ "guides/cleanup-rules.md": [
+  "cleanup-rules",
+  "the-flow",
+  "what-apply-guarantees",
+  "smart-fixes",
+  "genres",
+  "artists",
+  "order-of-application",
+  "limits",
+  "automatic-cleanup"
+ ],
+ "guides/compatible-tracks.md": [
+  "find-compatible-tracks"
+ ],
+ "guides/curating.md": [
+  "curate-tracks",
+  "categories-and-selections",
+  "autosave-pending-work-and-undo",
+  "optional-native-mappings"
+ ],
+ "guides/file-organization.md": [
+  "file-organization",
+  "naming-patterns",
+  "organize-existing-tracks",
+  "linked-dj-libraries-and-playback",
+  "history-recovery-and-undo"
+ ],
+ "guides/incoming-archive.md": [
+  "incoming-and-archive",
+  "incoming",
+  "stages",
+  "when-a-track-needs-attention",
+  "what-ready-requires",
+  "empty-incoming",
+  "archive"
+ ],
+ "guides/index.md": [
+  "guides"
+ ],
+ "guides/library-backup.md": [
+  "back-up-your-library",
+  "create-a-backup",
+  "restore-preparation",
+  "limits"
+ ],
+ "guides/maintenance.md": [
+  "maintenance",
+  "review-duplicates",
+  "check-missing-and-broken-files",
+  "review-unused-files",
+  "restore-files-and-manage-retained-originals",
+  "cancellation-stale-reports-and-recovery"
+ ],
+ "guides/manual-corrections.md": [
+  "correct-cues-loops-and-the-beatgrid",
+  "reuse-a-cue-template",
+  "undo-and-conflicts"
+ ],
+ "guides/metadata-editing.md": [
+  "review-matches-and-edit-metadata",
+  "review-a-catalog-match",
+  "edit-file-tags",
+  "drafts-preview-and-save",
+  "results-and-undo"
+ ],
+ "guides/player.md": [
+  "player-waveform-and-cues",
+  "header",
+  "transport",
+  "the-waveform",
+  "the-overview",
+  "cue-buttons",
+  "the-light-theme"
+ ],
+ "guides/playlist-flow.md": [
+  "see-the-flow-of-a-practice-playlist"
+ ],
+ "guides/playlist-tools.md": [
+  "playlist-tools-and-generator",
+  "the-tools",
+  "generate-playlists"
+ ],
+ "guides/playlists.md": [
+  "playlists-folders-and-favourites",
+  "item-types",
+  "creating",
+  "automatic-smart-playlists",
+  "the-playlist-menu",
+  "removing-and-restoring",
+  "drag-and-drop",
+  "the-membership-toolbar",
+  "archived-and-incoming-tracks",
+  "send-playlists-to-dj-software"
+ ],
+ "guides/preparation-presets.md": [
+  "preparation-presets",
+  "save-and-load-rules",
+  "folder-assignments",
+  "import-and-export"
+ ],
+ "guides/settings.md": [
+  "settings-reference",
+  "incoming",
+  "cue-generation",
+  "automatic-tagging",
+  "cleanup",
+  "file-organization",
+  "library-preferences",
+  "smart-playlists",
+  "appearance",
+  "what-is-not-a-setting"
+ ],
+ "guides/smart-rules.md": [
+  "smart-playlist-rules",
+  "combining-conditions",
+  "fields",
+  "operators",
+  "how-comparisons-behave",
+  "regular-expressions",
+  "preview-evaluation-and-refresh"
+ ],
+ "guides/sync-mixxx.md": [
+  "sync-to-mixxx",
+  "before-you-sync",
+  "start-from-nothing-or-replace-everything",
+  "choose-a-mode",
+  "playlists-and-crates",
+  "what-is-transferred",
+  "timing",
+  "preview-apply-and-restore",
+  "flatpak-and-folders-mixxx-scans",
+  "mixxx-on-macos-runs-in-a-sandbox",
+  "what-has-been-tested"
+ ],
+ "guides/sync.md": [
+  "sync-to-dj-software",
+  "choose-a-destination",
+  "windows-libraries-on-linux",
+  "sync-directly-to-rekordbox-6-or-7",
+  "choose-what-to-sync",
+  "set-the-options",
+  "pioneer-usb",
+  "preview-and-apply",
+  "backups-and-interrupted-operations"
+ ],
+ "guides/tagging-settings.md": [
+  "automatic-tagging-settings",
+  "master-switches",
+  "provider-setup",
+  "identify-unresolved-recordings",
+  "cloudflare-challenge-solver",
+  "matching",
+  "fields-to-write",
+  "how-measured-values-are-written",
+  "genre-and-style-routing",
+  "artwork",
+  "file-tag-format"
+ ],
+ "guides/track-table.md": [
+  "the-track-table",
+  "columns",
+  "sorting",
+  "searching-and-filtering",
+  "selecting",
+  "row-menu",
+  "status-icons"
+ ],
+ "guides/tracklist-matcher.md": [
+  "match-a-reference-tracklist"
+ ],
+ "index.md": [
+  "know-your-music-shape-your-set",
+  "what-cuerithm-does",
+  "analysis-and-file-handling",
+  "where-to-go-next"
+ ],
+ "learn/appearance.md": [
+  "choose-a-theme-and-waveform-style",
+  "theme",
+  "waveform-style"
+ ],
+ "learn/auto-tagging.md": [
+  "set-up-catalog-tagging",
+  "1-open-the-settings",
+  "2-switch-it-on",
+  "3-choose-providers",
+  "provider-setup",
+  "4-decide-what-happens-without-a-match",
+  "5-choose-the-fields-to-write",
+  "6-save-and-run-it",
+  "identify-an-unresolved-recording",
+  "match-a-folder-as-a-release",
+  "the-safeguards",
+  "what-just-happened"
+ ],
+ "learn/cleanup.md": [
+  "clean-up-messy-titles",
+  "1-open-cleanup",
+  "2-add-smart-fixes",
+  "3-scan",
+  "4-apply",
+  "5-undo",
+  "make-it-automatic",
+  "what-just-happened"
+ ],
+ "learn/first-tracks.md": [
+  "prepare-your-first-tracks",
+  "1-start-from-an-empty-library",
+  "2-add-tracks",
+  "3-watch-incoming",
+  "4-find-them-in-tracks",
+  "what-just-happened"
+ ],
+ "learn/index.md": [
+  "learn"
+ ],
+ "learn/navigate-with-cues.md": [
+  "navigate-a-track-with-cues",
+  "1-load-a-track",
+  "2-read-the-waveform",
+  "3-jump-to-a-cue",
+  "4-zoom-to-the-beats"
+ ],
+ "learn/playlists.md": [
+  "build-playlists-and-folders",
+  "1-create-a-playlist",
+  "2-add-tracks",
+  "3-reorder",
+  "4-make-a-folder",
+  "5-the-playlist-menu"
+ ],
+ "learn/read-analysis.md": [
+  "read-key-bpm-and-energy",
+  "key",
+  "bpm",
+  "energy",
+  "use-them-together",
+  "open-the-full-detail"
+ ],
+ "learn/smart-playlist.md": [
+  "build-a-smart-playlist",
+  "1-choose-the-type",
+  "2-add-conditions",
+  "3-preview-then-create",
+  "4-it-keeps-itself-current",
+  "ideas",
+  "what-just-happened"
+ ],
+ "technical/accuracy.md": [
+  "how-accurate-is-it",
+  "the-test-library",
+  "key",
+  "tempo-and-first-beat",
+  "energy",
+  "cues",
+  "platforms-and-scale",
+  "what-this-means-for-you"
+ ],
+ "technical/cleanup-engine.md": [
+  "cleanup-engine",
+  "design-rules",
+  "order",
+  "scan-apply-undo",
+  "custom-tags",
+  "validation",
+  "automatic-mode"
+ ],
+ "technical/cues.md": [
+  "the-cue-engine",
+  "inputs",
+  "front-end",
+  "stages",
+  "published-names-colours-and-types",
+  "when-a-cue-is-missing",
+  "revisions",
+  "settings-that-matter"
+ ],
+ "technical/decoding.md": [
+  "decoding-and-the-media-runtime",
+  "the-bundled-ffmpeg",
+  "what-decoding-produces",
+  "one-clock-for-everything",
+  "sealing-and-verification",
+  "-diagnostics",
+  "playback"
+ ],
+ "technical/energy.md": [
+  "track-energy",
+  "why-only-one-number",
+  "the-calculation",
+  "how-to-read-it",
+  "provenance-of-the-coefficients",
+  "where-it-goes"
+ ],
+ "technical/index.md": [
+  "under-the-hood"
+ ],
+ "technical/key.md": [
+  "key-detection",
+  "the-model",
+  "steps",
+  "notation",
+  "confidence",
+  "what-else-runs",
+  "limits"
+ ],
+ "technical/library.md": [
+  "the-library-database",
+  "the-engine",
+  "where-things-live",
+  "core-tables",
+  "paths-across-systems",
+  "one-process-at-a-time",
+  "recovery-at-startup",
+  "settings-storage",
+  "backups"
+ ],
+ "technical/matching.md": [
+  "catalog-matching",
+  "providers",
+  "building-the-query",
+  "normalising",
+  "scoring",
+  "album-matching",
+  "outcomes",
+  "network-behaviour"
+ ],
+ "technical/pipeline.md": [
+  "the-analysis-pipeline",
+  "1-waiting-for-the-file",
+  "2-decoding",
+  "3-analysis",
+  "4-matching-tagging-and-cleanup-optional",
+  "5-publication-and-promotion",
+  "what-is-stored-where",
+  "failure-semantics"
+ ],
+ "technical/smart-engine.md": [
+  "smart-playlist-engine",
+  "model",
+  "evaluation",
+  "keys",
+  "regular-expressions",
+  "refresh",
+  "automatic-generation",
+  "membership-references",
+  "previews-are-pinned",
+  "limits"
+ ],
+ "technical/tag-writing.md": [
+  "safe-tag-writing",
+  "which-tags-go-where",
+  "id3-versions",
+  "the-seven-safeguards",
+  "rollback-and-crash-recovery",
+  "backups",
+  "taglib"
+ ],
+ "technical/tempo.md": [
+  "tempo-and-beatgrid",
+  "inputs",
+  "tempo",
+  "the-anchor-first-beat",
+  "saved-values",
+  "cropped-intros",
+  "what-it-cannot-do"
+ ],
+ "technical/waveform.md": [
+  "waveforms",
+  "what-is-computed",
+  "the-three-bands",
+  "colour",
+  "caching"
+ ]
+}

@@ -1,6 +1,6 @@
 # Engine and CLI reference
 
-This is the engineering reference that used to be the repository README: building the analysis engine and the `camelot` CLI, validation commands and the desktop delivery notes. For what CueRithm is and how to use it, see the [README](../../README.md) and the [user guide](https://johnneerdael.github.io/CueRithm/).
+This is the engineering reference that used to be the repository README: building the analysis engine and the `camelot` CLI, validation commands and the desktop delivery notes. For what CueRithm is and how to use it, see the [README](../../README.md) and the [user guide](https://cuerithm.neerdael.nl/).
 
 An offline Rust engine for DJ track analysis: musical key, BPM, structural cues
 and one energy rating per track, with a Tauri 2 desktop preparation workspace.
