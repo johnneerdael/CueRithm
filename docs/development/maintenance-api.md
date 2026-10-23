@@ -97,6 +97,26 @@ remaining library record (symbolic links, hard links and path aliases included) 
 not reserved by another operation. Artist/title candidates that are different mixes
 are therefore never deleted. Sidecars and cover images are never touched.
 
+Each listed file carries `permanent`: `true` when the Trash cannot be expected to take
+it (a network share or read-only volume on macOS, or a volume where the Trash refused a
+file earlier in the run). The view lists those files on their own line and names them on
+the confirm button. Only those files are ever deleted permanently, and only after the
+Trash has been tried and has refused them; a file the preview announced for the Trash
+that the Trash then refuses stays where it is with its record, and a new preview lists
+it as permanent. `FileTrash::can_trash` only reports and never changes anything.
+
+When a delete merge removes records, the records Undo does not need are purged
+instead of stored: per-track caches and flags that are rebuilt on demand
+(`maintenance_fingerprints`, `smart_playlist_members`, `curation_native_stale`), cached
+analysis results, cover-art and waveform cache files of content no remaining track
+shares, the removed track's change-bookkeeping row, and every saved duplicate scan,
+review and preview (all stale after a merge, and all list the removed music). What
+stays, for the bounded Undo only, is the track record and everything that belongs to it
+through the schema's foreign keys (cues, tags, links, job and tagging history, curation
+state, ignore marks) plus the history entry; the stored records are dropped when the
+entry passes `undo_limit`. Retained recovery copies of audio written by earlier tagging
+or cleanup runs, and the history entry's summary (paths and sizes), are not purged.
+
 `mergeHistory()` returns committed transaction records and `undone_by` markers,
 ordered newest first, with `undo_expired` and `undo_limit`. These are history
 records; they do not promise that undo remains available after later source or
@@ -116,8 +136,9 @@ analysis remains intact; its presentation publication can reflect the imported
 cues/grid with manual-import provenance. An archive-only merge removes no music
 files. A delete merge moves files to the Trash only through the
 `FileTrash`/`SystemTrash` boundary (`NSFileManager` on macOS, the Recycle Bin on
-Windows, the freedesktop.org Trash on Linux) and never deletes permanently: when
-the Trash cannot take a file, that file and its record stay and are reported per file.
+Windows, the freedesktop.org Trash on Linux). It deletes permanently only a file the
+preview announced as `permanent`, after the Trash refused it; any other file the Trash
+cannot take stays with its record and is reported per file.
 Before each file moves, the availability, SHA-256 and identity proof are checked
 again, and the library records only the files that really moved. If the library
 commit fails after files were moved, the operation is rolled back and its error

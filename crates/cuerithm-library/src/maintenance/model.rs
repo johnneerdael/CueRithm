@@ -88,6 +88,11 @@ pub struct DuplicateDeletionFile {
     pub keeper_display_path: String,
     pub identity: DuplicateIdentity,
     pub sha256: String,
+    /// The Trash cannot take this file, so it will be deleted permanently if the Trash
+    /// still refuses it when the merge is applied. The preview says so; nothing else is
+    /// ever deleted permanently.
+    #[serde(default)]
+    pub permanent: bool,
 }
 /// A file a "Delete from disk" merge leaves exactly where it is, with the reason.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -145,6 +150,9 @@ pub struct DuplicateMergeResult {
     /// Files this merge moved to the Trash.
     #[serde(default)]
     pub trashed: Vec<DuplicateDeletionFile>,
+    /// Files this merge deleted permanently because the Trash could not take them.
+    #[serde(default)]
+    pub permanently_deleted: Vec<DuplicateDeletionFile>,
     /// Files a "Delete from disk" merge did not move, and why.
     #[serde(default)]
     pub not_deleted: Vec<DuplicateDeletionSkip>,

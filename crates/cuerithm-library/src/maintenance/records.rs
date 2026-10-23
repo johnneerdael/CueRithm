@@ -82,6 +82,64 @@ impl RecordSnapshot {
             .map(|t| (t.table.as_str(), t.rows.len()))
             .collect()
     }
+    /// The part of the snapshot that Undo needs: everything except rows of derived tables
+    /// (caches that are rebuilt on demand). A derived table is kept anyway if a row that is
+    /// kept still refers to it, so a restore can never break a reference.
+    pub(super) fn without_derived(&self, conn: &Connection, derived: &[&str]) -> Result<Self> {
+        let edges = child_edges(conn)?;
+        let present = |name: &str| self.tables.iter().any(|t| t.table == name);
+        let mut dropped = derived
+            .iter()
+            .copied()
+            .filter(|name| present(name))
+            .collect::<BTreeSet<_>>();
+        loop {
+            let needed = dropped
+                .iter()
+                .copied()
+                .filter(|parent| {
+                    edges.get(*parent).is_some_and(|children| {
+                        children
+                            .iter()
+                            .any(|e| present(&e.child) && !dropped.contains(e.child.as_str()))
+                    })
+                })
+                .collect::<Vec<_>>();
+            if needed.is_empty() {
+                break;
+            }
+            for name in needed {
+                dropped.remove(name);
+            }
+        }
+        Ok(Self {
+            tables: self
+                .tables
+                .iter()
+                .filter(|t| !dropped.contains(t.table.as_str()))
+                .cloned()
+                .collect(),
+        })
+    }
+    /// The source hash of each removed track record.
+    pub(super) fn track_hashes(&self) -> Result<Vec<String>> {
+        let Some(set) = self.tables.iter().find(|t| t.table == "tracks") else {
+            return Ok(vec![]);
+        };
+        let hash = set
+            .columns
+            .iter()
+            .position(|c| c == "source_hash")
+            .context("Track snapshot lacks source_hash")?;
+        Ok(set
+            .rows
+            .iter()
+            .filter_map(|row| match &row.values[hash] {
+                Cell::Text(hash) => Some(hash.clone()),
+                _ => None,
+            })
+            .collect())
+    }
     /// Identity and file location of each removed track record.
     pub(super) fn tracks(&self) -> Result<Vec<(String, Vec<u8>)>> {
         let Some(set) = self.tables.iter().find(|t| t.table == "tracks") else {
@@ -470,6 +528,39 @@ mod tests {
             .unwrap();
         assert!(tx.commit().is_err());
         assert!(dump(&conn).contains("Gone"));
+    }
+
+    #[test]
+    fn derived_rows_are_dropped_from_the_snapshot_unless_kept_rows_refer_to_them() {
+        let conn = library();
+        conn.execute_batch(
+            "CREATE TABLE derived_cache(id TEXT PRIMARY KEY, track_id TEXT NOT NULL REFERENCES tracks(id));
+             CREATE TABLE derived_parent(id TEXT PRIMARY KEY, track_id TEXT NOT NULL REFERENCES tracks(id));
+             CREATE TABLE keeps_parent(id TEXT PRIMARY KEY, parent TEXT NOT NULL REFERENCES derived_parent(id));
+             INSERT INTO derived_cache VALUES('c','gone');
+             INSERT INTO derived_parent VALUES('p','gone');",
+        )
+        .unwrap();
+        let full = capture(&conn, &["gone".into()]).unwrap();
+        assert_eq!(full.counts()["derived_cache"], 1);
+        let kept = full
+            .without_derived(&conn, &["derived_cache", "derived_parent"])
+            .unwrap();
+        let counts = kept.counts();
+        assert!(!counts.contains_key("derived_cache"), "a cache is not kept");
+        assert!(counts.contains_key("tracks") && counts.contains_key("jobs"));
+        // Nothing refers to derived_parent yet, so it is dropped too.
+        assert!(!counts.contains_key("derived_parent"));
+        conn.execute("INSERT INTO keeps_parent VALUES('k','p')", [])
+            .unwrap();
+        let full = capture(&conn, &["gone".into()]).unwrap();
+        let kept = full
+            .without_derived(&conn, &["derived_cache", "derived_parent"])
+            .unwrap();
+        assert!(
+            kept.counts().contains_key("derived_parent"),
+            "a table that a kept row refers to must stay"
+        );
     }
 
     #[test]

@@ -82,7 +82,8 @@ file opening and custom-application access are not granted.
 The library uses the `trash` crate 5.2.9 (MIT) to move a duplicate audio file to the
 operating system Trash or Recycle Bin, and its small dependency `urlencoding` 2.1.3
 (MIT). Exact identities and checksums are retained in `Cargo.lock`. The crate only
-moves files to the platform Trash; CueRithm never deletes a duplicate permanently.
+moves files to the platform Trash. CueRithm deletes a duplicate permanently, with the
+standard library, only when the Trash cannot take it and the merge preview named it.
 
 ## Selected OneTagger integration (GPLv3 desktop)
 

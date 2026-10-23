@@ -135,6 +135,7 @@ pub(super) fn plan(
     lib: &Library,
     scan: &SavedScan,
     merge: &mut MergePlan,
+    trash: &dyn FileTrash,
     cancel: &CancellationToken,
 ) -> Result<DuplicateDeletionPlan> {
     let rows = scan
@@ -333,6 +334,7 @@ pub(super) fn plan(
             .map(|(k, _, _)| k.path.to_string_lossy().into_owned())
             .unwrap_or_default();
         keep.insert(id.clone());
+        let permanent = !trash.can_trash(&item.path);
         files.push(DuplicateDeletionFile {
             track_id: id,
             display_path: item.path.to_string_lossy().into_owned(),
@@ -341,6 +343,7 @@ pub(super) fn plan(
             keeper_display_path: kept,
             identity,
             sha256: hash,
+            permanent,
         });
     }
     for group in &mut merge.groups {

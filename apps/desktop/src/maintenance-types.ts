@@ -29,13 +29,13 @@ export interface MaintenanceChange {review_id:string|null;stamp:MaintenanceStamp
 export type MergeDisposition="archive"|"delete";
 export interface GroupMerge {group_id:string;mode:ReviewState;exact_audio:boolean;keeper:string;archive_ids:string[];delete_ids:string[];unarchive_keeper:boolean;copies:{from:string;to:string}[]}
 export interface DuplicatePlaylistChange {id:string;before:string[];after:string[]}
-export interface DuplicateDeletionFile {track_id:string;display_path:string;size_bytes:number;keeper_id:string;keeper_display_path:string;identity:"same_file"|"same_audio";sha256:string}
+export interface DuplicateDeletionFile {track_id:string;display_path:string;size_bytes:number;keeper_id:string;keeper_display_path:string;identity:"same_file"|"same_audio";sha256:string;permanent:boolean}
 export type DuplicateSkipReason="not_verified_identical"|"file_changed"|"file_unavailable"|"shared_with_remaining_record"|"same_file_as_keeper"|"busy"|"trash_failed";
 export interface DuplicateDeletionSkip {track_id:string;display_path:string;keeper_id:string|null;reason:DuplicateSkipReason;detail:string|null}
 export interface DuplicateRemovalImpact {track_id:string;cue_revisions:number;tags:number;sync_links:number;other_records:number}
 export interface DuplicateDeletionPlan {files:DuplicateDeletionFile[];skipped:DuplicateDeletionSkip[];impact:DuplicateRemovalImpact[];undo_limit:number}
 export interface DuplicateMergePreview {id:string;review_id:string;review_revision:number;created:number;stamp:MaintenanceStamp;plan:{groups:GroupMerge[];disposition:MergeDisposition};playlists:DuplicatePlaylistChange[];deletion:DuplicateDeletionPlan|null}
-export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[];removed_ids:string[];trashed:DuplicateDeletionFile[];not_deleted:DuplicateDeletionSkip[]}
+export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[];removed_ids:string[];trashed:DuplicateDeletionFile[];permanently_deleted:DuplicateDeletionFile[];not_deleted:DuplicateDeletionSkip[]}
 export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null;undo_expired:boolean;undo_limit:number}
 
 export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null}

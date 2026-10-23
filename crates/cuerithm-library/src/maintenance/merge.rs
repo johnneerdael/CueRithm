@@ -226,6 +226,26 @@ impl Library {
         choice: Option<MergeDisposition>,
         cancel: &CancellationToken,
     ) -> Result<DuplicateMergePreview> {
+        self.preview_duplicate_merge_choice_with(
+            review_id,
+            expected_revision,
+            groups,
+            choice,
+            &SystemTrash,
+            cancel,
+        )
+    }
+    /// As [`Library::preview_duplicate_merge_choice`], with the Trash that decides which
+    /// files would have to be deleted permanently (tests supply their own).
+    pub fn preview_duplicate_merge_choice_with(
+        &self,
+        review_id: &str,
+        expected_revision: u64,
+        groups: Vec<String>,
+        choice: Option<MergeDisposition>,
+        trash: &dyn FileTrash,
+        cancel: &CancellationToken,
+    ) -> Result<DuplicateMergePreview> {
         let disposition =
             choice.context("Choose Delete from disk or Archive only before previewing")?;
         cancel.check()?;
@@ -253,7 +273,13 @@ impl Library {
             "Duplicate review is stale; scan again"
         );
         let deletion = if disposition == MergeDisposition::Delete {
-            Some(deletion::plan(self, &review.scan, &mut plan, cancel)?)
+            Some(deletion::plan(
+                self,
+                &review.scan,
+                &mut plan,
+                trash,
+                cancel,
+            )?)
         } else {
             None
         };
@@ -383,6 +409,7 @@ impl Library {
             updated_ids: vec![],
             removed_ids: vec![],
             trashed: vec![],
+            permanently_deleted: vec![],
             not_deleted: vec![],
         };
         current.consumed_by = Some(result.id.clone());
@@ -485,6 +512,7 @@ impl Library {
             updated_ids: vec![],
             removed_ids: vec![],
             trashed: vec![],
+            permanently_deleted: vec![],
             not_deleted: vec![],
         };
         operation.undone_by = Some(result.id.clone());

@@ -7,8 +7,8 @@ mod fixture;
 
 use cuerithm_library::{
     DuplicateIdentity, DuplicateMergePreview, DuplicateMergeService, DuplicateReview,
-    DuplicateReviewEdit, DuplicateSkipReason, DuplicateTolerance as Tolerance, GroupEdit,
-    MergeDisposition,
+    DuplicateReviewEdit, DuplicateSkipReason, DuplicateTolerance as Tolerance, FileTrash,
+    GroupEdit, MergeDisposition,
 };
 use cuerithm_media::CancellationToken;
 use fixture::*;
@@ -29,12 +29,22 @@ fn preview(
     group: usize,
     choice: MergeDisposition,
 ) -> DuplicateMergePreview {
+    preview_with(f, review, group, choice, &Capable)
+}
+fn preview_with(
+    f: &Fixture,
+    review: &DuplicateReview,
+    group: usize,
+    choice: MergeDisposition,
+    trash: &dyn FileTrash,
+) -> DuplicateMergePreview {
     f.lib
-        .preview_duplicate_merge_choice(
+        .preview_duplicate_merge_choice_with(
             &review.id,
             review.revision,
             vec![review.groups[group].id.clone()],
             Some(choice),
+            trash,
             &token(),
         )
         .unwrap()
@@ -517,4 +527,321 @@ fn undo_data_is_kept_only_for_the_most_recent_merges_that_delete_files() {
     assert_eq!(stored.0, None);
     assert_eq!(stored.1, 0);
     service.undo(&applied[2], &token()).unwrap();
+}
+
+// ---- Files the Trash cannot take -------------------------------------------------------
+
+#[test]
+fn a_file_the_trash_cannot_take_is_announced_in_the_preview_and_then_deleted_permanently() {
+    let f = Fixture::new();
+    f.playlist("set", vec![f.ids[0].clone(), f.ids[1].clone()]);
+    let before = f.content();
+    let review = f.review(Tolerance::None);
+    let stand_in = trash(&f);
+    stand_in.unavailable("track-1.wav");
+    let preview = preview_with(&f, &review, 0, MergeDisposition::Delete, &*stand_in);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert_eq!(plan.files.len(), 1);
+    assert!(plan.files[0].permanent, "the preview names it as permanent");
+    let keeper_hash = hash(&f.paths[0]);
+
+    let service = service(&f, &stand_in);
+    // Still refused without the explicit confirmation.
+    assert!(service.apply(&preview.id, &token()).is_err());
+    assert!(f.paths[1].exists());
+
+    // The Trash is tried first; here it also refuses, so the announced file is deleted.
+    stand_in.refuse("track-1.wav");
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.permanently_deleted.len(), 1);
+    assert_eq!(result.permanently_deleted[0].track_id, f.ids[1]);
+    assert!(result.trashed.is_empty() && result.not_deleted.is_empty());
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+    assert_eq!(stand_in.deleted(), vec!["track-1.wav"]);
+    assert!(stand_in.taken().is_empty());
+    assert!(!f.paths[1].exists(), "the file is gone for good");
+    assert!(!f.track_exists(&f.ids[1]));
+    assert_eq!(hash(&f.paths[0]), keeper_hash, "the keeper is untouched");
+    assert_eq!(
+        f.lib.manual_playlist_members("set").unwrap(),
+        vec![f.ids[0].clone()]
+    );
+    let history = f.lib.duplicate_merge_history().unwrap();
+    assert_eq!(history[0].result.permanently_deleted.len(), 1);
+
+    // Undo brings the records back; it cannot bring a permanently deleted file back.
+    service.undo(&result.id, &token()).unwrap();
+    assert_eq!(f.content(), before);
+    assert!(!f.paths[1].exists());
+}
+
+#[test]
+fn a_file_announced_as_permanent_still_goes_to_the_trash_when_the_trash_works() {
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let stand_in = trash(&f);
+    stand_in.unavailable("track-1.wav");
+    let preview = preview_with(&f, &review, 0, MergeDisposition::Delete, &*stand_in);
+    assert!(preview.deletion.as_ref().unwrap().files[0].permanent);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.trashed.len(), 1);
+    assert!(result.permanently_deleted.is_empty());
+    assert_eq!(stand_in.taken(), vec!["track-1.wav"]);
+    assert!(stand_in.deleted().is_empty());
+}
+
+#[test]
+fn a_trash_refusal_that_the_preview_did_not_announce_never_becomes_a_permanent_deletion() {
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let stand_in = trash(&f);
+    let preview = preview_with(&f, &review, 0, MergeDisposition::Delete, &*stand_in);
+    assert!(!preview.deletion.as_ref().unwrap().files[0].permanent);
+    let before = f.content();
+    stand_in.refuse("track-1.wav");
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.permanently_deleted.is_empty() && result.trashed.is_empty());
+    assert_eq!(
+        result.not_deleted[0].reason,
+        DuplicateSkipReason::TrashFailed
+    );
+    assert!(f.paths[1].exists() && stand_in.deleted().is_empty());
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn a_trash_that_stops_working_after_the_preview_leaves_the_file_until_it_is_previewed_again() {
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let stand_in = trash(&f);
+    let preview = preview_with(&f, &review, 0, MergeDisposition::Delete, &*stand_in);
+    stand_in.unavailable("track-1.wav");
+    let before = f.content();
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty());
+    assert_eq!(result.not_deleted.len(), 1);
+    assert!(f.paths[1].exists() && stand_in.deleted().is_empty() && stand_in.taken().is_empty());
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn every_safeguard_holds_when_the_trash_is_unavailable() {
+    let mut f = Fixture::new();
+    // A hard link of the duplicate used by a remaining record, a hard link of the keeper's
+    // file, and a different mix: none may ever be deleted, permanently or otherwise.
+    let shared = f.dir.path().join("also-track-1.wav");
+    std::fs::hard_link(&f.paths[1], &shared).unwrap();
+    let shared_index = f.import(shared);
+    let stamp = f.lib.duplicate_ignores().unwrap().stamp;
+    f.lib
+        .set_duplicate_ignores(vec![f.ids[shared_index].clone()], true, stamp)
+        .unwrap();
+    let keeper_alias = f.dir.path().join("keeper-alias.wav");
+    std::fs::hard_link(&f.paths[0], &keeper_alias).unwrap();
+    let alias_index = f.import(keeper_alias);
+    let mix = f.add_track("other-mix.wav", 71);
+    let review = f.review(Tolerance::None);
+    let before = f.content();
+    let files = hashes(&f);
+    let stand_in = trash(&f);
+    for name in [
+        "track-0.wav",
+        "track-1.wav",
+        "keeper-alias.wav",
+        "also-track-1.wav",
+        "track-2.wav",
+        "other-mix.wav",
+    ] {
+        stand_in.unavailable(name);
+    }
+    for group in 0..review.groups.len() {
+        let preview = preview_with(&f, &review, group, MergeDisposition::Delete, &*stand_in);
+        let plan = preview.deletion.as_ref().unwrap();
+        assert!(
+            plan.files.iter().all(|file| ![
+                f.ids[shared_index].as_str(),
+                f.ids[mix].as_str(),
+                f.ids[2].as_str()
+            ]
+            .contains(&file.track_id.as_str())),
+            "{plan:?}"
+        );
+        // Nothing that is the keeper's own file is ever listed.
+        let keeper = preview.plan.groups[0].keeper.clone();
+        assert!(plan.files.iter().all(|file| file.track_id != keeper));
+        assert!(
+            plan.files
+                .iter()
+                .all(|file| file.track_id != f.ids[alias_index] || keeper != f.ids[0])
+        );
+    }
+    let preview = preview_with(&f, &review, 0, MergeDisposition::Delete, &*stand_in);
+    let plan = preview.deletion.as_ref().unwrap();
+    // The duplicate whose file another record still uses is skipped, not deleted.
+    assert!(
+        plan.skipped.iter().any(|s| s.track_id == f.ids[1]
+            && s.reason == DuplicateSkipReason::SharedWithRemainingRecord)
+    );
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty(), "{result:?}");
+    assert_eq!(hashes(&f), files);
+    assert!(stand_in.deleted().is_empty() && stand_in.taken().is_empty());
+    assert_eq!(f.content(), before);
+}
+
+// ---- What a removal purges -------------------------------------------------------------
+
+fn count(f: &Fixture, sql: &str, id: &str) -> i64 {
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .query_row(sql, [id], |r| r.get(0))
+        .unwrap()
+}
+/// Cover art, waveform cache files and a cached analysis result for one file content.
+fn seed_caches(f: &Fixture, content_hash: &str) -> Vec<std::path::PathBuf> {
+    let root = f.lib.data_dir();
+    std::fs::create_dir_all(root.join("cache/artwork")).unwrap();
+    std::fs::create_dir_all(root.join("cache/waveforms")).unwrap();
+    let mut files = vec![root.join("cache/artwork").join(content_hash)];
+    for bins in cuerithm_library::waveform::CACHED_RESOLUTIONS {
+        let key =
+            cuerithm_library::waveform::waveform_cache_key(content_hash, &f.runtime.identity, bins);
+        files.push(root.join("cache/waveforms").join(format!("{key}.json")));
+    }
+    for file in &files {
+        std::fs::write(file, b"cache").unwrap();
+    }
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "INSERT INTO preparation_analysis VALUES(?1,'settings','engine','decoder','{}')",
+            [content_hash],
+        )
+        .unwrap();
+    files
+}
+
+#[test]
+fn removing_a_track_purges_what_undo_does_not_need_and_keeps_what_it_does() {
+    let f = Fixture::new();
+    let (keeper_hash, removed_hash) = (hash(&f.paths[0]), hash(&f.paths[1]));
+    assert_ne!(keeper_hash, removed_hash);
+    let keeper_caches = seed_caches(&f, &keeper_hash);
+    let removed_caches = seed_caches(&f, &removed_hash);
+    let review = f.review(Tolerance::None);
+    // The scan cached a fingerprint for every track.
+    let fingerprints = "SELECT COUNT(*) FROM maintenance_fingerprints WHERE track_id=?1";
+    assert_eq!(count(&f, fingerprints, &f.ids[1]), 1);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+
+    // Purged: rebuildable per-track rows, caches of content nobody else has, the stale saved
+    // reports that list the removed music, and the bookkeeping row of the removed track.
+    assert_eq!(count(&f, fingerprints, &f.ids[1]), 0);
+    assert_eq!(
+        count(&f, fingerprints, &f.ids[0]),
+        1,
+        "the keeper keeps its own"
+    );
+    let analysis = "SELECT COUNT(*) FROM preparation_analysis WHERE source_hash=?1";
+    assert_eq!(count(&f, analysis, &removed_hash), 0);
+    assert_eq!(count(&f, analysis, &keeper_hash), 1);
+    assert!(removed_caches.iter().all(|file| !file.exists()));
+    assert!(keeper_caches.iter().all(|file| file.exists()));
+    let reports = "SELECT COUNT(*) FROM maintenance_scans WHERE kind IN ('duplicates','duplicate_review','duplicate_merge_plan') AND ?1=?1";
+    assert_eq!(count(&f, reports, "x"), 0);
+    let epoch = "SELECT COUNT(*) FROM maintenance_track_epochs WHERE id=?1";
+    assert_eq!(count(&f, epoch, &f.ids[1]), 0);
+    assert_eq!(count(&f, epoch, &f.ids[0]), 1);
+    // Kept for the bounded Undo: the record and what belongs to it, and the history entry.
+    let payload: String = rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .query_row(
+            "SELECT payload_json FROM maintenance_writes WHERE id=?1",
+            [&result.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(payload.contains("\"jobs\"") && payload.contains("\"tracks\""));
+    assert!(!payload.contains("maintenance_fingerprints"));
+    assert_eq!(
+        f.lib.duplicate_merge_history().unwrap()[0].result.id,
+        result.id
+    );
+
+    // Undo restores the record, not the caches (they are rebuilt on demand), and the
+    // bookkeeping row comes back with the record.
+    service.undo(&result.id, &token()).unwrap();
+    assert!(f.track_exists(&f.ids[1]));
+    assert_eq!(count(&f, fingerprints, &f.ids[1]), 0);
+    assert_eq!(count(&f, epoch, &f.ids[1]), 1);
+    assert!(removed_caches.iter().all(|file| !file.exists()));
+}
+
+#[test]
+fn caches_of_content_that_a_remaining_track_still_has_are_not_purged() {
+    let mut f = Fixture::empty();
+    // Byte-identical files: the removed one shares its content hash with the keeper.
+    let first = f.add_track("same-a.wav", 59);
+    let second = f.add_track("same-b.wav", 59);
+    assert_eq!(hash(&f.paths[first]), hash(&f.paths[second]));
+    let shared = hash(&f.paths[first]);
+    let caches = seed_caches(&f, &shared);
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    assert_eq!(
+        preview.deletion.as_ref().unwrap().files[0].identity,
+        DuplicateIdentity::SameFile
+    );
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids.len(), 1);
+    assert!(
+        caches.iter().all(|file| file.exists()),
+        "the keeper still uses them"
+    );
+    assert_eq!(
+        count(
+            &f,
+            "SELECT COUNT(*) FROM preparation_analysis WHERE source_hash=?1",
+            &shared
+        ),
+        1
+    );
+}
+
+#[test]
+fn archiving_purges_nothing() {
+    let f = Fixture::new();
+    let caches = seed_caches(&f, &hash(&f.paths[1]));
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Archive);
+    let stand_in = trash(&f);
+    service(&f, &stand_in).apply(&preview.id, &token()).unwrap();
+    assert!(caches.iter().all(|file| file.exists()));
+    assert_eq!(
+        count(
+            &f,
+            "SELECT COUNT(*) FROM maintenance_fingerprints WHERE track_id=?1",
+            &f.ids[1]
+        ),
+        1
+    );
 }

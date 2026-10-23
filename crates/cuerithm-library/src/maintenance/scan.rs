@@ -57,6 +57,7 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("donors.rs").as_slice(),
         include_bytes!("donor_state.rs").as_slice(),
         include_bytes!("records.rs").as_slice(),
+        include_bytes!("purge.rs").as_slice(),
         include_bytes!("trash.rs").as_slice(),
         include_bytes!("deletion.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),

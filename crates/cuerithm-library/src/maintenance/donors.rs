@@ -4,6 +4,7 @@ use super::{
     donor_state::{self, TrackImage},
     files::{current_state, ensure_available},
     merge::{self, SavedPreview},
+    purge,
     records::{self, RecordSnapshot},
     *,
 };
@@ -35,6 +36,11 @@ pub struct DuplicateMergeService {
     trash: Arc<dyn FileTrash>,
     #[cfg(test)]
     hook: Option<fn(&str)>,
+}
+/// How a verified duplicate file left its folder.
+enum Disposal {
+    Trashed,
+    Permanent,
 }
 /// A file this operation intended to move to the Trash, kept in the journal so an
 /// interrupted operation can say which files may already be there.
@@ -115,7 +121,7 @@ fn interruption(write: &Write, base: &str) -> anyhow::Error {
         anyhow::anyhow!("{base}")
     } else {
         anyhow::anyhow!(
-            "{base}; these files are no longer at their original location and may be in the Trash, and their library records were kept: {}",
+            "{base}; these files are no longer at their original location and may be in the Trash or deleted, and their library records were kept: {}",
             gone.join(", ")
         )
     }
@@ -376,6 +382,7 @@ fn result(
         updated_ids: vec![],
         removed_ids: vec![],
         trashed: vec![],
+        permanently_deleted: vec![],
         not_deleted: vec![],
     }
 }
@@ -615,6 +622,8 @@ impl DuplicateMergeService {
             hook("prepared");
         }
         let mut trashed_log: Vec<String> = vec![];
+        let mut permanent: Vec<String> = vec![];
+        let mut orphaned: Vec<String> = vec![];
         let outcome = (|| -> Result<()> {
             let mut conn = self.lib.conn()?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -676,9 +685,12 @@ impl DuplicateMergeService {
                 cancel.check()?;
                 let mut moved = vec![];
                 for file in std::mem::take(&mut doomed) {
-                    match self.trash_verified(&file, &snapshots, &plan) {
-                        Ok(()) => {
+                    match self.dispose_verified(&file, &snapshots, &plan) {
+                        Ok(how) => {
                             trashed_log.push(file.display_path.clone());
+                            if matches!(how, Disposal::Permanent) {
+                                permanent.push(file.track_id.clone());
+                            }
                             moved.push(file);
                         }
                         Err((reason, detail)) => not_deleted.push(DuplicateDeletionSkip {
@@ -732,10 +744,13 @@ impl DuplicateMergeService {
                 .map(|f| f.track_id.clone())
                 .collect::<BTreeSet<_>>();
             if !removed_ids.is_empty() {
-                let snapshot =
+                let everything =
                     records::capture(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
-                records::delete(&tx, &snapshot)?;
-                payload.removed = Some(snapshot);
+                records::delete(&tx, &everything)?;
+                // Undo keeps what it needs; rebuildable caches are purged, not stored.
+                payload.removed = Some(everything.without_derived(&tx, &purge::DERIVED_TABLES)?);
+                orphaned = purge::orphaned_hashes(&tx, &everything.track_hashes()?)?;
+                purge::analysis_cache(&tx, &orphaned)?;
             }
             for id in changed.iter().filter(|id| !removed_ids.contains(*id)) {
                 payload
@@ -748,9 +763,24 @@ impl DuplicateMergeService {
                 &payload.result.affected_playlists,
             )?;
             payload.result.stamp = merge::advance(&tx)?;
+            if !removed_ids.is_empty() {
+                // Every saved duplicate scan, review and preview is stale after this merge and
+                // lists the removed music; the bookkeeping row of a removed track is of no use.
+                purge::saved_duplicate_reports(&tx)?;
+                purge::epoch_rows(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
+            }
             payload.result.updated_ids = staged.iter().map(|s| s.target.clone()).collect();
             payload.result.removed_ids = removed_ids.iter().cloned().collect();
-            payload.result.trashed = doomed.clone();
+            payload.result.trashed = doomed
+                .iter()
+                .filter(|f| !permanent.contains(&f.track_id))
+                .cloned()
+                .collect();
+            payload.result.permanently_deleted = doomed
+                .iter()
+                .filter(|f| permanent.contains(&f.track_id))
+                .cloned()
+                .collect();
             payload.result.not_deleted = not_deleted.clone();
             current.consumed_by = Some(id_op.clone());
             // Once a file has gone to the Trash the library must record it, so a late
@@ -777,7 +807,7 @@ impl DuplicateMergeService {
                 anyhow::anyhow!("{error:#}")
             } else {
                 anyhow::anyhow!(
-                    "{error:#}; {} file(s) were already moved to the Trash and their library records were kept: {}",
+                    "{error:#}; {} file(s) were already moved to the Trash or deleted permanently and their library records were kept: {}",
                     trashed_log.len(),
                     trashed_log.join(", ")
                 )
@@ -785,6 +815,8 @@ impl DuplicateMergeService {
         });
         finish(&self.lib, &id_op, &files, reported.as_ref())?;
         outcome?;
+        // Cover art and waveforms of content that is gone; rebuilt on demand if it returns.
+        purge::cache_files(self.lib.data_dir(), &self.runtime.identity, &orphaned);
         Ok(payload.result)
     }
     /// Check the files the preview listed once more and drop any that no longer pass.
@@ -799,27 +831,41 @@ impl DuplicateMergeService {
             .deletion
             .as_ref()
             .context("This preview lists no files to delete")?;
-        let now = deletion::plan(&self.lib, &preview.review.scan, plan, cancel)?;
+        let now = deletion::plan(&self.lib, &preview.review.scan, plan, &*self.trash, cancel)?;
         let mut files = vec![];
         let mut skipped = shown.skipped.clone();
         skipped.extend(now.skipped);
-        for file in now.files {
-            let listed = shown.files.iter().any(|f| {
+        for mut file in now.files {
+            let listed = shown.files.iter().find(|f| {
                 f.track_id == file.track_id
                     && f.sha256 == file.sha256
                     && f.identity == file.identity
                     && f.keeper_id == file.keeper_id
             });
-            if listed {
-                files.push(file);
-            } else {
-                skipped.push(DuplicateDeletionSkip {
+            match listed {
+                // What the user confirmed stands. A file confirmed as "permanent" stays so
+                // even if the Trash looks usable now (it is still tried first).
+                Some(shown) if shown.permanent || !file.permanent => {
+                    file.permanent = shown.permanent;
+                    files.push(file);
+                }
+                Some(_) => skipped.push(DuplicateDeletionSkip {
+                    track_id: file.track_id.clone(),
+                    display_path: file.display_path.clone(),
+                    keeper_id: Some(file.keeper_id.clone()),
+                    reason: DuplicateSkipReason::TrashFailed,
+                    detail: Some(
+                        "The Trash can no longer take this file. Preview again to see it listed for permanent deletion."
+                            .into(),
+                    ),
+                }),
+                None => skipped.push(DuplicateDeletionSkip {
                     track_id: file.track_id.clone(),
                     display_path: file.display_path.clone(),
                     keeper_id: Some(file.keeper_id.clone()),
                     reason: DuplicateSkipReason::FileChanged,
                     detail: Some("The file is not the one the preview listed.".into()),
-                });
+                }),
             }
         }
         for group in &mut plan.groups {
@@ -830,13 +876,15 @@ impl DuplicateMergeService {
         Ok((files, skipped))
     }
     /// The last look before a file leaves: it is still the file that was verified, and it is
-    /// not the kept track's file. Then it goes to the Trash, or nothing happens to it.
-    fn trash_verified(
+    /// not the kept track's file. Then it goes to the Trash. Only a file the user was told
+    /// would be deleted permanently is deleted permanently, and only after the Trash has
+    /// refused it; any other file the Trash refuses stays exactly where it is.
+    fn dispose_verified(
         &self,
         file: &DuplicateDeletionFile,
         snapshots: &BTreeMap<String, TrackImage>,
         plan: &MergePlan,
-    ) -> std::result::Result<(), (DuplicateSkipReason, String)> {
+    ) -> std::result::Result<Disposal, (DuplicateSkipReason, String)> {
         let unavailable = |detail: &str| (DuplicateSkipReason::FileUnavailable, detail.to_owned());
         let path = snapshots
             .get(&file.track_id)
@@ -875,9 +923,20 @@ impl DuplicateMergeService {
                 ));
             }
         }
-        self.trash
-            .move_to_trash(&path)
-            .map_err(|reason| (DuplicateSkipReason::TrashFailed, reason))
+        match self.trash.move_to_trash(&path) {
+            Ok(()) => Ok(Disposal::Trashed),
+            Err(reason) if file.permanent => self
+                .trash
+                .delete_permanently(&path)
+                .map(|()| Disposal::Permanent)
+                .map_err(|error| {
+                    (
+                        DuplicateSkipReason::TrashFailed,
+                        format!("{reason}; permanent deletion also failed: {error}"),
+                    )
+                }),
+            Err(reason) => Err((DuplicateSkipReason::TrashFailed, reason)),
+        }
     }
     pub fn undo(&self, id: &str, cancel: &CancellationToken) -> Result<DuplicateMergeResult> {
         cancel.check()?;
@@ -989,6 +1048,7 @@ impl DuplicateMergeService {
             .restored_ids
             .extend(std::mem::take(&mut result.removed_ids));
         result.trashed.clear();
+        result.permanently_deleted.clear();
         result.not_deleted.clear();
         let mut payload = Payload {
             schema: "duplicate-file-merge-v2".into(),

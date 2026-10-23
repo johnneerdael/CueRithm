@@ -8,6 +8,7 @@ mod merge;
 #[cfg(feature = "autotag")]
 pub use donors::DuplicateMergeService;
 mod model;
+mod purge;
 mod records;
 mod review;
 mod scan;

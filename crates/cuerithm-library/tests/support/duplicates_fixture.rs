@@ -184,7 +184,10 @@ pub struct FakeTrash {
     pub folder: PathBuf,
     /// File names that this Trash refuses to take.
     pub refuse: Mutex<BTreeSet<String>>,
+    /// File names for which this Trash says in advance that it cannot be used.
+    pub unavailable: Mutex<BTreeSet<String>>,
     pub taken: Mutex<Vec<String>>,
+    pub deleted: Mutex<Vec<String>>,
 }
 impl FakeTrash {
     pub fn new(folder: PathBuf) -> Self {
@@ -192,8 +195,21 @@ impl FakeTrash {
         Self {
             folder,
             refuse: Mutex::default(),
+            unavailable: Mutex::default(),
             taken: Mutex::default(),
+            deleted: Mutex::default(),
         }
+    }
+    /// The Trash is expected to be unusable for this file name (before any attempt).
+    pub fn unavailable(&self, name: &str) {
+        self.unavailable.lock().unwrap().insert(name.into());
+    }
+    pub fn available_again(&self, name: &str) {
+        self.unavailable.lock().unwrap().remove(name);
+    }
+    /// File names deleted permanently, in order.
+    pub fn deleted(&self) -> Vec<String> {
+        self.deleted.lock().unwrap().clone()
     }
     pub fn refuse(&self, name: &str) {
         self.refuse.lock().unwrap().insert(name.into());
@@ -202,7 +218,26 @@ impl FakeTrash {
         self.taken.lock().unwrap().clone()
     }
 }
+/// A Trash that is always expected to work; used where a preview must not depend on the
+/// machine's real volumes. It must never be asked to move a file.
+pub struct Capable;
+impl FileTrash for Capable {
+    fn move_to_trash(&self, _: &Path) -> Result<(), String> {
+        unreachable!("previews never move files")
+    }
+}
+
 impl FileTrash for FakeTrash {
+    fn can_trash(&self, path: &Path) -> bool {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        !self.unavailable.lock().unwrap().contains(&name)
+    }
+    fn delete_permanently(&self, path: &Path) -> Result<(), String> {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        self.deleted.lock().unwrap().push(name);
+        Ok(())
+    }
     fn move_to_trash(&self, path: &Path) -> Result<(), String> {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         if self.refuse.lock().unwrap().contains(&name) {
