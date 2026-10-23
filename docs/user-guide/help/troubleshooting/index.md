@@ -21,7 +21,7 @@ Three habits make every page faster:
 
 1. **Read the message.** CueRithm names the cause on screen: in the second line of an Incoming row, in a message at the bottom of the window, or in a status block in **Sync**. Copy it exactly if you report the problem.
 2. **Check which view you are in.** Tracks that are still being prepared are in **Incoming**; tracks you archived are in **Archive**. Neither appears in **Tracks** or in a sync. [Find your way around the window](../../get-started/main-window.md) shows the three views.
-3. **Know your version.** The file name of the download carries it, for example `Cuerithm-arm64-0.1.14.dmg`. [Report a problem or ask for a feature](../report-a-problem.md) shows where else to find it.
+3. **Know your version.** The file name of the download carries it, for example `Cuerithm-arm64-0.1.15.dmg`. [Report a problem or ask for a feature](../report-a-problem.md) shows where else to find it.
 
 None of the fixes ask you to delete audio files. Anything that changes tags or the library has an undo or a recovery backup, and each page names it.
 

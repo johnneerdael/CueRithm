@@ -84,7 +84,7 @@ The separate [same-installation snapshot](../files/library/back-up-library.md#in
 
 | Place | What shows |
 |---|---|
-| **Maintenance → Missing & broken** | Tracks whose stored path no longer points at a readable file |
+| **Maintenance → Missing & broken** | Tracks whose stored path no longer points at a readable file; from here you can remove their records or reconnect them |
 | **Library backup** (sidebar) | Create a backup, and restore one |
 | **Settings → Library preferences** | Time zone and key compatibility mode, saved in the library |
 | **Settings → Automatic tagging → Recovery backups** | Size and file count of the retained originals |

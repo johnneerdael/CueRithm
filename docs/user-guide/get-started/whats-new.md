@@ -1,6 +1,6 @@
 # What's new in CueRithm
 
-<p class="lead">The six most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
+<p class="lead">The seven most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
 
 CueRithm is pre-1.0 software. The version you have is the `version` in the line printed by the [built-in check](install.md#check-that-the-install-is-healthy). To get a newer one, follow [Update to a newer version](install.md#update); the full text of every release, with its downloads, is on the [releases page](https://github.com/johnneerdael/CueRithm/releases).
 
@@ -8,6 +8,9 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 
 | You want to… | Arrived in | Guide |
 |---|---|---|
+| Keep moved files as the same track | 0.1.15 | [Move or rename files without breaking the library](../files/move-files.md) |
+| Clear out tracks whose files are gone | 0.1.15 | [Remove the records of files that are gone](../files/library/find-missing-files.md#remove) |
+| Reconnect moved files by their content | 0.1.15 | [Find moved files by their content](../files/library/find-missing-files.md#find-moved) |
 | Sync to Mixxx | 0.1.14 | [Sync to Mixxx](../sync/mixxx.md) |
 | Sync straight into rekordbox | 0.1.11, simplified in 0.1.13 | [Sync to rekordbox 6 or 7](../sync/rekordbox-direct.md) |
 | Sync a Windows DJ library from Linux | 0.1.12 | [Use a Windows DJ library on Linux](../sync/windows-libraries-on-linux.md) |
@@ -19,6 +22,21 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 | Save presets and use them per folder | 0.1.10 | [Save your setup as a preparation preset](../files/presets.md) |
 | Tag from more catalogs | 0.1.10 | [Choose providers and fields to write](../tagging/choose-providers.md) |
 | Rename and sort files | 0.1.9 | [Rename and sort files into folders](../rename/organize-files.md) |
+
+## Version 0.1.15: moved music stays in your library { #v0-1-15 }
+
+Released 23 October 2026.
+
+If **Missing & broken** in your copy has no **Find moved files…** button, you are on version 0.1.14 or older.
+
+- **Moved music stays in your library.** If you move or rename files inside a watch folder, even while CueRithm is closed, the track keeps its analysis, cues, playlists and tags instead of turning into a duplicate plus a broken entry. Files that match more than one track are left alone for you to review. See [Move or rename files without breaking the library](../files/move-files.md) and [Keep a folder like Beatport in your library automatically](../files/watch-folders.md).
+- **Clean up tracks whose files are gone.** In **Maintenance**, **Missing & broken** lets you select some or all missing tracks, review what changes (playlists and links), and remove only their library entries, never the audio. Undo stays available for your 10 most recent removals: [Remove the records of files that are gone](../files/library/find-missing-files.md#remove) and [Undo a merge or restore removed files](../files/library/undo-maintenance.md#undo-repairs).
+- **Reconnect moved files.** Pick a folder or a file and CueRithm finds your missing tracks by their exact content, shows the matches, and reconnects them with cues, playlists and tags intact: [Find moved files by their content](../files/library/find-missing-files.md#find-moved).
+- **See why a preview is empty.** The Tracks table and the player now say *File not found - move it back or run Maintenance* instead of a bare dash, and other empty previews explain themselves too: audio that could not be read, no waveform data, or a library request that failed. See [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md).
+- **Archived tracks are included.** Missing & broken can list archived tracks too, so they can be repaired or removed the same way.
+- **Readable status labels.** *Unavailable* in the **Outcome** column no longer breaks in the middle of the word.
+- **Clearer labels and the right shortcut for your system.** Incoming names the cleanup step *Cleaning up tags*. In **Review match**, differences read in plain words such as *Edition differs* and *ISRC differs*, and sources use their real names, such as Beatport, Traxsource and MusicBrainz. The small waveform in Tracks follows your saved cues, so it updates after you correct a track. The search box and sidebar hints show Ctrl on Windows and Linux and the Command key on a Mac, the search shortcut no longer jumps out from behind an open dialog, and the sidebar shows your real version number. See [Review and fix a wrong match](../tagging/review-a-match.md) and [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
+- **Help text matches what the app does.** Album matching works with Beatport and Traxsource, saved active loops go to rekordbox, VirtualDJ, Engine DJ and Pioneer USB, and the playlist generator makes energy lists for 1 to 10 only, without an empty zero list: [Generate playlists](../playlists/generate-playlists.md).
 
 ## Version 0.1.14: sync to Mixxx { #v0-1-14 }
 
@@ -129,4 +147,4 @@ Versions 0.1.0 to 0.1.8 are on the [releases page](https://github.com/johnneerda
 - [Send your library to DJ software](../sync/index.md) collects the sync features in one place.
 - [Pick the right guide for your goal](choose-your-path.md) maps every feature to its page.
 
-<!-- verified: gh release view v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->
+<!-- verified: gh release view v0.1.15, v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->

@@ -55,8 +55,8 @@ If a watch folder cannot be opened, for example because an external drive is unp
 
 ## What a watch folder does not do { #limits }
 
-- It does not follow files you move or rename yourself. A moved file looks like a new file at its new location, and the old track keeps pointing at the old one. Read [Move or rename files without breaking the library](move-files.md) before you reorganise a watched folder.
-- It does not delete tracks when you delete files. The track stays in your library and shows as missing in [Missing & broken](library/find-missing-files.md).
+- It follows a file you move or rename yourself only inside the watch folder, and only when the file has exactly the content of one missing track (CueRithm 0.1.15 or later). The track then keeps its analysis, cues, playlists and tags, also when you moved the file while CueRithm was closed. A file that could belong to several tracks, an edited file and a move out of the folder look like a new file at the new location, and the old track keeps pointing at the old one. Read [Move or rename files without breaking the library](move-files.md) before you reorganise a watched folder.
+- It does not delete tracks when you delete files. The track stays in your library and shows as missing in [Missing & broken](library/find-missing-files.md), where you can [remove the record](library/find-missing-files.md#remove) of a file that is gone for good.
 - It does not retag or re-analyse tracks when you change settings. Use [Analyze again](../analysis/analyze-again.md).
 
 ## What can go wrong { #what-can-go-wrong }
@@ -67,7 +67,7 @@ If a watch folder cannot be opened, for example because an external drive is unp
 | Incoming stays empty and the folder holds music | The files use an extension that is not in the list, or sit in subfolders with **Include subfolders** off | Check [the supported extensions](supported-formats.md#how-files-are-recognised) and the setting |
 | *Folder is offline* above the list | The folder or its drive is not reachable | Reconnect the drive; CueRithm retries by itself |
 | A track stops with *File copy did not settle* | The file changed for five minutes, for example a cloud-sync folder still downloading | Wait until the file is complete, then press **Retry** |
-| The same songs appear twice after you reorganised folders | You moved files inside the watch folder | [Move or rename files without breaking the library](move-files.md) |
+| The same songs appear twice after you reorganised folders | The moved files were edited, could belong to several tracks, left the watch folder, or you use CueRithm 0.1.14 or earlier | [Move or rename files without breaking the library](move-files.md) |
 | Tracks stay in Incoming with an error | A required stage failed | [Fix a track that needs attention](needs-attention.md) |
 
 ## Related

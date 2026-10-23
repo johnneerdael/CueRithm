@@ -27,7 +27,7 @@ CueRithm's agreement with another tool is measured, not guaranteed. On the owner
 5. **Correct a grid.** Open the track in the player and choose **Edit cues & grid**. The **Constant beatgrid** form has **Grid BPM**, **First beat seconds** and the buttons **Half BPM** (½) and **Double BPM**. Preview the correction, then save it ([Fix a wrong beatgrid](../../analysis/corrections/fix-the-beatgrid.md)). The player, the beat lines and Sync use the corrected grid. The measured detector result stays unchanged.
 6. **Sending to rekordbox?** If rekordbox already has the grid you want, choose **Keep rekordbox** for that field in the sync review ([Resolve rekordbox sync conflicts](../../sync/rekordbox-conflicts.md)).
 
-CueRithm 0.1.14 has no manual correction for the key. You can change the file's key tag in **Edit metadata**, but the measured key in the library does not change.
+CueRithm 0.1.15 has no manual correction for the key. You can change the file's key tag in **Edit metadata**, but the measured key in the library does not change.
 
 ## Check it worked { #check }
 
