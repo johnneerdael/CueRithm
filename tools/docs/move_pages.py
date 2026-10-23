@@ -38,6 +38,19 @@ def page_url(page):
     return SITE + page[:-3] + "/"
 
 
+def write_moves(docs, outputs):
+    """Write moved pages. All moved sources are removed before any target is written, so a
+    chain (a -> b, b -> c) or a swap never deletes a page that was just written."""
+    for old, (new, _) in outputs.items():
+        if new != old:
+            os.remove(os.path.join(docs, old))
+    for _, (new, text) in outputs.items():
+        target = os.path.join(docs, new)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(text)
+
+
 def fix_stale(mapping):
     """Rewrite links that point at a moved page's OLD path, for pages written after the move."""
     changed = 0
@@ -82,6 +95,8 @@ def main():
     missing = [old for old in mapping if old not in pages]
     if missing:
         sys.exit("not found: " + ", ".join(missing))
+    if len(set(mapping.values())) != len(mapping):
+        sys.exit("two pages are mapped to the same target")
     clashes = [new for new in mapping.values() if new in pages and new not in mapping]
     if clashes:
         sys.exit("target already exists: " + ", ".join(clashes))
@@ -166,13 +181,7 @@ def main():
             print("  would update", os.path.relpath(path, ROOT))
         return 0
 
-    for old, (new, text) in outputs.items():
-        target = os.path.join(DOCS, new)
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(target, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        if new != old:
-            os.remove(os.path.join(DOCS, old))
+    write_moves(DOCS, outputs)
     for folder, dirs, files in os.walk(DOCS, topdown=False):
         if not files and not dirs and folder != DOCS:
             os.rmdir(folder)
