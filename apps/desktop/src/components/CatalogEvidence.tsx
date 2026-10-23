@@ -1,5 +1,6 @@
 import type {CatalogArtistCredit,CatalogFacts} from "../catalog-facts-types";
 import type {MetadataDate as TransferDate} from "../editor-types";
+import {providerLabel} from "../catalog-labels";
 const date=(value:TransferDate|null)=>value?String(value.year).padStart(4,"0")+(value.month===null?"":"-"+String(value.month).padStart(2,"0"))+(value.day===null?"":"-"+String(value.day).padStart(2,"0")):"Not supplied";
 const credits=(values:CatalogArtistCredit[])=>values.map(value=>value.credited_name+value.join_phrase).join("")||"Not supplied";
 export default function CatalogEvidence({facts}:{facts:CatalogFacts|null|undefined}){
@@ -13,5 +14,5 @@ export default function CatalogEvidence({facts}:{facts:CatalogFacts|null|undefin
    {facts.data.release?<div><dt>Release details</dt><dd>{[facts.data.release.title,facts.data.release.country,facts.data.release.media_format,facts.data.release.status].filter(Boolean).join(" · ")}</dd></div>:null}
    {facts.data.isrcs.length?<div><dt>Recording ISRCs</dt><dd>{facts.data.isrcs.join(" · ")}</dd></div>:null}
   </dl>{facts.data.cover?<p className="setting-note">Cover Art Archive artwork is bound to this release. Image rights are unspecified; loading a preview does not grant reuse rights.</p>:null}
- </>:<dl><div><dt>Source</dt><dd>{facts.data.provider}</dd></div><div><dt>Selected release date</dt><dd>{date(facts.data.release_date)}</dd></div>{facts.data.release_id?<div><dt>Release ID</dt><dd>{facts.data.release_id}</dd></div>:null}{facts.data.raw_position?<div><dt>Printed position</dt><dd>{facts.data.raw_position}</dd></div>:null}{facts.data.identities.map((identity,index)=><div key={index}><dt>{identity.source} · {identity.kind.replaceAll("_"," ")}</dt><dd>{identity.id}</dd></div>)}</dl>}</section>;
+ </>:<dl><div><dt>Source</dt><dd>{providerLabel(facts.data.provider)}</dd></div><div><dt>Selected release date</dt><dd>{date(facts.data.release_date)}</dd></div>{facts.data.release_id?<div><dt>Release ID</dt><dd>{facts.data.release_id}</dd></div>:null}{facts.data.raw_position?<div><dt>Printed position</dt><dd>{facts.data.raw_position}</dd></div>:null}{facts.data.identities.map((identity,index)=><div key={index}><dt>{identity.source} · {identity.kind.replaceAll("_"," ")}</dt><dd>{identity.id}</dd></div>)}</dl>}</section>;
 }

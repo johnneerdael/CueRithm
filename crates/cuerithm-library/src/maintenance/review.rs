@@ -43,7 +43,7 @@ fn ignores(conn: &Connection) -> Result<DuplicateIgnores> {
         .query_map([], |r| {
             Ok((
                 r.get::<_, String>(0)?,
-                r.get::<_, Vec<u8>>(1)?,
+                r.get::<_, Option<Vec<u8>>>(1)?,
                 r.get::<_, String>(2)?,
                 r.get::<_, String>(3)?,
             ))
@@ -54,9 +54,12 @@ fn ignores(conn: &Connection) -> Result<DuplicateIgnores> {
         .map(|(id, path, title, artist)| {
             Ok(IgnoredDuplicateTrack {
                 id,
-                display_path: crate::model::bytes_path(&path)?
-                    .to_string_lossy()
-                    .into_owned(),
+                display_path: path
+                    .as_deref()
+                    .map(crate::model::bytes_path)
+                    .transpose()?
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "Local file is not linked".into()),
                 title,
                 artist,
             })
@@ -283,5 +286,84 @@ impl Library {
         )?;
         tx.commit()?;
         Ok(saved.review)
+    }
+}
+
+#[cfg(test)]
+mod nullable_ignore_tests {
+    use super::*;
+    #[test]
+    fn archived_unlinked_ignore_survives_other_ignore_updates_and_rebinding() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let library = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let paths = [root.join("loser.flac"), root.join("other.flac")];
+        for path in &paths {
+            std::fs::write(path, b"synthetic audio bytes").unwrap();
+        }
+        library
+            .enqueue(&paths, library.settings().unwrap().revision)
+            .unwrap();
+        let jobs = library.jobs().unwrap();
+        let loser = jobs
+            .iter()
+            .find(|j| library.track_path(&j.track_id).unwrap() == paths[0])
+            .unwrap()
+            .track_id
+            .clone();
+        let other = jobs
+            .iter()
+            .find(|j| library.track_path(&j.track_id).unwrap() == paths[1])
+            .unwrap()
+            .track_id
+            .clone();
+        let state = library.duplicate_ignores().unwrap();
+        library
+            .set_duplicate_ignores(vec![loser.clone()], true, state.stamp)
+            .unwrap();
+        // Collision relocation keeps the loser identity and ignore, but clears its binding.
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=NULL,archived=1 WHERE id=?1",
+                [&loser],
+            )
+            .unwrap();
+        let unlinked = library.duplicate_ignores().unwrap();
+        assert_eq!(unlinked.tracks.len(), 1);
+        assert_eq!(unlinked.tracks[0].id, loser);
+        assert_eq!(unlinked.tracks[0].display_path, "Local file is not linked");
+        let updated = library
+            .set_duplicate_ignores(vec![other.clone()], true, unlinked.stamp)
+            .unwrap();
+        assert_eq!(updated.tracks.len(), 2);
+        // Undo restores the binding without replacing or dropping the persistent ignore.
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=?1,archived=0 WHERE id=?2",
+                params![crate::model::path_bytes(&paths[0]), loser],
+            )
+            .unwrap();
+        let rebound = library.duplicate_ignores().unwrap();
+        assert_eq!(
+            rebound
+                .tracks
+                .iter()
+                .find(|t| t.id == loser)
+                .unwrap()
+                .display_path,
+            paths[0].to_string_lossy()
+        );
+        let remaining = library
+            .set_duplicate_ignores(vec![other], false, rebound.stamp)
+            .unwrap();
+        assert_eq!(remaining.tracks.len(), 1);
+        assert_eq!(remaining.tracks[0].id, loser);
+        for path in &paths {
+            assert_eq!(std::fs::read(path).unwrap(), b"synthetic audio bytes");
+        }
     }
 }

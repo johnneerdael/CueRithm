@@ -206,10 +206,10 @@ fn explicitly_selected_additional_roots_keep_original_file_guards() {
         &CancellationToken::default(),
     )
     .unwrap();
-    assert_eq!(snapshot.source_root(), main.path());
+    assert_eq!(snapshot.source_root(), main.path().canonicalize().unwrap());
     assert_eq!(
         snapshot.original_artifact_path("external-volume").unwrap(),
-        external.path().join("database.xml")
+        external.path().canonicalize().unwrap().join("database.xml")
     );
     assert_eq!(
         std::fs::read(snapshot.artifact("external-volume").unwrap()).unwrap(),

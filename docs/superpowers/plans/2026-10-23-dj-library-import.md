@@ -49,7 +49,7 @@ Order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8; adapters require Tasks 1–2
 - `crates/cuerithm-dj-sync/tests/import_{model,snapshot,paths,tags}.rs`: public-interface tests using generated/supplied synthetic fixtures.
 - `crates/cuerithm-dj-sync/tests/fixtures/import/`: verified invented JSON fixtures, author manifest and provenance README. Research prose lives under `docs/research/dj-library-import-handover/` preserving relative links.
 - `crates/cuerithm-library/src/import/{mod,model,store,identity,projection,collections,preview,reconcile,processing,publication,recovery}.rs`: durable service, split by responsibility.
-- `crates/cuerithm-library/migrations/029_library_import.sql`: additive tables; `store.rs` registers it. Preserve migrations 001–028.
+- `crates/cuerithm-library/migrations/030_library_import.sql`: additive tables; `store.rs` registers it after the released portable-library migration 029. Preserve migrations 001–029.
 - `crates/cuerithm-library/src/{lib,model,store,playback,dj_sync_service,native_sync}.rs`: narrow integration points; retain normal Incoming and outbound sync semantics.
 - `crates/camelot-core/src/selected.rs`, `analysis.rs`, `engine.rs`, `lib.rs`: selective orchestration only, leaving DSP implementations unchanged.
 - Library tests are child modules `src/import/tests/{mod,store,projection,reconcile,processing,publication}.rs`, permitting existing test helpers without exposing DB internals.

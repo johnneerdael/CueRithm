@@ -271,7 +271,11 @@ fn usb_reads_pdb_rows_and_onelibrary_without_copying_audio() {
         );
         assert_eq!(
             one.locations.resolved.as_deref(),
-            root.path().join("Contents/Example.flac").to_str()
+            root.path()
+                .canonicalize()
+                .unwrap()
+                .join("Contents/Example.flac")
+                .to_str()
         );
         assert_eq!(
             std::fs::read(root.path().join("Contents/Example.flac")).unwrap(),

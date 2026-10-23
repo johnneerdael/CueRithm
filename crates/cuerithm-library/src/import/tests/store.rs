@@ -262,7 +262,7 @@ fn import_store_migrates_without_touching_rekordbox_state() {
         ] {
             conn.execute(&format!("DROP TABLE {table}"), []).unwrap();
         }
-        conn.pragma_update(None, "user_version", 28).unwrap();
+        conn.pragma_update(None, "user_version", 29).unwrap();
     }
     drop(library);
     let reopened = Library::open(&path).unwrap();
@@ -270,7 +270,7 @@ fn import_store_migrates_without_touching_rekordbox_state() {
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        29
+        30
     );
     assert_eq!(
         conn.query_row(
@@ -363,7 +363,7 @@ fn imported_observations_and_blobs_remain_part_of_a_valid_library_backup() {
     let backup = library
         .create_library_backup(&backups.path().join("bundle"))
         .unwrap();
-    assert_eq!(backup.schema, 29);
+    assert_eq!(backup.schema, 30);
     let database = rusqlite::Connection::open(backup.path.join("library.sqlite")).unwrap();
     assert_eq!(
         database

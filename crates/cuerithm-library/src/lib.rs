@@ -41,8 +41,12 @@ mod publish_files;
 mod tagging;
 #[cfg(feature = "autotag")]
 pub use tagging::TaggingStorage;
+mod record_snapshot;
+mod relink;
 pub mod watch;
-pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
+mod watch_moves;
+pub use prepare::{PreparationEvent, PreparationService, RELINKED_STAGE, ServiceStatus};
+pub use watch_moves::{RelinkedTrack, WatchMoveOutcome};
 mod playlists;
 pub use playlists::*;
 mod maintenance;
@@ -74,7 +78,7 @@ mod store;
 pub mod waveform;
 pub use model::*;
 pub use settings::*;
-pub use store::Library;
+pub use store::{Library, LibraryBusy, LibraryOperationLease};
 
 mod dj_sync;
 pub use dj_sync::*;
@@ -97,3 +101,15 @@ pub use library_backup::*;
 
 mod import;
 pub use import::*;
+pub mod musical;
+pub mod portable;
+pub use musical::*;
+pub use portable::*;
+
+pub mod backup;
+
+mod generations;
+pub use generations::{LibraryGeneration, LibraryGenerations};
+
+mod relocation;
+pub use relocation::*;

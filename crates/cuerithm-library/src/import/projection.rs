@@ -12,7 +12,7 @@ use std::{collections::BTreeMap, path::Path};
 pub(crate) const LIBRARY_TRACKS_CTE: &str = r#"library_tracks AS (
  SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,tagging_json,sort_title,sort_artist,search_text FROM tracks
  UNION ALL
- SELECT i.id,i.path,COALESCE(json_extract(s.value_json,'$.title'),'Imported item'),COALESCE(json_extract(s.value_json,'$.artist'),''),COALESCE(json_extract(s.value_json,'$.album'),''),COALESCE(json_extract(s.value_json,'$.genre'),''),'imported',json_extract(s.value_json,'$.key'),json_extract(s.value_json,'$.bpm'),json_extract(s.value_json,'$.energy'),json_extract(s.value_json,'$.duration'),COALESCE(i.source_hash,''),'{}',i.created,i.updated,COALESCE(json_extract(s.value_json,'$.archived'),0),NULL,COALESCE(json_extract(s.value_json,'$.sort_title'),''),COALESCE(json_extract(s.value_json,'$.sort_artist'),''),COALESCE(json_extract(s.value_json,'$.search_text'),'')
+ SELECT i.id,i.path,COALESCE(json_extract(s.value_json,'$.title'),'Imported item'),COALESCE(json_extract(s.value_json,'$.artist'),''),COALESCE(json_extract(s.value_json,'$.album'),''),COALESCE(json_extract(s.value_json,'$.genre'),''),'imported',json_extract(s.value_json,'$.key'),json_extract(s.value_json,'$.bpm'),json_extract(s.value_json,'$.energy'),json_extract(s.value_json,'$.duration'),i.source_hash,'{}',i.created,i.updated,COALESCE(json_extract(s.value_json,'$.archived'),0),NULL,COALESCE(json_extract(s.value_json,'$.sort_title'),''),COALESCE(json_extract(s.value_json,'$.sort_artist'),''),COALESCE(json_extract(s.value_json,'$.search_text'),'')
  FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL
 )"#;
 fn metadata_group(field: &str) -> FieldGroup {
@@ -275,6 +275,12 @@ fn text(value: Option<&Value>) -> String {
         _ => String::new(),
     }
 }
+pub(crate) fn key_text(value: &Value) -> Option<&str> {
+    value
+        .get("camelot")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("raw").and_then(Value::as_str))
+}
 pub(crate) fn active_fields_tx(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> {
     let mut query=conn.prepare("SELECT field,value_json FROM import_active_fields WHERE item_id=?1 AND field NOT LIKE '\\_%' ESCAPE '\\' ORDER BY field")?;
     query
@@ -301,10 +307,7 @@ fn cached_summary(conn: &Connection, id: &str) -> Result<Value> {
             .get("metadata.genre")
             .or_else(|| fields.get("metadata.genres")),
     );
-    let key = fields
-        .get("key")
-        .and_then(|k| k.get("camelot").or_else(|| k.get("raw")))
-        .and_then(Value::as_str);
+    let key = fields.get("key").and_then(key_text);
     let bpm = fields
         .get("bpm")
         .and_then(|v| v.get("value"))
@@ -418,14 +421,7 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
             if field == "key" {
                 conn.execute(
                     "UPDATE tracks SET musical_key=?1,updated=?2 WHERE id=?3",
-                    params![
-                        value
-                            .get("camelot")
-                            .or_else(|| value.get("raw"))
-                            .and_then(Value::as_str),
-                        now(),
-                        id
-                    ],
+                    params![key_text(value), now(), id],
                 )?;
             }
             if field == "bpm" {

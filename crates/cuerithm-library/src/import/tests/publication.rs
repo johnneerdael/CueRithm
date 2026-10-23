@@ -331,7 +331,7 @@ fn review_fix_retry_restores_dependencies_and_orders_multiple_items() {
 fn review_fix_first_tag_and_copy_handle_both_artist_and_genre_representations() {
     for plural in [false, true] {
         for copy in [false, true] {
-            let root = tempfile::tempdir().unwrap();
+            let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
             let (f, _, id, path) = setup_observation(
                 ImportPolicy::default(),
                 "wav",
@@ -665,6 +665,71 @@ fn accepted_imported_tags_write_without_provider_lookup() {
         .unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), before);
 }
+#[cfg(feature = "autotag")]
+#[test]
+fn raw_imported_key_is_written_and_used_for_file_naming() {
+    let policy = ImportPolicy {
+        write_audio_tags: ["key".into()].into(),
+        relocation: RelocationPolicy::RenameInPlace {
+            rule: "{key}".into(),
+        },
+        ..Default::default()
+    };
+    let (f, op, id, path) = setup_observation(
+        policy,
+        "flac",
+        "flac",
+        |_| {},
+        |track| {
+            track.key = Some(MusicalKey {
+                presence: FieldPresence::Value,
+                raw: Some("Am".into()),
+                ..Default::default()
+            });
+        },
+    );
+    let before = std::fs::read(&path).unwrap();
+    f.lib
+        .conn()
+        .unwrap()
+        .execute("DELETE FROM import_bindings WHERE item_id=?1", [&id])
+        .unwrap();
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        preview.blocked,
+        0,
+        "{:?}",
+        f.lib
+            .import_effects_page(&preview.preview_id, None, 100)
+            .unwrap()
+    );
+    let result = f
+        .lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.processed, 2);
+    let final_path = path.with_file_name("Am.flac");
+    assert_eq!(f.lib.track_path(&id).unwrap(), final_path);
+    let media = runtime().probe(&final_path).unwrap();
+    let tags = cuerithm_autotag::read_metadata_snapshot(&final_path, &media).unwrap();
+    assert_eq!(
+        tags.text.get(&cuerithm_autotag::MetadataTextField::Key),
+        Some(&vec!["Am".into()])
+    );
+    assert_eq!(f.lib.track(&id).unwrap().key.as_deref(), Some("Am"));
+    let undo = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undo.blocked, 0, "{:?}", undo.errors);
+    assert_eq!(std::fs::read(path).unwrap(), before);
+}
+
 #[cfg(feature = "autotag")]
 #[test]
 fn original_media_tag_preview_and_apply_require_the_source_app_closed() {

@@ -1,6 +1,6 @@
 site_name: CueRithm user guide
 site_description: Learn to prepare, analyse, organise and understand your DJ library with CueRithm, the open-source desktop library app.
-site_url: https://johnneerdael.github.io/CueRithm/
+site_url: https://cuerithm.neerdael.nl/
 repo_url: https://github.com/johnneerdael/CueRithm
 repo_name: johnneerdael/CueRithm
 edit_uri: edit/main/docs/user-guide/
@@ -8,6 +8,7 @@ docs_dir: docs/user-guide
 site_dir: build/user-guide-site
 # Writer-only material lives beside the pages but is not published.
 exclude_docs: |
+  _meta/
   _snippets/
 
 copyright: CueRithm is independent, open-source software. It is not affiliated with Mixed In Key, Lexicon, Beatport, Traxsource, rekordbox, OneTagger or any other product named in this guide.
@@ -49,6 +50,7 @@ theme:
     - navigation.top
     - navigation.footer
     - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
     - toc.follow
     - search.suggest
@@ -62,7 +64,12 @@ theme:
 extra_css:
   - stylesheets/cuerithm.css
 
+hooks:
+  - docs/hooks/redirects.py
+
 extra:
+  status:
+    draft: This page is still being written
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/johnneerdael/CueRithm
@@ -120,65 +127,198 @@ validation:
 
 nav:
   - Home: index.md
-  - Get started:
+  - "Get started":
       - get-started/index.md
-      - Install: get-started/install.md
-      - The main window: get-started/main-window.md
-      - Add your music: get-started/add-music.md
-      - Keyboard shortcuts: get-started/shortcuts.md
-  - Learn:
-      - learn/index.md
-      - Prepare your first tracks: learn/first-tracks.md
-      - Read key, BPM and energy: learn/read-analysis.md
-      - Navigate a track with cues: learn/navigate-with-cues.md
-      - Build playlists and folders: learn/playlists.md
-      - Build a smart playlist: learn/smart-playlist.md
-      - Clean up messy titles: learn/cleanup.md
-      - Set up catalog tagging: learn/auto-tagging.md
-      - Choose a theme and waveform style: learn/appearance.md
-  - Guides:
-      - guides/index.md
-      - The track table: guides/track-table.md
-      - Player, waveform and cues: guides/player.md
-      - Incoming and Archive: guides/incoming-archive.md
-      - Import a DJ library: guides/import-library.md
-      - Playlists, folders and favourites: guides/playlists.md
-      - Smart playlist rules: guides/smart-rules.md
-      - Playlist tools and generator: guides/playlist-tools.md
-      - Sync to DJ software: guides/sync.md
-      - Sync to Mixxx: guides/sync-mixxx.md
-      - Maintenance: guides/maintenance.md
-      - Correct cues, loops and beatgrid: guides/manual-corrections.md
-      - Find compatible tracks: guides/compatible-tracks.md
-      - Playlist flow: guides/playlist-flow.md
-      - Match a reference tracklist: guides/tracklist-matcher.md
-      - Library backup and restore: guides/library-backup.md
-      - Cleanup rules: guides/cleanup-rules.md
-      - Automatic tagging settings: guides/tagging-settings.md
-      - Cloudflare challenge solver: guides/catalog-solver.md
-      - File organization: guides/file-organization.md
-      - Match review and metadata editing: guides/metadata-editing.md
-      - Curate tracks: guides/curating.md
-      - Preparation presets: guides/preparation-presets.md
-      - Settings reference: guides/settings.md
-  - Under the hood:
-      - technical/index.md
-      - The analysis pipeline: technical/pipeline.md
-      - Decoding and the media runtime: technical/decoding.md
-      - Key detection: technical/key.md
-      - Tempo and beatgrid: technical/tempo.md
-      - Track energy: technical/energy.md
-      - The cue engine: technical/cues.md
-      - Waveforms: technical/waveform.md
-      - The library database: technical/library.md
-      - Safe tag writing: technical/tag-writing.md
-      - Catalog matching: technical/matching.md
-      - Cleanup engine: technical/cleanup-engine.md
-      - Smart playlist engine: technical/smart-engine.md
-      - How accurate is it?: technical/accuracy.md
-  - About:
-      - about/index.md
-      - Credits and open source: about/credits.md
-      - How CueRithm was made: about/provenance.md
-      - Not available yet: about/roadmap.md
-      - FAQ and troubleshooting: about/faq.md
+      - "Download and install CueRithm": get-started/install.md
+      - "Platform notes":
+          - "Install on a Mac": get-started/platforms/macos.md
+          - "Install on Windows": get-started/platforms/windows.md
+          - "Install on Linux": get-started/platforms/linux.md
+      - "Find your way around the window": get-started/main-window.md
+      - "Prepare your first tracks": get-started/first-tracks.md
+      - "From a folder of new music to a playlist for the booth": get-started/first-hour.md
+      - "Pick the right guide for your goal": get-started/choose-your-path.md
+      - "Coming from Mixed In Key, Lexicon or rekordbox": get-started/coming-from-other-tools.md
+      - "What's new in CueRithm": get-started/whats-new.md
+  - "Manage files":
+      - files/index.md
+      - "Bring music in":
+          - "Add tracks by dropping, picking or watching a folder": files/add-tracks.md
+          - "Import a DJ library": files/import-library.md
+          - "Keep a folder like Beatport in your library automatically": files/watch-folders.md
+          - "Follow a track through Incoming": files/follow-incoming.md
+          - "Fix a track that needs attention in Incoming": files/needs-attention.md
+          - "Check that your files are supported": files/supported-formats.md
+      - "Preparation presets":
+          - "Save your setup as a preparation preset": files/presets.md
+          - "Use different rules for different folders": files/folder-presets.md
+      - "Archive tracks you no longer play": files/archive.md
+      - "Move or rename files without breaking the library": files/move-files.md
+      - "Look after your library":
+          - files/library/index.md
+          - "Find and merge duplicate tracks": files/library/find-duplicates.md
+          - "Find missing, moved or broken files": files/library/find-missing-files.md
+          - "Find and remove unused files": files/library/clean-up-unused-files.md
+          - "Undo a merge or restore removed files": files/library/undo-maintenance.md
+          - "Back up your library": files/library/back-up-library.md
+          - "Restore your library from a backup": files/library/restore-library.md
+          - "Where CueRithm keeps your data": files/library/where-data-lives.md
+      - "Recipes":
+          - "Analyze tracks without tagging or cleanup": files/recipes/analyze-only.md
+          - "Prepare a new Beatport purchase folder": files/recipes/prepare-a-purchase-folder.md
+  - "Playlists":
+      - playlists/index.md
+      - "Create a playlist and add tracks": playlists/create-a-playlist.md
+      - "Group playlists in folders and reorder them": playlists/organize-playlists.md
+      - "Reorder, remove and restore tracks": playlists/edit-playlist-tracks.md
+      - "Smart playlists":
+          - "Build a smart playlist": playlists/build-a-smart-playlist.md
+          - "Write smart playlist rules": playlists/smart-rules.md
+          - "Keep smart playlists up to date automatically": playlists/automatic-smart-playlists.md
+      - "Combine, split and tidy playlists": playlists/combine-and-tidy-playlists.md
+      - "Generate playlists from your library": playlists/generate-playlists.md
+      - "Find tracks that mix with the one playing": playlists/find-compatible-tracks.md
+      - "Check the flow of a playlist": playlists/check-playlist-flow.md
+      - "Rebuild a set from a tracklist": playlists/match-a-tracklist.md
+      - "Recipes":
+          - playlists/recipes/index.md
+          - "Keep a playlist of the tracks you added this week": playlists/recipes/added-this-week.md
+          - "Collect only the extended mixes": playlists/recipes/collect-extended-mixes.md
+          - "Collect your peak-time tracks by energy": playlists/recipes/peak-time-playlist.md
+          - "Make a playlist for every BPM range": playlists/recipes/playlist-per-bpm-range.md
+          - "Find tracks that are not in a set yet": playlists/recipes/tracks-not-in-a-set-yet.md
+          - "Collect the tracks that mix with a key": playlists/recipes/tracks-that-mix-with-a-key.md
+          - "Build a warm-up playlist from BPM and energy": playlists/recipes/warm-up-playlist.md
+  - "Auto tagging":
+      - tagging/index.md
+      - "Tag from Beatport and Traxsource":
+          - "Tag new tracks from Beatport and Traxsource": tagging/tag-new-tracks-automatically.md
+          - "Choose providers and fields to write": tagging/choose-providers.md
+          - "Connect provider accounts": tagging/provider-accounts.md
+          - "Get past a Cloudflare block": tagging/cloudflare-solver.md
+          - "Identify a track with no match": tagging/identify-unknown-tracks.md
+          - "Match a folder as a release": tagging/match-a-release.md
+          - "Review and fix a wrong match": tagging/review-a-match.md
+      - "Edit tags by hand":
+          - "Edit tags and artwork": tagging/edit-tags-by-hand.md
+          - "Undo a tag change": tagging/tag-history.md
+      - "Clean up titles, genres and artists":
+          - "Clean up messy titles, genres and artists": tagging/cleanup-messy-titles.md
+          - "Write cleanup rules": tagging/cleanup-rules.md
+          - "Run cleanup on every new track": tagging/cleanup-automatically.md
+          - "Undo a cleanup": tagging/undo-cleanup.md
+      - "Group tracks with categories and custom tags": tagging/curate-tracks.md
+      - "Recipes":
+          - tagging/recipes/index.md
+          - "Fill in a missing artist from the title": tagging/recipes/fill-a-missing-artist-from-the-title.md
+          - "Fix capital letters without breaking artist names": tagging/recipes/fix-capital-letters.md
+          - "Keep Beatport's detailed genre as a category": tagging/recipes/keep-subgenres-as-tags.md
+          - "Merge similar genres into one": tagging/recipes/merge-similar-genres.md
+          - "Remove \"(Original Mix)\" from titles": tagging/recipes/remove-original-mix-suffix.md
+          - "Remove promo text and web addresses": tagging/recipes/remove-promo-text-and-urls.md
+          - "Rename an artist everywhere": tagging/recipes/rename-an-artist-everywhere.md
+          - "Strip the key and BPM from titles": tagging/recipes/strip-key-and-bpm-from-titles.md
+  - "Renaming":
+      - rename/index.md
+      - "Rename and sort files into folders": rename/organize-files.md
+      - "Build a naming pattern": rename/naming-patterns.md
+      - "Recover or undo a reorganisation": rename/undo-organize.md
+      - "Recipes":
+          - rename/recipes/index.md
+          - "Put key and energy in file names": rename/recipes/put-key-and-energy-in-file-names.md
+          - "Sort files into artist folders": rename/recipes/sort-files-into-artist-folders.md
+  - "Track analysis":
+      - analysis/index.md
+      - "Read a track's key, BPM and energy": analysis/read-key-bpm-energy.md
+      - "Understand Camelot keys": analysis/camelot-keys.md
+      - "Find a track: search, sort and filter": analysis/find-tracks.md
+      - "Show the columns you need": analysis/choose-columns.md
+      - "Work on many tracks at once": analysis/select-many.md
+      - "Preview a track with the player": analysis/preview-a-track.md
+      - "Jump to the drop with cues": analysis/jump-to-cues.md
+      - "Check the beatgrid at beat level": analysis/check-the-beatgrid.md
+      - "Choose how CueRithm places cues": analysis/cue-rules.md
+      - "Analyze a track again": analysis/analyze-again.md
+      - "Fix a wrong cue, loop or beatgrid":
+          - analysis/corrections/index.md
+          - "Move or add a cue": analysis/corrections/move-or-add-cues.md
+          - "Set a loop": analysis/corrections/set-loops.md
+          - "Fix a wrong beatgrid": analysis/corrections/fix-the-beatgrid.md
+          - "Reuse one cue layout on many tracks": analysis/corrections/cue-templates.md
+          - "Undo or resolve a correction": analysis/corrections/undo-corrections.md
+  - "Sync":
+      - sync/index.md
+      - "Sync to rekordbox 6 or 7": sync/rekordbox-direct.md
+      - "Add only new tracks to rekordbox": sync/rekordbox-new-tracks.md
+      - "Resolve rekordbox sync conflicts": sync/rekordbox-conflicts.md
+      - "Prepare a Pioneer USB stick": sync/pioneer-usb.md
+      - "Other DJ software":
+          - "Sync to VirtualDJ": sync/virtualdj.md
+          - "Sync to Mixxx": sync/mixxx.md
+          - "Sync to Engine DJ": sync/engine-dj.md
+          - "Sync to djay Pro": sync/djay-pro.md
+          - "Sync to Serato DJ Pro": sync/serato-dj-pro.md
+      - "Choose what to sync": sync/choose-what-to-sync.md
+      - "Set the sync options": sync/sync-options.md
+      - "Save a destination for next time": sync/saved-destinations.md
+      - "Preview, apply and restore a sync": sync/preview-apply-restore.md
+      - "Use a Windows DJ library on Linux": sync/windows-libraries-on-linux.md
+  - "Customize":
+      - customize/index.md
+      - "Switch between light and dark": customize/theme.md
+      - "Choose a waveform style": customize/waveform-style.md
+      - "Resize the sidebar and player": customize/layout.md
+      - "Find the setting you need": customize/find-a-setting.md
+  - "How it works":
+      - how-it-works/index.md
+      - "How does CueRithm analyse a track?": how-it-works/pipeline.md
+      - "How are audio files decoded?": how-it-works/decoding.md
+      - "How is the key detected?": how-it-works/key.md
+      - "How are BPM and the beatgrid found?": how-it-works/tempo.md
+      - "How is energy rated?": how-it-works/energy.md
+      - "How are cues placed?": how-it-works/cues.md
+      - "How is the waveform drawn?": how-it-works/waveform.md
+      - "How is the library stored?": how-it-works/library.md
+      - "How are tags written safely?": how-it-works/tag-writing.md
+      - "How does catalog matching work?": how-it-works/matching.md
+      - "How does cleanup decide what to change?": how-it-works/cleanup-engine.md
+      - "How do smart playlists stay current?": how-it-works/smart-engine.md
+      - "How accurate is it?": how-it-works/accuracy.md
+  - "Reference":
+      - reference/index.md
+      - "Keyboard shortcuts": reference/keyboard-shortcuts.md
+      - "Settings":
+          - reference/settings/index.md
+          - "Choose which folders CueRithm watches": reference/settings/incoming.md
+          - "Set breakdown length, drop at start and the emergency loop": reference/settings/cue-generation.md
+          - "Set up automatic tagging": reference/settings/automatic-tagging.md
+          - "Set up automatic cleanup": reference/settings/cleanup.md
+          - "Choose how files are renamed or moved after preparation": reference/settings/file-organization.md
+          - "Set the time zone and key matching for smart playlists": reference/settings/library.md
+          - "Choose which smart playlists CueRithm builds for you": reference/settings/smart-playlists.md
+          - "Choose the waveform style": reference/settings/appearance.md
+      - "Cue names, letters and colours": reference/cue-types.md
+      - "Smart playlist fields and operators": reference/smart-playlist-fields.md
+      - "File naming tokens": reference/naming-tokens.md
+      - "Status icons and job states": reference/status-icons.md
+      - "Glossary": reference/glossary.md
+  - "Help":
+      - help/index.md
+      - "Fix a problem":
+          - help/troubleshooting/index.md
+          - "A track shows a dash instead of a waveform, or will not play": help/troubleshooting/no-waveform-or-playback.md
+          - "I moved or renamed my files": help/troubleshooting/files-moved.md
+          - "A track is stuck in Incoming": help/troubleshooting/incoming-stuck.md
+          - "Catalog tagging finds nothing for a track": help/troubleshooting/no-catalog-match.md
+          - "My key or BPM differs from another app": help/troubleshooting/key-or-bpm-differs.md
+          - "My sync does not show up in rekordbox": help/troubleshooting/rekordbox-sync-problems.md
+          - "My computer blocks CueRithm at first launch": help/troubleshooting/first-launch-blocked.md
+          - "Cleanup changed more than I expected": help/troubleshooting/cleanup-changed-too-much.md
+      - "Frequently asked questions": help/faq.md
+      - "Check what works with your DJ software": help/compatibility.md
+      - "What CueRithm does not do yet": help/not-available-yet.md
+      - "Report a problem or ask for a feature": help/report-a-problem.md
+      - "About":
+          - help/about/index.md
+          - "Credits and open source": help/about/credits.md
+          - "How CueRithm was made": help/about/provenance.md

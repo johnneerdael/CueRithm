@@ -14,6 +14,14 @@ describe("smart playlist generation",()=>{
   expect(bridge.previewSmartGeneration).toHaveBeenCalledWith({target:{type:"folder",id:"folder"},dimensions:[{type:"field",field:"genre",include_unobserved:false},{type:"bpm_ranges"}],combine:true});
   fireEvent.click(screen.getByRole("button",{name:"Apply preview"}));await waitFor(()=>expect(bridge.applySmartGeneration).toHaveBeenCalledWith("generation-preview",7));expect(applied).toHaveBeenCalledTimes(1);
  });
+ it("labels the full energy range as the whole-track rating, 1 to 10, and the star range as 0 to 5",async()=>{
+  const bridge=fakeBridge([]);bridge.getSmartCatalog=vi.fn(async()=>smartCatalog());
+  render(<PlaylistGenerator bridge={bridge} workspace={workspace()} initialFolderId={null} onApplied={async()=>{}} onClose={()=>{}}/>);
+  fireEvent.change(await screen.findByLabelText("Generation dimension 1"),{target:{value:"field:energy"}});
+  expect(screen.getByLabelText("Include unobserved values for dimension 1").closest("label")).toHaveTextContent("Include all 1–10 energy values, even without matches");
+  fireEvent.change(screen.getByLabelText("Generation dimension 1"),{target:{value:"field:rating"}});
+  expect(screen.getByLabelText("Include unobserved values for dimension 1").closest("label")).toHaveTextContent("Include all 0–5 star rating values, even without matches");
+ });
  it("requires explicit full-domain energy and invalidates a preview when options change",async()=>{
   const bridge=fakeBridge([]);bridge.getSmartCatalog=vi.fn(async()=>smartCatalog());bridge.previewSmartGeneration=vi.fn(async()=>preview());
   render(<PlaylistGenerator bridge={bridge} workspace={workspace()} initialFolderId={null} onApplied={async()=>{}} onClose={()=>{}}/>);

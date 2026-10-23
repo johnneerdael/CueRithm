@@ -206,10 +206,17 @@ pub async fn maintenance_preview_merge(
     review_id: String,
     expected_revision: u64,
     groups: Vec<String>,
+    disposition: Option<MergeDisposition>,
 ) -> Ipc<DuplicateMergePreview> {
+    // No default: without an explicit choice there is no preview to apply.
     run(host.inner().clone(), operation_id, move |host, cancel| {
-        host.library
-            .preview_duplicate_merge(&review_id, expected_revision, groups, cancel)
+        host.library.preview_duplicate_merge_choice(
+            &review_id,
+            expected_revision,
+            groups,
+            disposition,
+            cancel,
+        )
     })
     .await
 }
@@ -225,6 +232,7 @@ fn merged(app: &tauri::AppHandle, result: &DuplicateMergeResult) {
         .iter()
         .chain(&result.archived_ids)
         .chain(&result.restored_ids)
+        .chain(&result.removed_ids)
         .cloned()
         .collect::<std::collections::BTreeSet<_>>();
     let _ = app.emit(
@@ -242,9 +250,15 @@ pub async fn maintenance_apply_merge(
     app: tauri::AppHandle,
     operation_id: String,
     id: String,
+    confirm_deletion: Option<bool>,
 ) -> Ipc<DuplicateMergeResult> {
     let result = run(host.inner().clone(), operation_id, move |host, cancel| {
-        DuplicateMergeService::new(host.library.clone(), host.runtime.clone()).apply(&id, cancel)
+        // Files go to the system Trash, only when the user confirmed the reviewed list.
+        DuplicateMergeService::new(host.library.clone(), host.runtime.clone()).apply_confirmed(
+            &id,
+            confirm_deletion.unwrap_or(false),
+            cancel,
+        )
     })
     .await?;
     merged(&app, &result);

@@ -120,10 +120,7 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
                 fields.insert(field, json!({"presence":"value","value":[value]}));
             }
         }
-        let expected_key = fields
-            .get("key")
-            .and_then(|v| v.get("camelot").or_else(|| v.get("raw")))
-            .and_then(Value::as_str);
+        let expected_key = fields.get("key").and_then(super::projection::key_text);
         if expected_key != key.as_deref() {
             fields.insert(
                 "key".into(),

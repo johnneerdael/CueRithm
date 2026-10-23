@@ -1,0 +1,140 @@
+[
+  {
+    "scene": "how-analysis-columns",
+    "page": "how-it-works/index.md",
+    "after": "intro",
+    "alt": "The Tracks table with the KEY, BPM and ENERGY columns: 17 (Extended Mix) at 6A, 128 BPM and 7/10, Atoma (Extended Mix) at 2A, 130 BPM and 6/10",
+    "caption": "Every value in these three columns is measured from the audio on your computer.",
+    "state": "Sidebar: Tracks. Columns visible: TRACK / ARTIST, GENRE, BPM, KEY, ENERGY, DURATION, PREVIEW. Sorted by title so '17 (Extended Mix)' and 'Atoma (Extended Mix)' are in view. No selection, no search. Dark and light both.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-analysis-columns",
+    "page": "how-it-works/key.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "The KEY column of the Tracks table showing Camelot codes such as 6A for 17 (Extended Mix) and 2A for Atoma (Extended Mix)",
+    "caption": "The key appears as a Camelot code in the KEY column.",
+    "state": "Same picture as the index.md request: reuse the scene, do not recapture.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-incoming-stages",
+    "page": "how-it-works/pipeline.md",
+    "after": "## Where you see each stage in the app { #where-you-see-it }",
+    "alt": "Incoming with one track showing the stage label Analyzing under its title",
+    "caption": "The stage sits under the track title and changes as the track moves through the pipeline.",
+    "state": "Sidebar: Incoming. One track mid-preparation with a stage label visible under its title (Analyzing, Matching catalog or Writing tags). Capture while a copy of a demo track is being prepared. Dark and light don't matter.",
+    "needs": "A track caught in preparation. The 26 demo tracks are already ready, so the lead needs to copy one FLAC from the purchase folder into the watch folder (or use Analyze again on one row) and capture within the few seconds it is in progress, ideally with Beatport tagging on so 'Matching catalog' shows.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-incoming-stages",
+    "page": "how-it-works/decoding.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "Incoming with one track showing the Decoding or Analyzing stage under its title",
+    "caption": "Decoding is the first working stage a track shows in Incoming.",
+    "state": "Same picture as the pipeline.md request: reuse the scene, do not recapture.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-beatgrid-zoom",
+    "page": "how-it-works/tempo.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "The player zoomed to 32 seconds on 17 (Extended Mix) at 128 BPM, with beat lines and bar markers around the drop at 1:15",
+    "caption": "The player draws its beat lines from one BPM and one first-beat time.",
+    "state": "Load '17 (Extended Mix)' (128 BPM, drop at 1:15) in the player, switch to the 32-second zoom, position the playhead just before 1:15 so the Drop marker and several bar lines are visible. Paused.",
+    "crop": "player"
+  },
+  {
+    "scene": "how-energy-7-and-up",
+    "page": "how-it-works/energy.md",
+    "after": "## Where it goes { #where-it-goes }",
+    "alt": "The Energy 7 and up smart playlist listing 9 tracks, each with its ENERGY value of 7/10 or 8/10",
+    "caption": "Because energy is one number, a smart playlist can select on it directly.",
+    "state": "Sidebar: Playlists, open the smart playlist 'Energy 7 and up' (rule: energy 7 or more). The 9 tracks are listed with the ENERGY column visible. No selection.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-player-cues",
+    "page": "how-it-works/cues.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "The player showing Atoma (Extended Mix) with cue markers at 0:00, 0:44, 1:36, 2:24, 3:23 and 3:42 on the waveform",
+    "caption": "Each cue is a labelled position on the bar grid; the track needs at least a Start to become ready.",
+    "state": "Load 'Atoma (Extended Mix)' (130 BPM, 3:42) in the player at the whole-track view so all six cue markers and their letters are visible. Paused at 0:00. CueRithm waveform style.",
+    "crop": "player"
+  },
+  {
+    "scene": "how-waveform-colours",
+    "page": "how-it-works/waveform.md",
+    "after": "## How colour is chosen { #colour }",
+    "alt": "The whole-track waveform of Other Dimension (Extended Mix) in the CueRithm style, with the long breakdown from 2:23 to 3:15 drawn in different colours from the drops",
+    "caption": "Colour follows the balance of bass, mids and highs at each moment.",
+    "state": "Load 'Other Dimension (Extended Mix)' (128 BPM, 5:09, breakdown at 2:23, second drop at 3:15) in the player at whole-track view, Settings → Appearance set to the default CueRithm style. Paused.",
+    "crop": "player"
+  },
+  {
+    "scene": "how-waveform-styles",
+    "page": "how-it-works/waveform.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "Settings, Appearance page listing the six waveform styles CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each drawn on a sample track",
+    "caption": "Six styles share the same data; switching is instant.",
+    "state": "Sidebar: Settings → Appearance. All six style cards visible with CueRithm selected. Capture in both themes.",
+    "crop": "panel"
+  },
+  {
+    "scene": "library-missing-scan",
+    "page": "how-it-works/library.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "Maintenance, Missing & broken, listing tracks whose stored path no longer points at a readable file",
+    "caption": "A track whose file was moved outside CueRithm shows up here, because the library stores absolute paths.",
+    "state": "Reuse the scene the library tab already requests (Maintenance → Missing & broken after Scan library files on the real library). Do not recapture.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-recovery-backups",
+    "page": "how-it-works/tag-writing.md",
+    "after": "## Backups and retention { #backups }",
+    "alt": "Settings, Automatic tagging page, top: the Recovery backups row showing the size and file count of retained original files",
+    "caption": "The retained originals are counted here; there is no retention control yet.",
+    "state": "Sidebar: Settings → Automatic tagging, scrolled to the top so the 'Automatic tagging' toggle and the 'Recovery backups' row are visible. Whatever the real library shows.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-tagging-fields",
+    "page": "how-it-works/tag-writing.md",
+    "after": "## Where you see it in the app { #where-you-see-it }",
+    "alt": "Settings, Automatic tagging, Fields to write: the Key and BPM write options, Write Camelot keys and Write track energy to files",
+    "caption": "These switches decide which measured values are written into the file.",
+    "state": "Sidebar: Settings → Automatic tagging, scrolled so the 'Fields to write' group, 'Key and BPM written to files', 'Write Camelot keys' and 'Write track energy to files' are visible. Nothing changed, not saved.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-review-match",
+    "page": "how-it-works/matching.md",
+    "after": "## When CueRithm stops and asks { #when-it-stops }",
+    "alt": "The Review match inspector for Brackish (Original Mix) with the file's metadata beside catalog candidates and the note that name similarity is a ranking score, not a probability",
+    "caption": "Review shows each candidate beside your file, with any conflict named.",
+    "state": "Tracks view, open the row menu of 'Brackish (Original Mix)' → Review match. Candidates loaded, nothing chosen, nothing saved.",
+    "needs": "Candidates require a live catalog lookup (Requery). If the lookup returns no candidates, the lead picks another demo track that does.",
+    "crop": "window"
+  },
+  {
+    "scene": "how-cleanup-preview",
+    "page": "how-it-works/cleanup-engine.md",
+    "after": "## Scan, apply, undo { #scan-apply-undo }",
+    "alt": "Cleanup, Smart Fixes tab, after Scan tracks on All ready tracks: a list of proposed changes with unchanged and unavailable counts, nothing applied",
+    "caption": "A scan only proposes changes; nothing is written until you apply.",
+    "state": "Sidebar: Cleanup, Smart Fixes tab with Casing, Garbage and Mix parentheses enabled, scope All ready tracks, after Scan tracks. Proposals visible (the title 'Nivk, Rabteu - PLV (Creeds remix - Extended)' is the likeliest to produce one), nothing applied.",
+    "needs": "At least one honest proposal on the demo library. If none appears, the lead decides whether to capture the empty result ('0 proposed changes') instead.",
+    "crop": "panel"
+  },
+  {
+    "scene": "how-smart-playlist-preview",
+    "page": "how-it-works/smart-engine.md",
+    "after": "## What a smart playlist is made of { #model }",
+    "alt": "The smart playlist editor for Energy 7 and up: Match all conditions, one rule on Energy, and Preview matches reporting 9 matching tracks",
+    "caption": "Preview matches runs the rule over the library before you can save it.",
+    "state": "Sidebar: Playlists, edit the smart playlist 'Energy 7 and up'. Match: all conditions, one condition (Energy, 7 or more), Preview matches pressed, '9 matching tracks' visible. Not saved.",
+    "crop": "window"
+  }
+]

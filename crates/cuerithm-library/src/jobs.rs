@@ -163,6 +163,11 @@ impl Library {
                         continue;
                     }
                 }
+                let ready_without_job: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM tracks WHERE path=?1 AND state='ready' AND current_job IS NULL)", [path_bytes(&path)], |r|r.get(0))?;
+                if ready_without_job {
+                    tx.commit()?;
+                    continue;
+                }
                 let current: Option<String> = tx
                     .query_row(
                         "SELECT current_job FROM tracks WHERE path=?1 AND source_hash=?2",
@@ -203,7 +208,7 @@ impl Library {
         if let Some(job) = checkpoint {
             return Ok(job);
         }
-        let existing_track: Option<(String, Option<String>, bool, String)> = tx
+        let existing_track: Option<(String, Option<String>, bool, Option<String>)> = tx
             .query_row(
                 "SELECT id,current_job,archived,source_hash FROM tracks WHERE path=?1",
                 params![encoded],
@@ -215,7 +220,7 @@ impl Library {
                 uuid::Uuid::new_v4().to_string(),
                 None,
                 false,
-                hash.to_owned(),
+                Some(hash.to_owned()),
             )
         });
         if archived {
@@ -229,7 +234,7 @@ impl Library {
         let id = if let Some((id, state)) = existing {
             if current.as_deref() == Some(id.as_str())
                 && state != "superseded"
-                && track_hash == hash
+                && track_hash.as_deref() == Some(hash)
             {
                 return Ok(id);
             }
@@ -559,7 +564,7 @@ impl Library {
             params![uuid::Uuid::new_v4().to_string(), track, id, cue_json, now()],
         )?;
         // Matching status belongs to a tagging run; the tagging commit stores it again after this.
-        tx.execute("UPDATE tracks SET native_metadata_json=NULL,tagging_json=NULL,state='ready',analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
+        tx.execute("UPDATE tracks SET native_metadata_json=NULL,tagging_json=NULL,state='ready',analysis_status='complete',selected_musical_revision=NULL,analysis_json=?1,metadata_json=?2,musical_key=?3,bpm=?4,energy=?5,duration=?6,updated=?7 WHERE id=?8",
             params![json,serde_json::to_string(info)?,key.camelot,saved_bpm,energy.level,a.duration_seconds,now(),track])?;
         for (field, value) in &info.tags {
             let column = match field.as_str() {

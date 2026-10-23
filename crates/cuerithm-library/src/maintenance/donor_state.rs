@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, path::PathBuf};
+/// One stored value of a row, exactly as SQLite holds it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(super) enum Cell {
     Null,
@@ -22,7 +23,7 @@ pub(super) enum Cell {
     Blob(Vec<u8>),
 }
 impl Cell {
-    fn capture(value: ValueRef<'_>) -> Result<Self> {
+    pub(super) fn capture(value: ValueRef<'_>) -> Result<Self> {
         Ok(match value {
             ValueRef::Null => Self::Null,
             ValueRef::Integer(n) => Self::Integer(n),
@@ -34,7 +35,7 @@ impl Cell {
             ValueRef::Blob(b) => Self::Blob(b.into()),
         })
     }
-    fn sql(&self) -> SqlValue {
+    pub(super) fn sql(&self) -> SqlValue {
         match self {
             Self::Null => SqlValue::Null,
             Self::Integer(n) => SqlValue::Integer(*n),
@@ -43,7 +44,7 @@ impl Cell {
             Self::Blob(b) => SqlValue::Blob(b.clone()),
         }
     }
-    fn json(&self) -> Value {
+    pub(super) fn json(&self) -> Value {
         match self {
             Self::Null => Value::Null,
             Self::Integer(n) => json!(n),

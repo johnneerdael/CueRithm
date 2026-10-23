@@ -284,11 +284,11 @@ pub(crate) fn sync_projection(
         for (field, column) in [("key", "musical_key"), ("bpm", "bpm"), ("energy", "energy")] {
             if let Some(value) = fields.get(field) {
                 let v = if field == "key" {
-                    value.get("camelot").or_else(|| value.get("raw"))
+                    super::projection::key_text(value).map(|key| Value::String(key.into()))
                 } else {
-                    value.get("value")
+                    value.get("value").cloned()
                 };
-                let v = v.cloned().unwrap_or(Value::Null);
+                let v = v.unwrap_or(Value::Null);
                 let sql = match v {
                     Value::String(s) => rusqlite::types::Value::Text(s),
                     Value::Number(n) => {

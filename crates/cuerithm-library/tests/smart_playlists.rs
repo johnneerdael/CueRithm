@@ -1886,12 +1886,18 @@ fn automatic_service_expands_after_restart_and_never_creates_before_opt_in() {
     .unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
-        if library
+        // Reconciliation publishes nodes before their membership evaluation.
+        // Wait for the completed refresh before stopping the worker: an earlier
+        // snapshot invalidated by our writes may still be awaiting its retry.
+        if let Some(month) = library
             .playlist_state()
             .unwrap()
             .nodes
             .iter()
-            .any(|n| n.name == "December, 2028")
+            .find(|n| n.name == "December, 2028")
+            && library.playlist_evaluation_status(&month.id).unwrap().state == SmartState::Ready
+            && library.playlist_members(&month.id).unwrap() == [f.ids[2].clone()]
+            && service.last_error().unwrap().is_none()
         {
             break;
         }
@@ -1903,7 +1909,8 @@ fn automatic_service_expands_after_restart_and_never_creates_before_opt_in() {
         std::thread::sleep(std::time::Duration::from_millis(30));
     }
     service.shutdown();
-    assert!(service.last_error().unwrap().is_none());
+    let last_error = service.last_error().unwrap();
+    assert!(last_error.is_none(), "smart service failed: {last_error:?}");
     let state = library.playlist_state().unwrap();
     let month = state
         .nodes

@@ -44,14 +44,15 @@ impl Library {
             let tx = conn.transaction()?;
             let stamp = super::scan::stamp(&tx)?;
             let mut statement = tx.prepare(
-                "SELECT id,path,source_hash FROM tracks WHERE archived=0 ORDER BY rowid",
+                "SELECT id,path,source_hash,archived FROM tracks WHERE (archived=0 OR ?1) AND path IS NOT NULL AND source_hash IS NOT NULL ORDER BY rowid",
             )?;
             let rows = statement
-                .query_map([], |r| {
+                .query_map([request.include_archived], |r| {
                     Ok((
                         r.get::<_, String>(0)?,
                         r.get::<_, Vec<u8>>(1)?,
                         r.get::<_, String>(2)?,
+                        r.get::<_, bool>(3)?,
                     ))
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -76,11 +77,12 @@ impl Library {
             total: Some(total),
             current_path: None,
         });
-        for (id, path, expected) in rows {
+        for (id, path, expected, archived) in rows {
             cancel.check()?;
             let path = bytes_path(&path)?;
             let observed = file_state(&path);
             let mut row = BrokenScanTrack {
+                archived,
                 id,
                 display_path: path.to_string_lossy().into(),
                 state: observed,

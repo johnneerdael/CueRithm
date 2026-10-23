@@ -27,7 +27,7 @@ pub enum DjSyncScope {
 
 struct RawTrack {
     id: String,
-    path: Vec<u8>,
+    path: Option<Vec<u8>>,
     title: String,
     artist: String,
     album: String,
@@ -37,6 +37,7 @@ struct RawTrack {
     analysis: Option<String>,
     metadata: String,
     cues: Option<String>,
+    accepted: bool,
 }
 #[derive(Deserialize)]
 struct SavedAnalysis {
@@ -92,7 +93,7 @@ impl Library {
             };
             let mut query = connection.prepare(
                 "SELECT id,path,title,artist,album,genre,musical_key,duration,analysis_json,metadata_json,
-                 (SELECT json FROM cue_revisions c WHERE c.track_id=t.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1)
+                 (SELECT json FROM cue_revisions c WHERE c.track_id=t.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1),(selected_musical_revision IS NOT NULL OR analysis_status='stale')
                  FROM tracks t WHERE state='ready' AND archived=0 ORDER BY sort_title,id"
             )?;
             let rows = query.query_map([], |row| {
@@ -108,6 +109,7 @@ impl Library {
                     analysis: row.get(8)?,
                     metadata: row.get(9)?,
                     cues: row.get(10)?,
+                    accepted: row.get(11)?,
                 })
             })?;
             let mut raw = Vec::new();
@@ -434,6 +436,10 @@ fn append_children(
     }
 }
 fn project_track(row: RawTrack) -> Result<SyncTrack> {
+    ensure!(
+        !row.accepted,
+        "DJ export cannot represent imported accepted cue/tempo data yet; export would lose timing or cue semantics"
+    );
     let analysis: SavedAnalysis = serde_json::from_str(
         row.analysis
             .as_deref()
@@ -460,8 +466,54 @@ fn project_track(row: RawTrack) -> Result<SyncTrack> {
             && publication.grid.start_time >= 0.0,
         "Prepared track contains invalid saved grid timing"
     );
-    let info: MediaInfo = serde_json::from_str(&row.metadata)
+    let metadata: Value = serde_json::from_str(&row.metadata)
         .with_context(|| format!("Read prepared metadata for '{}'", row.title))?;
+    let info: MediaInfo = match serde_json::from_value(metadata.clone()) {
+        Ok(info) => info,
+        Err(original) => {
+            let media = &metadata["cuerithm.portable_media"];
+            ensure!(
+                media.is_object(),
+                "Read prepared metadata for '{}': {original}",
+                row.title
+            );
+            let codec = media["codec"]
+                .as_str()
+                .context("Restored native codec is unknown")?
+                .to_owned();
+            let sample_rate = u32::try_from(
+                media["sample_rate"]
+                    .as_u64()
+                    .context("Restored native sample rate is unknown")?,
+            )?;
+            let channels = u32::try_from(
+                media["channels"]
+                    .as_u64()
+                    .context("Restored native channel count is unknown")?,
+            )?;
+            ensure!(
+                !codec.is_empty() && sample_rate > 0 && channels > 0,
+                "Invalid restored native media properties"
+            );
+            let mut tags: BTreeMap<String, String> = serde_json::from_value(media["tags"].clone())?;
+            // Accepted portable text fields override the historical file-tag
+            // observation, just as the native library's live metadata does.
+            for field in "title artist album album_artist genre comment grouping label remixer mix producer composer lyricist".split_whitespace(){
+                if let Some(values)=metadata[field].as_array(){let text=values.iter().map(|v|v.as_str().context("Invalid restored text metadata")).collect::<Result<Vec<_>>>()?.join("; ");tags.insert(field.into(),text);}
+            }
+            MediaInfo {
+                codec,
+                sample_rate,
+                channels,
+                bits_per_sample: media["bits_per_sample"]
+                    .as_u64()
+                    .map(u32::try_from)
+                    .transpose()?,
+                tags,
+                properties: serde_json::from_value(media["properties"].clone())?,
+            }
+        }
+    };
     let columns = info.columns();
     let text = |keys: &[&str]| -> String {
         keys.iter()
@@ -530,7 +582,11 @@ fn project_track(row: RawTrack) -> Result<SyncTrack> {
     Ok(SyncTrack {
         native_path: None,
         id: row.id,
-        path: crate::model::bytes_path(&row.path)?,
+        path: crate::model::bytes_path(
+            row.path
+                .as_deref()
+                .context("Track has no local file binding; relocate it before DJ export")?,
+        )?,
         title: row.title,
         artist: row.artist,
         album: row.album,

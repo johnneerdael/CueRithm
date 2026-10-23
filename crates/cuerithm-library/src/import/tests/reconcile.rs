@@ -227,8 +227,10 @@ pub(super) struct Fixture {
 }
 impl Fixture {
     pub(super) fn new() -> Self {
-        let db = tempfile::tempdir().unwrap();
-        let root = tempfile::tempdir().unwrap();
+        // Native file authority rejects symlinked ancestors such as macOS /var.
+        let temporary_root = std::env::temp_dir().canonicalize().unwrap();
+        let db = tempfile::tempdir_in(&temporary_root).unwrap();
+        let root = tempfile::tempdir_in(&temporary_root).unwrap();
         fs::write(root.path().join("source.bin"), b"invented").unwrap();
         Self {
             lib: Library::open(&db.path().join("library.db")).unwrap(),

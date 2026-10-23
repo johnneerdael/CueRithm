@@ -784,3 +784,39 @@ the32GiB workspace limit; removing only obsolete completed test executables
 restored space. Fresh sequential lint, optimized release build, workspace
 doctests and formatting then pass on the final source. These resource failures
 are closed rather than classified as baseline failures.
+## Integration verification — 24 October 2026
+
+The PR was integrated with `main` at
+`fe4935be5f8f1d9eb6e9989108fc0520b339d360` in an isolated macOS Apple
+Silicon worktree. Released portable-library migration 029 remains unchanged;
+additive import migration 030 follows it. Nullable portable paths and hashes,
+relocation controls and the current guide navigation are retained.
+
+Imported keys with a null or non-string Camelot value now fall back to their
+raw string consistently in summaries, native projection, refresh, recovery,
+audio-tag writes and file naming. Portable `.cuerithm` export checks its copied
+snapshot and refuses inspected/imported DJ records it cannot preserve. Both
+export entry points are covered; same-installation recovery snapshots retain
+the actual source, observation, item and collection rows.
+
+| Check | Observed result and scope |
+| --- | --- |
+| Full optimized workspace, including doctests | 2,654 passed / 10 failed / 15 ignored across 185 completed targets. All ten failures were test expectations: four canonical-path comparisons on macOS and six schema assertions still expecting 29 instead of 30. |
+| Corrected library targets | All 68 tests passed across `catalog_access`, `catalog_runtime`, `maintenance_duplicates`, `native_import` and `playlists`. |
+| Corrected SDK with all features | 539 passed / 0 failed / 3 ignored, including all four corrected reader targets and experimental DJ.Studio coverage. The experimental writer remains off in production. |
+| Library unit suite in the workspace run | 541 passed / 0 failed / 2 ignored. No mount-identity guard was weakened. |
+| Raw-key regressions | 4 passed, including display, nullable native identity, tag writing, renaming and Undo for `Am`. |
+| Portable-backup regressions | 2 passed, including inspected-only, import-only and linked collection cases, plus copied recovery databases retaining import records. |
+| Authored scale controls | Both passed, including 100,000 available generated files and repeated playlist membership. This macOS run does not measure RSS because the test reads Linux `/proc`; it does not establish real-music throughput. |
+| Frontend | 661 tests across 75 files passed; type checking and production build passed. |
+| Formatting, Clippy and release build | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo build --workspace --release` passed after corrections. |
+| Documentation and release tooling | Strict MkDocs build and navigation/link checks passed; 22 documentation-tool tests and 60 PR/release-tool tests passed. |
+| Independent integration review | No actionable findings in migration ordering, nullable identities, key fallback, backup guards and frontend merge preservation. |
+
+All nine targets that failed in the broad run have passing corrected-source
+coverage above. Unchanged passing workspace results are retained with their
+scope; this record does not claim a second fully green local workspace run.
+The required latest-commit Codex review and Linux checks remain merge gates;
+post-merge platform checks and the automated release remain separate gates.
+Source-application/device acceptance and new native clock qualification are
+still unverified.

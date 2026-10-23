@@ -491,23 +491,24 @@ fn tag_patch(
                 "Audio-tag field {name} requires a qualified native writer"
             ))?,
         };
-        let value = if name == "key" {
-            value.get("camelot").or_else(|| value.get("raw"))
+        let values = if name == "key" {
+            super::super::projection::key_text(value)
+                .map(|key| vec![key.to_owned()])
+                .unwrap_or_default()
         } else {
-            value.get("value")
-        };
-        let values = match value {
-            Some(Value::String(v)) => vec![v.clone()],
-            Some(Value::Array(a)) => a
-                .iter()
-                .map(|v| {
-                    v.as_str()
-                        .map(str::to_owned)
-                        .context("Tag text is not a string")
-                })
-                .collect::<Result<Vec<_>>>()?,
-            None => vec![],
-            _ => anyhow::bail!("Selected tag {name} has unsupported native representation"),
+            match value.get("value") {
+                Some(Value::String(v)) => vec![v.clone()],
+                Some(Value::Array(a)) => a
+                    .iter()
+                    .map(|v| {
+                        v.as_str()
+                            .map(str::to_owned)
+                            .context("Tag text is not a string")
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                None => vec![],
+                _ => anyhow::bail!("Selected tag {name} has unsupported native representation"),
+            }
         };
         patch.text.insert(
             native,
@@ -556,8 +557,7 @@ fn naming_context(fields: &BTreeMap<String, Value>) -> cuerithm_organize::templa
         release_date: first("release_date"),
         key: fields
             .get("key")
-            .and_then(|v| v.get("camelot").or_else(|| v.get("raw")))
-            .and_then(Value::as_str)
+            .and_then(super::super::projection::key_text)
             .map(str::to_owned),
         bpm_hundredths: fields
             .get("bpm")

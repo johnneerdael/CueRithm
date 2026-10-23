@@ -556,7 +556,7 @@ fn schema_ten_migration_preserves_legacy_links_and_native_import_enforces_foreig
     ] {
         conn.execute_batch(script).unwrap();
     }
-    conn.execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('legacy',?1,'Legacy','hash','ready',0,0)",[b"unchanged-native-path".as_slice()]).unwrap();
+    conn.execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('legacy',?1,'Legacy','hash','ready',0,0)",[b"unix:/unchanged/native/path.wav".as_slice()]).unwrap();
     conn.execute("INSERT INTO sync_links(track_id,target,external_id,baseline_json) VALUES('legacy','old-target','external','{\"keep\":true}')",[]).unwrap();
     drop(conn);
     let lib = Library::open(&path).unwrap();
@@ -564,7 +564,7 @@ fn schema_ten_migration_preserves_legacy_links_and_native_import_enforces_foreig
     assert_eq!(
         sql.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        29
+        30
     );
     assert_eq!(
         sql.query_row(

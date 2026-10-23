@@ -183,6 +183,203 @@ fn unavailable_import_visible_without_audio_or_jobs() {
     );
 }
 #[test]
+fn raw_imported_key_falls_back_after_unusable_camelot_values() {
+    for camelot in [json!(null), json!(42), json!([]), json!({})] {
+        assert_eq!(key_text(&json!({"camelot":camelot,"raw":"Am"})), Some("Am"));
+    }
+    assert_eq!(key_text(&json!({"raw":"Am"})), Some("Am"));
+    assert_eq!(key_text(&json!({"camelot":"8A","raw":"Am"})), Some("8A"));
+    assert_eq!(key_text(&json!({"camelot":null,"raw":null})), None);
+}
+
+#[test]
+fn raw_imported_key_survives_cached_summary() {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("library.db")).unwrap();
+    let mut track = observation("a", "Raw key");
+    track.key = Some(MusicalKey {
+        presence: FieldPresence::Value,
+        raw: Some("Am".into()),
+        ..Default::default()
+    });
+    let (inspection, _root) = inspect(&lib, vec![track.clone()], vec![]);
+    publish(
+        &lib,
+        &inspection,
+        &track,
+        "local-a",
+        &ImportPolicy::default(),
+        None,
+    );
+    let summary = lib.track("local-a").unwrap();
+    assert_eq!(summary.key.as_deref(), Some("Am"));
+    assert_eq!(summary.metadata["library.path_bound"], false);
+    assert_eq!(summary.metadata["library.content_hash_known"], false);
+    let fields = lib.imported_item("local-a").unwrap().active_fields;
+    assert_eq!(
+        fields["key"],
+        serde_json::to_value(track.key.unwrap()).unwrap()
+    );
+}
+
+#[test]
+fn raw_imported_key_survives_native_projection_and_recovery_without_local_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("library.db")).unwrap();
+    lib.conn().unwrap().execute("INSERT INTO tracks(id,path,title,musical_key,source_hash,state,created,updated) VALUES('existing',NULL,'Local title','11A',NULL,'imported',1,1)", []).unwrap();
+    let mut track = observation("a", "Raw key");
+    track.key = Some(MusicalKey {
+        presence: FieldPresence::Value,
+        raw: Some("Am".into()),
+        provenance: Some("source key".into()),
+        ..Default::default()
+    });
+    let (inspection, _root) = inspect(&lib, vec![track.clone()], vec![]);
+    publish(
+        &lib,
+        &inspection,
+        &track,
+        "existing",
+        &ImportPolicy::default(),
+        Some("existing"),
+    );
+    let summary = lib.track("existing").unwrap();
+    assert_eq!(summary.key.as_deref(), Some("Am"));
+    assert!(summary.display_path.is_empty());
+    assert!(summary.source_sha256.is_empty());
+    assert_eq!(summary.metadata["library.path_bound"], false);
+    assert_eq!(summary.metadata["library.content_hash_known"], false);
+    let fields = lib.imported_item("existing").unwrap().active_fields;
+    assert_eq!(
+        fields["key"],
+        serde_json::to_value(track.key.unwrap()).unwrap()
+    );
+    lib.conn()
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET musical_key='11A' WHERE id='existing'",
+            [],
+        )
+        .unwrap();
+    super::super::recovery::sync_projection(&lib.conn().unwrap(), "existing", &fields).unwrap();
+    assert_eq!(lib.track("existing").unwrap().key.as_deref(), Some("Am"));
+    assert_eq!(
+        lib.imported_item("existing").unwrap().active_fields["key"],
+        fields["key"]
+    );
+}
+
+#[test]
+fn portable_backup_allows_an_empty_import_schema() {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("library.db")).unwrap();
+    assert!(lib.portable_snapshot().unwrap().records["tracks"].is_empty());
+    assert_eq!(
+        lib.portable_snapshot_spooled(&crate::backup::ArchiveLimits::default(), &|_, _| Ok(()))
+            .unwrap()
+            .count("tracks")
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn portable_backup_refuses_dj_import_records_and_preserves_recovery_snapshots() {
+    for mode in ["inspection", "import_only", "linked_collection"] {
+        let dir = tempfile::tempdir().unwrap();
+        let lib = Library::open(&dir.path().join("app/library.db")).unwrap();
+        let track = observation("a", "Retain imported data");
+        let collection = CollectionObservation {
+            external_id: "playlist".into(),
+            name: "Retain imported playlist".into(),
+            occurrences: vec![MembershipObservation {
+                external_occurrence_id: "member".into(),
+                track_external_id: "a".into(),
+                position: Some(1),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let (inspection, _root) = inspect(&lib, vec![track.clone()], vec![collection.clone()]);
+        if mode == "linked_collection" {
+            lib.conn().unwrap().execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('local-a',NULL,'Existing track',NULL,'imported',1,1)", []).unwrap();
+        }
+        if mode != "inspection" {
+            publish(
+                &lib,
+                &inspection,
+                &track,
+                "local-a",
+                &ImportPolicy::default(),
+                (mode == "linked_collection").then_some("local-a"),
+            );
+        }
+        if mode == "linked_collection" {
+            project_import_collection_tx(
+                &lib.conn().unwrap(),
+                &inspection.source_id,
+                "playlist",
+                &collection,
+                None,
+            )
+            .unwrap();
+        }
+        let expected_items = u64::from(mode != "inspection");
+        let expected_collections = u64::from(mode == "linked_collection");
+        let errors = [
+            lib.portable_snapshot().unwrap_err().to_string(),
+            lib.portable_snapshot_spooled(&crate::backup::ArchiveLimits::default(), &|_, _| Ok(()))
+                .unwrap_err()
+                .to_string(),
+        ];
+        for error in errors {
+            assert!(
+                error.contains("cannot preserve DJ-library import records"),
+                "{mode}: {error}"
+            );
+            assert!(
+                error.contains("Same-installation recovery snapshots"),
+                "{mode}: {error}"
+            );
+        }
+        let backup = lib
+            .create_library_backup(&dir.path().join("backups"))
+            .unwrap();
+        let saved = rusqlite::Connection::open(backup.path.join("library.sqlite")).unwrap();
+        for conn in [&*lib.conn().unwrap(), &saved] {
+            assert_eq!(
+                conn.query_row("SELECT COUNT(*) FROM import_sources", [], |r| r
+                    .get::<_, u64>(0))
+                    .unwrap(),
+                1,
+                "{mode}"
+            );
+            assert_eq!(
+                conn.query_row("SELECT COUNT(*) FROM import_observations", [], |r| r
+                    .get::<_, u64>(0))
+                    .unwrap(),
+                2,
+                "{mode}"
+            );
+            assert_eq!(
+                conn.query_row("SELECT COUNT(*) FROM import_items", [], |r| r
+                    .get::<_, u64>(0))
+                    .unwrap(),
+                expected_items,
+                "{mode}"
+            );
+            assert_eq!(
+                conn.query_row("SELECT COUNT(*) FROM import_collections", [], |r| r
+                    .get::<_, u64>(0))
+                    .unwrap(),
+                expected_collections,
+                "{mode}"
+            );
+        }
+    }
+}
+
+#[test]
 fn unchecked_new_fields_remain_provenance_only() {
     let dir = tempfile::tempdir().unwrap();
     let lib = Library::open(&dir.path().join("library.db")).unwrap();

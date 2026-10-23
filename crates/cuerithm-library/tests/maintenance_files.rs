@@ -234,6 +234,36 @@ fn runtime() -> MediaRuntime {
     .unwrap()
 }
 #[test]
+fn archived_broken_scan_ignores_unbound_portable_records() {
+    let f = Fixture::new();
+    let file = f.file("archived.flac", b"archived source");
+    let id = f.add(&file);
+    let mut unbound = f.lib.portable_tracks().unwrap().remove(0);
+    unbound.id = "unbound".into();
+    unbound.locator.id = "locator:unbound".into();
+    unbound.source_sha256 = None;
+    unbound.musical = None;
+    f.lib.import_portable_tracks(&[unbound]).unwrap();
+    f.lib.set_archived(&id, true).unwrap();
+    std::fs::remove_file(file).unwrap();
+    let report = f
+        .lib
+        .scan_broken_tracks(
+            BrokenScanRequest {
+                include_archived: true,
+                ..Default::default()
+            },
+            &runtime(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!(report.tracks.len(), 1);
+    assert_eq!(report.tracks[0].id, id);
+    assert!(report.tracks[0].archived);
+    assert_eq!(report.tracks[0].state, MaintenanceFileState::Missing);
+    assert!(f.lib.local_track_binding("unbound").unwrap().is_none());
+}
+#[test]
 fn missing_and_optional_audio_validation_distinguish_decode_errors_from_missing() {
     let f = Fixture::new();
     let good = f.music.join("good.flac");
@@ -269,6 +299,7 @@ fn missing_and_optional_audio_validation_distinguish_decode_errors_from_missing(
         .scan_broken_tracks(
             BrokenScanRequest {
                 inspect_audio: true,
+                ..Default::default()
             },
             &rt,
             &CancellationToken::default(),
@@ -343,6 +374,7 @@ fn unsupported_audio_is_not_reported_as_corrupt() {
         .scan_broken_tracks(
             BrokenScanRequest {
                 inspect_audio: true,
+                ..Default::default()
             },
             &runtime(),
             &CancellationToken::default(),

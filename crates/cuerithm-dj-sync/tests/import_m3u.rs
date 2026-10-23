@@ -17,7 +17,13 @@ fn m3u_resolves_relative_entries_and_preserves_a_b_a() {
     assert_eq!(tracks.len(), 2);
     assert_eq!(
         tracks[0].locations.native_path.as_deref(),
-        Some(root.path().join("Música/A.flac").as_path())
+        Some(
+            root.path()
+                .canonicalize()
+                .unwrap()
+                .join("Música/A.flac")
+                .as_path()
+        )
     );
     assert_eq!(tracks[0].locations.availability, "missing");
     assert!(tracks[0].metadata.is_empty());

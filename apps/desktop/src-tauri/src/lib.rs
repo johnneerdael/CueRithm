@@ -12,10 +12,13 @@ mod maintenance_commands;
 mod manual_publication_commands;
 mod match_review_commands;
 mod metadata_commands;
+mod missing_commands;
 mod organization_commands;
+mod portable_commands;
 mod preparation_preset_commands;
 mod provider_commands;
 mod rekordbox_sync_commands;
+mod relocation_commands;
 mod sync_commands;
 mod tracklist_commands;
 use anyhow::Result;
@@ -74,7 +77,14 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
         }
         host.smart_playlists.shutdown();
         host.maintenance.wait_until_idle();
-        app.exit(0);
+        if host
+            .restart_requested
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            app.restart();
+        } else {
+            app.exit(0);
+        }
     });
 }
 pub fn run() {
@@ -103,7 +113,6 @@ pub fn run() {
                 .map(|p| p.join("Cuerithm/Incoming"));
             // Blocked-before-mutation restore intents leave the current DB safe to open.
             // Errors after mutation intent stop startup and retain the recovery snapshot.
-            cuerithm_library::apply_pending_library_restore(&root.join("library.sqlite"))?;
             let host = Arc::new(host::Host::open_with_release(
                 &root,
                 &runtime,
@@ -118,6 +127,16 @@ pub fn run() {
                         event.state.as_str(),
                         "completed" | "attention" | "superseded"
                     );
+                    // A track that followed its file inside a watch folder has no job
+                    // to report. The library and any open editor refresh instead.
+                    if event.stage == cuerithm_library::RELINKED_STAGE {
+                        let _ = handle.emit(
+                            "library-change",
+                            serde_json::json!({"track_ids":[event.track_id]}),
+                        );
+                        let _ = handle.emit("metadata-edit-change", ());
+                        continue;
+                    }
                     let _ = handle.emit("preparation", event);
                     if settled {
                         // Incoming overrides can settle after their invoke has
@@ -203,6 +222,18 @@ pub fn run() {
             manual_publication_commands::save_cue_template,
             manual_publication_commands::delete_cue_template,
             manual_publication_commands::preview_cue_template,
+            portable_commands::portable_export,
+            portable_commands::portable_inspect,
+            portable_commands::portable_restore,
+            portable_commands::portable_generations,
+            portable_commands::portable_activate_generation,
+            portable_commands::portable_cancel,
+            relocation_commands::relocation_plan,
+            relocation_commands::relocation_apply,
+            relocation_commands::relocation_undo,
+            relocation_commands::relocation_history,
+            relocation_commands::relocation_roots,
+            relocation_commands::relocation_continue,
             backup_commands::create_library_backup,
             backup_commands::inspect_library_backup,
             backup_commands::stage_library_restore,
@@ -298,6 +329,13 @@ pub fn run() {
             maintenance_commands::maintenance_preview_merge,
             maintenance_commands::maintenance_merge_history,
             maintenance_commands::maintenance_cancel,
+            missing_commands::maintenance_preview_missing_removal,
+            missing_commands::maintenance_apply_missing_removal,
+            missing_commands::maintenance_preview_missing_relink,
+            missing_commands::maintenance_apply_missing_relink,
+            missing_commands::maintenance_missing_repair_history,
+            missing_commands::maintenance_undo_missing_repair,
+            missing_commands::maintenance_discard_missing_repair_undo,
             maintenance_commands::maintenance_scan_duplicates,
             maintenance_commands::maintenance_scan_unused,
             maintenance_commands::maintenance_scan_broken,

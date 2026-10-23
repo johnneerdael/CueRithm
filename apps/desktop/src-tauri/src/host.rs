@@ -19,10 +19,19 @@ pub struct Detail {
     pub analysis: Option<camelot_core::FileAnalysis>,
     pub source_sha256: String,
     pub pcm_sha256: Option<String>,
+    pub musical: Option<cuerithm_library::AcceptedMusicalData>,
+    pub source_locator: Option<cuerithm_library::PortableLocator>,
+    /// False for unlinked tracks or a file that is definitely gone.
+    pub file_available: bool,
 }
+/// Shown wherever a track's file cannot be found.
+pub const FILE_NOT_FOUND: &str = "File not found - move it back or run Maintenance";
 
 pub struct Host {
     pub exit: crate::exit::ExitCoordinator,
+    pub portable: crate::portable_commands::PortableState,
+    pub libraries: cuerithm_library::LibraryGenerations,
+    pub restart_requested: AtomicBool,
     pub maintenance: Arc<crate::maintenance::MaintenanceTasks>,
     pub builtin: crate::builtin::BuiltinModels,
     pub library: Library,
@@ -66,9 +75,10 @@ impl Host {
         provider_factory: impl FnOnce(&Library) -> Result<cuerithm_library::ProviderSetupService>,
     ) -> Result<Self> {
         std::fs::create_dir_all(root)?;
-        let path = root.join("library.sqlite");
-        let is_new = !path.exists();
-        let library = Library::open(&path)?;
+        let libraries = cuerithm_library::LibraryGenerations::new(root)?;
+        let is_new =
+            !root.join("library.sqlite").exists() && !root.join("active-library.json").exists();
+        let library = libraries.open_active()?;
         if is_new {
             if let Some(path) = std::env::var_os("CUERITHM_BOOTSTRAP_SETTINGS") {
                 let settings: PreparationSettings = serde_json::from_slice(&std::fs::read(path)?)?;
@@ -107,6 +117,9 @@ impl Host {
         let curation_worker = Mutex::new(curation.start_background()?);
         Ok(Self {
             exit: crate::exit::ExitCoordinator::default(),
+            portable: crate::portable_commands::PortableState::default(),
+            libraries,
+            restart_requested: AtomicBool::new(false),
             maintenance: Arc::new(crate::maintenance::MaintenanceTasks::default()),
             builtin,
             library,
@@ -136,8 +149,11 @@ impl Host {
         Ok(Detail {
             track: self.library.track(id)?,
             analysis,
-            source_sha256: self.library.source_hash(id)?,
+            source_sha256: self.library.source_hash_optional(id)?.unwrap_or_default(),
+            musical: self.library.accepted_musical_data(id)?,
+            source_locator: self.library.source_locator(id)?,
             pcm_sha256,
+            file_available: !self.library.track_file_missing(id).unwrap_or(false),
         })
     }
     pub fn metadata_fields(&self) -> Result<Vec<String>> {
@@ -238,13 +254,18 @@ impl Host {
         }
         drop(loaded);
         Ok(Arc::new(self.runtime.decode(
-            &self.library.track_path(id)?,
+            &self.source_path(id)?,
             &self.library.data_dir().join("cache/media"),
         )?))
     }
+    /// The track's file, or a plain statement that it is not there.
+    fn source_path(&self, id: &str) -> Result<PathBuf> {
+        ensure!(!self.library.track_file_missing(id)?, FILE_NOT_FOUND);
+        self.library.track_path(id)
+    }
     pub fn load(&self, id: String, generation: u64) -> Result<Detail> {
         let audio = Arc::new(self.runtime.decode(
-            &self.library.track_path(&id)?,
+            &self.source_path(&id)?,
             &self.library.data_dir().join("cache/media"),
         )?);
         let mut detail = self.detail(&id)?;
@@ -287,6 +308,25 @@ impl Host {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn host_startup_recovers_a_torn_active_pointer_before_looking_up_its_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = cuerithm_library::LibraryGenerations::new(temp.path()).unwrap();
+        drop(Library::open(&temp.path().join("library.sqlite")).unwrap());
+        let stage = manager.create_staging().unwrap();
+        drop(Library::open(&stage.database).unwrap());
+        let seal = manager.seal(&stage.id).unwrap();
+        manager.schedule(&stage.id, "legacy", &seal).unwrap();
+        drop(manager.open_active().unwrap());
+        std::fs::write(temp.path().join("active-library.json"), b"{torn").unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let host = Host::open(temp.path(), &root.join("tools/media-runtime/bin"), None).unwrap();
+        assert_eq!(host.libraries.active_id().unwrap(), "legacy");
+        assert_eq!(host.library.counts().unwrap().tracks, 0);
+        host.preparation.shutdown();
+        host.smart_playlists.shutdown();
+        host.curation_worker.lock().unwrap().shutdown();
+    }
     #[test]
     fn native_artwork_is_source_scoped_and_cached() {
         let d = tempfile::tempdir().unwrap();

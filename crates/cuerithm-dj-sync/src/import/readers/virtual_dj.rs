@@ -376,7 +376,7 @@ impl SourceAdapter for VirtualDjReader {
         let mut members = Vec::new();
         for artifact in &snapshot.artifacts {
             let path = snapshot.original_artifact_path(&artifact.id)?;
-            if !path.file_name().is_some_and(|n| n == "database.xml") {
+            if path.file_name().is_none_or(|n| n != "database.xml") {
                 continue;
             }
             let root = database(snapshot, &artifact.id, options, cancel)?;

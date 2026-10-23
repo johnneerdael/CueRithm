@@ -286,7 +286,12 @@ fn mac_origin_snapshot_can_be_mapped_without_claiming_native_windows_storage() {
     );
     assert_eq!(
         rows.tracks()[0].locations.resolved.as_deref(),
-        mapped.path().join("Example.flac").to_str()
+        mapped
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("Example.flac")
+            .to_str()
     );
     assert!(
         adapter(SourceProvider::MixedInKey11)

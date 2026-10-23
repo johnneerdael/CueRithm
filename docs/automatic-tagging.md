@@ -36,7 +36,7 @@ verify the account email before testing. Each SonoVault connection test uses
 one metadata credit. A test key's mock response does not prove live access.
 Unknown allowance or reset times stay unknown; rate or quota errors are not
 reported as no match. CueRithm does not discover credentials from user key files.
-See the [provider setup steps](user-guide/learn/auto-tagging.md#provider-setup).
+See the [provider setup steps](user-guide/tagging/provider-accounts.md).
 
 Volumo tokens are created in the account's [API-token settings](https://volumo.com/profile/api-tokens).
 Its official API resolves an ISRC to links; CueRithm can read public track-page
@@ -53,7 +53,7 @@ and a marked source stops direct requests until explicitly reset. Configure an
 optional FlareSolverr-compatible URL under Automatic tagging; affected sources
 use its `/v1` endpoint, with a 120-second default solve timeout and one retry for
 timeouts or temporary unavailability.
-See [solver setup](user-guide/guides/catalog-solver.md) for FlareSolverr, Byparr
+See [solver setup](user-guide/tagging/cloudflare-solver.md) for FlareSolverr, Byparr
 and Trawl, source availability, caching and troubleshooting.
 
 Known edition/recording conflicts and tied best candidates stay in Incoming for
@@ -146,7 +146,7 @@ establishes that fetch/parse path, not a file-write or packaged-app acceptance. 
 Incoming, without silently bypassing a required tagging stage.
 
 The integration excludes Spotify/audio-feature workflows, Shazam, QuickTag
-and post-commands. [Manual metadata editing and match review](user-guide/guides/metadata-editing.md)
+and post-commands. [Manual metadata editing and match review](user-guide/tagging/edit-tags-by-hand.md)
 are available independently of automatic tagging. The catalog integration reuses pinned OneTagger
 source under GPLv3; desktop licensing and modifications are documented in
 [third-party notices](../THIRD_PARTY_NOTICES.md). The separate analysis engine
@@ -156,5 +156,5 @@ Settings → File organization saves opt-in rename, move and copy rules. The
 Organize files workspace previews complete existing-track scopes and exposes
 actual results, recovery and guarded Undo. Required reference repair and file
 cleanup finish before Incoming promotion. See the
-[file organization guide](user-guide/guides/file-organization.md) for naming,
+[file organization guide](user-guide/rename/organize-files.md) for naming,
 copy-original conflicts and the known-reference boundary.

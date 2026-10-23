@@ -101,10 +101,16 @@ impl CleanupService {
                         row["row"]["state"] == "ready" && row["row"]["archived"] == 0,
                         "Track is not Ready"
                     );
-                    let bytes: Vec<u8> =
+                    let bytes: Option<Vec<u8>> =
                         conn.query_row("SELECT path FROM tracks WHERE id=?1", [&id], |r| r.get(0))?;
-                    let path = crate::model::bytes_path(&bytes)?;
-                    let source = row["row"]["source_hash"].as_str().unwrap().to_owned();
+                    let path =
+                        crate::model::bytes_path(bytes.as_deref().context(
+                            "Local file is not linked; relocate the track before cleanup",
+                        )?)?;
+                    let source = row["row"]["source_hash"]
+                        .as_str()
+                        .context("Source hash is unknown; verify the local file before cleanup")?
+                        .to_owned();
                     (row, path, source)
                 };
                 ensure!(

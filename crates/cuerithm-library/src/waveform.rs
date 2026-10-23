@@ -183,21 +183,24 @@ pub fn waveform(audio: &PreparedAudio, bins: usize) -> Result<Waveform> {
     })
 }
 
+/// The resolutions the player and the preview ask for (`apps/desktop/src/App.tsx`).
+pub const CACHED_RESOLUTIONS: [usize; 2] = [240, 16384];
+/// Name (without `.json`) of the cache file for one source file, decoder and resolution.
+pub fn waveform_cache_key(source_sha256: &str, decoder_identity: &str, bins: usize) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(format!("{source_sha256}:{decoder_identity}:{bins}"))
+    )
+}
 pub fn cached_waveform(
     audio: &PreparedAudio,
     bins: usize,
     cache: &std::path::Path,
 ) -> Result<Waveform> {
-    use sha2::{Digest, Sha256};
     use std::io::{Read, Write};
     ensure!((1..=16384).contains(&bins), "Invalid waveform resolution");
-    let key = format!(
-        "{:x}",
-        Sha256::digest(format!(
-            "{}:{}:{bins}",
-            audio.source_sha256, audio.decoder_identity
-        ))
-    );
+    let key = waveform_cache_key(&audio.source_sha256, &audio.decoder_identity, bins);
     std::fs::create_dir_all(cache)?;
     let path = cache.join(format!("{key}.json"));
     if let Ok(file) = std::fs::File::open(&path)

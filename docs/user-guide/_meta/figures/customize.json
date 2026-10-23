@@ -1,0 +1,61 @@
+[
+ {
+  "scene": "customize-waveform-styles",
+  "page": "customize/index.md",
+  "after": "intro",
+  "alt": "Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal",
+  "caption": "The Appearance page previews all six waveform styles on the same sample track.",
+  "state": "Sidebar: Settings, Appearance page. The Waveform style radio group with the CueRithm style selected and all six samples visible. Dark/light do not matter.",
+  "crop": "panel"
+ },
+ {
+  "scene": "customize-waveform-styles",
+  "page": "customize/waveform-style.md",
+  "after": "## Pick a style { #pick }",
+  "alt": "Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal",
+  "caption": "Select a style and every waveform in CueRithm changes at once.",
+  "state": "Same state as on customize/index.md: Settings, Appearance page, CueRithm style selected.",
+  "crop": "panel"
+ },
+ {
+  "scene": "customize-waveform-player-layers",
+  "page": "customize/waveform-style.md",
+  "after": "## How to read each style { #read }",
+  "alt": "The player with the Layers style: Come To Life (Original Mix) with its waveform drawn as separate bass, mid and high layers and the cue buttons below",
+  "caption": "In a layer style the three bands are separate layers instead of one blended colour.",
+  "state": "Settings -> Appearance: choose Layers. Back in Tracks, load 'Come To Life (Original Mix)' (7A, 130 BPM, 7/10) so the player waveform and overview show the layers. Afterwards set the style back to CueRithm.",
+  "crop": "player"
+ },
+ {
+  "scene": "customize-theme-header",
+  "page": "customize/theme.md",
+  "after": "## Change the theme { #change }",
+  "alt": "The CueRithm window with the Colour theme button in the header between the status line and Add tracks",
+  "caption": "The Colour theme button sits in the header of every view.",
+  "state": "Sidebar: Tracks, library as is, nothing selected, status line showing 'All up to date'. Whole window; the theme button must be visible and not hovered. Captured in both themes by the usual process (set the app to System mode first)."
+ },
+ {
+  "scene": "customize-layout-collapsed",
+  "page": "customize/layout.md",
+  "after": "## Collapse the sidebar to icons { #collapse }",
+  "alt": "CueRithm with the sidebar collapsed to a narrow rail of icons and the track table using the freed space",
+  "caption": "A collapsed sidebar is a 60 px rail of icons; hover it to open it over the table.",
+  "state": "Press Cmd/Ctrl+B in Tracks. Pointer away from the rail so it stays collapsed. Whole window. Press the keys again afterwards."
+ },
+ {
+  "scene": "customize-layout-wide",
+  "page": "customize/layout.md",
+  "after": "## Make the player taller or shorter { #player-height }",
+  "alt": "CueRithm with the sidebar widened to its maximum and the player raised to its maximum height, showing a larger waveform and the cue buttons",
+  "caption": "Drag the two dividers to give the sidebar and the player more room.",
+  "state": "Tracks with Come To Life (Original Mix) loaded. Drag the sidebar divider to its right-hand limit (340 px) and the player divider to its upper limit (420 px). Whole window. Restore the defaults (224 px and 270 px) afterwards."
+ },
+ {
+  "scene": "customize-settings-pages",
+  "page": "customize/find-a-setting.md",
+  "after": "## Open Settings { #open }",
+  "alt": "The Settings screen on the Incoming page with the list of nine pages on the left: Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists and Appearance",
+  "caption": "Settings has nine pages; Save settings is at the top right.",
+  "state": "Sidebar: Settings. Incoming page open with ~/Music/Beatport listed as the watch folder and the Save settings button visible. Whole window."
+ }
+]

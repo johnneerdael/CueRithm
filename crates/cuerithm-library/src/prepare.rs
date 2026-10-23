@@ -33,6 +33,9 @@ pub struct ServiceStatus {
     pub watch_errors: Vec<String>,
     pub last_error: Option<String>,
 }
+/// `PreparationEvent::stage` of a track that followed its file to a new
+/// location inside a watch folder.
+pub const RELINKED_STAGE: &str = "relinked";
 enum Control {
     Wake,
     Changed(Vec<PathBuf>),
@@ -214,9 +217,9 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        let path = self.library.track_path(&track)?;
         self.library.invalidate_unpublished_preparation(&track)?;
         self.library.clear_track_analysis_cache(&track)?;
-        let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
         for job in jobs {
             self.retry(job, Some(self.library.settings()?.revision))?;
@@ -283,12 +286,26 @@ struct Worker {
 }
 impl Worker {
     fn emit(&self, job: &JobRun, stage: &str, state: &str) {
+        self.publish(job.attempt, &job.id, &job.track_id, stage, state);
+    }
+    /// A relinked track has no job of its own to report; its settled event
+    /// still refreshes the library and the open track.
+    fn emit_relinked(&self, track: &RelinkedTrack) {
+        self.publish(
+            0,
+            track.job_id.as_deref().unwrap_or_default(),
+            &track.track_id,
+            RELINKED_STAGE,
+            "completed",
+        );
+    }
+    fn publish(&self, attempt: u32, job_id: &str, track_id: &str, stage: &str, state: &str) {
         let mut subscribers = self.subscribers.lock().unwrap();
         let event = PreparationEvent {
-            attempt: job.attempt,
+            attempt,
             sequence: self.sequence.fetch_add(1, Ordering::Relaxed) + 1,
-            job_id: job.id.clone(),
-            track_id: job.track_id.clone(),
+            job_id: job_id.into(),
+            track_id: track_id.into(),
             stage: stage.into(),
             state: state.into(),
         };
@@ -306,7 +323,9 @@ impl Worker {
                 Ok(Some(job)) => self.process(job),
                 Ok(None) => thread::sleep(Duration::from_millis(50)),
                 Err(error) => {
-                    self.error(error);
+                    if !error.is::<crate::LibraryBusy>() {
+                        self.error(error);
+                    }
                     thread::sleep(Duration::from_millis(200));
                 }
             }
@@ -314,6 +333,10 @@ impl Worker {
     }
     fn run(mut self, rx: Receiver<Control>, tx: SyncSender<Control>) {
         let mut discovery = watch::Discovery::default();
+        // Files that looked like a moved track but were still being written.
+        let mut settling = watch::Settling::default();
+        let mut retry: Vec<PathBuf> = Vec::new();
+        let mut retry_at = Instant::now();
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
                 if let Ok(event) = event
@@ -333,8 +356,15 @@ impl Worker {
                     Control::Wake => next_scan = Instant::now(),
                 }
             }
+            if !retry.is_empty() && Instant::now() >= retry_at {
+                pending.extend(retry.drain(..));
+            }
             let snapshot = match self.library.settings() {
                 Ok(s) => s,
+                Err(e) if e.is::<crate::LibraryBusy>() => {
+                    thread::sleep(Duration::from_millis(200));
+                    continue;
+                }
                 Err(e) => {
                     self.error(e);
                     break;
@@ -382,7 +412,7 @@ impl Worker {
                 next_scan = Instant::now() + Duration::from_secs(5);
             }
             if !pending.is_empty() {
-                let candidates: Vec<PathBuf> = pending
+                let mut candidates: Vec<PathBuf> = pending
                     .drain()
                     .filter(|p| {
                         p.is_file()
@@ -391,12 +421,43 @@ impl Worker {
                             && !p.starts_with(self.library.data_dir())
                     })
                     .collect();
+                // A file that is the content of a track missing from the same
+                // watch folder is that track, moved; it is not new music.
+                let interval = Duration::from_millis(snapshot.settings.stability_millis);
+                match self
+                    .library
+                    .relink_moved_tracks(&candidates, folders, |path| {
+                        settling.settled(path, interval)
+                    }) {
+                    Ok(moved) => {
+                        let handled: HashSet<&PathBuf> =
+                            moved.consumed.iter().chain(&moved.deferred).collect();
+                        candidates.retain(|path| !handled.contains(path));
+                        settling.keep_only(&moved.deferred);
+                        if !moved.deferred.is_empty() {
+                            retry_at = Instant::now() + interval.max(Duration::from_millis(50));
+                            retry.extend(moved.deferred.iter().cloned());
+                        }
+                        for track in &moved.relinked {
+                            self.emit_relinked(track);
+                        }
+                    }
+                    Err(e) => {
+                        discovery.admission_failed(&candidates);
+                        self.error(e);
+                        candidates.clear();
+                    }
+                }
                 if let Err(e) = self
                     .library
                     .enqueue_with_current_preparation(&candidates, true)
                 {
-                    discovery.admission_failed(&candidates);
-                    self.error(e);
+                    if e.is::<crate::LibraryBusy>() {
+                        pending.extend(candidates);
+                    } else {
+                        discovery.admission_failed(&candidates);
+                        self.error(e);
+                    }
                 }
             }
             match self.library.claim_next() {
@@ -408,7 +469,9 @@ impl Worker {
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 },
                 Err(e) => {
-                    self.error(e);
+                    if !e.is::<crate::LibraryBusy>() {
+                        self.error(e);
+                    }
                     thread::sleep(Duration::from_millis(200));
                 }
             }

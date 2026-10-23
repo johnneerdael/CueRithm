@@ -159,18 +159,19 @@ fn manual_state(conn: &Connection, id: &str) -> Result<ManualState> {
         Ok(ManualState::default())
     }
 }
+type SourceSnapshot = (
+    Option<Vec<u8>>,
+    Option<String>,
+    String,
+    bool,
+    Option<String>,
+    Option<f64>,
+);
 fn load(
     conn: &Connection,
     id: &str,
 ) -> Result<(ManualPublicationSnapshot, FileAnalysis, Option<f64>)> {
-    let (path, source, state, archived, text, bpm): (
-        Vec<u8>,
-        String,
-        String,
-        bool,
-        Option<String>,
-        Option<f64>,
-    ) = conn.query_row(
+    let (path, source, state, archived, text, bpm): SourceSnapshot = conn.query_row(
         "SELECT path,source_hash,state,archived,analysis_json,bpm FROM tracks WHERE id=?1",
         [id],
         |r| {
@@ -184,6 +185,9 @@ fn load(
             ))
         },
     )?;
+    let path = path.context("Local file is not linked; relocate the track before editing cues")?;
+    let source =
+        source.context("File identity is unknown; analyze the track before editing cues")?;
     ensure!(
         state == "ready" && !archived,
         "Prepare and restore this track before editing cues"
