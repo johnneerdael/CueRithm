@@ -153,8 +153,16 @@ fn moving_audio_preserves_identity_and_undo_after_restart() {
     let modified = std::fs::metadata(&new).unwrap().modified().unwrap();
     let plan = f.search(std::slice::from_ref(&id), new.parent().unwrap());
     assert!(plan.rows[0].candidates[0].preselected);
+    let index = f
+        .root
+        .join("relocation-indexes")
+        .join(format!("{}.sqlite", plan.id));
+    assert!(index.is_file());
     let result = f.apply(&plan, 0, 0, "source").unwrap();
     assert_eq!(result.applied, 1);
+    assert!(!index.exists());
+    assert!(!index.with_extension("lease").exists());
+    assert!(f.library.relocation_plan(&plan.id).is_err());
     assert_eq!(f.library.track_path(&id).unwrap(), new);
     assert_eq!(f.library.track(&id).unwrap().id, id);
     assert_eq!(hash(&new), digest);
@@ -791,5 +799,159 @@ fn all_tracks_groups_never_archive_the_reviewed_existing_destination_survivor() 
             f.library.manual_playlist_members("playlist").unwrap(),
             vec![existing]
         );
+    }
+}
+
+#[test]
+fn canceled_unpublished_relocation_search_releases_its_owned_index() {
+    let f = Fixture::new();
+    let old = f.audio("old/A.flac");
+    let id = f.add(&old);
+    std::fs::remove_file(old).unwrap();
+    f.audio("new/A.flac");
+    let cancel = CancellationToken::default();
+    assert!(
+        f.library
+            .plan_relocation(
+                RelocationRequest {
+                    track_ids: vec![id],
+                    search_root: Some(f.root.join("new")),
+                    ..Default::default()
+                },
+                &f.runtime,
+                &cancel,
+                |p| {
+                    if p.phase == "searching" {
+                        cancel.cancel();
+                    }
+                }
+            )
+            .is_err()
+    );
+    assert_eq!(
+        std::fs::read_dir(f.root.join("relocation-indexes"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+#[test]
+fn restart_collects_orphan_and_expired_indexes_but_retains_resumable_checkpoint() {
+    let f = Fixture::new();
+    let old = f.audio("old/A.flac");
+    let id = f.add(&old);
+    std::fs::remove_file(old).unwrap();
+    f.audio("new/A.flac");
+    let orphan = f.search(std::slice::from_ref(&id), &f.root.join("new"));
+    let expired = f.search(std::slice::from_ref(&id), &f.root.join("new"));
+    let paused = f.search(std::slice::from_ref(&id), &f.root.join("new"));
+    let raw = rusqlite::Connection::open(&f.db).unwrap();
+    raw.execute("DELETE FROM relocation_plans WHERE id=?1", [&orphan.id])
+        .unwrap();
+    raw.execute(
+        "UPDATE relocation_plans SET json=json_set(json,'$.created',0) WHERE id=?1",
+        [&expired.id],
+    )
+    .unwrap();
+    raw.execute(
+        "UPDATE relocation_plans SET json=json_set(json,'$.paused',json('true')) WHERE id=?1",
+        [&paused.id],
+    )
+    .unwrap();
+    raw.execute("UPDATE relocation_index_gc SET cursor=''", [])
+        .unwrap();
+    let unrelated = f
+        .root
+        .join("relocation-indexes")
+        .join(format!("{}.sqlite", uuid::Uuid::new_v4()));
+    std::fs::write(&unrelated, b"user data").unwrap();
+    drop(raw);
+    drop(f.library);
+    let reopened = Library::open(&f.db).unwrap();
+    for plan in [&orphan, &expired] {
+        assert!(
+            !f.root
+                .join("relocation-indexes")
+                .join(format!("{}.sqlite", plan.id))
+                .exists()
+        );
+        assert!(reopened.relocation_plan(&plan.id).is_err());
+    }
+    assert!(unrelated.exists());
+    assert!(
+        f.root
+            .join("relocation-indexes")
+            .join(format!("{}.sqlite", paused.id))
+            .exists()
+    );
+    let continued = reopened
+        .continue_relocation(
+            &paused.id,
+            &f.runtime,
+            &CancellationToken::default(),
+            |_| {},
+        )
+        .unwrap();
+    assert_eq!(continued.id, paused.id);
+    assert!(!continued.paused);
+}
+#[test]
+fn scratch_cleanup_failure_does_not_turn_a_committed_relocation_into_failure() {
+    let f = Fixture::new();
+    let old = f.audio("old/A.flac");
+    let id = f.add(&old);
+    let new = f.root.join("new/A.flac");
+    std::fs::create_dir_all(new.parent().unwrap()).unwrap();
+    std::fs::rename(&old, &new).unwrap();
+    let plan = f.search(std::slice::from_ref(&id), new.parent().unwrap());
+    let directory = f.root.join("relocation-indexes");
+    let blocker = directory.join(format!("{}.sqlite-wal", plan.id));
+    std::fs::create_dir(&blocker).unwrap();
+    let result = f.apply(&plan, 0, 0, "source").unwrap();
+    assert_eq!(result.applied, 1);
+    assert_eq!(f.library.track_path(&id).unwrap(), new);
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|s| s.contains("Library changes saved"))
+    );
+    std::fs::remove_dir(blocker).unwrap();
+    for _ in 0..2 {
+        f.library.cleanup_relocation_indexes().unwrap();
+    }
+    assert!(!directory.join(format!("{}.sqlite", plan.id)).exists());
+    drop(f.library);
+    let reopened = Library::open(&f.db).unwrap();
+    reopened
+        .undo_relocation(&result.operation_id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(reopened.track_path(&id).unwrap(), old);
+}
+#[test]
+fn garbage_collection_does_not_delete_a_replaced_index_file() {
+    for replace_inode in [false, true] {
+        let f = Fixture::new();
+        let old = f.audio("old/A.flac");
+        let id = f.add(&old);
+        std::fs::remove_file(old).unwrap();
+        f.audio("new/A.flac");
+        let plan = f.search(&[id], &f.root.join("new"));
+        let path = f
+            .root
+            .join("relocation-indexes")
+            .join(format!("{}.sqlite", plan.id));
+        if replace_inode {
+            std::fs::rename(&path, path.with_extension("kept")).unwrap();
+        }
+        std::fs::write(&path, b"user replacement").unwrap();
+        let raw = rusqlite::Connection::open(&f.db).unwrap();
+        raw.execute("DELETE FROM relocation_plans WHERE id=?1", [&plan.id])
+            .unwrap();
+        drop(raw);
+        for _ in 0..2 {
+            f.library.cleanup_relocation_indexes().unwrap();
+        }
+        assert_eq!(std::fs::read(path).unwrap(), b"user replacement");
     }
 }

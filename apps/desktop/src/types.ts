@@ -21,7 +21,7 @@ export interface TempoMarker {id:string;start_seconds:number;bpm:number;beat_num
 export interface AcceptedMusicalData {id:string;source:string;cues:AcceptedCue[];tempo_markers:TempoMarker[]}
 export interface EncodedPath {encoding:"utf8"|"base64-bytes"|"base64-utf16le";data:string}
 export interface PortableLocator {id:string;flavor:"posix"|"windows-drive"|"windows-unc"|"opaque-posix"|"opaque-windows";original:EncodedPath;source_root:EncodedPath|null;components:EncodedPath[]|null}
-export interface Detail {track:Track;analysis:Analysis|null;source_sha256:string;pcm_sha256:string|null;musical?:AcceptedMusicalData|null;source_locator?:PortableLocator|null;locally_bound?:boolean}
+export interface Detail {track:Track;analysis:Analysis|null;source_sha256:string;pcm_sha256:string|null;musical?:AcceptedMusicalData|null;source_locator?:PortableLocator|null;locally_bound?:boolean;file_available?:boolean}
 export interface Job {id:string;track_id:string;title:string;state:string;stage:string;error:string|null;attempts:number}
 export interface LexiconConfig {genre:string|null;drop_at_start:"Auto"|"Never";min_cue_length_beats:number;add_emergency_loop:boolean}
 export interface EngineSettings {

@@ -123,6 +123,219 @@ struct Undo {
     stamp: String,
     undone: bool,
 }
+const PLAN_LIFETIME_MILLIS: i64 = 86_400_000;
+const INDEX_MARKER: &str = "cuerithm-relocation-index-v1";
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IndexOwner {
+    format: String,
+    id: String,
+    created: i64,
+    #[serde(default)]
+    identity: Option<String>,
+}
+struct IndexLease {
+    file: Option<std::fs::File>,
+    directory: PathBuf,
+    id: String,
+    retain: bool,
+    identity: Option<String>,
+}
+fn index_identity(path: &Path) -> Result<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let m = std::fs::symlink_metadata(path)?;
+        Ok(format!("{}:{}", m.dev(), m.ino()))
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(file_identity(path)?.to_string())
+    }
+}
+fn open_index_identity(file: &std::fs::File) -> Result<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = file.metadata()?;
+        Ok(format!("{}:{}", metadata.dev(), metadata.ino()))
+    }
+    #[cfg(not(unix))]
+    {
+        use std::hash::{Hash, Hasher};
+        let mut key = std::collections::hash_map::DefaultHasher::new();
+        same_file::Handle::from_file(file.try_clone()?)?.hash(&mut key);
+        Ok(key.finish().to_string())
+    }
+}
+fn index_directory(root: &Path, create: bool) -> Result<PathBuf> {
+    let directory = root.join("relocation-indexes");
+    if create {
+        std::fs::create_dir_all(&directory)?;
+    }
+    let metadata = std::fs::symlink_metadata(&directory)?;
+    ensure!(
+        metadata.is_dir() && !is_redirect(&metadata) && directory.canonicalize()? == directory,
+        "Unsafe relocation index directory"
+    );
+    Ok(directory)
+}
+fn owned_index_id(name: &str) -> Option<String> {
+    let stem = name
+        .strip_suffix(".sqlite")
+        .or_else(|| name.strip_suffix(".lease"))?;
+    let id = uuid::Uuid::parse_str(stem).ok()?;
+    (id.to_string() == stem).then(|| stem.to_owned())
+}
+fn regular_index_entry(path: &Path) -> Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(m) => {
+            ensure!(
+                m.is_file() && !is_redirect(&m),
+                "Unsafe relocation index entry"
+            );
+            Ok(true)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+impl IndexLease {
+    fn acquire(root: &Path, id: &str, retain: bool, known: bool) -> Result<Self> {
+        use std::io::{Read, Seek, Write};
+        ensure!(
+            uuid::Uuid::parse_str(id)?.to_string() == id,
+            "Invalid relocation index identity"
+        );
+        let directory = index_directory(root, true)?;
+        let marker = directory.join(format!("{id}.lease"));
+        let path = directory.join(format!("{id}.sqlite"));
+        let existing = regular_index_entry(&marker)?;
+        if !existing && !known {
+            ensure!(!path.exists(), "Unowned relocation index already exists");
+        }
+        let mut file = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .create_new(!existing)
+            .open(&marker)?;
+        fs2::FileExt::try_lock_exclusive(&file).context("Relocation search index is busy")?;
+        let mut identity = None;
+        if existing {
+            ensure!(
+                file.metadata()?.len() <= 1024,
+                "Invalid relocation index owner"
+            );
+            let mut json = String::new();
+            file.read_to_string(&mut json)?;
+            let owner: IndexOwner = serde_json::from_str(&json)?;
+            ensure!(
+                owner.format == INDEX_MARKER && owner.id == id,
+                "Unowned relocation index marker"
+            );
+            identity = owner.identity;
+            if regular_index_entry(&path)? {
+                if let Some(expected) = &identity {
+                    ensure!(
+                        index_identity(&path)? == *expected,
+                        "Relocation index identity changed"
+                    );
+                } else {
+                    ensure!(legacy_owned_index(&path), "Unowned relocation index file");
+                    identity = Some(index_identity(&path)?);
+                }
+            }
+        } else {
+            if known && regular_index_entry(&path)? {
+                ensure!(legacy_owned_index(&path), "Unowned relocation index file");
+            }
+            if !known {
+                std::fs::File::options()
+                    .write(true)
+                    .create_new(true)
+                    .open(&path)?;
+            }
+            if regular_index_entry(&path)? {
+                identity = Some(index_identity(&path)?);
+            }
+
+            let owner = IndexOwner {
+                format: INDEX_MARKER.into(),
+                id: id.into(),
+                created: crate::now(),
+                identity: identity.clone(),
+            };
+            file.rewind()?;
+            file.write_all(&serde_json::to_vec(&owner)?)?;
+            file.sync_all()?;
+        }
+        Ok(Self {
+            file: Some(file),
+            directory,
+            id: id.into(),
+            retain,
+            identity,
+        })
+    }
+    fn path(&self) -> PathBuf {
+        self.directory.join(format!("{}.sqlite", self.id))
+    }
+    fn remove(&mut self) -> Result<()> {
+        self.retain = true;
+        index_directory(
+            self.directory.parent().context("Missing index parent")?,
+            false,
+        )?;
+        let marker = self.directory.join(format!("{}.lease", self.id));
+        let marker_identity =
+            open_index_identity(self.file.as_ref().context("Index lease closed")?)?;
+        ensure!(
+            regular_index_entry(&marker)? && index_identity(&marker)? == marker_identity,
+            "Relocation index owner changed; retained for inspection"
+        );
+        if regular_index_entry(&self.path())? {
+            ensure!(
+                self.identity.as_ref().is_some_and(
+                    |known| index_identity(&self.path()).is_ok_and(|actual| actual == *known)
+                ),
+                "Relocation index identity changed; retained for inspection"
+            );
+            ensure!(
+                std::fs::metadata(self.path())?.len() == 0 || legacy_owned_index(&self.path()),
+                "Relocation index contents changed; retained for inspection"
+            );
+        }
+        for suffix in [".sqlite-wal", ".sqlite-shm", ".sqlite-journal", ".sqlite"] {
+            let path = self.directory.join(format!("{}{suffix}", self.id));
+            if regular_index_entry(&path)? {
+                std::fs::remove_file(path)?;
+            }
+        }
+        drop(self.file.take());
+        if regular_index_entry(&marker)? {
+            ensure!(
+                index_identity(&marker)? == marker_identity,
+                "Relocation index owner changed"
+            );
+            std::fs::remove_file(marker)?;
+        }
+        Ok(())
+    }
+}
+impl Drop for IndexLease {
+    fn drop(&mut self) {
+        if !self.retain {
+            let _ = self.remove();
+        }
+    }
+}
+fn legacy_owned_index(path: &Path) -> bool {
+    (||->Result<bool>{if !regular_index_entry(path)?{return Ok(false);}let conn=Connection::open_with_flags(path,rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY|rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;conn.pragma_update(None,"trusted_schema",false)?;
+        let expected:i64=conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('candidates','unsearched_paths')",[],|r|r.get(0))?;
+        let unknown:i64=conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE (type='table' AND name NOT IN ('candidates','unsearched_paths','directories','search_root')) OR type IN ('trigger','view')",[],|r|r.get(0))?;Ok(expected==2&&unknown==0)
+    })().unwrap_or(false)
+}
+
 fn init(conn: &Connection) -> Result<()> {
     conn.execute_batch("CREATE TABLE IF NOT EXISTS relocation_plans(id TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TABLE IF NOT EXISTS relocation_operations(id TEXT PRIMARY KEY,json TEXT NOT NULL,created INTEGER NOT NULL);")?;
     Ok(())
@@ -961,6 +1174,92 @@ impl Library {
         let conn = self.conn()?;
         crate::library_backup::quiet_database(&conn)
     }
+    /// Best-effort bounded-memory garbage collection of owned scratch indexes.
+    /// Only 256 lexically ordered owners are processed per pass; a durable cursor
+    /// ensures later passes reach every owner without loading the directory.
+    pub fn cleanup_relocation_indexes(&self) -> Result<usize> {
+        let directory = match index_directory(self.data_dir(), false) {
+            Ok(d) => d,
+            Err(_error) if !self.data_dir().join("relocation-indexes").exists() => return Ok(0),
+            Err(e) => return Err(e),
+        };
+        let cursor = {
+            let conn = self.conn()?;
+            init(&conn)?;
+            conn.execute_batch("CREATE TABLE IF NOT EXISTS relocation_index_gc(singleton INTEGER PRIMARY KEY CHECK(singleton=1),cursor TEXT NOT NULL);")?;
+            conn.query_row(
+                "SELECT cursor FROM relocation_index_gc WHERE singleton=1",
+                [],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+            .unwrap_or_default()
+        };
+        let scan = |after: &str| -> Result<BTreeSet<String>> {
+            let mut ids = BTreeSet::new();
+            for entry in std::fs::read_dir(&directory)? {
+                let entry = entry?;
+                if !entry.file_type()?.is_file() {
+                    continue;
+                }
+                let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                    continue;
+                };
+                let Some(id) = owned_index_id(&name) else {
+                    continue;
+                };
+                if id.as_str() <= after {
+                    continue;
+                }
+                ids.insert(id);
+                if ids.len() > 256 {
+                    ids.pop_last();
+                }
+            }
+            Ok(ids)
+        };
+        let mut ids = scan(&cursor)?;
+        if ids.is_empty() && !cursor.is_empty() {
+            ids = scan("")?;
+        }
+        let next = ids.last().cloned().unwrap_or_default();
+        let mut removed = 0;
+        for id in ids {
+            let marker = directory.join(format!("{id}.lease"));
+            if !marker.exists() && !legacy_owned_index(&directory.join(format!("{id}.sqlite"))) {
+                continue;
+            }
+            let Ok(mut lease) = IndexLease::acquire(self.data_dir(), &id, true, true) else {
+                continue;
+            };
+            let live = {
+                let conn = self.conn()?;
+                let json: Option<String> = conn
+                    .query_row(
+                        "SELECT json FROM relocation_plans WHERE id=?1",
+                        [&id],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                json.and_then(|s| serde_json::from_str::<RelocationPlan>(&s).ok())
+                    .is_some_and(|p| {
+                        p.id == id
+                            && p.generation == generation(self)
+                            && crate::now().saturating_sub(p.created) < PLAN_LIFETIME_MILLIS
+                    })
+            };
+            if live {
+                continue;
+            }
+            if lease.remove().is_ok() {
+                removed += 1;
+                let conn = self.conn()?;
+                conn.execute("DELETE FROM relocation_plans WHERE id=?1", [id])?;
+            }
+        }
+        self.conn()?.execute("INSERT INTO relocation_index_gc VALUES(1,?1) ON CONFLICT(singleton) DO UPDATE SET cursor=excluded.cursor",[next])?;
+        Ok(removed)
+    }
     pub fn plan_relocation(
         &self,
         request: RelocationRequest,
@@ -968,6 +1267,7 @@ impl Library {
         cancel: &CancellationToken,
         mut progress: impl FnMut(RelocationProgress),
     ) -> Result<RelocationPlan> {
+        let _ = self.cleanup_relocation_indexes();
         ensure!(
             request.track_ids.len() <= 100_000,
             "Too many selected tracks"
@@ -1015,20 +1315,19 @@ impl Library {
                 "Library changed; start a new search"
             );
             ensure!(previous.paused, "Search is already complete");
+            ensure!(
+                crate::now().saturating_sub(previous.created) < PLAN_LIFETIME_MILLIS,
+                "Relocation preview expired; start a new search"
+            );
         }
         let id = previous
             .as_ref()
             .map(|p| p.id.clone())
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-        let directory = self.data_dir().join("relocation-indexes");
-        std::fs::create_dir_all(&directory)?;
-        ensure!(
-            !std::fs::symlink_metadata(&directory)?
-                .file_type()
-                .is_symlink(),
-            "Unsafe relocation index directory"
-        );
-        let index_path = directory.join(format!("{id}.sqlite"));
+        let mut index_owner =
+            IndexLease::acquire(self.data_dir(), &id, previous.is_some(), previous.is_some())?;
+        let directory = index_owner.directory.clone();
+        let index_path = index_owner.path();
         let mut plan = RelocationPlan {
             id,
             created: crate::now(),
@@ -1352,6 +1651,8 @@ impl Library {
             "INSERT OR REPLACE INTO relocation_plans VALUES(?1,?2)",
             params![plan.id, serde_json::to_string(&plan)?],
         )?;
+        index_owner.retain = true;
+        index_conn.close().map_err(|(_, e)| e)?;
         Ok(plan)
     }
     pub fn continue_relocation(
@@ -1430,7 +1731,8 @@ impl Library {
     ) -> Result<RelocationResult> {
         let plan = self.relocation_plan(plan_id)?;
         ensure!(
-            plan.generation == generation(self) && crate::now() - plan.created < 86_400_000,
+            plan.generation == generation(self)
+                && crate::now().saturating_sub(plan.created) < PLAN_LIFETIME_MILLIS,
             "Relocation preview expired"
         );
         let mut seen = BTreeSet::new();
@@ -1729,8 +2031,16 @@ impl Library {
             "INSERT INTO relocation_operations VALUES(?1,?2,?3)",
             params![operation_id, serde_json::to_string(&undo)?, crate::now()],
         )?;
+        tx.execute("DELETE FROM relocation_plans WHERE id=?1", [plan_id])?;
         cancel.check()?;
         tx.commit()?;
+        let cleanup = IndexLease::acquire(self.data_dir(), plan_id, true, true)
+            .and_then(|mut lease| lease.remove());
+        if let Err(error) = cleanup {
+            warnings.push(format!(
+                "Library changes saved; temporary search data was retained: {error}"
+            ));
+        }
         Ok(RelocationResult {
             operation_id,
             applied,
@@ -1815,6 +2125,20 @@ impl Library {
 #[cfg(test)]
 mod traversal_tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn index_cleanup_keeps_a_replaced_owner_marker() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut lease = IndexLease::acquire(&root, &id, false, false).unwrap();
+        let marker = root.join("relocation-indexes").join(format!("{id}.lease"));
+        std::fs::rename(&marker, marker.with_extension("held")).unwrap();
+        std::fs::write(&marker, b"unrelated replacement").unwrap();
+        assert!(lease.remove().is_err());
+        assert_eq!(std::fs::read(marker).unwrap(), b"unrelated replacement");
+        assert!(lease.path().exists());
+    }
     fn plan() -> RelocationPlan {
         RelocationPlan {
             id: String::new(),

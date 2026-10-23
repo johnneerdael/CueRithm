@@ -349,7 +349,7 @@ impl Library {
     fn protected_sync_sources(&self) -> Result<BTreeSet<PathBuf>> {
         let connection = self.conn()?;
         let paths = connection
-            .prepare("SELECT path FROM tracks")?
+            .prepare("SELECT path FROM tracks WHERE path IS NOT NULL")?
             .query_map([], |row| row.get::<_, Vec<u8>>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         paths
@@ -1163,6 +1163,47 @@ mod tests {
             "mappings":[{"windows_root":"C:\\", "host_root":root}]
         });
         serde_json::from_value(json).unwrap()
+    }
+    #[test]
+    fn mapped_sync_ignores_unrelated_unbound_portable_track() {
+        let (_dir, library, target) = fixture();
+        let mut unresolved = library.portable_tracks().unwrap().remove(0);
+        unresolved.id = "unresolved".into();
+        unresolved.locator.id = "locator:unresolved".into();
+        unresolved.source_sha256 = None;
+        unresolved.musical = None;
+        unresolved
+            .metadata
+            .insert("comment".into(), json!("Retain imported metadata"));
+        library
+            .import_portable_tracks(&[unresolved.clone()])
+            .unwrap();
+        let jobs = library.jobs().unwrap().len();
+        let preview = library
+            .preview_dj_sync(request(
+                &target,
+                DjSyncScope::Modified {
+                    track_ids: vec!["a".into()],
+                },
+            ))
+            .unwrap();
+        assert_eq!(preview.tracks, 1);
+        library.apply_dj_sync(&preview.id).unwrap();
+        assert!(
+            fs::read_to_string(&target.path)
+                .unwrap()
+                .contains("Authored")
+        );
+        assert_eq!(library.local_track_binding("unresolved").unwrap(), None);
+        let after = library
+            .portable_tracks()
+            .unwrap()
+            .into_iter()
+            .find(|t| t.id == "unresolved")
+            .unwrap();
+        assert_eq!(after.metadata, unresolved.metadata);
+        assert_eq!(after.locator, unresolved.locator);
+        assert_eq!(library.jobs().unwrap().len(), jobs);
     }
     #[test]
     fn windows_context_service_preserves_reference_and_foreign_tracks_then_noops_and_restores() {

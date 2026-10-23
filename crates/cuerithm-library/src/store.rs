@@ -350,6 +350,7 @@ impl Library {
             lib.recover_artifact_cleanup(100)?;
         }
         lib.recover_curation()?;
+        let _ = lib.cleanup_relocation_indexes();
         Ok(lib)
     }
     pub fn exclusive_operation(&self) -> Result<LibraryOperationLease<'_>> {
@@ -561,6 +562,11 @@ impl Library {
             self.conn()?
                 .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))?;
         bytes_path(&bytes.context("Track has no local file binding; relocate it first")?)
+    }
+    /// True only when the track's file is definitely gone. A file that cannot be
+    /// inspected (an unplugged disk, a permission error) is not reported missing.
+    pub fn track_file_missing(&self, id: &str) -> Result<bool> {
+        Ok(matches!(self.track_path(id)?.try_exists(), Ok(false)))
     }
     pub fn analysis(&self, id: &str) -> Result<Option<camelot_core::FileAnalysis>> {
         let text: Option<String> = self

@@ -21,7 +21,11 @@ pub struct Detail {
     pub pcm_sha256: Option<String>,
     pub musical: Option<cuerithm_library::AcceptedMusicalData>,
     pub source_locator: Option<cuerithm_library::PortableLocator>,
+    /// False only when the track's file is definitely gone.
+    pub file_available: bool,
 }
+/// Shown wherever a track's file cannot be found.
+pub const FILE_NOT_FOUND: &str = "File not found - move it back or run Maintenance";
 
 pub struct Host {
     pub exit: crate::exit::ExitCoordinator,
@@ -143,6 +147,7 @@ impl Host {
             musical: self.library.accepted_musical_data(id)?,
             source_locator: self.library.source_locator(id)?,
             pcm_sha256,
+            file_available: !self.library.track_file_missing(id).unwrap_or(false),
         })
     }
     pub fn metadata_fields(&self) -> Result<Vec<String>> {
@@ -243,13 +248,18 @@ impl Host {
         }
         drop(loaded);
         Ok(Arc::new(self.runtime.decode(
-            &self.library.track_path(id)?,
+            &self.source_path(id)?,
             &self.library.data_dir().join("cache/media"),
         )?))
     }
+    /// The track's file, or a plain statement that it is not there.
+    fn source_path(&self, id: &str) -> Result<PathBuf> {
+        ensure!(!self.library.track_file_missing(id)?, FILE_NOT_FOUND);
+        self.library.track_path(id)
+    }
     pub fn load(&self, id: String, generation: u64) -> Result<Detail> {
         let audio = Arc::new(self.runtime.decode(
-            &self.library.track_path(&id)?,
+            &self.source_path(&id)?,
             &self.library.data_dir().join("cache/media"),
         )?);
         let mut detail = self.detail(&id)?;

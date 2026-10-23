@@ -20,8 +20,8 @@ export interface DuplicateIgnores {stamp:MaintenanceStamp;tracks:{id:string;disp
 export interface UnusedScanRequest {root:string;extension_mode:"all"|"include"|"exclude";extensions:string[]}
 export interface UnusedFile {id:string;display_path:string;size_bytes:number;source_sha256:string}
 export interface UnusedScanReport extends Report {request:UnusedScanRequest;files:UnusedFile[];size_bytes:number;complete:boolean;issues:{display_path:string;message:string}[]}
-export interface BrokenScanRequest {inspect_audio:boolean}
-export interface BrokenScanReport extends Report {request:BrokenScanRequest;decoder_identity:string|null;tracks:{id:string;display_path:string;state:MaintenanceFileState;detail:string|null;observed_sha256:string|null;source_changed:boolean}[]}
+export interface BrokenScanRequest {inspect_audio:boolean;include_archived?:boolean}
+export interface BrokenScanReport extends Report {request:BrokenScanRequest;decoder_identity:string|null;tracks:{id:string;archived?:boolean;display_path:string;state:MaintenanceFileState;detail:string|null;observed_sha256:string|null;source_changed:boolean}[]}
 export type MaintenanceProgress={operation_id:string;kind:"duplicates";progress:{completed:number;total:number;track_id:string|null;cached:boolean}}|{operation_id:string;kind:"unused"|"broken";progress:{completed:number;total:number|null;current_path:string|null}};
 export interface MaintenanceChange {review_id:string|null;stamp:MaintenanceStamp}
 

@@ -266,9 +266,13 @@ pub struct FileScanProgress {
 #[serde(default)]
 pub struct BrokenScanRequest {
     pub inspect_audio: bool,
+    /// Archived records are library records too; repairing them needs them listed.
+    pub include_archived: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrokenScanTrack {
+    #[serde(default)]
+    pub archived: bool,
     pub id: String,
     pub display_path: String,
     pub state: MaintenanceFileState,

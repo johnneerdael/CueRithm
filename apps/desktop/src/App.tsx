@@ -6,6 +6,7 @@ import {nativeBridge,errorMessage} from "./api";
 import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery,WorkspaceView} from "./types";
 import Sidebar from "./components/Sidebar";
 import TrackTable from "./components/TrackTable";
+import {FileNotFoundError} from "./components/RowPreview";
 import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
@@ -88,7 +89,7 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   const [sideWidth,setSideWidth]=useState(()=>preference("sidebar-width",224,180,340));
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
   useEffect(()=>{try{localStorage.setItem("sidebar-collapsed",collapsed?"1":"0");}catch{}},[collapsed]);
-  const previewLoader=useCallback(async(id:string)=>{const [wave,detail]=await Promise.all([bridge.getWaveform(id,240),bridge.getTrack(id)]);return {wave,detail};},[bridge]);
+  const previewLoader=useCallback(async(id:string)=>{const detail=await bridge.getTrack(id);if(detail.file_available===false)throw new FileNotFoundError();const wave=await bridge.getWaveform(id,240);return {wave,detail};},[bridge]);
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const playlistRequest=useRef(0);
   const loadedScope=useRef("");

@@ -41,8 +41,12 @@ mod publish_files;
 mod tagging;
 #[cfg(feature = "autotag")]
 pub use tagging::TaggingStorage;
+mod record_snapshot;
+mod relink;
 pub mod watch;
-pub use prepare::{PreparationEvent, PreparationService, ServiceStatus};
+mod watch_moves;
+pub use prepare::{PreparationEvent, PreparationService, RELINKED_STAGE, ServiceStatus};
+pub use watch_moves::{RelinkedTrack, WatchMoveOutcome};
 mod playlists;
 pub use playlists::*;
 mod maintenance;

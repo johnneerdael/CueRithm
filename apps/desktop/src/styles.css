@@ -540,6 +540,8 @@ textarea:focus-visible{outline:2px solid var(--cr-accent);outline-offset:2px}
 .maintenance-table td:first-child{padding-left:0}
 .maintenance-table th:first-child{padding-left:0}
 .maintenance-table strong{font-weight:500}
+/* Short status labels stay whole; `overflow-wrap:anywhere` on cells would otherwise let the column shrink until a word breaks. */
+.maintenance-table .maintenance-nowrap{white-space:nowrap;overflow-wrap:normal}
 .maintenance-table small,.maintenance-history-row small{display:block;color:var(--cr-muted);font:11px var(--cr-font-data);margin-top:5px;overflow-wrap:anywhere}
 .maintenance-group{padding:18px 0;border-top:1px solid var(--cr-divider)}
 .maintenance-group-controls{margin:14px 0 0}
