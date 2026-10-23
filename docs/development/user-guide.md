@@ -19,7 +19,7 @@ published (`_meta/` is excluded):
 |---|---|
 | `docs/user-guide/_meta/ia.md` | Tabs, the page plan, owners, the demo library, redirects, status |
 | `docs/user-guide/_meta/style.md` | Voice, headings, page skeletons, links, screenshots, checklist |
-| `docs/user-guide/_meta/library-facts.md` | The real tracks, keys, BPMs and cues every example uses |
+| `docs/user-guide/_meta/the private demo-library facts sheet` | The real tracks, keys, BPMs and cues every example uses |
 | `docs/user-guide/_meta/figures/` | Screenshot requests, one JSON file per tab |
 | `docs/user-guide/_meta/legacy-pages.txt`, `legacy-anchors.json` | Every page and heading id the previous guide published, used to prove each old URL has a redirect |
 | `docs/user-guide/_meta/nav.yml` | The navigation skeleton; `tools/docs/build_nav.py` writes `mkdocs.yml`'s `nav:` from it with each page's H1 as its label |

@@ -63,4 +63,4 @@ Energy   is at least   7
 - [Read a track's key, BPM and energy](../../analysis/read-key-bpm-energy.md)
 - [Check the flow of a playlist](../check-playlist-flow.md)
 
-<!-- verified: apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx; crates/cuerithm-library/src/playlists/snapshot.rs (energy from analysis level, label Energy), crates/cuerithm-smartlists/src/numeric.rs (missing counts as 0); counts computed from _meta/library-facts.md (energy 15 at 6, 8 at 7, 2 at 5, 1 at 8) -->
+<!-- verified: apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx; crates/cuerithm-library/src/playlists/snapshot.rs (energy from analysis level, label Energy), crates/cuerithm-smartlists/src/numeric.rs (missing counts as 0); counts computed from _meta/the private demo-library facts sheet (energy 15 at 6, 8 at 7, 2 at 5, 1 at 8) -->

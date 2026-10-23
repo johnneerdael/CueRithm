@@ -66,4 +66,4 @@ Title   ends with   (Extended Mix)
 - [Clean up messy titles, genres and artists](../../tagging/cleanup-messy-titles.md)
 - [Smart playlist fields and operators](../../reference/smart-playlist-fields.md)
 
-<!-- verified: apps/desktop/src/smart-rules.ts (operator labels ends with, does not end with, matches regular expression), components/SmartRuleEditor.tsx (regex placeholder, 100 character limit); crates/cuerithm-smartlists/src/text.rs (lower case, trim, ends_with), crates/cuerithm-regex/src/lib.rs (/pattern/flags); counts computed from _meta/library-facts.md -->
+<!-- verified: apps/desktop/src/smart-rules.ts (operator labels ends with, does not end with, matches regular expression), components/SmartRuleEditor.tsx (regex placeholder, 100 character limit); crates/cuerithm-smartlists/src/text.rs (lower case, trim, ends_with), crates/cuerithm-regex/src/lib.rs (/pattern/flags); counts computed from _meta/the private demo-library facts sheet -->

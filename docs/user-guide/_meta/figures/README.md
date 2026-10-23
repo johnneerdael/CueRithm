@@ -16,7 +16,7 @@ One JSON array per tab in `_meta/figures/<tab>.json` (`get-started.json`,
 | `scene` | kebab-case id, unique per picture, reused across pages when the picture is the same |
 | `page` | path of the page relative to `docs/user-guide/` |
 | `after` | the exact heading line the figure follows, or `intro` (after the first paragraph) |
-| `alt` | what the reader needs to see; real values from `library-facts.md` |
+| `alt` | what the reader needs to see; real values from the private demo-library facts sheet |
 | `caption` | one sentence that makes the point |
 | `state` | how to reproduce it in the app: sidebar item, tab, selection, what must be visible, demo playlists/tracks |
 | `crop` | optional: `window` (default, the whole app window), `panel` (only the main panel), `player` (only the player) |

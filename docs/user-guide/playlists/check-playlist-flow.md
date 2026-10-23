@@ -86,4 +86,4 @@ The overview compares neighbours by BPM, key and one whole-track energy rating. 
 - [Read a track's key, BPM and energy](../analysis/read-key-bpm-energy.md)
 - [Group playlists in folders and reorder them](organize-playlists.md)
 
-<!-- verified: apps/desktop/src/components/PlaylistFlow.tsx (columns, messages, paging 40, counts); playlist-flow.ts (compareFlowKeys harmonic only, BPM change rounding, unknown handling); App.tsx (Playlist flow button for ordinary playlists only, canonical order via playlistMembers, Load more track details, Retry playlist flow); src/test/playlist-flow.test.tsx; rows computed from _meta/library-facts.md; legacy guides/playlist-flow.md re-checked -->
+<!-- verified: apps/desktop/src/components/PlaylistFlow.tsx (columns, messages, paging 40, counts); playlist-flow.ts (compareFlowKeys harmonic only, BPM change rounding, unknown handling); App.tsx (Playlist flow button for ordinary playlists only, canonical order via playlistMembers, Load more track details, Retry playlist flow); src/test/playlist-flow.test.tsx; rows computed from _meta/the private demo-library facts sheet; legacy guides/playlist-flow.md re-checked -->

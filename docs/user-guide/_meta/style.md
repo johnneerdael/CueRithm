@@ -2,7 +2,7 @@
 
 For everyone writing pages. Not published. Read it once, then keep the page
 skeletons (section 3) and the checklist (section 12) open. Read `ia.md` for
-what to write and `library-facts.md` for the data your examples must use.
+what to write and the private demo-library facts sheet for the data your examples must use.
 
 When this guide and a finished exemplar disagree, tell the lead; the exemplar
 wins until this file is fixed.
@@ -21,7 +21,7 @@ wins until this file is fixed.
    writer clicking in it breaks the capture. You get everything from code, tests
    and the facts sheet.
 3. **Use the real demo data.** Examples cite tracks, keys, BPMs, energy and cue
-   times from `library-facts.md` and playlists from the demo-library table in
+   times from the private demo-library facts sheet and playlists from the demo-library table in
    `ia.md`. Do not invent track data. When a task needs a case the demo library
    lacks, describe it generically ("a track whose title ends in `(Original
    Mix)`") and request a scene that shows the real equivalent.
@@ -288,7 +288,7 @@ Mark anything you could not verify with `<!-- UNVERIFIED: … -->` inline.
       and no heading from the "do not write" list.
 - [ ] Every UI label is quoted exactly from the code; every default and limit is
       from the code or a test.
-- [ ] Every example uses `library-facts.md` data or is plainly generic.
+- [ ] Every example uses the private demo-library facts sheet data or is plainly generic.
 - [ ] At least three contextual deep links per page, `## Related` present, every
       link target is a path from the plan, every cross-page `#anchor` has an
       explicit id on the target page (yours) or exists in the plan's owner's page

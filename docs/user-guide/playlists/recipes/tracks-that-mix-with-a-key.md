@@ -70,4 +70,4 @@ The purchase folder has no `7B` track, so the list shows `6A`, `7A` and `8A` tra
 - [Check the flow of a playlist](../check-playlist-flow.md)
 - [Understand Camelot keys](../../analysis/camelot-keys.md)
 
-<!-- verified: apps/desktop/src/smart-rules.ts (KeySimilar label, allowedOperators only for field key), components/SmartRuleEditor.tsx (key select 1A-12B); crates/cuerithm-smartlists/src/keys.rs (harmonic and fuzzy distance rules, wrap), lib.rs (Family::Key), text.rs; crates/cuerithm-library/src/playlists/preferences.rs (mode change marks lists stale), automatic.rs (By Key); counts computed from _meta/library-facts.md -->
+<!-- verified: apps/desktop/src/smart-rules.ts (KeySimilar label, allowedOperators only for field key), components/SmartRuleEditor.tsx (key select 1A-12B); crates/cuerithm-smartlists/src/keys.rs (harmonic and fuzzy distance rules, wrap), lib.rs (Family::Key), text.rs; crates/cuerithm-library/src/playlists/preferences.rs (mode change marks lists stale), automatic.rs (By Key); counts computed from _meta/the private demo-library facts sheet -->

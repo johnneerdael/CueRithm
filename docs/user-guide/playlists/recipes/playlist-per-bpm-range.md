@@ -63,4 +63,4 @@ Each list is an ordinary [smart playlist](../build-a-smart-playlist.md) with the
 - [Write smart playlist rules](../smart-rules.md)
 - [How are BPM and the beatgrid found?](../../how-it-works/tempo.md)
 
-<!-- verified: apps/desktop/src/views/PlaylistGenerator.tsx (labels, preview texts, defaults); crates/cuerithm-library/src/playlists/generator.rs (observed values, bands only where tracks exist, separate sub-folders, combine product, new_nodes counts the folder), generator/templates.rs (ranges: floor to 10, end = start+10-0.01, rule NumberBetween), tests/playlist_generation.rs (fractional_bpm_boundaries); counts computed from _meta/library-facts.md -->
+<!-- verified: apps/desktop/src/views/PlaylistGenerator.tsx (labels, preview texts, defaults); crates/cuerithm-library/src/playlists/generator.rs (observed values, bands only where tracks exist, separate sub-folders, combine product, new_nodes counts the folder), generator/templates.rs (ranges: floor to 10, end = start+10-0.01, rule NumberBetween), tests/playlist_generation.rs (fractional_bpm_boundaries); counts computed from _meta/the private demo-library facts sheet -->

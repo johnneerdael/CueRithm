@@ -63,4 +63,4 @@ The library list only shows genres from Ready tracks, so scan again after new mu
 - [Group tracks with categories and custom tags](../curate-tracks.md)
 - [Tag and clean-up recipes](index.md)
 
-<!-- verified: crates/cuerithm-cleanup/src/mappings.rs; crates/cuerithm-cleanup/tests/mappings.rs; examples run through the engine with demo genres from library-facts.md; crates/cuerithm-library/tests/cue_genre.rs (cleaned genre used for cues in preparation); apps/desktop/src/views/CleanupSettings.tsx (CanonicalEditor labels) -->
+<!-- verified: crates/cuerithm-cleanup/src/mappings.rs; crates/cuerithm-cleanup/tests/mappings.rs; examples run through the engine with demo genres from the private demo-library facts sheet; crates/cuerithm-library/tests/cue_genre.rs (cleaned genre used for cues in preparation); apps/desktop/src/views/CleanupSettings.tsx (CanonicalEditor labels) -->

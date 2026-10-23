@@ -67,4 +67,4 @@ Why not **Energy is at most 6**? A track with no energy rating counts as 0 for t
 - [Collect your peak-time tracks by energy](peak-time-playlist.md)
 - [Write smart playlist rules](../smart-rules.md)
 
-<!-- verified: apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx, views/PlaylistEditor.tsx (labels and flow); crates/cuerithm-smartlists/src/numeric.rs (NumberBetween inclusive, needs a value; missing counts as 0), snapshot.rs field labels BPM and Energy; counts and tracks computed from _meta/library-facts.md -->
+<!-- verified: apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx, views/PlaylistEditor.tsx (labels and flow); crates/cuerithm-smartlists/src/numeric.rs (NumberBetween inclusive, needs a value; missing counts as 0), snapshot.rs field labels BPM and Energy; counts and tracks computed from _meta/the private demo-library facts sheet -->

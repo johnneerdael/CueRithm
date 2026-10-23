@@ -37,4 +37,4 @@ Then adapt it. [Write smart playlist rules](../smart-rules.md) explains all or a
 - [Generate playlists from your library](../generate-playlists.md)
 - [Build playlists and sets](../index.md)
 
-<!-- verified: each linked recipe checked against apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx, crates/cuerithm-smartlists/src and crates/cuerithm-library/src/playlists; counts computed from _meta/library-facts.md -->
+<!-- verified: each linked recipe checked against apps/desktop/src/smart-rules.ts, components/SmartRuleEditor.tsx, crates/cuerithm-smartlists/src and crates/cuerithm-library/src/playlists; counts computed from _meta/the private demo-library facts sheet -->

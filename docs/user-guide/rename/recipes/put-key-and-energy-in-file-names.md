@@ -58,4 +58,4 @@ A track that lacks a value the pattern needs is blocked with a reason such as "M
 - [Sort files into artist folders](sort-files-into-artist-folders.md)
 - [Tag and clean-up recipes](../../tagging/recipes/index.md)
 
-<!-- verified: crates/cuerithm-organize/src/template.rs; crates/cuerithm-library/src/organization/service/capture.rs (key = tracks.musical_key Camelot, energy, bpm_hundredths); crates/cuerithm-library/src/jobs.rs (musical_key = key.camelot); example names rendered by the template engine with key and energy from library-facts.md (#17 11A 6/10, #22 9A 5/10, #26 7A 6/10); the 127.00 shape is the token format, not a claim about the stored BPM of that track -->
+<!-- verified: crates/cuerithm-organize/src/template.rs; crates/cuerithm-library/src/organization/service/capture.rs (key = tracks.musical_key Camelot, energy, bpm_hundredths); crates/cuerithm-library/src/jobs.rs (musical_key = key.camelot); example names rendered by the template engine with key and energy from the private demo-library facts sheet (#17 11A 6/10, #22 9A 5/10, #26 7A 6/10); the 127.00 shape is the token format, not a claim about the stored BPM of that track -->

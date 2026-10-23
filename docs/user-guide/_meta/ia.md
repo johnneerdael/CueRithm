@@ -4,7 +4,7 @@ Not published (`_meta/` is excluded in `mkdocs.yml`). This file explains how the
 organised and why, where each feature is deep-linked from, what the demo library is, and
 how old URLs are kept working. `nav.yml` is the authoritative list of pages and their
 order; `style.md` says how to write a page; `figures/README.md` says how screenshots are
-requested; `library-facts.md` is the real data every example uses.
+requested; the private demo-library facts sheet is the real data every example uses (kept in the maintainer's private `.analysis/` area, not in Git, because it lists per-track measurements).
 
 ## Why the guide was rebuilt
 
@@ -71,14 +71,14 @@ in the tab. A feature that is in the app but not in this table is a documentatio
 
 Every example comes from one real library: the owner's installed CueRithm with its
 configured tag sources, watching `~/Music/Beatport` (26 FLAC files from a Beatport purchase
-folder). The values are in `library-facts.md`. Screenshots of the demo playlists are
+folder). The per-track values are in a private facts sheet kept under `.analysis/` (not in Git). Screenshots of the demo playlists are
 captured after the playlists are created in the app (screenshots are scheduled with the
 fixes). Page text refers to these playlists by exact name:
 
 | Name | Kind | Rule or contents |
 |---|---|---|
 | Club nights | folder | holds the two ordinary playlists below |
-| Warm-up set | ordinary playlist | eight hand-ordered tracks (order in `library-facts.md`) |
+| Warm-up set | ordinary playlist | eight hand-ordered tracks (order in the private demo-library facts sheet) |
 | Peak hour | ordinary playlist | eight hand-ordered tracks, energy 6 and up |
 | Melodic house 128+ | smart playlist | `genre` contains Melodic House and `BPM` is at least 128 (10 tracks) |
 | Energy 7 and up | smart playlist | `Energy` is at least 7 (9 tracks) |
