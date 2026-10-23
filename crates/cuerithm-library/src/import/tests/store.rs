@@ -244,6 +244,7 @@ fn import_store_migrates_without_touching_rekordbox_state() {
         conn.execute("INSERT INTO native_reconciliation_plans VALUES('plan','old','1','{}','{\"title\":\"keep_local\"}',4,1,1)",[]).unwrap();
         conn.execute("INSERT INTO rekordbox_sync_operations VALUES('operation','old','/Synthetic/master.db','acknowledged','{\"old_journal\":true}',1,1)",[]).unwrap();
         for table in [
+            "import_preview_effects",
             "import_processing_receipts",
             "import_operations",
             "import_previews",

@@ -131,6 +131,7 @@ fn publish(
             item_id: id,
             fields: &fields,
             local_track_id: local,
+            availability: None,
             resolved_path: None,
         },
     )
@@ -454,6 +455,7 @@ fn lazy_playback_and_waveform_decoding_preserve_imported_musical_values() {
                 item_id: "local-a",
                 fields: &fields,
                 local_track_id: None,
+                availability: None,
                 resolved_path: Some(&path),
             },
         )
@@ -527,4 +529,44 @@ fn existing_import_updates_preserve_unicode_search_and_native_artist_boundaries(
         .total,
         1
     );
+}
+
+#[test]
+fn file_tag_musical_values_fill_only_absent_native_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    let lib = Library::open(&dir.path().join("library.db")).unwrap();
+    let blob=serde_json::to_vec(&json!({"source_sha256":"a".repeat(64),"source_bytes":123,"normalized":{"key":["8A"],"bpm":["123.45"]},"records":[],"blobs":{},"issues":[],"artwork":[]})).unwrap();
+    let reference = BlobRef {
+        sha256: "b".repeat(64),
+        bytes: blob.len() as u64,
+        media_type: Some("application/json".into()),
+    };
+    let conn = lib.conn().unwrap();
+    conn.execute(
+        "INSERT INTO import_blobs VALUES(?1,?2,?3,'application/json')",
+        rusqlite::params![reference.sha256, blob, reference.bytes],
+    )
+    .unwrap();
+    let mut t = observation("a", "A");
+    t.key = None;
+    t.file_tags = Some(reference);
+    let policy = ImportPolicy {
+        capture_file_tags: true,
+        selected_fields: [FieldGroup::Key, FieldGroup::Bpm].into(),
+        ..Default::default()
+    };
+    let fields = selected_source_values(&conn, &t, &policy).unwrap();
+    assert_eq!(fields["key"]["camelot"], "8A");
+    assert_eq!(fields["bpm"]["value"], 123.45);
+    t.key = Some(MusicalKey {
+        presence: FieldPresence::Null,
+        ..Default::default()
+    });
+    t.bpm = Some(ScalarBpm {
+        presence: FieldPresence::Null,
+        ..Default::default()
+    });
+    let fields = selected_source_values(&conn, &t, &policy).unwrap();
+    assert_eq!(fields["key"]["presence"], "null");
+    assert_eq!(fields["bpm"]["presence"], "null");
 }

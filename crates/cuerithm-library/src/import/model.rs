@@ -141,3 +141,91 @@ pub struct ImportedCollectionPage {
     pub total: u64,
     pub next_cursor: Option<String>,
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(tag = "selection", content = "ids", rename_all = "snake_case")]
+pub enum ImportRecordSelection {
+    #[default]
+    All,
+    Ids(std::collections::BTreeSet<String>),
+}
+impl ImportRecordSelection {
+    pub(crate) fn contains(&self, id: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::Ids(ids) => ids.contains(id),
+        }
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(
+    tag = "choice",
+    content = "value",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum ImportDecision {
+    #[default]
+    KeepLocal,
+    UseSource,
+    Custom(serde_json::Value),
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportConflictDecision {
+    pub external_id: String,
+    pub field: String,
+    pub decision: ImportDecision,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ImportPreviewRequest {
+    pub inspection_id: String,
+    pub tracks: ImportRecordSelection,
+    pub collections: ImportRecordSelection,
+    pub policy: ImportPolicy,
+    /// Explicit reviewed identity assignments; an established source link cannot be reassigned.
+    pub target_items: BTreeMap<String, String>,
+    pub decisions: Vec<ImportConflictDecision>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImportPreview {
+    pub preview_id: String,
+    pub tracks_created: u64,
+    pub fields_changed: u64,
+    pub baselines_changed: u64,
+    pub collections_changed: u64,
+    pub conflicts: u64,
+    pub blocked: u64,
+    pub processing_requested: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportFieldEffect {
+    pub field: String,
+    pub source: Option<serde_json::Value>,
+    pub local: Option<serde_json::Value>,
+    pub proposed: Option<serde_json::Value>,
+    pub conflict: bool,
+    pub blocked_reason: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportPreviewEffect {
+    pub external_id: String,
+    pub item_id: String,
+    pub kind: String,
+    pub fields: Vec<ImportFieldEffect>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportPreviewPage {
+    pub effects: Vec<ImportPreviewEffect>,
+    pub total: u64,
+    pub next_cursor: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportApplyResult {
+    pub operation_id: String,
+    pub tracks_created: u64,
+    pub fields_changed: u64,
+    pub collections_changed: u64,
+    pub processing_requested: bool,
+}

@@ -15,13 +15,6 @@ pub(crate) const LIBRARY_TRACKS_CTE: &str = r#"library_tracks AS (
  SELECT i.id,i.path,COALESCE(json_extract(s.value_json,'$.title'),'Imported item'),COALESCE(json_extract(s.value_json,'$.artist'),''),COALESCE(json_extract(s.value_json,'$.album'),''),COALESCE(json_extract(s.value_json,'$.genre'),''),'imported',json_extract(s.value_json,'$.key'),json_extract(s.value_json,'$.bpm'),json_extract(s.value_json,'$.energy'),json_extract(s.value_json,'$.duration'),COALESCE(i.source_hash,''),'{}',i.created,i.updated,COALESCE(json_extract(s.value_json,'$.archived'),0),NULL,COALESCE(json_extract(s.value_json,'$.sort_title'),''),COALESCE(json_extract(s.value_json,'$.sort_artist'),''),COALESCE(json_extract(s.value_json,'$.search_text'),'')
  FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL
 )"#;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 fn metadata_group(field: &str) -> FieldGroup {
     match field {
         "rating" | "user_rating" => FieldGroup::Ratings,
@@ -34,13 +27,6 @@ fn metadata_group(field: &str) -> FieldGroup {
         _ => FieldGroup::CustomTags,
     }
 }
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 pub(crate) fn cue_field(family: CueFamily) -> &'static str {
     match family {
         CueFamily::Hot => "cues.hot",
@@ -55,13 +41,6 @@ pub(crate) fn cue_field(family: CueFamily) -> &'static str {
         CueFamily::Marker => "cues.marker",
     }
 }
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 pub(crate) fn field_group(field: &str) -> FieldGroup {
     if let Some(name) = field.strip_prefix("metadata.") {
         return metadata_group(name);
@@ -80,13 +59,6 @@ pub(crate) fn field_group(field: &str) -> FieldGroup {
         _ => FieldGroup::Markers,
     }
 }
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 pub(crate) fn selected_source_values(
     conn: &Connection,
     track: &TrackObservation,
@@ -94,6 +66,8 @@ pub(crate) fn selected_source_values(
 ) -> Result<BTreeMap<String, Value>> {
     let mut fields = BTreeMap::new();
     let mut metadata = track.metadata.clone();
+    let mut key = track.key.clone();
+    let mut bpm = track.bpm.clone();
     if policy.capture_file_tags
         && let Some(reference) = &track.file_tags
     {
@@ -107,7 +81,55 @@ pub(crate) fn selected_source_values(
         if let Some(bytes) = blob
             && let Ok(tags) = serde_json::from_slice::<FileTagObservation>(&bytes)
         {
+            if key
+                .as_ref()
+                .is_none_or(|key| key.presence == FieldPresence::Absent)
+                && let Some(raw) = tags.normalized.get("key").and_then(|values| values.first())
+            {
+                key = Some(MusicalKey {
+                    presence: if raw.is_empty() {
+                        FieldPresence::Empty
+                    } else {
+                        FieldPresence::Value
+                    },
+                    raw: Some(raw.clone()),
+                    camelot: camelot_core::MusicalKey::from_camelot(
+                        &raw.trim().to_ascii_uppercase(),
+                    )
+                    .ok()
+                    .map(camelot_core::MusicalKey::camelot),
+                    provenance: Some("file_tags".into()),
+                    ..Default::default()
+                });
+            }
+            if bpm
+                .as_ref()
+                .is_none_or(|bpm| bpm.presence == FieldPresence::Absent)
+                && let Some(raw) = tags.normalized.get("bpm").and_then(|values| values.first())
+            {
+                if raw.is_empty() {
+                    bpm = Some(ScalarBpm {
+                        presence: FieldPresence::Empty,
+                        provenance: Some("file_tags".into()),
+                        ..Default::default()
+                    });
+                } else if let Ok(value) = raw.trim().parse::<f64>()
+                    && value.is_finite()
+                    && value > 0.0
+                {
+                    bpm = Some(ScalarBpm {
+                        presence: FieldPresence::Value,
+                        value: Some(value),
+                        provenance: Some("file_tags".into()),
+                        extensions: BTreeMap::from([("raw".into(), json!(raw))]),
+                        ..Default::default()
+                    });
+                }
+            }
             for (field, values) in tags.normalized {
+                if matches!(field.as_str(), "key" | "bpm") {
+                    continue;
+                }
                 if metadata
                     .get(&field)
                     .is_none_or(|value| matches!(value, Presence::Absent))
@@ -141,13 +163,13 @@ pub(crate) fn selected_source_values(
         fields.insert(format!("metadata.{field}"), serde_json::to_value(value)?);
     }
     if policy.selected_fields.contains(&FieldGroup::Key)
-        && let Some(value) = &track.key
+        && let Some(value) = &key
         && value.presence != FieldPresence::Absent
     {
         fields.insert("key".into(), serde_json::to_value(value)?);
     }
     if policy.selected_fields.contains(&FieldGroup::Bpm)
-        && let Some(value) = &track.bpm
+        && let Some(value) = &bpm
         && value.presence != FieldPresence::Absent
     {
         fields.insert("bpm".into(), serde_json::to_value(value)?);
@@ -193,6 +215,15 @@ pub(crate) fn selected_source_values(
             );
         }
     }
+    fields.retain(|field, _| {
+        !track.issues.iter().any(|issue| {
+            issue.field.as_deref().is_some_and(|failed| {
+                failed == field
+                    || field.strip_prefix("metadata.") == Some(failed)
+                    || field.strip_prefix("cues.").is_some() && failed == "cues"
+            })
+        })
+    });
     Ok(fields)
 }
 fn present_value(value: &Value) -> Option<&Value> {
@@ -280,13 +311,6 @@ pub(crate) fn rebuild_summary_tx(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("INSERT INTO import_active_fields(item_id,field,value_json,provenance_json) VALUES(?1,'_summary',?2,'{}') ON CONFLICT(item_id,field) DO UPDATE SET value_json=excluded.value_json,revision=revision+1",params![id,serde_json::to_string(&value)?])?;
     Ok(())
 }
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 pub(crate) struct TrackProjection<'a> {
     pub source_id: &'a str,
     pub snapshot_id: &'a str,
@@ -294,15 +318,9 @@ pub(crate) struct TrackProjection<'a> {
     pub item_id: &'a str,
     pub fields: &'a BTreeMap<String, Value>,
     pub local_track_id: Option<&'a str>,
+    pub availability: Option<&'a str>,
     pub resolved_path: Option<&'a Path>,
 }
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumed by the immutable preview service in Task 5"
-    )
-)]
 pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>) -> Result<()> {
     ensure!(
         conn.query_row(
@@ -316,7 +334,9 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
         p.local_track_id.is_none_or(|id| id == p.item_id),
         "Existing track identity must remain stable"
     );
-    let availability = if let Some(path) = p.resolved_path {
+    let availability = if let Some(availability) = p.availability {
+        availability
+    } else if let Some(path) = p.resolved_path {
         if path.is_file() {
             "available"
         } else {
@@ -344,6 +364,7 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
         "Source binding changed after preview"
     );
     conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,json!({"snapshot_id":p.snapshot_id,"location":p.observation.locations}).to_string()])?;
+    conn.execute("UPDATE import_memberships SET item_id=?1 WHERE item_id IS NULL AND external_track_id=?2 AND collection_id IN (SELECT id FROM import_collections WHERE source_id=?3)",params![p.item_id,p.observation.external_id,p.source_id])?;
     let provenance = json!({"kind":"source","source_id":p.source_id,"external_id":p.observation.external_id,"snapshot_id":p.snapshot_id});
     for (field, value) in p.fields {
         ensure!(!field.starts_with('_'), "Reserved import field");
@@ -411,6 +432,11 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
             ],
         )?;
     }
+    if let Some(id) = p.local_track_id
+        && !p.fields.is_empty()
+    {
+        super::native_shadow::capture(conn, id, p.fields)?;
+    }
     rebuild_summary_tx(conn, p.item_id)?;
     Ok(())
 }
@@ -424,9 +450,15 @@ pub(crate) fn decorate_summary(conn: &Connection, row: &mut TrackSummary) -> Res
         let sources = query
             .query_map([&row.id], |r| r.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
-        if let Some(metadata) = summary.get("metadata").and_then(Value::as_object) {
-            row.metadata
-                .extend(metadata.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let fields = super::reconcile::local_fields(conn, &row.id)?;
+        for (field, value) in fields {
+            if let Some(name) = field.strip_prefix("metadata.") {
+                if let Some(value) = present_value(&value) {
+                    row.metadata.insert(name.into(), value.clone());
+                } else {
+                    row.metadata.remove(name);
+                }
+            }
         }
         row.import_state = Some(ImportedItemState {
             source_ids: sources,
@@ -451,9 +483,10 @@ impl Library {
                 |r| r.get(0),
             )
             .context("Unknown imported item")?;
-        let fields = active_fields_tx(&conn, id)?;
+        let stored_fields = active_fields_tx(&conn, id)?;
+        let fields = super::reconcile::local_fields(&conn, id)?;
         let mut query=conn.prepare("SELECT field,provenance_json FROM import_active_fields WHERE item_id=?1 AND field NOT LIKE '\\_%' ESCAPE '\\' ORDER BY field")?;
-        let provenance = query
+        let mut provenance = query
             .query_map([id], |r| {
                 Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
             })?
@@ -462,6 +495,14 @@ impl Library {
                 Ok((k, serde_json::from_str(&v)?))
             })
             .collect::<Result<BTreeMap<_, _>>>()?;
+        for (field, value) in &fields {
+            if stored_fields.get(field) != Some(value) {
+                provenance.insert(
+                    field.clone(),
+                    json!({"kind":"local","surface":"existing_library"}),
+                );
+            }
+        }
         let mut links=conn.prepare("SELECT source_id,external_id FROM import_bindings WHERE item_id=?1 ORDER BY source_id,external_id")?;
         let links = links
             .query_map([id], |r| {

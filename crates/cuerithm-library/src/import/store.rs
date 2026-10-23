@@ -397,22 +397,33 @@ impl Library {
             |r| r.get(0),
         )?;
         let mut stmt=db.prepare("SELECT sequence,json FROM import_observations WHERE snapshot_id=?1 AND kind=?2 AND sequence>?3 ORDER BY sequence LIMIT ?4")?;
-        let rows = stmt
-            .query_map(params![inspection_id, kind, after, query.limit + 1], |r| {
-                Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        let more = rows.len() > query.limit as usize;
-        let selected = &rows[..rows.len().min(query.limit as usize)];
-        let records = selected
-            .iter()
-            .map(|(_, json)| Ok(serde_json::from_str(json)?))
-            .collect::<Result<Vec<_>>>()?;
+        let mut rows = stmt.query(params![inspection_id, kind, after, query.limit + 1])?;
+        let mut records = Vec::new();
+        let mut bytes = 0u64;
+        let mut last = after;
+        let mut more = false;
+        let byte_limit = ImportLimits::default().text_bytes;
+        while let Some(row) = rows.next()? {
+            let raw: String = row.get(1)?;
+            ensure!(
+                raw.len() as u64 <= byte_limit,
+                "Stored import record exceeds page byte limit"
+            );
+            if records.len() == query.limit as usize
+                || (!records.is_empty() && bytes + raw.len() as u64 > byte_limit)
+            {
+                more = true;
+                break;
+            }
+            bytes += raw.len() as u64;
+            records.push(serde_json::from_str(&raw)?);
+            last = row.get(0)?;
+        }
         let next_cursor = if more {
             Some(serde_json::to_string(&PageCursor {
                 inspection_id: inspection_id.into(),
                 kind: kind.into(),
-                sequence: selected.last().unwrap().0,
+                sequence: last,
             })?)
         } else {
             None

@@ -24,6 +24,8 @@ CREATE TABLE import_items (
  availability TEXT NOT NULL DEFAULT 'not_probed',path BLOB,source_hash TEXT,
  revision INTEGER NOT NULL DEFAULT 1,created INTEGER NOT NULL,updated INTEGER NOT NULL
 );
+CREATE INDEX import_items_path ON import_items(path);
+CREATE INDEX import_items_hash ON import_items(source_hash);
 CREATE TABLE import_bindings (
  source_id TEXT NOT NULL REFERENCES import_sources(id),external_id TEXT NOT NULL,
  item_id TEXT NOT NULL REFERENCES import_items(id),identity_json TEXT NOT NULL,
@@ -65,5 +67,10 @@ CREATE TABLE import_processing_receipts (
  operation_id TEXT NOT NULL REFERENCES import_operations(id),item_id TEXT NOT NULL REFERENCES import_items(id),
  stage TEXT NOT NULL,attempt TEXT NOT NULL,state TEXT NOT NULL,identity_json TEXT NOT NULL,receipt_json TEXT NOT NULL,
  updated INTEGER NOT NULL,PRIMARY KEY(operation_id,item_id,stage,attempt)
+);
+CREATE TABLE import_preview_effects (
+ preview_id TEXT NOT NULL REFERENCES import_previews(id) ON DELETE CASCADE,
+ sequence INTEGER NOT NULL,kind TEXT NOT NULL,external_id TEXT NOT NULL,
+ proposal_json TEXT NOT NULL,effect_json TEXT NOT NULL,PRIMARY KEY(preview_id,sequence)
 );
 PRAGMA user_version=29;

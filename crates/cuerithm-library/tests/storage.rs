@@ -396,6 +396,7 @@ fn untagged_build_preserves_pending_native_decisions_before_recovery() {
 
 fn remove_import_tables_for_legacy_fixture(conn: &rusqlite::Connection) {
     for table in [
+        "import_preview_effects",
         "import_processing_receipts",
         "import_operations",
         "import_previews",
