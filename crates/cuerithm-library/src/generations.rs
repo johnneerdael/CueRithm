@@ -443,6 +443,20 @@ impl LibraryGenerations {
         let _ = &mut installation;
         Ok(library)
     }
+    pub fn track_counts(&self, id: &str) -> Result<(u64, u64)> {
+        let database = self.database_path(id)?;
+        regular(&database)?;
+        let conn = Connection::open_with_flags(
+            &database,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        conn.pragma_update(None, "trusted_schema", false)?;
+        Ok(conn.query_row(
+            "SELECT COUNT(*),COUNT(*) FILTER(WHERE path IS NULL) FROM tracks",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?)
+    }
     pub fn retained(&self) -> Result<Vec<LibraryGeneration>> {
         let active = self.active_id()?;
         let mut ids = vec!["legacy".to_owned()];

@@ -1,6 +1,21 @@
 use cuerithm_library::{Library, LibraryGenerations};
 
 #[test]
+fn retained_counts_include_unbound_ready_and_archived_rows() {
+    let temp = tempfile::tempdir().unwrap();
+    let manager = LibraryGenerations::new(temp.path()).unwrap();
+    drop(manager.open_active().unwrap());
+    let stage = manager.create_staging().unwrap();
+    drop(Library::open(&stage.database).unwrap());
+    let raw = rusqlite::Connection::open(&stage.database).unwrap();
+    raw.execute_batch("INSERT INTO tracks(id,title,state,path,source_hash,created,updated,archived) VALUES('unbound','Unbound','ready',NULL,NULL,0,0,0),('bound','Bound','ready',x'01',NULL,0,0,0),('archived','Archived','ready',NULL,NULL,0,0,1);").unwrap();
+    drop(raw);
+    manager.seal(&stage.id).unwrap();
+    assert_eq!(manager.track_counts(&stage.id).unwrap(), (3, 2));
+    assert_eq!(manager.track_counts("legacy").unwrap(), (0, 0));
+}
+
+#[test]
 fn activation_is_sealed_and_previous_library_is_retained() {
     let root = tempfile::tempdir().unwrap();
     let generations = LibraryGenerations::new(root.path()).unwrap();

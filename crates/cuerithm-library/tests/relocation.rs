@@ -955,3 +955,26 @@ fn garbage_collection_does_not_delete_a_replaced_index_file() {
         assert_eq!(std::fs::read(path).unwrap(), b"user replacement");
     }
 }
+#[test]
+fn apply_rejects_a_new_hardlink_owner_created_after_preview() {
+    let f = Fixture::new();
+    let old = f.audio("old/A.flac");
+    let source = f.add(&old);
+    let other_path = f.audio("other/B.flac");
+    let other = f.add(&other_path);
+    let moved = f.root.join("new/A.flac");
+    std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+    std::fs::rename(&old, &moved).unwrap();
+    let plan = f.search(std::slice::from_ref(&source), moved.parent().unwrap());
+    assert!(plan.rows[0].candidates[0].occupied_by.is_none());
+    std::fs::remove_file(&other_path).unwrap();
+    std::fs::hard_link(&moved, &other_path).unwrap();
+    let result = f.apply(&plan, 0, 0, "source").unwrap_err();
+    assert!(
+        result.to_string().contains("Destination occupancy changed"),
+        "{result:#}"
+    );
+    assert_eq!(f.library.track_path(&source).unwrap(), old);
+    assert_eq!(f.library.track_path(&other).unwrap(), other_path);
+    assert!(f.library.relocation_history().unwrap().is_empty());
+}

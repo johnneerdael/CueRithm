@@ -700,21 +700,23 @@ pub async fn portable_activate_generation(
             host.libraries.active_id()? == expected_active,
             "Active library changed"
         );
-        let g = host
-            .libraries
-            .retained()?
-            .into_iter()
-            .find(|g| g.id == generation_id)
-            .context("Retained generation not found")?;
+        ensure!(
+            host.libraries
+                .retained()?
+                .iter()
+                .any(|g| g.id == generation_id),
+            "Retained generation not found"
+        );
         let seal = host.libraries.seal(&generation_id)?;
+        let (tracks, unresolved_tracks) = host.libraries.track_counts(&generation_id)?;
         lease.token.check()?;
         host.libraries
             .schedule(&generation_id, &expected_active, &seal)?;
         Ok(RestoreResult {
             active_generation: generation_id,
             retained_generation: expected_active,
-            tracks: g.tracks as usize,
-            unresolved_tracks: 0,
+            tracks: usize::try_from(tracks)?,
+            unresolved_tracks: usize::try_from(unresolved_tracks)?,
             warnings: vec![
                 "Returning to a retained library restores its local configuration.".into(),
             ],
@@ -734,7 +736,6 @@ pub fn portable_cancel(host: Managed<'_>, task_id: String) -> Ipc<bool> {
 mod tests {
     use super::*;
     use serde_json::json;
-
     #[test]
     fn frontend_restore_request_preserves_unmapped_roots_and_exact_preview_identity() {
         let request: RestoreRequest = serde_json::from_value(json!({

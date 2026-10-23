@@ -429,6 +429,29 @@ impl OccupancyIndex {
                 .map(|(_, id)| id.clone())
         }))
     }
+    fn matches_reviewed_occupancy(
+        &self,
+        path: &Path,
+        source: &str,
+        reviewed: Option<&str>,
+        group: &[String],
+    ) -> Result<bool> {
+        let mut owners = BTreeSet::new();
+        if let Some(id) = self.paths.get(&path_bytes(path)) {
+            owners.insert(id.as_str());
+        }
+        if let Some(rows) = self.identities.get(&file_identity(path)?) {
+            for (other, id) in rows {
+                if same_file::is_same_file(other, path).unwrap_or(false) {
+                    owners.insert(id.as_str());
+                }
+            }
+        }
+        Ok(reviewed.is_none_or(|id| owners.contains(id))
+            && owners.iter().all(|id| {
+                *id == source || Some(*id) == reviewed || group.iter().any(|allowed| allowed == id)
+            }))
+    }
 }
 // Keep both the frontier and visited identities on disk. In particular, neither
 // sorting a directory nor WalkDir's max_open fallback is bounded for flat folders.
@@ -1855,6 +1878,18 @@ impl Library {
             .tag_gate
             .try_lock()
             .map_err(|_| anyhow::anyhow!("Metadata writer is busy; retry after it finishes"))?;
+        let occupancy = OccupancyIndex::build(self, cancel, &mut |_| {})?;
+        for (_, row, candidate, _, _) in &selected {
+            ensure!(
+                occupancy.matches_reviewed_occupancy(
+                    &candidate.path,
+                    &row.track_id,
+                    candidate.occupied_by.as_deref(),
+                    &candidate.group_track_ids,
+                )?,
+                "Destination occupancy changed; preview again"
+            );
+        }
         let mut c = self.conn()?;
         let tx = c.transaction()?;
         crate::library_backup::quiet_database(&tx)?;
