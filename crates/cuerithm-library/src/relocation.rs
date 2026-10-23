@@ -921,6 +921,15 @@ fn parts_flavored(path: &str, windows: bool) -> Result<(bool, Vec<String>)> {
     } else {
         path.to_owned()
     };
+    #[cfg(windows)]
+    let text = if windows && text.starts_with("//?/") {
+        let units = text.replace('/', "\\").encode_utf16().collect::<Vec<_>>();
+        let logical = crate::portable::windows_logical_units(&units)
+            .context("Device paths are not binding inputs")?;
+        String::from_utf16(&logical)?
+    } else {
+        text
+    };
     ensure!(
         !text.starts_with("//?/") && !text.starts_with("//./"),
         "Device paths are not binding inputs"
@@ -2160,6 +2169,35 @@ impl Library {
 #[cfg(test)]
 mod traversal_tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn canonical_windows_root_inputs_match_drive_and_unc_without_accepting_devices() {
+        for (path, root, expected) in [
+            (
+                r"C:\Music\House\A.flac",
+                r"\\?\c:\music",
+                vec!["House", "A.flac"],
+            ),
+            (
+                r"\\?\UNC\Server\Share\Music\A.flac",
+                r"\\server\share\music",
+                vec!["A.flac"],
+            ),
+            ("//?/C:/Music/A.flac", "C:/Music", vec!["A.flac"]),
+        ] {
+            assert_eq!(
+                relocation_root_suffix(path, root).unwrap().unwrap(),
+                expected
+            );
+        }
+        for path in [
+            r"\\.\PhysicalDrive0",
+            r"\\?\GLOBALROOT\Device\HarddiskVolume1\Music",
+            r"\\?\Volume{00000000-0000-0000-0000-000000000000}\Music",
+        ] {
+            assert!(relocation_root_suffix(path, "C:/Music").is_err());
+        }
+    }
     #[cfg(unix)]
     #[test]
     fn index_cleanup_keeps_a_replaced_owner_marker() {
