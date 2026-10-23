@@ -45,6 +45,14 @@ pub struct Candidate {
     pub present: bool,
     pub ignored: bool,
 }
+/// Groups built only from tracks whose audio file is available.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AvailableGroups {
+    pub groups: Vec<Vec<String>>,
+    /// Tracks left out because their audio file is not available, in input order.
+    /// They are reported so callers can send the user to Missing & broken.
+    pub skipped_unavailable: Vec<String>,
+}
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PreferredCopy {
     pub keeper: Option<String>,
@@ -97,8 +105,37 @@ impl Matcher {
         normalize::trigrams(value, tolerance)
     }
 
+    /// Group only tracks whose audio file is available (`present`) and that the user has
+    /// not ignored. A track that is not available is never placed in a group, whatever the
+    /// tolerance, and is returned in `skipped_unavailable` instead. For all-available input
+    /// the groups are exactly those of [`Matcher::metadata_groups`].
+    pub fn available_metadata_groups(
+        &self,
+        tracks: &[Candidate],
+        tolerance: Tolerance,
+        ignored_paths: &[String],
+        video_ids: &[String],
+    ) -> Result<AvailableGroups> {
+        validate(tracks)?;
+        let usable: Vec<_> = tracks
+            .iter()
+            .filter(|t| t.present && !t.ignored)
+            .cloned()
+            .collect();
+        Ok(AvailableGroups {
+            groups: self.metadata_groups(&usable, tolerance, ignored_paths, video_ids)?,
+            skipped_unavailable: tracks
+                .iter()
+                .filter(|t| !t.present)
+                .map(|t| t.id.clone())
+                .collect(),
+        })
+    }
+
     /// Preserve the original greedy matching order, including overlapping artist groups.
     /// The caller resolves exact-audio precedence before offering merge actions.
+    /// This reference port does not look at `present`; use
+    /// [`Matcher::available_metadata_groups`] for anything shown to the user.
     pub fn metadata_groups(
         &self,
         tracks: &[Candidate],

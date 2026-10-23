@@ -1,6 +1,6 @@
 use crate::SmartStamp;
 pub use cuerithm_maintenance::Tolerance as DuplicateTolerance;
-pub use cuerithm_maintenance::{GroupEdit, Preference, ReviewGroup, ReviewState};
+pub use cuerithm_maintenance::{GroupEdit, MergeDisposition, Preference, ReviewGroup, ReviewState};
 use cuerithm_media::AudioFingerprint;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -47,6 +47,74 @@ pub struct DuplicatePlaylistChange {
     pub before: Vec<String>,
     pub after: Vec<String>,
 }
+/// How many merges that delete files keep their Undo data. Older ones become final: the
+/// removed library records are no longer kept, and only the Trash still holds the files.
+pub const DUPLICATE_UNDO_LIMIT: usize = 10;
+
+/// What proves a file duplicates the track that is kept.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DuplicateIdentity {
+    /// Byte-for-byte the same file (equal SHA-256).
+    SameFile,
+    /// The same decoded audio (equal sample rate, channels and decoded-audio digest).
+    SameAudio,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DuplicateSkipReason {
+    /// The audio is not proven identical to the kept track (for example a different mix).
+    NotVerifiedIdentical,
+    /// The file changed after the scan or the preview.
+    FileChanged,
+    /// The file is missing, unreadable or otherwise unavailable.
+    FileUnavailable,
+    /// Another remaining library record still uses this file.
+    SharedWithRemainingRecord,
+    /// The file is the kept track's own file under another name.
+    SameFileAsKeeper,
+    /// The track is still being prepared or another operation holds the file.
+    Busy,
+    /// The operating system could not move the file to the Trash.
+    TrashFailed,
+}
+/// A file a "Delete from disk" merge moves to the Trash, shown in the preview.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateDeletionFile {
+    pub track_id: String,
+    pub display_path: String,
+    pub size_bytes: u64,
+    pub keeper_id: String,
+    pub keeper_display_path: String,
+    pub identity: DuplicateIdentity,
+    pub sha256: String,
+}
+/// A file a "Delete from disk" merge leaves exactly where it is, with the reason.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateDeletionSkip {
+    pub track_id: String,
+    pub display_path: String,
+    pub keeper_id: Option<String>,
+    pub reason: DuplicateSkipReason,
+    pub detail: Option<String>,
+}
+/// Library records that leave with a deleted file and come back with Undo.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateRemovalImpact {
+    pub track_id: String,
+    pub cue_revisions: usize,
+    pub tags: usize,
+    pub sync_links: usize,
+    pub other_records: usize,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateDeletionPlan {
+    pub files: Vec<DuplicateDeletionFile>,
+    pub skipped: Vec<DuplicateDeletionSkip>,
+    pub impact: Vec<DuplicateRemovalImpact>,
+    /// Merges that delete files keep Undo data for this many operations.
+    pub undo_limit: usize,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateMergePreview {
     pub id: String,
@@ -56,6 +124,9 @@ pub struct DuplicateMergePreview {
     pub stamp: MaintenanceStamp,
     pub plan: cuerithm_maintenance::MergePlan,
     pub playlists: Vec<DuplicatePlaylistChange>,
+    /// Present exactly when the plan deletes files.
+    #[serde(default)]
+    pub deletion: Option<DuplicateDeletionPlan>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateMergeResult {
@@ -68,12 +139,26 @@ pub struct DuplicateMergeResult {
     pub undo_of: Option<String>,
     #[serde(default)]
     pub updated_ids: Vec<String>,
+    /// Library records removed together with their files moved to the Trash.
+    #[serde(default)]
+    pub removed_ids: Vec<String>,
+    /// Files this merge moved to the Trash.
+    #[serde(default)]
+    pub trashed: Vec<DuplicateDeletionFile>,
+    /// Files a "Delete from disk" merge did not move, and why.
+    #[serde(default)]
+    pub not_deleted: Vec<DuplicateDeletionSkip>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateMergeHistory {
     pub result: DuplicateMergeResult,
     pub created: i64,
     pub undone_by: Option<String>,
+    /// The removed records are no longer kept, so Undo is no longer offered.
+    #[serde(default)]
+    pub undo_expired: bool,
+    #[serde(default)]
+    pub undo_limit: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -123,6 +208,15 @@ pub enum MaintenanceFileState {
     TimedOut,
     DurationSkipped,
 }
+impl MaintenanceFileState {
+    /// The one availability rule for library audio, shared by Missing & broken and
+    /// Duplicates: a file is available when it is a regular, readable file. A duplicate
+    /// scan skips decoding very short and very long files (`Duration skipped`); they are
+    /// still present and readable. Every other outcome means the file cannot be used.
+    pub fn is_available(self) -> bool {
+        matches!(self, Self::Present | Self::DurationSkipped)
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateScanTrack {
     pub id: String,
@@ -151,6 +245,13 @@ pub struct DuplicateScanGroup {
     pub suggested_keeper: Option<String>,
     pub suggested_tags_from: Option<String>,
 }
+/// A track the scan left out because its audio file is not available. It is never grouped,
+/// counted as a duplicate, or offered as a keeper or donor; Missing & broken lists it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateSkippedTrack {
+    pub id: String,
+    pub state: MaintenanceFileState,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateScanReport {
     pub id: String,
@@ -161,6 +262,8 @@ pub struct DuplicateScanReport {
     pub stale_reason: Option<String>,
     pub tracks: Vec<DuplicateScanTrack>,
     pub groups: Vec<DuplicateScanGroup>,
+    #[serde(default)]
+    pub skipped_unavailable: Vec<DuplicateSkippedTrack>,
     pub cache_hits: usize,
     pub fingerprints_computed: usize,
 }

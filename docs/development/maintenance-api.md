@@ -20,6 +20,12 @@ starting another; cancellation acknowledgement does not release the slot.
   Exact grouping requires matching native PCM digest, sample rate and channel
   count. Rescan reports made with an older scanner implementation before review
   or merge; raw fingerprint caching remains separate from classification.
+  A track whose audio file is not available is never grouped, counted as a
+  duplicate, offered as keeper or donor, or merged, whatever the match method.
+  Availability is the file-state classification `scanBroken` uses: only `present`
+  and `duration_skipped` (present, too short or long to fingerprint) are
+  available. `skipped_unavailable` lists the tracks left out (`id` and `state`)
+  so the view can send the user to Missing & broken; their rows stay in `tracks`.
 - `scanUnused(operationId, request)`: explicit folder with all/include/exclude
   extension filters. Filters choose removal candidates; sidecar association uses
   the complete regular-file inventory, including excluded base audio files.
@@ -67,37 +73,75 @@ stale stamp reject the entire edit. Reload the list after a conflict.
 
 ## Merge preview and history
 
-`previewMerge(operationId, reviewId, expectedRevision, groups)` persists a concrete
-plan for the selected group IDs. It checks current review, library, source and
-scope identities. Its groups retain the mode and exact-audio/candidate distinction,
-keeper, archive/unarchive actions and explicit donor-to-target copy tasks. Playlist
+`previewMerge(operationId, reviewId, expectedRevision, groups, disposition)`
+persists a concrete plan for the selected group IDs. `disposition` is required and
+has no default: `"archive"` archives the other records and leaves every audio file
+where it is; `"delete"` moves each verified duplicate audio file to the operating
+system Trash or Recycle Bin and removes its library record. Without a choice there
+is no preview, so nothing can be applied. The preview checks current review,
+library, source and scope identities, and re-checks that the audio file of every
+participating track is still available (a vanished file refuses the preview with
+a message that names the track and points to Missing & broken). Its groups retain
+the mode and exact-audio/candidate distinction, keeper, `archive_ids` or
+`delete_ids`, unarchive actions and explicit donor-to-target copy tasks. Playlist
 changes include ordered before/after membership arrays.
 
-`mergeHistory()` returns committed archive/reference transaction records and
-`undone_by` markers, ordered newest first. These are history records; they do not
-promise that undo remains available after later source or library changes.
+A `"delete"` preview also returns `deletion`: every file that will be moved
+(`display_path`, `size_bytes`, the keeper it duplicates and whether it is the same
+file or the same decoded audio), every file that will be left alone with its
+reason, the library records that leave with each file, and `undo_limit`. A file is
+listed only when it is available, unchanged since the scan, proven identical to the
+kept track (equal SHA-256, or equal decoded-audio digest, sample rate and channel
+count), not the keeper's own file under another name, not used by any other
+remaining library record (symbolic links, hard links and path aliases included) and
+not reserved by another operation. Artist/title candidates that are different mixes
+are therefore never deleted. Sidecars and cover images are never touched.
+
+`mergeHistory()` returns committed transaction records and `undone_by` markers,
+ordered newest first, with `undo_expired` and `undo_limit`. These are history
+records; they do not promise that undo remains available after later source or
+library changes.
 
 ## Coordinated publication and undo
 
-`applyMerge(operationId, previewId)` runs the complete donor/archive/reference
-coordinator. It stages all selected recipient files and validates their native
+`applyMerge(operationId, previewId, confirmDeletion)` runs the complete
+donor/archive/reference coordinator. A preview that deletes files is applied only
+with `confirmDeletion: true`, which the view sends only from its explicit "Delete N
+files and merge" action, and only for the files the preview listed. It stages all selected recipient files and validates their native
 metadata, decoded PCM and source identities before reserving publication targets.
 Durable backups and a prepared journal precede any exchange. Metadata, custom tags,
 manual cue revisions, grid publication, archives, playlist membership, consumed
 preview token and committed journal share one SQLite commit. The raw recipient
 analysis remains intact; its presentation publication can reflect the imported
-cues/grid with manual-import provenance. Duplicate merging removes no music files.
+cues/grid with manual-import provenance. An archive-only merge removes no music
+files. A delete merge moves files to the Trash only through the
+`FileTrash`/`SystemTrash` boundary (`NSFileManager` on macOS, the Recycle Bin on
+Windows, the freedesktop.org Trash on Linux) and never deletes permanently: when
+the Trash cannot take a file, that file and its record stay and are reported per file.
+Before each file moves, the availability, SHA-256 and identity proof are checked
+again, and the library records only the files that really moved. If the library
+commit fails after files were moved, the operation is rolled back and its error
+lists the files that are already in the Trash; their records were kept, so they
+appear in Missing & broken. A restart after an interruption lists the same files.
 
 `undoMerge(operationId, operationIdToUndo)` uses a new reverse file journal and
 restores the exact original file bytes plus the captured library/cue/tag/member
-state. Use `mergeHistory()` to discover operations after restart. Track/playlist
+state. For a delete merge it restores the removed library records (every row that
+depends on them, found through the schema's foreign keys), their playlist positions
+and metadata; it cannot take a file out of the Trash. The removed records are kept
+only for the newest ten merges that delete files (`undo_limit`); older entries
+keep their summary, report `undo_expired` and refuse Undo, so the removal is
+final. A restored record takes the next free row position if a newer record now
+holds its old one, and Undo is refused when its identity or file location is
+already used by another track. Use `mergeHistory()` to discover operations after restart. Track/playlist
 entity epochs reject relevant edits and A/B/A cycles. Unrelated Incoming results
 and derived smart-list refreshes do not invalidate a version2 undo. Older version1
 archive-only history retains its original conservative undo contract.
 
 Both operations emit `library-change` and `maintenance-change` after success.
-`updated_ids`, `archived_ids`, `restored_ids` and `affected_playlists` identify what
-to refresh. Reload tracks and playlist state after the event; do not infer
+`updated_ids`, `archived_ids`, `restored_ids`, `removed_ids` and
+`affected_playlists` identify what to refresh; `trashed` and `not_deleted` give the
+per-file outcome of a delete merge. Reload tracks and playlist state after the event; do not infer
 publication from a staging/progress event. Copy-only mode imports selected tags,
 cues and grid without archive/reference actions.
 

@@ -56,6 +56,9 @@ pub(super) fn logic_identity() -> String {
         include_bytes!("merge.rs").as_slice(),
         include_bytes!("donors.rs").as_slice(),
         include_bytes!("donor_state.rs").as_slice(),
+        include_bytes!("records.rs").as_slice(),
+        include_bytes!("trash.rs").as_slice(),
+        include_bytes!("deletion.rs").as_slice(),
         include_bytes!("../playlists/scope.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/lib.rs").as_slice(),
         include_bytes!("../../../cuerithm-maintenance/src/normalize.rs").as_slice(),
@@ -217,6 +220,7 @@ impl Library {
             stale_reason: None,
             tracks: vec![],
             groups: vec![],
+            skipped_unavailable: vec![],
             cache_hits: 0,
             fingerprints_computed: 0,
         };
@@ -311,6 +315,7 @@ impl Library {
                 hash: row.observed_sha256.clone(),
             });
             if !input.ignored
+                && row.state.is_available()
                 && let Some(fp) = &row.fingerprint
             {
                 // Identical sample bytes can play differently at another native rate
@@ -346,10 +351,7 @@ impl Library {
                 comparison_path: row.display_path.clone(),
                 bitrate,
                 cue_count,
-                present: matches!(
-                    row.state,
-                    MaintenanceFileState::Present | MaintenanceFileState::DurationSkipped
-                ),
+                present: row.state.is_available(),
                 ignored: input.ignored,
             };
             review_tracks.push(ReviewTrack {
@@ -385,32 +387,17 @@ impl Library {
                 )?;
             }
         }
-        let eligible: Vec<_> = candidates.iter().filter(|c| !c.ignored).cloned().collect();
-        let video = report
-            .tracks
-            .iter()
-            .filter(|r| {
-                matches!(
-                    r.state,
-                    MaintenanceFileState::Video
-                        | MaintenanceFileState::NoAudio
-                        | MaintenanceFileState::Symlink
-                        | MaintenanceFileState::NotRegular
-                )
-            })
-            .map(|r| r.id.clone())
-            .collect::<Vec<_>>();
-        for ids in matcher.metadata_groups(&eligible, request.tolerance, &[], &video)? {
+        // A track whose file is not available is never grouped by any match method. The
+        // matcher skips it; Missing & broken is where the user deals with it.
+        let grouped =
+            matcher.available_metadata_groups(&candidates, request.tolerance, &[], &[])?;
+        for ids in grouped.groups {
             cancel.check()?;
             let ids = ids
                 .into_iter()
                 .filter(|id| !used.contains(id))
                 .collect::<Vec<_>>();
-            if ids.len() > 1
-                && ids
-                    .iter()
-                    .any(|id| index.get(id).is_some_and(|c| c.present))
-            {
+            if ids.len() > 1 {
                 add_group(
                     &mut report,
                     &index,
@@ -421,6 +408,15 @@ impl Library {
                 )?;
             }
         }
+        report.skipped_unavailable = report
+            .tracks
+            .iter()
+            .filter(|t| !t.state.is_available())
+            .map(|t| DuplicateSkippedTrack {
+                id: t.id.clone(),
+                state: t.state,
+            })
+            .collect();
         if request.scope == DuplicateScanScope::FullLibraryFiltered {
             report
                 .groups

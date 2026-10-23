@@ -1,7 +1,10 @@
 //! One recoverable file/SQLite publication for duplicate donor, archive and reference work.
 use super::{
+    deletion,
     donor_state::{self, TrackImage},
+    files::{current_state, ensure_available},
     merge::{self, SavedPreview},
+    records::{self, RecordSnapshot},
     *,
 };
 use crate::{
@@ -15,19 +18,30 @@ use cuerithm_autotag::{
     AnalysisTags, AutotagConfig, MatchStatus, StagedTagWrite, TagInput, TagMatchOutcome,
     TagWritePlan, TransferPatch, TransferSnapshot,
 };
-use cuerithm_media::{CancellationToken, MediaRuntime};
+use cuerithm_maintenance::{MergeDisposition, MergePlan};
+use cuerithm_media::{CancellationToken, MediaRuntime, file_sha256_cancellable};
 use rusqlite::{TransactionBehavior, params};
+use same_file::Handle;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
+    sync::Arc,
 };
 
 pub struct DuplicateMergeService {
     lib: Library,
     runtime: MediaRuntime,
+    trash: Arc<dyn FileTrash>,
     #[cfg(test)]
     hook: Option<fn(&str)>,
+}
+/// A file this operation intended to move to the Trash, kept in the journal so an
+/// interrupted operation can say which files may already be there.
+#[derive(Clone, Serialize, Deserialize)]
+struct TrashIntent {
+    track_id: String,
+    path: Vec<u8>,
 }
 struct StagedImport {
     target: String,
@@ -48,6 +62,63 @@ struct Payload {
     playlists: Vec<DuplicatePlaylistChange>,
     epochs: BTreeMap<String, u64>,
     undone_by: Option<String>,
+    /// Library records removed together with their files; the minimum Undo needs.
+    #[serde(default)]
+    removed: Option<RecordSnapshot>,
+    #[serde(default)]
+    trash_intent: Vec<TrashIntent>,
+    /// The removed records are no longer kept, so the removal is final.
+    #[serde(default)]
+    undo_expired: bool,
+}
+impl Payload {
+    /// Drop what only Undo of a removal needs, keeping the summary in `result`.
+    fn forget_removed(&mut self) {
+        let removed = self.result.removed_ids.clone();
+        self.removed = None;
+        self.before.retain(|id, _| !removed.contains(id));
+    }
+}
+/// Keep the records removed by the newest `keep` merges that delete files, so those can be
+/// undone. Older ones become final: the stored records are dropped and Undo is no longer offered.
+fn prune_undo_data(conn: &rusqlite::Connection, keep: usize) -> Result<()> {
+    let old = {
+        let mut q = conn.prepare("SELECT id,payload_json FROM maintenance_writes WHERE kind='apply' AND state='committed' AND json_extract(payload_json,'$.removed') IS NOT NULL ORDER BY created DESC,id DESC LIMIT -1 OFFSET ?1")?;
+        q.query_map([keep as i64], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for (id, text) in old {
+        let mut payload: Payload = serde_json::from_str(&text)?;
+        payload.forget_removed();
+        payload.undo_expired = true;
+        conn.execute(
+            "UPDATE maintenance_writes SET payload_json=?1 WHERE id=?2",
+            params![serde_json::to_string(&payload)?, id],
+        )?;
+    }
+    Ok(())
+}
+/// An interrupted operation changed no library record, but it may already have moved files to
+/// the Trash. Say which, so the user can find them.
+fn interruption(write: &Write, base: &str) -> anyhow::Error {
+    let gone = write
+        .payload
+        .trash_intent
+        .iter()
+        .filter_map(|item| bytes_path(&item.path).ok())
+        .filter(|path| !path.exists())
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+    if gone.is_empty() {
+        anyhow::anyhow!("{base}")
+    } else {
+        anyhow::anyhow!(
+            "{base}; these files are no longer at their original location and may be in the Trash, and their library records were kept: {}",
+            gone.join(", ")
+        )
+    }
 }
 struct Write {
     id: String,
@@ -303,18 +374,37 @@ fn result(
         affected_playlists: preview.playlists.iter().map(|p| p.id.clone()).collect(),
         undo_of,
         updated_ids: vec![],
+        removed_ids: vec![],
+        trashed: vec![],
+        not_deleted: vec![],
     }
 }
 impl DuplicateMergeService {
     pub fn new(lib: Library, runtime: MediaRuntime) -> Self {
+        Self::with_trash(lib, runtime, Arc::new(SystemTrash))
+    }
+    /// Use another Trash, which lets tests keep real files out of the user's Trash.
+    pub fn with_trash(lib: Library, runtime: MediaRuntime, trash: Arc<dyn FileTrash>) -> Self {
         Self {
             lib,
             runtime,
+            trash,
             #[cfg(test)]
             hook: None,
         }
     }
     pub fn apply(&self, id: &str, cancel: &CancellationToken) -> Result<DuplicateMergeResult> {
+        self.apply_confirmed(id, false, cancel)
+    }
+    /// Apply a reviewed preview. A preview that moves audio files to the Trash is applied only
+    /// with `confirm_deletion`, and only the files it listed (and that still pass every check)
+    /// are moved.
+    pub fn apply_confirmed(
+        &self,
+        id: &str,
+        confirm_deletion: bool,
+        cancel: &CancellationToken,
+    ) -> Result<DuplicateMergeResult> {
         cancel.check()?;
         let mut preview: SavedPreview = {
             let conn = self.lib.conn()?;
@@ -324,22 +414,27 @@ impl DuplicateMergeService {
             preview.consumed_by.is_none(),
             "Duplicate preview already applied"
         );
+        let deleting = preview.public.plan.disposition == MergeDisposition::Delete;
+        ensure!(
+            !deleting || confirm_deletion,
+            "Confirm deleting the listed files before applying"
+        );
         super::review::refresh(&self.lib, &mut preview.review, cancel)?;
+        // Files can vanish between the scan and now; say which before the generic stale refusal.
+        ensure_available(&*self.lib.conn()?, &preview.public.plan.participants())?;
         ensure!(
             !preview.review.review.stale,
             "Duplicate preview is stale; scan again"
         );
-        let ids = preview
-            .public
-            .plan
-            .groups
-            .iter()
-            .flat_map(|g| {
-                std::iter::once(g.keeper.clone())
-                    .chain(g.archive_ids.clone())
-                    .chain(g.copies.iter().flat_map(|c| [c.from.clone(), c.to.clone()]))
-            })
-            .collect::<BTreeSet<_>>();
+        // Check again, now, every file the preview listed. What is applied can only be a
+        // subset of what the user reviewed.
+        let mut plan = preview.public.plan.clone();
+        let (mut doomed, mut not_deleted) = if deleting {
+            self.reverify(&preview, &mut plan, cancel)?
+        } else {
+            (vec![], vec![])
+        };
+        let ids = plan.participants();
         let snapshots = {
             let mut conn = self.lib.conn()?;
             let tx = conn.transaction()?;
@@ -356,7 +451,7 @@ impl DuplicateMergeService {
         };
         let cache = self.lib.data_dir().join("maintenance/staging");
         let mut staged = vec![];
-        for copy in preview.public.plan.groups.iter().flat_map(|g| &g.copies) {
+        for copy in plan.groups.iter().flat_map(|g| &g.copies) {
             cancel.check()?;
             let source = &snapshots[&copy.from];
             let target = &snapshots[&copy.to];
@@ -475,6 +570,7 @@ impl DuplicateMergeService {
             .iter()
             .map(|a| a.id.clone())
             .chain(staged.iter().map(|s| s.target.clone()))
+            .chain(doomed.iter().map(|f| f.track_id.clone()))
             .collect::<BTreeSet<_>>();
         let before = changed
             .iter()
@@ -491,6 +587,17 @@ impl DuplicateMergeService {
             playlists: preview.public.playlists.clone(),
             epochs: BTreeMap::new(),
             undone_by: None,
+            removed: None,
+            trash_intent: doomed
+                .iter()
+                .map(|f| {
+                    Ok(TrashIntent {
+                        track_id: f.track_id.clone(),
+                        path: path_bytes(&snapshots[&f.track_id].row.path()?),
+                    })
+                })
+                .collect::<Result<_>>()?,
+            undo_expired: false,
         };
         reserve(
             &self.lib,
@@ -507,6 +614,7 @@ impl DuplicateMergeService {
         if let Some(hook) = self.hook {
             hook("prepared");
         }
+        let mut trashed_log: Vec<String> = vec![];
         let outcome = (|| -> Result<()> {
             let mut conn = self.lib.conn()?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -515,6 +623,7 @@ impl DuplicateMergeService {
                 "Library changed before duplicate publication"
             );
             merge::check_review(&tx, &preview.public)?;
+            ensure_available(&tx, &ids)?;
             let mut current: SavedPreview = merge::load(&tx, id, "duplicate_merge_plan")?;
             ensure!(
                 current.consumed_by.is_none(),
@@ -556,6 +665,38 @@ impl DuplicateMergeService {
                 super::files::proofs_current(&protected, cancel)?,
                 "Donor or scope source changed during publication"
             );
+            // Move the verified duplicates to the Trash. A record is removed below only for a
+            // file that really is in the Trash; any other file stays where it is, with its
+            // record, and is reported.
+            if deleting {
+                #[cfg(test)]
+                if let Some(hook) = self.hook {
+                    hook("trash");
+                }
+                cancel.check()?;
+                let mut moved = vec![];
+                for file in std::mem::take(&mut doomed) {
+                    match self.trash_verified(&file, &snapshots, &plan) {
+                        Ok(()) => {
+                            trashed_log.push(file.display_path.clone());
+                            moved.push(file);
+                        }
+                        Err((reason, detail)) => not_deleted.push(DuplicateDeletionSkip {
+                            track_id: file.track_id.clone(),
+                            display_path: file.display_path.clone(),
+                            keeper_id: Some(file.keeper_id.clone()),
+                            reason,
+                            detail: Some(detail),
+                        }),
+                    }
+                }
+                doomed = moved;
+                for group in &mut plan.groups {
+                    group
+                        .delete_ids
+                        .retain(|id| doomed.iter().any(|f| &f.track_id == id));
+                }
+            }
             for item in &staged {
                 donor_state::write_import(
                     &tx,
@@ -578,21 +719,45 @@ impl DuplicateMergeService {
                     payload.result.restored_ids.push(archive.id.clone());
                 }
             }
-            merge::write_members(&tx, &preview.public.playlists, false)?;
-            for id in &changed {
+            let playlists = if deleting {
+                merge::playlist_changes(&tx, &plan)?
+            } else {
+                preview.public.playlists.clone()
+            };
+            merge::write_members(&tx, &playlists, false)?;
+            payload.result.affected_playlists = playlists.iter().map(|p| p.id.clone()).collect();
+            payload.playlists = playlists;
+            let removed_ids = doomed
+                .iter()
+                .map(|f| f.track_id.clone())
+                .collect::<BTreeSet<_>>();
+            if !removed_ids.is_empty() {
+                let snapshot =
+                    records::capture(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
+                records::delete(&tx, &snapshot)?;
+                payload.removed = Some(snapshot);
+            }
+            for id in changed.iter().filter(|id| !removed_ids.contains(*id)) {
                 payload
                     .after
                     .insert(id.clone(), TrackImage::capture(&tx, id)?);
             }
             payload.epochs = donor_state::epochs(
                 &tx,
-                &changed.iter().cloned().collect::<Vec<_>>(),
+                &payload.after.keys().cloned().collect::<Vec<_>>(),
                 &payload.result.affected_playlists,
             )?;
             payload.result.stamp = merge::advance(&tx)?;
             payload.result.updated_ids = staged.iter().map(|s| s.target.clone()).collect();
+            payload.result.removed_ids = removed_ids.iter().cloned().collect();
+            payload.result.trashed = doomed.clone();
+            payload.result.not_deleted = not_deleted.clone();
             current.consumed_by = Some(id_op.clone());
-            cancel.check()?;
+            // Once a file has gone to the Trash the library must record it, so a late
+            // cancellation is ignored from here on.
+            if trashed_log.is_empty() {
+                cancel.check()?;
+            }
             tx.execute(
                 "UPDATE maintenance_writes SET state='committed',payload_json=?1 WHERE id=?2",
                 params![serde_json::to_string(&payload)?, id_op],
@@ -601,12 +766,118 @@ impl DuplicateMergeService {
                 "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
                 params![serde_json::to_string(&current)?, id],
             )?;
+            if payload.removed.is_some() {
+                prune_undo_data(&tx, DUPLICATE_UNDO_LIMIT)?;
+            }
             tx.commit()?;
             Ok(())
         })();
-        finish(&self.lib, &id_op, &files, outcome.as_ref().err())?;
+        let reported = outcome.as_ref().err().map(|error| {
+            if trashed_log.is_empty() {
+                anyhow::anyhow!("{error:#}")
+            } else {
+                anyhow::anyhow!(
+                    "{error:#}; {} file(s) were already moved to the Trash and their library records were kept: {}",
+                    trashed_log.len(),
+                    trashed_log.join(", ")
+                )
+            }
+        });
+        finish(&self.lib, &id_op, &files, reported.as_ref())?;
         outcome?;
         Ok(payload.result)
+    }
+    /// Check the files the preview listed once more and drop any that no longer pass.
+    fn reverify(
+        &self,
+        preview: &SavedPreview,
+        plan: &mut MergePlan,
+        cancel: &CancellationToken,
+    ) -> Result<(Vec<DuplicateDeletionFile>, Vec<DuplicateDeletionSkip>)> {
+        let shown = preview
+            .public
+            .deletion
+            .as_ref()
+            .context("This preview lists no files to delete")?;
+        let now = deletion::plan(&self.lib, &preview.review.scan, plan, cancel)?;
+        let mut files = vec![];
+        let mut skipped = shown.skipped.clone();
+        skipped.extend(now.skipped);
+        for file in now.files {
+            let listed = shown.files.iter().any(|f| {
+                f.track_id == file.track_id
+                    && f.sha256 == file.sha256
+                    && f.identity == file.identity
+                    && f.keeper_id == file.keeper_id
+            });
+            if listed {
+                files.push(file);
+            } else {
+                skipped.push(DuplicateDeletionSkip {
+                    track_id: file.track_id.clone(),
+                    display_path: file.display_path.clone(),
+                    keeper_id: Some(file.keeper_id.clone()),
+                    reason: DuplicateSkipReason::FileChanged,
+                    detail: Some("The file is not the one the preview listed.".into()),
+                });
+            }
+        }
+        for group in &mut plan.groups {
+            group
+                .delete_ids
+                .retain(|id| files.iter().any(|f| &f.track_id == id));
+        }
+        Ok((files, skipped))
+    }
+    /// The last look before a file leaves: it is still the file that was verified, and it is
+    /// not the kept track's file. Then it goes to the Trash, or nothing happens to it.
+    fn trash_verified(
+        &self,
+        file: &DuplicateDeletionFile,
+        snapshots: &BTreeMap<String, TrackImage>,
+        plan: &MergePlan,
+    ) -> std::result::Result<(), (DuplicateSkipReason, String)> {
+        let unavailable = |detail: &str| (DuplicateSkipReason::FileUnavailable, detail.to_owned());
+        let path = snapshots
+            .get(&file.track_id)
+            .and_then(|image| image.row.path().ok())
+            .ok_or_else(|| unavailable("The track is no longer part of this merge."))?;
+        let keeper = plan
+            .groups
+            .iter()
+            .find(|g| g.delete_ids.contains(&file.track_id))
+            .map(|g| g.keeper.clone())
+            .filter(|keeper| keeper == &file.keeper_id)
+            .and_then(|keeper| snapshots.get(&keeper))
+            .and_then(|image| image.row.path().ok())
+            .ok_or_else(|| unavailable("The kept track is no longer part of this merge."))?;
+        if !current_state(&path).is_available() {
+            return Err(unavailable("The file is no longer available."));
+        }
+        if !current_state(&keeper).is_available() {
+            return Err(unavailable("The kept track's file is no longer available."));
+        }
+        match (Handle::from_path(&path), Handle::from_path(&keeper)) {
+            (Ok(a), Ok(b)) if a != b => {}
+            _ => {
+                return Err((
+                    DuplicateSkipReason::SameFileAsKeeper,
+                    "This is the kept track's file.".into(),
+                ));
+            }
+        }
+        match file_sha256_cancellable(&path, &CancellationToken::default()) {
+            Ok(hash) if hash == file.sha256 => {}
+            _ => {
+                return Err((
+                    DuplicateSkipReason::FileChanged,
+                    "The file changed after it was verified.".into(),
+                ));
+            }
+        }
+        self.trash
+            .move_to_trash(&path)
+            .map_err(|reason| (DuplicateSkipReason::TrashFailed, reason))
     }
     pub fn undo(&self, id: &str, cancel: &CancellationToken) -> Result<DuplicateMergeResult> {
         cancel.check()?;
@@ -625,6 +896,21 @@ impl DuplicateMergeService {
                 && original.payload.undone_by.is_none(),
             "Duplicate operation is not available for Undo"
         );
+        ensure!(
+            !original.payload.undo_expired,
+            "Undo is no longer available: the removed library records were kept only for the last {DUPLICATE_UNDO_LIMIT} merges that delete files"
+        );
+        ensure!(
+            original.payload.removed.is_some() == !original.payload.result.removed_ids.is_empty(),
+            "The records removed by this merge are no longer stored; Undo needs review"
+        );
+        let removed_ids = original
+            .payload
+            .result
+            .removed_ids
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
         let tracks = original.payload.after.keys().cloned().collect::<Vec<_>>();
         let playlists = original.payload.result.affected_playlists.clone();
         let stamp = {
@@ -698,6 +984,12 @@ impl DuplicateMergeService {
         result.undo_of = Some(id.into());
         result.stamp = stamp.clone();
         std::mem::swap(&mut result.archived_ids, &mut result.restored_ids);
+        // Removed records come back as restored ones; the files stay wherever the user has them.
+        result
+            .restored_ids
+            .extend(std::mem::take(&mut result.removed_ids));
+        result.trashed.clear();
+        result.not_deleted.clear();
         let mut payload = Payload {
             schema: "duplicate-file-merge-v2".into(),
             preview_id: original.payload.preview_id.clone(),
@@ -709,6 +1001,9 @@ impl DuplicateMergeService {
             playlists: original.payload.playlists.clone(),
             epochs: BTreeMap::new(),
             undone_by: None,
+            removed: None,
+            trash_intent: vec![],
+            undo_expired: false,
         };
         let _gate = self
             .lib
@@ -749,18 +1044,37 @@ impl DuplicateMergeService {
                 };
                 ensure!(actual == p.after, "Later playlist edits prevent Undo");
             }
+            if let Some(snapshot) = &original.payload.removed {
+                for (track_id, path) in snapshot.tracks()? {
+                    let taken: bool = tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM tracks WHERE id=?1 OR path=?2)",
+                        params![track_id, path],
+                        |r| r.get(0),
+                    )?;
+                    ensure!(
+                        !taken,
+                        "Undo needs review: a removed track's identity or file location is already used by a track in the library"
+                    );
+                }
+            }
             install(&files, cancel)?;
             #[cfg(test)]
             if let Some(hook) = self.hook {
                 hook("files");
             }
-            for image in payload.after.values() {
-                donor_state::restore(&tx, image)?;
+            if let Some(snapshot) = &original.payload.removed {
+                records::restore(&tx, snapshot)?;
+            }
+            for (track_id, image) in &payload.after {
+                if !removed_ids.contains(track_id) {
+                    donor_state::restore(&tx, image)?;
+                }
             }
             merge::write_members(&tx, &payload.playlists, true)?;
             payload.result.stamp = merge::advance(&tx)?;
             payload.epochs = donor_state::epochs(&tx, &tracks, &playlists)?;
             previous.undone_by = Some(undo_id.clone());
+            previous.forget_removed();
             cancel.check()?;
             tx.execute(
                 "UPDATE maintenance_writes SET state='undone',payload_json=?1 WHERE id=?2",
@@ -806,7 +1120,7 @@ impl Library {
             .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
         let write = load(self, id)?;
         if matches!(write.state.as_str(), "prepared" | "conflict") {
-            let error = anyhow::anyhow!("Explicit duplicate recovery retry");
+            let error = interruption(&write, "Explicit duplicate recovery retry");
             finish(self, id, &write.files, Some(&error))?;
         } else {
             finish(self, id, &write.files, None)?;
@@ -824,7 +1138,7 @@ impl Library {
         };
         for id in ids {
             let write = load(self, &id)?;
-            let error = anyhow::anyhow!("Interrupted duplicate operation rolled back");
+            let error = interruption(&write, "Interrupted duplicate operation rolled back");
             finish(self, &write.id, &write.files, Some(&error))?;
         }
         let ids = {
@@ -845,6 +1159,7 @@ impl Library {
 mod tests {
     use super::*;
     use crate::{DuplicateReviewEdit, DuplicateScanRequest, GroupEdit};
+    use std::sync::Arc;
     fn fixture() -> (
         tempfile::TempDir,
         Library,
@@ -996,6 +1311,113 @@ mod tests {
             .undo(&applied.id, &CancellationToken::default())
             .unwrap();
         assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), original);
+    }
+    struct MustNotRun;
+    impl FileTrash for MustNotRun {
+        fn move_to_trash(&self, path: &std::path::Path) -> std::result::Result<(), String> {
+            panic!("{} must not be moved to the Trash", path.display());
+        }
+    }
+    static CHANGE_BEFORE_TRASH: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+    fn change_at(phase: &str, wanted: &str) {
+        if phase == wanted
+            && let Some(path) = CHANGE_BEFORE_TRASH.lock().unwrap().clone()
+        {
+            let mut bytes = std::fs::read(&path).unwrap();
+            bytes.push(0);
+            std::fs::write(&path, bytes).unwrap();
+        }
+    }
+    fn change_after_install(phase: &str) {
+        change_at(phase, "files");
+    }
+    fn change_just_before_trash(phase: &str) {
+        change_at(phase, "trash");
+    }
+    #[test]
+    fn a_file_that_changes_after_verification_is_kept_with_its_record() {
+        // Changed after publication began: the whole merge stops and nothing is moved.
+        // Changed just before it would be moved: only that file is kept.
+        for (hook, whole_merge_fails) in [
+            (change_after_install as fn(&str), true),
+            (change_just_before_trash as fn(&str), false),
+        ] {
+            changed_duplicate_is_kept(hook, whole_merge_fails);
+        }
+    }
+    fn changed_duplicate_is_kept(hook: fn(&str), whole_merge_fails: bool) {
+        let (dir, lib, runtime, _donor_preview, paths_zero, _target) = fixture();
+        let token = CancellationToken::default();
+        let ids = {
+            let conn = lib.conn().unwrap();
+            let mut q = conn
+                .prepare("SELECT id FROM tracks ORDER BY rowid")
+                .unwrap();
+            q.query_map([], |r| r.get::<_, String>(0))
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .unwrap()
+        };
+        let duplicate = dir.path().join("track-1.wav");
+        // Make the two tracks the same audio so the second can be deleted.
+        std::fs::copy(&paths_zero, &duplicate).unwrap();
+        let hash = cuerithm_media::file_sha256(&duplicate).unwrap();
+        {
+            let conn = lib.conn().unwrap();
+            conn.execute(
+                "UPDATE tracks SET source_hash=?1 WHERE id=?2",
+                params![hash, ids[1]],
+            )
+            .unwrap();
+            // A ready track has finished its preparation job.
+            conn.execute("UPDATE jobs SET state='completed',stage='completed'", [])
+                .unwrap();
+        }
+        let scan = lib
+            .scan_duplicates(DuplicateScanRequest::default(), &runtime, &token)
+            .unwrap();
+        let review = lib.begin_duplicate_review(&scan.id, &token).unwrap();
+        let preview = lib
+            .preview_duplicate_merge_choice(
+                &review.id,
+                review.revision,
+                vec![review.groups[0].id.clone()],
+                Some(MergeDisposition::Delete),
+                &token,
+            )
+            .unwrap();
+        let listed = preview.deletion.as_ref().unwrap().files.clone();
+        assert_eq!(listed.len(), 1);
+        let removed = listed[0].track_id.clone();
+        let removed_path = if removed == ids[1] {
+            duplicate.clone()
+        } else {
+            paths_zero.clone()
+        };
+        *CHANGE_BEFORE_TRASH.lock().unwrap() = Some(removed_path.clone());
+        let mut service =
+            DuplicateMergeService::with_trash(lib.clone(), runtime, Arc::new(MustNotRun));
+        service.hook = Some(hook);
+        let result = service.apply_confirmed(&preview.id, true, &token);
+        *CHANGE_BEFORE_TRASH.lock().unwrap() = None;
+        if whole_merge_fails {
+            assert!(result.is_err());
+        } else {
+            let result = result.unwrap();
+            assert!(result.removed_ids.is_empty());
+            assert!(result.trashed.is_empty());
+            assert_eq!(result.not_deleted.len(), 1);
+            assert_eq!(
+                result.not_deleted[0].reason,
+                DuplicateSkipReason::FileChanged
+            );
+        }
+        assert!(removed_path.exists(), "the changed file stays where it was");
+        assert!(
+            lib.track(&removed).is_ok(),
+            "its record stays in the library"
+        );
+        assert!(!lib.track(&removed).unwrap().archived);
     }
     #[test]
     fn recovery_preserves_a_later_user_file_and_retains_its_recovery_assets() {
