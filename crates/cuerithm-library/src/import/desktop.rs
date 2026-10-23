@@ -5,6 +5,7 @@ use anyhow::{Context, Result, ensure};
 use cuerithm_dj_sync::import::*;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportSourceCandidate {
@@ -42,6 +43,17 @@ pub struct ImportOperation {
     pub result: ImportApplyResult,
     pub can_recover: bool,
     pub can_undo: bool,
+    pub can_retry: bool,
+    pub can_review: bool,
+    pub stages: BTreeMap<String, u64>,
+    pub issues: Vec<ImportStageIssue>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportStageIssue {
+    pub item_id: String,
+    pub stage: String,
+    pub state: String,
+    pub message: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportOperationPage {
@@ -172,21 +184,33 @@ impl Library {
                 policy.len() + receipt.len() <= 1024 * 1024,
                 "Import history record exceeds byte limit"
             );
-            if records.len() == query.limit as usize
-                || (!records.is_empty() && bytes + policy.len() + receipt.len() > 4 * 1024 * 1024)
-            {
+            if records.len() == query.limit as usize {
                 more = true;
                 break;
             }
-            bytes += policy.len() + receipt.len();
-            last = row.get(0)?;
             let mut policy: ImportPolicy = serde_json::from_str(&policy)?;
             // Opaque credential references are private runtime configuration, not history data.
             policy.metadata_enrichment.credential_refs.clear();
-            records.push(ImportOperation {
-                operation_id: row.get(1)?,
+            let operation_id: String = row.get(1)?;
+            let state: String = row.get(3)?;
+            let (stages, issues, published) = operation_stages(&conn, &operation_id)?;
+            let can_retry = !published
+                && matches!(
+                    state.as_str(),
+                    "processing_pending"
+                        | "processing_running"
+                        | "processing_blocked"
+                        | "processing_failed"
+                        | "processing_cancelled"
+                );
+            let can_review = !published
+                && stages.get("proposed").copied().unwrap_or(0) > 0
+                && stages.get("running").copied().unwrap_or(0) == 0
+                && !matches!(state.as_str(), "processing_running" | "processing_pending");
+            let record = ImportOperation {
+                operation_id,
                 source_id: row.get(2)?,
-                state: row.get(3)?,
+                state,
                 created: row.get(4)?,
                 updated: row.get(5)?,
                 policy,
@@ -194,7 +218,23 @@ impl Library {
                     .context("Invalid import operation receipt")?,
                 can_recover: row.get(8)?,
                 can_undo: row.get(9)?,
-            });
+                can_retry,
+                can_review,
+                stages,
+                issues,
+            };
+            let record_bytes = serde_json::to_vec(&record)?.len();
+            ensure!(
+                record_bytes <= 1024 * 1024,
+                "Import history record exceeds byte limit"
+            );
+            if !records.is_empty() && bytes + record_bytes > 4 * 1024 * 1024 {
+                more = true;
+                break;
+            }
+            bytes += record_bytes;
+            last = row.get(0)?;
+            records.push(record);
         }
         Ok(ImportOperationPage {
             records,
@@ -211,4 +251,28 @@ impl Library {
             },
         })
     }
+}
+fn operation_stages(
+    conn: &rusqlite::Connection,
+    operation: &str,
+) -> Result<(BTreeMap<String, u64>, Vec<ImportStageIssue>, bool)> {
+    let mut statement=conn.prepare("SELECT r.state,COUNT(*) FROM import_processing_receipts r WHERE r.operation_id=?1 AND NOT EXISTS(SELECT 1 FROM import_processing_receipts n WHERE n.operation_id=r.operation_id AND n.item_id=r.item_id AND n.stage=r.stage AND n.rowid>r.rowid) GROUP BY r.state")?;
+    let stages = statement
+        .query_map([operation], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, u64>(1)?))
+        })?
+        .collect::<rusqlite::Result<BTreeMap<_, _>>>()?;
+    let published=conn.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects')",[operation],|r|r.get(0))?;
+    let mut statement=conn.prepare("SELECT r.item_id,r.stage,r.state,substr(COALESCE(json_extract(r.receipt_json,'$.last_error'),json_extract(r.receipt_json,'$.error')),1,1024) FROM import_processing_receipts r WHERE r.operation_id=?1 AND COALESCE(json_extract(r.receipt_json,'$.last_error'),json_extract(r.receipt_json,'$.error')) IS NOT NULL AND NOT EXISTS(SELECT 1 FROM import_processing_receipts n WHERE n.operation_id=r.operation_id AND n.item_id=r.item_id AND n.stage=r.stage AND n.rowid>r.rowid) ORDER BY r.rowid DESC LIMIT 20")?;
+    let issues = statement
+        .query_map([operation], |r| {
+            Ok(ImportStageIssue {
+                item_id: r.get(0)?,
+                stage: r.get(1)?,
+                state: r.get(2)?,
+                message: super::recovery::bounded_error(&r.get::<_, String>(3)?),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok((stages, issues, published))
 }

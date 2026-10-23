@@ -73,11 +73,11 @@
 
 **Interfaces:** Refresh starts with `inspectImportRefresh(sourceId, operationId)` and the saved policy revision. New policy selections create an explicit revision through the next `previewImport` request. History actions call opaque operation/preview IDs, preserving the library's guards; no reconstructed custom apply payload.
 
-- [ ] Write `refresh_shows_saved_policy_and_keeps_local_conflict_default`, `unchanged_refresh_has_no_effects`, `partial_scan_is_not_source_deletion`, `custom_conflict_requires_new_preview`, `recovery_and_undo_respect_later_edits`, and `blocked_optional_stage_preserves_successful_import`. Assert separate result counts and exact disabled explanations, no source-removal “delete music” action, no silent policy adoption from Incoming, stale preview offers rescan and cancellation is not reported as successful processing.
-- [ ] Run `pnpm --dir apps/desktop test -- src/test/import-refresh.test.tsx --maxWorkers=1`; expect missing refresh/history behavior.
-- [ ] Implement source binding/replica conflict decisions, field/atomic-family comparisons with provenance, saved-policy review and explicit policy revisions. Show immutable operation history and recover/retry/Undo only when allowed by backend. Empty/unavailable outcomes remain actionable; source/profile changes return to inspection. Preserve paging selections by native ID, not row position.
-- [ ] Rerun refresh/workflow tests with racing local edit, stale source, removed media, interrupted rename/tag journal and missing provider credential; expect existing items remain visible and only authorized retries run.
-- [ ] Commit `feat: review import refresh conflicts and recovery`.
+- [x] Write `refresh_shows_saved_policy_and_keeps_local_conflict_default`, `unchanged_refresh_has_no_effects`, `partial_scan_is_not_source_deletion`, `custom_conflict_requires_new_preview`, `recovery_and_undo_respect_later_edits`, and `blocked_optional_stage_preserves_successful_import`. Assert separate result counts and exact disabled explanations, no source-removal “delete music” action, no silent policy adoption from Incoming, stale preview offers rescan and cancellation is not reported as successful processing.
+- [x] Run `pnpm --dir apps/desktop test -- src/test/import-refresh.test.tsx --maxWorkers=1`; expect missing refresh/history behavior.
+- [x] Implement source binding/replica conflict decisions, field/atomic-family comparisons with provenance, saved-policy review and explicit policy revisions. Show immutable operation history and recover/retry/Undo only when allowed by backend. Empty/unavailable outcomes remain actionable; source/profile changes return to inspection. Preserve paging selections by native ID, not row position.
+- [x] Rerun refresh/workflow tests with racing local edit, stale source, removed media, interrupted rename/tag journal and missing provider credential; expect existing items remain visible and only authorized retries run.
+- [x] Commit `feat: review import refresh conflicts and recovery`.
 
 ### Task 22: Whole-system acceptance fixtures and bounded scale
 

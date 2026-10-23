@@ -29,5 +29,7 @@ describe("library import native boundary",()=>{
   expect(native.invoke).toHaveBeenLastCalledWith("inspect_import",{operationId:"scan",request:expect.objectContaining({selection_id:"native-choice"})});
   await importApi.cancel("scan");
   expect(native.invoke).toHaveBeenLastCalledWith("cancel_organization",{operationId:"scan"});
+  await importApi.retryImportProcessing("retry-work","durable-operation");
+  expect(native.invoke).toHaveBeenLastCalledWith("retry_import_processing",{operationId:"retry-work",id:"durable-operation"});
  });
 });

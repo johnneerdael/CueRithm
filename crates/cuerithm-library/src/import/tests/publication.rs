@@ -405,6 +405,23 @@ fn cleanup_is_frozen_library_only_and_undo_respects_later_edit() {
         .undo_import_operation(&op, &CancellationToken::default())
         .unwrap();
     assert_eq!(undo.blocked, 1);
+    let journal:String=f.lib.conn().unwrap().query_row("SELECT receipt_json FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects'",[&op],|r|r.get(0)).unwrap();
+    let journal: serde_json::Value = serde_json::from_str(&journal).unwrap();
+    let history = f
+        .lib
+        .import_operation_page(ImportOperationQuery::default())
+        .unwrap();
+    assert!(
+        history.records[0]
+            .issues
+            .iter()
+            .any(|i| i.stage == "publication.effects" && i.message.contains("Later"))
+    );
+    assert!(
+        journal["last_error"]
+            .as_str()
+            .is_some_and(|s| s.contains("Later") && s.len() <= 1024)
+    );
     assert_eq!(
         f.lib.imported_item(&id).unwrap().active_fields["metadata.title"]["value"],
         "Later"

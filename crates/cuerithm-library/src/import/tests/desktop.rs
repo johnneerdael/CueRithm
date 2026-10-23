@@ -70,6 +70,61 @@ fn restart_rejects_stale_preview() {
     assert_eq!(f.lib.counts().unwrap().tracks, 0);
 }
 #[test]
+fn durable_effect_authority_cannot_be_discarded() {
+    let f = Fixture::new();
+    let i = f.inspect(vec![track("Invented")], Completeness::WholeLibrary);
+    let p = f.preview(f.request(&i));
+    for state in ["effects_applying", "effects_applied"] {
+        f.lib
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE import_previews SET state=?1 WHERE id=?2",
+                rusqlite::params![state, p.preview_id],
+            )
+            .unwrap();
+        assert!(
+            f.lib.discard_import_preview(&p.preview_id).is_err(),
+            "{state}"
+        );
+    }
+}
+#[test]
+fn running_processing_cannot_be_frozen_as_an_effects_preview() {
+    let f = Fixture::new();
+    let i = f.inspect(vec![track("Invented")], Completeness::WholeLibrary);
+    let result = f.apply(&f.preview(f.request(&i)));
+    let item = f.lib.tracks(TrackQuery::default()).unwrap().rows[0]
+        .id
+        .clone();
+    f.lib.conn().unwrap().execute("INSERT INTO import_processing_receipts VALUES(?1,?2,'analysis.energy','running-attempt','running','{}','{}',1)",rusqlite::params![result.operation_id,item]).unwrap();
+    assert!(
+        f.lib
+            .preview_import_effects(&result.operation_id, &CancellationToken::default())
+            .is_err()
+    );
+}
+#[test]
+fn history_bounds_stage_issues_without_losing_total_counts() {
+    let f = Fixture::new();
+    let i = f.inspect(vec![track("Invented")], Completeness::WholeLibrary);
+    let result = f.apply(&f.preview(f.request(&i)));
+    let item = f.lib.tracks(TrackQuery::default()).unwrap().rows[0]
+        .id
+        .clone();
+    for n in 0..30 {
+        let receipt = serde_json::json!({"error":"invented Ω".repeat(500)}).to_string();
+        f.lib.conn().unwrap().execute("INSERT INTO import_processing_receipts VALUES(?1,?2,?3,'attempt','blocked','{}',?4,1)",rusqlite::params![result.operation_id,item,format!("stage.{n}"),receipt]).unwrap();
+    }
+    let h = f
+        .lib
+        .import_operation_page(ImportOperationQuery::default())
+        .unwrap();
+    assert_eq!(h.records[0].stages.get("blocked"), Some(&30));
+    assert_eq!(h.records[0].issues.len(), 20);
+    assert!(h.records[0].issues.iter().all(|i| i.message.len() <= 1024));
+}
+#[test]
 fn ipc_contract_matches_rust_fixture() {
     use serde_json::json;
     let fixture: serde_json::Value = serde_json::from_str(include_str!(

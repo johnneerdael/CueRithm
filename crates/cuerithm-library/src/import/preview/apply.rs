@@ -223,22 +223,7 @@ impl Library {
     }
     pub fn discard_import_preview(&self, preview_id: &str) -> Result<()> {
         let conn = self.conn()?;
-        let state: Option<String> = conn
-            .query_row(
-                "SELECT state FROM import_previews WHERE id=?1",
-                [preview_id],
-                |r| r.get(0),
-            )
-            .optional()?;
-        ensure!(state.is_some(), "Unknown import preview");
-        ensure!(
-            state.as_deref() != Some("applied"),
-            "An applied import has an operation receipt; use guarded undo"
-        );
-        conn.execute(
-            "UPDATE import_previews SET state='discarded' WHERE id=?1",
-            [preview_id],
-        )?;
+        ensure!(conn.execute("UPDATE import_previews SET state='discarded' WHERE id=?1 AND state IN ('building','ready','effects_ready','discarded')",[preview_id])?==1,"Import preview cannot be discarded after durable apply starts; use guarded recovery or Undo");
         Ok(())
     }
     pub fn import_preview_page(

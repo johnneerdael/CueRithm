@@ -89,3 +89,20 @@ those slots. Removed/placeholder native entries remain raw observations but do
 not become active cues. Accepted duration and descriptive aliases do not require
 analysis. Outgoing Sync uses accepted measured fields and explicit grid anchors,
 preserving saved FileAnalysis and existing DSP calculations.
+
+
+## Refresh and guarded operation history
+
+Refresh uses the saved source binding and last applied choices, then requires a
+new inspection and immutable preview. Local conflicts start at Keep local; custom
+values require typed backend validation in a rebuilt preview. Partial scans do
+not remove source records or music. Saved choices appear in readable form, with
+independent controls available for the next explicit revision.
+
+History exposes durable import counts separately from latest-stage state counts.
+Backend flags govern retry, effects review, recovery and Undo. A scoped retry
+uses the original processing service and gate, retaining completed proposals;
+publication journals keep their own recovery/Undo authority. Recovery failures
+persist with each effect, including later-edit Undo refusals. Returned summaries
+and history issues are bounded without truncating outcome counts. Applying and
+applied preview authority cannot be discarded.

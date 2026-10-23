@@ -34,7 +34,7 @@ export interface ImportFieldEffect {field:string;source:Json;local:Json;proposed
 export interface ImportPreviewEffect {external_id:string;item_id:string;kind:string;fields:ImportFieldEffect[]}
 export interface ImportPreviewPage {effects:ImportPreviewEffect[];total:number;next_cursor:string|null}
 export interface ImportApplyResult {operation_id:string;tracks_created:number;fields_changed:number;collections_changed:number;processing_requested:boolean}
-export interface ImportOperation {operation_id:string;source_id:string;state:string;created:number;updated:number;policy:ImportPolicy;result:ImportApplyResult;can_recover:boolean;can_undo:boolean}
+export interface ImportOperation {operation_id:string;source_id:string;state:string;created:number;updated:number;policy:ImportPolicy;result:ImportApplyResult;can_recover:boolean;can_undo:boolean;can_retry:boolean;can_review:boolean;stages:Record<string,number>;issues:{item_id:string;stage:string;state:string;message:string}[]}
 export interface ImportOperationQuery extends PageQuery {source_id?:string|null}
 export interface ImportOperationPage {records:ImportOperation[];total:number;next_cursor:string|null}
 export interface ImportEffectsPreview {preview_id:string;operation_id:string;ready:number;blocked:number;unchanged:number}

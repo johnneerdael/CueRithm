@@ -60,6 +60,7 @@ snake_case names in their Rust types. Every long command requires a caller-creat
 | `inspect_import_refresh` | `operationId,sourceId` | Fresh inspection |
 | `import_operation_page` | `query` | Redacted history page |
 | `run_import_processing` | `operationId` | Proposal-generation counts |
+| `retry_import_processing` | `operationId,id` (durable operation ID) | Incomplete-stage counts for that operation |
 | `preview_import_effects` | `operationId,id` (durable operation ID) | Separate effects review |
 | `import_effects_page` | `previewId,query` | Effects page |
 | `apply_import_effects` | `operationId,previewId` | Processing outcome counts |
@@ -105,3 +106,29 @@ errors use redacted messages. A stale preview requires a new inspection/review;
 restart invalidates uncommitted preview authority. Durable operation receipts
 remain idempotent. Recover/Undo still verify later local/source/media edits in
 the backend; UI action availability never bypasses those guards.
+
+
+## Refresh and operation history
+
+The import screen's History action lists durable imports and separate latest-stage
+counts. Refresh source starts a new inspection using the saved source binding;
+its last applied policy is shown for review. Editing choices and reviewing again
+creates an explicit policy revision. No Incoming settings are adopted. After a
+restart, local source access may need selecting again, including rekordbox key
+provisioning. A partial scan never authorizes deleting music.
+
+History exposes backend `can_retry`, `can_review`, `can_recover` and `can_undo`
+flags. Retry is scoped to one durable operation, retains completed proposals and
+runs only its incomplete authorized stages. Any effects publication journal,
+including an undone journal, prevents replay through Retry or a new effects
+preview. Recover and Undo use the original guarded journals. Cancellation remains
+an incomplete outcome.
+
+Stage counts describe the latest receipt for each item/stage; they are distinct
+from the immediate processor's processed/reused counts. History includes at most
+20 latest issue summaries per operation, each at most 1024 UTF-8 bytes, while
+counts remain complete. Recovery and Undo persist the last per-effect failure in
+the journal and bound returned summaries to 100. History pages account for those
+summaries within the existing byte limits. Applying/applied journal authority
+cannot be discarded. An effects preview requires completed or blocked generation,
+never pending/running processing.

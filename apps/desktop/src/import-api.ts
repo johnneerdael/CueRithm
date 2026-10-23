@@ -23,6 +23,7 @@ export const importApi={
  importedItem:(id:string)=>invoke<T.ImportedItemDetail>("imported_item",{id}),
  importedCollectionPage:(id:string,query:T.PageQuery={})=>invoke<T.ImportedCollectionPage>("imported_collection_page",{id,query}),
  runImportProcessing:(operationId:string)=>invoke<T.ImportProcessingSummary>("run_import_processing",{operationId}),
+ retryImportProcessing:(operationId:string,id:string)=>invoke<T.ImportProcessingSummary>("retry_import_processing",{operationId,id}),
  cancel:(operationId:string)=>invoke<boolean>("cancel_organization",{operationId}),
 };
 export type ImportBridge=typeof importApi;

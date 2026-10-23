@@ -53,10 +53,12 @@ impl Library {
             let mut journal: EffectJournal = serde_json::from_str(&journal)?;
             match self.publish_import_row(operation, &attempt, &row, &mut journal, cancel) {
                 Ok(()) => {
+                    journal.last_error = None;
                     self.save_import_journal(operation, &row.item, &attempt, "applied", &journal)?;
                     result.recovered += 1;
                 }
                 Err(e) => {
+                    journal.last_error = Some(bounded_error(&e.to_string()));
                     self.save_import_journal(
                         operation,
                         &row.item,
@@ -65,7 +67,11 @@ impl Library {
                         &journal,
                     )?;
                     result.recovery_required += 1;
-                    result.errors.push(format!("{}: {e:#}", row.item));
+                    if result.errors.len() < 100 {
+                        result
+                            .errors
+                            .push(bounded_error(&format!("{}: {e}", row.item)));
+                    }
                 }
             }
         }
@@ -176,6 +182,7 @@ impl Library {
                     Library::bump(&tx)?;
                 }
                 journal.undone = true;
+                journal.last_error = None;
                 tx.execute("UPDATE import_processing_receipts SET state='undone',receipt_json=?1,updated=?2 WHERE operation_id=?3 AND item_id=?4 AND stage='publication.effects' AND attempt=?5",params![serde_json::to_string(&journal)?,now(),operation,row.item,attempt])?;
                 tx.commit()?;
                 Ok(())
@@ -184,12 +191,25 @@ impl Library {
                 Ok(()) => result.undone += 1,
                 Err(e) => {
                     result.blocked += 1;
-                    result.errors.push(format!("{}: {e:#}", row.item));
+                    journal.last_error = Some(bounded_error(&e.to_string()));
+                    self.save_import_journal(operation, &row.item, &attempt, "applied", &journal)?;
+                    if result.errors.len() < 100 {
+                        result
+                            .errors
+                            .push(bounded_error(&format!("{}: {e}", row.item)));
+                    }
                 }
             }
         }
         Ok(result)
     }
+}
+pub(super) fn bounded_error(message: &str) -> String {
+    let mut end = message.len().min(1024);
+    while !message.is_char_boundary(end) {
+        end -= 1;
+    }
+    message[..end].to_owned()
 }
 fn write_active(
     conn: &Connection,

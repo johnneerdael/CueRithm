@@ -89,6 +89,65 @@ fn policy(field: AnalysisField, adoption: AnalysisAdoption) -> ImportPolicy {
     }
 }
 #[test]
+fn explicit_retry_retains_completed_proposals_and_never_replays_publication() {
+    let mut p = policy(AnalysisField::Energy, AnalysisAdoption::ReplaceSelected);
+    p.cue_generation = CueGeneration::Generate;
+    let (f, op, _) = setup(p, true);
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    let first = service.run_pending(&CancellationToken::default()).unwrap();
+    assert_eq!((first.processed, first.blocked), (1, 1));
+    let count = || {
+        f.lib.conn().unwrap().query_row("SELECT COUNT(*) FROM import_processing_receipts WHERE operation_id=?1 AND state='proposed'",[&op],|r|r.get::<_,u64>(0)).unwrap()
+    };
+    assert_eq!(count(), 1);
+    let retry = service
+        .retry_pending(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!((retry.processed, retry.blocked), (0, 1));
+    assert_eq!(count(), 1);
+    let history = f
+        .lib
+        .import_operation_page(ImportOperationQuery::default())
+        .unwrap();
+    assert_eq!(history.records[0].stages.get("blocked"), Some(&1));
+    assert!(history.records[0].can_retry && history.records[0].can_review);
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    let second_preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    assert!(
+        service
+            .retry_pending(&op, &CancellationToken::default())
+            .is_err()
+    );
+    f.lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    assert!(
+        service
+            .retry_pending(&op, &CancellationToken::default())
+            .is_err()
+    );
+    assert!(
+        f.lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .is_err()
+    );
+    assert!(
+        f.lib
+            .apply_import_effects(&second_preview.preview_id, &CancellationToken::default())
+            .is_err()
+    );
+}
+
+#[test]
 fn global_incoming_settings_cannot_change_import_policy() {
     let (f, op, id) = setup(
         policy(AnalysisField::Key, AnalysisAdoption::ReplaceSelected),

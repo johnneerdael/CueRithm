@@ -68,35 +68,58 @@ impl ImportProcessingService {
         cancel.check()
     }
     pub fn run_pending(&self, cancel: &CancellationToken) -> Result<ImportProcessingSummary> {
+        self.run_with_retry(None, cancel)
+    }
+    pub fn retry_pending(
+        &self,
+        operation: &str,
+        cancel: &CancellationToken,
+    ) -> Result<ImportProcessingSummary> {
+        self.run_with_retry(Some(operation), cancel)
+    }
+    fn run_with_retry(
+        &self,
+        operation: Option<&str>,
+        cancel: &CancellationToken,
+    ) -> Result<ImportProcessingSummary> {
         self.check(cancel)?;
         let _gate = self
             .gate
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         self.check(cancel)?;
+        if let Some(operation) = operation {
+            let conn = self.library.conn()?;
+            ensure!(!conn.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects')",[operation],|r|r.get::<_,bool>(0))?,"Published effects cannot be retried; use recovery or Undo");
+            ensure!(conn.execute("UPDATE import_operations SET state='processing_pending',updated=?1 WHERE id=?2 AND state IN ('processing_pending','processing_running','processing_blocked','processing_failed','processing_cancelled')",params![now(),operation])?==1,"No retryable import operation");
+        }
         *self
             .active
             .lock()
             .map_err(|_| anyhow::anyhow!("Import cancellation interrupted"))? =
             Some(cancel.clone());
-        let result = self.run_locked(cancel);
+        let result = self.run_locked(cancel, operation);
         *self
             .active
             .lock()
             .map_err(|_| anyhow::anyhow!("Import cancellation interrupted"))? = None;
         result
     }
-    fn run_locked(&self, cancel: &CancellationToken) -> Result<ImportProcessingSummary> {
+    fn run_locked(
+        &self,
+        cancel: &CancellationToken,
+        only: Option<&str>,
+    ) -> Result<ImportProcessingSummary> {
         let mut summary = ImportProcessingSummary::default();
         // The shared gate proves there is no live generator. A crashed/panicked
         // proposal attempt has no published effects and may be safely retried.
-        self.library.conn()?.execute("UPDATE import_processing_receipts SET state='abandoned',updated=?1 WHERE state='running'",[now()])?;
+        self.library.conn()?.execute("UPDATE import_processing_receipts SET state='abandoned',updated=?1 WHERE state='running' AND (?2 IS NULL OR operation_id=?2)",params![now(),only])?;
         let mut after = 0i64;
         loop {
             self.check(cancel)?;
             let operation: Option<(i64, String, String, String, String)> = {
                 let conn = self.library.conn()?;
-                conn.query_row("SELECT o.rowid,o.id,o.policy_id,p.json,p.id FROM import_operations o JOIN import_previews p ON p.id=o.preview_id WHERE o.state IN ('processing_pending','processing_running') AND o.rowid>?1 ORDER BY o.rowid LIMIT 1",[after],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?
+                conn.query_row("SELECT o.rowid,o.id,o.policy_id,p.json,p.id FROM import_operations o JOIN import_previews p ON p.id=o.preview_id WHERE o.state IN ('processing_pending','processing_running') AND o.rowid>?1 AND (?2 IS NULL OR o.id=?2) ORDER BY o.rowid LIMIT 1",params![after,only],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?
             };
             let Some((rowid, operation_id, policy_id, raw, preview_id)) = operation else {
                 break;

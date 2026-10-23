@@ -622,3 +622,16 @@ for optional original-media file operations and whole-system acceptance remain
 Task 22 gates. Refresh/history UI and final documentation/review remain pending.
 
 Validation for this stage: 111 matched library tests, 527 SDK tests (three explicitly ignored), 23 targeted frontend tests and 118 existing frontend regression tests passed. Frontend production build, changed-package all-target release Clippy with warnings denied, formatting and diff checks passed. These are authored fixture/generated-media checks; native application/device acceptance remains unrun.
+
+
+## Refresh, history and recovery controls
+
+Desktop fixtures cover saved-policy refresh, unchanged refresh, partial scans,
+local conflict defaults, custom values requiring a new preview, stale preview
+rescan, cancellation, blocked provider credentials and backend recovery/Undo
+refusals. Shared service witnesses exercise scoped retry retaining completed
+proposals, durable later-edit diagnostics, issue bounds and disallowing effects
+review while generation is pending/running. These controls do not establish
+native source-app/device write acceptance.
+
+This stage passes 115 matched library checks, 31 frontend import checks, production frontend build, type checking and changed-package all-target release Clippy with warnings denied. A two-preview/apply/Undo witness caught and fixed replay through the older preview. Formatting/diff checks pass. Final whole-workspace/desktop checks and fresh branch review remain Task 23 gates.

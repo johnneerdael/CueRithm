@@ -56,6 +56,8 @@ pub(super) struct EffectRow {
 }
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub(super) struct EffectJournal {
+    #[serde(default)]
+    pub last_error: Option<String>,
     pub local_applied: bool,
     pub tag_batch: Option<String>,
     pub organization_batch: Option<String>,
@@ -90,9 +92,21 @@ impl Library {
         cancel: &CancellationToken,
     ) -> Result<ImportEffectsPreview> {
         cancel.check()?;
+        let gate = self
+            .inner
+            .import_runtime
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
+            .processing_gate
+            .clone();
+        let _gate = gate
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        cancel.check()?;
         let (source,snapshot,policy,meta):(String,String,String,String)=self.conn()?.query_row("SELECT o.source_id,p.snapshot_id,o.policy_id,p.json FROM import_operations o JOIN import_previews p ON p.id=o.preview_id WHERE o.id=?1",[operation],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
         let meta: PreviewMeta = serde_json::from_str(&meta)?;
-        ensure!(!self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects' AND state IN ('applying','applied','recovery_required'))",[operation],|r|r.get::<_,bool>(0))?,"Effects already applied or require recovery");
+        ensure!(!self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects')",[operation],|r|r.get::<_,bool>(0))?,"Effects already published or require recovery; completed fields cannot be replayed");
+        ensure!(!self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND state='running') OR EXISTS(SELECT 1 FROM import_operations WHERE id=?1 AND state IN ('processing_running','processing_pending'))",[operation],|r|r.get::<_,bool>(0))?,"Processing is still running or pending; complete or retry generation before effects review");
         let id = uuid::Uuid::new_v4().to_string();
         let mut summary = ImportEffectsPreview {
             preview_id: id.clone(),
@@ -322,6 +336,7 @@ impl Library {
         if state == "effects_applied" {
             return self.import_effect_result(id);
         }
+        ensure!(!self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND stage='publication.effects')",[&summary.operation_id],|r|r.get::<_,bool>(0))?,"Effects already have a publication journal; use guarded recovery or Undo instead of another preview");
         ensure!(
             state == "effects_ready",
             "Effects preview unavailable; recover interrupted publication"

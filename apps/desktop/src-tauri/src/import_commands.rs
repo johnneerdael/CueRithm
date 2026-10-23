@@ -375,6 +375,21 @@ pub async fn run_import_processing(
     .await
 }
 
+#[tauri::command]
+pub async fn retry_import_processing(
+    host: Managed<'_>,
+    app: tauri::AppHandle,
+    operation_id: String,
+    id: String,
+) -> Ipc<ImportProcessingSummary> {
+    run(
+        host.inner().clone(),
+        Some(app),
+        operation_id,
+        move |host, cancel| host.import_processing.retry_pending(&id, cancel),
+    )
+    .await
+}
 #[cfg(test)]
 mod tests {
     use super::*;
