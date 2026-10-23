@@ -12,6 +12,55 @@ pub(super) struct FileProof {
     pub state: MaintenanceFileState,
     pub hash: Option<String>,
 }
+/// A file as it was when its hash was taken: the hash, and what identifies the physical file and
+/// its state, read from the same open file the hash came from. The Trash and permanent deletion
+/// act on a path, so before they run the path is checked against this: it must still lead to this
+/// very file (same device and inode, or the Windows file id), with the same size and modification
+/// time. A file swapped in under the same name is another file and fails the check.
+pub(super) struct HashedFile {
+    pub hash: String,
+    handle: same_file::Handle,
+    size: u64,
+    modified: Option<std::time::SystemTime>,
+}
+impl HashedFile {
+    pub(super) fn open(path: &Path) -> std::io::Result<Self> {
+        use sha2::{Digest, Sha256};
+        use std::io::Read;
+        let mut file = std::fs::File::open(path)?;
+        let before = file.metadata()?;
+        let handle = same_file::Handle::from_file(file.try_clone()?)?;
+        let mut hasher = Sha256::new();
+        let mut buffer = vec![0u8; 1 << 16];
+        loop {
+            let n = file.read(&mut buffer)?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buffer[..n]);
+        }
+        let after = file.metadata()?;
+        if before.len() != after.len() || before.modified().ok() != after.modified().ok() {
+            return Err(std::io::Error::other("The file changed while it was read"));
+        }
+        Ok(Self {
+            hash: format!("{:x}", hasher.finalize()),
+            handle,
+            size: before.len(),
+            modified: before.modified().ok(),
+        })
+    }
+    pub(super) fn same_file_as(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+    /// The path still leads to the file that was hashed, as a regular file, unchanged.
+    pub(super) fn still_at(&self, path: &Path) -> bool {
+        current_state(path).is_available()
+            && same_file::Handle::from_path(path).is_ok_and(|now| now == self.handle)
+            && std::fs::metadata(path)
+                .is_ok_and(|meta| meta.len() == self.size && meta.modified().ok() == self.modified)
+    }
+}
 pub(super) fn resolved_prefix(path: &Path) -> Result<PathBuf> {
     for ancestor in path.ancestors() {
         match ancestor.canonicalize() {
@@ -162,4 +211,47 @@ pub(super) fn ensure_available(conn: &Connection, ids: &BTreeSet<String>) -> Res
             String::new()
         }
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_hashed_file_is_recognised_only_while_the_path_leads_to_the_same_unchanged_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a.wav");
+        std::fs::write(&path, b"the audio bytes").unwrap();
+        let hashed = HashedFile::open(&path).unwrap();
+        assert_eq!(hashed.hash.len(), 64);
+        assert!(hashed.still_at(&path));
+        // Another file of the same size and time under the same name is not the hashed file.
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        let other = dir.path().join("other.tmp");
+        std::fs::write(&other, b"different bytes").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&other)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+        std::fs::rename(&other, &path).unwrap();
+        assert!(!hashed.still_at(&path));
+        // A file that is edited in place, or gone, is not it either.
+        let again = HashedFile::open(&path).unwrap();
+        assert!(again.still_at(&path));
+        std::fs::write(&path, b"grown bytes in place").unwrap();
+        assert!(!again.still_at(&path));
+        std::fs::remove_file(&path).unwrap();
+        assert!(!again.still_at(&path));
+        // The same file under a second name is the same file.
+        let linked = dir.path().join("b.wav");
+        std::fs::write(&path, b"x").unwrap();
+        std::fs::hard_link(&path, &linked).unwrap();
+        let (first, second) = (
+            HashedFile::open(&path).unwrap(),
+            HashedFile::open(&linked).unwrap(),
+        );
+        assert!(first.same_file_as(&second));
+    }
 }

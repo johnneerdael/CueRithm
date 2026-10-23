@@ -2,7 +2,7 @@
 use super::{
     deletion,
     donor_state::{self, TrackImage},
-    files::{current_state, ensure_available},
+    files::{HashedFile, current_state, ensure_available},
     merge::{self, SavedPreview},
     purge, track_removal, undo_window, *,
 };
@@ -19,9 +19,8 @@ use cuerithm_autotag::{
     TagWritePlan, TransferPatch, TransferSnapshot,
 };
 use cuerithm_maintenance::{MergeDisposition, MergePlan};
-use cuerithm_media::{CancellationToken, MediaRuntime, file_sha256_cancellable};
+use cuerithm_media::{CancellationToken, MediaRuntime};
 use rusqlite::{TransactionBehavior, params};
-use same_file::Handle;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -956,48 +955,68 @@ impl DuplicateMergeService {
         if !current_state(&keeper).is_available() {
             return Err(unavailable("The kept track's file is no longer available."));
         }
-        match (Handle::from_path(&path), Handle::from_path(&keeper)) {
-            (Ok(a), Ok(b)) if a != b => {}
-            _ => {
-                return Err((
-                    DuplicateSkipReason::SameFileAsKeeper,
-                    "This is the kept track's file.".into(),
-                ));
-            }
+        let keeper_changed = || {
+            (
+                DuplicateSkipReason::FileChanged,
+                "The kept track's file changed after it was verified.".to_owned(),
+            )
+        };
+        let file_changed = || {
+            (
+                DuplicateSkipReason::FileChanged,
+                "The file changed after it was verified.".to_owned(),
+            )
+        };
+        // The file that is supposed to keep the audio, first: it must still be what the deletion
+        // was approved against, or what a donor copy made of it.
+        let kept = HashedFile::open(&keeper)
+            .ok()
+            .filter(|kept| kept.hash == keeper_sha256)
+            .ok_or_else(keeper_changed)?;
+        // Then the copy. Its hash is taken through one open file, which also gives the identity
+        // that the Trash call is checked against.
+        let copy = HashedFile::open(&path)
+            .ok()
+            .filter(|copy| copy.hash == file.sha256)
+            .ok_or_else(file_changed)?;
+        if copy.same_file_as(&kept) {
+            return Err((
+                DuplicateSkipReason::SameFileAsKeeper,
+                "This is the kept track's file.".into(),
+            ));
         }
-        match file_sha256_cancellable(&path, &CancellationToken::default()) {
-            Ok(hash) if hash == file.sha256 => {}
-            _ => {
-                return Err((
-                    DuplicateSkipReason::FileChanged,
-                    "The file changed after it was verified.".into(),
-                ));
-            }
+        #[cfg(test)]
+        if let Some(hook) = self.hook {
+            hook("verified");
         }
-        // Last of all, the file that is supposed to keep the audio. The candidate's hash above can
-        // take long, and the kept track's file may have been replaced or edited meanwhile; the
-        // copy must not go if the survivor is no longer what the deletion was approved against.
-        match file_sha256_cancellable(&keeper, &CancellationToken::default()) {
-            Ok(hash) if hash == keeper_sha256 => {}
-            _ => {
-                return Err((
-                    DuplicateSkipReason::FileChanged,
-                    "The kept track's file changed after it was verified.".into(),
-                ));
+        // The Trash and the permanent deletion take a path. Immediately before each, both files
+        // must still be the very files that were hashed: the copy has not been swapped for another
+        // file under its name, and the survivor has not been replaced or edited since.
+        let still = || {
+            if !copy.still_at(&path) {
+                Err(file_changed())
+            } else if !kept.still_at(&keeper) {
+                Err(keeper_changed())
+            } else {
+                Ok(())
             }
-        }
+        };
+        still()?;
         match self.trash.move_to_trash(&path) {
             Ok(()) => Ok(Disposal::Trashed),
-            Err(reason) if file.permanent => self
-                .trash
-                .delete_permanently(&path)
-                .map(|()| Disposal::Permanent)
-                .map_err(|error| {
-                    (
-                        DuplicateSkipReason::TrashFailed,
-                        format!("{reason}; permanent deletion also failed: {error}"),
-                    )
-                }),
+            Err(reason) if file.permanent => {
+                // The Trash took its time and refused; the file may have changed meanwhile.
+                still()?;
+                self.trash
+                    .delete_permanently(&path)
+                    .map(|()| Disposal::Permanent)
+                    .map_err(|error| {
+                        (
+                            DuplicateSkipReason::TrashFailed,
+                            format!("{reason}; permanent deletion also failed: {error}"),
+                        )
+                    })
+            }
             Err(reason) => Err((DuplicateSkipReason::TrashFailed, reason)),
         }
     }
@@ -1634,6 +1653,156 @@ mod tests {
             "its record stays in the library"
         );
         assert!(!lib.track(&removed).unwrap().archived);
+    }
+    static SWAP_CANDIDATE: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+    /// Replaces the file at the path, as another program could, with a different file of the same
+    /// size and modification time (so only the file's identity gives the swap away).
+    fn replace_file(path: &std::path::Path) {
+        let meta = std::fs::metadata(path).unwrap();
+        let temp = path.with_extension("swap");
+        std::fs::write(&temp, vec![0xA5u8; meta.len() as usize]).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&temp)
+            .unwrap()
+            .set_modified(meta.modified().unwrap())
+            .unwrap();
+        std::fs::rename(&temp, path).unwrap();
+    }
+    fn swap_candidate(phase: &str) {
+        if phase == "verified"
+            && let Some(path) = SWAP_CANDIDATE.lock().unwrap().clone()
+        {
+            replace_file(&path);
+        }
+    }
+    /// The Trash refuses the file after swapping it, so the permanent fallback runs.
+    struct SwapThenRefuse(PathBuf);
+    impl FileTrash for SwapThenRefuse {
+        fn can_trash(&self, _: &std::path::Path) -> bool {
+            false
+        }
+        fn move_to_trash(&self, _: &std::path::Path) -> std::result::Result<(), String> {
+            replace_file(&self.0);
+            Err("The Trash refused the file".into())
+        }
+        fn delete_permanently(&self, path: &std::path::Path) -> std::result::Result<(), String> {
+            panic!("{} must not be deleted permanently", path.display());
+        }
+    }
+    /// The duplicate that a Delete from disk preview lists, and where it is.
+    fn listed_duplicate(ready: &DeleteReady) -> (String, PathBuf) {
+        let listed = ready.preview.deletion.as_ref().unwrap().files.clone();
+        assert_eq!(listed.len(), 1);
+        let removed = listed[0].track_id.clone();
+        let path = if removed == ready.ids[1] {
+            ready.duplicate.clone()
+        } else {
+            ready.paths_zero.clone()
+        };
+        (removed, path)
+    }
+    fn assert_replacement_survived(
+        result: &DuplicateMergeResult,
+        lib: &Library,
+        removed: &str,
+        path: &std::path::Path,
+    ) {
+        assert!(result.removed_ids.is_empty() && result.trashed.is_empty());
+        assert!(result.permanently_deleted.is_empty());
+        assert_eq!(result.not_deleted.len(), 1);
+        assert_eq!(
+            result.not_deleted[0].reason,
+            DuplicateSkipReason::FileChanged
+        );
+        assert_eq!(
+            result.not_deleted[0].detail.as_deref(),
+            Some("The file changed after it was verified.")
+        );
+        assert!(
+            std::fs::read(path).unwrap().iter().all(|b| *b == 0xA5),
+            "the replacement is untouched"
+        );
+        assert!(lib.track(removed).is_ok(), "its record stays");
+    }
+    #[test]
+    fn a_file_swapped_after_it_was_verified_is_not_trashed() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        *SWAP_CANDIDATE.lock().unwrap() = Some(path.clone());
+        let mut service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            Arc::new(MustNotRun),
+        );
+        service.hook = Some(swap_candidate);
+        let result = service.apply_confirmed(&ready.preview.id, true, &ready.token);
+        *SWAP_CANDIDATE.lock().unwrap() = None;
+        assert_replacement_survived(&result.unwrap(), &ready.lib, &removed, &path);
+    }
+    #[test]
+    fn a_file_swapped_while_the_trash_refuses_it_is_not_deleted_permanently() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let trash = Arc::new(SwapThenRefuse(path.clone()));
+        // The preview names the file as one the Trash cannot take, so it may be deleted for good,
+        // but only the file that was verified.
+        let preview = ready
+            .lib
+            .preview_duplicate_merge_choice_with(
+                &ready.preview.review_id,
+                ready.preview.review_revision,
+                vec![ready.preview.plan.groups[0].group_id.clone()],
+                Some(MergeDisposition::Delete),
+                &*trash,
+                &ready.token,
+            )
+            .unwrap();
+        assert!(preview.deletion.as_ref().unwrap().files[0].permanent);
+        let service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            trash.clone(),
+        );
+        let result = service
+            .apply_confirmed(&preview.id, true, &ready.token)
+            .unwrap();
+        assert_replacement_survived(&result, &ready.lib, &removed, &path);
+    }
+    static SWAP_KEEPER: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+    fn swap_keeper(phase: &str) {
+        if phase == "verified"
+            && let Some(path) = SWAP_KEEPER.lock().unwrap().clone()
+        {
+            replace_file(&path);
+        }
+    }
+    #[test]
+    fn a_kept_file_swapped_after_it_was_verified_keeps_the_copy() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let keeper_path = if path == ready.duplicate {
+            ready.paths_zero.clone()
+        } else {
+            ready.duplicate.clone()
+        };
+        *SWAP_KEEPER.lock().unwrap() = Some(keeper_path.clone());
+        let mut service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            Arc::new(MustNotRun),
+        );
+        service.hook = Some(swap_keeper);
+        let result = service.apply_confirmed(&ready.preview.id, true, &ready.token);
+        *SWAP_KEEPER.lock().unwrap() = None;
+        let result = result.unwrap();
+        assert!(result.removed_ids.is_empty() && result.trashed.is_empty());
+        assert_eq!(result.not_deleted.len(), 1);
+        assert_eq!(
+            result.not_deleted[0].detail.as_deref(),
+            Some("The kept track's file changed after it was verified.")
+        );
+        assert!(path.exists() && ready.lib.track(&removed).is_ok());
     }
     /// A Trash that really moves the file, into a folder of the test.
     struct MovesAside(PathBuf);

@@ -134,12 +134,16 @@ files. A delete merge moves files to the Trash only through the
 Windows, the freedesktop.org Trash on Linux). It deletes permanently only a file the
 preview announced as `permanent`, after the Trash refused it; any other file the Trash
 cannot take stays with its record and is reported per file.
-Before each file moves, the availability, SHA-256 and identity proof are checked
-again, then the kept track's file is hashed once more as the very last step (`keeper_sha256`
-in the preview names what it was approved against, or what a donor copy made of it): a
-duplicate stays, with the reason *The kept track's file changed after it was verified.*, when
-the survivor was replaced or edited meanwhile. The library records only the files that
-really moved. If the library
+Before each file moves, its availability is checked again. The kept track's file is hashed
+and must still be what the deletion was approved against (`keeper_sha256` in the preview, or
+what a donor copy made of it); then the copy is hashed through one open file, which also gives
+its identity (device and inode, or the Windows file id, with size and modification time).
+Immediately before the Trash call, and again before a permanent deletion, both paths must still
+lead to those very files, unchanged. A copy swapped in under its name keeps the duplicate with
+*The file changed after it was verified.*, and a survivor that was replaced or edited keeps it
+with *The kept track's file changed after it was verified.* The Trash and permanent deletion act
+on a path, so the check and the call are not one atomic step: a change in that instant is not
+excluded. The library records only the files that really moved. If the library
 commit fails after files were moved, the operation is rolled back and its error
 lists the files that are already in the Trash; their records were kept, so they
 appear in Missing & broken. A restart after an interruption lists the same files.
