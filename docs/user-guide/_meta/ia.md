@@ -88,16 +88,17 @@ fixes). Page text refers to these playlists by exact name:
 ## Describing released behaviour; pending product changes
 
 The guide describes the **released** app (0.1.14 plus current `main` where verified) and
-marks each gap with a clearly labelled note, never as available. Three unreleased
-changes are being built on separate branches from `main`:
+marks each gap with a clearly labelled note, never as available. Two unreleased
+changes are being built on separate branches from `main`, and the roadmap lists more:
 
 1. Duplicates never include files that do not exist; the merge offers *Delete from disk*
    (Trash) or *Archive only* (`fix/duplicates-skip-missing-files`).
 2. Missing & broken can remove stale library records and relink by content hash, and moves
    inside a watch folder are tracked (`feat/track-watch-folder-moves`). The roadmap lists
    "Reconnect moved music" as in development.
-3. Everything on the roadmap's "In development" list (DJ-library import, portable
-   `.cuerithm` backup, Lexicon migration) is planned, never available.
+
+Everything on the roadmap's "In development" list (DJ-library import, portable
+`.cuerithm` backup, Lexicon migration) is planned, never available.
 
 When a change ships, update the pages that carry a `!!! warning "CueRithm 0.1.14"` note
 (`files/library/find-duplicates.md`, `files/library/find-missing-files.md`,
