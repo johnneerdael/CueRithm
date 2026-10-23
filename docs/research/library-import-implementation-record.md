@@ -45,3 +45,7 @@ Additional execution decisions:
 
 - ObservationSink now transports raw bytes through `put_blob(bytes, media_type) -> BlobRef`. References alone could not preserve payloads. Every sink must implement storage; actual blob read-back is tested.
 - Backup schema inspection accepts version 29; strict same-schema restore and integrity guards remain intact. Source hashing runs outside the main library transaction, and row/blob transfer checks cancellation between bounded batches. Preview/apply must revalidate the captured source before authorizing changes.
+
+## Imported item projection
+
+Task 4 exposes selected fields without preparation, retains unchecked raw observations, preserves repeated source occurrences and explicit unselected member references, and blocks unqualified outbound items with a capability reason. Missing items can be archived without media access. Eight projection checks pass, including generated WAV playback/waveform decoding without field adoption or jobs. A failing Unicode search witness led to Rust Unicode indexing for linked native tracks without splitting artist names. Existing playlists/tools/playback checks passed 25 tests with one device-only ignore; frontend typecheck and all-target Clippy passed. Private projection helpers are temporarily annotated until their Task 5 preview-service consumers land.

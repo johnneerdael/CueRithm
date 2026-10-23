@@ -123,9 +123,9 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
         "[]".into()
     };
     let condition = match (&query.view, scoped) {
-        (TrackView::Tracks, false) => "t.state='ready' AND t.archived=0",
+        (TrackView::Tracks, false) => "t.state IN ('ready','imported') AND t.archived=0",
         (TrackView::Tracks, true) => {
-            "(t.state='ready' OR (t.state='incoming' AND s.incoming=1)) AND (t.archived=0 OR s.archive=1)"
+            "(t.state IN ('ready','imported') OR (t.state='incoming' AND s.incoming=1)) AND (t.archived=0 OR s.archive=1)"
         }
         (TrackView::Incoming, _) => "t.state='incoming' AND t.archived=0",
         (TrackView::Archive, _) => "t.archived=1",
@@ -147,9 +147,9 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
     Ok(SqlQuery {
         scope,
         source: if scoped {
-            "tracks t JOIN scope s ON s.id=t.id"
+            "library_tracks t JOIN scope s ON s.id=t.id"
         } else {
-            "tracks t"
+            "library_tracks t"
         },
         condition: format!(
             "{condition} AND instr(t.search_text,:needle)>0 AND ({})",
@@ -166,22 +166,27 @@ fn build(conn: &Connection, query: &TrackQuery) -> Result<SqlQuery> {
         offset,
     })
 }
-const CTE: &str = "WITH scope AS (SELECT json_extract(value,'$.id') id,CAST(key AS INTEGER) ordinal,json_extract(value,'$.archive') archive,json_extract(value,'$.incoming') incoming FROM json_each(:scope))";
+const SCOPE_CTE: &str = "WITH scope AS (SELECT json_extract(value,'$.id') id,CAST(key AS INTEGER) ordinal,json_extract(value,'$.archive') archive,json_extract(value,'$.incoming') incoming FROM json_each(:scope))";
 pub(crate) fn tracks(lib: &Library, query: TrackQuery) -> Result<TrackPage> {
+    let cte = format!(
+        "{SCOPE_CTE}, {}",
+        crate::import::projection::LIBRARY_TRACKS_CTE
+    );
     let conn = lib.conn()?;
     let sql = build(&conn, &query)?;
     let total: u64 = conn.query_row(
         &format!(
-            "{CTE} SELECT COUNT(*) FROM {} WHERE {}",
+            "{cte} SELECT COUNT(*) FROM {} WHERE {}",
             sql.source, sql.condition
         ),
         named_params! {":scope":sql.scope,":needle":sql.needle,":curation":sql.curation},
         |r| r.get(0),
     )?;
-    let mut q=conn.prepare(&format!("{CTE} SELECT t.id,t.path,t.title,t.artist,t.album,t.genre,t.state,t.musical_key,t.bpm,t.energy,t.duration,t.source_hash,t.metadata_json,t.created,t.updated,t.archived,json_extract(t.tagging_json,'$.status') FROM {} WHERE {} ORDER BY {} LIMIT :limit OFFSET :offset",sql.source,sql.condition,sql.order))?;
+    let mut q=conn.prepare(&format!("{cte} SELECT t.id,t.path,t.title,t.artist,t.album,t.genre,t.state,t.musical_key,t.bpm,t.energy,t.duration,t.source_hash,t.metadata_json,t.created,t.updated,t.archived,json_extract(t.tagging_json,'$.status') FROM {} WHERE {} ORDER BY {} LIMIT :limit OFFSET :offset",sql.source,sql.condition,sql.order))?;
     let mut rows=q.query_map(named_params!{":scope":sql.scope,":needle":sql.needle,":curation":sql.curation,":limit":query.limit,":offset":sql.offset},crate::store::summary_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
     for row in &mut rows {
         crate::curation::project_summary(&conn, row)?;
+        crate::import::projection::decorate_summary(&conn, row)?;
     }
     let next = sql.offset + rows.len() as u64;
     Ok(TrackPage {
@@ -192,10 +197,14 @@ pub(crate) fn tracks(lib: &Library, query: TrackQuery) -> Result<TrackPage> {
     })
 }
 pub(crate) fn track_ids(lib: &Library, query: TrackQuery) -> Result<Vec<String>> {
+    let cte = format!(
+        "{SCOPE_CTE}, {}",
+        crate::import::projection::LIBRARY_TRACKS_CTE
+    );
     let conn = lib.conn()?;
     let sql = build(&conn, &query)?;
     let mut q = conn.prepare(&format!(
-        "{CTE} SELECT t.id FROM {} WHERE {} ORDER BY {}",
+        "{cte} SELECT t.id FROM {} WHERE {} ORDER BY {}",
         sql.source, sql.condition, sql.order
     ))?;
     Ok(q.query_map(

@@ -451,26 +451,26 @@ impl Library {
         crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        let conn = self.conn()?;
-        let mut track = conn.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,json_extract(tagging_json,'$.status') FROM tracks WHERE id=?1",[id],summary_row)?;
-        crate::curation::project_summary(&conn, &mut track)?;
-        Ok(track)
+        crate::import::projection::track_summary_tx(&*self.conn()?, id)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
-        Ok(self
-            .conn()?
-            .query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
-                r.get(0)
-            })?)
+        Ok(self.conn()?.query_row("SELECT source_hash FROM tracks WHERE id=?1 UNION ALL SELECT COALESCE(source_hash,'') FROM import_items WHERE id=?1 LIMIT 1", [id], |r| r.get(0))?)
     }
     pub fn counts(&self) -> Result<LibraryCounts> {
-        Ok(self.conn()?.query_row("SELECT COUNT(CASE WHEN state='ready' AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM tracks",[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
+        Ok(self.conn()?.query_row(&format!("WITH {} SELECT COUNT(CASE WHEN state IN ('ready','imported') AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM library_tracks",crate::import::projection::LIBRARY_TRACKS_CTE),[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
     }
     pub fn track_path(&self, id: &str) -> Result<PathBuf> {
-        let bytes: Vec<u8> =
-            self.conn()?
-                .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))?;
-        bytes_path(&bytes)
+        let conn = self.conn()?;
+        if let Some(bytes) = conn
+            .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| {
+                r.get::<_, Vec<u8>>(0)
+            })
+            .optional()?
+        {
+            return bytes_path(&bytes);
+        }
+        crate::import::projection::imported_path(&conn, id)?
+            .context("Imported media is unavailable; resolve its source location before playback")
     }
     pub fn analysis(&self, id: &str) -> Result<Option<camelot_core::FileAnalysis>> {
         let text: Option<String> = self
@@ -492,6 +492,9 @@ impl Library {
     }
 
     pub fn set_archived(&self, id: &str, archived: bool) -> Result<()> {
+        if self.archive_imported_reference(id, archived)? {
+            return Ok(());
+        }
         let current: bool =
             self.conn()?
                 .query_row("SELECT archived FROM tracks WHERE id=?1", [id], |r| {
@@ -567,14 +570,19 @@ impl Library {
 }
 
 pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
-    let path: Vec<u8> = r.get(1)?;
-    let path = bytes_path(&path).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            1,
-            rusqlite::types::Type::Blob,
-            e.into_boxed_dyn_error(),
-        )
-    })?;
+    let path: Option<Vec<u8>> = r.get(1)?;
+    let path = path
+        .map(|path| {
+            bytes_path(&path).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    1,
+                    rusqlite::types::Type::Blob,
+                    e.into_boxed_dyn_error(),
+                )
+            })
+        })
+        .transpose()?
+        .unwrap_or_default();
     let mut metadata: std::collections::BTreeMap<String, serde_json::Value> = r
         .get::<_, Option<String>>(12)?
         .and_then(|s| serde_json::from_str::<cuerithm_media::MediaInfo>(&s).ok())
@@ -586,6 +594,7 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
         metadata.insert("library.tag_status".into(), status.into());
     }
     Ok(TrackSummary {
+        import_state: None,
         metadata,
         id: r.get(0)?,
         source_sha256: r.get(11)?,

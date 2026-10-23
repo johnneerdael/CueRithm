@@ -93,3 +93,51 @@ impl Default for ImportRuntime {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedItemState {
+    pub source_ids: Vec<String>,
+    pub availability: String,
+    pub analysis_state: String,
+    pub playback_allowed: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedTrackObservation {
+    pub source_id: String,
+    pub external_id: String,
+    pub snapshot_id: String,
+    pub track: TrackObservation,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedItemDetail {
+    pub id: String,
+    pub active_fields: BTreeMap<String, serde_json::Value>,
+    pub provenance: BTreeMap<String, serde_json::Value>,
+    pub observations: Vec<ImportedTrackObservation>,
+    pub availability: String,
+    pub analysis_state: String,
+    pub playback_allowed: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportExportReadiness {
+    pub ready: bool,
+    pub reasons: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedOccurrence {
+    pub occurrence_id: String,
+    pub item_id: Option<String>,
+    pub source_track_id: String,
+    pub source_position: Option<i64>,
+    pub position: u64,
+    pub track: Option<crate::TrackSummary>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedCollectionPage {
+    pub id: String,
+    pub ordered: bool,
+    pub kind: CollectionKind,
+    pub rows: Vec<ImportedOccurrence>,
+    pub total: u64,
+    pub next_cursor: Option<String>,
+}

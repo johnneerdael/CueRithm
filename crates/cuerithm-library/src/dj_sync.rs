@@ -55,6 +55,19 @@ impl Library {
             !matches!(scope, DjSyncScope::Changed),
             "Changed scope requires a target baseline; use preview_dj_sync"
         );
+        if let DjSyncScope::Modified { track_ids } = &scope {
+            for id in track_ids {
+                let imported = self.conn()?.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+                    [id],
+                    |r| r.get::<_, bool>(0),
+                )?;
+                if imported {
+                    let readiness = self.import_export_readiness(id)?;
+                    ensure!(readiness.ready, "{}", readiness.reasons.join("; "));
+                }
+            }
+        }
         let (raw, mut playlists) = {
             // Keep one coherent DB snapshot, then release the library mutex before
             // parsing the potentially large per-track analysis JSON.

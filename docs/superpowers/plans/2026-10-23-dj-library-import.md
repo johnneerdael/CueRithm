@@ -119,11 +119,11 @@ All import types are re-exported from `cuerithm_dj_sync::import`; all library se
 
 Add serde-defaulted `TrackSummary.import_state: Option<ImportedItemState>` and matching optional `Track.import_state` in desktop `types.ts`. `ImportedItemState` contains source IDs, availability, analysis state and playback permission; absent means existing library behavior. Imported collection pages include occurrence IDs independently of track IDs so row identity survives repeated membership.
 
-- [ ] Write `unavailable_import_visible_without_audio_or_jobs`, `unchecked_new_fields_remain_provenance_only`, `existing_unchecked_fields_are_unchanged`, and `imported_collections_preserve_occurrences`. Assert metadata visible with missing/streaming media, zero preparation/analysis rows, null unselected active values, A/B/A order, same-time memory+hot cues, unordered crate marked unordered, and unanalysed export blocked with a specific capability reason.
-- [ ] Run `cargo test -p cuerithm-library import::tests::projection`; expect missing API failure.
-- [ ] Implement query projections, source-native occurrence pages and imported/unanalysed/unavailable states. Reuse existing playback decoding for resolved supported media lazily, preserving imported musical fields. Keep immutable playback snapshots stable across refresh. Outbound eligibility must examine required active data/clock evidence explicitly; never fabricate completed preparation or measured `FileAnalysis`.
-- [ ] Rerun projection tests plus existing manual-playlist/playback/output tests; expect manual playlist dedup semantics unchanged and imported repeated occurrences intact.
-- [ ] Commit `feat: expose imported library items without automatic preparation`.
+- [x] Write `unavailable_import_visible_without_audio_or_jobs`, `unchecked_new_fields_remain_provenance_only`, `existing_unchecked_fields_are_unchanged`, and `imported_collections_preserve_occurrences`. Assert metadata visible with missing/streaming media, zero preparation/analysis rows, null unselected active values, A/B/A order, same-time memory+hot cues, unordered crate marked unordered, and unanalysed export blocked with a specific capability reason.
+- [x] Run `cargo test -p cuerithm-library import::tests::projection`; expect missing API failure.
+- [x] Implement query projections, source-native occurrence pages and imported/unanalysed/unavailable states. Reuse existing playback decoding for resolved supported media lazily, preserving imported musical fields. Keep immutable playback snapshots stable across refresh. Outbound eligibility must examine required active data/clock evidence explicitly; never fabricate completed preparation or measured `FileAnalysis`.
+- [x] Rerun projection tests plus existing manual-playlist/playback/output tests; expect manual playlist dedup semantics unchanged and imported repeated occurrences intact.
+- [x] Commit `feat: expose imported library items without automatic preparation`.
 
 ### Task 5: Immutable preview, initial conflicts and three-way refresh
 
