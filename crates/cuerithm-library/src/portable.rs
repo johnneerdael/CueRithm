@@ -776,11 +776,51 @@ impl PortableSourceParts {
         }))
     }
     pub fn key(&self, count: usize) -> Result<String> {
-        Ok(serde_json::to_string(&(
-            self.windows,
-            self.prefix,
-            &self.parts[..count],
-        ))?)
+        if !self.windows {
+            return Ok(serde_json::to_string(&(
+                self.windows,
+                self.prefix,
+                &self.parts[..count],
+            ))?);
+        }
+        let parts = self.parts[..count]
+            .iter()
+            .map(|part| {
+                if self.windows {
+                    part.iter()
+                        .map(|unit| {
+                            if (65..=90).contains(unit) {
+                                unit + 32
+                            } else {
+                                *unit
+                            }
+                        })
+                        .collect()
+                } else {
+                    part.clone()
+                }
+            })
+            .collect::<Vec<Vec<u16>>>();
+        Ok(serde_json::to_string(&(self.windows, self.prefix, parts))?)
+    }
+    pub fn common_prefix_len(&self, other: &Self) -> usize {
+        self.parts
+            .iter()
+            .zip(&other.parts)
+            .take_while(|(left, right)| {
+                left.len() == right.len()
+                    && left.iter().zip(right.iter()).all(|(a, b)| {
+                        let fold = |unit: u16| {
+                            if self.windows && (65..=90).contains(&unit) {
+                                unit + 32
+                            } else {
+                                unit
+                            }
+                        };
+                        fold(*a) == fold(*b)
+                    })
+            })
+            .count()
     }
     pub fn encoded(&self, parts: &[Vec<u16>]) -> EncodedPath {
         let mut units = vec![47; self.prefix];
@@ -814,7 +854,8 @@ impl PortableSourceParts {
         ensure!(
             self.windows == root.windows
                 && self.prefix == root.prefix
-                && self.parts.starts_with(&root.parts),
+                && self.parts.len() >= root.parts.len()
+                && self.key(root.parts.len())? == root.key(root.parts.len())?,
             "Export root is not a source ancestor"
         );
         let encode_component = |p: &Vec<u16>| {

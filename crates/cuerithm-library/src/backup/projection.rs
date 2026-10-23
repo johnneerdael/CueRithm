@@ -1736,12 +1736,7 @@ pub(crate) fn prepare_native_root_projection(
                 .optional()?;
             if let Some(previous) = previous {
                 let old: crate::portable::PortableSourceParts = serde_json::from_str(&previous)?;
-                let common = root
-                    .parts
-                    .iter()
-                    .zip(&old.parts)
-                    .take_while(|(a, b)| a == b)
-                    .count();
+                let common = root.common_prefix_len(&old);
                 root.parts.truncate(common);
             }
         }

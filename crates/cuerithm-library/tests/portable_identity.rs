@@ -987,3 +987,70 @@ fn configured_filesystem_drive_share_and_volume_roots_group_sibling_artists() {
         }
     }
 }
+
+#[test]
+fn windows_root_grouping_ignores_casing_without_changing_original_units() {
+    for (root, paths) in [
+        (
+            r"C:\Music",
+            [r"c:\music\House\A.wav", r"C:\MUSIC\Other\B.wav"],
+        ),
+        (
+            r"\\Server\Share\Music",
+            [
+                r"\\server\share\music\House\A.wav",
+                r"\\SERVER\SHARE\MUSIC\Other\B.wav",
+            ],
+        ),
+    ] {
+        for configured in [false, true] {
+            let temp = tempfile::tempdir().unwrap();
+            let database = temp.path().join("db");
+            let library = Library::open(&database).unwrap();
+            let raw = rusqlite::Connection::open(&database).unwrap();
+            if configured {
+                raw.execute(
+                    "INSERT INTO organization_roots VALUES('configured',?1,'{}',1)",
+                    [windows_native_blob(
+                        &root.encode_utf16().collect::<Vec<_>>(),
+                    )],
+                )
+                .unwrap();
+            }
+            let mut originals = BTreeMap::new();
+            for (index, path) in paths.iter().enumerate() {
+                let mut units = path.encode_utf16().collect::<Vec<_>>();
+                units.insert(units.len() - 4, 0xd800);
+                let native = windows_native_blob(&units);
+                let mut track = imported();
+                track.id = format!("mixed-case-{index}");
+                track.origin = "cuerithm".into();
+                track.musical = None;
+                track.locator = PortableLocator::from_native_path_bytes(
+                    format!("mixed-locator-{index}"),
+                    &native,
+                )
+                .unwrap();
+                originals.insert(track.locator.id.clone(), track.locator.original.clone());
+                library.import_portable_tracks(&[track.clone()]).unwrap();
+                raw.execute(
+                    "UPDATE tracks SET path=?1 WHERE id=?2",
+                    rusqlite::params![native, track.id],
+                )
+                .unwrap();
+            }
+            let archive = library.portable_snapshot().unwrap();
+            assert_eq!(
+                archive.records["roots"].len(),
+                1,
+                "{root}, configured={configured}"
+            );
+            for locator in &archive.records["locators"] {
+                assert_eq!(locator.value["components"].as_array().unwrap().len(), 2);
+                let original: EncodedPath =
+                    serde_json::from_value(locator.value["original"].clone()).unwrap();
+                assert_eq!(&original, &originals[&locator.id]);
+            }
+        }
+    }
+}
