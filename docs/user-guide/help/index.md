@@ -45,7 +45,7 @@ Not sure what is wrong? Match what you see on screen in the table below. Each ro
 
     ---
 
-    Limits of this version, work in development, and the 0.1.13 behaviour for missing and moved files.
+    Limits of this version, work in development, and the 0.1.14 behaviour for missing and moved files.
 
     [:octicons-arrow-right-24: What CueRithm does not do yet](not-available-yet.md)
 

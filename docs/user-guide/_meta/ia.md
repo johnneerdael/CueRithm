@@ -87,7 +87,7 @@ fixes). Page text refers to these playlists by exact name:
 
 ## Describing released behaviour; pending product changes
 
-The guide describes the **released** app (0.1.13 plus current `main` where verified) and
+The guide describes the **released** app (0.1.14 plus current `main` where verified) and
 marks each gap with a clearly labelled note, never as available. Three unreleased
 changes are being built on separate branches from `main`:
 
@@ -99,7 +99,7 @@ changes are being built on separate branches from `main`:
 3. Everything on the roadmap's "In development" list (DJ-library import, portable
    `.cuerithm` backup, Lexicon migration) is planned, never available.
 
-When a change ships, update the pages that carry a `!!! warning "CueRithm 0.1.13"` note
+When a change ships, update the pages that carry a `!!! warning "CueRithm 0.1.14"` note
 (`files/library/find-duplicates.md`, `files/library/find-missing-files.md`,
 `files/move-files.md`, `help/troubleshooting/files-moved.md`,
 `help/not-available-yet.md`) and remove the note.

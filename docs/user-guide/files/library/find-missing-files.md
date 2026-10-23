@@ -1,9 +1,9 @@
 # Find missing, moved or broken files
 
-<p class="lead">Scan your library to see which tracks no longer have a readable file where CueRithm expects it, work out why, and repair the library with the tools 0.1.13 has. A scan reads every file once, so allow a few minutes for a large library. It changes nothing.</p>
+<p class="lead">Scan your library to see which tracks no longer have a readable file where CueRithm expects it, work out why, and repair the library with the tools 0.1.14 has. A scan reads every file once, so allow a few minutes for a large library. It changes nothing.</p>
 
-!!! warning "CueRithm 0.1.13"
-    The results of **Missing & broken** are a report. They offer no action: there is no way to point a track at a new file location, no tool that finds moved files, and no way to remove a track from the library. The screen says so itself: *Relocating files is not available in this maintenance screen.* The repairs below use only what 0.1.13 has: moving files back and archiving tracks. Following moves inside a watch folder, relocating tracks and removing stale tracks are listed under *In development* in [What CueRithm does not do yet](../../help/not-available-yet.md). Version 0.1.13 can also list a track with a missing file inside a duplicate group, next to its available twin; never choose that track as keeper, as [Find and merge duplicate tracks](find-duplicates.md) explains.
+!!! warning "CueRithm 0.1.14"
+    The results of **Missing & broken** are a report. They offer no action: there is no way to point a track at a new file location, no tool that finds moved files, and no way to remove a track from the library. The screen says so itself: *Relocating files is not available in this maintenance screen.* The repairs below use only what 0.1.14 has: moving files back and archiving tracks. Following moves inside a watch folder, relocating tracks and removing stale tracks are listed under *In development* in [What CueRithm does not do yet](../../help/not-available-yet.md). Version 0.1.14 can also list a track with a missing file inside a duplicate group, next to its available twin; never choose that track as keeper, as [Find and merge duplicate tracks](find-duplicates.md) explains.
 
 ## Scan the library files { #scan }
 

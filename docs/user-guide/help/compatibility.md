@@ -29,7 +29,7 @@ A check covers only the system, version and test set named next to it. It is not
 | **Serato DJ Pro 4** | Serato Library folders | File formats only |
 | **Pioneer USB** | A mounted USB drive | File formats only; no physical player |
 
-Windows library paths, and Wine or Proton setups on Linux with drive mappings and saved configurations, are supported for the destinations whose programs run on Windows ([Use a Windows DJ library on Linux](../sync/windows-libraries-on-linux.md)). Windows and Wine playback inside the DJ programs has not been checked. Mixxx sync was added after CueRithm 0.1.13, so an older build does not list it under **Sync to**.
+Windows library paths, and Wine or Proton setups on Linux with drive mappings and saved configurations, are supported for the destinations whose programs run on Windows ([Use a Windows DJ library on Linux](../sync/windows-libraries-on-linux.md)). Windows and Wine playback inside the DJ programs has not been checked. Mixxx sync arrived in CueRithm 0.1.14, so an older build does not list it under **Sync to**.
 
 ## rekordbox 6 and 7 { #rekordbox }
 
