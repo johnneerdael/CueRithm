@@ -175,3 +175,37 @@ original root authority in desktop integration; the copied-source fixture does
 not establish D4 native multi-volume acceptance or D5 reference-repair support.
 
 Task 10 verification: all 431 dj-sync tests pass (3 ignored), including ten new Traktor/VirtualDJ cases. All-target Clippy `-D warnings`, formatting and diff checks pass.
+
+## Mixxx reader
+
+The read-only Mixxx reader qualifies exact music-table, column, index and
+foreign-key fingerprints for source schema39/40 and the settings key
+`mixxx.schema.version`. Fixtures are independently regenerated from the pinned
+upstream migration history; `PRAGMA user_version` cannot select a profile.
+Broken location references, deleted records and filesystem-missing flags remain
+separate observations. Native rating, RGB color, source tuning and cached key
+fields remain available without fabricating absent metadata.
+
+Cue positions use `position/(2*samplerate)` for mono, stereo and multichannel
+sources at 44.1/48/96 kHz. Fractional positions, negative pre-roll, zero and
+end-only ranges are preserved. BeatGrid1/2 and BeatMap1 use audio frames divided
+by the source sample rate, independently of cue engine units and scalar BPM.
+Malformed grids never become invented zero-offset grids. Legacy 16-byte grids
+require an explicitly established source byte order; the host supplies none.
+The pinned source dispatches both BeatGrid1 and BeatGrid2 to the same legacy
+fallback. This permits byte decoding only, not canonical timing qualification.
+
+KeyMap1 preserves all24 musical-key values, proto2 presence, signed key-change
+positions, tuning and unknown fields, with raw blob references. Conflicting
+blob/text/cache evidence produces a diagnostic. Unknown codecs and invalid
+sample rates preserve the record and raw bytes with field issues. Duplicate hot
+slots and historical black zero-time cues remain visible. Ordered playlists
+preserve A/B/A occurrences; equal-position ties use native row IDs and report
+ambiguity. Crates remain unordered. Auto DJ queues and history are opt-in.
+All imported timings remain native/unresolved; no decoder origin is inferred
+and no file tags, source database or existing outbound writer is changed.
+
+Task11 verification: all439 dj-sync tests pass (3 ignored), including eight new
+Mixxx cases. A separate existing Mixxx regression run passes134 tests (2 ignored).
+All-target Clippy `-D warnings`, formatting and diff checks pass. These results
+establish D2 fixture behavior; D4/D5/D6 native-app acceptance remains unrun.

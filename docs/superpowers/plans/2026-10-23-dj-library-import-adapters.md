@@ -71,11 +71,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `MixxxReader`; exact profile initially pinned source schema39/40 with required column/settings/codec fingerprints, as supported by fixtures. Older revisions have explicit diagnostic/read capability only when separately covered, never automatic migration based on Mixxx's own compatibility promise.
 
-- [ ] Write `mixxx_cues_use_two_engine_channels_at_every_source_channel_count` for 44.1/48/96 kHz and 1/2/6 channels, fractional position, -1 start sentinel, zero time, negative pre-roll and end-only range. Assert `1764000 / (2*44100) == 20.0`; beat protobuf frame22050/44100 == 0.5 seconds. Add `mixxx_preserves_all_keys_variable_beats_and_occurrences`: all 24 keys, sparse/duplicate slots, A/B/A ordered playlist and unordered crates.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_mixxx`; expect missing reader.
-- [ ] Detect settings key `mixxx.schema.version`, explicit optional projections and LEFT JOIN broken locations. Read hidden/deleted/media-missing flags separately. Decode `BeatGrid-1.0/2.0`, `BeatMap-1.0`, `KeyMap-1.0`, proto2 presence/signed int32, unknown bytes and qualified native-endian legacy 16-byte grid; failed grid stays failed, no scalar zero-offset fallback. Retain rating/color epochs, key changes and tuning. Compare originating decoder profile before timing inversion.
-- [ ] Rerun with schema manifest reconstruction/independent vectors, corrupt protobuf, unknown version, invalid rate, historical corrupt black zero cue and duplicate hot slots; expect raw preservation plus diagnostics, no silent query-order resolution. Run existing Mixxx writer tests for regression separately.
-- [ ] Commit `feat: import Mixxx libraries with native timing provenance`.
+- [x] Write `mixxx_cues_use_two_engine_channels_at_every_source_channel_count` for 44.1/48/96 kHz and 1/2/6 channels, fractional position, -1 start sentinel, zero time, negative pre-roll and end-only range. Assert `1764000 / (2*44100) == 20.0`; beat protobuf frame22050/44100 == 0.5 seconds. Add `mixxx_preserves_all_keys_variable_beats_and_occurrences`: all 24 keys, sparse/duplicate slots, A/B/A ordered playlist and unordered crates.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_mixxx`; expect missing reader.
+- [x] Detect settings key `mixxx.schema.version`, explicit optional projections and LEFT JOIN broken locations. Read hidden/deleted/media-missing flags separately. Decode `BeatGrid-1.0/2.0`, `BeatMap-1.0`, `KeyMap-1.0`, proto2 presence/signed int32, unknown bytes and qualified native-endian legacy 16-byte grid; failed grid stays failed, no scalar zero-offset fallback. Retain rating/color epochs, key changes and tuning. Compare originating decoder profile before timing inversion.
+- [x] Rerun with schema manifest reconstruction/independent vectors, corrupt protobuf, unknown version, invalid rate, historical corrupt black zero cue and duplicate hot slots; expect raw preservation plus diagnostics, no silent query-order resolution. Run existing Mixxx writer tests for regression separately.
+- [x] Commit `feat: import Mixxx libraries with native timing provenance`.
 
 ### Task 12: Serato 3/Lite, Serato 4/Lite and file performance tags
 

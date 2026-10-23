@@ -3,6 +3,13 @@ use anyhow::Result;
 use cuerithm_media::CancellationToken;
 use std::collections::BTreeMap;
 
+/// Byte order established from the originating source architecture, never the host.
+/// This qualifies legacy byte decoding only; it grants no canonical-clock authority.
+#[derive(Debug, Clone, Copy)]
+pub enum SourceByteOrder {
+    Little,
+    Big,
+}
 #[derive(Debug, Clone, Default)]
 pub struct ReadOptions {
     pub limits: ImportLimits,
@@ -10,6 +17,7 @@ pub struct ReadOptions {
     pub include_queue: bool,
     pub capture_file_tags: bool,
     pub origin: Option<ClockIdentity>,
+    pub source_byte_order: Option<SourceByteOrder>,
     pub path_mappings: Vec<PathMapping>,
     pub library_instance_id: Option<String>,
 }
@@ -54,6 +62,9 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::Mixxx {
+        return &super::readers::mixxx::MixxxReader;
+    }
     if provider == SourceProvider::Traktor {
         return &super::readers::traktor::TraktorReader;
     }

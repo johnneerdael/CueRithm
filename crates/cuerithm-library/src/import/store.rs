@@ -266,6 +266,7 @@ impl Library {
             include_queue: request.include_queue,
             capture_file_tags: request.capture_file_tags,
             origin: request.origin.clone(),
+            source_byte_order: None,
             path_mappings: request.path_mappings.clone(),
             library_instance_id: Some(source_fallback),
         };
