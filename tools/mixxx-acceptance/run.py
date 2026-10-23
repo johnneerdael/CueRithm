@@ -22,6 +22,10 @@ runs four scenarios, each on its own scratch library:
   created    Mixxx has never run: there is no settings folder. CueRithm creates the
              library. Its tables must equal those Mixxx itself made in the scenarios above,
              and Mixxx must then start on it without prompting or upgrading anything.
+  formats    As existing, with AAC and ALAC (M4A), AIFF, Ogg Vorbis and Opus. For each the
+             first click is found the way the decoder Mixxx chose for that file type reads
+             it (CoreAudio, or the format's own library), and the written grid must land
+             on it. Run alone with `--only formats`.
 
 In all of them the sync goes through the real preview/apply path. The written rows are
 checked (grid, key, BPM lock, hot cues and loop, the playlist, the music folder, and that
@@ -255,6 +259,66 @@ def probe_frames(probe, files):
 
 NAMES = ("click128.wav", "click128.flac", "click128.mp3")
 
+# Formats of the `formats` scenario: name, ffmpeg arguments. WMA is left out on purpose: the
+# installed Mixxx registers no decoder for it, which the scenario checks.
+FORMATS = (
+    ("click128.aac.m4a", ["-c:a", "aac", "-b:a", "192k"]),
+    ("click128.alac.m4a", ["-c:a", "alac"]),
+    ("click128.aiff", ["-c:a", "pcm_s16be"]),
+    ("click128.ogg", ["-c:a", "vorbis", "-strict", "-2", "-b:a", "192k"]),
+    ("click128.opus", ["-c:a", "libopus", "-b:a", "128k"]),
+)
+
+
+def native_rate(path):
+    """The sample rate the file declares (Opus decodes at 48000 whatever it was made from)."""
+    out = run("ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+              "stream=sample_rate", "-of", "default=nw=1:nk=1", str(path)).stdout.decode()
+    return int(out.strip())
+
+
+def ffmpeg_first_click(path, rate, threshold=0.3):
+    """First frame whose left channel exceeds the threshold, in FFmpeg's decode of `path`."""
+    raw = run("ffmpeg", "-v", "error", "-i", str(path), "-f", "f32le", "-ac", "2",
+              "-ar", str(rate), "-").stdout
+    samples = array.array("f")
+    samples.frombytes(raw[: len(raw) - len(raw) % 4])
+    for frame in range(len(samples) // 2):
+        if abs(samples[frame * 2]) > threshold:
+            return frame
+    raise RuntimeError(f"no click found in {path}")
+
+
+def providers_in(log):
+    """File type -> decoders Mixxx lists for it, highest priority first (from its debug log)."""
+    lines = log.splitlines()
+    found = {}
+    for i, line in enumerate(lines):
+        match = re.search(r'SoundSource providers for file type "([^"]+)"', line)
+        if match:
+            names = []
+            for follow in lines[i + 1:i + 5]:
+                if "SoundSourceProxy - " in follow and " : " in follow:
+                    names.append(re.sub(r"^.*SoundSourceProxy - ", "", follow).split(" : ", 1)[1].strip('"'))
+                else:
+                    break
+            found[match.group(1)] = names
+    return found
+
+
+def format_truth(probe, files, providers):
+    """Where the decoder Mixxx uses reads the first click, and at what rate, for each file."""
+    truth, rates = {}, {}
+    for name, path in files.items():
+        extension = Path(name).suffix[1:]
+        first = (providers.get(extension) or ["?"])[0]
+        rates[name] = native_rate(path)
+        if "CoreAudio" in first:
+            truth[name] = probe_frames(probe, {name: path})[name]
+        else:
+            truth[name] = ffmpeg_first_click(path, rates[name])
+    return truth, rates
+
 
 def library_ready(database):
     """Mixxx has created and migrated its library."""
@@ -279,9 +343,10 @@ def scan_list(database):
         connection.close()
 
 
-def check_rows(report, label, written, first, truth):
+def check_rows(report, label, written, first, truth, rates=None, count=3):
     """The synced rows. `first` is the library as Mixxx left it before the sync, or None."""
-    report.check(f"[{label}] three tracks, none duplicated", len(written["tracks"]) == 3,
+    rates = rates or {}
+    report.check(f"[{label}] {count} tracks, none duplicated", len(written["tracks"]) == count,
                  f"{len(written['tracks'])}")
     for name, track in written["tracks"].items():
         tag = f"[{label}] {name}"
@@ -305,14 +370,15 @@ def check_rows(report, label, written, first, truth):
         kinds = [(c["type"], c["hotcue"], c["label"]) for c in track["cues"] if c["type"] in (1, 4)]
         report.check(f"{tag}: two hot cues and one loop",
                      kinds == [(1, 0, "Drop"), (1, 1, "Phrase"), (4, 2, "Loop")], str(kinds))
-        shift = first_beat - round(FIRST_BEAT * SAMPLE_RATE)
+        rate = rates.get(name, SAMPLE_RATE)
+        shift = first_beat - round(FIRST_BEAT * rate)
         drop = next(c for c in track["cues"] if c["label"] == "Drop")
         loop = next(c for c in track["cues"] if c["label"] == "Loop")
         report.check(f"{tag}: cue positions are frames x 2 with the same shift as the grid",
-                     drop["position"] == 2 * (round(4.0 * SAMPLE_RATE) + shift)
-                     and loop["length"] == 2 * round(2.0 * SAMPLE_RATE), f"shift {shift}")
-    report.check(f"[{label}] the playlist holds the three tracks",
-                 [len(p["tracks"]) for p in written["playlists"] if p["name"] == "CueRithm acceptance"] == [3])
+                     drop["position"] == 2 * (round(4.0 * rate) + shift)
+                     and loop["length"] == 2 * round(2.0 * rate), f"shift {shift} at {rate} Hz")
+    report.check(f"[{label}] the playlist holds the {count} tracks",
+                 [len(p["tracks"]) for p in written["playlists"] if p["name"] == "CueRithm acceptance"] == [count])
 
 
 def master(database):
@@ -338,16 +404,17 @@ def mixxx_rows(database):
         connection.close()
 
 
-def scenario(report, mixxx, work, sources, truth, mode, reference):
+def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, probe=None):
     """mode is fresh, existing, overwrite or created; reference collects what Mixxx made."""
     label = mode
     settings, music = work / "settings", work / "music"
     work.mkdir(parents=True)
     music.mkdir()
-    for name in NAMES:
+    for name in names:
         shutil.copy2(sources / name, music / name)
     shutil.copy2(sources / "manifest.json", music / "manifest.json")
-    files = {name: (music / name).resolve() for name in NAMES}
+    files = {name: (music / name).resolve() for name in names}
+    rates = {}
     database = settings / "mixxxdb.sqlite"
     created = ""
     first = None
@@ -370,7 +437,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
         reference.setdefault("master", master(database))
         reference.setdefault("rows", mixxx_rows(database))
 
-    if mode in ("existing", "overwrite"):
+    if mode in ("existing", "overwrite", "formats"):
         # Stands in for choosing the folder in Mixxx's dialog, which also adds the row.
         connection = sqlite3.connect(database)
         connection.execute("INSERT INTO directories(directory) VALUES (?)", (str(music.resolve()),))
@@ -380,15 +447,15 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
         with Mixxx(mixxx, settings, files.values(), work / "mixxx-first.log"):
             def added():
                 library = read_library(database)
-                return library if len(library["tracks"]) == 3 else None
-            first = wait_for(added, 180, "Mixxx to add the three tracks")
+                return library if len(library["tracks"]) == len(names) else None
+            first = wait_for(added, 180, f"Mixxx to add the {len(names)} tracks")
             time.sleep(5)
         report.check(f"[{label}] Mixxx created a schema 39 or 40 library", first["schema"] in ("39", "40"),
                      f"schema {first['schema']}")
-        report.check(f"[{label}] Mixxx itself added all three tracks", len(first["tracks"]) == 3)
+        report.check(f"[{label}] Mixxx itself added all {len(names)} tracks", len(first["tracks"]) == len(names))
         log = (work / "mixxx-first.log").read_text(errors="replace")
         lines = log.splitlines()
-        for extension in ("mp3", "m4a"):
+        for extension in ("mp3", "m4a") if mode != "formats" else ():
             at = next((i for i, line in enumerate(lines)
                        if f'SoundSource providers for file type "{extension}"' in line), None)
             providers = [] if at is None else [
@@ -397,6 +464,21 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
             report.check(f"[{label}] Mixxx decodes {extension} with Apple CoreAudio first (MAD is not in this build)",
                          bool(providers) and "CoreAudio" in providers[0] and not any("MAD" in p for p in providers),
                          "; ".join(providers))
+        if mode == "formats":
+            providers = providers_in(log)
+            for name in names:
+                extension = Path(name).suffix[1:]
+                chosen = (providers.get(extension) or [None])[0]
+                report.check(f"[{label}] Mixxx has a decoder for .{extension}", chosen is not None,
+                             f"{chosen}")
+            report.check(f"[{label}] the installed Mixxx registers no decoder for .wma (so WMA cannot be opened)",
+                         "wma" not in providers, "providers: " + ", ".join(sorted(providers)))
+            truth, rates = format_truth(probe, files, providers)
+            print(f"    first click by decoder: {truth}; rates: {rates}")
+            for name in names:
+                row = first["tracks"][name]
+                report.check(f"[{label}] {name}: Mixxx's own sample rate is the one the grid is counted in",
+                             row["samplerate"] == rates[name], f"Mixxx {row['samplerate']}, file {rates[name]}")
         if mode == "overwrite":
             # Something CueRithm does not have, to show the replacement drops it.
             connection = sqlite3.connect(database)
@@ -409,7 +491,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
     # 2. CueRithm syncs, through the real preview and apply path.
     print(f"[{label}] Syncing through prepare_sync and apply_sync...")
     env = dict(os.environ, CUERITHM_MIXXX_ACCEPTANCE=str(work),
-               CUERITHM_MIXXX_MODE="replace" if mode == "existing" else "keep",
+               CUERITHM_MIXXX_MODE="replace" if mode in ("existing", "formats") else "keep",
                CUERITHM_MIXXX_LIBRARY="overwrite" if mode == "overwrite" else "update")
     sync = subprocess.run(
         ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
@@ -426,7 +508,8 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
 
     # 3. What was written.
     written = read_library(database)
-    check_rows(report, label, written, first if mode == "existing" else None, truth)
+    check_rows(report, label, written, first if mode in ("existing", "formats") else None,
+               truth, rates, len(names))
     folders = scan_list(database)
     report.check(f"[{label}] Mixxx's list of music folders is the folder holding the tracks",
                  folders == [str(music.resolve())], str(folders))
@@ -481,8 +564,8 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
     report.check(f"[{label}] Mixxx did not re-read tags over the synced rows",
                  "Initializing track metadata" not in second and "Re-importing track metadata" not in second)
     after = read_library(database)
-    report.check(f"[{label}] the library scan found the same three tracks, not duplicates",
-                 len(after["tracks"]) == 3, f"{len(after['tracks'])}")
+    report.check(f"[{label}] the library scan found the same {len(names)} tracks, not duplicates",
+                 len(after["tracks"]) == len(names), f"{len(after['tracks'])}")
     report.check(f"[{label}] the synced rows are unchanged after Mixxx loaded and scanned them",
                  digest(after) == after_sync)
     report.check(f"[{label}] the list of music folders is unchanged", scan_list(database) == folders)
@@ -492,6 +575,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mixxx", default=DEFAULT_MIXXX)
+    parser.add_argument("--only", help="run just these scenarios (comma separated)")
     parser.add_argument("--work", help="scratch folder inside Mixxx's sandbox container "
                         "(default: MixxxAcceptance/run-<time> beside Mixxx's own folder)")
     args = parser.parse_args()
@@ -523,9 +607,28 @@ def main():
     truth = probe_frames(probe, {name: sources / name for name in NAMES})
     print(f"CoreAudio's Mixxx frame of the first click: {truth}")
 
+    # the files of the formats scenario: encoded from the same click track
+    format_names = []
+    manifest_formats = []
+    for name, codec in FORMATS:
+        target = sources / name
+        run("ffmpeg", "-v", "error", "-y", "-i", str(wav), *codec, str(target))
+        format_names.append(name)
+        manifest_formats.append(
+            {"file": name, "title": f"Acceptance {name}", "key": "8A", "bpm": BPM, "first_beat": FIRST_BEAT,
+             "duration": DURATION, "sample_rate": native_rate(target), "cues": CUES})
+    (sources / "manifest-formats.json").write_text(json.dumps(manifest_formats))
+
+    wanted = args.only.split(",") if args.only else ["fresh", "existing", "overwrite", "created", "formats"]
     logs, reference = {}, {}
-    for name in ("fresh", "existing", "overwrite", "created"):
-        logs[name] = scenario(report, args.mixxx, work / name, sources, truth, name, reference)
+    for name in wanted:
+        if name == "formats":
+            shutil.copy2(sources / "manifest-formats.json", sources / "manifest.json")
+            logs[name] = scenario(report, args.mixxx, work / name, sources, {}, name, reference,
+                                  names=tuple(format_names), probe=probe)
+        else:
+            (sources / "manifest.json").write_text(json.dumps(manifest))
+            logs[name] = scenario(report, args.mixxx, work / name, sources, truth, name, reference)
 
     failed = [c for c in report.checks if not c["ok"]]
     (work / "report.json").write_text(json.dumps(
