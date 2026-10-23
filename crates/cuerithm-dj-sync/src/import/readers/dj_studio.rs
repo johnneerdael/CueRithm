@@ -483,13 +483,77 @@ fn candidate(
                 .extensions
                 .entry("field_candidates".into())
                 .or_insert_with(|| json!({}));
-            value[field] = json!([{"id":format!("sql:{field}"),"surface":"sql","value":a},{"id":format!("json:{field}"),"surface":"json","value":b}]);
+            value[field] = json!([
+                candidate_record(field, "sql", a),
+                candidate_record(field, "json", b)
+            ]);
             None
         }
         (Some(a), _) => Some(a.clone()),
         (_, Some(b)) => Some(b.clone()),
         _ => None,
     }
+}
+fn candidate_record(field: &str, surface: &str, value: &Value) -> Value {
+    let normalized = match field {
+        "key" if value.is_null() || value.is_number() || value.is_string() => Some((
+            "key".to_owned(),
+            json!(MusicalKey {
+                presence: if value.is_null() {
+                    FieldPresence::Null
+                } else {
+                    FieldPresence::Value
+                },
+                raw: if value.is_null() {
+                    None
+                } else {
+                    Some(value.to_string())
+                },
+                camelot: records::numeric_key(value),
+                provenance: Some("DJ.Studio numeric key table".into()),
+                ..Default::default()
+            }),
+        )),
+        "bpm" if value.is_null() || value.as_f64().is_some_and(|n| n > 0.) => Some((
+            "bpm".into(),
+            json!(ScalarBpm {
+                presence: if value.is_null() {
+                    FieldPresence::Null
+                } else {
+                    FieldPresence::Value
+                },
+                value: value.as_f64(),
+                provenance: Some("DJ.Studio native source".into()),
+                ..Default::default()
+            }),
+        )),
+        "rating" => Some((
+            "metadata.rating".into(),
+            if value.is_null() {
+                json!(Presence::<Value>::Null)
+            } else {
+                json!(Presence::Value(
+                    json!({"raw":value,"scale":"unqualified_djstudio"})
+                ))
+            },
+        )),
+        "duration" if value.as_f64().is_some_and(|v| v >= 0.) => {
+            Some(("metadata.duration".into(), json!(Presence::Value(value))))
+        }
+        "title" | "artist" | "album" | "genre" | "label" | "isrc" | "release_date"
+        | "date_added"
+            if value.is_string() || value.is_null() =>
+        {
+            Some((format!("metadata.{field}"), json!(scalar(value))))
+        }
+        _ => None,
+    };
+    let mut record = json!({"id":format!("{surface}:{field}"),"surface":surface,"value":value});
+    if let Some((field, value)) = normalized {
+        record["normalized_field"] = json!(field);
+        record["normalized_value"] = value;
+    }
+    record
 }
 fn selected_structure(
     aux: &Connection,

@@ -163,11 +163,28 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
             let cues:Option<String>=conn.query_row("SELECT json FROM cue_revisions WHERE track_id=?1 ORDER BY created DESC,rowid DESC LIMIT 1",[id],|r|r.get(0)).optional()?;
             if let Some(cues) = cues {
                 let value: Value = serde_json::from_str(&cues)?;
-                if !value.as_array().is_some_and(Vec::is_empty) {
-                    fields.insert("cues.hot".into(), value);
+                fields.insert("cues.hot".into(), value);
+            } else if !fields.contains_key("cues.hot") || expected_revision.is_some() {
+                let analysis: Option<String> =
+                    conn.query_row("SELECT analysis_json FROM tracks WHERE id=?1", [id], |r| {
+                        r.get(0)
+                    })?;
+                if let Some(analysis) = analysis {
+                    let analysis: Value = serde_json::from_str(&analysis)?;
+                    if let Some(mut publication) = analysis
+                        .get("publication")
+                        .filter(|v| v.get("cues").is_some_and(Value::is_array))
+                        .cloned()
+                    {
+                        publication["schema"] = json!("lexicon-publication-v1");
+                        fields.insert("cues.hot".into(), publication);
+                    }
                 }
             }
         }
+    }
+    if super::performance::bound_unknown_occupancy(conn, id)? {
+        fields.insert("_hotcue_occupancy".into(), json!("unknown"));
     }
     Ok(fields)
 }

@@ -54,7 +54,7 @@ export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,on
     <div className="player-header">
       <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/>:<BrandMark/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
-      {detail?<div className="player-analysis"><span><b>{playbackBpm(detail.analysis)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      {detail?<div className="player-analysis"><span><b>{(detail.track.import_state?detail.track.bpm:playbackBpm(detail.analysis))?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{(detail.track.import_state?detail.track.key:detail.analysis?.analysis.key?.camelot)??"—"}</b>KEY</span><span><b>{(detail.track.import_state?detail.track.energy:detail.analysis?.analysis.energy?.level)??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
         <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
         <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>

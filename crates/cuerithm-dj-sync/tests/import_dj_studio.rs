@@ -196,6 +196,12 @@ fn djstudio_keeps_sql_and_json_divergence_and_unknown_fields() {
             .len(),
         2
     );
+    let bpm_candidates = &one.extensions["field_candidates"]["bpm"];
+    assert_eq!(bpm_candidates[0]["id"], "sql:bpm");
+    assert_eq!(bpm_candidates[0]["normalized_field"], "bpm");
+    assert_eq!(bpm_candidates[0]["normalized_value"]["value"], 120.25);
+    assert_eq!(bpm_candidates[1]["id"], "json:bpm");
+    assert_eq!(bpm_candidates[1]["normalized_value"]["value"], 121.5);
     assert_eq!(rows.members().len(), 2);
     assert_eq!(
         rows.collections()

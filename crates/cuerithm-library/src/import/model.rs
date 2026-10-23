@@ -185,6 +185,13 @@ pub struct ImportConflictDecision {
     pub field: String,
     pub decision: ImportDecision,
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportCandidateChoice {
+    pub external_id: String,
+    pub field: String,
+    pub candidate_id: String,
+}
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ImportPreviewRequest {
@@ -195,6 +202,7 @@ pub struct ImportPreviewRequest {
     /// Explicit reviewed identity assignments; an established source link cannot be reassigned.
     pub target_items: BTreeMap<String, String>,
     pub decisions: Vec<ImportConflictDecision>,
+    pub candidate_choices: Vec<ImportCandidateChoice>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ImportPreview {

@@ -5,6 +5,7 @@ mod guard;
 mod identity;
 mod model;
 mod native_shadow;
+mod performance;
 mod preview;
 mod processing;
 mod publication;

@@ -23,7 +23,9 @@ fn metadata_group(field: &str) -> FieldGroup {
         "title" | "artist" | "artists" | "album" | "album_artist" | "genre" | "genres"
         | "comment" | "label" | "remixer" | "mix" | "composer" | "lyricist" | "grouping"
         | "year" | "track_number" | "track_total" | "disc_number" | "disc_total" | "isrc"
-        | "release_date" => FieldGroup::DescriptiveTags,
+        | "release_date" | "producer" | "style" | "version" | "catalog_number" | "duration" => {
+            FieldGroup::DescriptiveTags
+        }
         _ => FieldGroup::CustomTags,
     }
 }
@@ -66,6 +68,22 @@ pub(crate) fn selected_source_values(
 ) -> Result<BTreeMap<String, Value>> {
     let mut fields = BTreeMap::new();
     let mut metadata = track.metadata.clone();
+    if let Some(value) = metadata
+        .remove("catalog-number")
+        .or_else(|| metadata.remove("catalogNumber"))
+        .or_else(|| metadata.remove("catalog"))
+    {
+        metadata.entry("catalog_number".into()).or_insert(value);
+    }
+    if !metadata.contains_key("duration")
+        && let Some(duration) = track
+            .extensions
+            .get("duration_seconds")
+            .and_then(Value::as_f64)
+            .filter(|v| v.is_finite() && *v >= 0.)
+    {
+        metadata.insert("duration".into(), Presence::Value(json!(duration)));
+    }
     let mut key = track.key.clone();
     let mut bpm = track.bpm.clone();
     if policy.capture_file_tags
@@ -209,7 +227,11 @@ pub(crate) fn selected_source_values(
                     track
                         .cues
                         .iter()
-                        .filter(|c| c.family == family)
+                        .filter(|c| {
+                            c.family == family
+                                && c.flags.get("placeholder") != Some(&Value::Bool(true))
+                                && c.flags.get("removed") != Some(&Value::Bool(true))
+                        })
                         .collect::<Vec<_>>(),
                 )?,
             );
@@ -363,7 +385,7 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
         existing.as_deref().is_none_or(|id| id == p.item_id),
         "Source binding changed after preview"
     );
-    conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,json!({"snapshot_id":p.snapshot_id,"location":p.observation.locations}).to_string()])?;
+    conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,json!({"snapshot_id":p.snapshot_id,"location":p.observation.locations,"hotcue_occupancy":if super::performance::unknown_hotcue_occupancy(p.observation){"unknown"}else{"observed"}}).to_string()])?;
     retain_legacy_rekordbox_binding(conn, &p)?;
     conn.execute("UPDATE import_memberships SET item_id=?1 WHERE item_id IS NULL AND external_track_id=?2 AND collection_id IN (SELECT id FROM import_collections WHERE source_id=?3)",params![p.item_id,p.observation.external_id,p.source_id])?;
     let provenance = json!({"kind":"source","source_id":p.source_id,"external_id":p.observation.external_id,"snapshot_id":p.snapshot_id});
@@ -475,6 +497,9 @@ pub(crate) fn decorate_summary(conn: &Connection, row: &mut TrackSummary) -> Res
     Ok(())
 }
 impl Library {
+    pub(crate) fn imported_export_fields(&self, id: &str) -> Result<BTreeMap<String, Value>> {
+        super::reconcile::local_fields(&*self.conn()?, id)
+    }
     pub fn imported_item(&self, id: &str) -> Result<ImportedItemDetail> {
         let conn = self.conn()?;
         let availability: String = conn
@@ -559,6 +584,28 @@ impl Library {
             vec!["This imported item has no qualified prepared-media result; resolve and explicitly prepare required export data".into()]
         };
         let fields = active_fields_tx(&conn, id)?;
+        if super::performance::bound_unknown_occupancy(&conn, id)? {
+            let provenance:Option<String>=conn.query_row("SELECT provenance_json FROM import_active_fields WHERE item_id=?1 AND field='cues.hot'",[id],|r|r.get(0)).optional()?;
+            let provenance: Value = provenance
+                .map(|s| serde_json::from_str(&s))
+                .transpose()?
+                .unwrap_or(Value::Null);
+            let operation = if provenance["kind"] == "processing"
+                && provenance["stage"] == "generation.cues"
+                && provenance
+                    .pointer("/identity/pcm_sha256")
+                    .and_then(Value::as_str)
+                    .is_some()
+            {
+                provenance["operation_id"].as_str()
+            } else {
+                None
+            };
+            let unresolved:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM import_bindings b WHERE b.item_id=?1 AND json_extract(b.identity_json,'$.hotcue_occupancy')='unknown' AND NOT EXISTS(SELECT 1 FROM import_operations o JOIN import_previews v ON v.id=o.preview_id JOIN import_policies p ON p.id=o.policy_id WHERE o.id=?2 AND o.source_id=b.source_id AND v.snapshot_id=json_extract(b.identity_json,'$.snapshot_id') AND json_extract(p.json,'$.replace_hotcues')=1))",params![id,operation],|r|r.get(0))?;
+            if unresolved {
+                reasons.push("Unknown native hotcue occupancy blocks performance export until an explicit complete replacement is reviewed for the current source snapshot".into());
+            }
+        }
         for (field, value) in &fields {
             if !(field.starts_with("cues.") || field == "beatgrid")
                 || value.is_null()

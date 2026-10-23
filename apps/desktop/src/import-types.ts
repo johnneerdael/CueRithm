@@ -12,6 +12,7 @@ export const defaultFields:FieldGroup[]=["descriptive_tags","key","bpm","beatgri
 export type RelocationPolicy={mode:"off"}|{mode:"rename_in_place";rule:string}|{mode:"move"|"copy";root_id:string;rule:string};
 export interface ImportPolicy {version:number;selected_fields:FieldGroup[];descriptive_fields:string[]|null;metadata_enrichment:{enabled:boolean;providers:string[];fields:string[];credential_refs:Record<string,string>};cleanup:{enabled:boolean;rules:string[]};analysis_fields:Partial<Record<"key"|"bpm"|"beatgrid"|"energy","fill_missing"|"replace_selected">>;cue_generation:"off"|"generate";replace_hotcues:boolean;write_audio_tags:string[];relocation:RelocationPolicy;capture_file_tags:boolean;include_history:boolean;include_queue:boolean;allow_content_matching:boolean}
 export function defaultImportPolicy():ImportPolicy {return {version:1,selected_fields:[...defaultFields],descriptive_fields:null,metadata_enrichment:{enabled:false,providers:[],fields:[],credential_refs:{}},cleanup:{enabled:false,rules:[]},analysis_fields:{},cue_generation:"off",replace_hotcues:false,write_audio_tags:[],relocation:{mode:"off"},capture_file_tags:false,include_history:false,include_queue:false,allow_content_matching:false};}
+export function processingRequested(value:ImportPolicy):boolean {return value.metadata_enrichment.enabled||value.cleanup.enabled||Object.keys(value.analysis_fields).length>0||value.cue_generation!=="off"||value.write_audio_tags.length>0||value.relocation.mode!=="off";}
 export interface ImportSourceCandidate {provider:SourceProvider;display_location:string;profile_hints:string[];read_state:string;acceptance:string;source_id:string|null}
 export interface NativeImportSelection {selection_id:string;provider:SourceProvider;display_location:string;artifacts:string[];artifact_count:number}
 export type SourceBindingChoice={choice:"automatic"|"new_library"}|{choice:"replica";source_id:string};
@@ -26,7 +27,8 @@ export interface ImportPage {records:ObservationRecord[];total:number;next_curso
 export type RecordSelection={selection:"all"}|{selection:"ids";ids:string[]};
 export type ImportDecision={choice:"keep_local"|"use_source"}|{choice:"custom";value:Json};
 export interface ImportConflictDecision {external_id:string;field:string;decision:ImportDecision}
-export interface ImportPreviewRequest {inspection_id:string;tracks:RecordSelection;collections:RecordSelection;policy:ImportPolicy;target_items:Record<string,string>;decisions:ImportConflictDecision[]}
+export interface ImportCandidateChoice {external_id:string;field:string;candidate_id:string}
+export interface ImportPreviewRequest {inspection_id:string;tracks:RecordSelection;collections:RecordSelection;policy:ImportPolicy;target_items:Record<string,string>;decisions:ImportConflictDecision[];candidate_choices?:ImportCandidateChoice[]}
 export interface ImportPreview {preview_id:string;tracks_created:number;fields_changed:number;baselines_changed:number;collections_changed:number;conflicts:number;blocked:number;processing_requested:boolean}
 export interface ImportFieldEffect {field:string;source:Json;local:Json;proposed:Json;conflict:boolean;blocked_reason:string|null}
 export interface ImportPreviewEffect {external_id:string;item_id:string;kind:string;fields:ImportFieldEffect[]}

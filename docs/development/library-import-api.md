@@ -70,6 +70,12 @@ snake_case names in their Rust types. Every long command requires a caller-creat
 
 Preview requests select tracks/collections by native IDs or `all`, include the
 explicit full policy, reviewed identity assignments and field conflict decisions.
+DJ.Studio surface disagreements expose adapter-authored candidate IDs and their
+qualified normalizations. `candidate_choices` supplies only
+`{external_id,field,candidate_id}`; the backend resolves that ID against the
+immutable observation and freezes the selected value in the preview. Unknown,
+duplicate or unselected-record choices are rejected. Choosing a source surface
+does not resolve a separate conflict with a local edit.
 Apply accepts only the server-held preview ID; displayed paths/counts/field
 values are never apply authority. Generated/provider/file proposals require a
 separate effects preview after generation completes. Existing library methods

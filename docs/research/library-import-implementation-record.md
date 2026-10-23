@@ -71,3 +71,21 @@ Task 7 freezes independent policy, selected engine settings, model-file hashes a
 Key, BPM, grid, energy and generation create separate proposals. Private generation timing reaches the existing publication template without becoming active BPM/grid. Default all-off and overwrite-only policies create no processing receipts or decode cache. Present null, empty and unknown values are not fill-missing candidates. Preview and worker share the same stage planner, so no-op fill requests and identical refreshes schedule no processing. Validated stage reuse checks source/PCM/clock/decoder, selected settings, model/engine/coordinator identity, result shape and proposal checksum; a mismatch recomputes. Source hashes advance when changed media is accepted. History and queue adoption remain independently off even if an earlier inspection captured them.
 
 Verification: 66 shared import checks passed, including cancellation after claim, concurrent wakes, a panic between stages followed by database reopen, missing media, source/model/implementation/decoder mismatch, cache reuse/rejection, unknown-result handling and a later local edit preserved alongside the proposal's older guard. Fifty-four storage/backup/legacy-import regressions and the six selective core controls passed. All-target core/library Clippy with warnings denied, formatting and diff checks passed. Provider, cleanup and file-publication slots remain explicitly blocked at this intermediate commit; Task 8 supplies their actual handlers and requires a separate effect preview/apply. These are fixture and generated-media controls, not native source-app/device acceptance.
+
+
+## Desktop import review
+
+The import route uses a single reducer for source, selection, policy, review and
+result states. Native selections and mapping roots stay opaque; candidate values
+and previews remain server-owned. Users choose an observed DJ.Studio SQL/JSON
+candidate by immutable ID, then resolve any independent local conflict in a new
+preview. Unchecked analysis, retagging, tag writes and naming remain off.
+
+Existing prepared cues are local conflict evidence; an empty later cue revision
+is an explicit local edit. Unknown native pad occupancy blocks generation and
+performance export until separately authorized replacement for the current
+snapshot. Saved loops remain independent, while loops occupying hot slots protect
+those slots. Removed/placeholder native entries remain raw observations but do
+not become active cues. Accepted duration and descriptive aliases do not require
+analysis. Outgoing Sync uses accepted measured fields and explicit grid anchors,
+preserving saved FileAnalysis and existing DSP calculations.

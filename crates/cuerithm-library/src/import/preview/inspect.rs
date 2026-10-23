@@ -8,6 +8,22 @@ impl Library {
     ) -> Result<ImportPreview> {
         cancel.check()?;
         ensure!(
+            request.candidate_choices.len() <= 1000,
+            "Too many explicit source candidate choices"
+        );
+        let mut chosen = std::collections::BTreeSet::new();
+        for choice in &request.candidate_choices {
+            ensure!(
+                chosen.insert((&choice.external_id, &choice.field)),
+                "Duplicate source candidate choice"
+            );
+            ensure!(
+                request.tracks.contains(&choice.external_id),
+                "Candidate choice belongs to an unselected track"
+            );
+            ensure!(self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_observations WHERE snapshot_id=?1 AND kind='track' AND record_id=?2)",params![request.inspection_id,choice.external_id],|r|r.get::<_,bool>(0))?,"Candidate choice belongs to an unknown observed track");
+        }
+        ensure!(
             request.policy.version == 1,
             "Unsupported import policy version"
         );
@@ -203,7 +219,8 @@ impl Library {
         while let Some(row) = candidates.next()? {
             cancel.check()?;
             let candidate: Candidate = serde_json::from_str(&row.get::<_, String>(0)?)?;
-            let track = load_track(&tx, &request.inspection_id, &candidate.external_id)?;
+            let mut track = load_track(&tx, &request.inspection_id, &candidate.external_id)?;
+            candidates::resolve(&request, &mut track)?;
             let local = local_fields(&tx, &candidate.item_id)?;
             let incoming = selected_source_values(&tx, &track, &request.policy)?;
             let mut fields = BTreeMap::new();
@@ -217,6 +234,13 @@ impl Library {
                 let (mut adopted, conflict) =
                     choose_field(&value, before, applied.as_ref(), choice);
                 let mut blocked_reason = None;
+                if field == "cues.hot"
+                    && super::super::performance::unknown_hotcue_occupancy(&track)
+                    && !request.policy.replace_hotcues
+                {
+                    adopted = None;
+                    blocked_reason=Some("Unknown native hotcue occupancy blocks automatic cue adoption without replacement permission".into());
+                }
                 if !readable(&profile, &field)? {
                     adopted = None;
                     blocked_reason = Some(
@@ -225,7 +249,7 @@ impl Library {
                     );
                 }
                 if field == "cues.hot"
-                    && occupied(before)
+                    && (occupied(before) || super::super::performance::hotcue_occupied(&local))
                     && adopted.as_ref().is_some_and(|v| Some(v) != before)
                     && (!request.policy.replace_hotcues
                         || !matches!(
@@ -271,7 +295,7 @@ impl Library {
                     } else {
                         "source"
                     };
-                    provenance.insert(field.clone(),json!({"kind":kind,"source_id":source,"snapshot_id":request.inspection_id,"external_id":candidate.external_id}));
+                    provenance.insert(field.clone(),json!({"kind":kind,"source_id":source,"snapshot_id":request.inspection_id,"external_id":candidate.external_id,"candidate_choices":request.candidate_choices.iter().filter(|choice|choice.external_id==candidate.external_id).collect::<Vec<_>>() }));
                 }
                 summary.conflicts += u64::from(conflict);
                 summary.blocked += u64::from(blocked_reason.is_some());

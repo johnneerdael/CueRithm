@@ -594,3 +594,31 @@ jobs. Rust/TS fixture parity,4 frontend API tests, frontend typecheck, changed
 package all-target Clippy with warnings denied, formatting and diff checks pass.
 These Linux cloud checks do not qualify native app reopen/device acceptance or
 macOS/Windows runtime behavior.
+
+
+## Import review and independent processing controls
+
+The desktop import route now exposes native source/profile selection, explicit
+volume mappings, paged native-ID selections and immutable backend comparisons.
+History and queue adoption start off. Missing media remains in Tracks, with
+playback disabled until resolved. Recognized keys display Camelot alongside the
+original notation; native timing remains an observation rather than a prepared
+analysis result. Repeated collection occurrences remain visible.
+
+Key, energy, BPM/grid analysis, generation, hotcue replacement, enrichment,
+cleanup, audio-tag writes and naming are separate choices. Processing defaults
+off independently of Incoming. Requested analysis offers fill-missing or
+replace-selected; naming defaults to in-place and requires an explicit folder for
+copy/move. Generated results receive a separate effects review. Apply sends only
+the server-held preview ID.
+
+Regression witnesses cover empty later cue edits, prepared hotcue preservation,
+unknown native occupancy, hot-slot loops versus saved loops, unqualified native
+slot mappings, placeholder/removed records and immutable DJ.Studio surface
+choices. Accepted measured performance values project into outbound Sync without
+rewriting saved analysis or inferring a native bar origin. This does not qualify
+any new source clock or grant a native writer capability. Source-process guards
+for optional original-media file operations and whole-system acceptance remain
+Task 22 gates. Refresh/history UI and final documentation/review remain pending.
+
+Validation for this stage: 111 matched library tests, 527 SDK tests (three explicitly ignored), 23 targeted frontend tests and 118 existing frontend regression tests passed. Frontend production build, changed-package all-target release Clippy with warnings denied, formatting and diff checks passed. These are authored fixture/generated-media checks; native application/device acceptance remains unrun.

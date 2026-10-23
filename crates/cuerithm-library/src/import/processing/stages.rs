@@ -58,9 +58,8 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
         });
     }
     if policy.cue_generation == CueGeneration::Generate {
-        let occupied = fields
-            .get("cues.hot")
-            .is_some_and(|v| !v.is_null() && !v.as_array().is_some_and(Vec::is_empty));
+        let occupied = super::super::performance::hotcue_occupied(fields);
+        let unknown = fields.get("_hotcue_occupancy").and_then(Value::as_str) == Some("unknown");
         stages.push(Stage {
             name: "generation.cues",
             field: "cues.hot",
@@ -68,7 +67,12 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
                 cues: true,
                 ..Default::default()
             },
-            blocker: if occupied && !policy.replace_hotcues {
+            blocker: if unknown && !policy.replace_hotcues {
+                Some(
+                    "Unknown native hotcue occupancy requires separate replacement permission"
+                        .into(),
+                )
+            } else if occupied && !policy.replace_hotcues {
                 Some("Occupied hotcues require separate replacement permission".into())
             } else {
                 None

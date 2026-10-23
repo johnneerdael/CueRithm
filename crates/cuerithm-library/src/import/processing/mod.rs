@@ -3,6 +3,16 @@ mod frozen;
 mod optional;
 mod service;
 mod stages;
+#[cfg(test)]
+pub(super) fn planned_stage_blockers(
+    policy: &ImportPolicy,
+    fields: &BTreeMap<String, Value>,
+) -> Vec<(String, Option<String>)> {
+    stages::plan(policy, fields)
+        .into_iter()
+        .map(|s| (s.name.into(), s.blocker))
+        .collect()
+}
 use super::*;
 use crate::{Library, model::now};
 use anyhow::{Context, Result, ensure};
