@@ -441,3 +441,48 @@ in the default build and93 with tagging enabled, including the three direct
 import/bridge/refresh cases. All three changed Rust packages pass all-target
 Clippy with warnings denied; formatting and diff checks pass. The known broader
 library mount limitations listed above remain outside these focused runs.
+
+## Pioneer USB and OneLibrary reader
+
+The device reader prefers a selected SQLCipher4 `exportLibrary.db` with
+`property.dbVersion=1000` over `export.pdb`. It preserves both catalog
+fingerprints and never merges conflicting catalog fields by filename. An
+unsupported SQL version fails explicitly rather than silently using a stale PDB.
+The existing device interoperability-key policy is reused; no account or desktop
+key discovery is involved. Acquisition backs up a read-only source into a private
+keyed database without invoking the outbound schema/migration helper.
+
+PDB input streams linked pages and bounded row heaps into a disk spool. Directory,
+page identity/type, declared last page, cycles, bitmaps, heap/offset overlap and
+visible row boundaries are checked. Inactive offsets still bound visible rows.
+Short strings, long ASCII, UTF-16LE, artist/album pointer variants, unknown fields
+and opaque records retain their original bytes. Unknown packed strings produce
+field issues rather than empty values. Source history is opt-in; repeated
+memberships retain distinct physical/native occurrences and sparse positions.
+
+Device-relative paths resolve under the selected device root or explicit folder
+mappings. Missing media remains visible with metadata; import does not copy audio,
+write tags, decode PCM or edit a device reference. DAT/EXT/2EX bytes remain private
+provenance. Full PQTZ rows retain milliseconds and raw beat numbers. Extended PCO2
+cues take precedence over legacy PCOB when SQL supplies no cues; SQL cue rows keep
+their own authority and report the richer sidecar layer separately. Coincident
+memory/hot markers are preserved; one-based ANLZ hot numbers map to zero-based
+slots. Missing/corrupt performance layers retain unresolved timing and unknown
+hotcue-occupancy evidence.
+
+SQL cue times use microseconds. Normalized SQL kinds follow the existing native
+writer's contract: zero is memory and positive N is hot slot N-1. This differs
+from the handover's inspected Lexicon helper; raw kinds/active flags remain
+available and alternate producer/device acceptance is unrun. No active-loop flag
+is invented for ANLZ formats without a qualified corresponding field. All native
+cue/grid clocks remain unresolved; these fixtures do not qualify D4 source-app
+or D6 hardware behavior.
+
+Task17 verification:512 dj-sync tests pass (3 ignored), including10 device-reader
+cases and the unchanged native USB writer regressions. All-target Clippy with
+warnings denied, formatting and diff checks pass. Controls include1024/4096-byte
+pages, head pages, multiple row groups, inactive rows, pointer/string variants,
+heap overflow/cycles, both catalogs, malformed/unknown fields, missing files,
+cue precedence and black RGB, history selection, repeated occurrences,
+cancellation and source immutability. Hardware acceptance remains explicitly
+unrun.

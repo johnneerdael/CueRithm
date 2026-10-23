@@ -73,6 +73,9 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::PioneerUsb {
+        return &super::readers::pioneer_usb::PioneerUsbReader;
+    }
     if provider == SourceProvider::Rekordbox {
         static REKORDBOX: super::readers::rekordbox::RekordboxReader =
             super::readers::rekordbox::RekordboxReader::unconfigured();

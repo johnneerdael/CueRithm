@@ -143,11 +143,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `PioneerUsbReader`, preferring accepted `exportLibrary.db` profile over `export.pdb` while preserving both artifact fingerprints. Imported audio remains on device unless separate explicitly previewed copy/organization policy applies.
 
-- [ ] Write `usb_reads_pdb_rows_and_onelibrary_without_copying_audio` and `usb_preserves_cue_classes_anlz_and_membership_order`. Assert SQL microseconds/1e6 versus ANLZ milliseconds/1000, BPMx100/100, one-based ANLZ hotCue to zero-based slot, coincident memory/hot families, raw kind/active-loop and exact missing-sidecar diagnostics. PDB page/row/string variants and native analysis buffers have independently constructed controls.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_pioneer_usb`; expect missing reader.
-- [ ] Reuse approved SQLCipher4/format-key policy and bounded linked-page/row-bitmaps/packed strings. Extend inbound lookup/track/hierarchy/history fields without lossy roundtrip through writer tables. Read DAT/EXT PQTZ/PCOB/PCO2 separately and record precedence/losses. No basename auto-merge, implicit audio copy or source reference mutation.
-- [ ] Rerun overflow/heap overlap/page cycle/unknown packed string variants, missing files, both catalog representations, device-relative roots and duplicate entries; expect pass. Keep hardware D6 explicitly unrun unless an actual device test is available.
-- [ ] Commit `feat: read Pioneer device libraries and native performance assets`.
+- [x] Write `usb_reads_pdb_rows_and_onelibrary_without_copying_audio` and `usb_preserves_cue_classes_anlz_and_membership_order`. Assert SQL microseconds/1e6 versus ANLZ milliseconds/1000, BPMx100/100, one-based ANLZ hotCue to zero-based slot, coincident memory/hot families, raw kind/active-loop and exact missing-sidecar diagnostics. PDB page/row/string variants and native analysis buffers have independently constructed controls.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_pioneer_usb`; expect missing reader.
+- [x] Reuse approved SQLCipher4/format-key policy and bounded linked-page/row-bitmaps/packed strings. Extend inbound lookup/track/hierarchy/history fields without lossy roundtrip through writer tables. Read DAT/EXT PQTZ/PCOB/PCO2 separately and record precedence/losses. No basename auto-merge, implicit audio copy or source reference mutation.
+- [x] Rerun overflow/heap overlap/page cycle/unknown packed string variants, missing files, both catalog representations, device-relative roots and duplicate entries; expect pass. Keep hardware D6 explicitly unrun unless an actual device test is available.
+- [x] Commit `feat: read Pioneer device libraries and native performance assets`.
 
 ### Task 18: DJ.Studio SQL and imported-record reader
 

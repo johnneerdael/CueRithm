@@ -10,7 +10,7 @@ pub(super) fn u16le(bytes: &mut [u8], at: usize, value: u16) {
 pub(super) fn u32le(bytes: &mut [u8], at: usize, value: u32) {
     bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
 }
-pub(super) fn read16(bytes: &[u8], at: usize) -> Result<u16> {
+pub(crate) fn read16(bytes: &[u8], at: usize) -> Result<u16> {
     Ok(u16::from_le_bytes(
         bytes
             .get(at..at + 2)
@@ -18,7 +18,7 @@ pub(super) fn read16(bytes: &[u8], at: usize) -> Result<u16> {
             .try_into()?,
     ))
 }
-pub(super) fn read32(bytes: &[u8], at: usize) -> Result<u32> {
+pub(crate) fn read32(bytes: &[u8], at: usize) -> Result<u32> {
     Ok(u32::from_le_bytes(
         bytes
             .get(at..at + 4)
@@ -121,7 +121,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Tables> {
         .filter(|(kind, _)| (16..=19).contains(kind))
         .collect())
 }
-pub(super) fn decode_string(bytes: &[u8], offset: usize) -> Result<String> {
+pub(crate) fn decode_string(bytes: &[u8], offset: usize) -> Result<String> {
     let first = *bytes.get(offset).context("PDB string offset outside row")?;
     if first & 1 == 1 {
         let length = (first >> 1).saturating_sub(1) as usize;
@@ -355,4 +355,171 @@ pub(super) fn build(tables: &Tables) -> Result<Vec<u8>> {
     }
     u32le(&mut bytes, 20, (sequence + 1).max(6));
     Ok(bytes)
+}
+
+/// Inbound cursor: retain physical row identity without collecting a library.
+pub(crate) struct ReadHeader {
+    pub page_size: usize,
+    pub table_types: Vec<u32>,
+    pub raw: Vec<u8>,
+}
+pub(crate) struct ReadRow<'a> {
+    pub kind: u32,
+    pub page: u32,
+    pub slot: usize,
+    pub bytes: &'a [u8],
+}
+pub(crate) fn visit_records(
+    path: &std::path::Path,
+    max_bytes: u64,
+    cancel: &cuerithm_media::CancellationToken,
+    mut visit: impl FnMut(ReadRow<'_>) -> Result<()>,
+) -> Result<ReadHeader> {
+    use std::io::{Read, Seek, SeekFrom};
+    cancel.check()?;
+    let mut file = std::fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    ensure!(len >= 32 && len <= max_bytes, "PDB byte limit");
+    let mut prefix = [0; 32];
+    file.read_exact(&mut prefix)?;
+    let size = read32(&prefix, 4)? as usize;
+    let count = read32(&prefix, 8)? as usize;
+    ensure!(
+        (128..=65536).contains(&size)
+            && len.is_multiple_of(size as u64)
+            && count <= 256
+            && 28 + count * 16 <= size,
+        "Invalid PDB directory"
+    );
+    let pages = usize::try_from(len / (size as u64))?;
+    let mut header = vec![0; size];
+    file.seek(SeekFrom::Start(0))?;
+    file.read_exact(&mut header)?;
+    let mut table_types = Vec::new();
+    let mut total = 0usize;
+    let mut buffer = vec![0; size];
+    for index in 0..count {
+        cancel.check()?;
+        let at = 28 + index * 16;
+        let kind = read32(&header, at)?;
+        ensure!(
+            !table_types.contains(&kind),
+            "Duplicate PDB table directory"
+        );
+        table_types.push(kind);
+        let mut page = read32(&header, at + 8)? as usize;
+        let last = read32(&header, at + 12)? as usize;
+        ensure!(
+            (page == 0 && last == 0) || page > 0 && page < pages && last > 0 && last < pages,
+            "PDB directory page outside file"
+        );
+        let mut visited = vec![0u8; pages.div_ceil(8)];
+        while page != 0 {
+            cancel.check()?;
+            ensure!(
+                page < pages && visited[page / 8] & (1 << (page % 8)) == 0,
+                "PDB page cycle/outside file"
+            );
+            visited[page / 8] |= 1 << (page % 8);
+            file.seek(SeekFrom::Start((page as u64) * (size as u64)))?;
+            file.read_exact(&mut buffer)?;
+            ensure!(
+                read32(&buffer, 4)? as usize == page && read32(&buffer, 8)? == kind,
+                "Mismatched PDB page identity/type"
+            );
+            if buffer[27] & 0x40 == 0 {
+                let word = u32::from(buffer[24])
+                    | (u32::from(buffer[25]) << 8)
+                    | (u32::from(buffer[26]) << 16);
+                let slots = (word & 8191) as usize;
+                let used = usize::from(read16(&buffer, 30)?);
+                let offset_bytes = slots * 2 + slots.div_ceil(16) * 4;
+                ensure!(
+                    40 + used <= size
+                        && offset_bytes <= size - 40
+                        && 40 + used <= size - offset_bytes,
+                    "PDB heap/row table overlap"
+                );
+                let mut cursor = size;
+                let mut offsets = Vec::with_capacity(slots);
+                for group in 0..slots.div_ceil(16) {
+                    cursor -= 4;
+                    let present = read16(&buffer, cursor)?;
+                    for slot in 0..(slots - group * 16).min(16) {
+                        cursor -= 2;
+                        let offset = usize::from(read16(&buffer, cursor)?);
+                        ensure!(offset <= used, "PDB row outside heap");
+                        offsets.push((offset, present & (1 << slot) != 0));
+                    }
+                }
+                let mut sorted = offsets
+                    .iter()
+                    .map(|(offset, _)| *offset)
+                    .collect::<Vec<_>>();
+                sorted.sort_unstable();
+                sorted.dedup();
+                let mut visible = HashSet::new();
+                for (slot, (offset, present)) in offsets.into_iter().enumerate() {
+                    if !present {
+                        continue;
+                    }
+                    ensure!(visible.insert(offset), "Duplicate visible PDB row offset");
+                    let end = sorted
+                        .iter()
+                        .find(|next| **next > offset)
+                        .copied()
+                        .unwrap_or(used);
+                    ensure!(end > offset, "Empty visible PDB row");
+                    total += 1;
+                    ensure!(total <= 2_000_000, "PDB row count limit");
+                    visit(ReadRow {
+                        kind,
+                        page: page as u32,
+                        slot,
+                        bytes: &buffer[40 + offset..40 + end],
+                    })?;
+                }
+            }
+            if page == last {
+                break;
+            }
+            page = read32(&buffer, 12)? as usize;
+            ensure!(page != 0, "PDB page chain ended before declared last page");
+        }
+    }
+    cancel.check()?;
+    Ok(ReadHeader {
+        page_size: size,
+        table_types,
+        raw: header,
+    })
+}
+
+pub(crate) fn inspect_header(path: &std::path::Path, max_bytes: u64) -> Result<ReadHeader> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    ensure!(len >= 32 && len <= max_bytes, "PDB byte limit");
+    let mut first = [0; 32];
+    file.read_exact(&mut first)?;
+    let page_size = read32(&first, 4)? as usize;
+    let count = read32(&first, 8)? as usize;
+    ensure!(
+        (128..=65536).contains(&page_size)
+            && len.is_multiple_of(page_size as u64)
+            && count <= 256
+            && 28 + count * 16 <= page_size,
+        "Invalid PDB directory"
+    );
+    let mut raw = vec![0; page_size];
+    file.seek(SeekFrom::Start(0))?;
+    file.read_exact(&mut raw)?;
+    let table_types = (0..count)
+        .map(|i| read32(&raw, 28 + i * 16))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(ReadHeader {
+        page_size,
+        table_types,
+        raw,
+    })
 }
