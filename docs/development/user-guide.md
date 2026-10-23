@@ -80,16 +80,14 @@ links to an image that does not exist yet:
    the named heading, only when both theme images exist, and updates a placed figure in
    place on re-run. Never write figure markup by hand.
 
-### Real data in screenshots
+### Which library to capture from
 
-The guide is documented with real tracks from the owner's own library, at the owner's explicit
-direction (the AGENTS.md concern about publishing library material was raised and weighed, and
-real data was chosen over an invented-data harness). Screenshots show what the app displays for
-those files. What stays out of the repository: music files, private library paths and user names
-in captured images, credentials, and the aggregate table of per-track measurements (kept in the
-maintainer's private `.analysis/` area). Review every captured image for file paths before
-keeping it. The capture driver and scene files do not depend on which library is used, so the
-capture pass can be switched to invented data at any time.
+The capture driver and scene files do not depend on which library is used. Before committing a
+screenshot of a personal library, check it against the AGENTS.md rule on publishing music,
+private library paths and per-track labels: titles, keys, BPMs, energy values and cues of real
+tracks are per-track information. Keep music files, library paths, user names and credentials
+out of every captured image, review each image for them before keeping it, and keep the
+aggregate table of per-track measurements in the private `.analysis/` area.
 
 Driving the app while it is being captured clicks real controls on the real library:
 scans and previews are read-only, so capture those freely, and never script an Apply,
