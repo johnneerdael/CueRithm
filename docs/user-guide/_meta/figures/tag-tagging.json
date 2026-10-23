@@ -1,0 +1,178 @@
+[
+ {
+  "scene": "tag-toolbar-selection",
+  "page": "tagging/index.md",
+  "after": "intro",
+  "alt": "The Tracks view with four Anyma tracks selected: the toolbar above the table shows 4 selected, Edit metadata, Review match, Curate, Organize files, Analyze again, Archive and Drafts and history",
+  "caption": "Select tracks and the toolbar offers every action on this tab.",
+  "state": "Sidebar: Tracks selected, no playlist. Select Atoma (Extended Mix), No Good (Extended Mix), Other Dimension (Extended Mix) and Prophecy (Extended Mix) with cmd/ctrl+click. The toolbar must show '4 selected' and the buttons Edit metadata, Review match (disabled with several tracks), Curate, Organize files, Analyze again, Archive and Drafts and history. No inspector panel open, nothing hovered. Dark or light does not matter.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-settings-automatic-tagging",
+  "page": "tagging/tag-new-tracks-automatically.md",
+  "after": "## 1. Switch on automatic tagging { #switch-on }",
+  "alt": "Settings, Automatic tagging page: the Automatic tagging box is ticked, the Recovery backups row shows the stored size, and the provider list starts with Beatport as 1 and Traxsource as 2",
+  "caption": "Automatic tagging is one tick; Beatport and Traxsource are the default providers.",
+  "state": "Sidebar: Settings, then the Automatic tagging page, scrolled to the top. 'Automatic tagging' ticked. The provider list must show Beatport at position 1 and Traxsource at 2, both ticked, with the other providers showing a dash. No hover, no unsaved-settings banner.",
+  "crop": "panel",
+  "needs": "The owner's installed app has every source configured, so other providers may show 'Connection verified'. Beatport and Traxsource must be the only ticked providers for this capture; restore the owner's selection afterwards without pressing Save settings if possible."
+ },
+ {
+  "scene": "tag-settings-fields-to-write",
+  "page": "tagging/tag-new-tracks-automatically.md",
+  "after": "## 4. Check the fields to write { #fields }",
+  "alt": "Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not",
+  "caption": "Only fields with a Write tick are ever touched; Genre, BPM, Style, Label and Release date are on by default.",
+  "state": "Settings, Automatic tagging page, scrolled to the Fields to write group. Default selection: Genre, BPM, Style, Label, Release date ticked under Write, Overwrite all selected fields ticked. The line under each field names the providers that supply it. Capture the group heading, the first dozen rows and the 'Key and BPM written to files' control.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-incoming-matching",
+  "page": "tagging/tag-new-tracks-automatically.md",
+  "after": "## 6. Add the practice tracks { #add-tracks }",
+  "alt": "Incoming view with a Beatport purchase file in the Matching catalog stage, the header reading Preparing 1 track",
+  "caption": "The Matching catalog stage is the only step that uses the internet.",
+  "state": "Sidebar: Incoming. One freshly added file whose row shows 'Matching catalog' under its title; the header indicator reads 'Preparing 1 track'. Capture within a few seconds of adding it.",
+  "crop": "window",
+  "needs": "A spare copy of a Beatport purchase file that is not yet in the library (for example a copy of Man Like Me (Extended Mix) in a folder that is not watched). Add it with Add tracks and capture while the stage reads Matching catalog; the stage can pass quickly, so use Writing tags or Preparing tags if that is what is visible. Remove the copy afterwards."
+ },
+ {
+  "scene": "tag-status-icons",
+  "page": "tagging/tag-new-tracks-automatically.md",
+  "after": "## 7. Check what changed { #check }",
+  "alt": "Tracks table with a check mark in the narrow status column beside the row numbers for tracks tagged from a catalog match",
+  "caption": "A check mark in the status column means the track was tagged from a catalog match.",
+  "state": "Sidebar: Tracks. Top of the table with several rows visible; the narrow status column beside the row numbers shows check marks. No hover or tooltip, no row selected.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-settings-providers",
+  "page": "tagging/choose-providers.md",
+  "after": "## Choose providers and their order { #providers }",
+  "alt": "Provider list in Settings: Beatport as 1 and Traxsource as 2 ticked with up and down arrows, then SonoVault, Discogs, Volumo, BPM Supreme and others with a dash and their status lines",
+  "caption": "Tick a provider, then use the arrows to set the order; the status line shows whether it is ready.",
+  "state": "Settings, Automatic tagging page, scrolled to the provider list so that Beatport, Traxsource and at least five of the other providers with their status lines are visible. No setup panel open, no hover.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-settings-fields-to-write",
+  "page": "tagging/choose-providers.md",
+  "after": "## Choose the fields to write { #fields-to-write }",
+  "alt": "Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not",
+  "caption": "Each field has its own Write and Overwrite box, and names the providers that can supply it.",
+  "state": "Same capture as the tutorial: Settings, Automatic tagging page, scrolled to the Fields to write group.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-settings-matching",
+  "page": "tagging/choose-providers.md",
+  "after": "## Tune how strictly tracks are matched { #matching }",
+  "alt": "The Matching group in Settings with Matching strictness 0.7, Tagging concurrency 16, Match duration off and Album matching off",
+  "caption": "The Matching group holds strictness, concurrency, duration checks and Album matching.",
+  "state": "Settings, Automatic tagging page, scrolled to the Matching group, fully expanded: Matching strictness through Album matching ratio visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-settings-matching",
+  "page": "tagging/match-a-release.md",
+  "after": "## Turn it on { #match-a-folder-as-a-release }",
+  "alt": "The Matching group in Settings with Album matching and Album matching ratio at the bottom of the group",
+  "caption": "Album matching and its ratio sit at the bottom of the Matching group.",
+  "state": "Same capture as the Matching group above, with Album matching and Album matching ratio visible at the bottom.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-provider-setup-panel",
+  "page": "tagging/provider-accounts.md",
+  "after": "## Connect a provider { #provider-setup }",
+  "alt": "The SonoVault setup panel open under its provider row: a status line reading Connection verified, the masked API key field, Test saved SonoVault connection and Remove SonoVault key",
+  "caption": "A setup panel holds the masked key field, the test button and the status line.",
+  "state": "Settings, Automatic tagging, open 'Manage SonoVault' (or 'Manage Discogs') for a provider that already has a saved credential. The key field must be empty and masked. Capture the provider row and its open panel. No hover.",
+  "crop": "panel",
+  "needs": "Use a provider whose credential is already saved. Never type or reveal a key during capture; check that no secret and no private account name is visible."
+ },
+ {
+  "scene": "tag-solver-settings",
+  "page": "tagging/cloudflare-solver.md",
+  "after": "## Point CueRithm at it { #configure-cuerithm }",
+  "alt": "The Cloudflare challenge solver group with the Solver API URL box showing the placeholder http://localhost:8191, Solver timeout 120 and the Retry direct source access button",
+  "caption": "Enter the solver's address and keep the timeout at 120 seconds to start.",
+  "state": "Settings, Automatic tagging page, the Cloudflare challenge solver group expanded. The Solver API URL must be empty so the placeholder http://localhost:8191 shows; do not capture a private network address. Solver timeout 120.",
+  "crop": "panel",
+  "needs": "If the owner's saved solver URL is a private address, clear the box for the capture without saving, then close Settings without pressing Save settings."
+ },
+ {
+  "scene": "tag-settings-identify",
+  "page": "tagging/identify-unknown-tracks.md",
+  "after": "## Turn it on { #identify-unresolved-recordings }",
+  "alt": "The Identify unresolved recordings group expanded: Allow fingerprint lookup and Identify unresolved tracks, with the explanation that a fingerprint is made on your computer",
+  "caption": "Both boxes are off until you tick them, and identification needs your consent first.",
+  "state": "Settings, Automatic tagging page, the Identify unresolved recordings group expanded (it is collapsed by default). Show both checkboxes and their descriptions. State of the boxes does not matter.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tag-review-candidates",
+  "page": "tagging/review-a-match.md",
+  "after": "## Read the evidence { #review-a-catalog-match }",
+  "alt": "Review match panel for Man Like Me (Extended Mix): Catalog access, Current file with Kevin de Vries and Platero, and a list of candidate recordings with Name similarity percentages",
+  "caption": "Candidates show the provider, name similarity, version, duration and any conflicts.",
+  "state": "Sidebar: Tracks. Select Man Like Me (Extended Mix) (one track), choose Review match, then Requery and wait for candidates. Capture with the Catalog access, Current file and Candidate recordings sections visible and no candidate chosen.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-review-fields",
+  "page": "tagging/review-a-match.md",
+  "after": "## Choose a candidate and decide each field { #choose-fields }",
+  "alt": "Fields from selected match: the Title row set to Replace with Current, Proposed and After choice, other rows on Keep current, and the Use selected match button enabled",
+  "caption": "Every field starts on Keep current; only the fields you change are written.",
+  "state": "Same track as the candidates figure. Select the best candidate, set the Title action to Replace and leave the rest on Keep current. Capture the Fields from selected match section and the footer buttons. Do not press Use selected match.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-editor-open",
+  "page": "tagging/edit-tags-by-hand.md",
+  "after": "## 2. Change a field { #edit-file-tags }",
+  "alt": "Edit metadata for Atoma (Extended Mix): Measured analysis shows key 2A, BPM 130 and energy 6 / 10, and the Artists field is set to Anyma with the status Draft saved locally",
+  "caption": "The editor changes file tags; the measured key, BPM and energy stay read-only above them.",
+  "state": "Sidebar: Tracks. Select Atoma (Extended Mix), choose Edit metadata. Set the Artists action to Set and type Anyma (replacing Anyma (ofc)). Wait for 'Draft saved locally'. Capture the header, Measured analysis and the Recording group. Do not press Save changes; discard the draft afterwards from Drafts and history.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-editor-many",
+  "page": "tagging/edit-tags-by-hand.md",
+  "after": "## 3. Edit many tracks at once { #many-tracks }",
+  "alt": "Edit metadata with four Anyma tracks selected: Genres shows Melodic House & Techno for all, and Artists shows Mixed values with its action left on Keep",
+  "caption": "With several tracks selected, fields that differ show Mixed values and stay on Keep.",
+  "state": "Select Atoma, No Good, Other Dimension and Prophecy (all Extended Mix), choose Edit metadata. Capture the Recording group with Artists showing 'Mixed values' and Genres showing the shared value. Make no edits.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-editor-artwork",
+  "page": "tagging/edit-tags-by-hand.md",
+  "after": "## 4. Change artwork { #artwork }",
+  "alt": "The Artwork section of the editor for Atoma (Extended Mix): the cover preview, the Selected picture list showing Front cover, and the Replace selected picture and Remove selected picture buttons",
+  "caption": "Replace or remove one picture at a time; other pictures stay as they are.",
+  "state": "Edit metadata open for Atoma (Extended Mix), scrolled to the Artwork section. No change chosen.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-editor-preview",
+  "page": "tagging/edit-tags-by-hand.md",
+  "after": "## 5. Preview, then save { #drafts-preview-and-save }",
+  "alt": "Review changes for 1 track: Atoma (Extended Mix) marked ready, with Artists Before Anyma (ofc) and After Anyma, and Save changes enabled",
+  "caption": "Preview shows each track's Before and After values before anything is written.",
+  "state": "Same edit as the open-editor figure, then choose Preview changes. Capture the Review changes list with the Before and After for Artists and the enabled Save changes button. Do not press Save changes.",
+  "crop": "window"
+ },
+ {
+  "scene": "tag-drafts-and-history",
+  "page": "tagging/tag-history.md",
+  "after": "## Undo a saved edit { #results-and-undo }",
+  "alt": "Drafts and history: Pending drafts with no entries, and Publication history with one saved entry expanded to its Details and an Undo saved changes button",
+  "caption": "Each saved edit appears in Publication history with Details and, while eligible, Undo saved changes.",
+  "state": "Choose Drafts and history above the track table. Metadata edits tab. One Publication history entry in state 'saved', Details open, Undo saved changes visible. No hover.",
+  "crop": "window",
+  "needs": "Needs one saved metadata edit still eligible for Undo. Save a harmless edit (for example a Comment on one track), capture, then press Undo saved changes so the file returns to its earlier tags."
+ }
+]

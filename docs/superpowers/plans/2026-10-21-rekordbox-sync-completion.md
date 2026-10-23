@@ -183,7 +183,7 @@ Library acknowledgements settle the same durable publication journal.
 `src/components/RekordboxConflicts.tsx`, `src-tauri/src/rekordbox_sync_commands.rs`
 and `src/test/rekordbox-sync.test.tsx` under `apps/desktop`; modify `src/api.ts`,
 `src/types.ts`, `src/views/Sync.tsx`, `src-tauri/src/lib.rs` and
-`docs/user-guide/guides/sync.md`.
+`docs/user-guide/sync/index.md`.
 
 **Interfaces:** Expose Task 5's typed requests/results through Tauri. The Sync
 workspace adds a separate rekordbox target state and explicit conflict choices;

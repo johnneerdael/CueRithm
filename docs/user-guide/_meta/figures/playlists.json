@@ -1,0 +1,235 @@
+[
+ {
+  "scene": "playlists-sidebar-overview",
+  "page": "playlists/index.md",
+  "after": "intro",
+  "alt": "The CueRithm sidebar with the PLAYLISTS section open: the Club nights folder holding Warm-up set and Peak hour, the smart playlists Melodic house 128+, Energy 7 and up, Mixes with 7A and Added this week with lightning-bolt icons, and the TOOLS group below",
+  "caption": "Playlists, folders and smart playlists share one tree; the tools sit underneath.",
+  "state": "Tracks view, sidebar at its default width, nothing selected. Expand Club nights so Warm-up set and Peak hour show. The four demo smart playlists are visible at the top level with their lightning-bolt icons. PLAYLISTS and the TOOLS group (Playlist tools, Compatible tracks, Tracklist matcher) must both be on screen. Dark/light do not matter.",
+  "needs": "All demo playlists from ia.md exist. Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
+ },
+ {
+  "scene": "playlists-create-editor",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 2. Create the Warm-up set playlist inside it { #create-playlist }",
+  "alt": "The Create playlist form with Playlist name Warm-up set, Playlist type Playlist and Parent folder Club nights, above the Create button",
+  "caption": "A new item is created inside the folder you have open.",
+  "state": "Open the Club nights folder, click + beside PLAYLISTS, type Warm-up set in Playlist name, leave Playlist type on Playlist, Parent folder already shows Club nights. Capture before clicking Create (capture on a scratch name such as Warm-up set 2 if the real playlist exists).",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-add-bar",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 3. Add seven tracks { #add-seven }",
+  "alt": "The Tracks view with seven tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
+  "caption": "Pick the destination under Choose playlist and click Add to playlist.",
+  "state": "Tracks view. Select seven tracks with Cmd-click (When The Fire Starts To Burn, Desert, F*ck The Club, Murda, Shake The Block, Underground, Atoma). In the bar above the table choose Club nights / Warm-up set in the destination menu; Add to playlist is enabled. Capture before clicking it. The toolbar should read 7 selected.",
+  "needs": "Capture on a scratch playlist (or before the real Warm-up set is filled) so the destination menu still has the playlist."
+ },
+ {
+  "scene": "playlists-warm-up-open",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 4. Add the eighth track and move it into place { #move-into-place }",
+  "alt": "The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10",
+  "caption": "Warm-up set in manual order, BPM climbing from 126 to 130.",
+  "state": "Click Warm-up set in the sidebar (heading Warm-up set 8). Table in manual order (default on opening an ordinary playlist), nothing selected, BPM, Key and Energy columns visible.",
+  "needs": "Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
+ },
+ {
+  "scene": "playlists-menu",
+  "page": "playlists/organize-playlists.md",
+  "after": "## Open the playlist menu { #playlist-menu }",
+  "alt": "The playlist actions menu open beside Warm-up set listing Edit, Duplicate, Add to favorites, Move up, Move down, Move to folder and Remove",
+  "caption": "Every row has a ... menu with the same actions.",
+  "state": "Click the ... button on the Warm-up set row in the sidebar so the menu is open. Warm-up set must not be a favourite yet (so the menu says Add to favorites).",
+  "crop": "window"
+ },
+ {
+  "scene": "playlists-move-dialog",
+  "page": "playlists/organize-playlists.md",
+  "after": "## Put a playlist in a folder { #move-to-folder }",
+  "alt": "The Move Peak hour dialog with the Destination folder menu open showing Your playlists and Club nights, and Cancel and Move buttons",
+  "caption": "Destination folder lists every folder that is not the item or inside it.",
+  "state": "Open ... on Peak hour, choose Move to folder..., open the Destination folder menu so Your playlists and Club nights are visible. Do not click Move.",
+  "crop": "window"
+ },
+ {
+  "scene": "playlists-removed",
+  "page": "playlists/organize-playlists.md",
+  "after": "## Remove a playlist and bring it back { #remove-restore }",
+  "alt": "The sidebar with Removed playlists expanded, showing the note that audio files stay in the library and a Restore button beside a removed playlist",
+  "caption": "Removed playlists wait here until you restore them.",
+  "state": "Remove a scratch playlist (for example a duplicate of Warm-up set), then click Removed playlists at the bottom of the playlist list so it expands, showing the explanatory sentence and the Restore button.",
+  "needs": "A removed scratch playlist. Restore it afterwards.",
+  "crop": "window"
+ },
+ {
+  "scene": "playlists-add-bar",
+  "page": "playlists/edit-playlist-tracks.md",
+  "after": "## Add tracks to a playlist { #add-tracks }",
+  "alt": "The Tracks view with seven tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
+  "caption": "Pick the destination under Choose playlist and click Add to playlist.",
+  "state": "Same picture as playlists-add-bar on create-a-playlist.md."
+ },
+ {
+  "scene": "playlists-order-arrows",
+  "page": "playlists/edit-playlist-tracks.md",
+  "after": "## Put the tracks in order { #reorder-tracks }",
+  "alt": "The Warm-up set in manual order with Palm Of Your Hands selected and the playlist bar showing Remove from playlist and the Order up and down arrows",
+  "caption": "With a track selected, the Order arrows move it one place at a time.",
+  "state": "Open Warm-up set (manual order). Click the row Palm Of Your Hands (Extended Mix) so it is selected. The bar above the table shows the destination menu, Add to playlist, Remove from playlist and Order with its two arrows.",
+  "needs": "Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
+ },
+ {
+  "scene": "playlists-smart-editor-melodic",
+  "page": "playlists/build-a-smart-playlist.md",
+  "after": "## 4. Preview the matches { #preview }",
+  "alt": "The smart playlist editor named Melodic house 128+ with the conditions genre contains Melodic House and BPM is at least 128, Match all conditions, and the preview reading 10 matching tracks",
+  "caption": "Preview matches counts the tracks before you create the playlist.",
+  "state": "Click + beside PLAYLISTS, name it Melodic house 128+, Playlist type Smart playlist. Condition 1: genre / contains / Melodic House. Condition 2: BPM / is at least / 128. Match: all conditions. Click Preview matches so 10 matching tracks shows. Capture before Create (use a scratch name if the real playlist exists).",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-smart-result",
+  "page": "playlists/build-a-smart-playlist.md",
+  "after": "## 5. Create the playlist { #create }",
+  "alt": "Melodic house 128+ open with 10 tracks from 17 (Extended Mix) at 128 BPM to Say Less at 130 BPM, and its lightning-bolt icon selected in the sidebar",
+  "caption": "The smart playlist opens sorted by title, marked with a lightning bolt.",
+  "state": "Click Melodic house 128+ in the sidebar (heading Melodic house 128+ 10). Default title sort, BPM, Key and Energy columns visible, nothing selected."
+ },
+ {
+  "scene": "playlists-rule-or-group",
+  "page": "playlists/smart-rules.md",
+  "after": "### Mix \"any\" and \"all\" with an OR group { #or-group }",
+  "alt": "The rule editor with Match all conditions and three conditions: genre contains House and genre contains Techno, each with OR group ticked, and Energy is at least 7, with the hint about flagged conditions below",
+  "caption": "Two ticked OR groups form one alternative; the unticked condition still applies.",
+  "state": "In a new smart playlist editor (scratch, do not save): Match all conditions; Condition 1 genre contains House with OR group ticked; Condition 2 genre contains Techno with OR group ticked; Condition 3 Energy is at least 7 (OR group unticked). The sentence 'Two or more flagged conditions form one OR group; all unflagged conditions still apply.' must be visible. Click Preview matches so 6 matching tracks shows.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-settings-smart-playlists",
+  "page": "playlists/automatic-smart-playlists.md",
+  "after": "## Turn on the groups you want { #turn-on }",
+  "alt": "Settings, Smart Playlists page with By BPM and By Key ticked and one BPM range from 126 to 130, above the Save Smart Playlist settings button",
+  "caption": "Automatic lists are opt-in, and have their own Save Smart Playlist settings button.",
+  "state": "Settings in the sidebar, then Smart Playlists in the list of settings pages. Tick By BPM, click Add BPM range, set From 126 and To 130, tick By Key. Capture before saving, then untick again (do not save).",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-automatic-tree",
+  "page": "playlists/automatic-smart-playlists.md",
+  "after": "## See what each group creates { #options }",
+  "alt": "The sidebar with Automatic Smart Playlists expanded, showing the Keys folder with lists 1A to 12B and the BPM folder with the 126-130 BPM list",
+  "caption": "Each group fills its own folder under Automatic Smart Playlists.",
+  "state": "After saving By BPM (126 to 130) and By Key in Settings, Smart Playlists: expand Automatic Smart Playlists, then BPM and part of Keys in the sidebar. Disable the options and remove the generated folders afterwards if the owner's library should stay as it was.",
+  "needs": "Temporary opt-in to By BPM and By Key; reverse it after capture.",
+  "crop": "window"
+ },
+ {
+  "scene": "playlists-tools-combine",
+  "page": "playlists/combine-and-tidy-playlists.md",
+  "after": "## Open Playlist tools and preview every change { #open-tools }",
+  "alt": "Playlist tools with the Combine playlists tool, Combination set to Tracks in any selected playlist, Result name Club nights combined, Warm-up set and Peak hour ticked, and a preview of one new playlist",
+  "caption": "Every tool previews its changes before Apply preview.",
+  "state": "Click Playlist tools under TOOLS. Tool: Combine playlists. Combination: Tracks in any selected playlist. Result name: Club nights combined. Destination folder: Club nights. Tick Warm-up set and Peak hour in the picker. Click Preview changes so the list shows 1 playlist change with the track count. Do not click Apply preview.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-tools-number",
+  "page": "playlists/combine-and-tidy-playlists.md",
+  "after": "## Number, prefix or capitalise names { #rename-tools }",
+  "alt": "Playlist tools with Number playlists, Starting number 1, Leading zeroes ticked, and a preview renaming Warm-up set to 01 Warm-up set and Peak hour to 02 Peak hour",
+  "caption": "The preview shows each new name next to the old one before anything changes.",
+  "state": "Playlist tools, Tool: Number playlists, Starting number 1, tick Leading zeroes, tick Warm-up set and Peak hour, click Preview changes. Do not apply.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-generator-bpm",
+  "page": "playlists/generate-playlists.md",
+  "after": "## Preview, then apply { #preview-apply }",
+  "alt": "Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1",
+  "caption": "BPM ranges previews one smart playlist for every 10-BPM band that holds a track.",
+  "state": "Playlist tools, click Generate playlists. Target folder New folder, New folder name BPM bands, Dimension 1 BPM ranges, Combine dimensions off. Click Preview playlists. Do not apply (or apply and undo afterwards).",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-generator-bpm",
+  "page": "playlists/recipes/playlist-per-bpm-range.md",
+  "after": "## The solution",
+  "alt": "Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1",
+  "caption": "BPM ranges previews one smart playlist for every 10-BPM band that holds a track.",
+  "state": "Same picture as playlists-generator-bpm on generate-playlists.md."
+ },
+ {
+  "scene": "playlists-compatible-options",
+  "page": "playlists/find-compatible-tracks.md",
+  "after": "## Decide what \"compatible\" means { #options }",
+  "alt": "Compatible tracks with Come To Life (Original Mix) as the source track showing 7A, 130 BPM and Energy 7/10, with Match compatible keys on in Harmonic mode and Match BPM on with a tolerance of 4",
+  "caption": "The starting options: harmonic keys and a BPM tolerance of 4.",
+  "state": "Select Come To Life (Original Mix) in Tracks, then click Compatible tracks under TOOLS. Do not change any option. Capture before clicking Find compatible tracks.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-compatible-results",
+  "page": "playlists/find-compatible-tracks.md",
+  "after": "## Find and read the matches { #results }",
+  "alt": "Five compatible tracks for Come To Life with reasons such as Same key: 7A and Compatible key: 7A to 8A (harmonic), starting with When The Fire Starts To Burn, then Say Less, Dancin, 17 and Other Dimension",
+  "caption": "Each match lists why it was included; the same key comes first.",
+  "state": "From playlists-compatible-options, click Find compatible tracks. The result shows 5 compatible tracks with the checked and excluded counts visible, with the reasons under each row and the Preview buttons.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-flow-warm-up",
+  "page": "playlists/check-playlist-flow.md",
+  "after": "## Open the flow view { #open }",
+  "alt": "The Playlist flow view of Warm-up set listing eight tracks with energy 6/10 bars, BPM 126 rising to 130 with +1 BPM changes, and key lines showing one No harmonic key match on Palm Of Your Hands",
+  "caption": "Flow follows play order and flags the one transition without a harmonic key match.",
+  "state": "Open Warm-up set and click Playlist flow (button pressed). Nothing selected. All eight rows visible.",
+  "needs": "Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
+ },
+ {
+  "scene": "playlists-tracklist-input",
+  "page": "playlists/match-a-tracklist.md",
+  "after": "## Enter the tracklist { #enter }",
+  "alt": "The Tracklist matcher with five artist and title lines pasted into Reference tracklist, Input format Text, Matching Same tags, and the Find library candidates button",
+  "caption": "One track per line as Artist - Title.",
+  "state": "Click Tracklist matcher under TOOLS. Paste these five lines in Reference tracklist: Adriatique - Palm Of Your Hands (Extended Mix) / Cassian, AR/CO - Come To Life (Original Mix) / Jast - Dancin (Extended Mix) / Anyma (ofc) - Atoma (Extended Mix) / Someone Else - Unreleased Edit. Leave the options at their defaults. Capture before clicking Find library candidates.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-tracklist-review",
+  "page": "playlists/match-a-tracklist.md",
+  "after": "## Review and choose { #review }",
+  "alt": "Review 5 entries with 4 selected and 1 skipped: each of the first four entries has one Same tags 100% candidate chosen, and Someone Else - Unreleased Edit shows No library candidates",
+  "caption": "Nothing is chosen for you; you pick each candidate, and unmatched entries are skipped.",
+  "state": "From playlists-tracklist-input, click Find library candidates, then choose the single candidate for rows 1 to 4. Scroll so rows 1 to 5 and the Playlist name field with Save selected to playlist are visible. Do not save.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-recipe-warm-up-editor",
+  "page": "playlists/recipes/warm-up-playlist.md",
+  "after": "## The solution",
+  "alt": "The smart playlist editor named Warm-up candidates with BPM is between 124 and 128 and Energy is between 1 and 6, Match all conditions, and the preview reading 7 matching tracks",
+  "caption": "Two between conditions: a BPM window and an energy window.",
+  "state": "Smart playlist editor (scratch): name Warm-up candidates; Condition 1 BPM / is between / 124 to 128; Condition 2 Energy / is between / 1 to 6; Match all conditions. Click Preview matches (7 matching tracks). Do not create.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-recipe-key-editor",
+  "page": "playlists/recipes/tracks-that-mix-with-a-key.md",
+  "after": "## The solution",
+  "alt": "The smart playlist editor named Mixes with 7A with one condition, Key is compatible with key 7A, and the preview reading 6 matching tracks",
+  "caption": "One condition does the work; the key menu lists 1A to 12B.",
+  "state": "Smart playlist editor (scratch): name Mixes with 7A; Condition 1 Key / is compatible with key / 7A. Click Preview matches (6 matching tracks). Do not create.",
+  "crop": "panel"
+ },
+ {
+  "scene": "playlists-recipe-added-editor",
+  "page": "playlists/recipes/added-this-week.md",
+  "after": "## The solution",
+  "alt": "The smart playlist editor named Added this week with one condition, Date added is in the last 7 days, and the preview of matching tracks",
+  "caption": "A relative date rule: an amount and a unit of days, weeks or months.",
+  "state": "Smart playlist editor (scratch): name Added this week; Condition 1 Date added / is in the last / 7 / days. Click Preview matches. Do not create.",
+  "crop": "panel"
+ }
+]

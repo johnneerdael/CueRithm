@@ -1,0 +1,144 @@
+[
+  {
+    "scene": "help-incoming-needs-attention",
+    "page": "help/index.md",
+    "after": "intro",
+    "alt": "Incoming view with one row that stopped: an amber error line under the title and the header reading 1 need attention",
+    "caption": "A track that needs you shows its error in the row and in the header; the Help pages start from that text.",
+    "state": "Sidebar: Incoming. One row in the attention state (error text visible in the coloured second line, warning icon and Retry preparation icon on the row). Header next to the search box reads '1 need attention'. Dark/light don't matter.",
+    "needs": "A deliberately unreadable test file in Incoming (for example a 1 KB file renamed to .mp3 dropped with Add tracks) so a row fails with a decoder error. Use a throw-away data folder (CUERITHM_DATA_DIR), not the owner's library."
+  },
+  {
+    "scene": "help-missing-track-dash",
+    "page": "help/troubleshooting/no-waveform-or-playback.md",
+    "after": "## Why it happens { #why }",
+    "alt": "Tracks table with Location and PREVIEW columns: one track shows a dash in PREVIEW while its neighbours show waveforms with cue markers",
+    "caption": "A dash in PREVIEW means the waveform could not be built, usually because the file is not where the library expects it.",
+    "state": "Sidebar: Tracks, sorted by TRACK. Show the Location column (Columns button) next to PREVIEW. Scroll so that one of the 14 tracks whose file was moved (dash in PREVIEW, old Location) sits between tracks that show waveforms. Selection empty, player idle.",
+    "crop": "panel",
+    "needs": "The owner's real library currently holds the 14 missing tracks (moved files) needed here."
+  },
+  {
+    "scene": "help-audio-file-missing-message",
+    "page": "help/troubleshooting/no-waveform-or-playback.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Message at the bottom of the window reading Audio file is missing after double-clicking a track whose file was moved",
+    "caption": "Double-clicking the row names the cause: here the file is not at the recorded location.",
+    "state": "Tracks view. Double-click one of the 14 missing tracks (dash in PREVIEW). Capture while the message bar at the bottom of the window reads 'Audio file is missing: …' (the system reason after the colon may be shown). Player panel shows 'Nothing playing' or the previous track.",
+    "needs": "Same 14 missing tracks as help-missing-track-dash."
+  },
+  {
+    "scene": "help-moved-files-twice",
+    "page": "help/troubleshooting/files-moved.md",
+    "after": "## What you see { #what-you-see }",
+    "alt": "Tracks view sorted by track title showing 40 tracks for 26 files: a moved file appears twice, the old row with a dash in PREVIEW and the new row with a waveform",
+    "caption": "After 14 files were moved up one folder in ~/Music/Beatport, Tracks lists 40 tracks for 26 files.",
+    "state": "Sidebar: Tracks (count 40). Sorted by TRACK, Location column shown beside PREVIEW. Scroll to a pair of rows with the same title: the old one with a dash, the new one with a waveform and a different Location.",
+    "crop": "panel",
+    "needs": "The owner's real library in its current state (14 moved files, 40 tracks for 26 files)."
+  },
+  {
+    "scene": "help-moved-files-missing-scan",
+    "page": "help/troubleshooting/files-moved.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Maintenance, Missing & broken tab after Scan library files: 14 files need attention, each listed as Missing with its recorded location",
+    "caption": "The Missing & broken report lists each old track's Recorded location, which is where to move the file back to.",
+    "state": "Sidebar: Maintenance, tab 'Missing & broken'. Choose Scan library files and wait for the result. The heading reads '14 files need attention' and the line below '40 checked · Availability only'. Table columns Recorded location, Outcome (Missing), Details visible. Folder names must be generic (~/Music/Beatport/…).",
+    "crop": "panel",
+    "needs": "Same real-library state as help-moved-files-twice. Check that no private path is visible before keeping the image."
+  },
+  {
+    "scene": "help-incoming-needs-attention",
+    "page": "help/troubleshooting/incoming-stuck.md",
+    "after": "## Why it happens { #why }",
+    "alt": "Incoming view with one row that stopped: an amber error line under the title and the header reading 1 need attention",
+    "caption": "The second line of the row is the error to look up in the table.",
+    "state": "Same scene as on help/index.md.",
+    "needs": "Same throw-away failing file as on help/index.md."
+  },
+  {
+    "scene": "help-tagging-settings-providers",
+    "page": "help/troubleshooting/no-catalog-match.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Settings, Automatic tagging page: the Automatic tagging switch on, Beatport and Traxsource ticked, and the No catalog match menu",
+    "caption": "Check the Automatic tagging switch, the ticked providers and the No catalog match setting first.",
+    "state": "Sidebar: Settings, page 'Automatic tagging'. Scroll so that the Automatic tagging toggle, the provider list (Use Beatport and Use Traxsource ticked, with their status line) and the 'No catalog match' select are all visible. Tagging switched on.",
+    "crop": "panel"
+  },
+  {
+    "scene": "help-edit-metadata-measured-analysis",
+    "page": "help/troubleshooting/key-or-bpm-differs.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Edit metadata for Come To Life (Original Mix): the read-only Measured analysis block with key 7A and BPM 130.00, and the File key and BPM overrides section open",
+    "caption": "The measured key and BPM are read-only; the file's own key and BPM tags are separate fields.",
+    "state": "Tracks view, select 'Come To Life (Original Mix)' (7A, 130 BPM), choose Edit metadata. Expand 'File key and BPM overrides' so 'File key tag' and 'File BPM tag' show beside the 'Measured analysis (Read-only)' block.",
+    "crop": "panel"
+  },
+  {
+    "scene": "help-constant-beatgrid-form",
+    "page": "help/troubleshooting/key-or-bpm-differs.md",
+    "after": "## Fix it { #fix }",
+    "alt": "The player's correction panel with the Constant beatgrid form: Grid BPM, First beat seconds and the Half BPM and Double BPM buttons",
+    "caption": "Edit cues & grid opens a Constant beatgrid form with Half BPM and Double BPM buttons.",
+    "state": "Tracks view, double-click 'Play With Fire (Original Mix)' (140 BPM). In the player choose 'Edit cues & grid' so the 'Constant beatgrid' fieldset is visible with Grid BPM, First beat seconds, the ½ and double buttons and 'Preview corrections'. Do not save anything.",
+    "crop": "player"
+  },
+  {
+    "scene": "help-rekordbox-ready-for-preview",
+    "page": "help/troubleshooting/rekordbox-sync-problems.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Sync with rekordbox 6 / 7 selected: the Installed library menu and a status block reading Ready for preview",
+    "caption": "With rekordbox and its Agent closed, the status block reads Ready for preview.",
+    "state": "Sidebar: Sync. 'Sync to' = rekordbox 6 / 7. rekordbox and rekordboxAgent not running. The 'Installed library' menu shows the rekordbox version and master.db path, and the block below it reads 'Ready for preview'. Nothing previewed yet. Blur or crop the database path if it contains the user name.",
+    "crop": "panel",
+    "needs": "rekordbox 7.2.19.0342 (or 6.8.7.0303) installed and closed on the capture machine."
+  },
+  {
+    "scene": "help-rekordbox-read-only-running",
+    "page": "help/troubleshooting/rekordbox-sync-problems.md",
+    "after": "## Why it happens { #why }",
+    "alt": "Sync with rekordbox 6 / 7 selected while rekordbox is open: the status block reads Read only with the line Close the target DJ software before syncing",
+    "caption": "A running rekordbox or rekordbox Agent turns the status into Read only.",
+    "state": "Sidebar: Sync, 'Sync to' = rekordbox 6 / 7. Start rekordbox, then press the refresh button beside 'Installed library'. The status block reads 'Read only' with 'Close the target DJ software before syncing'. Quit rekordbox afterwards.",
+    "crop": "panel",
+    "needs": "rekordbox installed and running on the capture machine for this one capture."
+  },
+  {
+    "scene": "help-cleanup-undo-history",
+    "page": "help/troubleshooting/cleanup-changed-too-much.md",
+    "after": "## Fix it { #fix }",
+    "alt": "Cleanup view with the cleanup result line and the Undo history listing one applied cleanup with an Undo button",
+    "caption": "Undo history lists each run with its time and track count; Undo restores the original tags.",
+    "state": "Sidebar: Cleanup. After Scan tracks and Apply of one Common title text fix (Original Mix suffix) on the five Original Mix tracks, the result line reads '5 applied · 0 unchanged · 0 conflicts · 0 failed' and the Undo history shows one entry with an Undo button.",
+    "crop": "panel",
+    "needs": "One applied cleanup batch (Common title text, pattern 'Original Mix suffix') on the demo library. Undo it afterwards."
+  },
+  {
+    "scene": "help-sync-destination-menu",
+    "page": "help/compatibility.md",
+    "after": "## At a glance { #at-a-glance }",
+    "alt": "The Sync to menu open, listing rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx",
+    "caption": "Sync writes to seven destinations.",
+    "state": "Sidebar: Sync. Open the 'Sync to' menu so all seven options are visible.",
+    "crop": "panel",
+    "needs": "A build that includes Mixxx (after 0.1.13)."
+  },
+  {
+    "scene": "help-missing-broken-no-relocate",
+    "page": "help/not-available-yet.md",
+    "after": "## Missing and moved files { #missing-and-moved-files }",
+    "alt": "Maintenance, Missing & broken tab with the note Relocating files is not available in this maintenance screen and the Scan library files button",
+    "caption": "In 0.1.13 the screen only reports unavailable files; it cannot relocate or remove them.",
+    "state": "Sidebar: Maintenance, tab 'Missing & broken', before scanning, with the 'Relocating files is not available in this maintenance screen…' note visible under the Scan settings box.",
+    "crop": "panel"
+  },
+  {
+    "scene": "help-sidebar-version-footer",
+    "page": "help/report-a-problem.md",
+    "after": "## Find your version { #find-version }",
+    "alt": "Bottom of the sidebar with LOCAL LIBRARY, Settings and the footer line CUERITHM 0.1",
+    "caption": "The sidebar footer shows only the release series; the full version is in the download's file name.",
+    "state": "Any view, sidebar expanded. The bottom of the sidebar (LOCAL LIBRARY label, Settings button, 'CUERITHM 0.1' footer) must be visible.",
+    "crop": "window"
+  }
+]

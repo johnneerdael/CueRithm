@@ -1,0 +1,186 @@
+# Navigation skeleton. `python3 tools/docs/build_nav.py` writes mkdocs.yml's nav from it.
+# Labels come from each page's H1. A tab is {label: [pages or {group: [pages]}]}; the first
+# page of a tab or group, when it is an index.md, is its landing page.
+labels:
+  get-started/first-hour.md: From a folder of new music to a playlist for the booth
+tabs:
+  - index.md
+  - Get started:
+      - get-started/index.md
+      - get-started/install.md
+      - Platform notes:
+          - get-started/platforms/macos.md
+          - get-started/platforms/windows.md
+          - get-started/platforms/linux.md
+      - get-started/main-window.md
+      - get-started/first-tracks.md
+      - get-started/first-hour.md
+      - get-started/choose-your-path.md
+      - get-started/coming-from-other-tools.md
+      - get-started/whats-new.md
+  - Manage files:
+      - files/index.md
+      - Bring music in:
+          - files/add-tracks.md
+          - files/watch-folders.md
+          - files/follow-incoming.md
+          - files/needs-attention.md
+          - files/supported-formats.md
+      - Preparation presets:
+          - files/presets.md
+          - files/folder-presets.md
+      - files/archive.md
+      - files/move-files.md
+      - Look after your library:
+          - files/library/index.md
+          - files/library/find-duplicates.md
+          - files/library/find-missing-files.md
+          - files/library/clean-up-unused-files.md
+          - files/library/undo-maintenance.md
+          - files/library/back-up-library.md
+          - files/library/restore-library.md
+          - files/library/where-data-lives.md
+      - Recipes:
+          - files/recipes/*.md
+  - Playlists:
+      - playlists/index.md
+      - playlists/create-a-playlist.md
+      - playlists/organize-playlists.md
+      - playlists/edit-playlist-tracks.md
+      - Smart playlists:
+          - playlists/build-a-smart-playlist.md
+          - playlists/smart-rules.md
+          - playlists/automatic-smart-playlists.md
+      - playlists/combine-and-tidy-playlists.md
+      - playlists/generate-playlists.md
+      - playlists/find-compatible-tracks.md
+      - playlists/check-playlist-flow.md
+      - playlists/match-a-tracklist.md
+      - Recipes:
+          - playlists/recipes/index.md
+          - playlists/recipes/*.md
+  - Auto tagging:
+      - tagging/index.md
+      - Tag from Beatport and Traxsource:
+          - tagging/tag-new-tracks-automatically.md
+          - tagging/choose-providers.md
+          - tagging/provider-accounts.md
+          - tagging/cloudflare-solver.md
+          - tagging/identify-unknown-tracks.md
+          - tagging/match-a-release.md
+          - tagging/review-a-match.md
+      - Edit tags by hand:
+          - tagging/edit-tags-by-hand.md
+          - tagging/tag-history.md
+      - Clean up titles, genres and artists:
+          - tagging/cleanup-messy-titles.md
+          - tagging/cleanup-rules.md
+          - tagging/cleanup-automatically.md
+          - tagging/undo-cleanup.md
+      - tagging/curate-tracks.md
+      - Recipes:
+          - tagging/recipes/index.md
+          - tagging/recipes/*.md
+  - Renaming:
+      - rename/index.md
+      - rename/organize-files.md
+      - rename/naming-patterns.md
+      - rename/undo-organize.md
+      - Recipes:
+          - rename/recipes/index.md
+          - rename/recipes/*.md
+  - Track analysis:
+      - analysis/index.md
+      - analysis/read-key-bpm-energy.md
+      - analysis/camelot-keys.md
+      - analysis/find-tracks.md
+      - analysis/choose-columns.md
+      - analysis/select-many.md
+      - analysis/preview-a-track.md
+      - analysis/jump-to-cues.md
+      - analysis/check-the-beatgrid.md
+      - analysis/cue-rules.md
+      - analysis/analyze-again.md
+      - Fix a wrong cue, loop or beatgrid:
+          - analysis/corrections/index.md
+          - analysis/corrections/move-or-add-cues.md
+          - analysis/corrections/set-loops.md
+          - analysis/corrections/fix-the-beatgrid.md
+          - analysis/corrections/cue-templates.md
+          - analysis/corrections/undo-corrections.md
+  - Sync:
+      - sync/index.md
+      - sync/rekordbox-direct.md
+      - sync/rekordbox-new-tracks.md
+      - sync/rekordbox-conflicts.md
+      - sync/pioneer-usb.md
+      - Other DJ software:
+          - sync/virtualdj.md
+          - sync/mixxx.md
+          - sync/engine-dj.md
+          - sync/djay-pro.md
+          - sync/serato-dj-pro.md
+      - sync/choose-what-to-sync.md
+      - sync/sync-options.md
+      - sync/saved-destinations.md
+      - sync/preview-apply-restore.md
+      - sync/windows-libraries-on-linux.md
+  - Customize:
+      - customize/index.md
+      - customize/theme.md
+      - customize/waveform-style.md
+      - customize/layout.md
+      - customize/find-a-setting.md
+  - How it works:
+      - how-it-works/index.md
+      - how-it-works/pipeline.md
+      - how-it-works/decoding.md
+      - how-it-works/key.md
+      - how-it-works/tempo.md
+      - how-it-works/energy.md
+      - how-it-works/cues.md
+      - how-it-works/waveform.md
+      - how-it-works/library.md
+      - how-it-works/tag-writing.md
+      - how-it-works/matching.md
+      - how-it-works/cleanup-engine.md
+      - how-it-works/smart-engine.md
+      - how-it-works/accuracy.md
+  - Reference:
+      - reference/index.md
+      - reference/keyboard-shortcuts.md
+      - Settings:
+          - reference/settings/index.md
+          - reference/settings/incoming.md
+          - reference/settings/cue-generation.md
+          - reference/settings/automatic-tagging.md
+          - reference/settings/cleanup.md
+          - reference/settings/file-organization.md
+          - reference/settings/library.md
+          - reference/settings/smart-playlists.md
+          - reference/settings/appearance.md
+      - reference/cue-types.md
+      - reference/smart-playlist-fields.md
+      - reference/naming-tokens.md
+      - reference/status-icons.md
+      - reference/glossary.md
+  - Help:
+      - help/index.md
+      - Fix a problem:
+          - help/troubleshooting/index.md
+          - help/troubleshooting/no-waveform-or-playback.md
+          - help/troubleshooting/files-moved.md
+          - help/troubleshooting/incoming-stuck.md
+          - help/troubleshooting/no-catalog-match.md
+          - help/troubleshooting/key-or-bpm-differs.md
+          - help/troubleshooting/rekordbox-sync-problems.md
+          - help/troubleshooting/first-launch-blocked.md
+          - help/troubleshooting/cleanup-changed-too-much.md
+      - help/faq.md
+      - help/compatibility.md
+      - help/not-available-yet.md
+      - help/report-a-problem.md
+      - About:
+          - help/about/index.md
+          - help/about/credits.md
+          - help/about/provenance.md

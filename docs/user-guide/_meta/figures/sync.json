@@ -1,0 +1,225 @@
+[
+ {
+  "scene": "sync-rekordbox-preview-club-nights",
+  "page": "sync/index.md",
+  "after": "intro",
+  "alt": "Sync with rekordbox 6 / 7 chosen after Preview rekordbox sync for the Club nights folder: a summary line, a panel of new tracks and a Playlists and My Tags table",
+  "caption": "A rekordbox preview shows what will change before anything is written: new tracks, and the Club nights folder with Warm-up set and Peak hour.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. rekordbox and rekordbox Agent are quit. What to sync = Playlist or folder, Playlist = Club nights. Include in sync at its defaults. Click Preview rekordbox sync and wait for it to finish. Scroll so the summary line, the 'N new tracks' panel (Tracks to add collapsed) and the first rows of 'Playlists and My Tags' (Create · Folder Club nights, Create · Playlist Warm-up set and Peak hour) are visible. Do not click Sync rekordbox. The 'Installed library' line and the database path line contain the home folder name: mask or crop them. Dark and light both needed.",
+  "needs": "None of the 26 demo tracks may already be in rekordbox at their ~/Music/Beatport paths, otherwise a Review fields table also appears."
+ },
+ {
+  "scene": "sync-destination-menu",
+  "page": "sync/index.md",
+  "after": "## Which software do you use? { #which-software }",
+  "alt": "The Sync to menu open, listing rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx",
+  "caption": "One menu holds all seven destinations and remembers your last choice.",
+  "state": "Sidebar: Sync. Open the 'Sync to' menu so all seven entries are visible (rekordbox 6 / 7 selected). Nothing else needs to be set.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-ready",
+  "page": "sync/rekordbox-direct.md",
+  "after": "## 3. Check that the library is ready { #check-library }",
+  "alt": "Sync with rekordbox 6 / 7 chosen: the Installed library menu, the refresh button and a status block reading Ready for preview",
+  "caption": "Ready for preview means the library can be read and written.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. rekordbox and rekordbox Agent are quit, so the status block reads 'Ready for preview' with the rekordbox version. Nothing previewed. The database path line contains the home folder name: mask or crop that line. Optionally capture a second variant with rekordbox running (status 'Read only' and the line 'Close the target DJ software before syncing') under the scene id sync-rekordbox-read-only.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-scope-and-options",
+  "page": "sync/rekordbox-direct.md",
+  "after": "## 5. Choose what to include { #choose-contents }",
+  "alt": "The rekordbox scope set to Playlist or folder with Club nights chosen, and the Include in sync list: Cues and loops, Beatgrids, Artwork, Playlists and folders and My Tags ticked, the three conversion options unticked",
+  "caption": "The defaults are right for a first sync: everything on except smart-playlist conversion, WAV copies and nearest cue colours.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. What to sync = Playlist or folder, Playlist = Club nights. Include in sync at its defaults, with the 'Metadata fields' section expanded so the 18 ticked fields (Title ... Disc number) show. Mask the database path line.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-preview-club-nights",
+  "page": "sync/rekordbox-direct.md",
+  "after": "## 6. Preview the sync { #preview }",
+  "alt": "Sync with rekordbox 6 / 7 chosen after Preview rekordbox sync for the Club nights folder: a summary line, a panel of new tracks and a Playlists and My Tags table",
+  "caption": "A rekordbox preview shows what will change before anything is written: new tracks, and the Club nights folder with Warm-up set and Peak hour.",
+  "state": "Same picture as on the Sync landing page; see the scene's first request."
+ },
+ {
+  "scene": "sync-rekordbox-completed",
+  "page": "sync/rekordbox-direct.md",
+  "after": "## 7. Apply the sync { #apply }",
+  "alt": "The Sync completed result with counts of tracks, rows changed and fields acknowledged, and the rekordbox sync history listing an applied entry with a Restore backup button",
+  "caption": "After a sync the result block reports what was written, and the history keeps a restorable backup.",
+  "state": "Immediately after clicking Sync rekordbox on the Club nights preview and waiting for it to finish: the green 'Sync completed' block with its counts line, and below it the 'rekordbox sync history' list with the new entry (rekordbox · version, applied, date, counts) showing 'Restore backup'. Mask the database path line.",
+  "needs": "A real sync of the Club nights folder into the owner's rekordbox 7 library (the owner has rekordbox 7.2.19.0342)."
+ },
+ {
+  "scene": "sync-rekordbox-restore-dialog",
+  "page": "sync/rekordbox-direct.md",
+  "after": "## 9. Undo the sync if you need to { #undo }",
+  "alt": "The panel Restore this backup? with its explanation and the buttons Keep current library and Confirm restore",
+  "caption": "Restore asks for confirmation and works only while rekordbox's library still matches the sync.",
+  "state": "On the rekordbox sync history, click 'Restore backup' on the applied entry so the 'Restore this backup?' panel is open. Do not confirm. Capture the panel and the history row above it.",
+  "crop": "panel",
+  "needs": "Capture after the 'completed' scene, before any further sync, and press Keep current library afterwards."
+ },
+ {
+  "scene": "sync-rekordbox-completed",
+  "page": "sync/preview-apply-restore.md",
+  "after": "## Find a sync in the history { #history }",
+  "alt": "The Sync completed result with counts of tracks, rows changed and fields acknowledged, and the rekordbox sync history listing an applied entry with a Restore backup button",
+  "caption": "After a sync the result block reports what was written, and the history keeps a restorable backup.",
+  "state": "Same picture as on the rekordbox tutorial; see the scene's first request."
+ },
+ {
+  "scene": "sync-rekordbox-restore-dialog",
+  "page": "sync/preview-apply-restore.md",
+  "after": "## Restore a backup { #restore }",
+  "alt": "The panel Restore this backup? with its explanation and the buttons Keep current library and Confirm restore",
+  "caption": "Restore asks for confirmation and works only while rekordbox's library still matches the sync.",
+  "state": "Same picture as on the rekordbox tutorial; see the scene's first request."
+ },
+ {
+  "scene": "sync-rekordbox-scope-and-options",
+  "page": "sync/sync-options.md",
+  "after": "## Choose what rekordbox receives { #rekordbox-options }",
+  "alt": "The rekordbox scope set to Playlist or folder with Club nights chosen, and the Include in sync list: Cues and loops, Beatgrids, Artwork, Playlists and folders and My Tags ticked, the three conversion options unticked",
+  "caption": "The defaults are right for a first sync: everything on except smart-playlist conversion, WAV copies and nearest cue colours.",
+  "state": "Same picture as on the rekordbox tutorial; see the scene's first request."
+ },
+ {
+  "scene": "sync-mixxx-field-mappings",
+  "page": "sync/sync-options.md",
+  "after": "## Map one field to another { #field-mappings }",
+  "alt": "Field mappings expanded for Mixxx with the comment row set to label",
+  "caption": "Mixxx has no label column, so mapping comment to label keeps the record label in the comment.",
+  "state": "Sidebar: Sync. Sync to = Mixxx. Expand 'Field mappings' (the seven rows title, artist, album, genre, label, comment, key) and set the 'comment' row to 'label'. Leave the Mixxx settings folder empty.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-new-tracks-panel",
+  "page": "sync/rekordbox-new-tracks.md",
+  "after": "## Send the new tracks { #add-new-tracks }",
+  "alt": "The panel headed N new tracks with Tracks to add expanded, listing the titles of the tracks rekordbox does not have yet",
+  "caption": "New tracks are listed as additions; they need no field choices.",
+  "state": "Same Club nights preview as on the landing page, with 'Tracks to add' expanded under the 'N new tracks' heading so the first titles (for example 17 (Extended Mix)) are visible. No 'Review fields' table.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-review-fields",
+  "page": "sync/rekordbox-conflicts.md",
+  "after": "## Read the review { #read-the-review }",
+  "alt": "The Review fields table for 17 (Extended Mix) with columns Track / field, CueRithm, rekordbox and Choice, and the buttons Accept equal values, Use CueRithm for unresolved, Keep rekordbox for unresolved, Skip unresolved fields",
+  "caption": "A track that rekordbox already has is reviewed field by field; the bulk buttons decide many fields at once.",
+  "state": "Preview a sync that includes 17 (Extended Mix) and one more demo track that rekordbox already holds at the same file path (status lines read 'First sync: choose explicitly'). Show the section heading 'Review fields' with its count line, the four bulk buttons, and the first rows (title, genre, cues). Leave the Choice menus at 'Choose a value' except one row set to a choice.",
+  "needs": "Before the real Club nights sync, import two demo tracks (17 (Extended Mix) and one more) into the owner's rekordbox from ~/Music/Beatport, so they exist at those paths. Capture this scene first, discard the preview, then do the real sync. If that disturbs the tutorial capture, drop this scene."
+ },
+ {
+  "scene": "sync-wine-environment",
+  "page": "sync/windows-libraries-on-linux.md",
+  "after": "## 1. Choose Windows through Wine / Proton { #pick-environment }",
+  "alt": "Application environment set to Windows through Wine / Proton with the prefix and installation fields and two drive mappings, C:\\ and D:\\Music",
+  "caption": "Each Windows drive the library uses needs a mapping to a folder on this computer.",
+  "state": "Sidebar: Sync. Sync to = VirtualDJ. Set 'Application environment' to 'Windows through Wine / Proton'. Fill 'Wine or Proton prefix' with /home/dj/.wine and leave the installation empty. Choose 'Add drive mapping' twice: Windows root 1 = C:\\ with Host folder 1 = /home/dj/.wine/drive_c; Windows root 2 = D:\\Music with Host folder 2 = /mnt/music. Use these generic placeholder paths (typed text; the folders do not need to exist for the screenshot).",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-rekordbox-setup-another-library",
+  "page": "sync/windows-libraries-on-linux.md",
+  "after": "## rekordbox in Wine or Proton { #rekordbox-on-wine }",
+  "alt": "The Set up another library section expanded with Library setup name, Application environment, the four rekordbox location fields, the version hint and Save library setup",
+  "caption": "A rekordbox library under Wine needs its executable, database, Agent options and asset folder.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. Expand 'Set up another library'. Library setup name = Studio rekordbox; Application environment = Windows through Wine / Proton with the prefix /home/dj/.wine; the four fields filled with generic placeholder paths under /home/dj/.wine/drive_c/...; Version hint = 7.2.19.0342. Do not click Save library setup.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-saved-setup",
+  "page": "sync/saved-destinations.md",
+  "after": "## Save a setup { #save-a-setup }",
+  "alt": "The Saved library setup menu with a saved setup named Booth stick selected, the Setup name field and the Save setup and Delete saved setup buttons",
+  "caption": "A saved setup keeps a library location under a name; saving never starts a sync.",
+  "state": "Sidebar: Sync. Sync to = Pioneer USB. Enter a generic location such as /Volumes/BOOTH, type the Setup name 'Booth stick' and click Save setup, so 'Booth stick' is selected in 'Saved library setup'. Capture the destination block with the note 'Saving keeps this setup for later.'",
+  "crop": "panel",
+  "needs": "The location folder must exist when saving (create an empty folder named BOOTH under /Volumes or any folder); use a generic name in the screenshot."
+ },
+ {
+  "scene": "sync-scope-menu",
+  "page": "sync/choose-what-to-sync.md",
+  "after": "## The three scopes { #scopes }",
+  "alt": "The What to sync menu showing Full library, Playlist or folder and Modified since last sync, and the Playlist menu listing Club nights, Warm-up set, Peak hour and the smart playlists",
+  "caption": "Pick the whole library, one playlist or folder, or only what changed.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. Set What to sync = Playlist or folder and open the Playlist menu so the demo playlists and folders are listed (Club nights, Warm-up set, Peak hour, Melodic house 128+, Energy 7 and up, Mixes with 7A, Added this week).",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-pioneer-usb-options",
+  "page": "sync/pioneer-usb.md",
+  "after": "## Choose the stick options { #options }",
+  "alt": "Pioneer USB options: Convert keys, Cue destination set to Hot cues, Clean up unused files, CDJ compatibility set to No detection, Extra cue markers and Add album art",
+  "caption": "The stick options decide where cues go, how incompatible audio is handled and what is cleaned up.",
+  "state": "Sidebar: Sync. Sync to = Pioneer USB. Leave the location empty. Capture the Options column with defaults: Cue destination = Hot cues, CDJ compatibility = No detection, Clean up unused files off, Extra cue markers off, Add album art off, Use nearest supported colors on, Convert keys = Original keys.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-engine-dj-options",
+  "page": "sync/engine-dj.md",
+  "after": "## Choose the Engine DJ options { #options }",
+  "alt": "Engine DJ options: Copy audio to the target drive, Use nearest supported colors, Keep existing beatgrids, Beatgrid locks set to Default and Add album art",
+  "caption": "Engine DJ adds audio copying, beatgrid locks and album art.",
+  "state": "Sidebar: Sync. Sync to = Engine DJ. Leave the location empty. Capture the Options column at its defaults.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-serato-options",
+  "page": "sync/serato-dj-pro.md",
+  "after": "## Choose the Serato options { #options }",
+  "alt": "Serato DJ Pro 4 options: External or network drive root, Convert keys, Use nearest supported colors, Keep existing beatgrids and Beatgrid locks",
+  "caption": "Serato adds key conversion, beatgrid locks and an optional drive root.",
+  "state": "Sidebar: Sync. Sync to = Serato DJ Pro 4. Leave the location empty. Capture the destination block (with 'External or network drive root (optional)') and the Options column at defaults.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-virtualdj-options",
+  "page": "sync/virtualdj.md",
+  "after": "## Sync your library { #sync-your-library }",
+  "alt": "Sync with VirtualDJ chosen: the VirtualDJ library folder field, the Application environment menu, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids",
+  "caption": "VirtualDJ has the shared options and no key notation or drive controls.",
+  "state": "Sidebar: Sync. Sync to = VirtualDJ. Leave the location empty or with a generic path such as ~/Documents/VirtualDJ. Capture the whole Sync form.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-djay-pro-options",
+  "page": "sync/djay-pro.md",
+  "after": "## Sync your library { #sync-your-library }",
+  "alt": "Sync with djay Pro chosen: the djay Media Library folder field, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids",
+  "caption": "djay Pro uses the shared options.",
+  "state": "Sidebar: Sync. Sync to = djay Pro. Leave the location empty or with a generic path such as ~/Music/djay. Capture the whole Sync form.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-mixxx-library-modes",
+  "page": "sync/mixxx.md",
+  "after": "## 3. Start from nothing, or replace everything { #library-modes }",
+  "alt": "The Mixxx library menu set to Replace the whole library with its explanation, the Existing Mixxx tracks menu disabled",
+  "caption": "Replace the whole library builds a new Mixxx library from the sync and keeps the old one in the backup.",
+  "state": "Sidebar: Sync. Sync to = Mixxx (the app upgraded to the release with Mixxx). Set 'Mixxx library' to 'Replace the whole library' so the explanatory note shows and 'Existing Mixxx tracks' is greyed out. Leave 'Mixxx settings folder' empty or with a generic placeholder.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-mixxx-manage-library",
+  "page": "sync/mixxx.md",
+  "after": "## 4. Choose a mode { #choose-a-mode }",
+  "alt": "Mixxx options with Existing Mixxx tracks set to Manage library, the three Replace checkboxes ticked, Playlists become set to Playlists (keep order), Do not send beatgrids and Beatgrid locks",
+  "caption": "Manage library lets CueRithm replace Mixxx's grids, keys and cues piece by piece.",
+  "state": "Sidebar: Sync. Sync to = Mixxx. 'Mixxx library' = Update the library Mixxx has; 'Existing Mixxx tracks' = Manage library so 'Replace track details', 'Replace keys' and 'Replace hot cues and loops' are enabled and ticked; 'Playlists become' = Playlists (keep order). Capture the Options column.",
+  "crop": "panel"
+ },
+ {
+  "scene": "sync-mixxx-preview-new-library",
+  "page": "sync/mixxx.md",
+  "after": "## 6. Choose what to send and preview { #preview }",
+  "alt": "A Mixxx preview for the Club nights folder: the first line summarising tracks added and playlists or crates created, and the notice that CueRithm creates the library",
+  "caption": "The first warning line summarises the sync; the next lines say what else will happen.",
+  "state": "Sidebar: Sync. Sync to = Mixxx. Point 'Mixxx settings folder' at a new, empty folder inside a temporary directory (the parent must exist; Mixxx need not be installed), What to sync = Playlist or folder > Club nights, click Preview sync. Capture the preview section with the 'Mixxx: N tracks added; ...' line and the notice 'Mixxx has no library here yet, so CueRithm creates one.' Discard the preview afterwards; do not apply.",
+  "needs": "A temporary folder for the Mixxx settings path; it must not be the real Mixxx folder."
+ }
+]
