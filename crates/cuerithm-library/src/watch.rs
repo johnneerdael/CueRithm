@@ -68,6 +68,43 @@ pub fn wait_for_stable(path: &Path, interval: Duration, stop: &AtomicBool) -> Re
     Ok(())
 }
 
+/// Non-blocking counterpart of [`wait_for_stable`] for the discovery loop. A file
+/// is settled once it was last modified more than twice the interval ago (the
+/// same fast path), or once its size and modification time have not changed for
+/// a full interval since it was first looked at here.
+#[derive(Default)]
+pub(crate) struct Settling {
+    seen: HashMap<PathBuf, ((u64, SystemTime), Instant)>,
+}
+impl Settling {
+    pub(crate) fn settled(&mut self, path: &Path, interval: Duration) -> bool {
+        // A file that cannot be inspected is not waited on; its caller decides.
+        let Ok(now) = stamp(path) else {
+            self.seen.remove(path);
+            return true;
+        };
+        if SystemTime::now().duration_since(now.1).unwrap_or_default() >= interval * 2 {
+            self.seen.remove(path);
+            return true;
+        }
+        match self.seen.get(path) {
+            Some((last, first)) if *last == now && first.elapsed() >= interval => {
+                self.seen.remove(path);
+                true
+            }
+            Some((last, _)) if *last == now => false,
+            _ => {
+                self.seen.insert(path.to_path_buf(), (now, Instant::now()));
+                false
+            }
+        }
+    }
+    /// Forgets every file that is no longer waiting.
+    pub(crate) fn keep_only(&mut self, waiting: &[PathBuf]) {
+        self.seen.retain(|path, _| waiting.contains(path));
+    }
+}
+
 pub(crate) fn in_scope(path: &Path, folders: &[PathBuf], recursive: bool) -> bool {
     folders.iter().any(|folder| {
         if recursive {

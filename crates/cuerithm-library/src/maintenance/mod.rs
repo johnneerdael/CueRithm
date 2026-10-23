@@ -12,6 +12,8 @@ mod scan;
 pub use model::*;
 
 mod broken;
+mod missing;
+pub use missing::*;
 mod removal;
 mod unused;
 
