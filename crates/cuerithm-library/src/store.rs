@@ -22,6 +22,7 @@ pub(crate) struct Inner {
     pub artifact_cleanup_gate: Mutex<()>,
     pub _lease: File,
     pub root: PathBuf,
+    pub installation_root: PathBuf,
 }
 #[derive(Clone)]
 pub struct Library {
@@ -68,6 +69,12 @@ impl std::ops::DerefMut for ConnectionGuard<'_> {
 }
 impl Library {
     pub fn open(path: &Path) -> Result<Self> {
+        Self::open_scoped(path, None)
+    }
+    pub(crate) fn open_in_installation(path: &Path, installation: &Path) -> Result<Self> {
+        Self::open_scoped(path, Some(installation))
+    }
+    fn open_scoped(path: &Path, installation: Option<&Path>) -> Result<Self> {
         let root = path
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
@@ -101,7 +108,8 @@ impl Library {
                 Err(error) => return Err(error).context("This library is already open"),
             }
         }
-        crate::library_backup::ensure_library_open_safe(&root)?;
+        let installation_root = installation.unwrap_or(&root).canonicalize()?;
+        crate::library_backup::ensure_library_open_safe(&installation_root)?;
         let conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -327,6 +335,7 @@ impl Library {
                 artifact_cleanup_gate: Mutex::new(()),
                 _lease: lease,
                 root: root.to_path_buf(),
+                installation_root,
             }),
         };
         let count = lib
@@ -413,6 +422,9 @@ impl Library {
     }
     pub fn data_dir(&self) -> &Path {
         &self.inner.root
+    }
+    pub(crate) fn installation_dir(&self) -> &Path {
+        &self.inner.installation_root
     }
     pub fn save_settings(&self, settings: PreparationSettings) -> Result<SettingsRevision> {
         self.save_settings_migrating(settings, &[])

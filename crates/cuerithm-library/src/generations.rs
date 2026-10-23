@@ -279,6 +279,10 @@ impl LibraryGenerations {
         fs2::FileExt::try_lock_exclusive(&installation)
             .context("Another library switch is running")?;
         ensure!(
+            !self.root.join("library-backups/pending.json").exists(),
+            "Finish or cancel the scheduled library backup restore first"
+        );
+        ensure!(
             self.active_id()? == expected_active,
             "Active library changed; preview again"
         );
@@ -415,7 +419,7 @@ impl LibraryGenerations {
             }
             drop(new_lease);
             drop(old_lease);
-            match open_generation(&self.database_path(&active)?) {
+            match open_generation(self, &self.database_path(&active)?) {
                 Ok(library) => {
                     j.phase = "opened".into();
                     atomic_json(&self.root.join("last-library-activation.json"), &j)?;
@@ -425,7 +429,7 @@ impl LibraryGenerations {
                 }
                 Err(error) if active == j.new => {
                     atomic_json(&self.pointer(), &Pointer::new(&j.old))?;
-                    let library = open_generation(&old).context(format!(
+                    let library = open_generation(self, &old).context(format!(
                         "New library could not open ({error}); rollback failed"
                     ))?;
                     fs::remove_file(self.journal())?;
@@ -435,7 +439,7 @@ impl LibraryGenerations {
                 Err(error) => return Err(error),
             }
         }
-        let library = open_generation(&self.database_path(&active)?)?;
+        let library = open_generation(self, &self.database_path(&active)?)?;
         let _ = &mut installation;
         Ok(library)
     }
@@ -498,7 +502,38 @@ impl LibraryGenerations {
     }
 }
 
-fn open_generation(path: &Path) -> Result<crate::Library> {
-    crate::apply_pending_library_restore(path)?;
-    crate::Library::open(path)
+fn open_generation(manager: &LibraryGenerations, path: &Path) -> Result<crate::Library> {
+    crate::library_backup::apply_pending_in_installation(path, manager.root(), &|data| {
+        let id = if data == manager.root() {
+            "legacy"
+        } else {
+            data.file_name()
+                .and_then(|id| id.to_str())
+                .context("Invalid restored generation")?
+        };
+        ensure!(
+            manager.database_path(id)?.parent() == Some(data),
+            "Invalid restored data directory"
+        );
+        if id != "legacy" {
+            atomic_json(
+                &data.join("generation-seal.json"),
+                &GenerationSeal {
+                    generation: id.into(),
+                    sha256: digest(&data.join("library.sqlite"))?,
+                    created: crate::now(),
+                },
+            )?;
+        }
+        if manager.active_id()? != id {
+            atomic_json(
+                &manager.root.join("last-good-library.json"),
+                &Pointer::new(&manager.active_id()?),
+            )?;
+            atomic_json(&manager.pointer(), &Pointer::new(id))?;
+        }
+        Ok(())
+    })?;
+    let active = manager.database_path(&manager.active_id()?)?;
+    crate::Library::open_in_installation(&active, manager.root())
 }
