@@ -133,8 +133,10 @@ library to another operating system, sync again from there.
 
 **AAC and Apple Lossless** (`.m4a`, `.mp4`, `.aac`), **AIFF**, **Ogg Vorbis** and **Opus**
 were checked in Mixxx on macOS and need no shift there (Opus is counted at 48 kHz, which
-is how Mixxx decodes it). On Linux and Windows Mixxx uses different AAC decoders that
-have not been checked, so the preview warns that cues may sit a few milliseconds off.
+is how Mixxx decodes it). On Linux, Debian's Mixxx decodes AAC with FFmpeg, which was
+checked and needs no shift; other Linux builds may use FAAD, and Windows uses Media
+Foundation, neither of which has been checked, so the preview warns that cues may sit a
+few milliseconds off.
 **WMA** cannot be opened by the Mixxx download for macOS, so those tracks are added but
 will not play there; on Linux and Windows it only plays in Mixxx builds that include
 FFmpeg (or Media Foundation on Windows) and is not verified. Check one such track by ear
@@ -188,7 +190,9 @@ and keys, left the BPM-locked grids alone, and changed none of the synced rows. 
 macOS decoder timing was measured with the same Apple calls Mixxx makes. See the
 [format notes](https://github.com/johnneerdael/Cuerithm/blob/main/docs/research/mixxx-sync-contract.md)
 for what was measured and what was only read. Windows and Linux builds of Mixxx have
-not been run against CueRithm yet, so their timing for MP3 is derived from Mixxx's
-source and their AAC timing is unverified, as described above. Nor has Mixxx 2.4 or a
+not been fully run against CueRithm. The real Mixxx from Debian (2.5.0) was run on Linux
+in a container: the timing of MP3 with libmad, AAC with FFmpeg and the other formats was
+checked there, but Windows, FAAD builds and other Linux packages were not, as described
+above. Nor has Mixxx 2.4 or a
 newer Mixxx than 2.5, or a library on an external drive on macOS, where Mixxx asks for
 access.

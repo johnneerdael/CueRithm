@@ -440,8 +440,8 @@ for the `-F` and `-529` cases) is moved to the start.
 
 | Format | macOS | Linux and Windows |
 | --- | --- | --- |
-| MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above |
-| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | 0, **not verified**: Media Foundation (Windows) and FAAD (Linux) were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
+| MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above; measured with libmad in Debian's Mixxx 2.5.0 for a LAME file with an Info frame: +1105 |
+| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | 0 with FFmpeg, measured in Debian's Mixxx 2.5.0 (its only AAC decoder there); **not verified** for Media Foundation (Windows) and FAAD (Linux builds that have it), which were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
 | WAV, FLAC | 0, measured in Mixxx 2.5.6 | 0 |
 | AIFF, Ogg Vorbis | 0, measured in Mixxx 2.5.6 (libsndfile, `Xiph.org OggVorbis`) against FFmpeg's decode | 0 |
 | Opus | 0, measured in Mixxx 2.5.6 (`Xiph.org libopusfile`) against FFmpeg's decode, counted at 48 kHz: Mixxx always decodes Opus at 48000 Hz and reports that rate for the file | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does |
@@ -520,6 +520,36 @@ itself (the sync ran through the same preview and apply code from a test harness
 from the desktop UI), including any macOS prompt for access to another application's
 container. In the *existing* and *overwrite* scenarios the row in `directories` was
 inserted by the script, standing in for choosing the folder in Mixxx's dialog.
+
+### Linux: Debian's Mixxx 2.5.0, in a container
+
+`run.py --linux` runs the same scenario against the real Mixxx from Debian 13 (2.5.0,
+schema 39, arm64) in a Docker container, on a virtual display (Xvfb) with software OpenGL
+and no audio device. Nobody clicks anything: the checks read Mixxx's database and its debug
+log, and the folder prompt does not appear because the sync fills the folder list. Mixxx
+creates its library at `~/.mixxx` there, as the platform table says. **105 of 105 checks
+passed** for MP3, WAV, FLAC, AAC and ALAC in M4A, AIFF, Ogg Vorbis and Opus:
+
+- Mixxx's log lists the decoders: MAD (libmad 0.15.1) for MP3, FFmpeg 7.1 only for AAC and
+  M4A (this build has no FAAD decoder), libsndfile for AIFF and WAV, libFLAC, OggVorbis,
+  libopusfile. No decoder is registered for WMA.
+- **MP3 through libmad.** `mad_probe.c` does what Mixxx's MP3 source does (skip the first
+  frame, decode the rest with libmad) and finds the first click at frame 23157 for a LAME
+  file whose source click is at 22050. The adapter's Linux timing wrote the grid at 23155, a
+  shift of 1105 frames (576 of encoder delay and 529 of decoder delay, read from the LAME
+  header), within 2 frames. This is the first measurement of the libmad derivation above.
+- AAC, ALAC, AIFF, Ogg Vorbis and Opus land within 2 frames with no shift (the Opus grid
+  counted at 48 kHz, as on macOS). Their click positions come from FFmpeg's decode on the
+  host, assumed to equal where Mixxx's FFmpeg source and the format libraries start.
+- Mixxx started without asking for a folder, found the schema current, deserialized the
+  grids and keys, left the BPM-locked grids alone and did not change the rows.
+
+What this does **not** show: the sync itself ran on macOS and only behaved as a Linux system
+would (libmad timing, `CUERITHM_MIXXX_HOST=linux`), so CueRithm running on Linux (process
+names, folder discovery) is covered by tests and by the repository's Linux checks, not by
+this run; Mixxx builds with FAAD (AAC in M4A would not be trimmed, from its source) or other
+packaging (AppImage, Flatpak, Ubuntu); Windows, where Media Foundation decodes AAC and no
+Windows system was available.
 
 ### Formats, measured in Mixxx 2.5.6 on macOS
 
