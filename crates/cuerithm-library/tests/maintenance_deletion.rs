@@ -424,6 +424,90 @@ fn a_duplicate_with_a_file_name_that_is_not_valid_text_can_be_deleted() {
     assert!(!odd.exists());
 }
 
+/// A track from a portable restore that is not linked to a local file yet: no path, no content hash.
+fn add_unlinked_track(f: &mut Fixture) -> String {
+    let index = f.add_track("portable.wav", 91);
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET path=NULL,source_hash=NULL WHERE id=?1",
+            [&f.ids[index]],
+        )
+        .unwrap();
+    f.ids[index].clone()
+}
+fn linked(f: &Fixture, id: &str) -> bool {
+    rows(
+        f,
+        &format!(
+            "SELECT COUNT(*) FROM tracks WHERE id='{id}' AND path IS NULL AND source_hash IS NULL"
+        ),
+    ) == 0
+}
+
+#[test]
+fn an_unlinked_track_does_not_stop_delete_from_disk_and_stays_untouched() {
+    let mut f = Fixture::new();
+    let unlinked = add_unlinked_track(&mut f);
+    let review = f.review(Tolerance::None);
+    assert_eq!(review.groups.len(), 1);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.skipped.is_empty(), "{:?}", plan.skipped);
+    assert_eq!(plan.files.len(), 1);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+    assert!(f.track_exists(&unlinked) && !linked(&f, &unlinked));
+    // Undo brings the copy back and still leaves the unlinked track as it was.
+    service.undo(&result.id, &token()).unwrap();
+    assert!(f.track_exists(&f.ids[1]));
+    assert!(f.track_exists(&unlinked) && !linked(&f, &unlinked));
+}
+
+#[test]
+fn an_unlinked_track_does_not_stop_archive_only() {
+    let mut f = Fixture::new();
+    let unlinked = add_unlinked_track(&mut f);
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Archive);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in).apply(&preview.id, &token()).unwrap();
+    assert_eq!(result.archived_ids, vec![f.ids[1].clone()]);
+    assert!(f.paths[1].exists() && stand_in.taken().is_empty());
+    assert!(f.track_exists(&unlinked) && !linked(&f, &unlinked));
+}
+
+#[test]
+fn a_participant_that_lost_its_file_link_after_the_review_is_refused_in_plain_words() {
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET path=NULL,source_hash=NULL WHERE id=?1",
+            [&f.ids[1]],
+        )
+        .unwrap();
+    let error = f
+        .lib
+        .preview_duplicate_merge_choice_with(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            Some(MergeDisposition::Delete),
+            &Capable,
+            &token(),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("not linked to a local file"), "{error}");
+    assert!(f.paths[1].exists());
+}
+
 #[test]
 fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
     let f = Fixture::new();

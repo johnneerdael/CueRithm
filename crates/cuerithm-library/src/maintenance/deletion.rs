@@ -28,27 +28,36 @@ struct Record {
     artist: String,
     title: String,
 }
-fn record(conn: &Connection, id: &str) -> Result<Option<Record>> {
-    conn.query_row(
-        "SELECT path,artist,title FROM tracks WHERE id=?1",
-        [id],
-        |r| {
-            Ok((
-                r.get::<_, Vec<u8>>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-            ))
-        },
-    )
-    .optional()?
-    .map(|(path, artist, title)| {
-        Ok(Record {
+/// What the library holds for a track id. A track from a portable restore may not be linked to a
+/// local file yet: it has no path, and there is nothing on disk to compare or delete.
+enum Lookup {
+    Gone,
+    Unlinked,
+    Linked(Record),
+}
+fn record(conn: &Connection, id: &str) -> Result<Lookup> {
+    let row = conn
+        .query_row(
+            "SELECT path,artist,title FROM tracks WHERE id=?1",
+            [id],
+            |r| {
+                Ok((
+                    r.get::<_, Option<Vec<u8>>>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .optional()?;
+    Ok(match row {
+        None => Lookup::Gone,
+        Some((None, ..)) => Lookup::Unlinked,
+        Some((Some(path), artist, title)) => Lookup::Linked(Record {
             path: bytes_path(&path)?,
             artist,
             title,
-        })
+        }),
     })
-    .transpose()
 }
 fn skip(
     id: &str,
@@ -82,7 +91,7 @@ fn sharing_records(
     // for the read, not while the files are examined.
     let rows = {
         let conn = lib.conn()?;
-        let mut stmt = conn.prepare("SELECT id,path FROM tracks")?;
+        let mut stmt = conn.prepare("SELECT id,path FROM tracks WHERE path IS NOT NULL")?;
         stmt.query_map([], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))
         })?
@@ -164,15 +173,25 @@ pub(super) fn plan(
     let mut keepers: BTreeMap<String, Option<(Record, String, Handle)>> = BTreeMap::new();
     for (keeper, id) in &candidates {
         cancel.check()?;
-        let Some(item) = record(&*lib.conn()?, id)? else {
-            skipped.push(DuplicateDeletionSkip {
-                track_id: id.clone(),
-                display_path: String::new(),
-                keeper_id: Some(keeper.clone()),
-                reason: DuplicateSkipReason::FileUnavailable,
-                detail: Some("The track is no longer in the library.".into()),
-            });
-            continue;
+        let item = match record(&*lib.conn()?, id)? {
+            Lookup::Linked(item) => item,
+            gone => {
+                skipped.push(DuplicateDeletionSkip {
+                    track_id: id.clone(),
+                    display_path: String::new(),
+                    keeper_id: Some(keeper.clone()),
+                    reason: DuplicateSkipReason::FileUnavailable,
+                    detail: Some(
+                        if matches!(gone, Lookup::Unlinked) {
+                            "The track is not linked to a local file."
+                        } else {
+                            "The track is no longer in the library."
+                        }
+                        .into(),
+                    ),
+                });
+                continue;
+            }
         };
         let scanned = rows
             .get(id.as_str())
@@ -181,7 +200,7 @@ pub(super) fn plan(
         if !keepers.contains_key(keeper) {
             let found = record(&*lib.conn()?, keeper)?;
             let state = match found {
-                Some(k) if current_state(&k.path).is_available() => {
+                Lookup::Linked(k) if current_state(&k.path).is_available() => {
                     let hash = file_sha256_cancellable(&k.path, cancel);
                     cancel.check()?;
                     match (hash, Handle::from_path(&k.path)) {
@@ -326,9 +345,10 @@ pub(super) fn plan(
     let mut keep = BTreeSet::new();
     for (keeper, id, item, size, hash, identity) in sound {
         if let Some(other) = shared.get(&id) {
-            let other = record(&*lib.conn()?, other)?
-                .map(|r| format!("{} - {}", r.artist, r.title))
-                .unwrap_or_default();
+            let other = match record(&*lib.conn()?, other)? {
+                Lookup::Linked(r) => format!("{} - {}", r.artist, r.title),
+                _ => String::new(),
+            };
             skipped.push(skip(
                 &id,
                 &item.path,

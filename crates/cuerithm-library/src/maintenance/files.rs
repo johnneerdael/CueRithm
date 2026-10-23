@@ -117,7 +117,7 @@ pub(super) fn state_phrase(state: MaintenanceFileState) -> &'static str {
 pub(super) fn ensure_available(conn: &Connection, ids: &BTreeSet<String>) -> Result<()> {
     let mut problems = vec![];
     for id in ids {
-        let row: Option<(Vec<u8>, String, String)> = conn
+        let row: Option<(Option<Vec<u8>>, String, String)> = conn
             .query_row(
                 "SELECT path,artist,title FROM tracks WHERE id=?1",
                 [id],
@@ -126,7 +126,11 @@ pub(super) fn ensure_available(conn: &Connection, ids: &BTreeSet<String>) -> Res
             .optional()?;
         match row {
             None => problems.push("a track that is no longer in the library".to_owned()),
-            Some((path, artist, title)) => {
+            // A track from a portable restore may not be linked to a local file yet.
+            Some((None, artist, title)) => {
+                problems.push(format!("{artist} - {title} (not linked to a local file)"));
+            }
+            Some((Some(path), artist, title)) => {
                 let state = current_state(&bytes_path(&path)?);
                 if !state.is_available() {
                     problems.push(format!("{artist} - {title} ({})", state_phrase(state)));
