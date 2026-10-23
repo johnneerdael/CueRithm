@@ -121,7 +121,7 @@
     "caption": "Sync writes to seven destinations.",
     "state": "Sidebar: Sync. Open the 'Sync to' menu so all seven options are visible.",
     "crop": "panel",
-    "needs": "A build that includes Mixxx (after 0.1.13)."
+    "needs": "A build that includes Mixxx (0.1.14 or later)."
   },
   {
     "scene": "help-sidebar-version-footer",

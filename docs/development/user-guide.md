@@ -1,6 +1,6 @@
 # Build and maintain the user guide
 
-The published guide is <https://johnneerdael.github.io/CueRithm/>. Its source is
+The published guide is <https://cuerithm.neerdael.nl/> (the old `github.io` address redirects to it). Its source is
 `docs/user-guide/`; `mkdocs.yml` defines the theme and the public navigation, and
 `.github/workflows/pages.yml` builds it with `--strict` and publishes it when
 `docs/user-guide/**`, `docs/hooks/**`, `mkdocs.yml` or the workflow change on `main`.
@@ -79,6 +79,15 @@ links to an image that does not exist yet:
 3. **Place.** `python3 tools/docs/embed_figures.py` inserts the `<figure>` markup after
    the named heading, only when both theme images exist, and updates a placed figure in
    place on re-run. Never write figure markup by hand.
+
+### Which library to capture from
+
+The capture driver and scene files do not depend on which library is used. Before committing a
+screenshot of a personal library, check it against the AGENTS.md rule on publishing music,
+private library paths and per-track labels: titles, keys, BPMs, energy values and cues of real
+tracks are per-track information. Keep music files, library paths, user names and credentials
+out of every captured image, review each image for them before keeping it, and keep the
+aggregate table of per-track measurements in the private `.analysis/` area.
 
 Driving the app while it is being captured clicks real controls on the real library:
 scans and previews are read-only, so capture those freely, and never script an Apply,

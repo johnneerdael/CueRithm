@@ -3,7 +3,7 @@
 
 Handles repository paths (`user-guide/learn/auto-tagging.md#provider-setup`, with any
 number of leading `../` or `docs/`) and published URLs
-(`https://johnneerdael.github.io/CueRithm/learn/`). A split page's #anchor goes to the
+(`https://cuerithm.neerdael.nl/learn/`). A split page's #anchor goes to the
 page that now holds it; an anchor that cannot be checked here is dropped, and the
 forwarding page for the old URL still resolves it.
 
@@ -15,7 +15,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SITE = "https://johnneerdael.github.io/CueRithm/"
+SITE = "https://cuerithm.neerdael.nl/"
 with open(os.path.join(ROOT, "docs", "hooks", "redirects.json"), encoding="utf-8") as handle:
     REDIRECTS = json.load(handle)
 with open(os.path.join(ROOT, "docs", "user-guide", "_meta", "legacy-pages.txt"), encoding="utf-8") as handle:
