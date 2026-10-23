@@ -108,6 +108,8 @@ pub struct BlobRef {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LocationEvidence {
+    #[serde(with = "crate::path_serde::option")]
+    pub native_path: Option<std::path::PathBuf>,
     pub original: Option<String>,
     pub resolved: Option<String>,
     pub availability: String,
@@ -261,7 +263,7 @@ pub struct CollectionObservation {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "record_type", content = "record", rename_all = "snake_case")]
 pub enum ObservationRecord {
-    Track(TrackObservation),
+    Track(Box<TrackObservation>),
     Collection(CollectionObservation),
     Membership {
         collection_id: String,
@@ -299,7 +301,7 @@ impl ObservationEnvelope {
         self.tracks
             .iter()
             .cloned()
-            .map(ObservationRecord::Track)
+            .map(|track| ObservationRecord::Track(Box::new(track)))
             .chain(
                 self.collections
                     .iter()

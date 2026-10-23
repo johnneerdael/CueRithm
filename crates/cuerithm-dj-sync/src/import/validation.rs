@@ -30,31 +30,31 @@ fn validate_track(track: &TrackObservation, limits: &ImportLimits) -> Result<()>
     if let Some(bpm) = &track.bpm {
         positive(bpm.value, "BPM")?;
     }
-    if let Some(key) = &track.key {
-        if let Some(camelot) = &key.camelot {
-            ensure!(camelot.is_ascii(), "Invalid normalized Camelot key");
-            let (number, mode) = camelot.split_at(camelot.len().saturating_sub(1));
-            let number: usize = number.parse().context("Invalid normalized Camelot key")?;
-            ensure!(
-                (1..=12).contains(&number) && matches!(mode, "A" | "B"),
-                "Invalid normalized Camelot key"
-            );
-            let pitches = if mode == "A" {
-                [8, 3, 10, 5, 0, 7, 2, 9, 4, 11, 6, 1]
-            } else {
-                [11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9, 4]
-            };
-            ensure!(
-                key.pitch_class.is_none_or(|p| p == pitches[number - 1]),
-                "Key pitch class conflicts with Camelot"
-            );
-            ensure!(
-                key.mode
-                    .as_ref()
-                    .is_none_or(|m| m == if mode == "A" { "minor" } else { "major" }),
-                "Key mode conflicts with Camelot"
-            );
-        }
+    if let Some(key) = &track.key
+        && let Some(camelot) = &key.camelot
+    {
+        ensure!(camelot.is_ascii(), "Invalid normalized Camelot key");
+        let (number, mode) = camelot.split_at(camelot.len().saturating_sub(1));
+        let number: usize = number.parse().context("Invalid normalized Camelot key")?;
+        ensure!(
+            (1..=12).contains(&number) && matches!(mode, "A" | "B"),
+            "Invalid normalized Camelot key"
+        );
+        let pitches = if mode == "A" {
+            [8, 3, 10, 5, 0, 7, 2, 9, 4, 11, 6, 1]
+        } else {
+            [11, 6, 1, 8, 3, 10, 5, 0, 7, 2, 9, 4]
+        };
+        ensure!(
+            key.pitch_class.is_none_or(|p| p == pitches[number - 1]),
+            "Key pitch class conflicts with Camelot"
+        );
+        ensure!(
+            key.mode
+                .as_ref()
+                .is_none_or(|m| m == if mode == "A" { "minor" } else { "major" }),
+            "Key mode conflicts with Camelot"
+        );
     }
     let mut ids = BTreeSet::new();
     for cue in &track.cues {
