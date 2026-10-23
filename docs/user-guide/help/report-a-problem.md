@@ -15,7 +15,7 @@ Check these first. They answer most questions and tell you whether you have foun
 
 CueRithm has no About window or Help menu. The sidebar footer shows your version, for example `CUERITHM 0.1.13`. When the sidebar is collapsed to icons, point at it to see the footer. You can also use one of these:
 
-- **The file you downloaded.** The version is in its name, for example `Cuerithm-arm64-0.1.13.dmg`, `Cuerithm-linux-x64-0.1.13.deb` or `Cuerithm-windows-x64-0.1.13.zip`.
+- **The file you downloaded.** The version is in its name, for example `Cuerithm-arm64-0.1.14.dmg`, `Cuerithm-linux-x64-0.1.14.deb` or `Cuerithm-windows-x64-0.1.14.zip`.
 - **The releases page.** The [latest release](https://github.com/johnneerdael/CueRithm/releases/latest) shows the newest number. Yours may be older.
 - **The built-in check.** `cuerithm-desktop --diagnostics` prints a line of JSON that includes `"version"`. [Download and install CueRithm](../get-started/install.md) shows the command for each system.
 

@@ -130,7 +130,7 @@ Usually rekordbox or its Agent is still running, or the scope or options left th
 
 ### I moved my files and now tracks are missing or doubled { #moved-files }
 
-In CueRithm 0.1.13 a track is known by the location of its file. A file moved outside CueRithm leaves a missing track, and the watch folder adds the moved file again as a new track. **Missing & broken** only lists such files. It has no relocate or remove action, and the **Duplicates** scan can pair a missing track with its twin, so never choose a missing track as keeper. Move the files back, or archive the tracks you no longer want ([I moved or renamed my files](troubleshooting/files-moved.md), [Find missing, moved or broken files](../files/library/find-missing-files.md)). Fixes are in development ([What CueRithm does not do yet](not-available-yet.md#missing-and-moved-files)).
+In CueRithm 0.1.14 a track is known by the location of its file. A file moved outside CueRithm leaves a missing track, and the watch folder adds the moved file again as a new track. **Missing & broken** only lists such files. It has no relocate or remove action, and the **Duplicates** scan can pair a missing track with its twin, so never choose a missing track as keeper. Move the files back, or archive the tracks you no longer want ([I moved or renamed my files](troubleshooting/files-moved.md), [Find missing, moved or broken files](../files/library/find-missing-files.md)). Fixes are in development ([What CueRithm does not do yet](not-available-yet.md#missing-and-moved-files)).
 
 ### Where is my data? { #data-location }
 

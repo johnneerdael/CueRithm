@@ -1,6 +1,6 @@
 # What's new in CueRithm
 
-<p class="lead">The five most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
+<p class="lead">The six most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
 
 CueRithm is pre-1.0 software. The version you have is the `version` in the line printed by the [built-in check](install.md#check-that-the-install-is-healthy). To get a newer one, follow [Update to a newer version](install.md#update); the full text of every release, with its downloads, is on the [releases page](https://github.com/johnneerdael/CueRithm/releases).
 
@@ -8,7 +8,7 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 
 | You want to… | Arrived in | Guide |
 |---|---|---|
-| Sync to Mixxx | Not released yet (see below) | [Sync to Mixxx](../sync/mixxx.md) |
+| Sync to Mixxx | 0.1.14 | [Sync to Mixxx](../sync/mixxx.md) |
 | Sync straight into rekordbox | 0.1.11, simplified in 0.1.13 | [Sync to rekordbox 6 or 7](../sync/rekordbox-direct.md) |
 | Sync a Windows DJ library from Linux | 0.1.12 | [Use a Windows DJ library on Linux](../sync/windows-libraries-on-linux.md) |
 | Correct cues, loops and beatgrids | 0.1.11 | [Fix a wrong cue, loop or beatgrid](../analysis/corrections/index.md) |
@@ -20,10 +20,11 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 | Tag from more catalogs | 0.1.10 | [Choose providers and fields to write](../tagging/choose-providers.md) |
 | Rename and sort files | 0.1.9 | [Rename and sort files into folders](../rename/organize-files.md) |
 
-## Coming in the next release (not released yet) { #next-release }
+## Version 0.1.14: sync to Mixxx { #v0-1-14 }
 
-!!! warning "Not in any release yet"
-    This change was merged after version 0.1.13 and is not in it. If **Sync to** in your copy does not list Mixxx, you are on an older build.
+Released 23 October 2026.
+
+If **Sync to** in your copy does not list Mixxx, you are on version 0.1.13 or older.
 
 **Sync to Mixxx.** Send your beatgrids, keys, named and coloured hot cues, saved loops and playlists straight into your Mixxx library. Close Mixxx first; every sync keeps a backup you can restore. It was tried with Mixxx 2.5.6 on macOS and with Debian's Mixxx 2.5.0 on Linux; Windows is not tried yet. See [Sync to Mixxx](../sync/mixxx.md) and [Check what works with your DJ software](../help/compatibility.md#mixxx).
 

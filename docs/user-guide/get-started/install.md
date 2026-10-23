@@ -124,7 +124,7 @@ CueRithm can verify its own bundled parts and exit. The release pipeline runs th
 On success it prints one line of JSON and the version it reports is the one you installed:
 
 ```json
-{"application":"Cuerithm","version":"0.1.13","decoder":"cuerithm-swr44100-stereo-f32-native-md5-v2:<ffmpeg-sha256>:<ffprobe-sha256>","resources_verified":true,"built_in_analysis_verified":true}
+{"application":"Cuerithm","version":"0.1.14","decoder":"cuerithm-swr44100-stereo-f32-native-md5-v2:<ffmpeg-sha256>:<ffprobe-sha256>","resources_verified":true,"built_in_analysis_verified":true}
 ```
 
 `resources_verified` means the bundled `ffmpeg` and `ffprobe` match the hashes sealed at build time. `built_in_analysis_verified` means the key model matches its pinned hash. On failure the command prints the reason and exits with code 1. The messages you can meet are *Decoder hash mismatch*, *Probe hash mismatch*, *Bundled decoder manifest is missing*, *Bundled decoder folder is missing* and *Built-in analysis component failed verification; reinstall CueRithm*. All of them mean the same thing: the files are damaged or incomplete, so download the file again and reinstall.
