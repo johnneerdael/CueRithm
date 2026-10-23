@@ -1,0 +1,120 @@
+{
+  "kind": "research-documentation-transfer-manifest",
+  "created_date": "2026-10-23",
+  "base_cuerithm_commit": "190f2f549454e5c6e8486e4949042197351ea14f",
+  "working_tree_commit": "673c01750c2b0d2ce7ae8b7950964acc6807ccaa",
+  "mixxx_source_commit": "2086fe0e551b9eb9dd083dd706a5848eb06534d0",
+  "scope": "Documentation and invented/schema fixtures only; no app implementation or runtime acceptance",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8476,
+      "sha256": "64847232c33c1ede727c4865af39aca2d95b529416f3a83f6710a1bd5a53e5a5"
+    },
+    {
+      "path": "cuerithm-integration.md",
+      "bytes": 13970,
+      "sha256": "2bedc7fa6dad6ef8bdf779d4b01a05001d74a0875e62c731813b9f9700420ddd"
+    },
+    {
+      "path": "dj-studio.md",
+      "bytes": 38110,
+      "sha256": "6672c8c9263c6aca25556de99df541ae6a5e37731fdc941e7eb1a990e23e156b"
+    },
+    {
+      "path": "file-tags-and-provenance.md",
+      "bytes": 6557,
+      "sha256": "11dd5ae142670318fa4d3f910c4d00d3ef7439c66fe9a9ce501ea4db3b57ab61"
+    },
+    {
+      "path": "fixtures/README.md",
+      "bytes": 2231,
+      "sha256": "28bf7792f25b3ff6a059c10cadef65e4b59cd477a27dd3a7366b004e6a422bcb"
+    },
+    {
+      "path": "fixtures/djstudio-key-map.json",
+      "bytes": 2394,
+      "sha256": "6c24168aa39269b0aa9b0c62e777bb8647dc0137d7d8f061c4d40b8deaa7cf3d"
+    },
+    {
+      "path": "fixtures/djstudio-sqlite-schema.json",
+      "bytes": 12516,
+      "sha256": "2095af44fd181ac6382205fbeb9621bd15c9b5d7d0d4cc211fcd055ada8aced7"
+    },
+    {
+      "path": "fixtures/djstudio-synthetic-records.json",
+      "bytes": 6319,
+      "sha256": "720beac075709913e5ffdcd7403153e9f9a3d7352162e5fa926d028380861ef8"
+    },
+    {
+      "path": "fixtures/import-observation.schema.json",
+      "bytes": 5380,
+      "sha256": "a371e32ca73b9b6ed3f1745982b10bb89385b4774ef9807640f9637974d49923"
+    },
+    {
+      "path": "fixtures/lexicon-engine-codec-vectors.json",
+      "bytes": 1209,
+      "sha256": "89166ae5baa7645e637fcee70d236babf7b1154c9d0fcc9cc8bcd3455dac06bc"
+    },
+    {
+      "path": "fixtures/lexicon-serato-codec-vectors.json",
+      "bytes": 1664,
+      "sha256": "1f2c3f5acafaed0057684cea0c068a7cec218f1b86e1f8f98043788758784bc7"
+    },
+    {
+      "path": "fixtures/mik-coredata-11-schema.json",
+      "bytes": 35600,
+      "sha256": "7fa33aa3c7fc7eff9ee4d5624d089c70caa45d19e34e02ffbf313d28e369d1c1"
+    },
+    {
+      "path": "fixtures/mik-synthetic-import.json",
+      "bytes": 2802,
+      "sha256": "63b013f3721a62e6fb14a34fb26e87001fb7915dc3fd158a9e08ca09b3419118"
+    },
+    {
+      "path": "fixtures/mixxx-schema-reference.json",
+      "bytes": 17932,
+      "sha256": "70e322c6fe1b5942d6b93d37d3eda85434e65123945e47392291e716ed9b344d"
+    },
+    {
+      "path": "fixtures/mixxx-wire-examples.json",
+      "bytes": 1846,
+      "sha256": "accc57afdb09f8fcbe8a62933753fa35f7e1382d2001015c5fc03f353fd89c5d"
+    },
+    {
+      "path": "fixtures/normalized-import-example.json",
+      "bytes": 3647,
+      "sha256": "7548224da946ef621aa1bebc2f610b1ea5e105e6982317a7b24f3145d5eacca3"
+    },
+    {
+      "path": "import-and-sync-contract.md",
+      "bytes": 19755,
+      "sha256": "b55cf736622aa67ee6468908e1cc73e47809cffce31ecf1850928fe8dd2ae76a"
+    },
+    {
+      "path": "lexicon-import-formats.md",
+      "bytes": 59444,
+      "sha256": "1bc51d4cd9722f56858b7ad8d3d4a06061f0313d10d12a09c70e7cf9df57afa6"
+    },
+    {
+      "path": "mixed-in-key-11.md",
+      "bytes": 28540,
+      "sha256": "e81cd2c08320620be41e366daf5459a578941d8295cc81ab8a75d9462eddf103"
+    },
+    {
+      "path": "mixxx.md",
+      "bytes": 16973,
+      "sha256": "d6980f234bd783e6b40c3701efd8fe98d8db4fedd57e2f18d1fc1a398bf920fd"
+    },
+    {
+      "path": "validation-and-acceptance.md",
+      "bytes": 14386,
+      "sha256": "d43f628b6931d794190357466f3a9b006b309bc15986d8b569e9abeb1640b9ba"
+    },
+    {
+      "path": "verification-report.md",
+      "bytes": 4712,
+      "sha256": "416835c87e66e22b2365ddb2731aad3b5dc7852de0889ddeaf1257b56293064a"
+    }
+  ]
+}

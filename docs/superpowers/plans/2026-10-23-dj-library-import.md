@@ -79,11 +79,11 @@ All import types are re-exported from `cuerithm_dj_sync::import`; all library se
 
 **Interfaces:** Produces every contract in “Shared contracts”; consumes the verified author manifest at `/workspace/scratch/dj-library-sync-handover/pack-manifest.json` and the approved spec.
 
-- [ ] Write `policy_defaults_do_not_authorize_processing` asserting `analysis_fields.is_empty()`, generation off, enrichment off, cleanup off, audio-tag writes off and relocation off; toggle each alone and assert all other components remain unchanged. Write `semantic_validation_rejects_bad_graph_not_valid_schema` for duplicate IDs/occurrences, orphan references, depth 129, cyclic parent, nonfinite/invalid BPM and unresolved clock with canonical endpoints. Assert A/B/A membership, end-only range and negative pre-roll remain valid.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_model`; expect missing API failure before implementation.
-- [ ] Implement the contracts and disk-backed semantic-validation indexes, with separate envelope/semantic errors. Copy only manifest-verified clean-room prose and invented fixtures; retain the research-only XML fixture enum as evidence, never as an enabled provider. Add byte/hash integrity checking to the fixture test.
-- [ ] Rerun the command; expect all tests pass including the normalized example and all 22 manifest entries. Record all optional policy values in serialization tests.
-- [ ] Commit `feat: define lossless library import observations and policies`.
+- [x] Write `policy_defaults_do_not_authorize_processing` asserting `analysis_fields.is_empty()`, generation off, enrichment off, cleanup off, audio-tag writes off and relocation off; toggle each alone and assert all other components remain unchanged. Write `semantic_validation_rejects_bad_graph_not_valid_schema` for duplicate IDs/occurrences, orphan references, depth 129, cyclic parent, nonfinite/invalid BPM and unresolved clock with canonical endpoints. Assert A/B/A membership, end-only range and negative pre-roll remain valid.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_model`; expect missing API failure before implementation.
+- [x] Implement the contracts and disk-backed semantic-validation indexes, with separate envelope/semantic errors. Copy only manifest-verified clean-room prose and invented fixtures; retain the research-only XML fixture enum as evidence, never as an enabled provider. Add byte/hash integrity checking to the fixture test.
+- [x] Rerun the command; expect all tests pass including the normalized example and all 22 manifest entries. Record all optional policy values in serialization tests.
+- [x] Commit `feat: define lossless library import observations and policies`.
 
 ### Task 2: Read-only snapshots, portable paths, clocks and tag observations
 

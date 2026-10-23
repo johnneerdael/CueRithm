@@ -1,0 +1,89 @@
+{
+  "synthetic": true,
+  "source_profile": "Mixxx schema40 / BeatGrid-2.0 / KeyMap-1.0",
+  "samplerate": 44100,
+  "grid": {
+    "beats_version": "BeatGrid-2.0",
+    "hex": "0a09090000000000005e40120408a2ac01",
+    "expected_first_beat_seconds": 0.5,
+    "expected_bpm": 120.0
+  },
+  "key": {
+    "keys_version": "KeyMap-1.0",
+    "hex": "0816120238412002",
+    "expected_enum": 22,
+    "expected_raw_text": "8A",
+    "expected_source": 2,
+    "expected_camelot": "8A"
+  },
+  "cues": [
+    {
+      "id": 1,
+      "track_id": 101,
+      "type": 1,
+      "position": 1764000,
+      "length": 0,
+      "hotcue": 0,
+      "label": "Entry α",
+      "color": 16711680,
+      "expected_start_seconds": 20.0,
+      "expected_end_seconds": null
+    },
+    {
+      "id": 2,
+      "track_id": 101,
+      "type": 4,
+      "position": 3528000,
+      "length": 352800,
+      "hotcue": 3,
+      "label": "Loop",
+      "color": 65280,
+      "expected_start_seconds": 40.0,
+      "expected_end_seconds": 44.0
+    },
+    {
+      "id": 3,
+      "track_id": 101,
+      "type": 6,
+      "position": -1,
+      "length": 882000,
+      "hotcue": -1,
+      "label": "End-only intro",
+      "color": 255,
+      "expected_start_seconds": null,
+      "expected_end_seconds": 10.0
+    },
+    {
+      "id": 4,
+      "track_id": 101,
+      "type": 1,
+      "position": 0,
+      "length": 0,
+      "hotcue": 7,
+      "label": "Zero is valid",
+      "color": 16711680,
+      "expected_start_seconds": 0.0,
+      "expected_end_seconds": null
+    }
+  ],
+  "playlist_occurrences": [
+    {
+      "id": 901,
+      "playlist_id": 20,
+      "track_id": 101,
+      "position": 1
+    },
+    {
+      "id": 902,
+      "playlist_id": 20,
+      "track_id": 102,
+      "position": 2
+    },
+    {
+      "id": 903,
+      "playlist_id": 20,
+      "track_id": 101,
+      "position": 3
+    }
+  ]
+}
