@@ -67,6 +67,13 @@ fn resolved(target: &SyncTarget) -> Result<SyncTarget> {
         DjSoftware::VirtualDj if target.path.is_dir() => target.path.join("database.xml"),
         DjSoftware::DjayPro if target.path.is_dir() => target.path.join("MediaLibrary.db"),
         DjSoftware::Serato4 if target.path.is_dir() => target.path.join("root.sqlite"),
+        DjSoftware::Mixxx => {
+            ensure!(
+                target.environment.is_native(),
+                "Mixxx runs natively; use the native environment"
+            );
+            crate::mixxx::resolve_database_path(&target.path)?
+        }
         DjSoftware::PioneerUsb => anyhow::bail!("Pioneer USB owns independent media copies"),
         DjSoftware::Rekordbox => {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
@@ -160,6 +167,7 @@ fn external_id_at(
         DjSoftware::PioneerUsb => {
             anyhow::bail!("Independent device copy has no desktop source-path reference")
         }
+        DjSoftware::Mixxx => crate::mixxx::reference_id(database, source),
         DjSoftware::Rekordbox => {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }
@@ -276,6 +284,9 @@ fn playlists(
 pub fn inspect_path_reference(target: &SyncTarget, source: &Path) -> Result<PathReferenceSnapshot> {
     let target = resolved(target)?;
     crate::discovery::ensure_closed(target.software)?;
+    if target.software == DjSoftware::Mixxx {
+        crate::mixxx::preflight(&target.path)?;
+    }
     let environment = target.environment.freeze()?;
     let resolver = target.environment.resolver()?;
     let (database, reference_root) = reference_location(&target, source, &resolver)?;
@@ -527,6 +538,12 @@ pub fn prepare_path_repair(
             &resolver,
         )?,
         DjSoftware::PioneerUsb => anyhow::bail!("Independent device copy cannot be path-repaired"),
+        DjSoftware::Mixxx => crate::mixxx::repair_reference(
+            &staged,
+            &change.from,
+            &change.to,
+            &snapshot.external_id,
+        )?,
         DjSoftware::Rekordbox => {
             anyhow::bail!("Use the native rekordbox collection workflow for relocation")
         }

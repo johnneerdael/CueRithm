@@ -29,7 +29,17 @@ pub fn discover(
     let registry_home = windows_registry::virtualdj_home();
     #[cfg(not(windows))]
     let registry_home = None;
-    discover_with_virtualdj_home(home, music, documents, volumes, registry_home)
+    let local_app_data = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute());
+    discover_with_virtualdj_home(
+        home,
+        music,
+        documents,
+        volumes,
+        registry_home,
+        local_app_data.as_deref(),
+    )
 }
 
 fn discover_with_virtualdj_home(
@@ -38,6 +48,7 @@ fn discover_with_virtualdj_home(
     documents: &Path,
     volumes: &[PathBuf],
     registry_home: Option<PathBuf>,
+    local_app_data: Option<&Path>,
 ) -> Vec<DiscoveredTarget> {
     let mut candidates = vec![
         (DjSoftware::VirtualDj,home.join("Library/Containers/com.atomixproductions.virtualdj/Data/Library/Application Support/VirtualDJ/database.xml")),
@@ -50,6 +61,11 @@ fn discover_with_virtualdj_home(
         (DjSoftware::Serato4,home.join("Library/Application Support/Serato/Library/root.sqlite")),
         (DjSoftware::Serato4,home.join("AppData/Local/Serato/Library/root.sqlite")),
     ];
+    candidates.extend(
+        crate::mixxx::database_candidates(home, local_app_data)
+            .into_iter()
+            .map(|path| (DjSoftware::Mixxx, path)),
+    );
     if let Some(home) = registry_home
         && home.is_absolute()
         && home.join("database.xml").is_file()
@@ -70,7 +86,13 @@ fn discover_with_virtualdj_home(
     }
     let mut out = vec![];
     for (software, path) in candidates {
-        if path.exists()
+        // Mixxx's library is one regular file; a same-named folder is not a library.
+        let present = if software == DjSoftware::Mixxx {
+            path.is_file()
+        } else {
+            path.exists()
+        };
+        if present
             && !out
                 .iter()
                 .any(|t: &DiscoveredTarget| t.software == software && t.path == path)
@@ -98,13 +120,29 @@ pub fn process_matches(software: DjSoftware, command: &str) -> bool {
         DjSoftware::EngineDj => name == "engine dj",
         DjSoftware::DjayPro => matches!(name, "djay" | "djay pro" | "djayapp"),
         DjSoftware::Serato4 => matches!(name, "serato dj pro" | "serato dj"),
+        DjSoftware::Mixxx => name == "mixxx",
         DjSoftware::PioneerUsb | DjSoftware::Rekordbox => {
             matches!(name, "rekordbox" | "rekordboxagent" | "rekordbox agent")
         }
     }
 }
+#[cfg(any(test, feature = "test-support"))]
+thread_local! {
+    static PROCESS_GUARD: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+/// Tests only: answer the process check without looking at the real process list,
+/// which would otherwise depend on what the developer happens to have open.
+#[cfg(any(test, feature = "test-support"))]
+pub fn pretend_target_running(running: bool) {
+    PROCESS_GUARD.set(Some(running));
+}
 /// Obtain a fresh OS process snapshot; inspection failure must not imply a closed app.
 pub fn ensure_closed(software: DjSoftware) -> Result<()> {
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(running) = PROCESS_GUARD.get() {
+        ensure!(!running, "Close the target DJ software before syncing");
+        return Ok(());
+    }
     #[cfg(target_os = "linux")]
     {
         ensure!(
@@ -163,6 +201,7 @@ mod tests {
             &documents,
             &[],
             Some(selected_home.clone()),
+            None,
         );
         assert_eq!(
             targets[0].path,
@@ -176,6 +215,7 @@ mod tests {
             &documents,
             &[],
             Some(documents.join("VirtualDJ")),
+            None,
         );
         assert_eq!(duplicate.iter().filter(|t| t.path == standard).count(), 1);
     }
@@ -202,10 +242,75 @@ mod tests {
                 &documents,
                 &[],
                 registry_home,
+                None,
             );
             assert_eq!(targets.len(), 1);
             assert_eq!(targets[0].path, standard);
         }
+    }
+
+    #[test]
+    fn mixxx_discovery_lists_only_existing_files_and_dedups() {
+        let root = tempfile::tempdir().unwrap();
+        let home = root.path().join("home");
+        let documents = root.path().join("documents");
+        let mac = home.join(
+            "Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/mixxxdb.sqlite",
+        );
+        let unsandboxed = home.join("Library/Application Support/Mixxx/mixxxdb.sqlite");
+        let flatpak = home.join(".var/app/org.mixxx.Mixxx/.mixxx/mixxxdb.sqlite");
+        let redirected = root.path().join("Redirected/Mixxx/mixxxdb.sqlite");
+        for path in [&mac, &unsandboxed, &flatpak, &redirected] {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"fixture").unwrap();
+        }
+        // A folder named like the database is not a library.
+        std::fs::create_dir_all(home.join(".mixxx/mixxxdb.sqlite")).unwrap();
+        let found = |local: Option<&Path>| {
+            discover_with_virtualdj_home(&home, &home.join("Music"), &documents, &[], None, local)
+                .into_iter()
+                .filter(|t| t.software == DjSoftware::Mixxx)
+                .map(|t| t.path)
+                .collect::<Vec<_>>()
+        };
+        // `.mixxx/mixxxdb.sqlite` is a directory, so `exists()` alone would accept it.
+        let default = found(None);
+        assert!(
+            default.contains(&mac) && default.contains(&unsandboxed) && default.contains(&flatpak)
+        );
+        assert!(
+            default.iter().position(|p| p == &mac) < default.iter().position(|p| p == &unsandboxed),
+            "the sandbox container is the official build's library and comes first"
+        );
+        assert!(!default.contains(&redirected));
+        let with_local = found(Some(&root.path().join("Redirected")));
+        assert!(with_local.contains(&redirected));
+        let mut sorted = with_local.clone();
+        sorted.dedup();
+        assert_eq!(sorted, with_local);
+        assert!(
+            !with_local.contains(&home.join(".mixxx/mixxxdb.sqlite")),
+            "a directory must not be offered as a library"
+        );
+    }
+
+    #[test]
+    fn process_matches_accepts_mixxx_spellings() {
+        for command in [
+            "Mixxx",
+            "/Applications/Mixxx.app/Contents/MacOS/Mixxx",
+            "mixxx",
+            "/app/bin/mixxx",
+            "mixxx.exe",
+            "MIXXX.EXE",
+            r"C:\Program Files\Mixxx\mixxx.exe",
+        ] {
+            assert!(process_matches(DjSoftware::Mixxx, command), "{command}");
+        }
+        for command in ["mixxx-helper", "not-mixxx.exe", "mixxxdb.sqlite", ""] {
+            assert!(!process_matches(DjSoftware::Mixxx, command), "{command}");
+        }
+        assert!(!process_matches(DjSoftware::VirtualDj, "mixxx"));
     }
 
     #[test]

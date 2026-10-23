@@ -145,6 +145,7 @@ nav:
       - Smart playlist rules: guides/smart-rules.md
       - Playlist tools and generator: guides/playlist-tools.md
       - Sync to DJ software: guides/sync.md
+      - Sync to Mixxx: guides/sync-mixxx.md
       - Maintenance: guides/maintenance.md
       - Correct cues, loops and beatgrid: guides/manual-corrections.md
       - Find compatible tracks: guides/compatible-tracks.md
@@ -178,5 +179,5 @@ nav:
       - about/index.md
       - Credits and open source: about/credits.md
       - How CueRithm was made: about/provenance.md
-      - Not available yet: about/roadmap.md
+      - Roadmap and compatibility: about/roadmap.md
       - FAQ and troubleshooting: about/faq.md

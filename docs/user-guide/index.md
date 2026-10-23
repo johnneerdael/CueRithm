@@ -37,7 +37,7 @@ CueRithm is a desktop library app for DJs. It analyses tracks offline, computing
 
 -   :material-tray-arrow-down: **Prepares tracks automatically**
 
-    Watch a folder, drop files on the window or use **Add tracks**. In Incoming, CueRithm decodes and analyses each track, applies any enabled tagging and cleanup, then adds the prepared track to your library. The audio files stay where they are.
+    Watch a folder, drop files on the window or use **Add tracks**. In Incoming, CueRithm decodes and analyses each track, applies any enabled tagging and cleanup, then adds the prepared track to your library. Files stay in place unless you enable [file organization](guides/file-organization.md) to rename, move or copy them.
 
     [:octicons-arrow-right-24: Your first tracks](learn/first-tracks.md)
 
@@ -59,7 +59,18 @@ CueRithm is a desktop library app for DJs. It analyses tracks offline, computing
 
 Analysis and cue generation run offline. Only the optional catalog tagging uses the network. Audio moves require enabled file-organization rules or reviewed maintenance actions. Tag writes use a staged copy: CueRithm verifies that the playable audio is unchanged, keeps the original and swaps the files atomically.
 
-Use [Maintenance](guides/maintenance.md) to review duplicates and file problems. [Direct rekordbox sync](guides/sync.md#sync-directly-to-rekordbox-6-or-7) supports the tested macOS builds 6.8.7.0303 and 7.2.19.0342. See [remaining limits](about/roadmap.md).
+Use [Maintenance](guides/maintenance.md) to review duplicates and file problems, and
+[File organization](guides/file-organization.md) to rename, move or copy tracks.
+[Sync](guides/sync.md) sends prepared libraries to rekordbox 6 / 7, VirtualDJ,
+Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx. Direct rekordbox writes
+support compatible formats on macOS, Windows and Wine / Proton on Linux. Native
+rekordbox application checks passed on macOS; Mixxx functional checks passed on
+macOS and Debian Linux. See [validation and remaining limits](about/roadmap.md).
+
+[In development](about/roadmap.md#in-development): import existing DJ libraries into
+CueRithm, reconnect externally moved music, restore portable backups across
+platforms and migrate from Lexicon backups. Mixxx is included in the DJ import
+plans; DJ.Studio is under consideration.
 
 CueRithm uses [OneTagger](about/credits.md#onetagger), FFmpeg, TagLib and other open-source components. Mixed In Key and Lexicon DJ shaped how it behaves; I studied them using copies I own and wrote my own implementation in Rust. Read [how CueRithm was made](about/provenance.md).
 
