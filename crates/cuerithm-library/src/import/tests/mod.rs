@@ -4,3 +4,5 @@ mod store;
 mod reconcile;
 
 mod processing;
+
+mod publication;

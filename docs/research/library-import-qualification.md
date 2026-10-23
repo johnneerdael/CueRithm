@@ -64,8 +64,56 @@ The 48 baseline failures are listed below so a later branch comparison can disti
 
 The handover manifest verifies all 22 supplied artifacts. Their schema/synthetic tests establish documentation, layout and invented fixture evidence (D0–D2) only. Shared contract tests and read-side infrastructure checks do not establish D3 copied-library, D4 source-app inbound, D5 reopened-app write, or D6 hardware acceptance. Reader-specific field/profile capability and actual feature test results will be added as each adapter lands.
 
+## Shared import processing and file publication
+
+The shared backend stores imported values without scheduling preparation. Key,
+BPM, grid, whole-track energy, cue generation, occupied-hotcue replacement,
+catalog enrichment, cleanup, selected audio-tag writes and file organization are
+independent policy choices. Generated or provider results require an effects
+preview and explicit apply before adoption. Missing credentials or an unmatched
+catalog query block the requested stage while preserving the valid import.
+Catalog provenance retains the selected typed candidate and attempted providers.
+
+Controlled file-publication tests cover MP3, AAC/ADTS, AAC/M4A, ALAC/M4A, FLAC,
+WAV, AIFF, Ogg Vorbis, Opus and WMA. They compare decoded PCM before/after a
+selected title write and require exact original bytes after Undo. The invented
+signal, generator and manifest are documented in
+[the fixture record](../../tools/fixtures/import-publication-README.md).
+These tests establish neither prediction accuracy nor DJ-app acceptance.
+
+The import wrapper currently accepts BPM and the existing text editor fields:
+title, artist(s), album, album artist, genre(s), style, label, version/mix,
+remixer, producer, composer, lyricist, grouping, comment, catalog number, ISRC
+and key. The native writer still validates each field/container combination;
+the ten-format title test does not qualify every field in every container.
+Artwork, dates, numeric track/disc fields, ratings and energy are not enabled by
+this import wrapper. Unsupported representations block publication explicitly.
+
+File writes reuse durable metadata and organization journals, staged copies,
+PCM verification and original-byte backups. Restart tests cover linked writes
+and interrupted Undo; later local edits, replaced files, naming collisions and
+new source bindings invalidate stale authority. Naming uses final accepted
+metadata even when audio-tag writing is off. Imported items retain their IDs and
+remain unprepared; file publication creates no preparation jobs.
+
+Renaming or moving an original source-linked file remains blocked until its
+exact native reference-repair profile is qualified. Explicit copying preserves
+the original source reference. A detached synthetic rename fixture exercises
+the existing organization service only; it provides no source-repair acceptance.
+Unqualified native cue/grid clocks remain ineligible for export, including when
+an imported item is bound to an older prepared track. Desktop controls, source
+adapters and final user documentation remain later tasks.
+
 DJ.Studio production writes remain disabled; native Windows MIK storage and rekordbox XML remain unsupported. Existing qualified output adapters retain their separate prior evidence.
 
 ## Shared-service checks through Task 3
 
 The shared store passes ten focused tests; affected migration/backup/storage integration suites pass 97 tests; shared validator/snapshot controls pass 12 tests; dj-sync passes 413 tests with three explicitly ignored. Both changed Rust packages pass all-target Clippy with warnings denied. The broader library run retained the same 48 baseline filesystem limitations; its nine additional schema-fixture failures were corrected and rerun successfully. Whole-workspace final qualification and source-specific/native gates remain pending.
+
+Task 8 verification: 90 import tests pass with the tagging feature and 74 with
+the default build. Feature/default all-target Clippy and formatting pass. The
+broad feature run covered 40 targets: 774 passed, 50 failed, 2 ignored. Of those
+failures, 48 match the baseline above; the other two were old schema-version
+assertions, updated for migration 29 and independently rerun successfully
+(catalog-access target 3/3; historical tagging migration 1/1). The broad run is
+reported with its actual failures rather than described as fully passing.

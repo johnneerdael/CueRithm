@@ -486,6 +486,59 @@ impl MetadataEditService {
         staged.retain_for_journal();
         Ok((result, after))
     }
+    /// A reviewed import may first adopt library-only proposals. Rebind only
+    /// the library revision/display of its staged file patch; source bytes,
+    /// directory authority, path/job revisions and staged output stay frozen.
+    pub(crate) fn rebase_import_preview(
+        &self,
+        preview: &str,
+        item: &str,
+        expected: &std::collections::BTreeMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let text: String = self.library.conn()?.query_row(
+            "SELECT payload_json FROM metadata_edit_previews WHERE id=?1 AND state='preview'",
+            [preview],
+            |r| r.get(0),
+        )?;
+        let mut plan: FrozenPreview = serde_json::from_str(&text)?;
+        ensure!(
+            plan.rows.len() == 1 && plan.rows[0].public.track_id == item,
+            "Import tag preview ownership changed"
+        );
+        let row = &mut plan.rows[0];
+        Self::verify_source(&row.capture)?;
+        let mut conn = self.library.conn()?;
+        let tx = conn.transaction()?;
+        ensure!(
+            crate::import::import_local_fields(&tx, item)? == *expected,
+            "Import fields changed before tag publication"
+        );
+        let revision:u64=tx.query_row("SELECT t.metadata_revision FROM tracks t JOIN import_items i ON i.local_track_id=t.id WHERE t.id=?1",[item],|r|r.get(0))?;
+        row.capture.public.metadata_revision = revision;
+        Self::validate_capture(&tx, &row.capture, None)?;
+        let display = tx.query_row(
+            "SELECT title,artist,album,genre FROM tracks WHERE id=?1",
+            [item],
+            |r| {
+                Ok(super::capture::Display {
+                    title: r.get(0)?,
+                    artist: r.get(1)?,
+                    album: r.get(2)?,
+                    genre: r.get(3)?,
+                })
+            },
+        )?;
+        row.capture.display = display.clone();
+        if let Some(stage) = &mut row.stage {
+            stage.display = display;
+        }
+        tx.execute(
+            "UPDATE metadata_edit_previews SET payload_json=?1 WHERE id=?2 AND state='preview'",
+            rusqlite::params![bounded_json(&plan)?, preview],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
     pub fn apply_reviewed_metadata_patch(
         &self,
         track: &str,

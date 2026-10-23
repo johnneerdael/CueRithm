@@ -67,7 +67,7 @@ impl MetadataEditService {
             conn.query_row("SELECT t.path,t.source_hash,t.title,t.state,t.archived,t.path_revision,t.metadata_revision,t.current_job,j.attempts,t.musical_key,t.bpm,t.energy,t.duration FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?,r.get(11)?,r.get(12)?)))?
         };
         ensure!(
-            !archived && matches!(state.as_str(), "ready" | "incoming"),
+            !archived && matches!(state.as_str(), "ready" | "incoming" | "imported"),
             "Choose an active Ready or Incoming track"
         );
         let path = crate::model::bytes_path(&path)?;

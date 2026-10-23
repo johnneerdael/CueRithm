@@ -75,10 +75,22 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
             },
         });
     }
-    // The next subsystem supplies provider, cleanup and guarded file handlers.
+    let mut optional = Vec::new();
     for (enabled, name) in [
         (policy.metadata_enrichment.enabled, "metadata.enrichment"),
         (policy.cleanup.enabled, "metadata.cleanup"),
+    ] {
+        if enabled {
+            optional.push(Stage {
+                name,
+                field: "metadata",
+                selection: AnalysisSelection::default(),
+                blocker: None,
+            });
+        }
+    }
+    optional.extend(stages);
+    for (enabled, name) in [
         (!policy.write_audio_tags.is_empty(), "file.tags"),
         (
             policy.relocation != RelocationPolicy::Off,
@@ -86,17 +98,15 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
         ),
     ] {
         if enabled {
-            stages.push(Stage {
+            optional.push(Stage {
                 name,
                 field: "metadata",
                 selection: AnalysisSelection::default(),
-                blocker: Some(
-                    "This requested optional stage awaits its publication handler".into(),
-                ),
+                blocker: None,
             });
         }
     }
-    stages
+    optional
 }
 pub(super) fn analyze(
     stage: &Stage,

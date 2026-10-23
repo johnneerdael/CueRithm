@@ -344,36 +344,47 @@ impl Library {
             if record.phase != OrganizationPhase::Complete || record.undo_of.is_some() {
                 continue;
             }
-            let (mut row, _) =
-                match self.capture_organization_row(&old.public.track_id, false, false, cancel) {
-                    Ok(captured) => captured,
-                    Err(error) => {
-                        // A changed or missing managed file blocks only its own row.
-                        cancel.check()?;
-                        let before_path = self
-                            .track_path(&old.public.track_id)
-                            .map(|path| path.to_string_lossy().into_owned())
-                            .unwrap_or_default();
-                        rows.push(FrozenRow {
-                            public: OrganizationRow {
-                                id: uuid::Uuid::new_v4().to_string(),
-                                track_id: old.public.track_id.clone(),
-                                title: old.public.title.clone(),
-                                before_path,
-                                after_path: None,
-                                outcome: "blocked".into(),
-                                reason: Some(format!(
-                                    "Undo blocked because the track changed: {error:#}"
-                                )),
-                                operation_id: None,
-                                references: Vec::new(),
-                            },
-                            captured: None,
-                        });
-                        operations.push(operation.clone());
-                        continue;
-                    }
-                };
+            let (mut row, _) = match (|| {
+                ensure!(
+                    crate::organization_references::import_binding_digest(
+                        &*self.conn()?,
+                        &old.public.track_id
+                    )? == old
+                        .captured
+                        .as_ref()
+                        .and_then(|f| f.import_bindings_digest.clone()),
+                    "Original import references changed after organization"
+                );
+                self.capture_organization_row(&old.public.track_id, false, false, cancel)
+            })() {
+                Ok(captured) => captured,
+                Err(error) => {
+                    // A changed or missing managed file blocks only its own row.
+                    cancel.check()?;
+                    let before_path = self
+                        .track_path(&old.public.track_id)
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    rows.push(FrozenRow {
+                        public: OrganizationRow {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            track_id: old.public.track_id.clone(),
+                            title: old.public.title.clone(),
+                            before_path,
+                            after_path: None,
+                            outcome: "blocked".into(),
+                            reason: Some(format!(
+                                "Undo blocked because the track changed: {error:#}"
+                            )),
+                            operation_id: None,
+                            references: Vec::new(),
+                        },
+                        captured: None,
+                    });
+                    operations.push(operation.clone());
+                    continue;
+                }
+            };
             let stale = Self::validate_frozen_track(
                 &*self.conn()?,
                 &old.public.track_id,

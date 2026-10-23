@@ -7,6 +7,8 @@ pub struct ImportProcessingService {
     runtime: MediaRuntime,
     gate: Arc<Mutex<()>>,
     stop: AtomicBool,
+    #[cfg(feature = "autotag")]
+    tagger: Option<Arc<cuerithm_autotag::Tagger>>,
     active: Mutex<Option<CancellationToken>>,
     #[cfg(test)]
     claim_hook: Mutex<Option<Box<dyn Fn() + Send>>>,
@@ -20,6 +22,7 @@ impl ImportProcessingService {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?;
             state.decoder_identity = Some(runtime.identity.clone());
+            state.media_runtime = Some(runtime.clone());
             state.processing_gate.clone()
         };
         Ok(Self {
@@ -27,10 +30,23 @@ impl ImportProcessingService {
             runtime,
             gate,
             stop: AtomicBool::new(false),
+            #[cfg(feature = "autotag")]
+            tagger: None,
             active: Mutex::new(None),
             #[cfg(test)]
             claim_hook: Mutex::new(None),
         })
+    }
+    /// Share the host's configured catalog backend and request gates.
+    #[cfg(feature = "autotag")]
+    pub fn start_with_tagger(
+        library: Library,
+        runtime: MediaRuntime,
+        tagger: Arc<cuerithm_autotag::Tagger>,
+    ) -> Result<Self> {
+        let mut service = Self::start(library, runtime)?;
+        service.tagger = Some(tagger);
+        Ok(service)
     }
     #[cfg(test)]
     pub(crate) fn set_claim_hook(&self, hook: Box<dyn Fn() + Send>) {
@@ -114,7 +130,7 @@ impl ImportProcessingService {
                     continue;
                 }
                 let candidate = &proposal.candidate;
-                let fields = super::super::reconcile::local_fields(
+                let mut fields = super::super::reconcile::local_fields(
                     &*self.library.conn()?,
                     &candidate.item_id,
                 )?;
@@ -144,7 +160,7 @@ impl ImportProcessingService {
                     }
                     let outcome = self.execute(
                         &stage,
-                        &meta.processing,
+                        (&meta.processing, &meta.request.policy),
                         candidate.media.as_ref(),
                         &mut audio,
                         &fields,
@@ -152,6 +168,11 @@ impl ImportProcessingService {
                     );
                     let (state, receipt, identity) = match outcome {
                         Ok((value, identity)) => {
+                            if let Some(changes) = value.get("fields").and_then(Value::as_object) {
+                                for (field, value) in changes {
+                                    fields.insert(field.clone(), value.clone());
+                                }
+                            }
                             if identity.get("cache_reuse").is_some() {
                                 summary.reused += 1;
                             } else {
@@ -216,15 +237,32 @@ impl ImportProcessingService {
     fn execute(
         &self,
         stage: &Stage,
-        frozen: &FrozenProcessing,
+        configuration: (&FrozenProcessing, &ImportPolicy),
         media: Option<&MediaGuard>,
         audio: &mut Option<cuerithm_media::PreparedAudio>,
         fields: &BTreeMap<String, Value>,
         cancel: &CancellationToken,
     ) -> Result<(Value, Value)> {
+        let (frozen, policy) = configuration;
         self.check(cancel)?;
         if let Some(reason) = &stage.blocker {
             return Err(BlockedStage(reason.clone()).into());
+        }
+        if !stage.selection.any() {
+            return super::optional::execute(
+                stage,
+                super::optional::OptionalContext {
+                    library: &self.library,
+                    runtime: &self.runtime,
+                    #[cfg(feature = "autotag")]
+                    tagger: self.tagger.as_deref(),
+                },
+                frozen,
+                policy,
+                media,
+                fields,
+                cancel,
+            );
         }
         if frozen
             .decoder_identity

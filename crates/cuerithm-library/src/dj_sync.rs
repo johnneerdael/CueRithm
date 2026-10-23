@@ -121,6 +121,17 @@ impl Library {
             // since the baseline was captured. They are intentionally excluded.
             (raw, playlists)
         };
+        for row in &raw {
+            let imported: bool = self.conn()?.query_row(
+                "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+                [&row.id],
+                |r| r.get(0),
+            )?;
+            if imported {
+                let readiness = self.import_export_readiness(&row.id)?;
+                ensure!(readiness.ready, "{}", readiness.reasons.join("; "));
+            }
+        }
         let tracks: Vec<SyncTrack> = raw.into_iter().map(project_track).collect::<Result<_>>()?;
         let ids: BTreeSet<_> = tracks.iter().map(|track| track.id.as_str()).collect();
         for playlist in &mut playlists {

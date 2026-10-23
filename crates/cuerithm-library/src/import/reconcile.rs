@@ -122,11 +122,11 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
                 ),
             );
         }
-        let metadata: Value = serde_json::from_str(&metadata)?;
+        let metadata =
+            super::native_shadow::metadata_fields(&serde_json::from_str::<Value>(&metadata)?);
         let names: std::collections::BTreeSet<String> = metadata
-            .as_object()
-            .into_iter()
-            .flat_map(|m| m.keys().cloned())
+            .keys()
+            .cloned()
             .chain(
                 shadow
                     .keys()
@@ -142,7 +142,8 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
             }
             let field = format!("metadata.{name}");
             let current = super::native_shadow::native_presence(metadata.get(&name));
-            if !fields.contains_key(&field)
+            if (!fields.contains_key(&field)
+                && shadow.get("_imported_owner") != Some(&Value::Bool(true)))
                 || shadow
                     .get(&field)
                     .is_some_and(|previous| previous != &current)

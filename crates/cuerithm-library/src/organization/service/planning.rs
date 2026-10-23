@@ -25,6 +25,23 @@ impl Library {
         incoming: Option<Vec<String>>,
         cancel: &CancellationToken,
     ) -> Result<OrganizationPreview> {
+        self.preview_organization_inputs(request, incoming, None, cancel)
+    }
+    pub(crate) fn preview_import_organization(
+        &self,
+        request: OrganizationPreviewRequest,
+        naming: BTreeMap<String, cuerithm_organize::template::NamingContext>,
+        cancel: &CancellationToken,
+    ) -> Result<OrganizationPreview> {
+        self.preview_organization_inputs(request, None, Some(naming), cancel)
+    }
+    fn preview_organization_inputs(
+        &self,
+        request: OrganizationPreviewRequest,
+        incoming: Option<Vec<String>>,
+        naming: Option<BTreeMap<String, cuerithm_organize::template::NamingContext>>,
+        cancel: &CancellationToken,
+    ) -> Result<OrganizationPreview> {
         request.settings.validate()?;
         cancel.check()?;
         let allow_incoming = incoming.is_some();
@@ -64,7 +81,17 @@ impl Library {
                 request.settings.enabled(),
                 cancel,
             ) {
-                Ok((row, input)) => {
+                Ok((mut row, mut input)) => {
+                    if let Some(context) = naming.as_ref().and_then(|n| n.get(id)) {
+                        let mut context = context.clone();
+                        context.original_name = input.metadata.original_name.clone();
+                        context.parent = input.metadata.parent.clone();
+                        input.metadata = context.clone();
+                        row.public.title = context.title.clone().unwrap_or_default();
+                        if let Some(frozen) = row.captured.as_mut() {
+                            frozen.metadata = context;
+                        }
+                    }
                     rows.insert(id.clone(), row);
                     inputs.push(input)
                 }
@@ -195,6 +222,13 @@ impl Library {
             {
                 outcome = "skipped";
             }
+            if outcome == "ready"
+                && request.settings.mode != OrganizationSettingMode::Copy
+                && frozen.import_bindings_digest.is_some()
+            {
+                outcome = "blocked";
+                reason=Some("Original imported library references have no qualified path repair adapter; choose Copy to preserve their paths".into());
+            }
             if outcome == "ready" {
                 match self.organization_reference_snapshot(&planned.track.id) {
                     Ok(references) => {
@@ -301,6 +335,65 @@ impl Library {
         }
         tx.commit()?;
         Ok(public)
+    }
+    /// Refresh technical proofs after an approved import's library/tag effects.
+    /// Paths and reference changes must remain exactly those already reviewed.
+    pub(crate) fn rebase_import_organization(
+        &self,
+        id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<OrganizationPreview> {
+        let old = self.organization_plan(id)?;
+        let rows = self.organization_plan_rows(id)?;
+        ensure!(rows.len() == 1, "Import organization must own one item");
+        if let Some(root) = &old.root {
+            crate::organization::NativeParent::reopen(root)?;
+        }
+        for directory in &old.directories {
+            crate::organization::NativeParent::reopen(&directory.authority)?;
+        }
+        let row = &rows[0];
+        let frozen = row
+            .captured
+            .as_ref()
+            .context("Missing reviewed organization proof")?;
+        crate::organization::NativeParent::reopen(&frozen.source_parent)?;
+        let preview = self.preview_import_organization(
+            OrganizationPreviewRequest {
+                scope: OrganizationScope::Tracks {
+                    track_ids: vec![row.public.track_id.clone()],
+                },
+                settings: old.settings,
+            },
+            BTreeMap::from([(row.public.track_id.clone(), frozen.metadata.clone())]),
+            cancel,
+        )?;
+        let fresh = self.organization_plan_rows(&preview.id)?;
+        let fresh = &fresh[0];
+        ensure!(
+            preview.can_apply
+                && fresh.public.before_path == row.public.before_path
+                && fresh.public.after_path == row.public.after_path
+                && serde_json::to_value(&fresh.public.references)?
+                    == serde_json::to_value(&row.public.references)?
+                && self.import_reference_refresh_same(
+                    &frozen.reference_digest,
+                    &fresh
+                        .captured
+                        .as_ref()
+                        .context("Missing refreshed proof")?
+                        .reference_digest,
+                    &frozen.fingerprint.sha256,
+                    &fresh
+                        .captured
+                        .as_ref()
+                        .context("Missing refreshed proof")?
+                        .fingerprint
+                        .sha256
+                )?,
+            "Organization destination or reference changes differ from the reviewed effects; preview again"
+        );
+        Ok(preview)
     }
     pub fn organization_preview_page(
         &self,

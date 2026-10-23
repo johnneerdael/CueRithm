@@ -552,13 +552,39 @@ impl Library {
         } else {
             false
         };
+        let mut reasons = if prepared {
+            Vec::new()
+        } else {
+            vec!["This imported item has no qualified prepared-media result; resolve and explicitly prepare required export data".into()]
+        };
+        let fields = active_fields_tx(&conn, id)?;
+        for (field, value) in &fields {
+            if !(field.starts_with("cues.") || field == "beatgrid")
+                || value.is_null()
+                || value.as_array().is_some_and(Vec::is_empty)
+            {
+                continue;
+            }
+            let provenance: Value = serde_json::from_str(&conn.query_row(
+                "SELECT provenance_json FROM import_active_fields WHERE item_id=?1 AND field=?2",
+                params![id, field],
+                |r| r.get::<_, String>(0),
+            )?)?;
+            let measured = provenance.get("kind").and_then(Value::as_str) == Some("processing")
+                && provenance
+                    .get("identity")
+                    .and_then(|i| i.get("pcm_sha256"))
+                    .and_then(Value::as_str)
+                    .is_some();
+            if !measured {
+                reasons.push(format!(
+                    "Active imported {field} has no backend-qualified clock for the current media"
+                ));
+            }
+        }
         Ok(ImportExportReadiness {
-            ready: prepared,
-            reasons: if prepared {
-                Vec::new()
-            } else {
-                vec!["This imported item has no qualified prepared-media result; resolve and explicitly prepare required export data".into()]
-            },
+            ready: reasons.is_empty(),
+            reasons,
         })
     }
 }

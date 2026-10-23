@@ -80,12 +80,12 @@ pub struct ImportPage {
     pub total: u64,
     pub next_cursor: Option<String>,
 }
-#[derive(Debug)]
 pub(crate) struct ImportRuntime {
     pub nonce: String,
     pub inspections: BTreeMap<String, Arc<ImportSnapshot>>,
     pub processing_gate: Arc<std::sync::Mutex<()>>,
     pub decoder_identity: Option<String>,
+    pub media_runtime: Option<cuerithm_media::MediaRuntime>,
 }
 impl Default for ImportRuntime {
     fn default() -> Self {
@@ -94,6 +94,7 @@ impl Default for ImportRuntime {
             inspections: BTreeMap::new(),
             processing_gate: Arc::new(std::sync::Mutex::new(())),
             decoder_identity: None,
+            media_runtime: None,
         }
     }
 }

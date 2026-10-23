@@ -3,6 +3,12 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct FrozenProcessing {
     pub engine: Option<camelot_core::EngineSettings>,
+    #[serde(default)]
+    pub cleanup: Option<cuerithm_cleanup::CleanupConfig>,
+    #[serde(default)]
+    pub optional_error: Option<String>,
+    #[serde(default)]
+    pub tagging: Option<Value>,
     pub settings_revision: Option<String>,
     pub models: BTreeMap<String, FrozenModel>,
     #[serde(default)]
@@ -38,8 +44,44 @@ pub(crate) fn freeze(
     cancel: &CancellationToken,
 ) -> Result<FrozenProcessing> {
     let selected = selection(policy);
+    let optional = if policy.cleanup.enabled || policy.metadata_enrichment.enabled {
+        Some(lib.settings()?.settings)
+    } else {
+        None
+    };
+    let mut cleanup = optional.as_ref().and_then(|s| s.cleanup.clone());
+    let mut optional_error = None;
+    if policy.cleanup.enabled {
+        if let Some(config) = &mut cleanup {
+            if !policy.cleanup.rules.is_empty() {
+                for id in &policy.cleanup.rules {
+                    if id != "genres"
+                        && id != "artists"
+                        && !config.fixes.iter().any(|f| &f.id == id)
+                    {
+                        optional_error = Some(format!("Cleanup rule {id} unavailable at preview"));
+                    }
+                }
+                config
+                    .fixes
+                    .retain(|f| policy.cleanup.rules.contains(&f.id));
+                config.genres.enabled &= policy.cleanup.rules.iter().any(|id| id == "genres");
+                config.artists.enabled &= policy.cleanup.rules.iter().any(|id| id == "artists");
+            }
+        } else {
+            optional_error = Some("Cleanup configuration unavailable at preview".into());
+        }
+    }
+    let tagging = optional
+        .as_ref()
+        .and_then(|s| s.tagging.as_ref())
+        .map(serde_json::to_value)
+        .transpose()?;
     if !selected.any() {
         return Ok(FrozenProcessing {
+            cleanup,
+            optional_error,
+            tagging,
             processing_sha256: policy.requires_processing().then(implementation_sha256),
             ..Default::default()
         });
@@ -95,6 +137,9 @@ pub(crate) fn freeze(
     }
     Ok(FrozenProcessing {
         engine: Some(original),
+        cleanup,
+        optional_error,
+        tagging,
         settings_revision: Some(snapshot.revision),
         models,
         decoder_identity: lib
@@ -115,7 +160,7 @@ impl FrozenProcessing {
     pub fn effective_identity(&self, policy: &ImportPolicy) -> Result<Value> {
         let selected = selection(policy);
         Ok(
-            json!({"engine":self.engine.as_ref().map(|engine|selected.effective_settings(engine)),"models":self.models,"engine_source_sha256":self.engine_source_sha256,"processing_sha256":self.processing_sha256,"publication_sha256":self.publication_sha256}),
+            json!({"engine":self.engine.as_ref().map(|engine|selected.effective_settings(engine)),"cleanup":self.cleanup,"optional_error":self.optional_error,"tagging":self.tagging,"models":self.models,"engine_source_sha256":self.engine_source_sha256,"processing_sha256":self.processing_sha256,"publication_sha256":self.publication_sha256}),
         )
     }
     pub fn validate_models(

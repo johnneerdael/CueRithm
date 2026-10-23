@@ -7,6 +7,21 @@ impl Library {
         cancel: &CancellationToken,
     ) -> Result<ImportApplyResult> {
         cancel.check()?;
+        let gate = self
+            .inner
+            .import_runtime
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
+            .processing_gate
+            .clone();
+        let _gate = gate
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _organization = self
+            .inner
+            .organization_gate
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Organization gate interrupted"))?;
         // A committed receipt is authoritative even when the source later changes.
         if let Some(receipt) = self
             .conn()?
@@ -101,7 +116,8 @@ impl Library {
                                     .is_some_and(|media| media.sha256 != *source_hash)
                                 || next_path.as_ref().is_some_and(|p| path.as_ref() != Some(p))
                         })
-                        || !p.fields.is_empty();
+                        || !p.fields.is_empty()
+                        || !tx.query_row("SELECT EXISTS(SELECT 1 FROM import_bindings WHERE source_id=?1 AND external_id=?2 AND item_id=?3)",params![source,c.external_id,c.item_id],|r|r.get::<_,bool>(0))?;
                 if needs_projection {
                     let track = load_track(&tx, &snapshot_id, &c.external_id)?;
                     project_import_track_tx(
