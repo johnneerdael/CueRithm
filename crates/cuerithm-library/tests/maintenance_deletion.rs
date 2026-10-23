@@ -509,6 +509,50 @@ fn a_participant_that_lost_its_file_link_after_the_review_is_refused_in_plain_wo
 }
 
 #[test]
+fn a_preview_that_does_not_name_the_approved_keeper_file_deletes_nothing() {
+    // A preview saved by an earlier build says nothing about the kept track's file. It cannot be
+    // judged against what was approved, so its files stay.
+    fn forget(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Array(items) => items.iter_mut().for_each(forget),
+            serde_json::Value::Object(map) => {
+                map.remove("keeper_sha256");
+                map.values_mut().for_each(forget);
+            }
+            _ => {}
+        }
+    }
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let text: String = conn
+        .query_row(
+            "SELECT payload_json FROM maintenance_scans WHERE id=?1",
+            [&preview.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(text.contains("keeper_sha256"));
+    let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    forget(&mut value);
+    conn.execute(
+        "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
+        rusqlite::params![value.to_string(), preview.id],
+    )
+    .unwrap();
+    drop(conn);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty() && result.trashed.is_empty());
+    assert_eq!(result.not_deleted.len(), 1);
+    assert!(stand_in.taken().is_empty() && f.paths[1].exists());
+    assert!(f.track_exists(&f.ids[1]));
+}
+
+#[test]
 fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
     let f = Fixture::new();
     // The duplicate is in the middle of a file organization that has not finished.

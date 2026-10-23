@@ -89,6 +89,11 @@ pub struct DuplicateDeletionFile {
     pub keeper_display_path: String,
     pub identity: DuplicateIdentity,
     pub sha256: String,
+    /// The content hash of the kept track's file that this deletion was approved against. Just
+    /// before the file is removed, the kept track's file must still be exactly this (or what a
+    /// donor copy made of it), or the duplicate stays.
+    #[serde(default)]
+    pub keeper_sha256: String,
     /// The Trash cannot take this file, so it will be deleted permanently if the Trash
     /// still refuses it when the merge is applied. The preview says so; nothing else is
     /// ever deleted permanently.

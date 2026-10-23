@@ -135,7 +135,11 @@ Windows, the freedesktop.org Trash on Linux). It deletes permanently only a file
 preview announced as `permanent`, after the Trash refused it; any other file the Trash
 cannot take stays with its record and is reported per file.
 Before each file moves, the availability, SHA-256 and identity proof are checked
-again, and the library records only the files that really moved. If the library
+again, then the kept track's file is hashed once more as the very last step (`keeper_sha256`
+in the preview names what it was approved against, or what a donor copy made of it): a
+duplicate stays, with the reason *The kept track's file changed after it was verified.*, when
+the survivor was replaced or edited meanwhile. The library records only the files that
+really moved. If the library
 commit fails after files were moved, the operation is rolled back and its error
 lists the files that are already in the Trash; their records were kept, so they
 appear in Missing & broken. A restart after an interruption lists the same files.

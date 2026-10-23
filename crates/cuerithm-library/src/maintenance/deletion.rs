@@ -358,10 +358,10 @@ pub(super) fn plan(
             ));
             continue;
         }
-        let kept = keepers
+        let (kept, kept_sha256) = keepers
             .get(&keeper)
             .and_then(Option::as_ref)
-            .map(|(k, _, _)| k.path.to_string_lossy().into_owned())
+            .map(|(k, hash, _)| (k.path.to_string_lossy().into_owned(), hash.clone()))
             .unwrap_or_default();
         keep.insert(id.clone());
         let permanent = !trash.can_trash(&item.path);
@@ -373,6 +373,7 @@ pub(super) fn plan(
             keeper_display_path: kept,
             identity,
             sha256: hash,
+            keeper_sha256: kept_sha256,
             permanent,
         });
     }

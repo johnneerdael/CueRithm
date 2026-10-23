@@ -697,7 +697,14 @@ impl DuplicateMergeService {
                 cancel.check()?;
                 let mut moved = vec![];
                 for file in std::mem::take(&mut doomed) {
-                    match self.dispose_verified(&file, &snapshots, &plan) {
+                    // The kept track's file as it is meant to be now: what was approved, or what a
+                    // donor copy has just made of it.
+                    let keeper_now = staged
+                        .iter()
+                        .find(|s| s.target == file.keeper_id)
+                        .map(|s| s.staged.source_after_sha256.clone())
+                        .unwrap_or_else(|| file.keeper_sha256.clone());
+                    match self.dispose_verified(&file, &keeper_now, &snapshots, &plan) {
                         Ok(how) => {
                             trashed_log.push(file.display_path.clone());
                             if matches!(how, Disposal::Permanent) {
@@ -865,6 +872,7 @@ impl DuplicateMergeService {
             let listed = shown.files.iter().find(|f| {
                 f.track_id == file.track_id
                     && f.sha256 == file.sha256
+                    && f.keeper_sha256 == file.keeper_sha256
                     && f.identity == file.identity
                     && f.keeper_id == file.keeper_id
             });
@@ -908,6 +916,7 @@ impl DuplicateMergeService {
     fn dispose_verified(
         &self,
         file: &DuplicateDeletionFile,
+        keeper_sha256: &str,
         snapshots: &BTreeMap<String, TrackImage>,
         plan: &MergePlan,
     ) -> std::result::Result<Disposal, (DuplicateSkipReason, String)> {
@@ -946,6 +955,18 @@ impl DuplicateMergeService {
                 return Err((
                     DuplicateSkipReason::FileChanged,
                     "The file changed after it was verified.".into(),
+                ));
+            }
+        }
+        // Last of all, the file that is supposed to keep the audio. The candidate's hash above can
+        // take long, and the kept track's file may have been replaced or edited meanwhile; the
+        // copy must not go if the survivor is no longer what the deletion was approved against.
+        match file_sha256_cancellable(&keeper, &CancellationToken::default()) {
+            Ok(hash) if hash == keeper_sha256 => {}
+            _ => {
+                return Err((
+                    DuplicateSkipReason::FileChanged,
+                    "The kept track's file changed after it was verified.".into(),
                 ));
             }
         }
@@ -1424,14 +1445,18 @@ mod tests {
     fn a_file_that_changes_after_verification_is_kept_with_its_record() {
         // Changed after publication began: the whole merge stops and nothing is moved.
         // Changed just before it would be moved: only that file is kept.
-        for (hook, whole_merge_fails) in [
-            (change_after_install as fn(&str), true),
-            (change_just_before_trash as fn(&str), false),
+        for (hook, whole_merge_fails, keeper) in [
+            (change_after_install as fn(&str), true, false),
+            (change_just_before_trash as fn(&str), false, false),
+            // The kept track's file changes instead: the copy is not deleted either, because
+            // the file that was supposed to hold the audio is no longer the one approved.
+            (change_after_install as fn(&str), true, true),
+            (change_just_before_trash as fn(&str), false, true),
         ] {
-            changed_duplicate_is_kept(hook, whole_merge_fails);
+            changed_duplicate_is_kept(hook, whole_merge_fails, keeper);
         }
     }
-    fn changed_duplicate_is_kept(hook: fn(&str), whole_merge_fails: bool) {
+    fn changed_duplicate_is_kept(hook: fn(&str), whole_merge_fails: bool, change_keeper: bool) {
         let (dir, lib, runtime, _donor_preview, paths_zero, _target) = fixture();
         let token = CancellationToken::default();
         let ids = {
@@ -1480,7 +1505,20 @@ mod tests {
         } else {
             paths_zero.clone()
         };
-        *CHANGE_BEFORE_TRASH.lock().unwrap() = Some(removed_path.clone());
+        let keeper_path = if removed == ids[1] {
+            paths_zero.clone()
+        } else {
+            duplicate.clone()
+        };
+        assert_eq!(
+            listed[0].keeper_id,
+            if removed == ids[1] { &ids[0] } else { &ids[1] }.as_str()
+        );
+        *CHANGE_BEFORE_TRASH.lock().unwrap() = Some(if change_keeper {
+            keeper_path.clone()
+        } else {
+            removed_path.clone()
+        });
         let mut service =
             DuplicateMergeService::with_trash(lib.clone(), runtime, Arc::new(MustNotRun));
         service.hook = Some(hook);
@@ -1497,6 +1535,17 @@ mod tests {
                 result.not_deleted[0].reason,
                 DuplicateSkipReason::FileChanged
             );
+            if change_keeper {
+                assert!(
+                    result.not_deleted[0]
+                        .detail
+                        .as_deref()
+                        .unwrap_or_default()
+                        .contains("kept track"),
+                    "{:?}",
+                    result.not_deleted[0]
+                );
+            }
         }
         assert!(removed_path.exists(), "the changed file stays where it was");
         assert!(
