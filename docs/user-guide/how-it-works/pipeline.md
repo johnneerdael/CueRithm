@@ -94,7 +94,7 @@ The stage appears under the title of a row in **Incoming**. It is the label from
 | Analysis | Analyzing | Always, unless a cached result is reused |
 | Matching | Matching catalog | Automatic tagging is on |
 | Tagging | Preparing tags | Automatic tagging is on |
-| Cleanup | `cleanup` (the app has no friendlier label) | Cleanup is on |
+| Cleanup | Cleaning up tags | Cleanup is on |
 | Writing | Writing tags | Tagging or cleanup is on |
 | Committing | Applying cues | Tagging and cleanup are both off |
 | Organising | Organizing files | File organisation is on |

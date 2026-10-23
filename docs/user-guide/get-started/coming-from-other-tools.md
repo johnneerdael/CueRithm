@@ -17,7 +17,7 @@
 | Playlists and smart playlists | Both, plus a key-aware "what mixes with this" search | [Build playlists and sets](../playlists/index.md) |
 | Your DJ library | Written to directly by Sync, one way, with a backup | [Send your library to DJ software](../sync/index.md) |
 
-CueRithm cannot import a Mixed In Key, Lexicon or rekordbox library. It starts from your audio files: [add them](../files/add-tracks.md) and it measures everything again. Importing an existing DJ library is listed under in development in [What CueRithm does not do yet](../help/not-available-yet.md).
+CueRithm can [replace the active library from a supported Lexicon backup ZIP](../files/library/restore-library.md#lexicon), retaining imported cues and musical values without automatically analysing the audio. The current profile is `lexicon-main-db-v26`; mismatched schemas are refused. Generic Mixed In Key or rekordbox library import, selected-playlist import and merging independent libraries remain [separate planned work](../help/not-available-yet.md#dj-library-import). Starting from audio through [Add tracks](../files/add-tracks.md) still performs CueRithm’s own analysis.
 
 ## Keys: Camelot codes, measured on your computer { #keys }
 

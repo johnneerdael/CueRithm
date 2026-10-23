@@ -1,6 +1,6 @@
 use super::*;
 use crate::organization::{Authority, Fingerprint, NativePath, capture_regular_source};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use cuerithm_media::CancellationToken;
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize)]
@@ -21,8 +21,8 @@ pub(super) struct Capture {
     pub display: Display,
 }
 type TrackSnapshot = (
-    Vec<u8>,
-    String,
+    Option<Vec<u8>>,
+    Option<String>,
     String,
     String,
     bool,
@@ -36,8 +36,8 @@ type TrackSnapshot = (
     Option<f64>,
 );
 type RevisionSnapshot = (
-    Vec<u8>,
-    String,
+    Option<Vec<u8>>,
+    Option<String>,
     String,
     bool,
     u64,
@@ -66,6 +66,10 @@ impl MetadataEditService {
             let conn = self.library.conn()?;
             conn.query_row("SELECT t.path,t.source_hash,t.title,t.state,t.archived,t.path_revision,t.metadata_revision,t.current_job,j.attempts,t.musical_key,t.bpm,t.energy,t.duration FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?,r.get(11)?,r.get(12)?)))?
         };
+        let path =
+            path.context("Local file is not linked; relocate the track before editing metadata")?;
+        let hash =
+            hash.context("File identity is unknown; analyze the track before editing metadata")?;
         ensure!(
             !archived && matches!(state.as_str(), "ready" | "incoming"),
             "Choose an active Ready or Incoming track"
@@ -132,8 +136,8 @@ impl MetadataEditService {
     ) -> Result<()> {
         let current:RevisionSnapshot=conn.query_row("SELECT t.path,t.source_hash,t.state,t.archived,t.path_revision,t.metadata_revision,t.current_job,j.attempts FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[&capture.public.track_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?)))?;
         ensure!(
-            current.0 == capture.path.0
-                && current.1 == after.unwrap_or(&capture.fingerprint.sha256)
+            current.0.as_deref() == Some(capture.path.0.as_slice())
+                && current.1.as_deref() == Some(after.unwrap_or(&capture.fingerprint.sha256))
                 && current.2 == capture.public.state
                 && !current.3
                 && current.4 == capture.public.path_revision

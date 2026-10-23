@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 21 · 23 October 2026 CEST / UTC · Required engineering reference.
+Revision 23 · 23 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–21 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–23 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -42,7 +42,7 @@ from its eight exact native-key failures and six authored-bar-phase failures
 (F127–F129); it is not added to the old 277-request benchmark. There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 134 scoped findings. Evidence references E001–E241 identify immutable private source snapshots by
+The current register contains 138 scoped findings. Evidence references E001–E309 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -2070,6 +2070,213 @@ and no new model accuracy gain or default replacement follows.
 
 **Evidence:** E229, E232, E235, E230, E233, E236, E241.
 
+
+#### F135 — Added raw acoustic and window-edge context do not repair this cue control
+
+**Type:** Controlled local-model experiment; no new MIK observation or recovered server rule.
+
+The experiment holds the existing 194-input point representation and learner
+fixed while appending two declared blocks: 552 raw acoustic values, six explicit
+window-edge offsets, or both. The raw block contains all 183 submitted energy
+features plus RMS for the current, previous and following windows. The offsets
+preserve the historical client clock and window mapping, with offsets expressed
+in captured quarter beats.
+
+| Condition | Complete timed/labelled lists within 1 ns / 1,288 | Complete fixes / regressions | Complete positions | Position-list fixes / regressions |
+|---|---:|---:|---:|---:|
+| Retained 194-input control | 200 | — | 568 | — |
+| Added raw acoustic block | 194 | 6 / 12 | 557 | 24 / 35 |
+| Added window-edge timing | 200 | 5 / 5 | 570 | 17 / 15 |
+| Both additions | 196 | 9 / 13 | 555 | 33 / 46 |
+
+The timing condition's two-list position gain is a valid partial observation,
+while its unchanged complete-list total hides five corrections and five
+regressions. Additional target positions recovered/lost are 75/90, 54/45 and
+83/107 respectively. Cue-count agreement remains 1,091/1,288. All three qualified
+early misses from F134 persist. Their legal candidates still rank below the
+seven-slot budget. None of these configurations is an accepted replacement.
+
+All nine dependent run-13 files, representing six conditions, retain zero correct
+complete lists. Previously matched additional occurrences fall from 15 to 9, 10
+and 10; none is newly recovered. Each candidate improves some anchor labels but
+still loses known positions. Partial attribute gains do not repair full lists.
+
+**Scope:** Exactly seven 300-tree, single-thread Poisson fits: a fresh control and
+three candidates with independent repeats. The original 194-input prefix,
+360,656 samples from 5,098 training groups, multiplicity targets including four,
+weights, matched R3 window branch, count model, cue-energy state, legal candidates
+and alpha-8 decoder remain fixed. Changes in selected positions legitimately
+change downstream spans and labels. Joint presence-and-correctness outcomes are
+reported separately from label/clock changes at common matched positions.
+
+Independent checks cover all 6,386 query contexts, training matrix/target/weight
+hashes and the 79-key exclusion guard. Historical and fresh-control complete
+numeric outputs match before candidate fits. All candidate raw/canonical states,
+reloads, numeric outputs and complete lists repeat exactly in the pinned
+environment. The completed review replays all seven states on 1,288 spent
+requests in 1,287 recording groups and nine dependent synthetic files. It also
+checks 9,600 independent tree paths with exact leaf IDs and raw scores. All 32
+inspected witness scores are untied. Runtime is about 23 minutes, reported peak
+process memory about 6.41 GiB and retained output about 60 MB.
+
+**Rules out / prevents:** Reject these three replacements and retain every
+correction and regression. Do not erase the measured position-only gain or call
+an unchanged aggregate a regression-free fix. This is one fixed learner and
+budget; it does not exclude acoustic information, timing, other objectives,
+capacities, sequence models or frameworks. F102 already records two failed
+104-input ranking configurations; they must not be relabelled as untried.
+The underlying acoustic/learning cause of the demonstrated misses remains open.
+No accepted accuracy gain, new MIK run, audio render, response admission,
+unseen/PCM/native/format qualification or product-default change follows.
+
+**Evidence:** E242, E244, E245, E250, E254, E255.
+
+
+#### F136 — Equal query weighting produces repairs and regressions, with a remaining label gap
+
+**Type:** Controlled local-model experiment and descriptive audio evidence.
+
+Multiplying each original sampled point weight in query i by mean(L)/L_i, where
+L_i is its legal candidate count, yields 198 complete timed and labelled lists
+within 1 ns versus the retained 200/1,288. It fixes 14 and regresses 16. Complete
+positions become 560 versus 568, with 62 fixes and 70 regressions. Counts stay
+1,091. Additional target positions recovered/lost are 149/152. The candidate is
+rejected as a replacement.
+
+**Scope:** Three fixed 300-tree single-thread Poisson fits: fresh control,
+treatment and independent repeat. All 194 inputs, 360,656 sampled rows from
+5,098 groups, multiplicity targets, original inverse-inclusion ratios, frozen
+downstream heads and repeat-capable decoder stay fixed. Total weight mass stays
+4,177,472; target-weight mass and initialization may legitimately change.
+Data, complete states, reloads, repeats, full numeric and operational outputs,
+paired occurrences and subgroups pass independent review.
+
+One qualified case now has all eight positions and clock bits right but two
+cue-label errors remain. The other two selected early misses persist. Dependent
+run-13 complete lists stay zero; two matched additional targets are lost and
+none recovered. A separate read-only audio audit verifies 16 masks, 16 full
+spectra, 240 band integrals, eight RMS deltas and two viewed figures. The direction
+of one measured RMS change reverses between two- and eight-beat support.
+
+**Prevents:** Do not call a position repair a complete fix, double-correct the
+original sampling weights, infer calibrated intensities or assert that equal
+query weighting cannot work with other models. Same-file audio controls are
+descriptive; neither a universal RMS rule nor causal propagation from window
+labels follows. Current PCM qualification does not establish capture-time PCM
+identity. No new MIK run, accepted model, unseen/native/format or default
+qualification follows.
+
+**Evidence:** E256, E257, E258, E259, E260, E261, E262, E263, E264, E265, E266, E267, E268, E269, E270, E271, E272, E273, E274.
+
+#### F137 — Capacity search improves some cue results while losing known matches
+
+**Type:** Controlled local-model search and complete operational comparison.
+
+A fixed 24-trial grouped three-fold search compares LightGBM and CatBoost Poisson
+learners on direct 104- and 662-input representations. Six trials belong to each
+cell. Its true-count position reference is 2,455/5,098. The four predeclared
+diagnostic choices achieve 2,679, 2,590, 2,835 and 2,709 exact position lists.
+None has a positive gain that protects all known complete lists and matched
+target occurrences.
+
+Eight subsequent full-training fits, comprising four chosen candidates and
+independent repeats, use each model's own positions with unchanged operational
+count and cue-label heads:
+
+| Candidate | Complete timed/labelled lists within 1 ns / 1,288 | Complete fixes / regressions | Complete position lists |
+|---|---:|---:|---:|
+| Retained 194-input control | 200 | — | 568 |
+| LightGBM, direct 104 | 210 | 26 / 16 | 615 |
+| LightGBM, direct 662 | 207 | 30 / 23 | 581 |
+| CatBoost, direct 104 | 214 | 37 / 23 | 610 |
+| CatBoost, direct 662 | 208 | 33 / 25 | 592 |
+
+Timestamp-bit-exact complete totals are 208/204/211/206 versus 196. Counts remain
+1,091. All real-corpus regression gates fail against both historical controls;
+all run-13 gates against the retained 194-input control fail. LightGBM/direct104
+passes the run-13 regression gate against historical104, an exception that
+does not qualify it. All nine dependent files, representing six primary
+constructions, still have zero complete correct lists. None is accepted.
+
+**Scope:** Exactly 72 CV fits and eight final 600-iteration fits, CPU eight
+threads, fixed seeds and versions. The same 5,098 groups, sampled coordinates,
+targets and weights remain. Direct662 adds three windows of all 183 acoustic
+features plus RMS and six window-edge offsets. Candidate point models exclude
+the 90 learned R3 point fields during inner CV and final refits. Historical194
+retains those fields; the unchanged downstream label head uses the matched R3
+window branch. Choices are frozen before any candidate development forecast.
+Historical104 is separately preserved at 199 complete lists and 571 positions.
+
+Independent checks replay all 72 CV states and 100,259,328 candidate rows, all
+24 sampler checkpoints and all ten final point models over 10,595,200 rows.
+They verify full downstream spans, clocks, classifier class maps, numerical
+archives, omitted-input hashes, independent repeats, paired occurrences,
+anchors, rare counts and location support. Independent tree checks cover
+81,600 CV paths and 43,200 final paths with exact leaves and zero observed raw
+error. All requested tree budgets are reached. Native CatBoost repeat JSON
+differences are precisely GUID and finish-time metadata; opaque serialized
+container differences remain separately scoped.
+
+Larger or different models recover complete positions in two of the three
+qualified real witnesses where the fixed F135 budget did not. Label errors
+remain, and the third early miss persists with other exchanged markers.
+
+**Prevents:** Preserve these partial gains and every regression. The 214 total
+is spent-development evidence, not an accepted or significant improvement.
+True-count CV positions and operational complete cues have different targets
+and cohorts. Independently tuned cells do not establish that a feature block,
+framework, objective or model class is useless. Fixed counts and correct-position
+label failures cannot be repaired by position tuning alone. No new MIK mechanism,
+response admission, product change or unseen/PCM/native/format qualification
+follows.
+
+**Evidence:** E275, E276, E277, E278, E279, E280, E281, E282, E283, E284, E285, E286, E287, E288, E289, E290, E291, E292, E293.
+
+#### F138 — Correct local cue counts do not require every window label to be right
+
+**Type:** Saved local-prediction contingency and descriptive qualified-audio evidence.
+
+On the same 1,288 spent requests in 1,287 groups, the retained count head paired
+with the standalone R5c window predictor gives the following outcomes:
+
+| Cue count | Every window label correct | At least one window label wrong |
+|---|---:|---:|
+| Correct | 165 | 926 |
+| Wrong | 35 | 162 |
+
+The frozen R3 branch used by the cue pipeline instead gives 148/943/29/168 in
+the corresponding cells. R5c has 26,944/29,892 correct window labels and 200 files
+with every window right; R3 has 26,675 and 177. These are distinct saved models.
+Their figures and case sets must not be substituted. Of the retained 200 complete
+cue matches, 146 still contain a standalone window error; 136 do so under R3.
+These compare the same retained cue pipeline with two window predictors; they
+are not results from swapping the cue pipeline's window model.
+
+Retained requests partition into 197 wrong counts, 523 correct counts with wrong
+positions, 368 correct positions with wrong cue labels and 200 complete lists
+within 1 ns. Independent review reconstructs all 2,576 branch ledger rows and
+the four-way hierarchy directly from saved targets and outputs.
+
+A separate qualified case audit examines a remaining label error after positions
+are repaired. Its cue label differs from its containing-window label, and both
+local predictions differ from their respective MIK targets. Eight masks, eight
+full spectra, 120 band integrals, four RMS deltas and one viewed figure reproduce
+independently. RMS-change signs depend on two- versus eight-beat support.
+No audition is claimed. Preserved scope addenda correct inherited historical
+case descriptions; actual selection, source audio and numeric arrays are
+unchanged.
+
+**Prevents:** Perfect window labels are not a prerequisite for correct counts
+from these local predictors. This does not establish MIK server independence,
+exclude continuous energy or shared upstream information, or show that improving
+windows cannot help cues. Cue labels and window labels remain different targets;
+no general lookup or aggregation mechanism follows from the containing-window
+comparison. Do not turn same-file spectral/RMS observations into causal physical
+contrasts, semantic section labels or a universal energy formula. No new fitted
+model, MIK run, accepted gain or final qualification follows.
+
+**Evidence:** E294, E295, E296, E297, E298, E299, E300, E301, E302, E303, E304, E305, E306, E307, E308, E309.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2208,7 +2415,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E241 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E309 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -2456,3 +2663,71 @@ retain prior IDs or explicitly version replacement evidence.
 | E239 | `1cf34b8d8970dccc64e2f9b74066e4f954aeb2932b418deaaff3419a369ce89f` |
 | E240 | `bc1b5a8ef6bbb6912972c49bf89541eea7450589cb296e3e15399d80f5dd918b` |
 | E241 | `00ea93c04c832b9922c4c45443e965b0c11a0fd4496d3075b06086e65d8d96cb` |
+| E242 | `87cb846c42393f2002074e2c5375958601772d1adf7ff02197acbcff2b4f3c8a` |
+| E243 | `f642e1917d96de2a6af28ec583463ab437481e78fe735b6c020156efff13c50b` |
+| E244 | `9e05a9f6bf2db48ecbca4d1fa1835bd7536421310d92a1b5f92bee7cfdab3620` |
+| E245 | `a28a3ff9d858f2ca158d2a8a6a49c4cdacdd97ad9e9c9b7f45616f84a9375d70` |
+| E246 | `df9c9064d5f78c2ca805dd1f9bd09e6922ace797fd820c723ab859a8baab9810` |
+| E247 | `48aab92d5c84888601e1483b86d1a782b7d41e390dadd1b4cb56dd46fd728856` |
+| E248 | `43ad71ebb999451b2eb7f46cc23fc00f37cf414f7dc912edc05c68cc53c13a3e` |
+| E249 | `49ff67bdda21be4ccb17c8d4f7ca5cf9bbda6909f2b6e33b147ef73e9a4b7591` |
+| E250 | `356bcdeac7a4167d3f507da7968407b82e65708e42b84f48bb134a6e427f738c` |
+| E251 | `20321c8dae644d9796345f42e997fe8feaebe628ba2823ee559d478ec1000974` |
+| E252 | `65f77233c9a31ec92d34482bfb67cb08b93dfe05b3f5e52580631ec2c08f6e9f` |
+| E253 | `03861aebfc2afc9c13324195026c12f51ead26560bcbc3197211f32d15879a97` |
+| E254 | `b1a2c6b8d0c58462fac9da3c489b6b50c1be098a860cb298e5923baf8a2ac78c` |
+| E255 | `3b3b19108cd4cf5d58bd7697505ab1007599534215925b7247a9df5dceff8bcc` |
+| E256 | `3740cbafca4eaa9ed6bae259bb937aab796e9c852eb65cc1317130c3332d23bb` |
+| E257 | `7125e9e6329c115fd96e3905dd0f16d86265f5e05ae36ec8428b3a01b16a54c2` |
+| E258 | `d37eaeeee77926ce9ebe808b498e4f32b8fdac0c1b078a518791cffde9449717` |
+| E259 | `f45e8660d82b8bf74aaad7293e91be05a4f2114109bdc2df8e62a4744889719b` |
+| E260 | `2522bca07f9e27bad96fd9abde22de81a8ef472f4efb20f230eb622e5fb4eb1f` |
+| E261 | `28a618c9293bad82e64cdf8bca37ff5bb394142264bf3a68affefe33883a670c` |
+| E262 | `600c336d73bd7903ce73a00ce821b198a807962bf507029fd8c9b6545dd0473e` |
+| E263 | `d21f02fe0c7d1edaac60c6c0457e127e24dbaeed21aac9618990fdf2fd4bc4d5` |
+| E264 | `44672d5b79799076cede5fff64575d3de05a1803ce01e00993d8c9e0382d5a97` |
+| E265 | `4d9a694cd34f2c68b6faee824e8d518f0ad6de034b5edd34567ddd6cd56c2f18` |
+| E266 | `807a81faa629f492205ce8e69dc48dabfbfc31456689577d1a12d4fe93210875` |
+| E267 | `66f5622d6ed1c35ea90b96e089f3e38624caaa092d2adcc93811ce0da9b9183c` |
+| E268 | `ae1019d801b32326dfdc5234956fd08928357b777111d57e9e7d65a6a6fa8c8f` |
+| E269 | `8a765bb8519eb56697e5f97d42b7757050c694b43652ba5807b862c1c1815bc2` |
+| E270 | `7b1bde2ce53fd1c3989bb321452da926640c83222717c498c88f950a96527e71` |
+| E271 | `2b70ff1bb23ce82d2e940be9b807767d897f7fcfb0f42bbe082ca854b13f7420` |
+| E272 | `a11bd6d30d10795b4c2c02ff5327a242f62906d2d4dac37737776333e5b93ce0` |
+| E273 | `a821434894eff06b37e16d3dcdcb2d57ddbf85c5dbb64a928738d8991e03e6e2` |
+| E274 | `08b20970c4e4662a70a4d2ad117c53d3bfd8fb36a967f62e32838b9af00c7115` |
+| E275 | `1b7e63ac79f2f8574f4e78303888214576c083bf652039a7ba40a95efc5d0b53` |
+| E276 | `fb5188edf054faed28e9337208e2fdb6506b7f37ca225b953e3ebb0c08b21d94` |
+| E277 | `d03104fff59347aa1181f6228f4aa1b5c6d8d1ec2db5ab035c014284ebce940a` |
+| E278 | `7001520a5b4b0bf5be6287ed828db28979cd123ad044da89b7c9aa369408001c` |
+| E279 | `4f9e49b9503884b6c7fe020e0bb07d59af7b535bfb66f260a7e1b2a1ae420ed3` |
+| E280 | `886d0252bcff4ef637a9806a5802f35976892e684877013f19efa34b824da4a3` |
+| E281 | `a0f150b1c6238f2f142d7b92ebf5795ab3a9440d4e0c366c5dd988d67a99ba51` |
+| E282 | `b1ee1ae146a346c533bb04bd1de8de1a7852eb80a9fe08c413a27039e818fbd5` |
+| E283 | `14fdd806644d19b3e937854a03bd19591982f52c02597843263fa8b86ade981a` |
+| E284 | `4cb2f149027b2628417443feab6f1a3ef167ef35be6bb14b4c55d1264e41706a` |
+| E285 | `bcee6fcd95aedfef93963d8af49e6d71cde6df8554c538891e2bafdcc72d4c93` |
+| E286 | `55c6ba09e4721ab8a6ba62805bed117099c6c1c4ab06c8655aedde7cb9472bad` |
+| E287 | `188235c6d956e2d61a29709571da5d271730fb0d8334960ab04b02511759f59a` |
+| E288 | `52dd76dfb89c966789e4c2c342be8407b84469360373002bb8723faf0e243ddd` |
+| E289 | `c92880ce6e4b765171eaf62303b86db33a40d298f8566417a9a39964b7f03ae0` |
+| E290 | `acd4a5adeb07f71d9b40fab72e4f72711cfcb18c7397a134dc73c06c330540e2` |
+| E291 | `389f8e9794dc75e633c150fde3121ed0f1276cff55275da9567d8cfc5b2f0ccf` |
+| E292 | `11bb1db53333c6cef1c8f667c5b3a4ef88cc46695ac3b971cdb86b913410c3d9` |
+| E293 | `f0e63fb15dbafac33700bdaf119061cb5246f3ea292f43a5d1287f3f69e8ebbf` |
+| E294 | `e62e5a9784ddbe38788d36865b76e938add7479a898233e98f0f80be7bc05c62` |
+| E295 | `d08845bccab764aa526a242c7b74cd1c2669183f5e886e87720ad5e9c4dcf503` |
+| E296 | `a0fe7a01f9658796c1b8484b6f8e9f1f8cb2bab5a87d547b6f21a5875e71a7a8` |
+| E297 | `acb3cdbf744b147dc00a7ee1a2e63ac78710f8ba4c236c28892794955d4415be` |
+| E298 | `e532eab88579e6bbff05ebb0d09c6432db780c8c3003a341e3fc45183ac956ce` |
+| E299 | `ec3f867cca0288fda5994d0e83cbda6848a98906d9eb7e0670c41781cc564164` |
+| E300 | `b56b307d545c413c7a128b91c3e1f40b71ead9e0b9451df886d470d5662516b5` |
+| E301 | `17c4d63e24d6b530e0df89cc1ce7da7a35f35027bad3473be0c6f138d33796a7` |
+| E302 | `0a1f48e048f0ddeec53f28522d20fa04f14a890ce3554f2491b439003fa4ab74` |
+| E303 | `94336528303e0d53f4cf3bd903fb781cb3f19f50ae4e7742bd7869a466f53699` |
+| E304 | `a619374ec522ccdc858d13eede5cf6ec0d61564a9dcbe9d75967a7d2f0086a3b` |
+| E305 | `cedcc0c4e31fca6c5f9dece95390f1866ae4abc179eee895d2431ae86a6508b1` |
+| E306 | `92ea753932de61370337348b619a0dbff79ddd760dcf300d61df3f4b815b9dd8` |
+| E307 | `99290375cf291816bfe13172c25187803f8ae801db69bfaa7fd276923e270488` |
+| E308 | `8054cd668b530190055d7a91623e6527b4db2d6976645dd5547e4d1e972aed18` |
+| E309 | `360540b4d3106eb7dfb2f28cd64ebbc46c903553a0cbf9f61c471b2415ea8fdb` |

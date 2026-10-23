@@ -76,7 +76,7 @@ and do them while the header says *All up to date*.
 | Where | What happens |
 |---|---|
 | Player | Shows the saved cues, loops and grid straight away |
-| Table | **BPM** shows the corrected tempo. The small waveform in **PREVIEW** keeps the detector's own markers |
+| Table | **BPM** shows the corrected tempo. The small waveform in **PREVIEW** shows the saved cues, so it follows a correction. Its faint phrase lines still come from the detector's grid |
 | Sync | The next [sync](../../sync/index.md) sends the corrected cues, loops, grid and BPM. Check the sync preview before you apply it |
 | Tags | Nothing is written. **Embedded BPM** keeps whatever the file says |
 

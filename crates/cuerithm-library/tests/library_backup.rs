@@ -450,7 +450,7 @@ fn settled_organization_with_owned_sidecars_remains_backed_up_and_restorable() {
         let backup = lib
             .create_library_backup(&d.path().join("backups"))
             .unwrap();
-        assert_eq!(backup.schema, 28);
+        assert_eq!(backup.schema, 29);
         assert_eq!(lib.inspect_library_backup(&backup.path).unwrap().tracks, 1);
         lib.stage_library_restore(&backup.path, &backup.database_sha256)
             .unwrap();
@@ -1216,7 +1216,7 @@ fn backup_restores_curate_presets_folder_assignments_and_library_catalog_state()
     let backup = lib
         .create_library_backup(&d.path().join("backups"))
         .unwrap();
-    assert_eq!(backup.schema, 28);
+    assert_eq!(backup.schema, 29);
     lib.save_preparation_preset(PreparationPresetSave {
         id: Some(preset.id.clone()),
         expected_revision: Some(preset.revision.clone()),
@@ -1340,5 +1340,91 @@ fn direct_library_open_refuses_interrupted_restore_mutation() {
         error
             .to_string()
             .contains("restore stopped during database update")
+    );
+}
+#[test]
+fn installation_backups_survive_generation_activation_and_restore() {
+    use cuerithm_library::LibraryGenerations;
+    let temp = tempfile::tempdir().unwrap();
+    let manager = LibraryGenerations::new(&temp.path().join("app")).unwrap();
+    let legacy = manager.open_active().unwrap();
+    std::fs::create_dir_all(legacy.data_dir().join("cleanup")).unwrap();
+    std::fs::write(legacy.data_dir().join("cleanup/legacy-resource"), b"legacy").unwrap();
+    let old = legacy
+        .create_library_backup(&temp.path().join("backups"))
+        .unwrap();
+    // Legacy manifests predate the explicit data-directory field.
+    let manifest_path = old.path.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    manifest.as_object_mut().unwrap().remove("data_directory");
+    std::fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    let identity = std::fs::read(manager.root().join(".library-installation-id")).unwrap();
+    drop(legacy);
+    let stage = manager.create_staging().unwrap();
+    drop(Library::open(&stage.database).unwrap());
+    let seal = manager.seal(&stage.id).unwrap();
+    manager.schedule(&stage.id, "legacy", &seal).unwrap();
+    let legacy = Library::open(&manager.database_path("legacy").unwrap()).unwrap();
+    assert!(
+        legacy
+            .stage_library_restore(&old.path, &old.database_sha256)
+            .is_err()
+    );
+    drop(legacy);
+    let active = manager.open_active().unwrap();
+    assert_ne!(active.data_dir(), manager.root());
+    active.inspect_library_backup(&old.path).unwrap();
+    std::fs::create_dir_all(active.data_dir().join("cleanup")).unwrap();
+    std::fs::write(
+        active.data_dir().join("cleanup/generation-resource"),
+        b"generation",
+    )
+    .unwrap();
+    let new = active
+        .create_library_backup(&temp.path().join("backups"))
+        .unwrap();
+    assert!(!active.data_dir().join(".library-installation-id").exists());
+    active
+        .stage_library_restore(&old.path, &old.database_sha256)
+        .unwrap();
+    assert!(
+        manager
+            .schedule("legacy", &stage.id, "unused")
+            .unwrap_err()
+            .to_string()
+            .contains("scheduled library backup restore")
+    );
+    assert!(manager.root().join("library-backups/pending.json").exists());
+    assert!(
+        !active
+            .data_dir()
+            .join("library-backups/pending.json")
+            .exists()
+    );
+    drop(active);
+    let restored = manager.open_active().unwrap();
+    assert_eq!(manager.active_id().unwrap(), "legacy");
+    restored.inspect_library_backup(&old.path).unwrap();
+    restored.inspect_library_backup(&new.path).unwrap();
+    assert_eq!(
+        std::fs::read(manager.root().join(".library-installation-id")).unwrap(),
+        identity
+    );
+    restored
+        .stage_library_restore(&new.path, &new.database_sha256)
+        .unwrap();
+    drop(restored);
+    let returned = manager.open_active().unwrap();
+    assert_eq!(manager.active_id().unwrap(), stage.id);
+    returned.inspect_library_backup(&old.path).unwrap();
+    returned.inspect_library_backup(&new.path).unwrap();
+    assert_eq!(
+        std::fs::read(returned.data_dir().join("cleanup/generation-resource")).unwrap(),
+        b"generation"
+    );
+    assert_eq!(
+        std::fs::read(manager.root().join("cleanup/legacy-resource")).unwrap(),
+        b"legacy"
     );
 }

@@ -12,6 +12,9 @@ name = "cuerithm_desktop_lib"
 custom-protocol = ["tauri/custom-protocol"]
 
 [dependencies]
+uuid = { version = "1", features = ["v4"] }
+same-file = "=1.0.6"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 cuerithm-dj-sync = { path = "../../../crates/cuerithm-dj-sync" }
 tauri = { version = "=2.12.2", features = [] }
 tauri-plugin-dialog = "2"

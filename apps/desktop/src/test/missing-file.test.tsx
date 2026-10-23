@@ -17,12 +17,13 @@ describe("a track whose file is not there",()=>{
     expect(bridge.getWaveform).not.toHaveBeenCalledWith("gone",240);
     expect(screen.getAllByRole("img",{name:FILE_NOT_FOUND})).toHaveLength(1);
   });
-  it("keeps the plain dash for a preview that failed for any other reason",async()=>{
+  it("does not call any other failure a missing file",async()=>{
     const {container}=render(<RowPreview id="x" identity="a" load={async()=>{throw new Error("decoder exploded");}}/>);
     await waitFor(()=>expect(container.querySelector(".dim")).not.toBeNull(),{timeout:2000});
     expect(container.querySelector(".dim")).toHaveTextContent("—");
     expect(screen.queryByRole("img",{name:FILE_NOT_FOUND})).toBeNull();
-    expect(container.querySelector("[title]")).toBeNull();
+    // It still explains itself, with the wording for a request that failed, not for a gone file.
+    expect(container.querySelector("[title]")).toHaveAttribute("title","No preview: it could not be loaded.");
   });
   it("names the problem the same way wherever it is raised",()=>{
     expect(new FileNotFoundError().message).toBe(FILE_NOT_FOUND);

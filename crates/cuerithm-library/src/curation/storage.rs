@@ -87,8 +87,8 @@ pub(super) fn save_mutation(
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct Input {
-    pub path: Vec<u8>,
-    pub source_hash: String,
+    pub path: Option<Vec<u8>>,
+    pub source_hash: Option<String>,
     pub path_revision: u64,
     pub metadata_revision: u64,
     pub current_job: Option<String>,
@@ -135,8 +135,8 @@ pub(super) fn categories(
     Ok(result)
 }
 type TrackFacts = (
-    Vec<u8>,
-    String,
+    Option<Vec<u8>>,
+    Option<String>,
     u64,
     u64,
     Option<String>,

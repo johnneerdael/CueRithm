@@ -162,7 +162,9 @@ pub(super) fn observe_world(
     image
         .removed_tracks()?
         .iter()
-        .map(|track| observe_old_location(&bytes_path(&track.path)?, &track.hash, cancel))
+        // A record that was not linked to a local file has no old location to look at.
+        .filter_map(|track| Some((track.path.as_ref()?, track.hash.as_ref()?)))
+        .map(|(path, hash)| observe_old_location(&bytes_path(path)?, hash, cancel))
         .collect()
 }
 

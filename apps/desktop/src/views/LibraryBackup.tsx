@@ -4,8 +4,12 @@ import type {LibraryBackupBridge,LibraryBackupPreview,LibraryRestoreRequest} fro
 import {nativeLibraryBackup} from "../backup-api";
 import {errorMessage} from "../api";
 import "./LibraryBackup.css";
+import PortableBackup from "./PortableBackup";
+import type {PortableBackupBridge} from "../portable-backup-types";
 
-export default function LibraryBackup({bridge=nativeLibraryBackup}:{bridge?:LibraryBackupBridge}){
+export default function LibraryBackup({bridge=nativeLibraryBackup,portableBridge,onChanged}:{bridge?:LibraryBackupBridge;portableBridge?:PortableBackupBridge;onChanged?:()=>void}){return <div className="library-backup-workspace"><PortableBackup bridge={portableBridge} onChanged={onChanged}/><details className="installation-backup"><summary>Same-installation recovery snapshots</summary><InstallationBackup bridge={bridge}/></details></div>;}
+
+export function InstallationBackup({bridge=nativeLibraryBackup}:{bridge?:LibraryBackupBridge}){
  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const [preview,setPreview]=useState<LibraryBackupPreview|null>(null),[created,setCreated]=useState<LibraryBackupPreview|null>(null);
  const [confirmed,setConfirmed]=useState(false),[pending,setPending]=useState<LibraryRestoreRequest|null>(null);

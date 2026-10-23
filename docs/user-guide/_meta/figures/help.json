@@ -124,15 +124,6 @@
     "needs": "A build that includes Mixxx (0.1.14 or later)."
   },
   {
-    "scene": "help-missing-broken-no-relocate",
-    "page": "help/not-available-yet.md",
-    "after": "## Missing and moved files { #missing-and-moved-files }",
-    "alt": "Maintenance, Missing & broken tab with the note Relocating files is not available in this maintenance screen and the Scan library files button",
-    "caption": "In 0.1.14 the screen only reports unavailable files; it cannot relocate or remove them.",
-    "state": "Sidebar: Maintenance, tab 'Missing & broken', before scanning, with the 'Relocating files is not available in this maintenance screen…' note visible under the Scan settings box.",
-    "crop": "panel"
-  },
-  {
     "scene": "help-sidebar-version-footer",
     "page": "help/report-a-problem.md",
     "after": "## Find your version { #find-version }",

@@ -130,7 +130,7 @@ On success it prints one line of JSON and the version it reports is the one you 
 `resources_verified` means the bundled `ffmpeg` and `ffprobe` match the hashes sealed at build time. `built_in_analysis_verified` means the key model matches its pinned hash. On failure the command prints the reason and exits with code 1. The messages you can meet are *Decoder hash mismatch*, *Probe hash mismatch*, *Bundled decoder manifest is missing*, *Bundled decoder folder is missing* and *Built-in analysis component failed verification; reinstall CueRithm*. All of them mean the same thing: the files are damaged or incomplete, so download the file again and reinstall.
 
 !!! tip "Finding your version"
-    The label at the bottom of the sidebar reads only *CUERITHM 0.1*. The `version` in the diagnostics line is the full number. On a Mac you can also select the app in Finder and press ++cmd+i++.
+    The label at the bottom of the sidebar shows your version, for example *CUERITHM 0.1.13*. The `version` in the diagnostics line is the same number. On a Mac you can also select the app in Finder and press ++cmd+i++.
 
 ## Where CueRithm keeps your data { #where-cuerithm-keeps-its-data }
 

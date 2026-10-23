@@ -186,7 +186,7 @@ impl Library {
     fn stored_spellings(&self) -> Result<HashMap<String, Vec<PathBuf>>> {
         let rows: Vec<Vec<u8>> = {
             let conn = self.conn()?;
-            let mut statement = conn.prepare("SELECT path FROM tracks")?;
+            let mut statement = conn.prepare("SELECT path FROM tracks WHERE path IS NOT NULL")?;
             statement
                 .query_map([], |row| row.get(0))?
                 .collect::<rusqlite::Result<_>>()?
@@ -215,7 +215,7 @@ impl Library {
         let rows: Vec<(String, Vec<u8>, String, String)> = {
             let conn = self.conn()?;
             let mut statement =
-                conn.prepare("SELECT id,path,source_hash,state FROM tracks WHERE archived=0")?;
+                conn.prepare("SELECT id,path,source_hash,state FROM tracks WHERE archived=0 AND path IS NOT NULL AND source_hash IS NOT NULL")?;
             statement
                 .query_map([], |row| {
                     Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))

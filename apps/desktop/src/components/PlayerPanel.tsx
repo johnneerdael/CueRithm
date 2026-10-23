@@ -3,7 +3,7 @@ import {Play,Pause,SkipBack,Volume2,LoaderCircle,Headphones} from "lucide-react"
 import Artwork from "./Artwork";
 import BrandMark from "./BrandMark";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
-import {time,cueColor} from "../display";
+import {time,cueColor,cueSlot} from "../display";
 import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
@@ -12,7 +12,7 @@ import WaveformArt from "./WaveformArt";
 import PublicationEditor from "./PublicationEditor";
 import type {ManualPublicationApi,ManualPublicationResult} from "../manual-publication-types";
 
-const cueSlot=(position:number)=>position<26?String.fromCharCode(65+position):String(position+1);
+const cueTime=(seconds:number)=>(seconds<0?"−":"")+time(Math.abs(seconds),true);
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
@@ -37,41 +37,42 @@ function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=fal
       {(cues?.cues??[]).filter(c=>c.time_seconds>=start&&c.time_seconds<=end).map((c,i)=><line data-cue={c.name} key={i} x1={(c.time_seconds-start)/span*1000} x2={(c.time_seconds-start)/span*1000} y1="0" y2="80" stroke={cueColor(c.color)} strokeWidth={small?1.3:2} vectorEffect="non-scaling-stroke" opacity=".75"/>)}
       {position>=start&&position<=end?<line x1={(position-start)/span*1000} x2={(position-start)/span*1000} y1="0" y2="80" className="playhead"/>:null}
     </svg>
-    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{cueSlot(c.position??i)}</span>:null):null}
+    {!small?(cues?.cues??[]).map((c,i)=>c.time_seconds>=start&&c.time_seconds<=end?<span aria-hidden="true" key={i} className="wave-cue-label" style={{left:Math.max(1,Math.min(99,(c.time_seconds-start)/span*100))+"%",color:cueColor(c.color)}}>{c.memory?"M":cueSlot(c.position??i)}</span>:null):null}
   </div>;
 }
 export default function PlayerPanel({status,detail,data,busy,onToggle,onPause,onSeek,onVolume,artworkLoader,publicationApi,onPublicationChanged,selectedTrackIds}:{publicationApi?:ManualPublicationApi;onPublicationChanged?:(result:ManualPublicationResult)=>void|Promise<void>;selectedTrackIds?:string[];artworkLoader?:Bridge["getArtwork"];status:Playback;detail:Detail|null;data:Waveform|null;busy:boolean;onToggle:()=>void;onPause:()=>void;onSeek:(seconds:number)=>void;onVolume:(value:number)=>void}){
   const [zoom,setZoom]=useState(32);
   const [editing,setEditing]=useState(false);
+  const savedTiming=!!detail?.musical&&!(detail.musical.source==="cuerithm_saved_publication"&&detail.analysis);
   const duration=status.duration_seconds||data?.duration_seconds||0;
   const center=status.position_seconds;
   const span=zoom||duration;
   const start=zoom?Math.max(0,Math.min(Math.max(0,duration-span),center-span*.35)):0;
   const end=Math.min(duration,start+span);
-  const cues=useMemo(()=>playbackCues(detail?.analysis),[detail?.analysis]);
-  const beats=useMemo(()=>playbackBeats(detail?.analysis,duration),[detail?.analysis,duration]);
+  const cues=useMemo(()=>playbackCues(detail?.analysis,detail?.musical),[detail?.analysis,detail?.musical]);
+  const beats=useMemo(()=>playbackBeats(detail?.analysis,duration,detail?.musical),[detail?.analysis,detail?.musical,duration]);
   return <section className="player" aria-label="Music player">
     <div className="player-header">
       <div className="now-playing-art">{detail?<Artwork id={detail.track.id} identity={detail.source_sha256} load={artworkLoader} fallback={<BrandMark/>}/>:<BrandMark/>}</div>
       <div className="now-playing"><strong>{busy?"Loading track…":detail?.track.title??"Nothing playing"}</strong><small>{detail?.track.artist||"Double-click a track to load and play"}</small></div>
-      {detail?<div className="player-analysis"><span><b>{playbackBpm(detail.analysis)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
+      {detail?<div className="player-analysis"><span><b>{(playbackBpm(detail.analysis,detail.musical,center)??detail.track.bpm)?.toFixed(2)??"—"}</b>BPM</span><span><b className="player-key key-chip">{detail.track.key??detail.analysis?.analysis.key?.camelot??"—"}</b>KEY</span><span><b>{detail.track.energy??detail.analysis?.analysis.energy?.level??"—"}</b>ENERGY</span></div>:null}
       <div className="transport">
         <button aria-label="Back to start" disabled={!detail} onClick={()=>onSeek(0)}><SkipBack size={17}/></button>
         <button className="play-main" aria-label={status.playing?"Pause":"Play"} disabled={!detail||busy} onClick={onToggle}>{busy?<LoaderCircle className="spin" size={21}/>:status.playing?<Pause size={21} fill="currentColor"/>:<Play size={21} fill="currentColor"/>}</button>
-        <button className="cue-button" disabled={!detail} onClick={()=>{onPause();onSeek(cues?.cues[0]?.time_seconds??0);}}>CUE</button>
+        <button className="cue-button" disabled={!detail} onClick={()=>{onPause();onSeek(Math.max(0,cues?.cues[0]?.time_seconds??0));}}>CUE</button>
       </div>
       <div className="time-readout"><b>{time(status.position_seconds,true)}</b><span>−{time(Math.max(0,duration-status.position_seconds),true)}</span></div>
       <div className="player-volume"><Volume2 size={16}/><input aria-label="Volume" type="range" min={0} max={1} step={.01} value={status.volume} onChange={event=>onVolume(Number(event.target.value))}/></div>
     </div>
     <div className="waveform-area">
-      {detail?<><div className="wave-toolbar"><span>{detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><span>{zoom?"32 seconds":"Entire track"} · click waveform to switch</span></div>
+      {detail?<><div className="wave-toolbar"><span>{savedTiming?"SAVED CUE TIMING" : detail.analysis?"BEATGRID & CUES":"PREVIEW"}<span className="wave-subtitle">{detail.analysis?.media?.codec?.toUpperCase()??"AUDIO"}</span></span><span>{savedTiming&&detail.musical?.tempo_markers.length?`${detail.musical.tempo_markers.length>1?"Variable tempo · ":""}${detail.musical.tempo_markers.some(marker=>marker.beat_number===null||marker.beats_per_bar===null)?"Beat phase unknown · ":""}`:""}{zoom?"32 seconds":"Entire track"} · click waveform to switch</span></div>
         <Wave data={data} position={center} start={start} end={end} beats={beats} cues={cues} onSeek={onSeek} zoomed={!!zoom} onToggleZoom={()=>setZoom(value=>value?0:32)}/>
         <div className="wave-time-axis"><span>{time(start,true)}</span><span>{time(end,true)}</span></div>
         <Wave small data={data} position={center} start={0} end={duration} beats={[]} cues={cues} onSeek={onSeek}/>
       </>:<div className="player-empty"><Headphones size={23}/><span>Your next track starts here.</span><small>Preview audio, inspect the beatgrid and jump between cues.</small></div>}
     </div>
     <div className="cue-strip">
-      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(cue.time_seconds)} title={"Seek to "+cue.name}><span className="cue-slot">{cueSlot(cue.position??i)}</span><strong>{cue.name}</strong><span>{time(cue.time_seconds,true)}</span></button>)}
+      {(cues?.cues??[]).map((cue,i)=><button key={i} className="hot-cue" style={{"--cue":cueColor(cue.color)} as React.CSSProperties} onClick={()=>onSeek(Math.max(0,Math.min(duration||Infinity,cue.time_seconds)))} title={"Seek to "+cue.name+(cue.end_seconds!==null&&cue.end_seconds!==undefined?` · Loop ends at ${cue.end_seconds}s`:"")}><span className="cue-slot">{cue.memory?"M":cueSlot(cue.position??i)}</span><strong>{cue.name}</strong><span>{cueTime(cue.time_seconds)}</span></button>)}
       {detail&&!cues?<span className="cue-empty">Cues appear here after preparation finishes.</span>:null}
       {detail&&publicationApi?<button className="publication-toggle" aria-expanded={editing} onClick={()=>setEditing(value=>!value)}>{editing?"Close corrections":"Edit cues & grid"}</button>:null}
       {status.error?<span className="player-error" role="alert">{status.error}</span>:null}

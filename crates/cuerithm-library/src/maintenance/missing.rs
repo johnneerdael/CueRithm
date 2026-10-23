@@ -215,7 +215,7 @@ fn record(conn: &Connection, id: &str) -> Result<Option<Record>> {
     type Row = (String, String, bool, Vec<u8>, String, Option<i64>);
     let row: Option<Row> = conn
         .query_row(
-            "SELECT t.title,t.artist,t.archived,t.path,t.source_hash,e.epoch FROM tracks t LEFT JOIN maintenance_track_epochs e ON e.id=t.id WHERE t.id=?1",
+            "SELECT t.title,t.artist,t.archived,t.path,t.source_hash,e.epoch FROM tracks t LEFT JOIN maintenance_track_epochs e ON e.id=t.id WHERE t.id=?1 AND t.path IS NOT NULL AND t.source_hash IS NOT NULL",
             [id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )

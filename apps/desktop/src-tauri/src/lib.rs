@@ -13,9 +13,11 @@ mod match_review_commands;
 mod metadata_commands;
 mod missing_commands;
 mod organization_commands;
+mod portable_commands;
 mod preparation_preset_commands;
 mod provider_commands;
 mod rekordbox_sync_commands;
+mod relocation_commands;
 mod sync_commands;
 mod tracklist_commands;
 use anyhow::Result;
@@ -73,7 +75,14 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
         }
         host.smart_playlists.shutdown();
         host.maintenance.wait_until_idle();
-        app.exit(0);
+        if host
+            .restart_requested
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            app.restart();
+        } else {
+            app.exit(0);
+        }
     });
 }
 pub fn run() {
@@ -102,7 +111,6 @@ pub fn run() {
                 .map(|p| p.join("Cuerithm/Incoming"));
             // Blocked-before-mutation restore intents leave the current DB safe to open.
             // Errors after mutation intent stop startup and retain the recovery snapshot.
-            cuerithm_library::apply_pending_library_restore(&root.join("library.sqlite"))?;
             let host = Arc::new(host::Host::open_with_release(
                 &root,
                 &runtime,
@@ -189,6 +197,18 @@ pub fn run() {
             manual_publication_commands::save_cue_template,
             manual_publication_commands::delete_cue_template,
             manual_publication_commands::preview_cue_template,
+            portable_commands::portable_export,
+            portable_commands::portable_inspect,
+            portable_commands::portable_restore,
+            portable_commands::portable_generations,
+            portable_commands::portable_activate_generation,
+            portable_commands::portable_cancel,
+            relocation_commands::relocation_plan,
+            relocation_commands::relocation_apply,
+            relocation_commands::relocation_undo,
+            relocation_commands::relocation_history,
+            relocation_commands::relocation_roots,
+            relocation_commands::relocation_continue,
             backup_commands::create_library_backup,
             backup_commands::inspect_library_backup,
             backup_commands::stage_library_restore,

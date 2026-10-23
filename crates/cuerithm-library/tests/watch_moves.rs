@@ -10,6 +10,41 @@ use cuerithm_library::{PlaylistEdit, PlaylistKind};
 use library_fixture::*;
 use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
+#[test]
+fn portable_unbound_tracks_do_not_block_watch_moves() {
+    let fx = Fixture::new();
+    let old = fx.file(&fx.watch, "before.flac", 11);
+    let id = fx.ready(&old, 120.);
+    let mut unbound = fx.lib.portable_tracks().unwrap().remove(0);
+    unbound.id = "unbound".into();
+    unbound.locator.id = "locator:unbound".into();
+    unbound.source_sha256 = None;
+    unbound.musical = None;
+    fx.lib.import_portable_tracks(&[unbound]).unwrap();
+    let unknown = fx.file(&fx.watch, "unknown.flac", 12);
+    let unknown_id = fx.ready(&unknown, 121.);
+    let conn = rusqlite::Connection::open(&fx.db).unwrap();
+    conn.execute(
+        "UPDATE tracks SET source_hash=NULL WHERE id=?1",
+        [&unknown_id],
+    )
+    .unwrap();
+    drop(conn);
+    let moved = fx.watch.join("after.flac");
+    std::fs::rename(old, &moved).unwrap();
+    let outcome = fx
+        .lib
+        .relink_moved_tracks(
+            std::slice::from_ref(&moved),
+            std::slice::from_ref(&fx.watch),
+            |_| true,
+        )
+        .unwrap();
+    assert_eq!(outcome.relinked.len(), 1);
+    assert_eq!(fx.lib.track_path(&id).unwrap(), moved);
+    assert!(fx.lib.local_track_binding("unbound").unwrap().is_none());
+}
+
 /// Every column of a track row except the ones a path change legitimately moves.
 fn kept(fx: &Fixture, id: &str) -> BTreeMap<String, String> {
     let conn = rusqlite::Connection::open(&fx.db).unwrap();

@@ -1,6 +1,6 @@
 use super::{CleanupFailure, custom_tags};
 use crate::{Library, model::bytes_path};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use cuerithm_cleanup::{CanonicalMapping, CleanupConfig, ContributorRole, Metadata, MetadataField};
 use cuerithm_media::{MediaInfo, file_sha256};
 use rusqlite::params;
@@ -40,8 +40,8 @@ impl Library {
             q.query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
-                    r.get::<_, Vec<u8>>(1)?,
-                    r.get::<_, String>(2)?,
+                    r.get::<_, Option<Vec<u8>>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
                     r.get::<_, String>(3)?,
                     r.get::<_, Option<String>>(4)?,
                 ))
@@ -54,18 +54,39 @@ impl Library {
         let mut unavailable = vec![];
         for (id, path, source, info, native) in rows {
             let read = (|| -> Result<Metadata> {
+                let path = bytes_path(
+                    path.as_deref()
+                        .context("Local file is not linked; relocate the track before cleanup")?,
+                )?;
+                let source = source
+                    .as_deref()
+                    .context("Source hash is unknown; verify the local file before cleanup")?;
+                let info_value: serde_json::Value = serde_json::from_str(&info)?;
+                let canonical = portable_metadata(&info_value)?;
                 if let Some(native) = native {
-                    let metadata: Metadata = serde_json::from_str(&native)?;
+                    let mut metadata: Metadata = serde_json::from_str(&native)?;
+                    if let Some(canonical) = &canonical {
+                        metadata.fields.extend(canonical.fields.clone());
+                    }
                     metadata.validate()?;
                     return Ok(metadata);
                 }
-                let path = bytes_path(&path)?;
+                // A complete accepted portable projection is already library metadata;
+                // retain its ordered values without treating old media tags as newer edits.
+                if let Some(canonical) = &canonical
+                    && canonical.fields.len() == MetadataField::ALL.len()
+                {
+                    return Ok(canonical.clone());
+                }
                 ensure!(
                     file_sha256(&path)? == source,
                     "Source changed; refresh the track"
                 );
-                let media: MediaInfo = serde_json::from_str(&info)?;
-                let metadata = cuerithm_autotag::read_metadata(&path, &media)?;
+                let media: MediaInfo =
+                    serde_json::from_value(info_value.clone()).or_else(|_| {
+                        serde_json::from_value(info_value["cuerithm.portable_media"].clone())
+                    })?;
+                let mut metadata = cuerithm_autotag::read_metadata(&path, &media)?;
                 ensure!(
                     file_sha256(&path)? == source,
                     "Source changed while reading metadata"
@@ -73,6 +94,10 @@ impl Library {
                 let conn = self.conn()?;
                 ensure!(conn.query_row("SELECT state='ready' AND archived=0 AND source_hash=?2 AND metadata_json=?3 FROM tracks WHERE id=?1",params![id,source,info],|r|r.get::<_,bool>(0))?,"Library changed while reading metadata");
                 conn.execute("UPDATE tracks SET native_metadata_json=?1 WHERE id=?2 AND native_metadata_json IS NULL",params![serde_json::to_string(&metadata)?,id])?;
+                if let Some(canonical) = canonical {
+                    metadata.fields.extend(canonical.fields);
+                    metadata.validate()?;
+                }
                 Ok(metadata)
             })();
             let metadata = match read {
@@ -165,4 +190,24 @@ impl Library {
             unavailable_tracks: unavailable,
         })
     }
+}
+
+fn portable_metadata(value: &serde_json::Value) -> Result<Option<Metadata>> {
+    if value.get("cuerithm.portable_media").is_none() {
+        return Ok(None);
+    }
+    let mut metadata = Metadata::default();
+    for field in MetadataField::ALL {
+        let name = serde_json::to_value(field)?;
+        let name = name.as_str().context("Invalid metadata field identifier")?;
+        if let Some(values) = value.get(name) {
+            metadata.fields.insert(
+                *field,
+                serde_json::from_value(values.clone())
+                    .context("Invalid accepted portable metadata values")?,
+            );
+        }
+    }
+    metadata.validate()?;
+    Ok(Some(metadata))
 }

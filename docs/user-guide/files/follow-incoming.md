@@ -35,7 +35,7 @@ A track passes through some or all of these stages, in this order. Which ones ap
 | Analyzing | Always, unless an earlier result for the same file can be reused | Key, BPM and beatgrid, whole-track energy and cues are measured. |
 | Matching catalog | Automatic tagging on | CueRithm looks the track up with the providers you chose. |
 | Preparing tags | Automatic tagging on | The tag changes are planned and checked. |
-| `cleanup` | Cleanup on | Your cleanup rules are applied to the planned tags. This stage shows its name in lower case. |
+| Cleaning up tags | Cleanup on | Your cleanup rules are applied to the planned tags. |
 | Writing tags | Tagging or cleanup on | The tags are written to a copy and then published, with a backup of the original kept. |
 | Applying cues | Tagging and cleanup both off | The results and cues are saved in the library. |
 | Organizing files | File organization set to rename, move or copy | The naming rule runs last, after tags and cleanup. Known paths in linked DJ libraries are repaired before the track finishes. |

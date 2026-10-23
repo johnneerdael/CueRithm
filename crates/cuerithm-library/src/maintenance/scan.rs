@@ -152,7 +152,7 @@ impl Library {
                 captured.inputs == scope.stamp,
                 "Library changed while capturing duplicate inputs; scan again"
             );
-            let mut statement = tx.prepare("SELECT id,path,title,artist,COALESCE(duration,0),archived,source_hash,metadata_json,(SELECT json FROM cue_revisions c WHERE c.track_id=t.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1),EXISTS(SELECT 1 FROM maintenance_ignored_tracks i WHERE i.track_id=t.id) FROM tracks t ORDER BY t.rowid")?;
+            let mut statement = tx.prepare("SELECT id,path,title,artist,COALESCE(duration,0),archived,source_hash,metadata_json,(SELECT json FROM cue_revisions c WHERE c.track_id=t.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1),EXISTS(SELECT 1 FROM maintenance_ignored_tracks i WHERE i.track_id=t.id) FROM tracks t WHERE t.path IS NOT NULL AND t.source_hash IS NOT NULL ORDER BY t.rowid")?;
             let rows = statement
                 .query_map([], |r| {
                     Ok((

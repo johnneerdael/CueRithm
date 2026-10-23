@@ -89,7 +89,7 @@ Automatic preparation uses these settings and the standard cue template. [Manual
 | Place | What shows |
 |---|---|
 | The player | Cue markers with letters on the waveform and the beat grid. See [Jump to the drop with cues](../analysis/jump-to-cues.md) |
-| **Preview** column in Tracks | Small cue ticks on each track's waveform. Hovering lists the cues by the detector's own names (Second Drop, Last beat) rather than the published ones |
+| **Preview** column in Tracks | Small cue ticks on each track's waveform, one for every saved cue and loop. Hovering lists them by their saved names, the same as in the player, so the column follows a correction |
 | **Settings → Cue generation** | The three settings above, and a note that existing cues are replaced after a successful analysis |
 
 ## Related

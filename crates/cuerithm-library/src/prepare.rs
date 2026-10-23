@@ -217,9 +217,9 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        let path = self.library.track_path(&track)?;
         self.library.invalidate_unpublished_preparation(&track)?;
         self.library.clear_track_analysis_cache(&track)?;
-        let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
         for job in jobs {
             self.retry(job, Some(self.library.settings()?.revision))?;
@@ -323,7 +323,9 @@ impl Worker {
                 Ok(Some(job)) => self.process(job),
                 Ok(None) => thread::sleep(Duration::from_millis(50)),
                 Err(error) => {
-                    self.error(error);
+                    if !error.is::<crate::LibraryBusy>() {
+                        self.error(error);
+                    }
                     thread::sleep(Duration::from_millis(200));
                 }
             }
@@ -359,6 +361,10 @@ impl Worker {
             }
             let snapshot = match self.library.settings() {
                 Ok(s) => s,
+                Err(e) if e.is::<crate::LibraryBusy>() => {
+                    thread::sleep(Duration::from_millis(200));
+                    continue;
+                }
                 Err(e) => {
                     self.error(e);
                     break;
@@ -446,8 +452,12 @@ impl Worker {
                     .library
                     .enqueue_with_current_preparation(&candidates, true)
                 {
-                    discovery.admission_failed(&candidates);
-                    self.error(e);
+                    if e.is::<crate::LibraryBusy>() {
+                        pending.extend(candidates);
+                    } else {
+                        discovery.admission_failed(&candidates);
+                        self.error(e);
+                    }
                 }
             }
             match self.library.claim_next() {
@@ -459,7 +469,9 @@ impl Worker {
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 },
                 Err(e) => {
-                    self.error(e);
+                    if !e.is::<crate::LibraryBusy>() {
+                        self.error(e);
+                    }
                     thread::sleep(Duration::from_millis(200));
                 }
             }

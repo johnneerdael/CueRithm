@@ -25,7 +25,7 @@ The panel shows, from top to bottom:
 | A line under the heading | Why you are here, for example *Confirm the recording and edition.* or *No retained catalog query; explicitly Requery to search configured providers* |
 | **Catalog access** | For each provider you ticked: *Direct access*, *Configured solver* or *Unavailable* with the reason, plus any error from the last lookup |
 | **Current file** | The artists, version, album and duration CueRithm read from your file |
-| **Candidate recordings** | Up to ten retained candidates. Each shows the provider, **Name similarity** as a percentage, title, version, artists, album, duration, and ISRC, track ID and release ID when known. **Source page** opens the catalog's own page in your browser. |
+| **Candidate recordings** | Up to ten retained candidates. Each shows the provider by name (Beatport, Traxsource, MusicBrainz and so on), **Name similarity** as a percentage, title, version, artists, album, duration, and ISRC, track ID and release ID when known. **Source page** opens the catalog's own page in your browser. |
 
 Name similarity ranks candidates. It is not the chance that a candidate is right, so a 96% candidate can be the wrong mix. Compare the duration and version with your file.
 
@@ -33,12 +33,12 @@ A candidate can carry a list of **conflicts**. Each means the candidate disagree
 
 | Conflict | Meaning |
 |---|---|
-| `edition` | The mix or version differs from the one in your file. A file titled `Here In My Arms (Enjoy The Silence) (Extended Mix)` would show it on a Radio Edit candidate. |
-| `isrc`, `album` | Both have the value and the values differ |
-| `release_id` | The file stores a release ID from this provider and it differs |
-| `duration` | **Match duration** is on and the lengths differ by more than the allowance |
-| `release_edition_unresolved` | MusicBrainz identified the recording but not which release you own |
-| `recording_id`, `release_track_id` | The file already stores a different MusicBrainz identifier |
+| **Edition differs** | The mix or version differs from the one in your file. A file titled `Here In My Arms (Enjoy The Silence) (Extended Mix)` would show it on a Radio Edit candidate. |
+| **ISRC differs**, **Album differs** | Both have the value and the values differ |
+| **Release ID differs** | The file stores a release ID from this provider and it differs |
+| **Duration differs** | **Match duration** is on and the lengths differ by more than the allowance |
+| **Release edition could not be resolved** | MusicBrainz identified the recording but not which release you own |
+| **Recording ID differs**, **Release track ID differs** | The file already stores a different MusicBrainz identifier |
 
 ## Search again with Requery { #requery }
 
@@ -95,4 +95,4 @@ Choose **Review again** to start over, or **Metadata history** to find the chang
 - [Choose providers and fields to write](choose-providers.md#matching): make future matches stricter.
 - [Fix a track that needs attention](../files/needs-attention.md): the Incoming side of the same problem.
 
-<!-- verified: apps/desktop/src/components/MatchReview.tsx; apps/desktop/src/components/CatalogEvidence.tsx; apps/desktop/src/App.tsx (toolbar, compactInspector 1250px); apps/desktop/src/components/TrackTable.tsx (status triangle, row menu); apps/desktop/src/test/match-review.test.tsx; crates/cuerithm-library/src/match_review/store.rs (retained candidates, can_requery reasons, archived); match_review/fields.rs (field list, Keep default, Append for multi-value, saved edit priority); match_review/workflow.rs (blockers, Ready vs Incoming apply, Requery ignores skip_tagged); match_review/worker.rs (tags cleared for UseSelected, Keep existing once); crates/cuerithm-autotag/src/evidence.rs (conflict codes); legacy guides/metadata-editing.md#review-a-catalog-match re-checked -->
+<!-- verified: apps/desktop/src/components/MatchReview.tsx; apps/desktop/src/components/CatalogEvidence.tsx; apps/desktop/src/catalog-labels.ts (conflict and provider labels); apps/desktop/src/App.tsx (toolbar, compactInspector 1250px); apps/desktop/src/components/TrackTable.tsx (status triangle, row menu); apps/desktop/src/test/match-review.test.tsx; crates/cuerithm-library/src/match_review/store.rs (retained candidates, can_requery reasons, archived); match_review/fields.rs (field list, Keep default, Append for multi-value, saved edit priority); match_review/workflow.rs (blockers, Ready vs Incoming apply, Requery ignores skip_tagged); match_review/worker.rs (tags cleared for UseSelected, Keep existing once); crates/cuerithm-autotag/src/evidence.rs (conflict codes); legacy guides/metadata-editing.md#review-a-catalog-match re-checked -->

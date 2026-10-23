@@ -130,33 +130,33 @@
   "scene": "library-backup-view",
   "page": "files/library/back-up-library.md",
   "after": "intro",
-  "alt": "The Library backup screen with the explanation Your preparation, saved together and the Create backup and Inspect backup folder buttons",
-  "caption": "Library backup saves playlists, cues, analysis and settings. Music files are excluded.",
-  "state": "Sidebar: Library backup (under TOOLS) selected. Nothing created or inspected yet; the 'Your preparation, saved together' box and both buttons visible.",
+  "alt": "Library backup showing Portable backup, Export .cuerithm and Inspect backup or Lexicon ZIP",
+  "caption": "Portable archives hold library data; music is copied separately.",
+  "state": "Library backup main panel. Show Portable backup, Include musical revision history checked, Export .cuerithm and Inspect backup or Lexicon ZIP. No export or replacement needs to run.",
   "crop": "panel"
  },
  {
   "scene": "library-backup-saved",
   "page": "files/library/back-up-library.md",
   "after": "## Create a backup { #create }",
-  "alt": "The Backup saved panel showing the time, the track count and the path of the new backup folder",
-  "caption": "A finished backup shows its track count and the folder CueRithm created.",
-  "state": "After Create backup into an empty folder such as ~/Documents/CueRithm backups (let Incoming finish first): the 'Backup saved' panel with the date and track count, the backup path and the 'Keep both files together' note. Hide or crop any private path above the home-folder level if needed.",
+  "alt": "Portable backup saved with the track count, archive size and .cuerithm destination",
+  "caption": "A verified portable export reports its count, size and destination.",
+  "state": "After Export .cuerithm to a task-owned destination using a disposable copy of the demo library. Show Portable backup saved. Crop identifying paths; do not include a user name.",
   "crop": "panel"
  },
  {
   "scene": "library-restore-preview",
   "page": "files/library/restore-library.md",
   "after": "## Check the backup { #inspect }",
-  "alt": "The Restore preview: the backup date, the track count, the matching-locations message, the pre-restore note, the confirmation checkbox and the disabled Restore on next launch button",
-  "caption": "Inspecting a backup shows what it holds and runs every check before anything is scheduled.",
-  "state": "After Inspect backup folder on the backup made for the previous scene: the 'Restore preview' section with the confirmation checkbox UNTICKED and Restore on next launch disabled. Do not schedule a restore.",
+  "alt": "Portable restore preview with source counts, compatibility notes and Connect music folders",
+  "caption": "Inspect and map music roots before confirming replacement.",
+  "state": "Inspect a .cuerithm made from a disposable demo-library copy. Show counts, compatibility notes and Connect music folders; replacement confirmation unticked. Do not activate.",
   "crop": "panel"
  },
  {
   "scene": "library-restore-scheduled",
   "page": "files/library/restore-library.md",
-  "after": "## Schedule the restore { #schedule }",
+  "after": "## Restore a same-installation snapshot { #installation-snapshots }",
   "alt": "The Restore scheduled panel with the instruction to close and reopen CueRithm and the Cancel scheduled restore button",
   "caption": "A scheduled restore waits for the next start and can be cancelled until then.",
   "state": "Capture only on a disposable library or accept the risk: tick the confirmation, choose Restore on next launch, capture the 'Restore scheduled' panel, then immediately choose Cancel scheduled restore. Never quit CueRithm while a restore is scheduled on the real library.",
@@ -170,6 +170,24 @@
   "alt": "Settings on the Automatic tagging page scrolled to the Recovery backups row, which shows the size and file count of the original-file backups",
   "caption": "Recovery backups shows how much space the retained originals use.",
   "state": "Sidebar: Settings, Automatic tagging page, scrolled so the 'Recovery backups' row with its '... MB · ... files' value is visible near the top.",
+  "crop": "panel"
+ },
+ {
+  "scene": "library-relocation-review",
+  "page": "files/library/find-missing-files.md",
+  "after": "### Reconnect selected tracks { #relocate }",
+  "alt": "Relocation review showing recorded locations, candidates, evidence and survivor decisions",
+  "caption": "Review evidence and every occupied destination before reconnecting.",
+  "state": "Use a disposable copy of the demo library with an externally moved track. Open Relocate, review matches, show candidate evidence and preflight backup enabled. Do not confirm or reconnect. No invented track data.",
+  "crop": "panel"
+ },
+ {
+  "scene": "library-retained-libraries",
+  "page": "files/library/restore-library.md",
+  "after": "## Go back to before the restore { #go-back }",
+  "alt": "Retained libraries with a recovery-library selector and an unticked restart confirmation",
+  "caption": "Returning to a retained library selects a complete library without merging later edits.",
+  "state": "On a disposable library with a completed portable replacement, open Library backup and show Retained libraries. Leave activation confirmation unticked; do not activate.",
   "crop": "panel"
  }
 ]

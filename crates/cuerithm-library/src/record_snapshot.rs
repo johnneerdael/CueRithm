@@ -54,9 +54,10 @@ pub(crate) struct RecordImage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RemovedTrack {
     pub id: String,
-    /// The file location the record had, as stored.
-    pub path: Vec<u8>,
-    pub hash: String,
+    /// The file location the record had, as stored. A track that is not linked to a local
+    /// file has none (and no content hash either).
+    pub path: Option<Vec<u8>>,
+    pub hash: Option<String>,
     pub title: String,
 }
 impl RecordImage {
@@ -82,8 +83,11 @@ impl RecordImage {
                         .as_str()
                         .context("The saved records are damaged")?
                         .to_owned(),
-                    path: bytes_of(&values[path]).context("The saved records are damaged")?,
-                    hash: values[hash].as_str().unwrap_or_default().to_owned(),
+                    path: match &values[path] {
+                        Value::Null => None,
+                        other => Some(bytes_of(other).context("The saved records are damaged")?),
+                    },
+                    hash: values[hash].as_str().map(str::to_owned),
                     title: title
                         .and_then(|at| values[at].as_str())
                         .unwrap_or_default()
@@ -309,6 +313,31 @@ impl Plan {
                         }
                     }
                 }
+            }
+        }
+        // Portable records carry logical references in JSON rather than SQLite
+        // foreign keys. Save and remove the track-owned records with the track.
+        if tables.contains_key("portable_domain_records") {
+            let mut owned = BTreeSet::new();
+            for chunk in track_ids.chunks(400) {
+                let marks = placeholders(chunk.len());
+                let sql = format!(
+                    "SELECT rowid FROM portable_domain_records WHERE \
+                     (kind='tracks' AND id IN ({marks})) OR \
+                     json_extract(json,'$.value.track_id') IN ({marks})"
+                );
+                let mut statement = conn.prepare(&sql)?;
+                for row in statement
+                    .query_map(params_from_iter(chunk.iter().chain(chunk.iter())), |row| {
+                        row.get::<_, i64>(0)
+                    })?
+                {
+                    owned.insert(row?);
+                }
+            }
+            if !owned.is_empty() {
+                plan.order.push("portable_domain_records".into());
+                plan.deleted.insert("portable_domain_records".into(), owned);
             }
         }
         for (table, deleted) in &plan.deleted {
@@ -788,8 +817,8 @@ mod tests {
             removed,
             vec![RemovedTrack {
                 id: "gone".into(),
-                path: vec![b'g'],
-                hash: "hg".into(),
+                path: Some(vec![b'g']),
+                hash: Some("hg".into()),
                 title: "Gone".into()
             }]
         );
