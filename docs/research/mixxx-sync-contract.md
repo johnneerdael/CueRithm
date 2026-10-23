@@ -441,10 +441,11 @@ for the `-F` and `-529` cases) is moved to the start.
 | Format | macOS | Linux and Windows |
 | --- | --- | --- |
 | MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above |
-| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders | 0, **not verified**: Media Foundation (Windows) and FAAD (Linux) were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
-| WAV, AIFF, FLAC, Ogg Vorbis | 0 | 0 |
-| Opus | 0 | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does; not measured here |
-| WMA | 0, may not play | 0, plays only if Mixxx was built with FFmpeg (or Media Foundation on Windows); not verified |
+| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | 0, **not verified**: Media Foundation (Windows) and FAAD (Linux) were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
+| WAV, FLAC | 0, measured in Mixxx 2.5.6 | 0 |
+| AIFF, Ogg Vorbis | 0, measured in Mixxx 2.5.6 (libsndfile, `Xiph.org OggVorbis`) against FFmpeg's decode | 0 |
+| Opus | 0, measured in Mixxx 2.5.6 (`Xiph.org libopusfile`) against FFmpeg's decode, counted at 48 kHz: Mixxx always decodes Opus at 48000 Hz and reports that rate for the file | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does |
+| WMA | not openable: the 2.5.6 download registers no decoder for `wma` (its debug log lists none), so the tracks are added and do not play | 0, plays only if Mixxx was built with FFmpeg (or Media Foundation on Windows); not verified |
 
 The preview warns for each case marked not verified.
 
@@ -520,6 +521,21 @@ from the desktop UI), including any macOS prompt for access to another applicati
 container. In the *existing* and *overwrite* scenarios the row in `directories` was
 inserted by the script, standing in for choosing the folder in Mixxx's dialog.
 
+### Formats, measured in Mixxx 2.5.6 on macOS
+
+A fifth scenario, `formats`, runs AAC and Apple Lossless in M4A, AIFF, Ogg Vorbis and Opus
+through the installed Mixxx the way the first four run three files: Mixxx adds them,
+CueRithm replaces grid, key and cues, and Mixxx starts again. **72 of 72 checks passed.**
+Mixxx's debug log gives the decoder it chose for each file type (`Apple CoreAudio` for
+M4A, `libsndfile` for AIFF, `Xiph.org OggVorbis`, `Xiph.org libopusfile`); the first click
+of each file was found the way that decoder reads it, and every written first beat was
+within 2 frames of it (22050 against 22052 at 44.1 kHz, 24000 against 24002 at 48 kHz for
+Opus, which Mixxx records as the file's sample rate). The click for M4A comes from the
+CoreAudio calls Mixxx makes; for AIFF, Ogg Vorbis and Opus it comes from FFmpeg's decode of
+the file, which is assumed to start where libsndfile, libvorbisfile and libopusfile start,
+not measured with those libraries. The real application takes each track's rate from its
+media probe, which reports 48000 for Opus.
+
 ## Not established
 
 - **Linux and Windows.** No Linux or Windows system, and no libmad, Media Foundation
@@ -532,7 +548,10 @@ inserted by the script, standing in for choosing the folder in Mixxx's dialog.
   encoders. Apple can change its tag rules between releases, which is why the adapter
   asks `AudioFile` instead of predicting them. Playback inside the Mixxx application
   is covered separately, in *Runtime acceptance* below.
-- **Opus** pre-skip alignment was read from the format specification, not measured.
+- **Opus, Ogg Vorbis and AIFF** alignment was measured in Mixxx 2.5.6 on macOS against
+  FFmpeg's decode, not against libopusfile, libvorbisfile or libsndfile themselves.
+- **WMA** cannot be opened by the macOS download; whether a Linux or Windows build can
+  was not run.
 - **Mixxx versions** other than schema 39 and 40, and builds without MAD or CoreAudio.
 - **Schema 40 against a running Mixxx.** Mixxx 2.5.6 (schema 39) is the only release
   available on the development machine; schema 40 was exercised with a schema-39

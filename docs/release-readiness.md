@@ -138,7 +138,7 @@ the runs noted):
 | --- | --- |
 | Tracks, metadata, playlists and crates | Covered. Adapter and service tests for both containers; the installed Mixxx ran with playlists |
 | Hot cues with names, colours and saved loops | Covered. Slots, names, exact RGB, loops and the rows Mixxx's loader would discard are tested; the installed Mixxx ran with names, positions and a loop |
-| Beatgrids with correct timing across audio formats | Partly. WAV, FLAC and MP3 are checked in the installed Mixxx on macOS and AAC with the same CoreAudio calls; MP3 on Linux and Windows is derived from Mixxx's source. AIFF, Ogg Vorbis, ALAC, Opus and WMA assume no shift and are not measured, so this stays open |
+| Beatgrids with correct timing across audio formats | Covered on macOS for WAV, FLAC, MP3, AAC, ALAC, AIFF, Ogg Vorbis and Opus, in the installed Mixxx 2.5.6 (the AIFF, Ogg and Opus click positions come from FFmpeg's decode). The macOS download cannot open WMA. Linux and Windows are derived from Mixxx's source and not run, so the AAC and WMA cases there stay open |
 | Preview, conflict handling and recoverable backups | Covered. Preview, stale-preview, running-Mixxx, half-written-library and ambiguous-match refusals, and byte-identical restore after update, create and replace are tested |
 | Protection for changes users make inside Mixxx | Covered. Add only never touches existing tracks, Manage replaces only the chosen groups, edited playlists are reset or appended to, hidden and locked rows and a user's scan folders are untouched, and the staged copy is verified before publishing |
 Implemented behavior includes measured export timing, supported native smart-rule

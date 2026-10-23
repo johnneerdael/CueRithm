@@ -131,11 +131,14 @@ is applied once and is usually zero on macOS and about 25 ms on Linux and Window
 typical LAME-encoded files. FLAC, WAV, AIFF and Ogg need none. If you copy a Mixxx
 library to another operating system, sync again from there.
 
-**AAC** (`.m4a`, `.mp4`, `.aac`) was checked on macOS and needs no shift there. On
-Linux and Windows Mixxx uses different AAC decoders that have not been checked, so the
-preview warns that cues may sit a few milliseconds off. **WMA** only plays in Mixxx
-builds that include FFmpeg (or Media Foundation on Windows) and is not verified. Check
-one such track by ear before relying on its cues.
+**AAC and Apple Lossless** (`.m4a`, `.mp4`, `.aac`), **AIFF**, **Ogg Vorbis** and **Opus**
+were checked in Mixxx on macOS and need no shift there (Opus is counted at 48 kHz, which
+is how Mixxx decodes it). On Linux and Windows Mixxx uses different AAC decoders that
+have not been checked, so the preview warns that cues may sit a few milliseconds off.
+**WMA** cannot be opened by the Mixxx download for macOS, so those tracks are added but
+will not play there; on Linux and Windows it only plays in Mixxx builds that include
+FFmpeg (or Media Foundation on Windows) and is not verified. Check one such track by ear
+before relying on its cues.
 
 ## Preview, apply and restore
 
