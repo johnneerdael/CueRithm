@@ -140,6 +140,30 @@ impl RecordSnapshot {
             })
             .collect())
     }
+    /// Identity, file location and source hash of each removed track record.
+    pub(super) fn identities(&self) -> Result<Vec<(String, Vec<u8>, String)>> {
+        let Some(set) = self.tables.iter().find(|t| t.table == "tracks") else {
+            return Ok(vec![]);
+        };
+        let column = |name: &str| {
+            set.columns
+                .iter()
+                .position(|c| c == name)
+                .with_context(|| format!("Track snapshot lacks {name}"))
+        };
+        let (id, path, hash) = (column("id")?, column("path")?, column("source_hash")?);
+        set.rows
+            .iter()
+            .map(
+                |row| match (&row.values[id], &row.values[path], &row.values[hash]) {
+                    (Cell::Text(id), Cell::Blob(path), Cell::Text(hash)) => {
+                        Ok((id.clone(), path.clone(), hash.clone()))
+                    }
+                    _ => anyhow::bail!("Invalid track snapshot"),
+                },
+            )
+            .collect()
+    }
     /// Identity and file location of each removed track record.
     pub(super) fn tracks(&self) -> Result<Vec<(String, Vec<u8>)>> {
         let Some(set) = self.tables.iter().find(|t| t.table == "tracks") else {
@@ -355,9 +379,46 @@ pub(super) fn delete(conn: &Connection, snapshot: &RecordSnapshot) -> Result<()>
     Ok(())
 }
 
-/// Put the captured rows back, with their original row ids.
-pub(super) fn restore(conn: &Connection, snapshot: &RecordSnapshot) -> Result<()> {
+/// Refuse to restore when the library no longer looks like the removal left it: a track with
+/// a removed track's identity or file location has appeared. Nothing is changed.
+pub(super) fn ensure_free(conn: &Connection, snapshot: &RecordSnapshot) -> Result<()> {
+    for (id, path) in snapshot.tracks()? {
+        let taken: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tracks WHERE id=?1 OR path=?2)",
+            rusqlite::params![id, path],
+            |r| r.get(0),
+        )?;
+        ensure!(
+            !taken,
+            "Undo needs review: a removed track's identity or file location is already used by a track in the library"
+        );
+    }
+    Ok(())
+}
+
+/// Rows that other systems keep up to date: the link between a library track and a record
+/// in a DJ program or a sync target. Something may have recreated, re-pointed or removed such
+/// a row since the track was removed, and that newer state wins: a row is only put back when
+/// nothing holds its place, and a link that now points elsewhere is never taken over.
+pub(super) const EXTERNAL_TABLES: [&str; 3] = [
+    "sync_links",
+    "native_track_links",
+    "native_sync_track_ownership",
+];
+
+/// What a restore did besides putting every row back.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(super) struct RestoreReport {
+    /// Link rows left alone because something now holds their place.
+    pub(super) links_not_restored: usize,
+}
+
+/// Put the captured rows back. A restored row keeps its saved row position when that is
+/// free; the declared values are what identifies it.
+pub(super) fn restore(conn: &Connection, snapshot: &RecordSnapshot) -> Result<RestoreReport> {
     conn.pragma_update(None, "defer_foreign_keys", true)?;
+    let mut report = RestoreReport::default();
+    let mut inserted: BTreeMap<&str, BTreeSet<i64>> = BTreeMap::new();
     for set in &snapshot.tables {
         ensure!(
             column_names(conn, &set.table)? == set.columns,
@@ -383,19 +444,32 @@ pub(super) fn restore(conn: &Connection, snapshot: &RecordSnapshot) -> Result<()
                 .map(|i| format!("?{i}"))
                 .collect::<Vec<_>>()
                 .join(",");
-            conn.execute(
-                &format!(
-                    "INSERT INTO {}({}) VALUES({marks})",
-                    quote(&set.table)?,
-                    names.join(",")
-                ),
-                params_from_iter(values),
-            )
-            .with_context(|| format!("Cannot restore a {} record", set.table))?;
+            let external = EXTERNAL_TABLES.contains(&set.table.as_str());
+            let changed = conn
+                .execute(
+                    &format!(
+                        "INSERT {}INTO {}({}) VALUES({marks})",
+                        if external { "OR IGNORE " } else { "" },
+                        quote(&set.table)?,
+                        names.join(",")
+                    ),
+                    params_from_iter(values),
+                )
+                .with_context(|| format!("Cannot restore a {} record", set.table))?;
+            if changed == 0 {
+                report.links_not_restored += 1;
+            } else {
+                inserted
+                    .entry(set.table.as_str())
+                    .or_default()
+                    .insert(conn.last_insert_rowid());
+            }
         }
     }
     for set in &snapshot.tables {
-        let restored = set.rows.iter().map(|r| r.rowid).collect::<BTreeSet<_>>();
+        let Some(restored) = inserted.get(set.table.as_str()) else {
+            continue;
+        };
         let mut stmt =
             conn.prepare(&format!("PRAGMA foreign_key_check({})", ident(&set.table)?))?;
         let broken = stmt
@@ -409,7 +483,7 @@ pub(super) fn restore(conn: &Connection, snapshot: &RecordSnapshot) -> Result<()
             "A restored record refers to something that no longer exists"
         );
     }
-    Ok(())
+    Ok(report)
 }
 
 /// Why a track record must not be removed right now, if it must not.
@@ -599,6 +673,136 @@ mod tests {
             )
             .unwrap(),
             1
+        );
+    }
+
+    #[test]
+    fn row_positions_reused_by_unrelated_inserts_never_collide_in_any_table() {
+        let mut conn = library();
+        let snapshot = capture(&conn, &["gone".into()]).unwrap();
+        let tx = conn.transaction().unwrap();
+        delete(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        // Unrelated inserts take the freed row positions of the track and of its rows.
+        conn.execute_batch(
+            "INSERT INTO tracks VALUES('new', X'6E', 'New');
+             INSERT INTO jobs VALUES('j-new','new');
+             INSERT INTO cues VALUES('c-new','new','j-new');
+             INSERT INTO checkpoints VALUES('j-new', NULL);",
+        )
+        .unwrap();
+        let before = dump(&conn);
+        let tx = conn.transaction().unwrap();
+        restore(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        let after = dump(&conn);
+        for kept in ["New", "j-new", "c-new"] {
+            assert!(after.contains(kept), "{kept} must stay");
+        }
+        for restored in ["Gone", "j-gone", "c1"] {
+            assert!(after.contains(restored), "{restored} must come back");
+        }
+        assert!(after.len() > before.len());
+        // The newer rows were not touched or replaced: each table holds old and new rows.
+        for table in ["tracks", "jobs", "cues"] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(count, 4, "{table}");
+        }
+    }
+
+    fn with_links(conn: &Connection) {
+        conn.execute_batch(
+            "CREATE TABLE sync_links(track_id TEXT NOT NULL REFERENCES tracks(id), target TEXT NOT NULL, external_id TEXT NOT NULL, PRIMARY KEY(track_id,target), UNIQUE(target,external_id));
+             CREATE TABLE native_targets(id TEXT PRIMARY KEY);
+             CREATE TABLE native_track_links(target_id TEXT NOT NULL REFERENCES native_targets(id), content_id TEXT NOT NULL, local_track_id TEXT REFERENCES tracks(id), baseline TEXT NOT NULL, PRIMARY KEY(target_id,content_id));
+             INSERT INTO native_targets VALUES('desk');
+             INSERT INTO sync_links VALUES('gone','rekordbox','external-1');
+             INSERT INTO native_track_links VALUES('desk','content-1','gone','old baseline');",
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn link_rows_that_changed_since_the_removal_are_left_alone_and_never_taken_over() {
+        let mut conn = library();
+        with_links(&conn);
+        let snapshot = capture(&conn, &["gone".into()]).unwrap();
+        let tx = conn.transaction().unwrap();
+        delete(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        // After the removal the sync linked the same external records to other tracks.
+        conn.execute_batch(
+            "INSERT INTO sync_links VALUES('keep','rekordbox','external-1');
+             INSERT INTO native_track_links VALUES('desk','content-1','keep','newer baseline');",
+        )
+        .unwrap();
+        let tx = conn.transaction().unwrap();
+        let report = restore(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(report.links_not_restored, 2);
+        let owner: String = conn
+            .query_row(
+                "SELECT local_track_id FROM native_track_links WHERE content_id='content-1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let baseline: String = conn
+            .query_row("SELECT baseline FROM native_track_links", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            (owner.as_str(), baseline.as_str()),
+            ("keep", "newer baseline")
+        );
+        let links: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sync_links WHERE track_id='gone'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(links, 0);
+        // Everything else came back.
+        assert!(dump(&conn).contains("Gone"));
+    }
+
+    #[test]
+    fn link_rows_nobody_has_touched_are_put_back_as_the_removal_left_them() {
+        let mut conn = library();
+        with_links(&conn);
+        let snapshot = capture(&conn, &["gone".into()]).unwrap();
+        let tx = conn.transaction().unwrap();
+        delete(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        let tx = conn.transaction().unwrap();
+        let report = restore(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(report, RestoreReport::default());
+        let baseline: String = conn
+            .query_row(
+                "SELECT baseline FROM native_track_links WHERE local_track_id='gone'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(baseline, "old baseline");
+    }
+
+    #[test]
+    fn a_free_check_names_a_taken_identity_or_location_before_anything_is_changed() {
+        let mut conn = library();
+        let snapshot = capture(&conn, &["gone".into()]).unwrap();
+        let tx = conn.transaction().unwrap();
+        delete(&tx, &snapshot).unwrap();
+        tx.commit().unwrap();
+        ensure_free(&conn, &snapshot).unwrap();
+        conn.execute("INSERT INTO tracks VALUES('other', X'67', 'Other')", [])
+            .unwrap();
+        assert!(
+            ensure_free(&conn, &snapshot).is_err(),
+            "the location is taken"
         );
     }
 

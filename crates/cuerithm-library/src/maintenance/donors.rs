@@ -384,6 +384,7 @@ fn result(
         trashed: vec![],
         permanently_deleted: vec![],
         not_deleted: vec![],
+        links_not_restored: 0,
     }
 }
 impl DuplicateMergeService {
@@ -819,6 +820,28 @@ impl DuplicateMergeService {
         purge::cache_files(self.lib.data_dir(), &self.runtime.identity, &orphaned);
         Ok(payload.result)
     }
+    /// Undo of a removal only goes ahead when the removed tracks' identities and locations are
+    /// still free, and nothing else sits where a removed track's file was: a file there must
+    /// be the very file the record describes (for example restored from the Trash). Nothing
+    /// is changed when this fails.
+    fn verify_removed_world(&self, snapshot: &RecordSnapshot) -> Result<()> {
+        records::ensure_free(&*self.lib.conn()?, snapshot)?;
+        for (_, path, hash) in snapshot.identities()? {
+            let path = bytes_path(&path)?;
+            if std::fs::symlink_metadata(&path).is_err() {
+                continue;
+            }
+            let same = current_state(&path).is_available()
+                && file_sha256_cancellable(&path, &CancellationToken::default())
+                    .is_ok_and(|current| current == hash);
+            ensure!(
+                same,
+                "Undo needs review: a different file now sits at {}, where a removed track's file was",
+                path.display()
+            );
+        }
+        Ok(())
+    }
     /// Check the files the preview listed once more and drop any that no longer pass.
     fn reverify(
         &self,
@@ -970,6 +993,10 @@ impl DuplicateMergeService {
             .iter()
             .cloned()
             .collect::<BTreeSet<_>>();
+        // Before anything is staged or reserved, check that the world is as the removal left it.
+        if let Some(snapshot) = &original.payload.removed {
+            self.verify_removed_world(snapshot)?;
+        }
         let tracks = original.payload.after.keys().cloned().collect::<Vec<_>>();
         let playlists = original.payload.result.affected_playlists.clone();
         let stamp = {
@@ -1104,26 +1131,17 @@ impl DuplicateMergeService {
                 };
                 ensure!(actual == p.after, "Later playlist edits prevent Undo");
             }
+            // The removed records come back first: if the library no longer matches what the
+            // removal left, this fails before any file is exchanged.
             if let Some(snapshot) = &original.payload.removed {
-                for (track_id, path) in snapshot.tracks()? {
-                    let taken: bool = tx.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM tracks WHERE id=?1 OR path=?2)",
-                        params![track_id, path],
-                        |r| r.get(0),
-                    )?;
-                    ensure!(
-                        !taken,
-                        "Undo needs review: a removed track's identity or file location is already used by a track in the library"
-                    );
-                }
+                records::ensure_free(&tx, snapshot)?;
+                payload.result.links_not_restored =
+                    records::restore(&tx, snapshot)?.links_not_restored;
             }
             install(&files, cancel)?;
             #[cfg(test)]
             if let Some(hook) = self.hook {
                 hook("files");
-            }
-            if let Some(snapshot) = &original.payload.removed {
-                records::restore(&tx, snapshot)?;
             }
             for (track_id, image) in &payload.after {
                 if !removed_ids.contains(track_id) {

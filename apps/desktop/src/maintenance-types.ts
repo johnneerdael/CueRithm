@@ -35,7 +35,7 @@ export interface DuplicateDeletionSkip {track_id:string;display_path:string;keep
 export interface DuplicateRemovalImpact {track_id:string;cue_revisions:number;tags:number;sync_links:number;other_records:number}
 export interface DuplicateDeletionPlan {files:DuplicateDeletionFile[];skipped:DuplicateDeletionSkip[];impact:DuplicateRemovalImpact[];undo_limit:number}
 export interface DuplicateMergePreview {id:string;review_id:string;review_revision:number;created:number;stamp:MaintenanceStamp;plan:{groups:GroupMerge[];disposition:MergeDisposition};playlists:DuplicatePlaylistChange[];deletion:DuplicateDeletionPlan|null}
-export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[];removed_ids:string[];trashed:DuplicateDeletionFile[];permanently_deleted:DuplicateDeletionFile[];not_deleted:DuplicateDeletionSkip[]}
+export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[];removed_ids:string[];trashed:DuplicateDeletionFile[];permanently_deleted:DuplicateDeletionFile[];not_deleted:DuplicateDeletionSkip[];links_not_restored:number}
 export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null;undo_expired:boolean;undo_limit:number}
 
 export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null}

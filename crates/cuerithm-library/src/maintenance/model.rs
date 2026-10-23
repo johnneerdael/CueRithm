@@ -156,6 +156,10 @@ pub struct DuplicateMergeResult {
     /// Files a "Delete from disk" merge did not move, and why.
     #[serde(default)]
     pub not_deleted: Vec<DuplicateDeletionSkip>,
+    /// Undo only: sync or DJ-program link rows left as they are because something changed
+    /// them after the removal.
+    #[serde(default)]
+    pub links_not_restored: usize,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateMergeHistory {

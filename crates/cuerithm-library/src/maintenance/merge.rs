@@ -411,6 +411,7 @@ impl Library {
             trashed: vec![],
             permanently_deleted: vec![],
             not_deleted: vec![],
+            links_not_restored: 0,
         };
         current.consumed_by = Some(result.id.clone());
         let operation = Operation {
@@ -514,6 +515,7 @@ impl Library {
             trashed: vec![],
             permanently_deleted: vec![],
             not_deleted: vec![],
+            links_not_restored: 0,
         };
         operation.undone_by = Some(result.id.clone());
         cancel.check()?;

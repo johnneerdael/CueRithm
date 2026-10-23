@@ -845,3 +845,256 @@ fn archiving_purges_nothing() {
         1
     );
 }
+
+// ---- Undo only goes ahead when the world is as the removal left it ---------------------
+
+fn rows(f: &Fixture, sql: &str) -> i64 {
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .query_row(sql, [], |r| r.get(0))
+        .unwrap()
+}
+
+#[test]
+fn undo_works_when_unrelated_inserts_reused_the_removed_rows_positions() {
+    let mut f = Fixture::empty();
+    let keep = f.add_track("keep.wav", 61);
+    let copy = f.add_track("copy.wav", 61);
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute("UPDATE tracks SET title='Pair'", []).unwrap();
+    drop(conn);
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[copy].clone()]);
+    // The removed track held the highest row position, so a new track and its job take it.
+    let newer = f.add_track("later.wav", 67);
+    let reused = rows(
+        &f,
+        &format!("SELECT rowid FROM tracks WHERE id='{}'", f.ids[newer]),
+    );
+    assert_eq!(reused, 2, "the new track reuses the freed row position");
+    let newer_title = rows(
+        &f,
+        &format!(
+            "SELECT COUNT(*) FROM tracks WHERE id='{}' AND title='Signal'",
+            f.ids[newer]
+        ),
+    );
+    assert_eq!(newer_title, 1);
+
+    service.undo(&result.id, &token()).unwrap();
+    assert!(
+        f.track_exists(&f.ids[copy])
+            && f.track_exists(&f.ids[newer])
+            && f.track_exists(&f.ids[keep])
+    );
+    assert_eq!(rows(&f, "SELECT COUNT(*) FROM tracks"), 3);
+    assert_eq!(rows(&f, "SELECT COUNT(*) FROM jobs"), 3);
+    assert_eq!(
+        rows(
+            &f,
+            &format!("SELECT rowid FROM tracks WHERE id='{}'", f.ids[newer])
+        ),
+        reused,
+        "the newer track keeps its row"
+    );
+    assert_eq!(
+        rows(
+            &f,
+            &format!(
+                "SELECT COUNT(*) FROM jobs WHERE track_id='{}'",
+                f.ids[newer]
+            )
+        ),
+        1
+    );
+}
+
+#[test]
+fn undo_leaves_link_rows_that_changed_after_the_removal_alone_and_never_takes_them_over() {
+    let f = Fixture::new();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute_batch("INSERT INTO native_targets VALUES('desk','rekordbox','db','device','{}','fingerprint','observation','[]',1,1,1);").unwrap();
+    conn.execute(
+        "INSERT INTO sync_links VALUES(?1,'target','external-1','{}')",
+        [&f.ids[1]],
+    )
+    .unwrap();
+    conn.execute("INSERT INTO native_track_links VALUES('desk','content-1',?1,'{}',NULL,NULL,'old baseline','linked',1)", [&f.ids[1]]).unwrap();
+    conn.execute("INSERT INTO native_track_links VALUES('desk','content-2',?1,'{}',NULL,NULL,'untouched','linked',1)", [&f.ids[1]]).unwrap();
+    drop(conn);
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(
+        rows(
+            &f,
+            "SELECT COUNT(*) FROM native_track_links WHERE local_track_id IS NOT NULL"
+        ),
+        0
+    );
+
+    // The sync links the same external records to the kept track while the duplicate is gone.
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.execute(
+        "INSERT INTO sync_links VALUES(?1,'target','external-1','{}')",
+        [&f.ids[0]],
+    )
+    .unwrap();
+    conn.execute("INSERT INTO native_track_links VALUES('desk','content-1',?1,'{}',NULL,NULL,'newer baseline','linked',2)", [&f.ids[0]]).unwrap();
+    drop(conn);
+
+    let undone = service.undo(&result.id, &token()).unwrap();
+    assert_eq!(
+        undone.links_not_restored, 2,
+        "one sync link and one rekordbox link"
+    );
+    assert!(f.track_exists(&f.ids[1]));
+    let keeper_link: (String, String) = rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .query_row(
+            "SELECT local_track_id,baseline_json FROM native_track_links WHERE content_id='content-1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(keeper_link, (f.ids[0].clone(), "newer baseline".to_owned()));
+    // Links nobody touched come back with the record.
+    assert_eq!(
+        rows(
+            &f,
+            &format!(
+                "SELECT COUNT(*) FROM native_track_links WHERE content_id='content-2' AND local_track_id='{}'",
+                f.ids[1]
+            )
+        ),
+        1
+    );
+    assert_eq!(
+        rows(
+            &f,
+            &format!(
+                "SELECT COUNT(*) FROM sync_links WHERE track_id='{}'",
+                f.ids[1]
+            )
+        ),
+        0,
+        "the sync link now belongs to the kept track"
+    );
+}
+
+fn moved_in_the_trash(stand_in: &FakeTrash, name: &str) -> std::path::PathBuf {
+    stand_in.folder.join(name)
+}
+
+#[test]
+fn undo_refuses_before_touching_anything_when_a_different_file_sits_at_a_removed_location() {
+    let f = Fixture::new();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let publication = serde_json::json!({"grid":{"bpm":128.75,"startTime":0.125},"cues":[{"position":0,"name":"Donor breakdown","startTime":8.,"type":"1","color":"blue"}],"implementation_sha256":"a".repeat(64),"inputs_sha256":"b".repeat(64)});
+    conn.execute(
+        "UPDATE tracks SET title='Donor title',analysis_json=?1 WHERE id=?2",
+        rusqlite::params![
+            serde_json::json!({"raw_donor":true,"publication":publication}).to_string(),
+            f.ids[1]
+        ],
+    )
+    .unwrap();
+    drop(conn);
+    let review = f.review(Tolerance::None);
+    let review = f
+        .lib
+        .edit_duplicate_review(
+            &review.id,
+            0,
+            DuplicateReviewEdit::Group {
+                group_id: review.groups[0].id.clone(),
+                edit: GroupEdit::UseTags {
+                    track_id: Some(f.ids[1].clone()),
+                },
+            },
+            &token(),
+        )
+        .unwrap();
+    let keeper_original = hash(&f.paths[0]);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    let keeper_after_merge = hash(&f.paths[0]);
+    assert_ne!(
+        keeper_after_merge, keeper_original,
+        "the donor copy rewrote the keeper's tags"
+    );
+    let before = f.content();
+    let journal = rows(&f, "SELECT COUNT(*) FROM maintenance_writes");
+
+    // Someone puts an unrelated file where the removed track's file was.
+    std::fs::write(&f.paths[1], b"not the same audio").unwrap();
+    let error = service.undo(&result.id, &token()).unwrap_err().to_string();
+    assert!(error.contains("a different file now sits at"), "{error}");
+    assert_eq!(
+        hash(&f.paths[0]),
+        keeper_after_merge,
+        "the keeper's file was not touched"
+    );
+    assert_eq!(f.content(), before);
+    assert_eq!(
+        rows(&f, "SELECT COUNT(*) FROM maintenance_writes"),
+        journal,
+        "nothing was staged or journaled"
+    );
+    assert!(f.lib.duplicate_recovery().unwrap().is_empty());
+    assert_eq!(
+        std::fs::read(&f.paths[1]).unwrap(),
+        b"not the same audio",
+        "the stranger's file is left alone"
+    );
+
+    // The file comes back from the Trash instead: now Undo is fine and restores the keeper.
+    std::fs::remove_file(&f.paths[1]).unwrap();
+    std::fs::rename(moved_in_the_trash(&stand_in, "track-1.wav"), &f.paths[1]).unwrap();
+    service.undo(&result.id, &token()).unwrap();
+    assert_eq!(
+        hash(&f.paths[0]),
+        keeper_original,
+        "the keeper's original bytes are back"
+    );
+    assert!(f.track_exists(&f.ids[1]));
+}
+
+#[test]
+fn undo_refuses_when_the_restored_file_was_added_again_as_a_new_track() {
+    let mut f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    // The user restores the file from the Trash and the watch folder adds it as a new track.
+    std::fs::rename(moved_in_the_trash(&stand_in, "track-1.wav"), &f.paths[1]).unwrap();
+    f.import(f.paths[1].clone());
+    let before = f.content();
+    let journal = rows(&f, "SELECT COUNT(*) FROM maintenance_writes");
+    let error = service.undo(&result.id, &token()).unwrap_err().to_string();
+    assert!(error.contains("already used"), "{error}");
+    assert_eq!(f.content(), before);
+    assert_eq!(rows(&f, "SELECT COUNT(*) FROM maintenance_writes"), journal);
+    assert!(
+        !f.track_exists(&f.ids[1]),
+        "the removed record stays removed"
+    );
+}
