@@ -6,7 +6,7 @@ import {nativeBridge,errorMessage} from "./api";
 import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery,WorkspaceView} from "./types";
 import Sidebar from "./components/Sidebar";
 import TrackTable from "./components/TrackTable";
-import {FileNotFoundError} from "./components/RowPreview";
+import {FileNotFoundError,PreviewLoadError} from "./components/RowPreview";
 import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
@@ -39,7 +39,12 @@ import CuratePanel,{type CurateHandle} from "./components/CuratePanel";
 import type {CurationCatalog,CurationFilter} from "./curation-types";
 import CurationFilters from "./components/CurationFilters";
 import type {MetadataDraft} from "./editor-types";
+import {hasShortcutModifier,shortcut} from "./platform";
 
+// The table's row menu and Columns dialog are portals that leave focus on the button that opened them, so the
+// keydown target alone cannot tell that one is open. Look for any overlay in the document instead.
+const overlays="[role=dialog],[role=alertdialog],[role=menu],[aria-modal=true]";
+const overlayOpen=()=>Array.from(document.querySelectorAll(overlays)).some(node=>!node.closest("[hidden],[aria-hidden=true]"));
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
@@ -87,7 +92,15 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   const [sideWidth,setSideWidth]=useState(()=>preference("sidebar-width",224,180,340));
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
   useEffect(()=>{try{localStorage.setItem("sidebar-collapsed",collapsed?"1":"0");}catch{}},[collapsed]);
-  const previewLoader=useCallback(async(id:string)=>{const detail=await bridge.getTrack(id);if(detail.file_available===false)throw new FileNotFoundError();const wave=await bridge.getWaveform(id,240);return {wave,detail};},[bridge]);
+  // The library is asked first. A file it knows is gone is named without decoding anything; a failed lookup is a
+  // request problem; only a waveform that fails after a good lookup points at the audio itself.
+  const previewLoader=useCallback(async(id:string)=>{
+    let detail:Detail,wave:Waveform;
+    try{detail=await bridge.getTrack(id);}catch(error){throw new PreviewLoadError("request",error);}
+    if(detail.file_available===false)throw new FileNotFoundError();
+    try{wave=await bridge.getWaveform(id,240);}catch(error){throw new PreviewLoadError("audio",error);}
+    return {wave,detail};
+  },[bridge]);
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const playlistRequest=useRef(0);
   const loadedScope=useRef("");
@@ -231,8 +244,8 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current||exitIntent.current||closePending.current)return;
-      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
+      if(hasShortcutModifier(event)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="f"&&!overlayOpen()){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();return;}
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(isLibraryView(view)&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
@@ -337,7 +350,7 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column" inert={exiting}>
       <header className="app-header" data-tauri-drag-region>
-        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(!isLibraryView(view))onView(lastView);}}/><kbd>⌘ F</kbd></div>
+        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(!isLibraryView(view))onView(lastView);}}/><kbd>{shortcut("F",true)}</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
         <button className="icon-button theme-toggle" aria-label={"Colour theme: "+mode} title={"Colour theme: "+mode+" (click to change)"} onClick={cycle}>{mode==="light"?<Sun size={17}/>:mode==="dark"?<Moon size={17}/>:<SunMoon size={17}/>}</button>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>

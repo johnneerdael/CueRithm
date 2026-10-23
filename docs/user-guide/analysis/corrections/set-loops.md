@@ -48,9 +48,10 @@ and the end and the flag are removed.
 ## 4. Decide about the active-loop flag { #active-flag }
 
 Tick **Save active-loop flag** if the loop should be switched on when your DJ
-software loads the track. CueRithm saves the flag with the loop. Whether a DJ program
-switches the loop on depends on the program, and the panel's own note says the flag
-stays in the library, so check the loop in your DJ software after your next sync.
+software loads the track. CueRithm saves the flag with the loop and the next sync sends
+it to rekordbox, VirtualDJ, Engine DJ and Pioneer USB. djay Pro, Serato DJ Pro 4 and
+Mixxx receive the loop without the flag. Whether a DJ program then switches the loop
+on depends on the program, so check the loop in your DJ software after your next sync.
 
 The loop CueRithm adds itself, **S.O.S.**, is saved this way: a 16-beat, magenta
 loop with the flag ticked. It appears only when **Emergency loop** is on in the
@@ -88,5 +89,5 @@ saved loop** and **Loop beats** sets the length. See
 - [Reuse one cue layout on many tracks](cue-templates.md)
 - [Set the sync options](../../sync/sync-options.md)
 
-<!-- UNVERIFIED: the editor's own note says current sync adapters do not transfer the active-loop flag, but dj_sync.rs, the VirtualDJ, Engine DJ and Pioneer USB writers and the rekordbox asset code all pass active_loop to the target; not tested end to end here -->
+<!-- verified: the active-loop flag is read by the rekordbox writers (crates/cuerithm-rekordbox native_plan.rs and asset_staging.rs, fed from rekordbox_sync_service/assets.rs), the VirtualDJ writer (AutoTrigger), the Engine DJ writer (active_loops bit mask) and the Pioneer USB writer (isActiveLoop and the memory PCPT status); the djay Pro, Serato 4 and Mixxx writers never read it. UNVERIFIED in the target programs themselves: no round trip was run for this note -->
 <!-- verified: apps/desktop/src/components/PublicationEditor.tsx (Add saved loop at playhead: 16 beats at draft BPM, End, Save active-loop flag, Kind switch, help text); crates/cuerithm-library/src/manual_publication.rs (validate loop rules, 128 cap); crates/camelot-core/src/lexicon_publication.rs (S.O.S. via ActiveLoop 16 beats); crates/cuerithm-library/src/publication.rs; crates/cuerithm-library/src/dj_sync.rs (loop end and active_loop projected); crates/cuerithm-library/src/rekordbox_sync_service/assets.rs (eight slots); apps/desktop/src/test/manual-publication.test.tsx (loop end 24 at BPM 60) -->

@@ -80,10 +80,6 @@ Mixxx has not been run on Windows. Linux acceptance covers Debian's 2.5.0 packag
 
 CueRithm does not update itself. Download new releases from the [releases page](https://github.com/johnneerdael/CueRithm/releases/latest) ([What's new in CueRithm](../get-started/whats-new.md)).
 
-### A raw word in the Incoming stage line { #cleanup-stage-label }
-
-While cleanup runs, an Incoming row can show the lower-case word `cleanup` instead of a stage name. It is a display quirk. The stage is the cleanup step of preparation ([Follow a track through Incoming](../files/follow-incoming.md)).
-
 ## Missing and moved files { #missing-and-moved-files }
 
 In CueRithm 0.1.14 a track is known by the location of its file. This has four consequences:

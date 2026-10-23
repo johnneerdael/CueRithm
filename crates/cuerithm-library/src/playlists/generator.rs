@@ -171,7 +171,8 @@ fn build(snapshot: &snapshot::Snapshot, dimension: &GenerationDimension) -> Resu
             let values = observed(snapshot, field)?;
             let values = if *include_unobserved {
                 match field.as_str() {
-                    "energy" => (0..=10).map(|n| FieldValue::Number(n as f64)).collect(),
+                    // Whole-track energy is rated 1 to 10; 0 is never stored. Rating 0 means unrated.
+                    "energy" => (1..=10).map(|n| FieldValue::Number(n as f64)).collect(),
                     "rating" => (0..=5).map(|n| FieldValue::Number(n as f64)).collect(),
                     _ => anyhow::bail!("This field has no bounded full domain"),
                 }
