@@ -1015,6 +1015,38 @@ mod tests {
     }
 
     #[test]
+    fn portable_records_of_a_track_are_saved_removed_and_restored_with_it() {
+        let mut conn = library();
+        conn.execute_batch(
+            "CREATE TABLE portable_domain_records(kind TEXT NOT NULL,id TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id));
+             INSERT INTO portable_domain_records VALUES
+               ('tracks','gone','{\"id\":\"gone\",\"value\":{}}'),
+               ('links','l1','{\"id\":\"l1\",\"value\":{\"track_id\":\"gone\"}}'),
+               ('links','l2','{\"id\":\"l2\",\"value\":{\"track_id\":\"keep\"}}'),
+               ('tracks','keep','{\"id\":\"keep\",\"value\":{}}');
+             DELETE FROM playlist_members WHERE track_id='gone';",
+        )
+        .unwrap();
+        let rows = |conn: &Connection| -> Vec<String> {
+            conn.prepare("SELECT kind||'/'||id FROM portable_domain_records ORDER BY kind,id")
+                .unwrap()
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap()
+        };
+        let before = rows(&conn);
+        let image = remove(&mut conn, &["gone"], &["playlist_members"], &NONE);
+        assert_eq!(
+            image.table("portable_domain_records").unwrap().rows.len(),
+            2
+        );
+        assert_eq!(rows(&conn), ["links/l2", "tracks/keep"]);
+        put_back(&mut conn, &image).unwrap();
+        assert_eq!(rows(&conn), before);
+    }
+
+    #[test]
     fn restore_refuses_when_a_record_with_the_same_identity_exists() {
         let mut conn = library();
         let ids = vec!["gone".to_owned()];

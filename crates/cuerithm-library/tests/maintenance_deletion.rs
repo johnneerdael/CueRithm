@@ -553,6 +553,65 @@ fn a_preview_that_does_not_name_the_approved_keeper_file_deletes_nothing() {
 }
 
 #[test]
+fn portable_records_that_belong_to_a_deleted_track_leave_with_it_and_come_back_with_undo() {
+    // Portable records refer to a track by a logical id inside their JSON, not by a foreign key.
+    let f = Fixture::new();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let mut expected = vec![];
+    for (kind, id, track) in [
+        ("tracks", f.ids[0].as_str(), f.ids[0].as_str()),
+        ("tracks", f.ids[1].as_str(), f.ids[1].as_str()),
+        ("external_links", "old-link", f.ids[1].as_str()),
+        ("external_links", "kept-link", f.ids[0].as_str()),
+    ] {
+        let json = serde_json::json!({"id":id,"value":{"track_id":track}}).to_string();
+        conn.execute(
+            "INSERT INTO portable_domain_records VALUES(?1,?2,?3)",
+            rusqlite::params![kind, id, json],
+        )
+        .unwrap();
+        expected.push((kind.to_owned(), id.to_owned(), json));
+    }
+    drop(conn);
+    let all = |f: &Fixture| -> Vec<(String, String, String)> {
+        let conn = rusqlite::Connection::open(&f.db).unwrap();
+        let mut q = conn
+            .prepare("SELECT kind,id,json FROM portable_domain_records ORDER BY kind,id")
+            .unwrap();
+        q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    expected.sort();
+    assert_eq!(all(&f), expected);
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let result = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+    let kept: Vec<_> = expected
+        .iter()
+        .filter(|(_, id, _)| id == &f.ids[0] || id == "kept-link")
+        .cloned()
+        .collect();
+    assert_eq!(
+        all(&f),
+        kept,
+        "the deleted track's records left with it, the keeper's stayed"
+    );
+    service.undo(&result.id, &token()).unwrap();
+    assert_eq!(
+        all(&f),
+        expected,
+        "Undo put every one of them back as it was"
+    );
+}
+
+#[test]
 fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
     let f = Fixture::new();
     // The duplicate is in the middle of a file organization that has not finished.
