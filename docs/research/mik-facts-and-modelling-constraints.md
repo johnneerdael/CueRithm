@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 23 · 23 October 2026 CEST / UTC · Required engineering reference.
+Revision 24 · 23 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–23 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–24 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -39,10 +39,15 @@ exact-prefix variants of one real recording. These are not added to the syntheti
 benchmark or counted as independent songs (F121–F122). Run 13 adds one linked family of nine files, six musical conditions and
 seven actual request identities. Its captured-input observations remain separate
 from its eight exact native-key failures and six authored-bar-phase failures
-(F127–F129); it is not added to the old 277-request benchmark. There is no promoted
+(F127–F129); it is not added to the old 277-request benchmark. Run 14 adds one
+linked ending family of twelve files, nine primary conditions and ten actual
+numeric request identities (F142–F143). Its separately qualified captured
+inputs do not repair the twelve native-key failures or original container
+guards. It adds neither independent music nor requests to that benchmark.
+There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 138 scoped findings. Evidence references E001–E309 identify immutable private source snapshots by
+The current register contains 143 scoped findings. Evidence references E001–E350 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -2277,6 +2282,189 @@ model, MIK run, accepted gain or final qualification follows.
 
 **Evidence:** E294, E295, E296, E297, E298, E299, E300, E301, E302, E303, E304, E305, E306, E307, E308, E309.
 
+#### F139 — Oracle window-evidence edits isolate two cue-label input sensitivities
+
+**Type:** Frozen local-model input intervention and descriptive current-PCM audit; no new MIK observation.
+
+Thirteen distinct input views cover three remaining correct-position label errors
+in two spent contexts. Supplying reference hard window labels repairs two selected
+labels in one fixed eight-cue list without losing another label. The other late
+label remains wrong in all five tested views, including replacement of every hard
+window label. Margin-only swaps repair none of the three selected labels, although logits
+change. An unchanged argmax does not make those margins unused.
+
+Positions, counts, timestamp bits, head state and the first 946 raw/acoustic/span
+columns of the 1,336-input head stay fixed. Only 390 derived window-evidence fields
+may change. Exactly 52 producer and 52 independent-review head API calls are
+recorded, with zero fits or point/count forwards. Reference labels deliberately
+enter these oracle inputs; the resulting combinations can be off-manifold.
+
+A separate read-only audit of the already-qualified current PCM verifies five
+time masks, five fixed-Hann 16,384-point Welch spectra and 75 piecewise-linear
+band integrals. The last-cue span's mean power equals its three-piece partition
+with zero observed residual. Complete-mask RMS and spectral estimates have
+different supports: Welch omits incomplete trailing frames. The source is
+preserved, not treated as a newly exported controlled fixture. The figure was
+viewed; audio was not auditioned.
+
+**Rules out / prevents:** These edits establish sensitivity of the tested software
+path, not a repaired upstream predictor, an operational gain, an upper bound or a
+server mechanism. Residual error with oracle hard labels does not isolate the
+head: continuous upstream margins are not replaced by known-correct scores.
+The descriptive PCM differences establish no single acoustic cause, semantic
+section label, universal energy rule or capture-time PCM identity. Missing final
+nominal window records do not imply absent acoustic support (F032). Preserve
+F054–F056 and all known regressions. No model or default is promoted.
+
+**Evidence:** E310, E311, E312, E313, E314, E315, E316, E317, E318, E319, E320, E321, E322, E323, E324, E325, E326, E327, E328, E329, E350.
+
+#### F140 — Added training coverage causes the selected calibrated energy regression
+
+**Type:** Controlled local-model experiment; no recovered server rule.
+
+Seven serial binary fits reproduce the retained raw-183 class-pair parent states,
+cross base/full training coverage with base/full class-loss mass, test a kernel
+cache change and independently repeat the two weighted cells. The selected
+previously correct window flips to the wrong class when coverage expands at
+either tested mass setting. Changing loss mass on the old examples does not flip
+it. Increasing the old model's tested cache from 256 to 8,192 MiB reproduces its
+active state and margins exactly.
+
+Pair training windows grow from 5,705 to 21,160, across 3,000 to 4,723 groups.
+Of the 1,723 groups newly represented in this pair, 1,502 already occur in the old
+multiclass sample and 221 do not. These are not 1,723 newly independent songs.
+Coverage changes both represented contexts and groups. The mass intervention
+jointly changes effective regularization and relative class weighting; its effect
+is not globally zero. It changes 26 pair signs at full coverage without changing
+the two tested complete hybrid label vectors.
+
+All 29,892 development margins and the 45-pair decision arithmetic are independently
+corroborated. Expanded multiclass coverage repairs 1,550 windows but regresses 783;
+it remains unaccepted. The review reconstructs 209,244 margins and 239,136 hybrid
+outputs without another fit.
+
+**Rules out / prevents:** Coverage is a demonstrated cause within this calibrated
+experiment and selected regression. It does not identify a bad training row,
+the cause of all regressions, the decisive acoustic feature or a server mechanism.
+The cache exclusion applies only to the tested base-cache path. Subtracting a
+fixed support-vector contribution is arithmetic attribution, not the outcome of
+deleting that example and retraining. No aggregate gain is accepted as a repair.
+
+**Evidence:** E330, E331, E332, E333, E350.
+
+#### F141 — A single class-pair bias cannot repair the preserved two-case tradeoff
+
+**Type:** Mathematical exclusion for saved local scores and descriptive qualified-PCM comparison.
+
+Two passages from one qualified recording need different reference labels. The
+old class pair assigns the same class to both; the expanded pair assigns the
+other class to both. Holding the remaining 44 pair decisions fixed, repairing the
+regression requires a constant bias above a lower bound that exceeds the upper
+bound needed to preserve the repair. The constraints are incompatible. Positive
+affine rescaling preserves that wrong ordering. Restoring the old pair repairs
+four windows while losing four others, including the preserved same-recording
+repair. It remains an unaccepted diagnostic.
+
+Independent checks verify current full-PCM identity and three fixed passage masks.
+The contrasted raw-183 vectors differ, and measured spectral/time-envelope
+structure varies. This is not an identical-input collision or a one-factor acoustic
+counterfactual. No audio audition was performed.
+
+**Rules out / prevents:** A constant shift or positive affine transform of this
+saved pair score cannot repair both cases in the frozen contexts. This excludes
+neither richer inputs, different learners nor nonmonotone transforms. The measured
+PCM differences do not establish a causal RMS/spectral feature or general rule.
+No MIK implementation claim or model promotion follows.
+
+**Evidence:** E334, E335, E336, E333, E350.
+
+#### F142 — The tested ending sweep preserves cue choices while continuous inputs and clocks vary
+
+**Type:** New controlled MIK observations with separately qualified captured inputs.
+
+One linked family contains nine primary 200-beat, 126 BPM conditions and three
+reproducibility controls. The eight edits restore upper components at beats 176,
+184, 192 or 196; remove rhythmic components after beat 192; or reduce the last
+eight beats by 12 dB, 24 dB or a complete mute. All eight edited decoded waveforms
+match the baseline exactly before their declared onset. There are ten distinct
+submitted numeric requests among the twelve files, not twelve independent songs.
+
+All nine primary constructions receive key 8A, overall rating 4, six window labels
+of 4 and three cues at detected-grid coordinates 0, 32 and 128, each labelled 4.
+Cue choices stay fixed while raw cue times change. Seven contrasts exceed 1 ns;
+the largest time change is about 51.64 microseconds. The beat-196 restoration
+changes a cue time by about 9.116 picoseconds, within 1 ns but not bit-exact.
+Every cue clock reconstructs bit-exactly from its own actual submitted clock.
+
+The beat-196 restoration leaves all six submitted window RMS values unchanged
+but changes 112 features in the first nominal window, with maximum absolute
+change about 0.006485. Its three changed cue scores and the other arms' changes
+prevent interpreting unchanged early PCM as unchanged analysis input. This does
+not uniquely identify normalization, phase search or server-side look-ahead.
+
+Copy and repeat-render controls preserve all musical response fields, including
+confidences and cue time bits; profiles and complete response-body hashes differ.
+The independently seeded dither control preserves CuePoints bit for bit while
+changing four other musical numeric fields: one energy-segment endpoint, its
+Volume and two key-confidence fields. Changed dither changes PCM and request;
+this is not identical-input randomness.
+
+All twelve scan containers change during the MIK scan despite disabled tag/export
+UI controls. The particular writer is not established. Protected masters,
+STREAMINFO, compressed audio payloads and decoded PCM remain exact. The original
+container guard remains failed. All twelve local key vectors also fail exact
+equality at coordinate 36 alone; the remaining 351 coordinates and nine other
+analysis fields match. A separate reviewed captured-input branch admits only the
+twelve selected responses and excludes all 79 sealed hashes. Original failures
+are preserved, not waived. No audition occurred.
+
+**Rules out / prevents:** These observations apply to this ending sweep. They do
+not establish that endings never affect cues, isolated server look-ahead, native
+input parity, architecture, unseen performance or broad key/energy coverage.
+Earlier run-13 counterexamples remain valid (F127–F129). This family is not added
+to the earlier 277-request benchmark. No replacement model is promoted.
+
+**Evidence:** E337, E338, E339, E340, E341, E342, E343, E344, E350.
+
+#### F143 — The ending-family cue failure is localized to the supplied count
+
+**Type:** Frozen local-pipeline diagnosis against the new MIK observations.
+
+Seven unchanged component models match all twelve keys, all twelve overall
+ratings and all 72 window labels in both the standalone and cue-context branches.
+They match zero counts or complete ordered/timed/labelled lists. Every prediction
+has coordinates 0, 32, 64, 80, 96, 112 and 128, whereas MIK selects 0, 32 and 128.
+All three reference cues already occur as a correctly labelled, timestamp-bit-exact
+subsequence. Four extra cues cause each complete-list failure. The nine primary
+conditions alone give nine key/overall matches, 54 window matches per branch and
+zero complete cue matches.
+
+The baseline count regressor outputs 5.924926874 additional cues, rounded to six
+plus the forced first anchor. The true added coordinates, 128 and 32, already have
+the highest point intensities, approximately 1.40933 and 1.03049. These are
+occurrence intensities, not probabilities. Supplying only the true additional
+count to the unchanged alpha-8 selector recovers all twelve position lists.
+The label head is not rerun on the shorter selected spans: this is a positions-only
+oracle diagnostic, not a demonstrated operational full-list repair.
+
+The actual count input consists of 22 cue-curve/timing summaries, not predicted
+window labels. Correcting already-correct window labels cannot change this count
+decision. Saved local and captured-input forecasts differ only at key-input
+coordinate 36; model scores, labels and clock bits match exactly. Across the two
+branches, 74 producer full-forward rounds and 26 independent framework-replay
+rounds use zero fits. Known real-case controls, repeats and fresh reloads pass.
+
+**Rules out / prevents:** Investigate why this count estimate overpredicts before
+another broad fitting search. Sparse support, objective bias and representation
+loss remain hypotheses, not demonstrated causes. F128 already contradicts a
+universal point-intensity cutoff with a true low-intensity cue and a false
+higher-intensity cue. Count does not explain every cue error (F138). Exact native
+key extraction remains failed. No broad accuracy gain, accepted model, unseen
+qualification or product-default change follows.
+
+**Evidence:** E338, E339, E345, E346, E347, E348, E349, E340, E350.
+
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2415,7 +2603,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E309 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E350 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -2731,3 +2919,44 @@ retain prior IDs or explicitly version replacement evidence.
 | E307 | `99290375cf291816bfe13172c25187803f8ae801db69bfaa7fd276923e270488` |
 | E308 | `8054cd668b530190055d7a91623e6527b4db2d6976645dd5547e4d1e972aed18` |
 | E309 | `360540b4d3106eb7dfb2f28cd64ebbc46c903553a0cbf9f61c471b2415ea8fdb` |
+| E310 | `9654d06cd00c9052bc6a29e10b97c024c4b66cb7fdb6ee4325383a81712dd255` |
+| E311 | `dac8b953c86977df2dd3b752b92c243cba9e38c7c6c1e73116cbb4d7eaa0ef33` |
+| E312 | `7b4cf1c846647b82a67ff3404867b31f5d09bf791f221cf8ffdbf6e08508c311` |
+| E313 | `aa4da0669b917e5f717f6f968a4c8c2dfc7b342429565e64f86c02a99f70b3e0` |
+| E314 | `d4ef58da9c1aca8061ea7d8affdf37aee6599c1580d418643f14e2a3b405d261` |
+| E315 | `53326c9135f33e007f27985beea37831ba0fae2a89d539fa2427a58f956d5308` |
+| E316 | `2f0c3aec7c69e4bde4ef8a3d0ad2e339000e8689d4476925f6aca4ca5f10f0db` |
+| E317 | `318bf1f1c24e96baafea071c812cb43c225d1301619fba368d7afdf6f616faf6` |
+| E318 | `fc1014e2f69a1315e6f94fc2474884d6b1d4d342f6e66665b9ef49f62ede76f9` |
+| E319 | `a72717404a1bfb99a12ca2a6bea9eb5c3fd439cf8174aaca3010f79d5c1eaabe` |
+| E320 | `bcfbb226302d9dafcff8db873b6e75b6596677f657d8a6798f08740569b966d8` |
+| E321 | `619cb4f0e9e59a7764d8c439f437b1aa043188f9a8b9c6c935b328de5e0ad6bc` |
+| E322 | `ef5c6ab6c0096f296ac1c812e9c9a032e31e4609b18058baa7927ff475cbde71` |
+| E323 | `4b18407a95b876ec388b1495f12807bc9acfdc12152705469a867042559ea877` |
+| E324 | `91b89acf2d464f04ac3672fd598647a73c09cfe9bf61311a9c629254d3bc4a4a` |
+| E325 | `ca443fcb4fe3b6450b75b5629628c676abf404fee2907497fad1277cd0f44fb0` |
+| E326 | `1d114dc1bf90eaa036a6e1a9ca52d23c2ec0aa2f3d0c2f0b45faad634c1be6b6` |
+| E327 | `15858823e6328bba2bb574d592ae3f98bd35d51205e59c048a1fc69c41220d98` |
+| E328 | `cc4460f77eb4917097ec9d1eb364c08a69b0bcc7c1123de75cf1ff8b3c91ee5e` |
+| E329 | `d88f4bbb7f1b4ad3092266e67b276a250eac0ac97ff899471f55507721e4a567` |
+| E330 | `c1dfb5251578341d91bd53f5eba49e3264760f898c358fa01e080d03987fb490` |
+| E331 | `64f5bcd9c435ccc112ac30162a5ab11e07618a183c6918045769dbee32dcbb18` |
+| E332 | `2f6867e4881803057ba8bd5ca42610b31f4fb6977e98a00be0ff39fe0b302dc9` |
+| E333 | `f6cd1aa7001e671de4acb5e25fc5566c30500017aa1c0e6027f5b7fa0b8aba16` |
+| E334 | `1823dfa43ccece013e18d0961e96bc269b097b70a352efc945032ad1bea14ea7` |
+| E335 | `e1d2b3810d3d0e9c817e0ef3bf5e0c189b4fbc01794015b4dd2efde0e6f5f125` |
+| E336 | `3833320828bdf2a7b0845272c0d835a1559014eff80cb91241a141c43f68b1c2` |
+| E337 | `0b42fbb1e6244d37ffa23e0e82180c4a96c1401ababf31a5a393c0493f830616` |
+| E338 | `88b2f562723a0ae31b06c427aaed0fc2c910ab7163a7fc5d27e4dc0b44f86f47` |
+| E339 | `c054442bab5ca8dd6a9b2b944cbe7464b5fb7afaf82457b2160dcc0d0925320d` |
+| E340 | `01d1903a9629dd0173c71f8b632ceb4c17a39b162ace254966d4b208777d0432` |
+| E341 | `dbd1f3548332952b122ff87f6815ed00f8dcf3f6a3d332f905244cab6ac7a571` |
+| E342 | `5b249a8524b6c3e98f8f9db498b1871a792d4ca128274cc42b04eb6e80180680` |
+| E343 | `87fe9884b4264f34546b1d8fba620372d3eed2afe57560bac428f251b3cc64e3` |
+| E344 | `5d6fc6bb86ab272d555dc07e9e21ff1712c296948d84ce8764417364dd168317` |
+| E345 | `8d930d72a6a63aa7aa058326679d10d3738d95d211b280d711460e9f25d44eec` |
+| E346 | `ed4b833aa2e8dfbf31624d5460f603b99b012fe71144fa298953a319ef32bab0` |
+| E347 | `fe58606e1b5b1450657313610d95be5d99b777b6cd40dc13ff65db9130dfc4f8` |
+| E348 | `a411d5324818152705b29ac172527b8535c3f7b49c2de0ae02c30a3b575b69f5` |
+| E349 | `dd95277c3f57aa9c760c109c860080f51613fdfce0adc408637cf9c6c4f826dd` |
+| E350 | `fe66576be435d84206c83c9b2120863a81556a929ee7a23b7af89acc9c37f9d3` |
