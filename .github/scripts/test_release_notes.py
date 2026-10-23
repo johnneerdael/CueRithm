@@ -66,13 +66,25 @@ class Branded(unittest.TestCase):
         url = f"https://raw.githubusercontent.com/owner/repo/{SHA}/docs/assets/brand/release-banner.png"
         self.assertEqual(text.splitlines()[0], f"![CueRithm. Know your music. Shape your set.]({url})")
 
-    def test_the_status_line_names_the_stage_and_links_the_source_commit(self):
-        self.assertIn(f"**Release (pre-1.0).** Source: [{SHA[:12]}](https://github.com/owner/repo/commit/{SHA}).", self.page())
-        self.assertIn("**Release.** Source:", self.page(version="1.0.0"))
+    def test_the_stage_is_visible_but_source_details_are_collapsed(self):
+        visible, collapsed = self.page().split("<details>")
+        self.assertIn("CueRithm — Know your music. Shape your set.", visible)
+        self.assertIn("**Pre-1.0 release.**", visible)
+        self.assertNotIn("Source:", visible)
+        self.assertIn(f"Source: [{SHA[:12]}](https://github.com/owner/repo/commit/{SHA}).", collapsed)
+        self.assertIn("<summary>Build and source verification</summary>", collapsed)
+        self.assertNotIn("**Pre-1.0 release.**", self.page(version="1.0.0"))
+
+    def test_the_source_remains_available_without_internal_changes(self):
+        text = rn.render(["**Organize your files.** Keep albums together."], [], [],
+                         repo="owner/repo", sha=SHA, version="0.1.8")
+        visible, collapsed = text.split("<details>")
+        self.assertIn("- **Organize your files.** Keep albums together.", visible)
+        self.assertIn(SHA[:12], collapsed)
 
     def test_the_page_reads_banner_then_changes_then_downloads_then_developer_detail(self):
         text = self.page()
-        order = [text.index(part) for part in ["![CueRithm.", "**Release", "## What's new", "## Downloads", "<details>"]]
+        order = [text.index(part) for part in ["![CueRithm.", "CueRithm —", "**Pre-1.0", "## What's new", "## Downloads", "<details>", "Source:"]]
         self.assertEqual(order, sorted(order))
 
     def test_downloads_say_what_to_get_for_each_system_and_how_it_is_signed(self):
@@ -81,6 +93,12 @@ class Branded(unittest.TestCase):
         self.assertIn("| Download | Platform | Signing / distribution |", table)
         for needle in ["macOS", "Apple Silicon", "notarized", "no Intel", "Windows", "SmartScreen", "Linux", "DEB"]:
             self.assertIn(needle, table)
+
+    def test_download_links_match_the_published_asset_names(self):
+        table = self.page().split("## Downloads")[1].split("<details>")[0]
+        for name in ["Cuerithm-arm64-0.1.8.dmg", "Cuerithm-windows-x64-0.1.8.zip",
+                     "Cuerithm-linux-x64-0.1.8.deb", "cuerithm-source.tar.gz", "THIRD_PARTY_NOTICES.md"]:
+            self.assertIn(f"https://github.com/owner/repo/releases/download/v0.1.8/{name}", table)
 
     def test_no_banner_or_downloads_without_a_repository(self):
         text = rn.render(["Organize your files"], [], [])

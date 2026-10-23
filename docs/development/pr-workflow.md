@@ -12,7 +12,7 @@ Pull requests are gated cheaply. Before the merge only the Linux checks run, and
 
 The release page is read by DJs who use CueRithm, not by people who read the code. A note answers "what can I do now, or what works differently?" in plain words.
 
-- One bullet per change a user can notice. Lead with the effect, then the condition if it matters.
+- Start each bullet with a short bold benefit, followed by one or two short sentences explaining what the DJ can do or what is fixed. Group related fixes instead of listing every implementation change.
 - Use the words the app uses (Incoming, Tracks, History, Sync). Leave out crate, module and function names and internal terms such as coordinator, planner, provenance, schema and reservation.
 - Say what happens to their files and libraries when that is the point: what is kept, what is never overwritten, what can be undone.
 - Work users cannot see gets a single `Internal:` bullet. It is kept off the visible release page.
@@ -20,11 +20,19 @@ The release page is read by DJs who use CueRithm, not by people who read the cod
 
 | Instead of | Write |
 | --- | --- |
-| Add deterministic candidate evidence and cross-provider identity checks. | When a track could match more than one release or edition, it now stays in Incoming marked as needing attention instead of being tagged with a guess. |
-| Preserve protected metadata and native DJ records during automatic tagging. | Automatic tagging can no longer overwrite a track's rating, comments, lyrics or artwork, or the cue points and beatgrids that Serato, rekordbox and Traktor keep in your files. |
+| Add deterministic candidate evidence and cross-provider identity checks. | **Review uncertain matches.** Tracks that could match several releases or editions stay in Incoming for you to check. |
+| Preserve protected metadata and native DJ records during automatic tagging. | **Keep your existing tags and DJ data.** Automatic tagging preserves ratings, comments, lyrics and artwork, along with cue points and beatgrids from Serato, rekordbox and Traktor. |
 | Add recoverable organization services. | Internal: add the file naming and organization services behind the upcoming organize feature. |
 
-The release page shows these bullets under "What's new". Internal bullets and direct commits to `main` are collapsed under "For developers".
+Use the same readable structure as TagGroove's release notes:
+
+1. Show the supplied dark 1600x480 banner at `docs/assets/brand/release-banner.png` unchanged, followed by "CueRithm — Know your music. Shape your set." and the pre-1.0 label when applicable. Do not use the white GitHub banner.
+2. Put the benefit-led bullets under "What's new". Keep setup requirements and unverified behavior beside the relevant feature.
+3. Provide a "Downloads" table with direct links to the published platform packages, architecture and signing information, plus application source and license notices.
+4. Put source identity, internal bullets and direct commits inside the collapsed "Build and source verification" section.
+
+The generator preserves PR wording; it cannot turn technical bullets into useful product explanations. Review the actual prose before publishing.
+When correcting an existing release page, preserve its tag, application source commit and assets. A banner corrected after release must use the banner's new commit in its image URL while the source link continues to identify the original application source.
 
 Escape hatches:
 - Run the full builds earlier, before a review has finished, with `gh workflow run ci.yml --ref <branch>` and `gh workflow run desktop.yml --ref <branch>`. Only same-repository branches can be dispatched.

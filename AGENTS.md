@@ -57,6 +57,14 @@ Before changing feature extraction, key/BPM/energy analysis, training, evaluatio
 
 The canonical remote is `https://github.com/johnneerdael/Cuerithm`. Preserve upstream changes and use descriptive commits. Do not publish music, private library paths, per-track labels, decompiled code or packaged proprietary artifacts. Record actual validation and remaining agreement gaps. Do not manually cut releases.
 
+## Release Notes
+
+- Use the supplied dark 1600x480 banner at `docs/assets/brand/release-banner.png` unchanged. Do not substitute the white GitHub banner.
+- Follow `.github/scripts/release_notes.py` and `docs/development/pr-workflow.md`: banner and tagline, What's new, Downloads, then collapsed build/source details.
+- Lead each public bullet with a short bold benefit and explain what the DJ can do in plain words. Group related fixes and retain setup requirements or unverified behavior.
+- Link platform downloads to their published assets. Keep source hashes, internal changes and commit lists inside the collapsed section.
+- When correcting published notes, preserve the release tag, application source commit and downloadable assets. Pin a replacement banner to its own commit if it was corrected after release.
+
 ## Bundle Integrity
 
 Preserve the installed application, source music and CSV. Work on separate artifact copies. Never edit signing manifests, write music tags during benchmarks, or read/export license credentials. Keep identifying reports under `.analysis/`; public docs use aggregate findings.
