@@ -81,7 +81,9 @@ impl EncodedPath {
         let bytes = self.bytes()?;
         Ok(if self.encoding == PathEncoding::Base64Utf16le {
             bytes
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| u16::from_le_bytes([b[0], b[1]]) as u32)
                 .collect()
         } else {
@@ -259,7 +261,9 @@ impl PortableLocator {
                 "Odd existing UTF-16 path length"
             );
             let original_units: Vec<u16> = bytes
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| u16::from_le_bytes([b[0], b[1]]))
                 .collect();
             let logical = windows_logical_units(&original_units);
@@ -684,4 +688,158 @@ pub(crate) fn portable_tracks_from_connection(conn: &Connection) -> Result<Vec<P
             },
         )
         .collect()
+}
+
+/// Component units used only to choose export mapping roots. Source bytes and
+/// persisted locators are never rewritten by root aggregation.
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) struct PortableSourceParts {
+    pub windows: bool,
+    pub wide: bool,
+    pub prefix: usize,
+    pub anchors: usize,
+    pub parts: Vec<Vec<u16>>,
+}
+impl PortableSourceParts {
+    pub fn from_locator(locator: &PortableLocator) -> Result<Option<Self>> {
+        Self::parse(locator, false)
+    }
+    pub fn from_directory_locator(locator: &PortableLocator) -> Result<Option<Self>> {
+        Self::parse(locator, true)
+    }
+    fn parse(locator: &PortableLocator, directory: bool) -> Result<Option<Self>> {
+        let windows = !matches!(locator.flavor, PathFlavor::Posix | PathFlavor::OpaquePosix);
+        let bytes = locator.original.bytes()?;
+        let wide = windows;
+        let units = if windows {
+            let raw: Vec<u16> = if locator.original.encoding == PathEncoding::Base64Utf16le {
+                bytes
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|b| u16::from_le_bytes(*b))
+                    .collect()
+            } else if locator.original.encoding == PathEncoding::Utf8 {
+                locator.original.data.encode_utf16().collect()
+            } else {
+                return Ok(None);
+            };
+            let Some(units) = windows_logical_units(&raw) else {
+                return Ok(None);
+            };
+            units
+        } else {
+            if !bytes.starts_with(b"/") {
+                return Ok(None);
+            }
+            bytes.iter().map(|b| u16::from(*b)).collect()
+        };
+        let prefix = if windows {
+            if units.starts_with(&[47, 47]) { 2 } else { 0 }
+        } else {
+            1
+        };
+        let parts = units
+            .split(|u| *u == 47)
+            .filter(|p| !p.is_empty())
+            .map(<[u16]>::to_vec)
+            .collect::<Vec<_>>();
+        if ((!directory || windows) && parts.is_empty())
+            || parts
+                .iter()
+                .any(|p| p == &[46] || p == &[46, 46] || p.contains(&0))
+        {
+            return Ok(None);
+        }
+        let mut anchors = if windows {
+            if prefix == 2 { 2 } else { 1 }
+        } else if parts
+            .first()
+            .is_some_and(|p| p == &[86, 111, 108, 117, 109, 101, 115])
+        {
+            2
+        } else {
+            0
+        };
+        if directory && !windows {
+            anchors = anchors.min(parts.len());
+        }
+        if parts.len() < anchors || (!directory && parts.len() == anchors) {
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            windows,
+            wide,
+            prefix,
+            anchors,
+            parts,
+        }))
+    }
+    pub fn key(&self, count: usize) -> Result<String> {
+        Ok(serde_json::to_string(&(
+            self.windows,
+            self.prefix,
+            &self.parts[..count],
+        ))?)
+    }
+    pub fn encoded(&self, parts: &[Vec<u16>]) -> EncodedPath {
+        let mut units = vec![47; self.prefix];
+        for (index, p) in parts.iter().enumerate() {
+            if index > 0 {
+                units.push(47);
+            }
+            units.extend_from_slice(p);
+        }
+        if self.windows && units.last() == Some(&58) {
+            units.push(47);
+        }
+        if self.wide {
+            EncodedPath {
+                encoding: PathEncoding::Base64Utf16le,
+                data: STANDARD.encode(
+                    units
+                        .iter()
+                        .flat_map(|u| u.to_le_bytes())
+                        .collect::<Vec<_>>(),
+                ),
+            }
+        } else {
+            EncodedPath {
+                encoding: PathEncoding::Base64Bytes,
+                data: STANDARD.encode(units.iter().map(|u| *u as u8).collect::<Vec<_>>()),
+            }
+        }
+    }
+    pub fn rebase(&self, root: &Self, locator: &PortableLocator) -> Result<PortableLocator> {
+        ensure!(
+            self.windows == root.windows
+                && self.prefix == root.prefix
+                && self.parts.starts_with(&root.parts),
+            "Export root is not a source ancestor"
+        );
+        let encode_component = |p: &Vec<u16>| {
+            if self.wide {
+                EncodedPath {
+                    encoding: PathEncoding::Base64Utf16le,
+                    data: STANDARD
+                        .encode(p.iter().flat_map(|u| u.to_le_bytes()).collect::<Vec<_>>()),
+                }
+            } else {
+                EncodedPath {
+                    encoding: PathEncoding::Base64Bytes,
+                    data: STANDARD.encode(p.iter().map(|u| *u as u8).collect::<Vec<_>>()),
+                }
+            }
+        };
+        let mut output = locator.clone();
+        output.source_root = Some(root.encoded(&root.parts));
+        output.components = Some(
+            self.parts[root.parts.len()..]
+                .iter()
+                .map(encode_component)
+                .collect(),
+        );
+        output.validate()?;
+        Ok(output)
+    }
 }

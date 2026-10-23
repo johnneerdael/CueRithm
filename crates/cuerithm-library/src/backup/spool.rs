@@ -492,6 +492,7 @@ impl crate::Library {
                 }
             }
         }
+        super::projection::prepare_native_root_projection(&snapshot, control)?;
         snapshot.execute_batch(CREATE_PORTABLE_PAGE_IDS_SQL)?;
         let mut spool = SpoolArchive::create(LogicalArchive::empty("UTC")?.manifest)?;
         let mut cursor = String::new();

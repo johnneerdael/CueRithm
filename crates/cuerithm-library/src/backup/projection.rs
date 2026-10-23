@@ -381,6 +381,7 @@ pub(crate) fn snapshot_connection(
     shared: bool,
     validate: bool,
 ) -> Result<LogicalArchive> {
+    prepare_native_root_projection(conn, control)?;
     let mut a = LogicalArchive::empty("UTC")?;
     stored(conn, &mut a, scoped, shared)?;
     let metadata:Option<String>=conn.query_row(if scoped{"SELECT json_object('manifest',json_extract(value,'$.manifest'),'payloads',json('{}')) FROM portable_library_meta WHERE key='archive_metadata'"}else{"SELECT value FROM portable_library_meta WHERE key='archive_metadata'"},[],|r|r.get(0)).optional()?;
@@ -453,7 +454,7 @@ pub(crate) fn snapshot_connection(
         }) {
             r.clone()
         } else {
-            native_locator(&mut a, &t.locator)?
+            native_locator(&mut a, &aggregated_native_locator(conn, &t.id, &t.locator)?)?
         };
         a.push("locators", locator);
         v["content"]["sha256"] = json!(t.source_sha256);
@@ -881,7 +882,9 @@ fn native_locator(a: &mut LogicalArchive, l: &crate::PortableLocator) -> Result<
     let wide = l.original.encoding == crate::PathEncoding::Base64Utf16le;
     let units: Vec<u16> = if wide {
         bytes
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|b| u16::from_le_bytes([b[0], b[1]]))
             .collect()
     } else {
@@ -1604,4 +1607,236 @@ pub(crate) fn restored_settings_from_record(
     }
     settings.validate()?;
     Ok(settings)
+}
+
+fn native_root_rows_sql(conn: &Connection) -> Result<String> {
+    // Discover the schema-owned unique path index instead of depending on an
+    // SQLite-generated autoindex ordinal. The range skips NULL bindings without
+    // reading the potentially large track/analysis rows at all.
+    let index:String=conn.query_row(r#"SELECT l.name FROM pragma_index_list('tracks','main') l WHERE l."unique"=1 AND l.partial=0 AND (SELECT COUNT(*) FROM pragma_index_info(l.name,'main'))=1 AND EXISTS(SELECT 1 FROM pragma_index_info(l.name,'main') c WHERE c.name='path') LIMIT 1"#,[],|r|r.get(0))?;
+    let index = index.replace('"', "\"\"");
+    // Return bound imported rows with a skip flag so progress can advance even
+    // when every binding belongs to immutable imported provenance.
+    Ok(format!(
+        "SELECT id,path,source_locator_json,CASE WHEN origin='cuerithm' THEN EXISTS(SELECT 1 FROM main.portable_domain_records d WHERE d.kind='locators' AND d.id=json_extract(t.source_locator_json,'$.id')) ELSE 1 END FROM main.tracks t INDEXED BY \"{index}\" WHERE path>=x'' "
+    ))
+}
+
+/// Build once on the scratch snapshot, before the spooled track-page view exists.
+/// SQLite holds root memberships; Rust retains only one path/root at a time.
+pub(crate) fn prepare_native_root_projection(
+    conn: &Connection,
+    control: &dyn Fn(&str, u64) -> Result<()>,
+) -> Result<()> {
+    if conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_temp_master WHERE name='portable_native_root_members')",
+        [],
+        |r| r.get::<_, bool>(0),
+    )? {
+        return Ok(());
+    }
+    conn.execute_batch("PRAGMA temp_store=FILE;CREATE TEMP TABLE portable_native_root_config(key TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TEMP TABLE portable_native_root_groups(key TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TEMP TABLE portable_native_root_members(track_id TEXT PRIMARY KEY,group_key TEXT NOT NULL);")?;
+    let insert_config = |locator: crate::PortableLocator| -> Result<()> {
+        if let Some(parts) = crate::portable::PortableSourceParts::from_directory_locator(&locator)?
+        {
+            conn.execute(
+                "INSERT OR IGNORE INTO portable_native_root_config VALUES(?1,?2)",
+                rusqlite::params![
+                    parts.key(parts.parts.len())?,
+                    serde_json::to_string(&parts)?
+                ],
+            )?;
+        }
+        Ok(())
+    };
+    let mut roots = conn.prepare("SELECT path FROM main.organization_roots ORDER BY id")?;
+    let mut rows = roots.query([])?;
+    while let Some(row) = rows.next()? {
+        let path: Vec<u8> = row.get(0)?;
+        insert_config(crate::PortableLocator::from_native_path_bytes(
+            "configured-root",
+            &path,
+        )?)?;
+    }
+    drop(rows);
+    drop(roots);
+    let mut roots=conn.prepare("SELECT j.value FROM main.selected_settings x JOIN main.settings s ON s.revision=x.revision JOIN json_each(s.json,'$.settings.watch_folders') j WHERE j.type='text'")?;
+    let mut rows = roots.query([])?;
+    while let Some(row) = rows.next()? {
+        let path: String = row.get(0)?;
+        insert_config(crate::PortableLocator::from_native_path_bytes(
+            "configured-root",
+            &crate::path_bytes(std::path::Path::new(&path)),
+        )?)?;
+    }
+    drop(rows);
+    drop(roots);
+    control("mapping_roots", 0)?;
+    let sql = native_root_rows_sql(conn)?;
+    let mut tracks = conn.prepare(&sql)?;
+    let mut rows = tracks.query([])?;
+    let mut count = 0u64;
+    while let Some(row) = rows.next()? {
+        if count.is_multiple_of(256) {
+            control("mapping_roots", count)?;
+        }
+        count += 1;
+        if row.get::<_, bool>(3)? {
+            continue;
+        }
+        let id: String = row.get(0)?;
+        let native: Vec<u8> = row.get(1)?;
+        let saved: Option<String> = row.get(2)?;
+        let locator = if let Some(json) = saved {
+            serde_json::from_str(&json)?
+        } else {
+            crate::PortableLocator::from_native_path_bytes(format!("locator:{id}"), &native)?
+        };
+        let Some(parts) = crate::portable::PortableSourceParts::from_locator(&locator)? else {
+            continue;
+        };
+        if parts.parts.len() <= parts.anchors {
+            continue;
+        }
+        let parent_count = parts.parts.len() - 1;
+        let mut configured = None;
+        for n in (0..=parent_count).rev() {
+            let key = parts.key(n)?;
+            let root: Option<String> = conn
+                .query_row(
+                    "SELECT json FROM portable_native_root_config WHERE key=?1",
+                    [&key],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(root) = root {
+                configured = Some((format!("configured:{key}"), root));
+                break;
+            }
+        }
+        let (key, mut root, pinned) = if let Some((key, json)) = configured {
+            (
+                key,
+                serde_json::from_str::<crate::portable::PortableSourceParts>(&json)?,
+                true,
+            )
+        } else {
+            let floor = (parts.anchors + 1).min(parent_count);
+            let mut root = parts.clone();
+            root.parts.truncate(parent_count);
+            (format!("common:{}", parts.key(floor)?), root, false)
+        };
+        if !pinned {
+            let previous: Option<String> = conn
+                .query_row(
+                    "SELECT json FROM portable_native_root_groups WHERE key=?1",
+                    [&key],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(previous) = previous {
+                let old: crate::portable::PortableSourceParts = serde_json::from_str(&previous)?;
+                let common = root
+                    .parts
+                    .iter()
+                    .zip(&old.parts)
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                root.parts.truncate(common);
+            }
+        }
+        conn.execute("INSERT INTO portable_native_root_groups VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET json=excluded.json",rusqlite::params![key,serde_json::to_string(&root)?])?;
+        conn.execute(
+            "INSERT INTO portable_native_root_members VALUES(?1,?2)",
+            rusqlite::params![id, key],
+        )?;
+    }
+    Ok(())
+}
+fn aggregated_native_locator(
+    conn: &Connection,
+    id: &str,
+    locator: &crate::PortableLocator,
+) -> Result<crate::PortableLocator> {
+    let root:Option<String>=conn.query_row("SELECT g.json FROM portable_native_root_members m JOIN portable_native_root_groups g ON g.key=m.group_key WHERE m.track_id=?1",[id],|r|r.get(0)).optional()?;
+    if let Some(root) = root {
+        let root = serde_json::from_str(&root)?;
+        if let Some(parts) = crate::portable::PortableSourceParts::from_locator(locator)? {
+            return parts.rebase(&root, locator);
+        }
+    }
+    Ok(locator.clone())
+}
+
+#[cfg(test)]
+mod native_root_query_tests {
+    use super::*;
+    #[test]
+    fn zero_binding_root_scan_uses_a_validated_path_range_index() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = Connection::open(directory.path().join("root-plan.sqlite")).unwrap();
+        conn.execute_batch("CREATE TABLE tracks(id TEXT PRIMARY KEY,spare TEXT UNIQUE,path BLOB UNIQUE,origin TEXT,source_locator_json TEXT);CREATE TABLE portable_domain_records(kind TEXT,id TEXT,json TEXT,PRIMARY KEY(kind,id));CREATE TABLE organization_roots(id TEXT PRIMARY KEY,path BLOB);CREATE TABLE settings(revision TEXT PRIMARY KEY,json TEXT);CREATE TABLE selected_settings(revision TEXT);WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<100000) INSERT INTO tracks(id,origin,source_locator_json) SELECT printf('%08d',i),'cuerithm',printf('%0512d',i) FROM n;").unwrap();
+        let sql = native_root_rows_sql(&conn).unwrap();
+        let mut plan = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+        let details = plan
+            .query_map([], |r| r.get::<_, String>(3))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert!(
+            details
+                .iter()
+                .any(|d| d.contains("SEARCH t USING INDEX") && d.contains("(path>")),
+            "{details:?}"
+        );
+        assert!(
+            !details
+                .iter()
+                .any(|d| d.contains("SCAN t") || d.contains("TEMP B-TREE")),
+            "{details:?}"
+        );
+        drop(plan);
+        assert!(!conn.prepare(&sql).unwrap().exists([]).unwrap());
+        let phases = std::cell::RefCell::new(Vec::new());
+        prepare_native_root_projection(&conn, &|phase, count| {
+            phases.borrow_mut().push((phase.to_owned(), count));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            phases.borrow().first(),
+            Some(&("mapping_roots".to_owned(), 0))
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM portable_native_root_members",
+                [],
+                |r| r.get::<_, u64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        conn.execute_batch("DROP TABLE portable_native_root_members;DROP TABLE portable_native_root_groups;DROP TABLE portable_native_root_config;UPDATE tracks SET path=CAST('unix:/Music/'||id AS BLOB),source_locator_json=json_object('id','locator:'||id);INSERT INTO portable_domain_records SELECT 'locators','locator:'||id,'{}' FROM tracks;").unwrap();
+        phases.borrow_mut().clear();
+        prepare_native_root_projection(&conn, &|phase, count| {
+            phases.borrow_mut().push((phase.to_owned(), count));
+            Ok(())
+        })
+        .unwrap();
+        assert!(
+            phases
+                .borrow()
+                .last()
+                .is_some_and(|(phase, count)| phase == "mapping_roots" && *count > 99000)
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM portable_native_root_members",
+                [],
+                |r| r.get::<_, u64>(0)
+            )
+            .unwrap(),
+            0
+        );
+    }
 }

@@ -31,7 +31,8 @@ remain a separate supported format and include unresolved logical records.
 
 ## Measured workloads
 
-Measurements below ran on macOS with synthetic data. Peak RSS includes the test
+Measurements below ran on macOS 15.8 (24H23), Apple M4 Pro, 48 GiB RAM,
+with synthetic data. Peak RSS includes the test
 process. Private execution logs remain outside the published tree. Scale tests
 are ignored by the routine suite and were explicitly executed.
 
@@ -42,7 +43,10 @@ are ignored by the routine suite and were explicitly executed.
 | Relocation: 1,000,000 flat candidates plus a target beyond the cap | 97.334 s initial scan; 67.535 s continuation | 23,363,584 bytes | 0.648 s |
 
 The native archive measured 9,518,615 bytes and preserved 1,000 archived tracks
-without creating jobs. The Lexicon source ZIP measured 1,241,008 bytes. Million
+without creating jobs. The measured native runner SHA-256 was
+`4d47e29b8c3ae114b15e5aa68fd79ed908421901b3a67eb6e9adb1df9a9a67bc`.
+The Lexicon source ZIP measured 1,241,008 bytes, SHA-256
+`c09018ddfa66737a17ef958ec9e8b154eb6e94b7b6f8eb712e64514b1758f51b`. Million
 candidate cancellation completed in 0.253 seconds; setup/deletion is excluded
 from the scan timings. Subsequent Linux mount-ID and bounded-report changes have
 focused tests and Linux cross-compilation evidence; the million-file measurement

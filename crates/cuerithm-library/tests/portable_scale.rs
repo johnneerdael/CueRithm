@@ -67,6 +67,14 @@ fn hundred_thousand_tracks_and_ten_thousand_playlists_round_trip() {
     }
     let mut connection = rusqlite::Connection::open(&db).unwrap();
     let transaction = connection.transaction().unwrap();
+    // Authored, deliberately offline native bindings exercise root aggregation
+    // at full cardinality. No media is opened or used as a DSP prediction.
+    transaction
+        .execute(
+            "UPDATE tracks SET path=CAST('unix:/authored/scale/' || id || '.flac' AS BLOB)",
+            [],
+        )
+        .unwrap();
     for i in 0..10_000 {
         transaction.execute("INSERT INTO playlists(id,kind,name,position,last_edit_id) VALUES(?1,'playlist',?2,?3,'authored-scale-fixture')",rusqlite::params![format!("scale-playlist-{i:05}"),format!("Authored playlist {i}"),i]).unwrap();
     }
@@ -108,6 +116,7 @@ fn hundred_thousand_tracks_and_ten_thousand_playlists_round_trip() {
         .portable_snapshot_spooled(&limits, &control)
         .unwrap();
     assert_eq!(snapshot.count("tracks").unwrap(), 100_000);
+    assert_eq!(snapshot.count("roots").unwrap(), 1);
     assert_eq!(snapshot.count("playlists").unwrap(), 10_000);
     let output = temp.path().join("large.cuerithm");
     write_portable_spooled(&output, &snapshot, &limits, &control).unwrap();

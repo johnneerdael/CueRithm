@@ -121,18 +121,30 @@ fn reporting<'a>(app: &'a tauri::AppHandle, id: &'a str) -> impl Fn(&str, u64) -
                 "write" => ("Writing archive", true),
                 "read" => ("Verifying archive", true),
                 "extract" => ("Reading source archive", true),
+                "source_digest" => ("Checking source archive", true),
+                "write_optional" => ("Writing optional library data", true),
+                "materialize" => ("Opening source library", false),
+                "settings" => ("Reading library settings", false),
+                "source_history" => ("Reading source history", false),
+                "resize_snapshot_page" => ("Collecting large track records", false),
+                "validate_tree" => ("Checking playlist folders", false),
                 "read_tables" => ("Validating source library", true),
                 "tracks" | "project" => ("Collecting tracks", false),
+                "mapping_roots" => ("Grouping music folders", false),
+                "project_shared" => ("Collecting playlists and settings", false),
+                "validate_relationships" => ("Checking library relationships", false),
                 "cues" => ("Reading saved cues", false),
                 "tempo_markers" => ("Reading tempo markers", false),
                 "playlists" => ("Reading playlists", false),
                 "snapshot" => ("Snapshotting library", false),
-                "validate" => ("Checking library data", false),
+                "validate" | "validate_summary" | "validate_selection" => {
+                    ("Checking library data", false)
+                }
                 "history" => ("Reading saved history", false),
                 "restore_tracks" => ("Restoring track data", false),
                 "restore_domains" => ("Restoring playlists and settings", false),
                 "publish" => ("Publishing verified archive", false),
-                other => (other, false),
+                _ => ("Processing library data", false),
             };
             let _ = app.emit(
                 "portable-progress",
@@ -230,7 +242,9 @@ fn encoded_display(value: &serde_json::Value) -> String {
             if p.encoding == cuerithm_library::PathEncoding::Base64Utf16le {
                 Some(String::from_utf16_lossy(
                     &bytes
-                        .chunks_exact(2)
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
                         .map(|b| u16::from_le_bytes([b[0], b[1]]))
                         .collect::<Vec<_>>(),
                 ))
@@ -448,7 +462,7 @@ fn resolve_roots(
             {
                 if component.encoding == cuerithm_library::PathEncoding::Base64Utf16le {
                     let units = bytes
-                        .chunks_exact(2)
+                        .as_chunks::<2>().0.iter()
                         .map(|b| u16::from_le_bytes([b[0], b[1]]))
                         .collect::<Vec<_>>();
                     if let Ok(s) = String::from_utf16(&units) {
@@ -476,7 +490,7 @@ fn resolve_roots(
                     use std::os::windows::ffi::OsStringExt;
                     target.push(std::ffi::OsString::from_wide(
                         &bytes
-                            .chunks_exact(2)
+                            .as_chunks::<2>().0.iter()
                             .map(|b| u16::from_le_bytes([b[0], b[1]]))
                             .collect::<Vec<_>>(),
                     ));

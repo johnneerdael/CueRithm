@@ -459,7 +459,9 @@ fn windows_native_blob(units: &[u16]) -> Vec<u8> {
 fn decoded_utf16(path: &EncodedPath) -> Vec<u16> {
     path.bytes()
         .unwrap()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|b| u16::from_le_bytes([b[0], b[1]]))
         .collect()
 }
@@ -615,4 +617,299 @@ fn actual_windows_canonical_binding_roundtrips_without_native_path_changes() {
         restored.source_locator("track-one").unwrap().unwrap(),
         locator
     );
+}
+
+#[test]
+fn native_nested_library_exports_one_mapping_root_and_full_relative_components() {
+    use cuerithm_library::backup::ArchiveLimits;
+    for configured in [false, true] {
+        let d = tempfile::tempdir().unwrap();
+        let music = d.path().join("Music");
+        std::fs::create_dir_all(&music).unwrap();
+        let music = music.canonicalize().unwrap();
+        let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+        if configured {
+            let mut settings = lib.settings().unwrap().settings;
+            settings.watch_folders = vec![music.clone()];
+            lib.save_settings(settings).unwrap();
+        }
+        for (index, relative) in ["House/A.wav", "Other/B.wav"].iter().enumerate() {
+            let file = music.join(relative);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, b"synthetic").unwrap();
+            let mut track = imported();
+            track.id = format!("native-{index}");
+            track.origin = "cuerithm".into();
+            track.musical = None;
+            track.locator =
+                PortableLocator::from_local_path(format!("native-locator-{index}"), &file);
+            lib.import_portable_tracks(&[track]).unwrap();
+            lib.bind_portable_track(&format!("native-{index}"), &file, None)
+                .unwrap();
+        }
+        // A later machine binding must not replace the original source tree.
+        let moved = d.path().join("CurrentBinding/A.wav");
+        std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+        std::fs::write(&moved, b"synthetic").unwrap();
+        lib.bind_portable_track("native-0", &moved, None).unwrap();
+        let archive = lib.portable_snapshot().unwrap();
+        assert_eq!(archive.records["roots"].len(), 1);
+        let mut root_native = b"unix:".to_vec();
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            root_native.extend(music.as_os_str().as_bytes());
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::ffi::OsStrExt;
+            root_native = b"windows:".to_vec();
+            root_native.extend(music.as_os_str().encode_wide().flat_map(u16::to_le_bytes));
+        }
+        let expected = PortableLocator::from_native_path_bytes("root", &root_native)
+            .unwrap()
+            .original;
+        let root: EncodedPath =
+            serde_json::from_value(archive.records["roots"][0].value["source_root"].clone())
+                .unwrap();
+        #[cfg(unix)]
+        assert_eq!(root.bytes().unwrap(), expected.bytes().unwrap());
+        #[cfg(windows)]
+        {
+            let text = String::from_utf16(&decoded_utf16(&root)).unwrap();
+            assert!(text.replace('/', "\\").ends_with("\\Music"));
+            let _ = expected;
+        }
+        for locator in &archive.records["locators"] {
+            assert_eq!(locator.value["components"].as_array().unwrap().len(), 2);
+        }
+        let limits = ArchiveLimits::default();
+        let spool = lib
+            .portable_snapshot_spooled(&limits, &|_, _| Ok(()))
+            .unwrap();
+        assert_eq!(spool.count("roots").unwrap(), 1);
+        let target = tempfile::tempdir().unwrap();
+        let restored = Library::open(&target.path().join("restored.sqlite")).unwrap();
+        restored
+            .restore_spooled(&spool, &limits, &|_, _| Ok(()))
+            .unwrap();
+        let destination = target.path().join("Relocated");
+        for (index, relative) in ["House/A.wav", "Other/B.wav"].iter().enumerate() {
+            let file = destination.join(relative);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, b"synthetic").unwrap();
+            let locator = restored
+                .source_locator(&format!("native-{index}"))
+                .unwrap()
+                .unwrap();
+            assert_eq!(locator.components.as_ref().unwrap().len(), 2);
+            let selected_root = destination.canonicalize().unwrap();
+            let mut mapped = selected_root.clone();
+            for component in locator.components.as_ref().unwrap() {
+                let text = if component.encoding == PathEncoding::Base64Utf16le {
+                    String::from_utf16(&decoded_utf16(component)).unwrap()
+                } else {
+                    String::from_utf8(component.bytes().unwrap()).unwrap()
+                };
+                mapped.push(text);
+            }
+            assert_eq!(mapped, file.canonicalize().unwrap());
+            restored
+                .bind_portable_track_in_root(
+                    &format!("native-{index}"),
+                    &mapped,
+                    &selected_root,
+                    &cuerithm_media::file_sha256(&mapped).unwrap(),
+                    &Default::default(),
+                )
+                .unwrap();
+            assert_eq!(
+                restored.track_path(&format!("native-{index}")).unwrap(),
+                mapped
+            );
+        }
+        // Root projection affects only the archive, never persisted native provenance.
+        assert_eq!(
+            lib.source_locator("native-0")
+                .unwrap()
+                .unwrap()
+                .components
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+}
+#[test]
+fn configured_music_root_is_used_even_when_all_tracks_share_a_deeper_parent() {
+    for watch_only in [false, true] {
+        let d = tempfile::tempdir().unwrap();
+        let music = d.path().join("Music");
+        let album = music.join("House/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let music = music.canonicalize().unwrap();
+        let lib = Library::open(&d.path().join("app/db")).unwrap();
+        if watch_only {
+            let mut settings = lib.settings().unwrap().settings;
+            settings.watch_folders = vec![music.clone()];
+            lib.save_settings(settings).unwrap();
+        } else {
+            lib.register_organization_root(music.clone()).unwrap();
+        }
+        let file = music.join("House/Album/A.wav");
+        std::fs::write(&file, b"synthetic").unwrap();
+        let mut track = imported();
+        track.origin = "cuerithm".into();
+        track.musical = None;
+        track.locator = PortableLocator::from_local_path("configured-locator", &file);
+        lib.import_portable_tracks(&[track]).unwrap();
+        lib.bind_portable_track("track-one", &file, None).unwrap();
+        let archive = lib.portable_snapshot().unwrap();
+        assert_eq!(archive.records["roots"].len(), 1);
+        assert_eq!(
+            archive.records["locators"][0].value["components"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+    }
+}
+#[test]
+fn native_root_aggregation_is_shared_across_spooled_pages() {
+    use cuerithm_library::backup::ArchiveLimits;
+    let d = tempfile::tempdir().unwrap();
+    let music = d.path().join("Music");
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let mut tracks = vec![];
+    let mut files = vec![];
+    for index in 0..130 {
+        let file = music.join(format!("Album-{index}/A.wav"));
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"synthetic").unwrap();
+        let file = file.canonicalize().unwrap();
+        let mut track = imported();
+        track.id = format!("native-page-{index:03}");
+        track.origin = "cuerithm".into();
+        track.musical = None;
+        track.locator = PortableLocator::from_local_path(format!("page-locator-{index}"), &file);
+        files.push((track.id.clone(), file));
+        tracks.push(track);
+    }
+    lib.import_portable_tracks(&tracks).unwrap();
+    for (id, file) in files {
+        lib.bind_portable_track(&id, &file, None).unwrap();
+    }
+    let spool = lib
+        .portable_snapshot_spooled(&ArchiveLimits::default(), &|_, _| Ok(()))
+        .unwrap();
+    assert_eq!(spool.count("tracks").unwrap(), 130);
+    assert_eq!(spool.count("roots").unwrap(), 1);
+    spool
+        .for_each("locators", &mut |locator| {
+            assert_eq!(locator.value["components"].as_array().unwrap().len(), 2);
+            Ok(())
+        })
+        .unwrap();
+}
+#[test]
+fn aggregate_windows_roots_preserve_opaque_code_units_and_originals() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("db");
+    let lib = Library::open(&path).unwrap();
+    for (index, parent) in ["House", "Other"].iter().enumerate() {
+        let mut units = format!(r"\\?\C:\Music\{parent}\A")
+            .encode_utf16()
+            .collect::<Vec<_>>();
+        units.push(0xd800);
+        units.extend(".wav".encode_utf16());
+        let native = windows_native_blob(&units);
+        let mut track = imported();
+        track.id = format!("opaque-native-{index}");
+        track.origin = "cuerithm".into();
+        track.musical = None;
+        track.locator =
+            PortableLocator::from_native_path_bytes(format!("opaque-locator-{index}"), &native)
+                .unwrap();
+        lib.import_portable_tracks(&[track]).unwrap();
+        rusqlite::Connection::open(&path)
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET path=?1 WHERE id=?2",
+                rusqlite::params![native, format!("opaque-native-{index}")],
+            )
+            .unwrap();
+    }
+    let archive = lib.portable_snapshot().unwrap();
+    assert_eq!(archive.records["roots"].len(), 1);
+    let root: EncodedPath =
+        serde_json::from_value(archive.records["roots"][0].value["source_root"].clone()).unwrap();
+    assert_eq!(
+        String::from_utf16(&decoded_utf16(&root)).unwrap(),
+        "C:/Music"
+    );
+    for locator in &archive.records["locators"] {
+        assert_eq!(locator.value["source_flavor"], "opaque-windows");
+        let components = locator.value["components"].as_array().unwrap();
+        assert_eq!(components.len(), 2);
+        let leaf: EncodedPath = serde_json::from_value(components[1].clone()).unwrap();
+        assert!(decoded_utf16(&leaf).contains(&0xd800));
+        let original: EncodedPath =
+            serde_json::from_value(locator.value["original"].clone()).unwrap();
+        assert!(decoded_utf16(&original).starts_with(&[92, 92, 63, 92]));
+    }
+}
+#[test]
+fn configured_filesystem_drive_share_and_volume_roots_group_sibling_artists() {
+    for (windows, root) in [
+        (true, r"C:\"),
+        (true, r"\\server\share"),
+        (false, "/Volumes/MusicDrive"),
+        (false, "/"),
+    ] {
+        let native = |text: &str| {
+            if windows {
+                windows_native_blob(&text.encode_utf16().collect::<Vec<_>>())
+            } else {
+                let mut bytes = b"unix:".to_vec();
+                bytes.extend(text.as_bytes());
+                bytes
+            }
+        };
+        let d = tempfile::tempdir().unwrap();
+        let database = d.path().join("db");
+        let lib = Library::open(&database).unwrap();
+        let raw = rusqlite::Connection::open(&database).unwrap();
+        raw.execute(
+            "INSERT INTO organization_roots VALUES('configured',?1,'{}',1)",
+            [native(root)],
+        )
+        .unwrap();
+        for (index, artist) in ["ArtistA", "ArtistB"].iter().enumerate() {
+            let text = format!("{}/{artist}/Track.wav", root.trim_end_matches(['/', '\\']));
+            let blob = native(&text);
+            let mut track = imported();
+            track.id = format!("anchored-{index}");
+            track.origin = "cuerithm".into();
+            track.musical = None;
+            track.locator =
+                PortableLocator::from_native_path_bytes(format!("anchored-locator-{index}"), &blob)
+                    .unwrap();
+            lib.import_portable_tracks(&[track]).unwrap();
+            raw.execute(
+                "UPDATE tracks SET path=?1 WHERE id=?2",
+                rusqlite::params![blob, format!("anchored-{index}")],
+            )
+            .unwrap();
+        }
+        let archive = lib.portable_snapshot().unwrap();
+        assert_eq!(archive.records["roots"].len(), 1, "{root}");
+        for locator in &archive.records["locators"] {
+            assert_eq!(
+                locator.value["components"].as_array().unwrap().len(),
+                2,
+                "{root}"
+            );
+        }
+    }
 }
