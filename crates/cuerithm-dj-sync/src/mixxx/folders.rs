@@ -62,11 +62,10 @@ pub(super) fn seed(
         let broad = is_drive_root(&directory)
             || home.is_some_and(|home| {
                 let home = home.trim_end_matches('/');
-                if case_insensitive {
-                    trimmed.eq_ignore_ascii_case(home)
-                } else {
-                    trimmed == home
-                }
+                trimmed == home
+                    || (case_insensitive
+                        && trimmed.to_lowercase() == home.to_lowercase()
+                        && super::tracks::file_check()(trimmed, home))
             });
         if broad {
             seeded.too_broad += 1;
@@ -167,6 +166,38 @@ mod tests {
         assert_eq!(listed(&connection), seeded.added);
         let text = describe(&seeded).unwrap();
         assert!(text.contains("2 track(s) are directly in your home folder or a drive root"));
+    }
+
+    #[test]
+    fn case_only_home_match_requires_the_same_directory() {
+        for same_directory in [false, true] {
+            let temp = tempfile::tempdir().unwrap();
+            let directory = temp.path().join("Music");
+            std::fs::create_dir(&directory).unwrap();
+            let home = temp.path().join("MUSIC");
+            let _identity = super::super::tracks::pretend_same_file(if same_directory {
+                |_, _| true
+            } else {
+                |_, _| false
+            });
+            let mut connection = fixture::create(&temp.path().join("mixxxdb.sqlite"), 39);
+            let id = fixture::add_track(
+                &connection,
+                directory.join("track.mp3").to_str().unwrap(),
+                "track",
+            );
+            let tx = connection.transaction().unwrap();
+            let seeded = seed(&tx, [id], home.to_str(), true).unwrap();
+            tx.commit().unwrap();
+            assert_eq!(seeded.too_broad, usize::from(same_directory));
+            let expected = if same_directory {
+                Vec::new()
+            } else {
+                vec![directory.to_str().unwrap().to_owned()]
+            };
+            assert_eq!(seeded.added, expected);
+            assert_eq!(listed(&connection), expected);
+        }
     }
 
     #[test]
