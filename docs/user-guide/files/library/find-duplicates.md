@@ -11,13 +11,13 @@
 
 **You need:**
 
-- [ ] CueRithm 0.1.13 with prepared tracks in **Tracks**
+- [ ] CueRithm 0.1.14 with prepared tracks in **Tracks**
 - [ ] At least one pair of identical tracks, both with their file in place. To make a practice pair, copy one file from a [watch folder](../watch-folders.md) into a second subfolder of the same watch folder and wait until **Tracks** counts it. The screenshots use *Man Like Me (Extended Mix)* by Kevin de Vries and Platero (<span class="cr-key">4A</span>, <span class="cr-bpm">128</span> BPM, <span class="cr-energy">7/10</span>, 5:15), once in `~/Music/Beatport` and once in a subfolder.
 
 Merging never deletes a music file: it archives the copies you do not keep. A track whose file is missing is **Unavailable**, and an unavailable track can never be a keeper or a donor.
 
-!!! warning "CueRithm 0.1.13"
-    Version 0.1.13 can still list a track whose file is missing inside a duplicate group, next to its available twin. Its **Availability** column reads **Unavailable**. Check that column in every group before you press **Preview selected groups**, never choose a missing track as keeper, and leave such a group unselected. Applying it would archive the track with the missing file and put the available one in its playlist slots, without carrying over its cues or tags. Use [Missing & broken](find-missing-files.md#scan) to find these tracks and [Find missing, moved or broken files](find-missing-files.md#repair) to repair them. A cleaner Duplicates screen is listed under *In development* in [What CueRithm does not do yet](../../help/not-available-yet.md).
+!!! warning "CueRithm 0.1.14"
+    Version 0.1.14 can still list a track whose file is missing inside a duplicate group, next to its available twin. Its **Availability** column reads **Unavailable**. Check that column in every group before you press **Preview selected groups**, never choose a missing track as keeper, and leave such a group unselected. Applying it would archive the track with the missing file and put the available one in its playlist slots, without carrying over its cues or tags. Use [Missing & broken](find-missing-files.md#scan) to find these tracks and [Find missing, moved or broken files](find-missing-files.md#repair) to repair them. A cleaner Duplicates screen is listed under *In development* in [What CueRithm does not do yet](../../help/not-available-yet.md).
 
 ## 1. Scan for duplicates { #scan }
 

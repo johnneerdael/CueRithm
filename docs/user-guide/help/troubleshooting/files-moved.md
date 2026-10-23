@@ -1,6 +1,6 @@
 # I moved or renamed my files
 
-<p class="lead">If you move or rename music files outside CueRithm, the library keeps pointing at the old locations, and a watch folder adds the files again as new tracks. This page shows what that looks like in CueRithm 0.1.13 and how to put the library right, in about ten minutes.</p>
+<p class="lead">If you move or rename music files outside CueRithm, the library keeps pointing at the old locations, and a watch folder adds the files again as new tracks. This page shows what that looks like in CueRithm 0.1.14 and how to put the library right, in about ten minutes.</p>
 
 <!-- figure:existing-help-preview-dash-light-help-troubleshooting-files-moved -->
 <figure markdown>
@@ -28,7 +28,7 @@ CueRithm identifies a track by the path to its file. It has no way to recognise 
 Moves that CueRithm makes itself with [Rename and sort files into folders](../../rename/organize-files.md) update the library at the same time, so they do not cause this.
 
 !!! note "In development"
-    Following file moves inside a watch folder, reconnecting moved music and removing stale tracks from Missing & broken are in development. They are not part of the released app, and this page describes CueRithm 0.1.13 as it is. The list of planned work is in [What CueRithm does not do yet](../not-available-yet.md#in-development).
+    Following file moves inside a watch folder, reconnecting moved music and removing stale tracks from Missing & broken are in development. They are not part of the released app, and this page describes CueRithm 0.1.14 as it is. The list of planned work is in [What CueRithm does not do yet](../not-available-yet.md#in-development).
 
 ## Fix it { #fix }
 
@@ -43,10 +43,10 @@ Either put the files back, or accept the new locations and tidy the old records.
 
 **If you want to keep the new locations:**
 
-CueRithm 0.1.13 cannot repoint an old track at a new path. The Missing & broken screen says so: *Relocating files is not available in this maintenance screen.* There is also no command that removes a missing track from the library. The new tracks work and have fresh analysis, but anything stored only on the old track (playlist membership, manual corrections, categories) stays with it. [Find missing, moved or broken files](../../files/library/find-missing-files.md) owns the repair steps for this case, including what you can safely do with the old tracks. Archiving them takes them out of Tracks and out of later Missing & broken reports.
+CueRithm 0.1.14 cannot repoint an old track at a new path. The Missing & broken screen says so: *Relocating files is not available in this maintenance screen.* There is also no command that removes a missing track from the library. The new tracks work and have fresh analysis, but anything stored only on the old track (playlist membership, manual corrections, categories) stays with it. [Find missing, moved or broken files](../../files/library/find-missing-files.md) owns the repair steps for this case, including what you can safely do with the old tracks. Archiving them takes them out of Tracks and out of later Missing & broken reports.
 
-!!! warning "CueRithm 0.1.13"
-    The **Duplicates** scan in Maintenance can list a missing track beside its present twin, because both have the same artist, title and length. Do not use Duplicates to repair missing files, and never choose a missing track as the keeper. The keeper menus show unavailable tracks as unavailable, but pairing them is a known problem in this version, and a merge changes your library. A fix is in development and is not in the released app. [Find missing, moved or broken files](../../files/library/find-missing-files.md) gives the repair steps that 0.1.13 does support.
+!!! warning "CueRithm 0.1.14"
+    The **Duplicates** scan in Maintenance can list a missing track beside its present twin, because both have the same artist, title and length. Do not use Duplicates to repair missing files, and never choose a missing track as the keeper. The keeper menus show unavailable tracks as unavailable, but pairing them is a known problem in this version, and a merge changes your library. A fix is in development and is not in the released app. [Find missing, moved or broken files](../../files/library/find-missing-files.md) gives the repair steps that 0.1.14 does support.
 
 ## Check it worked { #check }
 
@@ -57,7 +57,7 @@ CueRithm 0.1.13 cannot repoint an old track at a new path. The Missing & broken 
 ## Prevent it { #prevent }
 
 - Reorganise with [Rename and sort files into folders](../../rename/organize-files.md) instead of Finder or Explorer. CueRithm keeps its library in step with its own moves, and [Recover or undo a reorganisation](../../rename/undo-organize.md) can reverse them.
-- Keep your music in the folder where CueRithm first found it. [Move or rename files without breaking the library](../../files/move-files.md) explains what is safe in 0.1.13.
+- Keep your music in the folder where CueRithm first found it. [Move or rename files without breaking the library](../../files/move-files.md) explains what is safe in 0.1.14.
 - [Back up your library](../../files/library/back-up-library.md) before you rearrange a large folder.
 
 ## Still stuck? { #still-stuck }
