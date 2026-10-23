@@ -10,8 +10,10 @@ import markDark from "../brand/cuerithm-mark-on-dark.svg";
 import type {PlaylistDragPayload} from "../playlist-drag";
 import type {LibraryState,WorkspaceView} from "../types";
 import {shortcut} from "../platform";
+import {useAppVersion} from "../app-version";
 const peekDelay=140;
 export default function Sidebar({view,onView,state,playlists,activePlaylistId,onPlaylist,onCreate,onEdit,onAction,onUndo,busy,playlistPanel,onTools,drag,onPlaylistDragStart,collapsed,onToggleCollapsed}:{view:WorkspaceView;onView:(view:WorkspaceView)=>void;state:LibraryState|null;playlists:PlaylistWorkspace|null;activePlaylistId:string|null;onPlaylist:(id:string)=>void;onCreate:()=>void;onEdit:(node:PlaylistNode)=>void;onAction:(edit:PlaylistEdit,revision:number)=>Promise<boolean>;onUndo:()=>void;busy:boolean;playlistPanel:"tools"|"generator"|null;onTools:()=>void;drag:PlaylistDragPayload|null;onPlaylistDragStart:(id:string,event:React.PointerEvent)=>void;collapsed:boolean;onToggleCollapsed:()=>void}){
+  const version=useAppVersion();
   const [expanded,setExpanded]=useState(new Set<string>()),[removedOpen,setRemovedOpen]=useState(false);
   const [menu,setMenu]=useState<{id:string;revision:number;x:number;y:number}|null>(null),[moving,setMoving]=useState<PlaylistNode|null>(null);
   const nodes=playlists?.tree.nodes??[],revision=playlists?.tree.revision??0;
@@ -65,7 +67,7 @@ export default function Sidebar({view,onView,state,playlists,activePlaylistId,on
     <button className={view==="backup"?"nav active":"nav"} title="Library backup" onClick={()=>onView("backup")}><Archive size={18}/><span className="nav-label">Library backup</span></button>
     <button className={view==="organize"?"nav active":"nav"} title="Organize files" onClick={()=>onView("organize")}><FolderInput size={18}/><span className="nav-label">Organize files</span></button>
     <button className={view==="sync"?"nav active":"nav"} title="Sync" onClick={()=>onView("sync")}><Glyph name="sync"/><span className="nav-label">Sync</span></button>
-    <div className="sidebar-bottom"><div className="offline-label"><i/><span>LOCAL LIBRARY</span></div><button className={view==="settings"?"nav active":"nav"} title="Settings" onClick={()=>onView("settings")}><Glyph name="settings"/><span className="nav-label">Settings</span></button><div className="build-label">CUERITHM <span>0.1</span></div></div>
+    <div className="sidebar-bottom"><div className="offline-label"><i/><span>LOCAL LIBRARY</span></div><button className={view==="settings"?"nav active":"nav"} title="Settings" onClick={()=>onView("settings")}><Glyph name="settings"/><span className="nav-label">Settings</span></button><div className="build-label">CUERITHM {version?<span>{version}</span>:null}</div></div>
     {menu&&menuNode&&!menuNode.deleted?<PlaylistMenu node={menuNode} nodes={nodes} x={menu.x} y={menu.y} onClose={closeMenu} onEdit={()=>onEdit(menuNode)} onMove={()=>setMoving(menuNode)} onAction={edit=>void onAction(edit,menu.revision)}/>:null}
     {moving&&playlists?<PlaylistMoveDialog node={moving} workspace={playlists} onMove={onAction} onClose={()=>setMoving(null)}/>:null}
   </aside>
