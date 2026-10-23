@@ -654,7 +654,10 @@ fn native_nested_library_exports_one_mapping_root_and_full_relative_components()
         lib.bind_portable_track("native-0", &moved, None).unwrap();
         let archive = lib.portable_snapshot().unwrap();
         assert_eq!(archive.records["roots"].len(), 1);
+        #[cfg(unix)]
         let mut root_native = b"unix:".to_vec();
+        #[cfg(windows)]
+        let mut root_native = b"windows:".to_vec();
         #[cfg(unix)]
         {
             use std::os::unix::ffi::OsStrExt;
@@ -663,7 +666,6 @@ fn native_nested_library_exports_one_mapping_root_and_full_relative_components()
         #[cfg(windows)]
         {
             use std::os::windows::ffi::OsStrExt;
-            root_native = b"windows:".to_vec();
             root_native.extend(music.as_os_str().encode_wide().flat_map(u16::to_le_bytes));
         }
         let expected = PortableLocator::from_native_path_bytes("root", &root_native)
