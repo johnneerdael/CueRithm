@@ -101,8 +101,9 @@ in [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 The player always draws the saved cues and the saved grid, including any
 [corrections you made](corrections/index.md). The small waveform in the **PREVIEW**
-column of the table is drawn from the detector's own markers and does not change
-when you correct a track. Trust the player.
+column of the table marks the same saved cues, so it follows a correction. Its faint
+phrase lines (every 16 bars) are still drawn from the detector's grid, so after a
+[grid correction](corrections/fix-the-beatgrid.md) trust the player.
 
 ## What can go wrong
 
@@ -121,4 +122,4 @@ when you correct a track. Trust the player.
 - [Choose a waveform style](../customize/waveform-style.md)
 - [How is the waveform drawn?](../how-it-works/waveform.md)
 
-<!-- verified: apps/desktop/src/components/PlayerPanel.tsx (header, transport, CUE, zoom 32 s with 0.35 playhead position, overview, cue strip, Edit cues & grid, empty states); apps/desktop/src/components/RowPreview.tsx (PREVIEW column uses detector markers); apps/desktop/src/published-analysis.ts; apps/desktop/src/App.tsx (load starts playback, key handlers); apps/desktop/src/test/player.test.tsx; apps/desktop/src/test/workspace.test.tsx (bar jump uses saved tempo); crates/cuerithm-media/src/decode.rs (44100 stereo cache, 64M-sample limit); crates/cuerithm-library/src/playback.rs (default output device); legacy guides/player.md and about/roadmap.md re-checked -->
+<!-- verified: apps/desktop/src/components/PlayerPanel.tsx (header, transport, CUE, zoom 32 s with 0.35 playhead position, overview, cue strip, Edit cues & grid, empty states); apps/desktop/src/components/RowPreview.tsx (PREVIEW column marks the saved cues through playbackCues; phrase lines from the detector grid); apps/desktop/src/published-analysis.ts; apps/desktop/src/App.tsx (load starts playback, key handlers); apps/desktop/src/test/player.test.tsx; apps/desktop/src/test/workspace.test.tsx (bar jump uses saved tempo); crates/cuerithm-media/src/decode.rs (44100 stereo cache, 64M-sample limit); crates/cuerithm-library/src/playback.rs (default output device); legacy guides/player.md and about/roadmap.md re-checked -->

@@ -1,6 +1,7 @@
 import {useEffect,useId,useMemo,useState} from "react";
 import type {Cue,Detail,Waveform} from "../types";
-import {cueColor} from "../display";
+import {cueColor,cueSlot} from "../display";
+import {playbackCues} from "../published-analysis";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
 import {useAppliedTheme} from "../theme";
@@ -19,10 +20,13 @@ function slot<T>(work:()=>Promise<T>):{promise:Promise<T>;cancel:()=>boolean}{
   const cancel=()=>{const at=item?waiting.indexOf(item):-1;if(at<0)return false;waiting.splice(at,1)[0].drop();return true;};
   return {promise,cancel};
 }
+// A dash says why there is no chart. It only claims what the load tells us: it failed, or the waveform is empty.
+const unavailable={unread:"No preview: the audio file could not be read. It may be missing, moved or in an unsupported format.",empty:"No preview: this track has no waveform data.",none:"No preview available."};
+const dash=(reason:string)=><span className="dim" role="img" aria-label={reason} title={reason}>—</span>;
 function build(wave:Waveform,detail:Detail):Preview{
   const analysis=detail.analysis?.analysis,tempo=analysis?.tempo;
   const bars=tempo?.downbeats_seconds??tempo?.beats_seconds.filter((_,i)=>i%4===0)??[];
-  return {duration:wave.duration_seconds||analysis?.duration_seconds||0,wave,grid:bars.filter((_,i)=>i%phraseBars===0),cues:analysis?.lexicon_cues?.cues??[]};
+  return {duration:wave.duration_seconds||analysis?.duration_seconds||0,wave,grid:bars.filter((_,i)=>i%phraseBars===0),cues:playbackCues(detail.analysis)?.cues??[]};
 }
 // Cached per source identity so rows can unmount and remount while scrolling without refetching.
 // Each caller holds a reference; when the last one lets go before the work started, the work is dropped.
@@ -56,10 +60,12 @@ export default function RowPreview({id,identity,load}:{id:string;identity:string
     return()=>{current=false;clearTimeout(timer);release();};
   },[id,identity,load]);
   const shape=useMemo(()=>data?buildShape(data.wave,style,{first:0,last:data.wave.bins.length,columns,x:bin=>(bin+.5)/data.wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true,theme}):null,[data,style,theme]);
-  if(!load||failed||(data&&!data.wave.bins.length))return <span className="dim">—</span>;
+  if(!load)return dash(unavailable.none);
+  if(failed)return dash(unavailable.unread);
+  if(data&&!data.wave.bins.length)return dash(unavailable.empty);
   if(!data||!shape)return <span className="row-preview-chart loading" aria-hidden="true"/>;
   const x=(t:number)=>Math.max(0,Math.min(width,t/Math.max(.001,data.duration)*width));
-  return <span className="row-preview-chart" data-wave-style={style} role="img" aria-label={data.cues.length+(data.cues.length===1?" cue":" cues")} title={data.cues.map((c,i)=>String.fromCharCode(65+i)+" · "+c.name).join("\n")||"No cues"}>
+  return <span className="row-preview-chart" data-wave-style={style} role="img" aria-label={data.cues.length+(data.cues.length===1?" cue":" cues")} title={data.cues.map((c,i)=>cueSlot(c.position??i)+" · "+c.name).join("\n")||"No cues"}>
     <svg viewBox={"0 0 "+width+" "+height} preserveAspectRatio="none" aria-hidden="true">
       {data.grid.map((t,i)=><line key={i} className="preview-grid" x1={x(t)} x2={x(t)} y1="0" y2={height}/>)}
       <WaveformArt shape={shape} id={gradient} width={width} barClass="preview-wave"/>

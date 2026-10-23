@@ -12,7 +12,7 @@
 
 ## Why it happens { #why }
 
-The **PREVIEW** column draws a small waveform with cue markers for each row. To draw it, CueRithm decodes the audio file at the location stored in the library (see [where CueRithm keeps your data](../../files/library/where-data-lives.md)). It does this only for rows that are on screen, after a short pause, two at a time. A grey bar while a row waits is normal. The dash appears when the request fails or the file produces no waveform data.
+The **PREVIEW** column draws a small waveform with cue markers for each row. To draw it, CueRithm decodes the audio file at the location stored in the library (see [where CueRithm keeps your data](../../files/library/where-data-lives.md)). It does this only for rows that are on screen, after a short pause, two at a time. A grey bar while a row waits is normal. The dash appears when the request fails or the file produces no waveform data. Hover over it, or let a screen reader read it, for the reason: *No preview: the audio file could not be read. It may be missing, moved or in an unsupported format.* when the audio could not be loaded, or *No preview: this track has no waveform data.* when it loaded but held nothing to draw.
 
 Pressing Play runs the same decoding step, so whatever stops the preview also stops playback. The message tells you which cause you have:
 

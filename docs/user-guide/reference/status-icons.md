@@ -66,9 +66,9 @@ A dash (**—**) means CueRithm has no value to show.
 |---|---|---|
 | **BPM**, **KEY**, **ENERGY** | The measurement is not available, usually because the track has not finished preparing | Wait for the track to finish, or see [Read a track's key, BPM and energy](../analysis/read-key-bpm-energy.md) |
 | **ARTIST**, **GENRE** | The tag is empty | [Edit tags and artwork](../tagging/edit-tags-by-hand.md) |
-| **PREVIEW** | No waveform could be drawn: the track has not finished preparing, the file is missing or moved, or it could not be read | [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md). If the file moved, see [I moved or renamed my files](../help/troubleshooting/files-moved.md). |
+| **PREVIEW** | No waveform could be drawn. Hover over the dash: *No preview: the audio file could not be read. It may be missing, moved or in an unsupported format.* means loading the audio failed, and *No preview: this track has no waveform data.* means the audio loaded but held nothing to draw | [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md). If the file moved, see [I moved or renamed my files](../help/troubleshooting/files-moved.md). |
 
-When a preview works, it shows the waveform with a small triangle at each cue and faint vertical lines every 16 bars. A blank bar means it is still loading. Hover to read the cues: "A · Start", "B · Drop" and so on. A screen reader hears the count, for example "5 cues". See [Cue names, letters and colours](cue-types.md).
+When a preview works, it shows the waveform with a small triangle at each cue and faint vertical lines every 16 bars. A blank bar means it is still loading. Hover to read the saved cues: "A · Start", "B · Drop" and so on. After you correct a track's cues the preview shows the corrected ones. A screen reader hears the count, for example "5 cues", and reads the dash's explanation when there is no preview. See [Cue names, letters and colours](cue-types.md).
 
 ## The header and the sidebar { #header }
 
