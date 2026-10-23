@@ -132,6 +132,19 @@ fn unknown_native_occupancy_blocks_generation_without_blocking_key() {
     f.apply(&f.preview(request.clone()));
     let item = f.lib.tracks(TrackQuery::default()).unwrap().rows.remove(0);
     let fields = super::super::reconcile::local_fields(&f.lib.conn().unwrap(), &item.id).unwrap();
+    let public = f.lib.imported_item(&item.id).unwrap();
+    assert!(
+        public
+            .active_fields
+            .keys()
+            .all(|field| !field.starts_with('_'))
+    );
+    assert!(
+        public
+            .provenance
+            .keys()
+            .all(|field| !field.starts_with('_'))
+    );
     let stages = super::super::processing::planned_stage_blockers(&request.policy, &fields);
     assert!(
         stages

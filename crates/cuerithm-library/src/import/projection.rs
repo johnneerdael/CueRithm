@@ -385,7 +385,7 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
         existing.as_deref().is_none_or(|id| id == p.item_id),
         "Source binding changed after preview"
     );
-    conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,json!({"snapshot_id":p.snapshot_id,"location":p.observation.locations,"hotcue_occupancy":if super::performance::unknown_hotcue_occupancy(p.observation){"unknown"}else{"observed"}}).to_string()])?;
+    conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,super::performance::binding_identity(p.snapshot_id,p.observation).to_string()])?;
     retain_legacy_rekordbox_binding(conn, &p)?;
     conn.execute("UPDATE import_memberships SET item_id=?1 WHERE item_id IS NULL AND external_track_id=?2 AND collection_id IN (SELECT id FROM import_collections WHERE source_id=?3)",params![p.item_id,p.observation.external_id,p.source_id])?;
     let provenance = json!({"kind":"source","source_id":p.source_id,"external_id":p.observation.external_id,"snapshot_id":p.snapshot_id});
@@ -510,7 +510,8 @@ impl Library {
             )
             .context("Unknown imported item")?;
         let stored_fields = active_fields_tx(&conn, id)?;
-        let fields = super::reconcile::local_fields(&conn, id)?;
+        let mut fields = super::reconcile::local_fields(&conn, id)?;
+        fields.retain(|field, _| !field.starts_with('_'));
         let mut query=conn.prepare("SELECT field,provenance_json FROM import_active_fields WHERE item_id=?1 AND field NOT LIKE '\\_%' ESCAPE '\\' ORDER BY field")?;
         let mut provenance = query
             .query_map([id], |r| {

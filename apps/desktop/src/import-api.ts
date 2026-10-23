@@ -21,6 +21,7 @@ export const importApi={
  recoverImportOperation:(operationId:string,id:string)=>invoke<T.ImportRecoveryResult>("recover_import_operation",{operationId,id}),
  undoImportOperation:(operationId:string,id:string)=>invoke<T.ImportUndoResult>("undo_import_operation",{operationId,id}),
  importedItem:(id:string)=>invoke<T.ImportedItemDetail>("imported_item",{id}),
+ importedCollectionList:(query:T.ImportCollectionListQuery={})=>invoke<T.ImportedCollectionList>("imported_collection_list",{query}),
  importedCollectionPage:(id:string,query:T.PageQuery={})=>invoke<T.ImportedCollectionPage>("imported_collection_page",{id,query}),
  runImportProcessing:(operationId:string)=>invoke<T.ImportProcessingSummary>("run_import_processing",{operationId}),
  retryImportProcessing:(operationId:string,id:string)=>invoke<T.ImportProcessingSummary>("retry_import_processing",{operationId,id}),

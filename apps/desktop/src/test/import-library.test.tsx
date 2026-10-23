@@ -5,7 +5,13 @@ import {importInspection,importTrack} from "./import-fixtures";
 import App from "../App";
 import PlayerPanel from "../components/PlayerPanel";
 import {fakeBridge,track} from "./bridge";
+import userEvent from "@testing-library/user-event";
+import {importApi} from "../import-api";
 describe("imported library observations",()=>{
+ it("opens persisted imported playlists from the desktop sidebar",async()=>{
+  const listing=vi.spyOn(importApi,"importedCollectionList").mockResolvedValue({records:[{id:"native-list",source_id:"source",provider:"m3u",parent_id:null,name:"Persisted imported set",name_truncated:false,kind:"playlist",occurrences:3}],total:1,next_cursor:null});
+  try{render(<App bridge={fakeBridge([])}/>);await userEvent.click(await screen.findByRole("button",{name:"Imported playlists"}));expect(await screen.findByText("Persisted imported set")).toBeVisible();}finally{listing.mockRestore();}
+ });
  it("missing_media_stays_in_library",()=>{
   render(<ImportSelection inspection={importInspection} page={{records:[{record_type:"track",record:importTrack}],total:1,next_cursor:null}} kind="track" selected={{selection:"all"}} onSelection={()=>{}} onKind={()=>{}} onNext={()=>{}} busy={false}/>);
   expect(screen.getByText("Imported title")).toBeVisible();expect(screen.getByText(/^Missing media \//i)).toBeVisible();expect(screen.getByText("8A")).toBeVisible();expect(screen.queryByText(/prepared/i)).not.toBeInTheDocument();

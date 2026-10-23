@@ -237,7 +237,10 @@ fn convert(
         track.bpm = Some(ScalarBpm {
             presence: FieldPresence::Value,
             value: Some(bpm),
-            extensions: BTreeMap::from([("locked".into(), value["bpm_lock"].clone())]),
+            locked: value["bpm_lock"]
+                .as_bool()
+                .or_else(|| value["bpm_lock"].as_i64().map(|v| v != 0)),
+            extensions: BTreeMap::from([("native_bpm_lock".into(), value["bpm_lock"].clone())]),
             ..Default::default()
         });
     }

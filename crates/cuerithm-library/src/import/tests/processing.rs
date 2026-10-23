@@ -430,6 +430,63 @@ fn allowed_generation_is_a_proposal_with_private_prerequisites() {
     assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, before);
     service.shutdown();
 }
+#[test]
+fn unknown_pad_replacement_authority_is_bound_to_the_reviewed_snapshot() {
+    let (f, _, id) = setup(ImportPolicy::default(), true);
+    let mut observed = f.lib.imported_item(&id).unwrap().observations[0]
+        .track
+        .clone();
+    observed
+        .extensions
+        .insert("hotcue_occupancy".into(), serde_json::json!("unknown"));
+    let inspection = f.inspect(vec![observed.clone()], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.policy.cue_generation = CueGeneration::Generate;
+    request.policy.replace_hotcues = true;
+    let operation = f.apply(&f.preview(request)).operation_id;
+    assert!(
+        f.lib
+            .import_export_readiness(&id)
+            .unwrap()
+            .reasons
+            .iter()
+            .any(|r| r.contains("Unknown native hotcue occupancy"))
+    );
+    let processor = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    assert_eq!(
+        processor
+            .run_pending(&CancellationToken::default())
+            .unwrap()
+            .processed,
+        1
+    );
+    let preview = f
+        .lib
+        .preview_import_effects(&operation, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(preview.ready, 1);
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    assert!(
+        !f.lib
+            .import_export_readiness(&id)
+            .unwrap()
+            .reasons
+            .iter()
+            .any(|r| r.contains("Unknown native hotcue occupancy"))
+    );
+    let later = f.inspect(vec![observed], Completeness::WholeLibrary);
+    f.apply(&f.preview(f.request(&later)));
+    assert!(
+        f.lib
+            .import_export_readiness(&id)
+            .unwrap()
+            .reasons
+            .iter()
+            .any(|r| r.contains("Unknown native hotcue occupancy"))
+    );
+}
 
 #[test]
 fn changed_metadata_reuses_only_an_exact_validated_stage_result() {

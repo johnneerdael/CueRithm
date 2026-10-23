@@ -48,6 +48,7 @@ fn read(snapshot: &ImportSnapshot, reader: &RekordboxReader) -> (ObservationHead
     snapshot
         .validate_source(&CancellationToken::default())
         .unwrap();
+    support::export_acceptance_fixture(snapshot, &rows);
     (header, rows)
 }
 fn grid() -> Vec<u8> {

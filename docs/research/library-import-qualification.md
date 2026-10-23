@@ -635,3 +635,83 @@ review while generation is pending/running. These controls do not establish
 native source-app/device write acceptance.
 
 This stage passes 115 matched library checks, 31 frontend import checks, production frontend build, type checking and changed-package all-target release Clippy with warnings denied. A two-preview/apply/Undo witness caught and fixed replay through the older preview. Formatting/diff checks pass. Final whole-workspace/desktop checks and fresh branch review remain Task 23 gates.
+
+
+## Whole-system authored acceptance
+
+The public-service acceptance suite exercises actual adapter capture/read,
+Library inspection, immutable preview and apply across all 13 providers. Stored
+observations roundtrip exactly; selected source artifact hashes remain unchanged;
+all-off imports produce no Incoming jobs, processing receipts or FileAnalysis.
+Four public integration controls pass: persisted collection discovery after restart with repeated occurrences, all-provider roundtrip, preservation of
+unselected/local-only changes through a native Traktor multi-source refresh, and
+lazy playback/waveform loading with imported values/provenance unchanged in all
+ten supported media formats. Matched library tests also cover independent
+analysis/generation, library-only enrichment, tag writes without lookup, naming
+without tag writes, source-open refusal, guarded Undo, later source links and
+current-snapshot unknown pad replacement. The complete latest library run passes
+120 matched checks. SDK validation passes528 checks, with three explicitly
+ignored tests; the generic fixture helper now checks durable serialization too.
+
+The native-input archive is127478 bytes, SHA-256
+`2cab295bb7223191456d40ba9167f38bbd707b3dedbdf67ba57c5612002dd99b`.
+Its manifest pins every file. See
+[fixture provenance](../../tools/fixtures/import-native-sources-README.md) and
+[exact per-profile field evidence](../development/fixtures/library-import-native-profiles.json).
+The JSON records the schema fingerprint and each field group's read/write,
+lossless, evidence and limitation flags; missing groups remain unavailable.
+
+| Provider | Authored public-service profile | New evidence | Remaining acceptance |
+| --- | --- | --- | --- |
+| rekordbox direct | rekordbox-direct-collection-read-v1 | D2 | D3/D4/D5/D6 unrun |
+| Serato3 | serato3-database-v2-crates | D2 | D3/D4/D5/D6 unrun |
+| Serato4 | serato4-master-schema12 | D2 | D3/D4/D5/D6 unrun |
+| Engine DJ | engine-database2-relational | D2 | D3/D4/D5/D6 unrun |
+| Traktor | traktor-nml19-pro3-4 | D2 | D3/D4/D5/D6 unrun |
+| VirtualDJ | virtualdj-xml8.4-8.5-mylists | D2 | D3/D4/D5/D6 unrun |
+| djay Pro | djay-yap-tsaf3-keyed-archive | D2 | D3/D4/D5/D6 unrun |
+| Apple Music XML | apple-library-plist-1.1 | D2 | D3/D4 unrun; no native writer/device claim |
+| Pioneer USB | pioneer-pdb-linked-pages-v1 | D2 | D3/D4/D5/D6 unrun |
+| M3U/M3U8 | m3u-text-v1 | D2 | D3/D4 unrun; no native writer/device claim |
+| Mixed In Key11 | mik-macos-datamodel11-structural | D2 | D3/D4/D5/D6 unrun; Windows storage uninspected |
+| DJ.Studio | djstudio-explorer-imported-json-v1 | D2 | D3/D4/D5/D6 unrun; experiment remains off by default |
+| Mixxx | mixxx-schema40 | D2 | D3/D4/D5/D6 unrun |
+
+D0 documented workflows and D1 pinned structures come from the retained author
+handover. The per-reader sections above record additional authored schema/codec
+profiles, losses and raw-only surfaces. Synthetic databases are D2, even when
+read-only acquisition is used. No real source-app-generated fixture or device was
+introduced here. No new native database writer or timing profile is promoted.
+Original-media writes still require explicit separate choices and a fresh source
+application check; original source-bound moves remain blocked until exact
+reference repair qualifies. Generic audio-tag wrapper/PCM/Undo controls are
+separate from native database D5 acceptance.
+
+## Recorded cloud scale host
+
+The isolated Linux run uses kernel6.18.55 x86_64, five exposed vCPUs on AMD EPYC
+9V74, Rust1.99.1 (`58cf8f9c3`,2026-10-13), pnpm12.14.0 and the sealed FFmpeg9.0.2
+runtime. The runtime recipe is `cuerithm-swr44100-stereo-f32-native-md5-v2`;
+ffmpeg SHA-256 is
+`d3fdd432139640288f15771252226d73a992ea5eeeb8cca467d229e64bba5053`,
+ffprobe SHA-256 is
+`608ab356483aff6add61b2c0a30edbe88ecd4aa869197fd1907dc2aecd8dfff7`.
+Builds use optimized dependencies and release opt-level0 for the active library
+and SDK packages, four compiler jobs, and no concurrent compiler during the
+measured scale run. The fixture uses100000 distinct available generated WAV paths,
+so actual media SHA I/O occurs; it does not represent scanning100000 full-length
+music files. Import pages are bounded1000 and ordinary Tracks pages retain their
+existing500-record cap. Cancellation is measured at an actual synchronous adapter
+sink boundary, with at most its current track/membership pair completed. Linux
+VmHWM supplies process peak memory; the test makes no native macOS/Windows memory
+measurement claim. The post-fix run accounts for100000 tracks/100003 occurrences, with maximum import page1000, cancellation0.141ms, peak80372KiB and incremental72572KiB (70.87MiB), below the512MiB budget. Inspect took12.401s, preview58.055s, apply32.111s and total312.531s. Hierarchy depth128passed and129was rejected. These measurements cover authored generated media and the recorded build, not real-music throughput.
+
+
+Applied imported collections have a persistent sidebar browser, separate from
+editable manual playlists. Read-only root/folder listing is paged by opaque IDs;
+leaf pages keep occurrence IDs and duplicates, unresolved entries remain visible,
+and only resolved media is playable. Smart rules remain observations. Browser,
+App-route, native-ID folder paging and stale-cursor controls cover this projection;
+no raw source occurrence is flattened into a deduplicated local playlist.
+
+Final stage validation: SDK528passed/3ignored,120matched library checks, four public native-service integrations, four native command/selection checks, frontend import and App-route controls, frontend build and changed-package all-target releaseClippy passed. Source executable matching includes quoted and non-UTF8 paths without inspecting unrelated arguments as executables. Public track details omit private planning keys; source observations and readiness retain their safety interpretation.

@@ -31,5 +31,7 @@ describe("library import native boundary",()=>{
   expect(native.invoke).toHaveBeenLastCalledWith("cancel_organization",{operationId:"scan"});
   await importApi.retryImportProcessing("retry-work","durable-operation");
   expect(native.invoke).toHaveBeenLastCalledWith("retry_import_processing",{operationId:"retry-work",id:"durable-operation"});
+  await importApi.importedCollectionList({parent_id:"server-folder",source_id:"server-source",limit:100});
+  expect(native.invoke).toHaveBeenLastCalledWith("imported_collection_list",{query:{parent_id:"server-folder",source_id:"server-source",limit:100}});
  });
 });

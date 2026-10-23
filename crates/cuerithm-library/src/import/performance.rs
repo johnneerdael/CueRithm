@@ -3,6 +3,9 @@ use anyhow::Result;
 use cuerithm_dj_sync::import::*;
 use rusqlite::Connection;
 use serde_json::Value;
+pub(super) fn binding_identity(snapshot_id: &str, track: &TrackObservation) -> Value {
+    serde_json::json!({"snapshot_id":snapshot_id,"location":track.locations,"hotcue_occupancy":if unknown_hotcue_occupancy(track){"unknown"}else{"observed"}})
+}
 pub(super) fn unknown_hotcue_occupancy(track: &TrackObservation) -> bool {
     track
         .extensions

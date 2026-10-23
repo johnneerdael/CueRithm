@@ -77,6 +77,92 @@ impl SourceAdapter for Reader {
         })
     }
 }
+#[test]
+fn imported_collection_browser_pages_hierarchies_and_rejects_stale_cursors() {
+    let f = Fixture::new();
+    let collections = vec![
+        CollectionObservation {
+            external_id: "root".into(),
+            name: "Root".into(),
+            kind: CollectionKind::Folder,
+            ..Default::default()
+        },
+        CollectionObservation {
+            external_id: "other".into(),
+            name: "Other".into(),
+            kind: CollectionKind::Playlist,
+            ..Default::default()
+        },
+        CollectionObservation {
+            external_id: "child".into(),
+            parent_id: Some("root".into()),
+            name: "Child".into(),
+            kind: CollectionKind::Playlist,
+            ..Default::default()
+        },
+    ];
+    let inspection = f
+        .try_inspect_records(vec![], collections, vec![], Completeness::WholeLibrary)
+        .unwrap();
+    f.apply(&f.preview(f.request(&inspection)));
+    let first = f
+        .lib
+        .imported_collection_list(ImportCollectionListQuery {
+            limit: 1,
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(first.total, 2);
+    assert_eq!(first.records.len(), 1);
+    let cursor = first.next_cursor.clone().unwrap();
+    let second = f
+        .lib
+        .imported_collection_list(ImportCollectionListQuery {
+            limit: 1,
+            cursor: Some(cursor.clone()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_ne!(first.records[0].id, second.records[0].id);
+    assert!(second.next_cursor.is_none());
+    let root = first
+        .records
+        .iter()
+        .chain(&second.records)
+        .find(|entry| entry.name == "Root")
+        .unwrap();
+    let child = f
+        .lib
+        .imported_collection_list(ImportCollectionListQuery {
+            parent_id: Some(root.id.clone()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(child.total, 1);
+    assert_eq!(child.records[0].name, "Child");
+    assert!(
+        f.lib
+            .imported_collection_list(ImportCollectionListQuery {
+                parent_id: Some(root.id.clone()),
+                cursor: Some(cursor.clone()),
+                ..Default::default()
+            })
+            .is_err()
+    );
+    let changed = f.inspect(
+        vec![track("Later imported track")],
+        Completeness::WholeLibrary,
+    );
+    f.apply(&f.preview(f.request(&changed)));
+    assert!(
+        f.lib
+            .imported_collection_list(ImportCollectionListQuery {
+                cursor: Some(cursor),
+                ..Default::default()
+            })
+            .is_err()
+    );
+}
 pub(super) fn track(title: &str) -> TrackObservation {
     TrackObservation {
         external_id: "a".into(),

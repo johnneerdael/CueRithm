@@ -182,6 +182,7 @@ pub fn run() {
             import_commands::undo_import_operation,
             import_commands::imported_item,
             import_commands::imported_collection_page,
+            import_commands::imported_collection_list,
             import_commands::run_import_processing,
             import_commands::retry_import_processing,
             rekordbox_sync_commands::discover_rekordbox_targets,

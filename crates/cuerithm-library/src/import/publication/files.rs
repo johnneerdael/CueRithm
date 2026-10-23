@@ -8,6 +8,7 @@ impl Library {
         policy: &ImportPolicy,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        self.validate_import_source_processes(row)?;
         let media = row.media.as_ref().context("Imported media unresolved")?;
         media.validate(cancel)?;
         if row.stage == "file.relocation"
@@ -187,6 +188,7 @@ impl Library {
         journal: &mut EffectJournal,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        self.validate_import_source_processes(row)?;
         #[cfg(feature = "autotag")]
         if let Some(preview) = &row.tag_preview {
             let service =
@@ -251,6 +253,7 @@ impl Library {
         journal: &mut EffectJournal,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        self.validate_import_source_processes(row)?;
         if let Some(batch) = journal.organization_batch.clone() {
             if journal.undo_organization_batch.is_none() {
                 journal.undo_organization_batch=self.conn()?.query_row("SELECT id FROM organization_batches WHERE undo_of=?1 ORDER BY created,rowid DESC LIMIT 1",[&batch],|r|r.get(0)).optional()?;
@@ -309,6 +312,7 @@ impl Library {
         &self,
         row: &EffectRow,
     ) -> Result<()> {
+        self.validate_import_source_processes(row)?;
         if row.organization.is_some() && !row.relocation_copy {
             let refs: u64 = self.conn()?.query_row(
                 "SELECT COUNT(*) FROM import_bindings WHERE item_id=?1",
@@ -319,6 +323,24 @@ impl Library {
                 refs == 0,
                 "Source reference repair is not qualified for this imported library; preview again"
             );
+        }
+        Ok(())
+    }
+    fn validate_import_source_processes(&self, row: &EffectRow) -> Result<()> {
+        if row.stage != "file.tags" && (row.organization.is_none() || row.relocation_copy) {
+            return Ok(());
+        }
+        let providers = {
+            let conn = self.conn()?;
+            let mut query=conn.prepare("SELECT DISTINCT s.provider FROM import_bindings b JOIN import_sources s ON s.id=b.source_id WHERE b.item_id=?1")?;
+            query
+                .query_map([&row.item], |r| r.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        for provider in providers {
+            cuerithm_dj_sync::discovery::ensure_import_source_closed(serde_json::from_str(
+                &provider,
+            )?)?;
         }
         Ok(())
     }

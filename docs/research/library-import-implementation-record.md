@@ -106,3 +106,35 @@ publication journals keep their own recovery/Undo authority. Recovery failures
 persist with each effect, including later-edit Undo refusals. Returned summaries
 and history issues are bounded without truncating outcome counts. Applying and
 applied preview authority cannot be discarded.
+
+
+## Public-service acceptance and observation guards
+
+Portable authored native artifacts exercise all13 real readers through public
+Library APIs. The all-off control exposed a duplicate `locked` field in Mixxx
+ScalarBpm serialization: its typed value now carries the lock, while the original
+native value remains under `native_bpm_lock`. The generic SDK fixture helper also
+checks observation serialization. No DSP calculation changed.
+
+Source process checks now cover original-media tag preview, pre-apply,
+publication/recovery and Undo, using the existing bounded Linux executable and
+Wine/Proton parser plus fresh Windows/macOS enumeration. M3U remains a transport
+without a native app. Imported copy Undo protects later source links. A
+current-snapshot unknown pad replacement control exposed that no-field refreshes
+skipped the observation guard update; binding snapshot/occupancy guards now
+advance even when accepted fields remain unchanged. This does not advance
+unaccepted field baselines or trigger optional processing.
+
+The scale fixture exercises100000 available generated media paths, repeated
+A/B/A membership,1000-record import pages,500-record Tracks pages, actual SHA I/O,
+bounded cancellation and depth128/129. Native app/device acceptance remains
+separate from these D2 parser, publication and media controls. Exact fixture
+hashes, profile/field evidence and measured host/results are in qualification.
+
+
+Acceptance review found that stored imported collections lacked persistent UI
+navigation. A bounded read-only collection list and Imported playlists browser
+now expose hierarchy and occurrence pages after restart, including repeats and
+missing entries, without changing editable manual-playlist deduplication. Cursor
+filters/runtime/revision and byte limits stay backend-owned. Browser playback
+uses the existing resolved-media route; source smart rules remain observations.

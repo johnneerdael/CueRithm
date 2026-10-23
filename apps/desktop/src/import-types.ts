@@ -46,3 +46,7 @@ export interface ImportedItemDetail {id:string;active_fields:Record<string,Json>
 export interface ImportedCollectionPage {id:string;ordered:boolean;kind:string;rows:{occurrence_id:string;item_id:string|null;source_track_id:string;source_position:number|null;position:number;track:import("./types").Track|null}[];total:number;next_cursor:string|null}
 export interface ImportProcessingSummary {processed:number;reused:number;blocked:number;failed:number;cancelled:number;recovery_required:number;unchanged:number}
 export interface ImportProgress {operation_id:string;stage:string;completed:number;issue_summary:string|null}
+
+export interface ImportCollectionListQuery extends PageQuery {source_id?:string|null;parent_id?:string|null}
+export interface ImportedCollectionEntry {id:string;source_id:string;provider:SourceProvider;parent_id:string|null;name:string;name_truncated:boolean;kind:string;occurrences:number}
+export interface ImportedCollectionList {records:ImportedCollectionEntry[];total:number;next_cursor:string|null}

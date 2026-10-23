@@ -132,3 +132,23 @@ the journal and bound returned summaries to 100. History pages account for those
 summaries within the existing byte limits. Applying/applied journal authority
 cannot be discarded. An effects preview requires completed or blocked generation,
 never pending/running processing.
+
+
+## Applied collection browser
+
+The sidebar's Imported playlists view opens applied folders, playlists, crates
+and smartlist snapshots after restart. It uses the read-only
+`imported_collection_list(query)` command with optional `source_id`, `parent_id`,
+`cursor` and `limit` (default100, maximum1000). An absent parent selects roots.
+Entries include opaque local IDs, provider, hierarchy parent, kind and occurrence
+count; pages expose total and next_cursor. Names longer than4096characters are
+shortened with `name_truncated`; original observations retain the full text. Page
+JSON is bounded4MiB. Cursors bind source/parent filters, runtime and library
+revision; stale_cursor requires reloading the list.
+
+Opening a leaf uses existing `imported_collection_page(id,query)`, whose row keys
+are occurrence IDs. Repeated A/B/A rows and unresolved source entries remain
+visible; playback is enabled only for backend-resolved media. Details show
+accepted values and separate source observations. Smart rules remain source
+observations and are not executed as local smartlists. This projection keeps the
+existing editable manual-playlist deduplication behavior intact.

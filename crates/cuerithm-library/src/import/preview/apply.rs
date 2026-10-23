@@ -118,8 +118,8 @@ impl Library {
                         })
                         || !p.fields.is_empty()
                         || !tx.query_row("SELECT EXISTS(SELECT 1 FROM import_bindings WHERE source_id=?1 AND external_id=?2 AND item_id=?3)",params![source,c.external_id,c.item_id],|r|r.get::<_,bool>(0))?;
+                let track = load_track(&tx, &snapshot_id, &c.external_id)?;
                 if needs_projection {
-                    let track = load_track(&tx, &snapshot_id, &c.external_id)?;
                     project_import_track_tx(
                         &tx,
                         TrackProjection {
@@ -149,7 +149,7 @@ impl Library {
                 for (field, (observed, accepted)) in p.baselines {
                     tx.execute("INSERT INTO import_applied_baselines VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(source_id,external_id,field) DO UPDATE SET source_json=excluded.source_json,local_json=excluded.local_json,source_hash=excluded.source_hash,policy_revision=excluded.policy_revision",params![source,c.external_id,field,serde_json::to_string(&observed)?,serde_json::to_string(&accepted)?,digest(&observed)?,policy_id])?;
                 }
-                tx.execute("UPDATE import_bindings SET observed_hash=(SELECT semantic_hash FROM import_observations WHERE snapshot_id=?1 AND kind='track' AND record_id=?2) WHERE source_id=?3 AND external_id=?2",params![snapshot_id,c.external_id,source])?;
+                tx.execute("UPDATE import_bindings SET observed_hash=(SELECT semantic_hash FROM import_observations WHERE snapshot_id=?1 AND kind='track' AND record_id=?2),identity_json=?4 WHERE source_id=?3 AND external_id=?2",params![snapshot_id,c.external_id,source,super::super::performance::binding_identity(&snapshot_id,&track).to_string()])?;
             } else {
                 let p: CollectionProposal = serde_json::from_str(&raw)?;
                 if p.apply {

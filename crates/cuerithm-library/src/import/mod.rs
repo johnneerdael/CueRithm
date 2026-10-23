@@ -1,3 +1,4 @@
+mod collection_browser;
 mod collections;
 mod desktop;
 pub use desktop::*;

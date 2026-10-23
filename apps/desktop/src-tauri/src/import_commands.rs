@@ -56,7 +56,9 @@ fn import_error(mut error: AppError) -> AppError {
         return error;
     }
     let message = error.message.to_ascii_lowercase();
-    error.code = if message.contains("expired")
+    error.code = if message.contains("cursor") {
+        "stale_cursor"
+    } else if message.contains("expired")
         || message.contains("earlier runtime")
         || message.contains("changed")
         || message.contains("inspect again")
@@ -76,7 +78,7 @@ fn import_error(mut error: AppError) -> AppError {
         "operation_failed"
     };
     // Preserve actionable state without sending source paths or native acquisition details.
-    error.message=match error.code {"stale_preview"=>"The source or library changed. Inspect it again before applying.","source_busy"=>"Close the source app and retry.","recovery_required"=>"Review the operation history and recover or undo the unfinished operation.","unsupported_profile"=>"This source profile or local access is unavailable. Select a supported source and installation.",_=>"Import could not complete. Review the source and operation history."}.into();
+    error.message=match error.code {"stale_cursor"=>"The list changed. Reload it before continuing.","stale_preview"=>"The source or library changed. Inspect it again before applying.","source_busy"=>"Close the source app and retry.","recovery_required"=>"Review the operation history and recover or undo the unfinished operation.","unsupported_profile"=>"This source profile or local access is unavailable. Select a supported source and installation.",_=>"Import could not complete. Review the source and operation history."}.into();
     error
 }
 fn leased<T>(
@@ -350,6 +352,16 @@ pub async fn imported_item(host: Managed<'_>, id: String) -> Ipc<ImportedItemDet
         .map_err(import_error)
 }
 #[tauri::command]
+pub async fn imported_collection_list(
+    host: Managed<'_>,
+    query: ImportCollectionListQuery,
+) -> Ipc<ImportedCollectionList> {
+    let library = host.library.clone();
+    work(move || library.imported_collection_list(query))
+        .await
+        .map_err(import_error)
+}
+#[tauri::command]
 pub async fn imported_collection_page(
     host: Managed<'_>,
     id: String,
@@ -405,6 +417,11 @@ mod tests {
     #[test]
     fn import_errors_keep_typed_states_and_redact_native_context() {
         for (message, code) in [
+            ("Stale collection cursor; library changed", "stale_cursor"),
+            (
+                "Close the source DJ software before changing original audio",
+                "source_busy",
+            ),
             ("Import preview expired; inspect again", "stale_preview"),
             (
                 "Unsupported source profile /private/music",

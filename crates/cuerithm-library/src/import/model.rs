@@ -149,6 +149,41 @@ pub struct ImportedCollectionPage {
     pub total: u64,
     pub next_cursor: Option<String>,
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ImportCollectionListQuery {
+    pub source_id: Option<String>,
+    pub parent_id: Option<String>,
+    pub limit: u32,
+    pub cursor: Option<String>,
+}
+impl Default for ImportCollectionListQuery {
+    fn default() -> Self {
+        Self {
+            source_id: None,
+            parent_id: None,
+            limit: 100,
+            cursor: None,
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedCollectionEntry {
+    pub id: String,
+    pub source_id: String,
+    pub provider: SourceProvider,
+    pub parent_id: Option<String>,
+    pub name: String,
+    pub name_truncated: bool,
+    pub kind: CollectionKind,
+    pub occurrences: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedCollectionList {
+    pub records: Vec<ImportedCollectionEntry>,
+    pub total: u64,
+    pub next_cursor: Option<String>,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "selection", content = "ids", rename_all = "snake_case")]

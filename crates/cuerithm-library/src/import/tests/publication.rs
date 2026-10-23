@@ -245,6 +245,95 @@ fn accepted_imported_tags_write_without_provider_lookup() {
         .unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), before);
 }
+#[cfg(feature = "autotag")]
+#[test]
+fn original_media_tag_preview_and_apply_require_the_source_app_closed() {
+    let (f, op, _, path) = setup(ImportPolicy {
+        write_audio_tags: ["title".into()].into(),
+        ..Default::default()
+    });
+    let processor = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    processor
+        .run_pending(&CancellationToken::default())
+        .unwrap();
+    cuerithm_dj_sync::discovery::pretend_target_running(true);
+    let blocked = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    cuerithm_dj_sync::discovery::pretend_target_running(false);
+    assert_eq!(blocked.ready, 0);
+    assert_eq!(blocked.blocked, 1);
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(preview.ready, 1);
+    let before = std::fs::read(&path).unwrap();
+    cuerithm_dj_sync::discovery::pretend_target_running(true);
+    let result = f
+        .lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default());
+    cuerithm_dj_sync::discovery::pretend_target_running(false);
+    assert!(result.is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    let published = std::fs::read(&path).unwrap();
+    cuerithm_dj_sync::discovery::pretend_target_running(true);
+    let undo = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    cuerithm_dj_sync::discovery::pretend_target_running(false);
+    assert_eq!(undo.blocked, 1);
+    assert_eq!(std::fs::read(&path).unwrap(), published);
+    assert_eq!(
+        f.lib
+            .undo_import_operation(&op, &CancellationToken::default())
+            .unwrap()
+            .undone,
+        1
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn accepted_catalog_number_writes_through_the_qualified_catalog_tag() {
+    let (f, op, id, path) = setup(ImportPolicy {
+        write_audio_tags: ["catalog_number".into()].into(),
+        ..Default::default()
+    });
+    f.lib.conn().unwrap().execute("INSERT INTO import_active_fields(item_id,field,value_json,provenance_json) VALUES(?1,'metadata.catalog_number',?2,'{}')",rusqlite::params![id,serde_json::json!({"presence":"value","value":"AUTHORED001"}).to_string()]).unwrap();
+    let processor = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    processor
+        .run_pending(&CancellationToken::default())
+        .unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        preview.ready,
+        1,
+        "{:?}",
+        f.lib
+            .import_effects_page(&preview.preview_id, None, 100)
+            .unwrap()
+    );
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    let observed =
+        cuerithm_autotag::read_metadata_snapshot(&path, &runtime().probe(&path).unwrap()).unwrap();
+    assert_eq!(
+        observed
+            .text
+            .get(&cuerithm_autotag::MetadataTextField::CatalogNumber),
+        Some(&vec!["AUTHORED001".to_owned()])
+    );
+}
 #[test]
 fn reference_repair_failure_blocks_rename() {
     let p = ImportPolicy {
@@ -1306,6 +1395,65 @@ fn ordinary_copy_undo_blocks_after_another_source_link_is_added() {
     assert_eq!(f.lib.track_path(&id).unwrap(), copied);
     assert!(path.exists());
     assert!(copied.exists());
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn import_copy_undo_blocks_after_another_source_link_is_added() {
+    let (f, _, id, path) = setup(ImportPolicy::default());
+    let destination = f.root.path().join("import-copies");
+    std::fs::create_dir(&destination).unwrap();
+    let root = f.lib.register_organization_root(destination).unwrap();
+    let original = f.lib.imported_item(&id).unwrap().observations[0]
+        .track
+        .clone();
+    let inspection = f.inspect(vec![original], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.policy.relocation = RelocationPolicy::Copy {
+        root_id: root.id,
+        rule: "{title}".into(),
+    };
+    let operation = f.apply(&f.preview(request)).operation_id;
+    let processor = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    processor
+        .run_pending(&CancellationToken::default())
+        .unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&operation, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        preview.ready,
+        1,
+        "{:?}",
+        f.lib
+            .import_effects_page(&preview.preview_id, None, 100)
+            .unwrap()
+    );
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    let copied = f.lib.track_path(&id).unwrap();
+    assert_ne!(copied, path);
+    assert!(path.exists() && copied.exists());
+    let mut track = track("Copied binding");
+    track.external_id = "new-copy-source-link".into();
+    track.locations.original = Some(copied.to_string_lossy().into_owned());
+    track.locations.native_path = Some(copied.clone());
+    track.locations.platform = Some(std::env::consts::OS.into());
+    let inspection = f.inspect(vec![track], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.policy.selected_fields.clear();
+    request
+        .target_items
+        .insert("new-copy-source-link".into(), id.clone());
+    f.apply(&f.preview(request));
+    let undo = f
+        .lib
+        .undo_import_operation(&operation, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undo.blocked, 1);
+    assert_eq!(f.lib.track_path(&id).unwrap(), copied);
+    assert!(path.exists() && copied.exists());
 }
 #[cfg(feature = "autotag")]
 #[test]
