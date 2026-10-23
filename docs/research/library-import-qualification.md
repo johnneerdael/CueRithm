@@ -351,3 +351,42 @@ cases. A separate existing djay writer run passes47 tests. All-target Clippy
 `-D warnings`, formatting and diff checks pass. Binary-plist fixtures use an
 independent dev-only encoder; TSAF fixtures include hand-positioned absolute
 alignment witnesses. No native app, music decoding or source writes occur.
+
+## Mixed In Key 11 reader
+
+The reader covers the supplied macOS-origin DataModel 11 structure associated
+with MIK 11.2.6.7446. It checks all ten tables' column types and primary keys,
+Core Data entity mappings, store UUID/type and declared model identifiers.
+The handover does not contain the actual native per-entity model hashes, so
+hashes are checked for structure and retained in the profile fingerprint; this
+is explicitly a **structural D2 profile**, with an import diagnostic. It does
+not establish a native hash allowlist, copied-library acceptance or support for
+native Windows MIK storage.
+
+Every song is imported independently of membership. Native key/BPM/whole-track
+energy, cached tags, source flags, dates, descriptive metadata and raw fields
+remain separate. Model-default key `0` and zero tempo/energy do not become
+successful analysis. Source key and energy segments stay private provenance;
+markers have no inferred pad slots, energy labels or hot/memory classification.
+Duplicate and negative marker times retain their identities. Beat archives keep
+the explicit ordered numeric timestamps and archive tempo separately from the
+song tempo, with no inferred meter, downbeats or canonical PCM origin.
+
+The bounded bookmark decoder recovers historical components only, with no alias
+resolution, mounting, security-scope reuse or source updates. Unsupported paths,
+external-volume joins and malformed archives retain the song plus diagnostics.
+Foreign platform paths require explicit folder mappings, including Mac-origin
+bookmarks on Linux and Windows. Synthetic mapping tests read a selected local
+folder; they are not native Windows/macOS acceptance. Optional waveform objects
+and the Core Data model cache are never deserialized. Import uses a coherent
+read-only SQLite snapshot and performs no source migrations, DSP or file writes.
+
+Controlled cases cover malformed/truncated bookmark offsets and TOC cycles,
+unsafe components, bad/cyclic archive UIDs, unknown classes/model/entity/column
+profiles, null/default values, ordered comment caches, sparse membership,
+duplicate markers, orphan/cyclic folders and cancellation. Repeated reads and
+source guards verify deterministic observations and unchanged source artifacts.
+
+Task15 verification:492 dj-sync tests pass (3 ignored), including13 MIK cases.
+All-target Clippy with warnings denied and formatting pass. Existing outbound
+adapters, including the prior bookmark parser, retain their regression coverage.

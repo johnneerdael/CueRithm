@@ -62,6 +62,9 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::MixedInKey11 {
+        return &super::readers::mixed_in_key11::MixedInKey11Reader;
+    }
     if provider == SourceProvider::DjayPro {
         return &super::readers::djay_pro::DjayProReader;
     }

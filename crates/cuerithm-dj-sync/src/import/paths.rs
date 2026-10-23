@@ -176,7 +176,12 @@ pub fn resolve_location(
         result.mapping_root_id = Some(mapping.root_id.clone());
     } else {
         let host_windows = cfg!(windows);
-        if windows == host_windows {
+        if windows == host_windows
+            && evidence
+                .platform
+                .as_deref()
+                .is_none_or(|platform| platform == std::env::consts::OS)
+        {
             let path = PathBuf::from(&path);
             if path.is_absolute() {
                 result.resolved = Some(path);

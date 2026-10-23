@@ -119,11 +119,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `MixedInKey11Reader`; `decode_embedded_bookmark_path(bytes: &[u8], limits: &ImportLimits) -> Result<BookmarkPathEvidence>`. This is historical embedded-path evidence, not security authority or portable alias resolution.
 
-- [ ] Write `mik_fixture_preserves_analysis_cache_markers_and_beats`: native key8A vs cached key retained, beat times `[0.0,0.5,1.0]`, archived tempo120, two generic markers at `[-0.005,32.125]`, no pad slots/downbeat inference, embedded path `/DemoMusic/Example.flac`. Assert sparse collection order and source energy/key segments remain provenance, not product per-cue energy. Test Windows/Linux explicit path mapping for this macOS-origin artifact.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_mixed_in_key11`; expect missing reader.
-- [ ] Validate Core Data store/model metadata and schema/entity mappings from fixtures; read all songs independent of membership, collections, joins and cue rows. Decode bounded bookmark TOCs/records/chains and MIKBeats UID arrays including direct numeric objects; preserve raw analyzed/default/tag values and Apple epoch. Unknown bookmark leaves unresolved item; no Core Data migrations, security-scope reuse, source media decoding or optional waveform deserialization.
-- [ ] Rerun unknown model, null/default key0, UID/TOC cycles/truncation, duplicate cue time, unordered cue ties, malformed bookmark, orphan/cyclic parents and unavailable external volume; expect pass and native Windows profile explicitly unsupported.
-- [ ] Commit `feat: import supported Mixed In Key 11 snapshots`.
+- [x] Write `mik_fixture_preserves_analysis_cache_markers_and_beats`: native key8A vs cached key retained, beat times `[0.0,0.5,1.0]`, archived tempo120, two generic markers at `[-0.005,32.125]`, no pad slots/downbeat inference, embedded path `/DemoMusic/Example.flac`. Assert sparse collection order and source energy/key segments remain provenance, not product per-cue energy. Test Windows/Linux explicit path mapping for this macOS-origin artifact.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_mixed_in_key11`; expect missing reader.
+- [x] Validate Core Data store/model metadata and schema/entity mappings from fixtures; read all songs independent of membership, collections, joins and cue rows. Decode bounded bookmark TOCs/records/chains and MIKBeats UID arrays including direct numeric objects; preserve raw analyzed/default/tag values and Apple epoch. Unknown bookmark leaves unresolved item; no Core Data migrations, security-scope reuse, source media decoding or optional waveform deserialization.
+- [x] Rerun unknown model, null/default key0, UID/TOC cycles/truncation, duplicate cue time, unordered cue ties, malformed bookmark, orphan/cyclic parents and unavailable external volume; expect pass and native Windows profile explicitly unsupported.
+- [x] Commit `feat: import supported Mixed In Key 11 snapshots`.
 
 ### Task 16: Existing accepted direct rekordbox profiles
 
