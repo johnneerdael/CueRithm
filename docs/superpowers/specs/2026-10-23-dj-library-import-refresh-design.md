@@ -1,6 +1,6 @@
 # DJ library import and refresh
 
-Status: proposed design, under handover verification and awaiting user review. No product code has been implemented.
+Status: approved by the user on 2026-10-23 after independent design review. All 22 handover artifacts now match the author’s manifest. No product code has been implemented.
 
 ## Intent and agreed direction
 
@@ -8,7 +8,7 @@ Bring playlists, crates, folders and tracks from original local DJ libraries int
 
 The user requested a clean worktree and independent choices for Camelot key analysis, whole-track energy analysis and replacing existing hotcues. They then explicitly added retagging and renaming to those choices. The shared source-reader/import-and-refresh direction was presented before this document; the user's response added these processing requirements.
 
-Preserve imported data by default is a proposed default, not an explicit user selection. Retagging and renaming must be opt-in even if enabled in global Incoming settings.
+Preserve imported data by default is part of the approved design. Retagging and renaming must be opt-in even if enabled in global Incoming settings.
 
 ## Inputs and evidence
 
@@ -17,11 +17,11 @@ Preserve imported data by default is a proposed default, not an explicit user se
 - Supplied index: “DJ library import and synchronization engineering handover”, research date 2026-10-23.
 - Full pack location supplied by the user: <https://files.thepi.es/dj-library-sync-handover/>.
 - The shared import contract, integration guide, file-tag/provenance contract and validation/acceptance guide have been downloaded and read. Their observations distinguish source facts from proposed behavior and runtime acceptance.
-- Access to some remaining files is intermittently rejected by the cloud HTTP CONNECT proxy. `files.thepi.es` has been added to the environment configuration draft, preserving existing custom domains. Successful downloads establish access only for the artifacts actually retrieved.
-- Local downloads and per-file hashes are recorded under `/workspace/scratch/dj-library-sync-handover/download-manifest.json`; this local transfer record is not the pack author's integrity manifest. Adapter-specific mappings and fixture integrity must be verified against the remaining pack artifacts before implementation planning.
-- The author's `pack-manifest.json` has now been retrieved. Twenty of its 22 entries match both declared size and SHA-256; `mixxx.md` and `fixtures/normalized-import-example.json` still return HTTP 403. Exact results are in the local `transfer-verification.json`. These unavailable artifacts are prerequisites, not passing or skipped validation. Normal connection reuse improved transfer reliability without changing proxy routing, authentication or TLS verification.
+- During transfer, some files were intermittently rejected by the cloud HTTP CONNECT proxy; the complete transfer has since succeeded. `files.thepi.es` has been added to the environment configuration draft, preserving existing custom domains. Successful downloads establish access only for the artifacts actually retrieved.
+- Local downloads and per-file hashes are recorded under `/workspace/scratch/dj-library-sync-handover/download-manifest.json`; this local transfer record is not the pack author's integrity manifest. Adapter-specific mappings and fixture integrity have been verified against the complete pack before implementation planning.
+- The author’s `pack-manifest.json` and all 22 entries have been retrieved. Every entry matches both declared size and SHA-256, and all JSON artifacts parse. Exact results are in the local `transfer-verification.json`. Normal connection reuse resolved the transfer failures without changing proxy routing, authentication or TLS verification.
 
-Before implementation planning, obtain and read `import-and-sync-contract.md`, `cuerithm-integration.md`, `lexicon-import-formats.md`, `mixed-in-key-11.md`, `dj-studio.md`, `mixxx.md`, `file-tags-and-provenance.md`, `validation-and-acceptance.md`, `verification-report.md` and the referenced fixture manifests. Record downloaded document and fixture hashes locally. Do not commit private libraries, music, credentials, proprietary extracts or identifying reports.
+The implementation-planning prerequisites were to obtain and read `import-and-sync-contract.md`, `cuerithm-integration.md`, `lexicon-import-formats.md`, `mixed-in-key-11.md`, `dj-studio.md`, `mixxx.md`, `file-tags-and-provenance.md`, `validation-and-acceptance.md`, `verification-report.md` and the referenced fixture manifests. These reads and local document/fixture hash recording are complete. Do not commit private libraries, music, credentials, proprietary extracts or identifying reports.
 
 ## Current implementation and constraints
 
@@ -42,7 +42,7 @@ Two tempting alternatives do not meet the request:
 - Reusing `SyncLibrary` as the complete import representation loses source-specific metadata, observation provenance and cue/collection semantics that its output projection cannot express.
 - Enqueuing every imported track as ordinary Incoming couples import to replacement cues and configured processing. It cannot honor an import with all processing choices off.
 
-The shared observation service is therefore the proposed architecture. Detailed source profiles and field mappings remain governed by the unread full pack.
+The shared observation service is therefore the proposed architecture. Detailed source profiles and field mappings are governed by the verified full pack.
 
 ## Scope and capability boundaries
 
@@ -160,10 +160,8 @@ At this clean worktree's base, `cargo fmt --all -- --check` passed before produc
 
 Run relevant Rust tests, frontend tests/build, formatting and required lint/build checks for the resulting change. Include a 100,000-track/deep-hierarchy bounded-memory, progress and cancellation fixture benchmark. Reuse validated outputs and limit parallelism to the available CPUs. Track the pack's D0 documented workflow, D1 pinned schema/codec design, D2 synthetic controls, D3 read-only sample coverage, D4 source-app-generated inbound acceptance, D5 reopened-app write acceptance and D6 device acceptance separately per field/profile. Synthetic parser success does not enable a production capability requiring an unrun D4/D5 gate. Do not claim every source/profile is complete when its acceptance gate is blocked or unrun.
 
-## Outstanding prerequisites and decisions
+## Approval and implementation handoff
 
-1. Apply the saved `files.thepi.es` network-domain addition and obtain the complete handover. Verify the exact field-selection, retagging and source-profile contracts before implementation planning.
-2. Review the proposed preserve-by-default processing behavior, including retagging and renaming as independent choices, and resolve any differences from the full pack.
-3. Obtain user approval of this design before product implementation, then write the implementation plan.
+The user approved this design on 2026-10-23, including the independent processing choices and preserve-by-default behavior. All handover files are now verified and the adapter contracts have been read. The next gate is implementation-plan review and selection of an execution method; it does not reopen the approved design.
 
-The required independent builder review has completed. Its initial questions about cue selection versus generation, initial local conflicts, retagging versus file publication, field granularity and acceptance levels were resolved in this document using the shared handover contracts. The second review reported “nothing important left.” This is a design review result, not application validation or approval by the user.
+The required independent builder review has completed. Its initial questions about cue selection versus generation, initial local conflicts, retagging versus file publication, field granularity and acceptance levels were resolved in this document using the shared handover contracts. The second review reported “nothing important left.” This is a design review result, distinct from the subsequent user approval and from application validation.
