@@ -4,6 +4,9 @@
 
 **Before you start:** keep a separate copy of your music. A `.cuerithm` archive holds library data only. Restore replaces the active library and retains the current one for [recovery](#go-back); it does not merge their later edits or change files in DJ software.
 
+!!! note "Which version"
+    Restoring a portable `.cuerithm` backup, mapping music folders and importing a Lexicon backup need CueRithm 0.1.16 or later.
+
 ## Check the backup { #inspect }
 
 1. Choose **Library backup** under TOOLS in the sidebar.

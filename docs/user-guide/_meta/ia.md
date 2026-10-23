@@ -87,23 +87,37 @@ fixes). Page text refers to these playlists by exact name:
 
 ## Describing released behaviour; pending product changes
 
-The guide describes the **released** app (0.1.14 plus current `main` where verified) and
-marks each gap with a clearly labelled note, never as available. Two unreleased
-changes are being built on separate branches from `main`, and the roadmap lists more:
+The guide describes the **latest release** (0.1.16) plus current `main` where verified. A behaviour
+that depends on the version carries one short note, never a warning that the feature is missing:
 
-1. Duplicates never include files that do not exist; the merge offers *Delete from disk*
-   (Trash) or *Archive only* (`fix/duplicates-skip-missing-files`).
-2. Missing & broken can remove stale library records and relink by content hash, and moves
-   inside a watch folder are tracked (`feat/track-watch-folder-moves`). The roadmap lists
-   "Reconnect moved music" as in development.
+- **Shipped in 0.1.15** (watch-folder move tracking; Missing & broken **Remove from library…**
+  with Undo, **Find moved files…**, archived tracks in the scan; the *File not found* preview text;
+  readable status labels) is current behaviour. Pages that need a note say "CueRithm 0.1.15 or
+  later".
+- **Shipped in 0.1.16** (Relocate, Find Lost Tracks and Undo relocation; portable `.cuerithm`
+  backup and restore with folder mapping; Lexicon v26 import) is current behaviour. Pages that need
+  a note say "CueRithm 0.1.16 or later": `files/library/find-missing-files.md`,
+  `files/library/index.md`, `files/library/back-up-library.md`, `files/library/restore-library.md`,
+  `files/move-files.md`, `help/faq.md`, `help/not-available-yet.md` and
+  `help/troubleshooting/files-moved.md`.
+- **Added by the next release** (0.1.17, the Duplicates and removals work) is described as current
+  behaviour with the note "CueRithm 0.1.17 or later", written exactly like that and once per page so
+  that `grep -rn "0.1.17 or later" docs/user-guide` finds every one: Duplicates leaves out tracks
+  whose file is not available; the merge asks for **Delete from disk** (Trash; permanent only for
+  files the preview names, with the apply button naming them) or **Archive only**, with nothing
+  preselected; duplicate merges that delete files and Missing & broken removals share one Undo list
+  of the last 10 removals; a removed track's cover stays until its removal leaves that list; removal
+  also clears the caches and saved scans built from the track; an interrupted deletion stays under
+  Recovery until acknowledged. The affected pages are `files/library/find-duplicates.md`,
+  `files/library/find-missing-files.md`, `files/library/undo-maintenance.md`,
+  `files/library/index.md` and `files/archive.md`.
 
-Everything on the roadmap's "In development" list (DJ-library import, portable
-`.cuerithm` backup, Lexicon migration) is planned, never available.
-
-When a change ships, update the pages that carry a `!!! warning "CueRithm 0.1.14"` note
-(`files/library/find-duplicates.md`, `files/library/find-missing-files.md`,
-`files/move-files.md`, `help/troubleshooting/files-moved.md`,
-`help/not-available-yet.md`) and remove the note.
+`get-started/whats-new.md` has a section for every release; its release notes are the source for
+what shipped. When 0.1.17 ships: confirm the number against `gh release view`, add its section to
+`whats-new.md`, and keep "CueRithm 0.1.17 or later" as the minimum version (move the note's
+wording to the new section; correct the number if the release order changed). The *In development*
+list in `help/not-available-yet.md` holds only what is planned and not in any release: DJ-library
+import. Everything else there is a limitation of the current app.
 
 ## Redirects: links from outside the guide
 

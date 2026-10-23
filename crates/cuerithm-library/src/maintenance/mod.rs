@@ -1,3 +1,4 @@
+mod deletion;
 #[cfg(feature = "autotag")]
 mod donor_state;
 #[cfg(feature = "autotag")]
@@ -7,9 +8,15 @@ mod merge;
 #[cfg(feature = "autotag")]
 pub use donors::DuplicateMergeService;
 mod model;
+mod purge;
 mod review;
 mod scan;
+mod track_removal;
+mod trash;
+mod undo_window;
 pub use model::*;
+pub use trash::{FileTrash, SystemTrash};
+pub use undo_window::REMOVAL_UNDO_LIMIT;
 
 mod broken;
 mod missing;

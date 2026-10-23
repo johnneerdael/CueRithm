@@ -82,11 +82,17 @@ CueRithm does not update itself. Download new releases from the [releases page](
 
 ## Relocation and portable libraries { #missing-and-moved-files }
 
-Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. Moves inside the same watch folder are followed when the file contents identify one missing ready track and one new file. Ambiguous or edited files need review; choose the complete survivor when a destination is already occupied.
+They need CueRithm 0.1.16 or later.
+
+Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. [Find moved files](../files/library/find-missing-files.md#find-moved) does the same for unchanged files by their exact content, and [Remove from library](../files/library/find-missing-files.md#remove) clears out the records of files that are gone for good, with Undo; no audio file is touched. Moves inside the same watch folder are followed when the file contents identify one missing ready track and one new file (CueRithm 0.1.15 or later). Ambiguous or edited files need review; choose the complete survivor when a destination is already occupied.
 
 ### Reconnect moved music { #reconnect-moved-music }
 
 Choose **Relocate** for selected tracks, or **Find Lost Tracks** in **Maintenance → Missing & broken** for a root or drive change. Review candidates, replacements and collisions. Guarded Undo is available in **Previous relocations**. [The reconnection guide](../files/library/find-missing-files.md#find-lost-tracks) covers preflight backups and unavailable drives.
+
+### Moves outside watch folders { #moves-outside-watch-folders }
+
+Automatic move tracking works inside one watch folder and only for an exact, unambiguous content match. A file moved out of the watch folder, a file that was edited or re-encoded, a track that is archived or still being prepared, and identical files that could belong to more than one track are left alone for you to review. Reconnect them with [Find moved files](../files/library/find-missing-files.md#find-moved) or [Relocate](../files/library/find-missing-files.md#relocate) ([I moved or renamed my files](troubleshooting/files-moved.md)).
 
 ### Portable backup, restore and Lexicon migration { #portable-backup }
 
@@ -98,13 +104,7 @@ Synthetic format, path-flavour and scale tests do not establish every real-machi
 
 ## In development { #in-development }
 
-The remaining capabilities below are separate from reviewed relocation and portable replacement. No delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
-
-### Moves outside watch folders { #in-development-missing-files }
-
-Automatic move tracking is limited to a single watch folder and exact, unambiguous content matches. Reconnect other moves through [Relocate](../files/library/find-missing-files.md#relocate). **Maintenance → Missing & broken** also offers reviewed removal of missing library records, with Undo in History & recovery; audio files are kept.
-
-Improvements to excluding unavailable tracks from duplicate candidate groups are also separate from relocation. Do not choose a missing file as a duplicate keeper; use the [reconnection workflow](../files/library/find-missing-files.md#repair).
+The remaining capability below is separate from reviewed relocation and portable replacement. No delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
 
 ### Bring other DJ libraries into CueRithm { #dj-library-import }
 
@@ -117,4 +117,4 @@ The supported Lexicon ZIP profile above is a replacement workflow. Broader DJ-li
 - [Report a problem or ask for a feature](report-a-problem.md)
 - [Fix a problem](troubleshooting/index.md)
 
-<!-- verified: apps/desktop/src/views/PortableBackup.tsx; Relocation.tsx; crates/cuerithm-library/src/store.rs (schema 29); backup/lexicon_stream.rs; maintenance/relocate.rs; docs/development/relocation-portable-backups.md. Unrelated limits retained from upstream guide; relocation/portable planned claims replaced with current source behaviour and explicit acceptance boundaries. -->
+<!-- verified: apps/desktop/src/views/PortableBackup.tsx; Relocation.tsx; MaintenanceBroken.tsx (Find moved files, Remove from library); crates/cuerithm-library/src/watch_moves.rs (what is followed and what is left alone); crates/cuerithm-library/src/store.rs (schema 29); backup/lexicon_stream.rs; maintenance/relocate.rs; docs/development/relocation-portable-backups.md. Unrelated limits retained from upstream guide; relocation/portable planned claims replaced with current source behaviour and explicit acceptance boundaries. -->

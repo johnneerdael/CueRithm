@@ -43,7 +43,7 @@ Where a restored track lands depends on what changed while it was away:
 | The audio file | Untouched: not moved, renamed or deleted |
 | Analyze again | Refused until you restore the track |
 
-Archive is the way to put a track away, not to delete it, and it does not touch the audio file. To remove a file from disk, delete it in your file manager; the track then shows as missing in [Find missing, moved or broken files](library/find-missing-files.md).
+Archive is the way to put a track away, not to delete it, and it does not touch the audio file. To remove a file from disk, delete it in your file manager; the track then shows as missing in [Find missing, moved or broken files](library/find-missing-files.md), where you can also remove its record.
 
 ## Archive a track that will not prepare { #archive-stuck }
 
@@ -51,7 +51,7 @@ A track that stops in Incoming with an error you cannot fix, such as a damaged f
 
 ## Archives and duplicates { #duplicates }
 
-Merging duplicate tracks archives the records you did not keep and updates your playlists to point at the one you did. You will find those records in Archive. The merge has its own undo; see [Find and merge duplicate tracks](library/find-duplicates.md) and [Undo a merge or restore removed files](library/undo-maintenance.md).
+Merging duplicate tracks with **Archive only** archives the records you did not keep and updates your playlists to point at the one you did. You will find those records in Archive. With **Delete from disk** (CueRithm 0.1.17 or later) the other copies' files go to the Trash and their records are removed instead, so nothing is added to Archive ([Delete the extra files instead](library/find-duplicates.md#delete)). The merge has its own undo; see [Find and merge duplicate tracks](library/find-duplicates.md) and [Undo a merge or restore removed files](library/undo-maintenance.md).
 
 ## What can go wrong { #what-can-go-wrong }
 

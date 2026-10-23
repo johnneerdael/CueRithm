@@ -7,25 +7,71 @@ pub struct TagCopy {
     pub from: String,
     pub to: String,
 }
+/// What happens to the other tracks of a merged group. The user chooses; nothing is
+/// preselected. `Archive` is only the value that plans saved before the choice existed
+/// are read as, because that is what they did.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MergeDisposition {
+    /// Archive the library records; the audio files stay where they are.
+    #[default]
+    Archive,
+    /// Move each verified duplicate audio file to the Trash and remove its library record.
+    Delete,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GroupMerge {
     pub group_id: String,
     pub mode: ReviewState,
     pub exact_audio: bool,
     pub keeper: String,
+    /// Records archived by this merge (`MergeDisposition::Archive`).
     pub archive_ids: Vec<String>,
+    /// Records removed, with their audio files moved to the Trash, by this merge
+    /// (`MergeDisposition::Delete`).
+    #[serde(default)]
+    pub delete_ids: Vec<String>,
     pub unarchive_keeper: bool,
     pub copies: Vec<TagCopy>,
+}
+impl GroupMerge {
+    /// Every record the keeper replaces in playlists, whether it is archived or deleted.
+    pub fn replaced_ids(&self) -> impl Iterator<Item = &String> {
+        self.archive_ids.iter().chain(&self.delete_ids)
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MergePlan {
     pub groups: Vec<GroupMerge>,
+    #[serde(default)]
+    pub disposition: MergeDisposition,
 }
 impl MergePlan {
+    /// Every track this plan touches: keepers, replaced records and both ends of each copy.
+    pub fn participants(&self) -> BTreeSet<String> {
+        let mut ids = BTreeSet::new();
+        for group in &self.groups {
+            ids.insert(group.keeper.clone());
+            ids.extend(group.replaced_ids().cloned());
+            for copy in &group.copies {
+                ids.insert(copy.from.clone());
+                ids.insert(copy.to.clone());
+            }
+        }
+        ids
+    }
     pub fn build(
         groups: &[ReviewGroup],
         selected: &[String],
         archived: &BTreeSet<String>,
+    ) -> Result<Self> {
+        Self::build_with(groups, selected, archived, MergeDisposition::Archive)
+    }
+    pub fn build_with(
+        groups: &[ReviewGroup],
+        selected: &[String],
+        archived: &BTreeSet<String>,
+        disposition: MergeDisposition,
     ) -> Result<Self> {
         ensure!(
             !selected.is_empty()
@@ -61,6 +107,12 @@ impl MergePlan {
                 .tracks
                 .iter()
                 .filter(|t| !group.ignored.contains(&t.candidate.id));
+            // Scans never group an unavailable track. A group that still holds one
+            // (a stale or damaged review) must not be merged, archived or removed.
+            ensure!(
+                eligible.clone().all(|t| t.candidate.present),
+                "Duplicate group includes a track whose audio file is not available"
+            );
             let copies = if let Some(from) = &group.tags_from {
                 if group.state == ReviewState::CopyCues {
                     eligible
@@ -80,7 +132,7 @@ impl MergePlan {
             } else {
                 vec![]
             };
-            let archive_ids: Vec<_> = if group.state == ReviewState::Unlocked {
+            let replaced: Vec<_> = if group.state == ReviewState::Unlocked {
                 eligible
                     .filter(|t| t.candidate.id != keeper)
                     .map(|t| t.candidate.id.clone())
@@ -88,18 +140,26 @@ impl MergePlan {
             } else {
                 vec![]
             };
-            let unarchive_keeper = !archive_ids.is_empty() && archived.contains(&keeper);
+            let unarchive_keeper = !replaced.is_empty() && archived.contains(&keeper);
+            let (archive_ids, delete_ids) = match disposition {
+                MergeDisposition::Archive => (replaced, vec![]),
+                MergeDisposition::Delete => (vec![], replaced),
+            };
             result.push(GroupMerge {
                 group_id: id.clone(),
                 mode: group.state,
                 exact_audio: group.exact_audio,
                 keeper,
                 archive_ids,
+                delete_ids,
                 unarchive_keeper,
                 copies,
             });
         }
-        Ok(Self { groups: result })
+        Ok(Self {
+            groups: result,
+            disposition,
+        })
     }
 }
 /// Keep the first replaced slot, removing a prior keeper entry in affected lists.

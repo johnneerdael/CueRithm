@@ -57,6 +57,7 @@ describe("Missing & broken: remove from library",()=>{
     expect(within(preview).getByText(/2 playlist memberships in 1 playlist will be removed: Warm up \(2\)/)).toBeInTheDocument();
     expect(within(preview).getByText(/1 DJ-software sync link will be removed/)).toBeInTheDocument();
     expect(within(preview).getByText(/1 rekordbox link will be unlinked. rekordbox itself is not changed/)).toBeInTheDocument();
+    expect(within(preview).getByText(/The cover art is kept until these saved records are dropped/)).toBeInTheDocument();
     const remove=within(preview).getByRole("button",{name:"Remove 2 records"});
     expect(remove).toBeDisabled();
     fireEvent.click(within(preview).getByRole("checkbox",{name:"I understand these library records will be removed"}));
@@ -206,5 +207,40 @@ describe("Missing & broken: table layout",()=>{
     expect(screen.getByRole("columnheader",{name:"Outcome"})).toHaveClass("maintenance-nowrap");
     // jsdom has no layout and Vitest drops stylesheet text, so the class is the testable contract;
     // styles.css gives it `white-space:nowrap; overflow-wrap:normal`.
+  });
+});
+
+describe("History & recovery: both kinds of removal",()=>{
+  const merge={id:"merge-1",preview_id:"merge-preview",stamp,archived_ids:[] as string[],restored_ids:[] as string[],affected_playlists:[] as string[],undo_of:null,updated_ids:[] as string[],removed_ids:["b"],trashed:[],permanently_deleted:[],not_deleted:[],links_not_restored:0};
+  it("shows duplicate merges and Missing & broken repairs under one Undo limit, and each Undo goes to its own engine",async()=>{
+    const b=bridges();
+    const undoMerge=vi.fn(async()=>({...merge,id:"undo-1",undo_of:"merge-1",removed_ids:[] as string[],restored_ids:["b"]}));
+    Object.assign(b.api,{undoMerge});
+    vi.mocked(b.api.mergeHistory).mockResolvedValue([{result:merge,created:2,undone_by:null,undo_expired:false,undo_limit:10}]);
+    vi.mocked(b.repair.history).mockResolvedValue([{entry:entry("remove"),undone_by:null,undo_discarded:false,undo_limit:10}]);
+    render(<Maintenance api={b.api} repair={b.repair} chooseFolder={async()=>null} workspace={null} onChanged={()=>{}}/>);
+    fireEvent.click(screen.getByRole("tab",{name:"History & recovery"}));
+    const history=await screen.findByRole("region",{name:"Maintenance history"});
+    await within(history).findByRole("button",{name:"Undo merge"});
+    // The same sentence, with the same number, wherever a removal can be undone.
+    expect(within(history).getAllByText(/Undo is kept for your last 10 removals of library records; duplicate merges that delete files and Missing & broken removals count together\. After that a removal is final\./)).toHaveLength(2);
+    fireEvent.click(within(history).getByRole("button",{name:"Undo merge"}));
+    await waitFor(()=>expect(undoMerge).toHaveBeenCalledWith(expect.any(String),"merge-1"));
+    expect(b.repair.undo).not.toHaveBeenCalled();
+    fireEvent.click(await within(history).findByRole("button",{name:"Undo removal"}));
+    await waitFor(()=>expect(b.repair.undo).toHaveBeenCalledWith(expect.any(String),"entry"));
+    expect(undoMerge).toHaveBeenCalledTimes(1);
+  });
+  it("says a removal pushed out of the shared window is final, whichever kind it is",async()=>{
+    const b=bridges();
+    vi.mocked(b.api.mergeHistory).mockResolvedValue([{result:merge,created:2,undone_by:null,undo_expired:true,undo_limit:10}]);
+    vi.mocked(b.repair.history).mockResolvedValue([{entry:entry("remove",{tracks:[]}),undone_by:null,undo_discarded:true,undo_limit:10}]);
+    render(<Maintenance api={b.api} repair={b.repair} chooseFolder={async()=>null} workspace={null} onChanged={()=>{}}/>);
+    fireEvent.click(screen.getByRole("tab",{name:"History & recovery"}));
+    const history=await screen.findByRole("region",{name:"Maintenance history"});
+    expect(await within(history).findByText(/The removal is final\. Undo is no longer available: the removed library records were kept only for the last 10 removals/)).toBeInTheDocument();
+    expect(within(history).getByText(/this removal can no longer be undone\./)).toBeInTheDocument();
+    expect(within(history).queryByRole("button",{name:"Undo merge"})).toBeNull();
+    expect(within(history).queryByRole("button",{name:"Undo removal"})).toBeNull();
   });
 });

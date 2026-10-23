@@ -689,6 +689,45 @@ fn undo_leaves_a_rescanned_or_reassigned_rekordbox_link_as_it_is_now() {
 }
 
 #[test]
+fn undo_leaves_a_sync_link_that_now_belongs_to_another_track_and_restores_the_rest() {
+    let l = library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    // After the removal the sync linked the same external record to another track.
+    l.fx.exec(&format!(
+        "INSERT INTO sync_links VALUES('{c}','rekordbox','ext-a','{{}}')",
+        c = l.c
+    ));
+    let undo = l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert!(
+        l.fx.lib.track(&l.a).is_ok(),
+        "the record is back although one link could not be"
+    );
+    let owner: String = l.fx.sql(
+        "SELECT track_id FROM sync_links WHERE external_id='ext-a'",
+        |r| r.get(0).unwrap(),
+    );
+    assert_eq!(owner, l.c, "the newer link is never taken over");
+    let note = undo
+        .skipped
+        .iter()
+        .find(|s| s.title == "sync links")
+        .unwrap();
+    assert!(
+        note.reason.starts_with("1 linked to something else"),
+        "{}",
+        note.reason
+    );
+}
+
+#[test]
 fn undo_refuses_an_unrelated_file_at_the_old_location_of_a_removed_track() {
     let l = library();
     let report = l.fx.scan(false);
@@ -919,6 +958,29 @@ fn unfinished_work_and_open_drafts_block_removal() {
             .is_err()
     );
     assert_eq!(l.fx.total_tracks(), 3);
+}
+
+#[test]
+fn a_draft_opened_after_the_preview_keeps_its_track() {
+    let l = library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a, &l.b]), &cancel())
+            .unwrap();
+    assert_eq!(outcome(&preview, &l.b), MissingRowOutcome::Ready);
+    l.fx.exec(&format!(
+        "INSERT INTO metadata_edit_drafts VALUES('draft',1,'editing','{{\"tracks\":[\"{}\"]}}',1,1)",
+        l.b
+    ));
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    assert_eq!(entry.tracks.len(), 1);
+    assert_eq!(entry.skipped[0].id, l.b);
+    assert!(entry.skipped[0].reason.contains("open metadata draft"));
+    assert!(l.fx.lib.track(&l.b).is_ok());
 }
 
 #[test]

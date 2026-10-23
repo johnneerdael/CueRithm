@@ -1,12 +1,13 @@
 use super::{
-    files::{FileProof, proofs_current},
+    deletion,
+    files::{FileProof, ensure_available, proofs_current},
     review::{SavedReview, read_review, refresh},
     scan::stamp,
     *,
 };
 use crate::Library;
 use anyhow::{Context, Result, ensure};
-use cuerithm_maintenance::MergePlan;
+use cuerithm_maintenance::{MergeDisposition, MergePlan};
 use cuerithm_media::CancellationToken;
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -65,7 +66,7 @@ pub(super) fn playlist_changes(
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut replaced = BTreeMap::new();
     for group in &plan.groups {
-        for id in &group.archive_ids {
+        for id in group.replaced_ids() {
             ensure!(
                 replaced.insert(id, &group.keeper).is_none(),
                 "Overlapping replacements"
@@ -175,26 +176,30 @@ pub(super) fn advance(conn: &Connection) -> Result<MaintenanceStamp> {
 impl Library {
     pub fn duplicate_merge_history(&self) -> Result<Vec<DuplicateMergeHistory>> {
         let conn = self.conn()?;
-        let mut q=conn.prepare("SELECT result,created,undone FROM (SELECT json_extract(payload_json,'$.result') AS result,created,json_extract(payload_json,'$.undone_by') AS undone,id FROM maintenance_scans WHERE kind='duplicate_merge' UNION ALL SELECT json_extract(payload_json,'$.result'),created,json_extract(payload_json,'$.undone_by'),id FROM maintenance_writes WHERE kind='apply' AND state IN ('committed','undone')) ORDER BY created DESC,id DESC")?;
+        let mut q=conn.prepare("SELECT result,created,undone,expired FROM (SELECT json_extract(payload_json,'$.result') AS result,created,json_extract(payload_json,'$.undone_by') AS undone,0 AS expired,id FROM maintenance_scans WHERE kind='duplicate_merge' UNION ALL SELECT json_extract(payload_json,'$.result'),created,json_extract(payload_json,'$.undone_by'),COALESCE(json_extract(payload_json,'$.undo_expired'),0),id FROM maintenance_writes WHERE kind='apply' AND state IN ('committed','undone')) ORDER BY created DESC,id DESC")?;
         let rows = q
             .query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, Option<String>>(2)?,
+                    r.get::<_, i64>(3)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         rows.into_iter()
-            .map(|(json, created, undone_by)| {
+            .map(|(json, created, undone_by, expired)| {
                 Ok(DuplicateMergeHistory {
                     result: serde_json::from_str(&json)?,
                     created,
                     undone_by,
+                    undo_expired: expired != 0,
+                    undo_limit: DUPLICATE_UNDO_LIMIT,
                 })
             })
             .collect()
     }
+    /// Preview an Archive-only merge. See [`Library::preview_duplicate_merge_choice`].
     pub fn preview_duplicate_merge(
         &self,
         review_id: &str,
@@ -202,6 +207,47 @@ impl Library {
         groups: Vec<String>,
         cancel: &CancellationToken,
     ) -> Result<DuplicateMergePreview> {
+        self.preview_duplicate_merge_choice(
+            review_id,
+            expected_revision,
+            groups,
+            Some(MergeDisposition::Archive),
+            cancel,
+        )
+    }
+    /// Preview what a merge does to the other tracks of each selected group. The choice
+    /// between deleting their files and archiving their records is the user's: with no
+    /// choice there is no preview, and so nothing that can be applied.
+    pub fn preview_duplicate_merge_choice(
+        &self,
+        review_id: &str,
+        expected_revision: u64,
+        groups: Vec<String>,
+        choice: Option<MergeDisposition>,
+        cancel: &CancellationToken,
+    ) -> Result<DuplicateMergePreview> {
+        self.preview_duplicate_merge_choice_with(
+            review_id,
+            expected_revision,
+            groups,
+            choice,
+            &SystemTrash,
+            cancel,
+        )
+    }
+    /// As [`Library::preview_duplicate_merge_choice`], with the Trash that decides which
+    /// files would have to be deleted permanently (tests supply their own).
+    pub fn preview_duplicate_merge_choice_with(
+        &self,
+        review_id: &str,
+        expected_revision: u64,
+        groups: Vec<String>,
+        choice: Option<MergeDisposition>,
+        trash: &dyn FileTrash,
+        cancel: &CancellationToken,
+    ) -> Result<DuplicateMergePreview> {
+        let disposition =
+            choice.context("Choose Delete from disk or Archive only before previewing")?;
         cancel.check()?;
         let (mut review, _) = read_review(self, review_id)?;
         ensure!(
@@ -209,10 +255,6 @@ impl Library {
             "Duplicate review changed; reload review"
         );
         refresh(self, &mut review, cancel)?;
-        ensure!(
-            !review.review.stale,
-            "Duplicate review is stale; scan again"
-        );
         let archived = review
             .scan
             .report
@@ -221,7 +263,26 @@ impl Library {
             .filter(|t| t.archived)
             .map(|t| t.id.clone())
             .collect();
-        let plan = MergePlan::build(&review.review.groups, &groups, &archived)?;
+        let mut plan =
+            MergePlan::build_with(&review.review.groups, &groups, &archived, disposition)?;
+        // Files can vanish after a scan. Name the missing tracks before the generic stale
+        // refusal, so the message tells the user where to look.
+        ensure_available(&*self.conn()?, &plan.participants())?;
+        ensure!(
+            !review.review.stale,
+            "Duplicate review is stale; scan again"
+        );
+        let deletion = if disposition == MergeDisposition::Delete {
+            Some(deletion::plan(
+                self,
+                &review.scan,
+                &mut plan,
+                trash,
+                cancel,
+            )?)
+        } else {
+            None
+        };
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         ensure!(
@@ -236,6 +297,7 @@ impl Library {
             stamp: review.review.stamp.clone(),
             playlists: playlist_changes(&tx, &plan)?,
             plan,
+            deletion,
         };
         check_review(&tx, &public)?;
         let saved = SavedPreview {
@@ -269,10 +331,15 @@ impl Library {
             "Duplicate preview already applied"
         );
         ensure!(
+            saved.public.plan.disposition == MergeDisposition::Archive,
+            "Deleting files needs the coordinated merge service; this preview cannot be applied here"
+        );
+        ensure!(
             saved.public.plan.groups.iter().all(|g| g.copies.is_empty()),
             "Tag/cue transfer requires coordinated file publication; this preview cannot be applied yet"
         );
         refresh(self, &mut saved.review, cancel)?;
+        ensure_available(&*self.conn()?, &saved.public.plan.participants())?;
         ensure!(
             !saved.review.review.stale,
             "Duplicate merge preview is stale; scan again"
@@ -288,6 +355,7 @@ impl Library {
             "Smart scope expired; scan again"
         );
         check_review(&tx, &saved.public)?;
+        ensure_available(&tx, &saved.public.plan.participants())?;
         let mut current: SavedPreview = load(&tx, id, "duplicate_merge_plan")?;
         ensure!(
             current.consumed_by.is_none(),
@@ -339,6 +407,11 @@ impl Library {
                 .collect(),
             undo_of: None,
             updated_ids: vec![],
+            removed_ids: vec![],
+            trashed: vec![],
+            permanently_deleted: vec![],
+            not_deleted: vec![],
+            links_not_restored: 0,
         };
         current.consumed_by = Some(result.id.clone());
         let operation = Operation {
@@ -438,6 +511,11 @@ impl Library {
             affected_playlists: operation.playlists.iter().map(|p| p.id.clone()).collect(),
             undo_of: Some(id.into()),
             updated_ids: vec![],
+            removed_ids: vec![],
+            trashed: vec![],
+            permanently_deleted: vec![],
+            not_deleted: vec![],
+            links_not_restored: 0,
         };
         operation.undone_by = Some(result.id.clone());
         cancel.check()?;

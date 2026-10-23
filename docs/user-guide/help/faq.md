@@ -22,7 +22,7 @@ Not by default. Incoming, Tracks and Archive are states inside the library, and 
 
 ### Can I undo what CueRithm changed? { #undo }
 
-Mostly, yes. Cleanup has **Undo** ([Undo a cleanup](../tagging/undo-cleanup.md)), tag edits have history ([Undo a tag change](../tagging/tag-history.md)), a reorganisation can be reversed ([Recover or undo a reorganisation](../rename/undo-organize.md)), a sync has **Restore backup** ([Preview, apply and restore a sync](../sync/preview-apply-restore.md)), and a duplicate merge has **Undo merge** ([Undo a merge or restore removed files](../files/library/undo-maintenance.md)).
+Mostly, yes. Cleanup has **Undo** ([Undo a cleanup](../tagging/undo-cleanup.md)), tag edits have history ([Undo a tag change](../tagging/tag-history.md)), a reorganisation can be reversed ([Recover or undo a reorganisation](../rename/undo-organize.md)), a sync has **Restore backup** ([Preview, apply and restore a sync](../sync/preview-apply-restore.md)), a duplicate merge has **Undo merge**, and removing the records of missing tracks has **Undo removal**, for your last 10 removals ([Undo a merge or restore removed files](../files/library/undo-maintenance.md)).
 
 ### Where are my original files after a tag write? { #originals }
 
@@ -130,7 +130,7 @@ Usually rekordbox or its Agent is still running, or the scope or options left th
 
 ### I moved my files and now tracks are missing or doubled { #moved-files }
 
-Use [Relocate](../files/library/find-missing-files.md#relocate) on the original tracks to review a replacement file or recursively search a folder. **Find Lost Tracks** also reviews folder-root or drive changes. If the destination already belongs to another track, choose the complete survivor; ordinary playlist links are rewired and guarded Undo is retained. A watch folder can still discover a changed path as an additional track. [I moved or renamed my files](troubleshooting/files-moved.md#fix) gives the steps.
+A move inside a watch folder is followed by the track itself (CueRithm 0.1.15 or later), so you only see missing or doubled tracks when the files were edited, could belong to several tracks or left the watch folder. For unchanged files, tick the missing tracks in **Missing & broken** and use **Find moved files…**. Use [Relocate](../files/library/find-missing-files.md#relocate) on the original tracks to review a replacement file or recursively search a folder, and **Find Lost Tracks** for folder-root or drive changes (CueRithm 0.1.16 or later). If the destination already belongs to another track, choose the complete survivor; ordinary playlist links are rewired and guarded Undo is retained. For a file that is gone for good, **Remove from library…** removes only the record. [I moved or renamed my files](troubleshooting/files-moved.md#fix) gives the steps.
 
 ### Where is my data? { #data-location }
 

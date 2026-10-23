@@ -11,17 +11,17 @@ use super::{
     merge::{advance, write_members},
     *,
 };
+use super::{purge, track_removal, undo_window};
 use crate::{
     Library,
     model::{bytes_path, now, path_bytes},
-    record_snapshot::{Plan, RecordImage, bytes_of, restore},
+    record_snapshot::RecordImage,
     relink::{Move, Scope, is_gone, stamp, work_in_flight},
 };
 use anyhow::{Context, Result, ensure};
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -31,20 +31,12 @@ use std::{
 /// stays small enough to hold everything needed to undo it.
 pub const MISSING_REPAIR_LIMIT: usize = 1000;
 /// Removals whose saved records are kept for Undo. Older ones are discarded when a
-/// newer removal is applied; their history lines stay, without the track details.
-pub const MISSING_UNDO_WINDOW: usize = 10;
-/// Waveform sizes the app requests: the Tracks row preview and the player.
-const WAVEFORM_BINS: [usize; 2] = [240, 16384];
-/// Caches that exist only because the track does; removed with it, never saved for Undo.
-const DERIVED_TABLES: &[&str] = &[
-    "maintenance_fingerprints",
-    "preparation_reuse",
-    "preparation_match_previews",
-];
-const PREVIEW_REMOVAL: &str = "missing_removal_preview";
-const PREVIEW_RELINK: &str = "missing_relink_preview";
-const OPERATION: &str = "missing_repair";
-const OPEN_DRAFT: &str = "SELECT EXISTS(SELECT 1 FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') AND instr(payload_json,?1)>0)";
+/// newer removal is applied; their history lines stay, without the track details. The
+/// bound is shared with duplicate merges that delete files: see [`undo_window`].
+pub const MISSING_UNDO_WINDOW: usize = undo_window::REMOVAL_UNDO_LIMIT;
+pub(super) const PREVIEW_REMOVAL: &str = "missing_removal_preview";
+pub(super) const PREVIEW_RELINK: &str = "missing_relink_preview";
+pub(super) const OPERATION: &str = "missing_repair";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -111,6 +103,13 @@ pub struct MissingPreview {
     /// What a relink searched.
     pub locations: Vec<String>,
     pub files_checked: usize,
+    /// How many removals keep their saved records for Undo, duplicate merges that delete
+    /// files and these removals counted together.
+    #[serde(default = "undo_limit")]
+    pub undo_limit: usize,
+}
+fn undo_limit() -> usize {
+    MISSING_UNDO_WINDOW
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepairedTrack {
@@ -155,6 +154,10 @@ pub struct MissingRepairHistory {
     /// The saved records were explicitly discarded, so the removal can no longer be undone.
     #[serde(default)]
     pub undo_discarded: bool,
+    /// How many removals keep their saved records for Undo, duplicate merges that delete
+    /// files and these removals counted together.
+    #[serde(default = "undo_limit")]
+    pub undo_limit: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -211,7 +214,7 @@ fn record(conn: &Connection, id: &str) -> Result<Option<Record>> {
     type Row = (String, String, bool, Vec<u8>, String, Option<i64>);
     let row: Option<Row> = conn
         .query_row(
-            "SELECT t.title,t.artist,t.archived,t.path,t.source_hash,e.epoch FROM tracks t LEFT JOIN maintenance_track_epochs e ON e.id=t.id WHERE t.id=?1",
+            "SELECT t.title,t.artist,t.archived,t.path,t.source_hash,e.epoch FROM tracks t LEFT JOIN maintenance_track_epochs e ON e.id=t.id WHERE t.id=?1 AND t.path IS NOT NULL AND t.source_hash IS NOT NULL",
             [id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
@@ -372,180 +375,6 @@ fn unavailable_reason(conn: &Connection, row: &MissingRow, path: &Path) -> Resul
     Ok(work_in_flight(conn, &row.track_id)?.map(str::to_owned))
 }
 
-fn marks(n: usize) -> String {
-    vec!["?"; n].join(",")
-}
-fn column(conn: &Connection, sql: &str, values: &[String]) -> Result<Vec<String>> {
-    Ok(conn
-        .prepare(sql)?
-        .query_map(rusqlite::params_from_iter(values), |r| {
-            r.get::<_, Option<String>>(0)
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect())
-}
-/// What identifies the caches derived from a set of tracks.
-#[derive(Default)]
-struct Derived {
-    hashes: BTreeSet<String>,
-    decoders: BTreeSet<String>,
-    generations: BTreeSet<String>,
-}
-fn collect_derived(conn: &Connection, ids: &[String]) -> Result<Derived> {
-    let mut derived = Derived::default();
-    for chunk in ids.chunks(400) {
-        let m = marks(chunk.len());
-        derived.hashes.extend(column(
-            conn,
-            &format!("SELECT source_hash FROM tracks WHERE id IN ({m})"),
-            chunk,
-        )?);
-        derived.hashes.extend(column(
-            conn,
-            &format!("SELECT source_hash FROM jobs WHERE track_id IN ({m})"),
-            chunk,
-        )?);
-        derived.decoders.extend(column(
-            conn,
-            &format!(
-                "SELECT json_extract(analysis_json,'$.media.decoder') FROM tracks WHERE id IN ({m})"
-            ),
-            chunk,
-        )?);
-        derived.generations.extend(column(
-            conn,
-            &format!(
-                "SELECT generation FROM preparation_match_generations WHERE track_id IN ({m})"
-            ),
-            chunk,
-        )?);
-    }
-    let hashes: Vec<String> = derived.hashes.iter().cloned().collect();
-    for chunk in hashes.chunks(400) {
-        derived.decoders.extend(column(
-            conn,
-            &format!(
-                "SELECT decoder FROM preparation_analysis WHERE source_hash IN ({})",
-                marks(chunk.len())
-            ),
-            chunk,
-        )?);
-    }
-    Ok(derived)
-}
-/// Cache files that only the removed tracks used.
-struct Orphans {
-    hashes: BTreeSet<String>,
-    decoders: BTreeSet<String>,
-}
-/// Deletes the cache rows that cannot be reached through a foreign key and
-/// names the source hashes nothing in the library uses any more. A hash another
-/// track still has (a twin) keeps its caches.
-fn purge_derived_rows(conn: &Connection, derived: &Derived, ids: &[String]) -> Result<Orphans> {
-    let hashes: Vec<String> = derived.hashes.iter().cloned().collect();
-    let mut used = BTreeSet::new();
-    for chunk in hashes.chunks(400) {
-        let m = marks(chunk.len());
-        for table in ["tracks", "jobs"] {
-            used.extend(column(
-                conn,
-                &format!("SELECT source_hash FROM {table} WHERE source_hash IN ({m})"),
-                chunk,
-            )?);
-        }
-    }
-    let orphaned: BTreeSet<String> = derived.hashes.difference(&used).cloned().collect();
-    let gone: Vec<String> = orphaned.iter().cloned().collect();
-    let generations: Vec<String> = derived.generations.iter().cloned().collect();
-    for (sql, values) in [
-        (
-            "DELETE FROM preparation_analysis WHERE source_hash IN",
-            &gone,
-        ),
-        (
-            "DELETE FROM preparation_review_artwork WHERE generation IN",
-            &generations,
-        ),
-        (
-            "DELETE FROM maintenance_track_epochs WHERE id IN",
-            &ids.to_vec(),
-        ),
-    ] {
-        for chunk in values.chunks(400) {
-            conn.execute(
-                &format!("{sql} ({})", marks(chunk.len())),
-                rusqlite::params_from_iter(chunk),
-            )?;
-        }
-    }
-    Ok(Orphans {
-        hashes: orphaned,
-        decoders: derived.decoders.clone(),
-    })
-}
-/// What stood at a record's old location when Undo looked, before it took any lock.
-/// Undo puts a record back there, so whatever sits there must be the audio the record
-/// describes; otherwise the record and its retained analysis would describe the wrong
-/// file. Hashing is slow, so it happens here; the write transaction only re-checks cheaply.
-struct OldLocation {
-    path: PathBuf,
-    /// Size and modification time of the file that was hashed; `None` if nothing was there.
-    seen: Option<(u64, std::time::SystemTime)>,
-}
-fn observe_old_location(
-    path: &Path,
-    expected_hash: &str,
-    cancel: &CancellationToken,
-) -> Result<OldLocation> {
-    match std::fs::symlink_metadata(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(OldLocation {
-            path: path.to_owned(),
-            seen: None,
-        }),
-        Err(error) => anyhow::bail!(
-            "Cannot undo: the old location {} cannot be checked ({error})",
-            path.display()
-        ),
-        Ok(meta) if meta.is_file() => {
-            let before = stamp(path);
-            ensure!(
-                file_sha256_cancellable(path, cancel)? == expected_hash,
-                "Cannot undo: a different file is now at {}",
-                path.display()
-            );
-            ensure!(
-                before.is_some() && stamp(path) == before,
-                "Cannot undo: {} changed while it was being checked; try again",
-                path.display()
-            );
-            Ok(OldLocation {
-                path: path.to_owned(),
-                seen: before,
-            })
-        }
-        Ok(_) => anyhow::bail!(
-            "Cannot undo: something other than the audio file is now at {}",
-            path.display()
-        ),
-    }
-}
-impl OldLocation {
-    /// The cheap check inside the transaction: it is still as it was observed.
-    fn unchanged(&self) -> Result<()> {
-        let same = match self.seen {
-            None => is_gone(&self.path),
-            Some(seen) => stamp(&self.path) == Some(seen),
-        };
-        ensure!(
-            same,
-            "Cannot undo: {} changed while Undo was running; try again",
-            self.path.display()
-        );
-        Ok(())
-    }
-}
 impl Operation {
     /// Drops what Undo would need, and the names of the tracks.
     /// Returns the covers that were being kept for it.
@@ -557,87 +386,20 @@ impl Operation {
         std::mem::take(&mut self.artwork_hashes)
     }
 }
-/// Keeps the saved records of the newest `MISSING_UNDO_WINDOW` removals that can
-/// still be undone; older ones are discarded.
-fn trim_removal_undo(conn: &Connection) -> Result<Vec<String>> {
-    let old: Vec<String> = conn
-        .prepare(
-            "SELECT id FROM maintenance_scans WHERE kind=?1
-               AND json_extract(payload_json,'$.entry.kind')='remove'
-               AND json_extract(payload_json,'$.entry.undo_of') IS NULL
-               AND json_extract(payload_json,'$.undone_by') IS NULL
-               AND COALESCE(json_extract(payload_json,'$.undo_discarded'),0)=0
-             ORDER BY created DESC,rowid DESC LIMIT -1 OFFSET ?2",
-        )?
-        .query_map(params![OPERATION, MISSING_UNDO_WINDOW as i64], |r| r.get(0))?
-        .collect::<rusqlite::Result<_>>()?;
-    let mut covers = Vec::new();
-    for id in old {
-        let mut operation: Operation = load(conn, &id, OPERATION)?;
-        covers.extend(operation.discard_saved());
-        conn.execute(
-            "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
-            params![serde_json::to_string(&operation)?, id],
-        )?;
-    }
+/// Drops the saved records of a removal that has fallen out of the shared Undo window (see
+/// [`undo_window`]). Its history line stays, without the track details. Returns the covers it
+/// was holding.
+pub(super) fn drop_saved_records(conn: &Connection, id: &str) -> Result<Vec<String>> {
+    let mut operation: Operation = load(conn, id, OPERATION)?;
+    let covers = operation.discard_saved();
+    conn.execute(
+        "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
+        params![serde_json::to_string(&operation)?, id],
+    )?;
     Ok(covers)
-}
-fn is_hash(text: &str) -> bool {
-    text.len() == 64 && text.bytes().all(|c| c.is_ascii_hexdigit())
 }
 
 impl Library {
-    /// Removes the waveform files cached for hashes nothing uses any more. Covers are
-    /// kept for Undo and freed later by `purge_covers`.
-    fn purge_cache_files(&self, orphans: &Orphans) {
-        let cache = self.data_dir().join("cache");
-        for hash in &orphans.hashes {
-            for decoder in &orphans.decoders {
-                for bins in WAVEFORM_BINS {
-                    let key = format!("{:x}", Sha256::digest(format!("{hash}:{decoder}:{bins}")));
-                    let _ =
-                        std::fs::remove_file(cache.join("waveforms").join(format!("{key}.json")));
-                }
-            }
-        }
-    }
-    /// Deletes cached covers nothing needs any more: no track has the audio's hash and
-    /// no removal that can still be undone is holding the cover. Run after the records
-    /// that justified keeping them were dropped (a trim, a discard, or an undo).
-    fn purge_covers(&self, hashes: &[String]) -> Result<()> {
-        if hashes.is_empty() {
-            return Ok(());
-        }
-        let wanted: BTreeSet<String> = {
-            let conn = self.conn()?;
-            let mut wanted: BTreeSet<String> = conn
-                .prepare(
-                    "SELECT DISTINCT j.value FROM maintenance_scans s,json_each(s.payload_json,'$.artwork_hashes') j
-                     WHERE s.kind=?1
-                       AND json_extract(s.payload_json,'$.entry.kind')='remove'
-                       AND json_extract(s.payload_json,'$.entry.undo_of') IS NULL
-                       AND json_extract(s.payload_json,'$.undone_by') IS NULL
-                       AND COALESCE(json_extract(s.payload_json,'$.undo_discarded'),0)=0",
-                )?
-                .query_map([OPERATION], |r| r.get(0))?
-                .collect::<rusqlite::Result<_>>()?;
-            for chunk in hashes.chunks(400) {
-                let m = marks(chunk.len());
-                for table in ["tracks", "jobs"] {
-                    wanted.extend(column(
-                        &conn,
-                        &format!("SELECT source_hash FROM {table} WHERE source_hash IN ({m})"),
-                        chunk,
-                    )?);
-                }
-            }
-            wanted
-        };
-        for hash in hashes.iter().filter(|h| is_hash(h) && !wanted.contains(*h)) {
-            let _ = std::fs::remove_file(self.data_dir().join("cache/artwork").join(hash));
-        }
-        Ok(())
-    }
     /// The saved Missing & broken report, if the library has not changed since.
     /// A report only says which tracks to look at; every track is checked against
     /// the disk and the database again when it is previewed and when it is applied,
@@ -728,11 +490,8 @@ impl Library {
                     epochs.insert(id.clone(), record.epoch);
                     if let Some(reason) = unavailable_reason(&conn, &row, &record.path)? {
                         block(&mut row, reason);
-                    } else if conn.query_row(OPEN_DRAFT, [&id], |r| r.get::<_, bool>(0))? {
-                        block(
-                            &mut row,
-                            "Part of an open metadata draft; save or discard the draft first",
-                        );
+                    } else if track_removal::in_open_draft(&conn, &id)? {
+                        block(&mut row, track_removal::OPEN_DRAFT_REASON);
                     }
                 }
                 rows.push(row);
@@ -755,6 +514,7 @@ impl Library {
             impact,
             locations: vec![],
             files_checked: 0,
+            undo_limit: MISSING_UNDO_WINDOW,
         };
         self.save_preview(
             &SavedPreview {
@@ -807,10 +567,8 @@ impl Library {
                 skipped.push(skip("The file is back at its recorded location".into()));
             } else if let Some(reason) = work_in_flight(&tx, &row.track_id)? {
                 skipped.push(skip(reason.into()));
-            } else if tx.query_row(OPEN_DRAFT, [&row.track_id], |r| r.get::<_, bool>(0))? {
-                skipped.push(skip(
-                    "Part of an open metadata draft; save or discard the draft first".into(),
-                ));
+            } else if track_removal::in_open_draft(&tx, &row.track_id)? {
+                skipped.push(skip(track_removal::OPEN_DRAFT_REASON.into()));
             } else {
                 removed.push((row.clone(), current));
             }
@@ -830,24 +588,8 @@ impl Library {
             .collect();
         let gone: BTreeSet<String> = ids.iter().cloned().collect();
         let playlists = playlist_changes(&tx, &gone)?;
-        let derived = collect_derived(&tx, &ids)?;
-        let plan = Plan::new(
-            &tx,
-            &ids,
-            &["playlist_members", "smart_playlist_members"],
-            DERIVED_TABLES,
-        )?;
-        let image = plan.capture(&tx)?;
         write_members(&tx, &playlists, false)?;
-        for chunk in ids.chunks(400) {
-            let marks = vec!["?"; chunk.len()].join(",");
-            tx.execute(
-                &format!("DELETE FROM smart_playlist_members WHERE track_id IN ({marks})"),
-                rusqlite::params_from_iter(chunk),
-            )?;
-        }
-        plan.apply(&tx)?;
-        let orphaned = purge_derived_rows(&tx, &derived, &ids)?;
+        let track_removal::Removed { image, orphans } = track_removal::remove(&tx, &ids)?;
         let entry = MissingRepairEntry {
             id: uuid::Uuid::new_v4().to_string(),
             kind: MissingRepairKind::Remove,
@@ -877,15 +619,9 @@ impl Library {
             notes: vec![],
             stamp: advance(&tx)?,
         };
-        // A preview is good for one apply, and it names the tracks it was made for.
+        // A preview is good for one apply, and it names the tracks it was made for. (Saved file
+        // reports and other previews that name them went with the records.)
         tx.execute("DELETE FROM maintenance_scans WHERE id=?1", [preview_id])?;
-        // So do saved file reports; they are out of date after this change anyway.
-        for id in &ids {
-            tx.execute(
-                "DELETE FROM maintenance_scans WHERE kind='broken' AND instr(payload_json,?1)>0",
-                [id],
-            )?;
-        }
         let operation = Operation {
             entry: entry.clone(),
             snapshot: Snapshot {
@@ -895,12 +631,7 @@ impl Library {
             },
             undone_by: None,
             undo_discarded: false,
-            artwork_hashes: orphaned
-                .hashes
-                .iter()
-                .filter(|h| is_hash(h))
-                .cloned()
-                .collect(),
+            artwork_hashes: orphans.covers(),
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",
@@ -911,12 +642,14 @@ impl Library {
                 entry.created
             ],
         )?;
-        let trimmed = trim_removal_undo(&tx)?;
+        let freed = undo_window::enforce(&tx)?;
         tx.commit()?;
         drop(conn);
-        // Files go only after the records are really gone.
-        self.purge_cache_files(&orphaned);
-        self.purge_covers(&trimmed)?;
+        // Cache files go only after the records are really gone. The covers of the removed
+        // tracks stay until their saved records are dropped; those of removals that just
+        // left the Undo window go now.
+        purge::cache_files(self.data_dir(), &orphans, &[]);
+        purge::free_covers(self, &freed)?;
         Ok(entry)
     }
 
@@ -1105,6 +838,7 @@ impl Library {
                 .map(|p| p.to_string_lossy().into_owned())
                 .collect(),
             files_checked: checked,
+            undo_limit: MISSING_UNDO_WINDOW,
         };
         self.save_preview(
             &SavedPreview {
@@ -1294,6 +1028,7 @@ impl Library {
                     entry: serde_json::from_str(&entry)?,
                     undone_by,
                     undo_discarded,
+                    undo_limit: MISSING_UNDO_WINDOW,
                 })
             })
             .collect()
@@ -1326,11 +1061,12 @@ impl Library {
         )?;
         tx.commit()?;
         drop(conn);
-        self.purge_covers(&covers)?;
+        purge::free_covers(self, &covers)?;
         Ok(MissingRepairHistory {
             entry: original.entry,
             undone_by: None,
             undo_discarded: true,
+            undo_limit: MISSING_UNDO_WINDOW,
         })
     }
 
@@ -1388,34 +1124,19 @@ impl Library {
             "The saved records of this removal were discarded, so it cannot be undone"
         );
         // Look at the old locations, hashing what is there, before any lock is taken.
-        let mut observed = Vec::new();
-        match original.entry.kind {
+        let observed = match original.entry.kind {
             MissingRepairKind::Remove => {
-                if let Some(table) = original.snapshot.image.table("tracks") {
-                    let at = |name: &str| table.columns.iter().position(|c| c == name);
-                    let (Some(path_at), Some(hash_at)) = (at("path"), at("source_hash")) else {
-                        anyhow::bail!("The saved records are damaged");
-                    };
-                    for (_, values) in &table.rows {
-                        let path = bytes_of(&values[path_at]).unwrap_or_default();
-                        observed.push(observe_old_location(
-                            &bytes_path(&path)?,
-                            values[hash_at].as_str().unwrap_or_default(),
-                            cancel,
-                        )?);
-                    }
-                }
+                track_removal::observe_world(&original.snapshot.image, cancel)?
             }
-            MissingRepairKind::Relink => {
-                for m in &original.snapshot.relinks {
-                    observed.push(observe_old_location(
-                        &bytes_path(&m.from)?,
-                        &m.hash,
-                        cancel,
-                    )?);
-                }
-            }
-        }
+            MissingRepairKind::Relink => original
+                .snapshot
+                .relinks
+                .iter()
+                .map(|m| {
+                    track_removal::observe_old_location(&bytes_path(&m.from)?, &m.hash, cancel)
+                })
+                .collect::<Result<Vec<_>>>()?,
+        };
         let undo_notes = self.watch_follow_notes(&original);
         let _gates = self.repair_gates()?;
         let mut conn = self.conn()?;
@@ -1427,29 +1148,8 @@ impl Library {
         let mut undo_skipped = Vec::new();
         match original.entry.kind {
             MissingRepairKind::Remove => {
-                if let Some(table) = original.snapshot.image.table("tracks") {
-                    let at = |name: &str| table.columns.iter().position(|c| c == name);
-                    let (Some(id_at), Some(path_at)) = (at("id"), at("path")) else {
-                        anyhow::bail!("The saved records are damaged");
-                    };
-                    for (_, values) in &table.rows {
-                        let track = values[id_at].as_str().unwrap_or_default();
-                        let path = bytes_of(&values[path_at]).unwrap_or_default();
-                        let taken: Option<String> = tx
-                            .query_row(
-                                "SELECT title FROM tracks WHERE id=?1 OR path=?2",
-                                params![track, path],
-                                |r| r.get(0),
-                            )
-                            .optional()?;
-                        if let Some(title) = taken {
-                            anyhow::bail!(
-                                "Cannot undo: \"{title}\" is now in the library at the same place. Remove that track first, or keep the current library"
-                            );
-                        }
-                    }
-                }
-                let restored = restore(&tx, &original.snapshot.image)?;
+                let restored = track_removal::restore(&tx, &original.snapshot.image)?;
+                // Rows that something changed after the removal stay as they are now.
                 for (table, count) in restored.detached_kept {
                     let label = if table == "native_track_links" {
                         "rekordbox links".to_owned()
@@ -1461,6 +1161,20 @@ impl Library {
                         title: label,
                         reason: format!(
                             "{count} changed after the removal (rescanned or linked to another track) and were left as they are"
+                        ),
+                    });
+                }
+                for (table, count) in restored.links_kept {
+                    let label = match table.as_str() {
+                        "sync_links" => "sync links",
+                        "native_sync_track_ownership" => "DJ-program sync records",
+                        other => other,
+                    };
+                    undo_skipped.push(SkippedTrack {
+                        id: String::new(),
+                        title: label.to_owned(),
+                        reason: format!(
+                            "{count} linked to something else after the removal and were left as they are"
                         ),
                     });
                 }
@@ -1552,6 +1266,7 @@ impl Library {
         original.undone_by = Some(entry.id.clone());
         // The records are back in the library; the copy kept for Undo is no longer needed.
         original.snapshot = Snapshot::default();
+        // The covers stay: the restored records use them again.
         original.artwork_hashes.clear();
         tx.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
@@ -1575,34 +1290,5 @@ impl Library {
         )?;
         tx.commit()?;
         Ok(entry)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use sha2::{Digest, Sha256};
-
-    #[test]
-    fn a_location_that_changes_after_it_was_observed_is_caught_without_hashing_again() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("old.flac");
-        let hash = format!("{:x}", Sha256::digest(b"the audio"));
-        let cancel = CancellationToken::default();
-        // Nothing there: observed as free, and a file turning up is a change.
-        let free = observe_old_location(&path, &hash, &cancel).unwrap();
-        free.unchanged().unwrap();
-        std::fs::write(&path, b"the audio").unwrap();
-        assert!(free.unchanged().is_err());
-        // The right bytes there: accepted; any later change to the file is caught.
-        let same = observe_old_location(&path, &hash, &cancel).unwrap();
-        same.unchanged().unwrap();
-        std::fs::write(&path, b"something longer than the audio").unwrap();
-        assert!(same.unchanged().is_err());
-        // Other bytes, or something that is not a file: refused outright.
-        assert!(observe_old_location(&path, &hash, &cancel).is_err());
-        std::fs::remove_file(&path).unwrap();
-        std::fs::create_dir(&path).unwrap();
-        assert!(observe_old_location(&path, &hash, &cancel).is_err());
     }
 }

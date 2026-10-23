@@ -548,6 +548,8 @@ textarea:focus-visible{outline:2px solid var(--cr-accent);outline-offset:2px}
 .maintenance-preferences{padding:16px 0;border-block:1px solid var(--cr-divider)}
 .maintenance-preview{padding:20px;border:1px solid var(--cr-accent);border-radius:var(--cr-radius-panel);margin:20px 0;background:var(--cr-bg)}
 .maintenance-preview>div:not(.maintenance-actions){margin:14px 0;padding-bottom:10px;border-bottom:1px solid var(--cr-divider)}
+.maintenance-notes{margin:12px 0;padding-left:18px;font-size:12px;line-height:1.6;color:var(--cr-muted)}
+.maintenance-notes li{margin:4px 0;overflow-wrap:anywhere}
 .maintenance-paths{list-style:none;margin:12px 0;padding:0}
 .maintenance-paths li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;overflow-wrap:anywhere;padding:10px 0;border-bottom:1px solid var(--cr-divider)}
 .maintenance-paths li>span,.maintenance-paths li>small{min-width:0;flex:1 1 280px;overflow-wrap:anywhere}
