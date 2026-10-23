@@ -210,7 +210,7 @@
 
 ### Task 15: Documentation
 
-**Files:** Modify `docs/user-guide/guides/sync.md`, `docs/user-guide/about/roadmap.md`, `docs/release-readiness.md`, `crates/cuerithm-dj-sync/README.md`; create `docs/user-guide/guides/sync-mixxx.md` if the guide index supports pages.
+**Files:** Modify `docs/user-guide/sync/index.md`, `docs/user-guide/help/not-available-yet.md`, `docs/release-readiness.md`, `crates/cuerithm-dj-sync/README.md`; create `docs/user-guide/sync/mixxx.md` if the guide index supports pages.
 
 - [ ] **Step 1:** Document: where Mixxx keeps its library on each system (incl. Flatpak), close Mixxx first, the two modes with a before/after example, playlists vs crates, what is converted (smart → ordinary, folders flattened), what is not transferred, backup and restore, and the stated AAC and Windows/Linux runtime caveats. **Step 2:** run the user-guide validation used by the repo (`docs/site-requirements.txt`, `tools/ci`) and fix any link or build error. **Step 3:** Commit `docs(mixxx): user guide, readiness and roadmap`.
 

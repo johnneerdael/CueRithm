@@ -38,13 +38,14 @@ are ignored by the routine suite and were explicitly executed.
 
 | Workload | Time | Peak RSS | Longest progress callback gap |
 |---|---:|---:|---:|
-| Native export/restore: 100,000 tracks, 800,000 cues, 10,000 playlists, 100,000 memberships | 175.087 s | 99,631,104 bytes | 0.257 s |
+| Native export/restore: 100,000 tracks with offline native bindings, 800,000 cues, 10,000 playlists, 100,000 memberships | 209.085 s | 127,156,224 bytes | 0.156 s |
 | Lexicon streaming import: 100,000 minimal tracks with accepted musical records, no cues/playlists | 67.666 s | 47,038,464 bytes | 0.414 s |
 | Relocation: 1,000,000 flat candidates plus a target beyond the cap | 97.334 s initial scan; 67.535 s continuation | 23,363,584 bytes | 0.648 s |
 
-The native archive measured 9,518,615 bytes and preserved 1,000 archived tracks
-without creating jobs. The measured native runner SHA-256 was
-`4d47e29b8c3ae114b15e5aa68fd79ed908421901b3a67eb6e9adb1df9a9a67bc`.
+The native archive measured 9,389,490 bytes and preserved 1,000 archived tracks
+without creating jobs and grouped all native sources under one mapping root.
+The measured native runner SHA-256 was
+`4e3ad9b35d65b7b901f0b72736ba42d03520acb147ddc2ee8799b6bae4a78669`.
 The Lexicon source ZIP measured 1,241,008 bytes, SHA-256
 `c09018ddfa66737a17ef958ec9e8b154eb6e94b7b6f8eb712e64514b1758f51b`. Million
 candidate cancellation completed in 0.253 seconds; setup/deletion is excluded

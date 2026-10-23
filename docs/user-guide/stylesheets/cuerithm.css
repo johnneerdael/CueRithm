@@ -138,3 +138,19 @@
 
 :focus-visible { outline: 2px solid var(--md-accent-fg-color); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+/* Twelve section tabs: tighter spacing so they fit on a laptop-width header */
+.md-tabs__item { padding-left: 0.35rem; padding-right: 0.35rem; }
+.md-tabs__link { font-size: 0.68rem; }
+
+/* Recipe summary box: Uses / Works on / Time / Undo */
+.md-typeset .recipe-meta { border: 1px solid var(--cr-border); border-left: 4px solid var(--cr-cobalt); background: var(--cr-surface); border-radius: 0 10px 10px 0; padding: 0.6rem 1rem; margin: 1em 0 1.4em; font-size: 0.78rem; }
+.md-typeset .recipe-meta p { margin: 0.2em 0; }
+
+/* Screenshots keep the app window's own rounded corners; the shadow follows the image alpha */
+.md-typeset figure img.screen { border: 0; border-radius: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 10px 28px rgba(16, 18, 27, 0.28)); }
+.md-typeset figure { max-width: 100%; }
+.md-typeset figure img.screen[loading] { height: auto; max-width: 100%; }
+
+/* "Your goal -> Page" tables read like menus */
+.md-typeset table:not([class]) td:first-child { font-weight: 500; }

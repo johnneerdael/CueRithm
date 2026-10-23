@@ -1,0 +1,254 @@
+[
+ {
+  "scene": "cleanup-open-selected",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 1. Select the tracks and open Cleanup { #open-cleanup }",
+  "alt": "Cleanup opened from five selected tracks: the Smart Fixes tab with no rules yet and the Scope menu reading 5 selected tracks",
+  "caption": "Cleanup starts empty; the scope is the five tracks you selected.",
+  "state": "In Tracks, search 'Original Mix' and select only the five healthy tracks (Brackish, Come To Life, Desert, Play With Fire, Undercurrent), not the missing twins left by the 14 moved files. Click Cleanup under TOOLS in the sidebar. Smart Fixes tab active, no rules added yet. Scope menu shows '5 selected tracks'. Dark/light do not matter.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-smart-fix-added",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 2. Add a Smart Fix that removes \"(Original Mix)\" { #add-a-smart-fix }",
+  "alt": "Smart Fixes tab with one card, Smart Fix: Common title text, its Pattern set to Original Mix suffix and Save cleanup rules just pressed",
+  "caption": "One rule is enough for this tutorial: the Original Mix suffix pattern.",
+  "state": "Same state as the previous scene, then choose Common title text in New Smart Fix, press Add Smart Fix, leave Pattern on Original Mix suffix and press Save cleanup rules. The Save button is grey again and Scan tracks is enabled.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-genre-mapping",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 3. Fold one genre spelling into another { #merge-a-genre }",
+  "alt": "Genres tab with Enable genre cleanup ticked, the search box showing Dubstep and the row 140 / Deep Dubstep / Grime with Dubstep typed in its Replace box",
+  "caption": "A mapping is typed on the library value's own row.",
+  "state": "Genres tab, Enable genre cleanup ticked, Search genres = 'Dubstep'. The list shows 'Dubstep' (1 track) and '140 / Deep Dubstep / Grime' (1 track). Type 'Dubstep' in the box of the 140 / Deep Dubstep / Grime row (placeholder Keep existing). Save cleanup rules already pressed.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-preview-original-mix",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 4. Scan and read the preview { #scan }",
+  "alt": "Cleanup preview titled 5 proposed changes; the first card, Brackish, shows title Brackish (Original Mix) becoming Brackish and genre 140 / Deep Dubstep / Grime becoming Dubstep",
+  "caption": "A scan only proposes changes; every card has a checkbox.",
+  "state": "After Scan tracks with the two rules from the previous scenes and the five-track selection: '5 proposed changes', '0 unchanged · 0 unavailable', cards expanded for Brackish (title and genre) and Come To Life (title). Nothing applied.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-applied-undo-history",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 5. Apply the changes { #apply }",
+  "alt": "Cleanup result reading 5 applied, 0 unchanged, 0 conflicts, 0 failed, above an Undo history entry with an Undo button",
+  "caption": "After Apply, the result line and an Undo history entry appear.",
+  "state": "After pressing Apply 5 changes: the 'Cleanup result' block and, below it, 'Undo history' with one 'Cleanup' entry (date, 'complete', '5 tracks') and its Undo button.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library."
+ },
+ {
+  "scene": "cleanup-undone",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 6. Undo the batch { #undo }",
+  "alt": "Undo history with a newer Undo entry above the Cleanup entry it reversed, and no Undo button left on the Cleanup entry",
+  "caption": "Undo adds its own history entry and restores the titles and genre.",
+  "state": "After pressing Undo on the batch: two entries, 'Undo' (newest) and 'Cleanup'; the Cleanup entry has no Undo button.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library."
+ },
+ {
+  "scene": "cleanup-eleven-smart-fixes",
+  "page": "tagging/cleanup-rules.md",
+  "after": "## Smart Fixes { #smart-fixes }",
+  "alt": "The New Smart Fix menu open on the Smart Fixes tab, listing Casing, Characters to spaces, Encoded characters, Extract artist, Extract remixer, Garbage, Number prefix, URLs and email, Mix parentheses, Common title text and Promotional text",
+  "caption": "Eleven Smart Fixes are available; none are installed for you.",
+  "state": "Cleanup, Smart Fixes tab, no rules. Open the New Smart Fix menu so all eleven names are visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-genre-conversion",
+  "page": "tagging/cleanup-rules.md",
+  "after": "## Genres { #genres }",
+  "alt": "Genres tab showing Enable genre cleanup, a mapping row, Protected genres, the Convert genres into categorized tags options with the category Subgenres, and the library value list with track counts",
+  "caption": "The Genres tab combines mappings, protection, conversion to categories and your library's own values.",
+  "state": "Cleanup, Genres tab, Enable genre cleanup ticked, Convert genres into categorized tags ticked (Category 'Subgenres'), library values visible with counts (Melodic House & Techno 11 tracks, Mainstage 4 tracks).",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-artists-roles",
+  "page": "tagging/cleanup-rules.md",
+  "after": "## Artists { #artists }",
+  "alt": "Artists tab with Enable artist cleanup ticked, the five role boxes artist, remixer, producer, composer and lyricist, and library artist values with per-role counts",
+  "caption": "Choose which contributor roles the artist mappings cover.",
+  "state": "Cleanup, Artists tab, Enable artist cleanup ticked, only 'artist' ticked among the roles, library list visible with 'artist: N' counts.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-settings-automatic",
+  "page": "tagging/cleanup-automatically.md",
+  "after": "## 1. Switch it on { #switch-on }",
+  "alt": "Settings, Cleanup page, with Clean incoming tracks automatically ticked above the Smart Fixes, Genres and Artists sections",
+  "caption": "One switch applies the saved rules to every new track.",
+  "state": "Sidebar: Settings, then the Cleanup page. 'Clean incoming tracks automatically' ticked. Do not press Save settings on the owner's library; capture before saving.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-undo-conflicts",
+  "page": "tagging/undo-cleanup.md",
+  "after": "## When a track is left alone { #conflicts }",
+  "alt": "An Undo history result reading 1 conflict, expanded to show the track title and the message Later library changes preserved",
+  "caption": "A track that changed after the batch is left alone and explained.",
+  "state": "Apply a cleanup to two tracks, then edit one of them with Edit metadata, then press Undo. Expand the '1 conflict · 0 failed' line under the Cleanup entry so the track name and message are visible.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library."
+ },
+ {
+  "scene": "curate-panel-open",
+  "page": "tagging/curate-tracks.md",
+  "after": "## Open Curate { #open-curate }",
+  "alt": "The Curate panel beside the track table for Palm Of Your Hands (Extended Mix): measured key 11A, BPM and energy 6 / 10, the Mood and Set slot categories, star rating and notes",
+  "caption": "Curate sits beside the table and keeps the player available.",
+  "state": "Tracks, select 'Palm Of Your Hands (Extended Mix)' and press Curate. Mood (Multiple choices: Warm ticked, Dark, Uplifting) and Set slot (One choice: Warm-up ticked) visible, 4 stars, a short note. Player visible.",
+  "needs": "Create the categories Mood (Multiple choices: Warm, Dark, Uplifting) and Set slot (One choice: Warm-up, Peak, Closing) and curate this track."
+ },
+ {
+  "scene": "curate-manage-categories",
+  "page": "tagging/curate-tracks.md",
+  "after": "## Create categories and choices { #create-categories }",
+  "alt": "Manage categories and mappings view with the category Mood selected, its choices Warm, Dark and Uplifting, and the New category and New choice fields",
+  "caption": "Categories and choices are created in one place.",
+  "state": "Curate panel, press 'Manage categories and mappings'. Category to edit = Mood, Selection mode = Multiple choices, the three choices listed.",
+  "crop": "panel",
+  "needs": "Same categories as the previous Curate scene."
+ },
+ {
+  "scene": "curate-category-filters",
+  "page": "tagging/curate-tracks.md",
+  "after": "## Find curated tracks { #find-curated-tracks }",
+  "alt": "The Category filters popover open above the track table with Match set to Any selected choice and the Warm choice of Mood ticked",
+  "caption": "Category filters narrow the table by choice, rating or note.",
+  "state": "Tracks view with at least two tracks carrying Warm. Open 'Category filters' in the table toolbar: Match = Any selected choice, tick Mood · Warm. Leave the popover open; do not press Apply.",
+  "crop": "panel",
+  "needs": "Same categories as the other Curate scenes, with at least two tracks carrying Warm."
+ },
+ {
+  "scene": "curate-file-mappings",
+  "page": "tagging/curate-tracks.md",
+  "after": "## Write categories into the file's tags (optional) { #optional-native-mappings }",
+  "alt": "The Optional file mappings section expanded, with Source, Target, File field, Encoding, the file format boxes and Write this mapping to files",
+  "caption": "File mappings are an explicit, per-category opt-in.",
+  "state": "Curate, Manage categories and mappings, expand 'Optional file mappings'. Source = Mood, Target = Typed text field, File field = grouping, Encoding = Native values, nothing saved.",
+  "crop": "panel",
+  "needs": "Same categories as the previous Curate scenes."
+ },
+ {
+  "scene": "organize-scope-selected",
+  "page": "rename/organize-files.md",
+  "after": "## 1. Select the tracks and open Organize files { #open-organize }",
+  "alt": "Organize files with the Scope menu reading 6 selected tracks and the Naming rules section collapsed",
+  "caption": "A plan covers a scope you choose; here it is six selected tracks.",
+  "state": "Tracks: select Palm Of Your Hands, Knockout, Dancin, When The Fire Starts To Burn, Say Less and Undercurrent (the healthy rows), then click Organize files in the table toolbar. Scope shows '6 selected tracks'. Mode still Leave files in place.",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-copy-pattern",
+  "page": "rename/organize-files.md",
+  "after": "## 3. Write the pattern { #write-the-pattern }",
+  "alt": "Naming rules open with Copy to folder, a destination folder, the Filename pattern {artist}/{artist} - {title}, the token buttons and the Example filenames panel",
+  "caption": "Example filenames re-check the pattern as you type.",
+  "state": "Organize files, Naming rules open: mode = Copy to folder, destination = a folder named DJ Library under Music (path may be shown), pattern '{artist}/{artist} - {title}', Missing values and If a filename already exists on Needs attention. Example filenames visible with both rows.",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-preview-artist-folders",
+  "page": "rename/organize-files.md",
+  "after": "## 4. Preview the complete plan { #preview }",
+  "alt": "Complete plan for 6 tracks with 6 eligible, 0 unchanged, 0 skipped and 0 blocked, and rows such as Palm Of Your Hands (Extended Mix) moving to Adriatique/Adriatique - Palm Of Your Hands (Extended Mix).flac",
+  "caption": "The preview shows every new path before any file changes.",
+  "state": "After Preview complete plan with the settings from the previous scene: heading 'Complete plan · 6 tracks', totals line, Estimated additional space line, at least three rows with before and after paths. Do not press Apply.",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-result-history",
+  "page": "rename/organize-files.md",
+  "after": "## 5. Apply the plan { #apply }",
+  "alt": "Organization · complete with 6 completed and 0 failed, above History and recovery listing the batch with an Undo button",
+  "caption": "After Apply, the result and the history entry with Undo.",
+  "state": "After Apply 6 eligible: the 'Organization · complete' block and the History and recovery entry 'Organization · complete' with 'Details' and 'Undo'.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library."
+ },
+ {
+  "scene": "organize-token-buttons",
+  "page": "rename/naming-patterns.md",
+  "after": "## Tags you can use { #tokens }",
+  "alt": "The Filename pattern box with the eight token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it",
+  "caption": "Eight buttons insert the most-used tags at the cursor.",
+  "state": "Organize files, Naming rules open, mode = Move to folder or Copy to folder so the pattern box is visible; pattern '{key} - {energy} - {artist} - {title}'; token buttons row visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-pattern-error",
+  "page": "rename/naming-patterns.md",
+  "after": "## What can go wrong { #what-can-go-wrong }",
+  "alt": "Example filenames showing the error Unknown naming field: artsit for the pattern {artsit} - {title}, with Preview complete plan disabled",
+  "caption": "A misspelled tag is caught as you type.",
+  "state": "Organize files, Naming rules open, mode = Copy to folder, pattern '{artsit} - {title}'. The error appears in red in Example filenames and Preview complete plan is disabled.",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-history-recovery",
+  "page": "rename/undo-organize.md",
+  "after": "## Read the history { #history }",
+  "alt": "History and recovery listing an Organization entry and an Undo entry with their states, dates and completed counts",
+  "caption": "Every apply and undo is kept in the history.",
+  "state": "Organize files, scroll to 'History and recovery' with at least one finished Organization batch and one Undo entry; Details and Undo buttons visible.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library."
+ },
+ {
+  "scene": "organize-changed-originals",
+  "page": "rename/undo-organize.md",
+  "after": "## Resolve a changed original { #changed-originals }",
+  "alt": "Changed original files section listing one path with the buttons Keep managed copy and Add changed original as Incoming",
+  "caption": "A Copy batch remembers its originals and asks what to do when one changes.",
+  "state": "After a Copy batch on a disposable library, edit one original file's tags in another tool, then open Organize files. 'Changed original files' shows the path and two buttons.",
+  "crop": "panel",
+  "needs": "Requires a disposable copy of the demo library: this scene shows the result of an Apply. Do not apply on the owner's real library. Then change one original file outside CueRithm."
+ },
+ {
+  "scene": "cleanup-preview-custom-tags",
+  "page": "tagging/recipes/keep-subgenres-as-tags.md",
+  "after": "## The solution",
+  "alt": "Cleanup preview card for Dancin (Extended Mix) showing genre Techno (Peak Time / Driving) becoming Techno and a Custom tags row going from Empty to Subgenres: Techno (Peak Time / Driving)",
+  "caption": "Converted genres appear as a Custom tags line in the preview.",
+  "state": "Genres tab configured as in the recipe, Scope = Dancin and Undercurrent selected, after Scan tracks. Expand the Dancin card. Do not apply.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-casing-two-cards",
+  "page": "tagging/recipes/fix-capital-letters.md",
+  "after": "## The solution",
+  "alt": "Two Casing cards: the first with Field title, the second with Field artist and the ignored values SOLANCE and SLVR",
+  "caption": "The second card carries the exceptions.",
+  "state": "Smart Fixes tab with two Casing cards as in the recipe, both Uppercase values and Lowercase values ticked, saved.",
+  "crop": "panel"
+ },
+ {
+  "scene": "cleanup-artists-search-anyma",
+  "page": "tagging/recipes/rename-an-artist-everywhere.md",
+  "after": "## The solution",
+  "alt": "Artists tab with the search box showing Anyma and the row for the value Anyma (ofc) with its track count and role counts, and the Replace box holding Anyma",
+  "caption": "The list shows each stored value with how many tracks carry it.",
+  "state": "Cleanup, Artists tab, Enable artist cleanup ticked, only 'artist' role ticked, Search artists = 'Anyma', type 'Anyma' in the Replace box of the 'Anyma (ofc)' row (if the library stores joined credits, capture whatever rows the search shows).",
+  "crop": "panel"
+ },
+ {
+  "scene": "organize-preview-artist-folders",
+  "page": "rename/recipes/sort-files-into-artist-folders.md",
+  "after": "## The solution",
+  "alt": "Complete plan for 6 tracks with new paths grouped in artist folders such as SOLANCE/SOLANCE - Knockout (Extended Mix).flac",
+  "caption": "Preview before you apply.",
+  "state": "Same picture as the tutorial scene of the same name (reuse that capture): Complete plan for the six selected tracks with the artist-folder pattern, not applied.",
+  "crop": "panel"
+ }
+]
