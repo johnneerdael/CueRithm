@@ -167,4 +167,12 @@ describe("automatic tagging Settings",()=>{
     bridge.changed({state:"running",stage:"writing_tags",track_id:"a",job_id:"job",sequence:2});
     await screen.findByText("Writing tags");
   });
+  it("names the cleanup stage in Incoming instead of showing its internal id",async()=>{
+    const bridge=fakeBridge([{...track("a"),state:"incoming"}]);
+    bridge.jobs=[{id:"job",track_id:"a",title:"Track a",state:"running",stage:"cleanup",error:null,attempts:1}];
+    render(<App bridge={bridge}/>);
+    fireEvent.click(screen.getByRole("button",{name:/Incoming/}));
+    await screen.findByText("Cleaning up tags");
+    expect(screen.queryByText("cleanup")).toBeNull();
+  });
 });
