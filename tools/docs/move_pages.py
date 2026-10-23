@@ -38,6 +38,21 @@ def page_url(page):
     return SITE + page[:-3] + "/"
 
 
+def rewrite_urls(text, mapping):
+    """Rewrite published page URLs once, by lookup, so chained moves never cascade."""
+    urls = {page_url(old): page_url(new) for old, new in mapping.items() if page_url(old) != page_url(new)}
+    if not urls:
+        return text
+    pattern = re.compile("(" + "|".join(re.escape(u) for u in sorted(urls, key=len, reverse=True)) + r")(?=[)\s\"'<>#\]]|$)")
+    return pattern.sub(lambda m: urls[m.group(1)], text)
+
+
+def rewrite_repo_paths(text, mapping):
+    """Rewrite repository paths such as docs/user-guide/<page>.md once, by lookup."""
+    pattern = re.compile(r"((?:\.\./)*(?:docs/)?user-guide/)([\w./-]+?\.md)(#[\w-]+)?")
+    return pattern.sub(lambda m: m.group(1) + mapping.get(m.group(2), m.group(2)) + (m.group(3) or ""), text)
+
+
 def write_moves(docs, outputs):
     """Write moved pages. All moved sources are removed before any target is written, so a
     chain (a -> b, b -> c) or a swap never deletes a page that was just written."""
@@ -173,17 +188,13 @@ def main():
             value["anchors"] = {k: fix_target(v) for k, v in value.get("anchors", {}).items()}
 
     external = {}
-    path_rx = re.compile(r"((?:\.\./)*(?:docs/)?user-guide/)([\w./-]+?\.md)(#[\w-]+)?")
-    url_pairs = [(page_url(o), page_url(n)) for o, n in mapping.items()]
     for path in [os.path.join(ROOT, "README.md")] + glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True):
         rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
         if rel.startswith(("docs/user-guide/", "docs/research/")):
             continue
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
-        new_text = path_rx.sub(lambda m: m.group(1) + new_of(m.group(2)) + (m.group(3) or ""), text)
-        for old_url, new_url in url_pairs:
-            new_text = re.sub(re.escape(old_url) + r"(?=[)\s\"'<>#\]]|$)", new_url, new_text)
+        new_text = rewrite_urls(rewrite_repo_paths(text, mapping), mapping)
         if new_text != text:
             external[path] = new_text
 

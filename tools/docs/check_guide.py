@@ -54,7 +54,8 @@ def nav_pages():
 def heading_ids(path):
     md = markdown.Markdown(extensions=["toc", "attr_list", "admonition", "tables", "pymdownx.superfences", "pymdownx.tabbed", "def_list", "md_in_html"])
     with open(path, encoding="utf-8") as handle:
-        md.convert(handle.read())
+        source = handle.read()
+    md.convert(source)
     ids = []
 
     def walk(tokens):
@@ -63,6 +64,7 @@ def heading_ids(path):
             walk(token["children"])
 
     walk(md.toc_tokens)
+    ids += re.findall(r'<(?:span|a)[^>]*\sid="([\w-]+)"', source)  # explicit compatibility anchors
     return set(ids)
 
 
@@ -94,8 +96,8 @@ def main():
             cache[page] = heading_ids(os.path.join(DOCS, page))
         return cache[page]
 
-    unresolved_anchors = 0
     for old in legacy:
+        anchors = legacy_anchors.get(old, [])[1:]  # [0] is the page title
         if old in redirects:
             value = redirects[old]
             to = value if isinstance(value, str) else value["to"]
@@ -107,26 +109,16 @@ def main():
                 elif fragment and fragment not in ids_of(page):
                     errors.append(f"redirect {old} -> {target}: anchor does not exist")
             default_page = to.partition("#")[0]
-            for anchor in legacy_anchors.get(old, [])[1:]:  # [0] is the page title
-                if anchor not in mapped and (not os.path.exists(os.path.join(DOCS, default_page)) or anchor not in ids_of(default_page)):
-                    unresolved_anchors += 1
+            for anchor in anchors:
+                on_default = os.path.exists(os.path.join(DOCS, default_page)) and anchor in ids_of(default_page)
+                if anchor not in mapped and not on_default:
+                    errors.append(f"legacy anchor {old}#{anchor} has no mapping and is not on {default_page}")
         elif old in published:
-            for anchor in legacy_anchors.get(old, [])[1:]:
+            for anchor in anchors:
                 if anchor not in ids_of(old):
-                    unresolved_anchors += 1
+                    errors.append(f"legacy anchor {old}#{anchor} no longer exists on the page that kept its path")
         else:
             errors.append(f"legacy page {old} has neither a page nor a redirect")
-    if unresolved_anchors:
-        print(f"note: {unresolved_anchors} legacy anchors fall back to the top of their new page (listed with --anchors)")
-        if "--anchors" in sys.argv:
-            for old in legacy:
-                value = redirects.get(old)
-                to = old if value is None else (value if isinstance(value, str) else value["to"]).partition("#")[0]
-                mapped = {} if not isinstance(value, dict) else value.get("anchors", {})
-                if os.path.exists(os.path.join(DOCS, to)):
-                    for anchor in legacy_anchors.get(old, [])[1:]:
-                        if anchor not in mapped and anchor not in ids_of(to):
-                            print(f"  {old}#{anchor} -> {to} (top)")
 
     for path in sorted(glob.glob(os.path.join(DOCS, "_meta", "figures", "*.json"))):
         with open(path, encoding="utf-8") as handle:

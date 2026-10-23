@@ -122,6 +122,8 @@ Analysis runs on your computer without an account or an upload, and your music f
 
 Prefer one guided run from start to finish? [From a folder of new music to a playlist for the booth](first-hour.md) does steps 3 to 7 on a real purchase folder.
 
+<span id="files-and-saved-analysis"></span>
+
 ## Three things that surprise new users { #surprises }
 
 - **Incoming and Tracks are states, not folders.** Preparing a track never moves or copies your audio file. The track stays where it is on disk; only its state in the library changes. See [Follow a track through Incoming](../files/follow-incoming.md#what-ready-requires).

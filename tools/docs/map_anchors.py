@@ -10,6 +10,7 @@ Usage: python3 tools/docs/map_anchors.py [--write]
 """
 import json
 import os
+import re
 import sys
 
 import markdown
@@ -22,7 +23,8 @@ SKIP = ("_meta/", "_snippets/", "assets/", "stylesheets/")
 def ids_of(path):
     md = markdown.Markdown(extensions=["toc", "attr_list", "admonition", "tables", "pymdownx.superfences", "pymdownx.tabbed", "def_list", "md_in_html"])
     with open(path, encoding="utf-8") as handle:
-        md.convert(handle.read())
+        source = handle.read()
+    md.convert(source)
     out = []
 
     def walk(tokens):
@@ -31,6 +33,7 @@ def ids_of(path):
             walk(token["children"])
 
     walk(md.toc_tokens)
+    out += re.findall(r'<(?:span|a)[^>]*\sid="([\w-]+)"', source)  # explicit compatibility anchors
     return set(out)
 
 

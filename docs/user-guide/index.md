@@ -27,6 +27,8 @@ CueRithm prepares a DJ library on your own computer. Drop in new music and each 
 !!! info "Version 0.1: early software"
     macOS builds for Apple Silicon are signed with a Developer ID and notarized by Apple. Windows and Linux builds are unsigned, and there is no Intel Mac build. [Check what works with your DJ software](help/compatibility.md) and [what is not available yet](help/not-available-yet.md) before you rely on a feature.
 
+<span id="what-cuerithm-does"></span>
+
 ## What do you want to do? { #what-do-you-want-to-do }
 
 <div class="grid cards" markdown>
@@ -163,6 +165,8 @@ CueRithm prepares a DJ library on your own computer. Drop in new music and each 
 
 </div>
 
+<span id="where-to-go-next"></span>
+
 ## New here? { #new-here }
 
 1. [Download and install CueRithm](get-started/install.md) for [macOS](get-started/platforms/macos.md), [Windows](get-started/platforms/windows.md) or [Linux](get-started/platforms/linux.md).
@@ -172,6 +176,8 @@ CueRithm prepares a DJ library on your own computer. Drop in new music and each 
 Coming from Mixed In Key, Lexicon or rekordbox? [Read what carries across](get-started/coming-from-other-tools.md). Want the recent changes? [What's new](get-started/whats-new.md).
 
 Use the search box (press ++s++ or ++slash++) to find a topic in this guide.
+
+<span id="analysis-and-file-handling"></span>
 
 ## How CueRithm treats your files { #your-files }
 

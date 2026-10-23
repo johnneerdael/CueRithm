@@ -23,16 +23,20 @@ with open(os.path.join(ROOT, "docs", "user-guide", "_meta", "legacy-pages.txt"),
 
 
 def new_target(legacy, anchor):
-    """(new page, new anchor or '') for a legacy page and optional #anchor, or None if it still exists."""
+    """(new page, new anchor) for a legacy page and optional #anchor, or None if it still exists.
+
+    Mirrors the forwarding page: a mapped anchor goes where it was mapped, every other anchor is
+    carried over unchanged (tools/docs/check_guide.py proves it exists on the new page).
+    """
     move = REDIRECTS.get(legacy)
     if move is None:
         return None
     if isinstance(move, str):
-        return move, ""
+        return move.partition("#")[0], anchor
     if anchor and anchor in move.get("anchors", {}):
         page, _, fragment = move["anchors"][anchor].partition("#")
         return page, fragment
-    return move["to"].partition("#")[0], ""
+    return move["to"].partition("#")[0], anchor
 
 
 def url_for(page):

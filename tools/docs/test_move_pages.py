@@ -55,5 +55,29 @@ class AmbiguousMaps(unittest.TestCase):
             move_pages.fix_stale({"a.md": "b.md", "b.md": "c.md"})
 
 
+class ExternalRewrites(unittest.TestCase):
+    SITE = move_pages.SITE
+
+    def test_chained_urls_are_rewritten_once(self):
+        mapping = {"a.md": "b.md", "b.md": "c.md"}
+        text = f"[A]({self.SITE}a/) and [B]({self.SITE}b/)"
+        self.assertEqual(move_pages.rewrite_urls(text, mapping), f"[A]({self.SITE}b/) and [B]({self.SITE}c/)")
+
+    def test_swapped_urls_both_change(self):
+        mapping = {"a.md": "b.md", "b.md": "a.md"}
+        text = f"{self.SITE}a/ {self.SITE}b/"
+        self.assertEqual(move_pages.rewrite_urls(text, mapping), f"{self.SITE}b/ {self.SITE}a/")
+
+    def test_repo_paths_are_rewritten_once_and_keep_anchors(self):
+        mapping = {"a.md": "b.md", "b.md": "c.md"}
+        text = "docs/user-guide/a.md#x and ../user-guide/b.md"
+        self.assertEqual(move_pages.rewrite_repo_paths(text, mapping), "docs/user-guide/b.md#x and ../user-guide/c.md")
+
+    def test_longer_urls_win_over_prefixes(self):
+        mapping = {"x/index.md": "y/index.md", "x/page.md": "z/page.md"}
+        text = f"{self.SITE}x/page/ {self.SITE}x/"
+        self.assertEqual(move_pages.rewrite_urls(text, mapping), f"{self.SITE}z/page/ {self.SITE}y/")
+
+
 if __name__ == "__main__":
     unittest.main()

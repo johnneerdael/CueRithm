@@ -6,9 +6,24 @@
    "how-the-licences-fit-together": "help/about/credits.md#licences"
   }
  },
- "about/faq.md": "help/faq.md",
+ "about/faq.md": {
+  "to": "help/faq.md",
+  "anchors": {
+   "general": "help/faq.md#frequently-asked-questions",
+   "preparation": "help/faq.md#preparing",
+   "cleanup-and-playlists": "help/faq.md#playlists",
+   "technical": "help/faq.md#accuracy"
+  }
+ },
  "about/index.md": "help/about/index.md",
- "about/provenance.md": "help/about/provenance.md",
+ "about/provenance.md": {
+  "to": "help/about/provenance.md",
+  "anchors": {
+   "scope-of-the-work": "help/about/provenance.md#scope",
+   "where-else-the-ideas-come-from": "help/about/provenance.md#other-sources",
+   "questions-and-corrections": "help/about/provenance.md#corrections"
+  }
+ },
  "about/roadmap.md": {
   "to": "help/not-available-yet.md",
   "anchors": {
@@ -133,7 +148,8 @@
    "file-organization": "reference/settings/file-organization.md",
    "library-preferences": "reference/settings/library.md",
    "smart-playlists": "reference/settings/smart-playlists.md",
-   "appearance": "reference/settings/appearance.md"
+   "appearance": "reference/settings/appearance.md",
+   "what-is-not-a-setting": "reference/settings/index.md#not-settings"
   }
  },
  "guides/smart-rules.md": {
@@ -260,15 +276,31 @@
  "technical/accuracy.md": "how-it-works/accuracy.md",
  "technical/cleanup-engine.md": "how-it-works/cleanup-engine.md",
  "technical/cues.md": "how-it-works/cues.md",
- "technical/decoding.md": "how-it-works/decoding.md",
+ "technical/decoding.md": {
+  "to": "how-it-works/decoding.md",
+  "anchors": {
+   "-diagnostics": "how-it-works/decoding.md#sealing-and-verification"
+  }
+ },
  "technical/energy.md": "how-it-works/energy.md",
  "technical/index.md": "how-it-works/index.md",
- "technical/key.md": "how-it-works/key.md",
+ "technical/key.md": {
+  "to": "how-it-works/key.md",
+  "anchors": {
+   "what-else-runs": "how-it-works/key.md#steps"
+  }
+ },
  "technical/library.md": "how-it-works/library.md",
  "technical/matching.md": "how-it-works/matching.md",
  "technical/pipeline.md": "how-it-works/pipeline.md",
  "technical/smart-engine.md": "how-it-works/smart-engine.md",
  "technical/tag-writing.md": "how-it-works/tag-writing.md",
- "technical/tempo.md": "how-it-works/tempo.md",
+ "technical/tempo.md": {
+  "to": "how-it-works/tempo.md",
+  "anchors": {
+   "cropped-intros": "how-it-works/tempo.md#edge-cases",
+   "what-it-cannot-do": "how-it-works/tempo.md#edge-cases"
+  }
+ },
  "technical/waveform.md": "how-it-works/waveform.md"
 }
