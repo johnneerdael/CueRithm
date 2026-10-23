@@ -1,0 +1,3 @@
+[
+ {"scene": "library-missing-scan", "steps": [["click", "^button Maintenance"], ["click", "^tab Missing & broken"], ["click", "^button Scan library files"], ["wait", "2"], ["gone", "\\(disabled\\) Scan library files"], ["wait", "1.5"]], "settle": 1.0}
+]

@@ -1,0 +1,175 @@
+[
+ {
+  "scene": "library-maintenance-overview",
+  "page": "files/library/index.md",
+  "after": "intro",
+  "alt": "The Maintenance screen with its four tabs: Duplicates, Missing & broken, Unused files and History & recovery",
+  "caption": "Maintenance sits under TOOLS in the sidebar and groups every library check in one place.",
+  "state": "Sidebar: Maintenance (under TOOLS) selected. Duplicates tab open with the default Scan settings (Scope Full library, Match method Exact decoded audio, Exclude paths empty), no scan run yet, so all four tab names and the note 'Exact audio compares decoded sound...' are visible. Dark/light do not matter."
+ },
+ {
+  "scene": "library-duplicates-scan-result",
+  "page": "files/library/find-duplicates.md",
+  "after": "## 1. Scan for duplicates { #scan }",
+  "alt": "The Duplicates tab after a scan: the heading reads 1 duplicate group, with the Review groups button and the fingerprints note",
+  "caption": "A scan of 'Man Like Me (Extended Mix)' and its copy finds one duplicate group and changes nothing.",
+  "state": "Sidebar: Maintenance, Duplicates tab. Scope Full library, Match method Exact decoded audio. After Scan duplicates has finished: '1 duplicate group' heading, the Review groups button and the '... fingerprints computed · ... cached' line visible. No 'File checks needing attention' list.",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows."
+ },
+ {
+  "scene": "library-duplicates-review-group",
+  "page": "files/library/find-duplicates.md",
+  "after": "## 3. Choose the copy to keep { #keeper }",
+  "alt": "Group 1 in the duplicate review: two rows for Man Like Me (Extended Mix), both Present with 5 cues, and the Keeper and Tag and cue donor menus",
+  "caption": "Both copies share a title, so the full path in Track / location tells them apart.",
+  "state": "After Review groups: the 'Review duplicates' section with Group 1 expanded (badge 'Exact audio · unlocked'), the table with both files' paths, Bitrate, Cues 5 and 5, Availability Present, the Keeper menu showing the suggested copy, Tag and cue donor on 'Keep keeper's tags and cues', and the Lock group button. The checkbox beside Group 1 ticked.",
+  "crop": "panel",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows."
+ },
+ {
+  "scene": "library-duplicates-keeper-preferences",
+  "page": "files/library/find-duplicates.md",
+  "after": "## Let a preference pick keepers { #preferences }",
+  "alt": "The Keeper preferences box with Prefer set to Highest bitrate, the Override locked groups and Use separate best-cue donor boxes and the Apply preference button",
+  "caption": "A preference sets the keeper in every group at once, skipping locked groups.",
+  "state": "Review duplicates section scrolled to the Keeper preferences fieldset: Prefer = Highest bitrate (default), both checkboxes unticked, Apply preference button visible.",
+  "crop": "panel",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows."
+ },
+ {
+  "scene": "library-duplicates-merge-preview",
+  "page": "files/library/find-duplicates.md",
+  "after": "## 4. Preview the change { #preview }",
+  "alt": "Review merge changes: the keeper and the archived copy of Man Like Me (Extended Mix), the playlist changes line and the Apply reviewed merge and Discard preview buttons",
+  "caption": "The preview shows exactly which copy is archived and which playlists change before anything is applied.",
+  "state": "After ticking the checkbox beside Group 1 and choosing Preview selected groups: the 'Review merge changes' section with 'Exact audio · Merge', 'Keeper: Man Like Me (Extended Mix)', 'Archive: Man Like Me (Extended Mix)', the playlist changes details line, and both buttons. Nothing applied.",
+  "crop": "panel",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows. The archived copy should be a member of Warm-up set or Peak hour if possible so the playlist changes line is not zero."
+ },
+ {
+  "scene": "library-history-merge-undo",
+  "page": "files/library/find-duplicates.md",
+  "after": "## 6. Undo the merge { #undo }",
+  "alt": "History & recovery with one Duplicate merge entry showing 1 archived, 0 restored, 0 updated and the Undo merge button",
+  "caption": "The merge is listed with its counts, and Undo merge reverses it while nothing relevant has changed.",
+  "state": "After Apply reviewed merge: Maintenance, History & recovery tab. Duplicate merges section shows the newest entry 'Duplicate merge · <time>' with the counts line and the Undo merge button. Recovery section says 'No pending merge recovery.'",
+  "crop": "panel",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows."
+ },
+ {
+  "scene": "library-history-merge-undo",
+  "page": "files/library/undo-maintenance.md",
+  "after": "## Undo a duplicate merge { #undo-merge }",
+  "alt": "History & recovery with one Duplicate merge entry showing 1 archived, 0 restored, 0 updated and the Undo merge button",
+  "caption": "The merge is listed with its counts, and Undo merge reverses it while nothing relevant has changed.",
+  "state": "Same state as the scene on find-duplicates.md: History & recovery tab right after a merge, Duplicate merges section with the Undo merge button.",
+  "crop": "panel",
+  "needs": "Two prepared, available copies of track 11 'Man Like Me (Extended Mix)': the original in ~/Music/Beatport and a copy in ~/Music/Beatport/Spare copies. Capture the find-missing-files scenes first, then archive the 14 stale tracks, so a full-library scan finds only this pair and no Unavailable rows."
+ },
+ {
+  "scene": "library-missing-scan-result",
+  "page": "files/library/find-missing-files.md",
+  "after": "## Scan the library files { #scan }",
+  "alt": "The Missing & broken tab after a scan: 14 files need attention, all with a recorded location in the same release subfolder of ~/Music/Beatport and the outcome Missing",
+  "caption": "After 14 files were moved up one folder, the scan lists 14 tracks whose file is no longer at its recorded location.",
+  "state": "Sidebar: Maintenance, Missing & broken tab. Inspect audio decoding off. After Scan library files on the real library (40 tracks, 14 files moved up one folder in ~/Music/Beatport): heading '14 files need attention', the line '40 checked · Availability only', and the table Recorded location / Outcome / Details with the 14 rows. Outcome reads Missing, or Unavailable if the old subfolder was deleted; capture as it is and tell the page writer which it is. Show present files unticked.",
+  "crop": "panel",
+  "needs": "The real library in its current state: 14 files moved, 14 missing tracks and 14 new tracks (40 tracks, 26 files). Capture this scene and the next two before repairing anything."
+ },
+ {
+  "scene": "library-tracks-moved-twins",
+  "page": "files/library/find-missing-files.md",
+  "after": "## Why moved files look like a missing track and a duplicate { #moved-files }",
+  "alt": "The Tracks view sorted by TRACK with the Location column shown: each title appears twice, once with a path in the old subfolder and once with a path directly in ~/Music/Beatport",
+  "caption": "Every moved file shows up as two tracks that differ only by location.",
+  "state": "Sidebar: Tracks. Show the Location column (Columns button); sort by the TRACK header ascending; scroll to a run of moved titles (e.g. '17 (Extended Mix)', 'Atoma (Extended Mix)', 'Brackish (Original Mix)') so at least three pairs are visible with both Location values readable. Nothing selected.",
+  "crop": "panel",
+  "needs": "The real library in its current state, before repair."
+ },
+ {
+  "scene": "library-tracks-archive-selection",
+  "page": "files/library/find-missing-files.md",
+  "after": "### B. Archive the old tracks { #archive-old }",
+  "alt": "The Tracks view with several old tracks selected and the toolbar showing Edit metadata, Review match, Curate, Organize files, Analyze again and Archive",
+  "caption": "Select the old tracks with Cmd or Ctrl and choose Archive in the toolbar.",
+  "state": "Tracks view sorted by TRACK with the Location column shown; four of the old tracks (Location in the old subfolder) selected with Cmd/Ctrl-click; the toolbar above the table showing '4 selected' and the Archive button. Do NOT press Archive during this capture.",
+  "crop": "panel",
+  "needs": "The real library in its current state, before repair. Archive the 14 old tracks only after all find-missing-files scenes are captured; it is also required before the duplicates scenes."
+ },
+ {
+  "scene": "library-unused-scan-result",
+  "page": "files/library/clean-up-unused-files.md",
+  "after": "## Read the result { #result }",
+  "alt": "The Unused files tab after a scan of a spare folder: a list of 3 unused files with their sizes, the Complete scan badge and the Export path list and Preview removal buttons",
+  "caption": "The list shows every file in the folder that no library track uses, and the scan is marked complete.",
+  "state": "Sidebar: Maintenance, Unused files tab. Scan folder = the spare folder, Extension filter = Include extensions with 'flac, wav, mp3'. After Scan folder: heading with the file count and size, badge 'Complete scan', 'Scanned root: ...' line, Select all, Export path list, Preview removal, and the table with the files. One file ticked is fine.",
+  "crop": "panel",
+  "needs": "A spare folder outside any watch folder (for example ~/Music/Spare) holding three audio files that are not in the library, plus a folder with a cover.jpg. Do not use ~/Music/Beatport, whose files are all used."
+ },
+ {
+  "scene": "library-unused-removal-preview",
+  "page": "files/library/clean-up-unused-files.md",
+  "after": "## Preview and remove { #remove }",
+  "alt": "Review files to remove: the selected files with their sizes and the Remove reviewed files and Discard preview buttons",
+  "caption": "The preview lists every file and folder that will go before you confirm.",
+  "state": "After ticking the three files and choosing Preview removal: the 'Review files to remove' section with the summary line, each file with 'Selected file · size', and both buttons. Do NOT press Remove reviewed files.",
+  "crop": "panel",
+  "needs": "Same spare folder as the scan scene."
+ },
+ {
+  "scene": "library-history-file-removals",
+  "page": "files/library/undo-maintenance.md",
+  "after": "## Restore files you removed { #restore-files }",
+  "alt": "History & recovery with one File removal entry, its Reviewed paths opened and the Restore files and Select retained originals controls",
+  "caption": "A removal keeps its retained originals so Restore files can put the files back.",
+  "state": "After one real removal of the spare files (then restoring them is optional): History & recovery tab, 'Unused-file removals and retained originals' section with one 'File removal · committed' entry, the Reviewed paths details expanded, the Select retained originals checkbox and the Restore files button.",
+  "crop": "panel",
+  "needs": "One completed unused-file removal of the spare files from the previous scenes (apply it only after the preview scene is captured)."
+ },
+ {
+  "scene": "library-backup-view",
+  "page": "files/library/back-up-library.md",
+  "after": "intro",
+  "alt": "The Library backup screen with the explanation Your preparation, saved together and the Create backup and Inspect backup folder buttons",
+  "caption": "Library backup saves playlists, cues, analysis and settings. Music files are excluded.",
+  "state": "Sidebar: Library backup (under TOOLS) selected. Nothing created or inspected yet; the 'Your preparation, saved together' box and both buttons visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "library-backup-saved",
+  "page": "files/library/back-up-library.md",
+  "after": "## Create a backup { #create }",
+  "alt": "The Backup saved panel showing the time, the track count and the path of the new backup folder",
+  "caption": "A finished backup shows its track count and the folder CueRithm created.",
+  "state": "After Create backup into an empty folder such as ~/Documents/CueRithm backups (let Incoming finish first): the 'Backup saved' panel with the date and track count, the backup path and the 'Keep both files together' note. Hide or crop any private path above the home-folder level if needed.",
+  "crop": "panel"
+ },
+ {
+  "scene": "library-restore-preview",
+  "page": "files/library/restore-library.md",
+  "after": "## Check the backup { #inspect }",
+  "alt": "The Restore preview: the backup date, the track count, the matching-locations message, the pre-restore note, the confirmation checkbox and the disabled Restore on next launch button",
+  "caption": "Inspecting a backup shows what it holds and runs every check before anything is scheduled.",
+  "state": "After Inspect backup folder on the backup made for the previous scene: the 'Restore preview' section with the confirmation checkbox UNTICKED and Restore on next launch disabled. Do not schedule a restore.",
+  "crop": "panel"
+ },
+ {
+  "scene": "library-restore-scheduled",
+  "page": "files/library/restore-library.md",
+  "after": "## Schedule the restore { #schedule }",
+  "alt": "The Restore scheduled panel with the instruction to close and reopen CueRithm and the Cancel scheduled restore button",
+  "caption": "A scheduled restore waits for the next start and can be cancelled until then.",
+  "state": "Capture only on a disposable library or accept the risk: tick the confirmation, choose Restore on next launch, capture the 'Restore scheduled' panel, then immediately choose Cancel scheduled restore. Never quit CueRithm while a restore is scheduled on the real library.",
+  "crop": "panel",
+  "needs": "Prefer a disposable library (CUERITHM_DATA_DIR) for this scene."
+ },
+ {
+  "scene": "library-settings-recovery-backups",
+  "page": "files/library/where-data-lives.md",
+  "after": "## See how much space the originals use { #space }",
+  "alt": "Settings on the Automatic tagging page scrolled to the Recovery backups row, which shows the size and file count of the original-file backups",
+  "caption": "Recovery backups shows how much space the retained originals use.",
+  "state": "Sidebar: Settings, Automatic tagging page, scrolled so the 'Recovery backups' row with its '... MB · ... files' value is visible near the top.",
+  "crop": "panel"
+ }
+]

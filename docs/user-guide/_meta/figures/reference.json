@@ -1,0 +1,200 @@
+[
+ {
+  "scene": "reference-settings-incoming",
+  "page": "reference/settings/index.md",
+  "after": "intro",
+  "alt": "The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder ~/Music/Beatport",
+  "caption": "Settings has nine sections; the first six share one Save settings button.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page selected. The Save settings button at the top right and the whole section list at the left must be visible.",
+  "crop": "window"
+ },
+ {
+  "scene": "reference-settings-incoming",
+  "page": "reference/settings/incoming.md",
+  "after": "intro",
+  "alt": "The Incoming page of Settings listing the watch folder ~/Music/Beatport, the Add watch folder button, the Folder preparation presets row for that folder and the note that original audio files stay in place",
+  "caption": "Watch folders and their preparation presets live on the Incoming page.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page selected, one watch folder in the list, the Folder preparation presets row and the closing note visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-folder-presets",
+  "page": "reference/settings/incoming.md",
+  "after": "## Folder preparation presets { #folder-presets }",
+  "alt": "The Folder preparation presets row for ~/Music/Beatport with its menu set to Inherit parent assignment and the line Saved effective rules: Global default",
+  "caption": "Each watch folder has a menu that chooses the rules for its files.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page, scrolled to Folder preparation presets. The menu must show Inherit parent assignment (the default).",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-preparation-presets",
+  "page": "reference/settings/incoming.md",
+  "after": "## Preparation presets { #preparation-presets }",
+  "alt": "The Preparation presets page of Settings with a saved preset selected, its Ready status and the buttons Load into settings draft, Update from current draft, Rename preset, Duplicate preset, Reconnect destination, Export preset and Delete preset, and the Import preset file button",
+  "caption": "Preset buttons act at once; Load into settings draft only fills the unsaved draft.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Preparation presets page with one preset selected so every button is visible.",
+  "crop": "panel",
+  "needs": "Needs one saved preparation preset. Create one from the current draft (name it Club purchase), capture, then delete it again so the library is unchanged."
+ },
+ {
+  "scene": "reference-settings-cue-generation",
+  "page": "reference/settings/cue-generation.md",
+  "after": "intro",
+  "alt": "The Cue generation page of Settings showing Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop box unchecked",
+  "caption": "Four controls shape the cues: breakdown length, drop at start and the emergency loop.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Cue generation page, defaults untouched.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-automatic-tagging",
+  "page": "reference/settings/automatic-tagging.md",
+  "after": "intro",
+  "alt": "The Automatic tagging page of Settings: the master switch, Recovery backups, and the ordered provider list with Beatport 1 and Traxsource 2 selected and the other eight providers listed",
+  "caption": "Beatport and Traxsource are asked first; the other providers are opt-in.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Automatic tagging page, top of the page. The Automatic tagging switch state must be the real one. Recovery backups line and the first provider rows visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-tagging-fields",
+  "page": "reference/settings/automatic-tagging.md",
+  "after": "## Fields to write { #fields }",
+  "alt": "The Fields to write group: Overwrite all selected fields, then the grid of fields with Write and Overwrite boxes, with Genre, BPM, Style, Label and Release date written",
+  "caption": "A grid decides which catalog fields are written and which may replace existing values.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Automatic tagging page scrolled to the Fields to write group so the grid headings Field, Write, Overwrite and at least ten rows are visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-cleanup",
+  "page": "reference/settings/cleanup.md",
+  "after": "intro",
+  "alt": "The Cleanup page of Settings with the Clean incoming tracks automatically switch, the Smart Fixes list with a Casing rule and an Extract remixer rule, and the Genres and Artists editors",
+  "caption": "Smart Fixes run in list order, before the genre and artist mappings.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Cleanup page. Draft only: add a Casing rule and an Extract remixer rule with New Smart Fix and Add Smart Fix, then capture. Leave the page without saving.",
+  "crop": "panel",
+  "needs": "Needs two draft rules added in the unsaved Settings draft. Discard them afterwards (leave Settings without Save settings, or use Discard settings draft and reload)."
+ },
+ {
+  "scene": "reference-settings-file-organization",
+  "page": "reference/settings/file-organization.md",
+  "after": "intro",
+  "alt": "The File organization page of Settings with Rename in place chosen, the filename pattern {artist} - {title}, the eight token buttons and Example filenames showing Example Artist - Example (Club Mix).flac and a Missing naming field: artist result",
+  "caption": "The examples show how your pattern treats two invented tracks before anything is saved.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. File organization page. Draft only: set When preparation finishes to Rename in place so the pattern, token buttons, policies and Example filenames show. Leave without saving.",
+  "crop": "panel",
+  "needs": "Needs the mode changed in the unsaved draft. Discard afterwards."
+ },
+ {
+  "scene": "reference-settings-token-buttons",
+  "page": "reference/naming-tokens.md",
+  "after": "## Every token { #tokens }",
+  "alt": "The Filename pattern box and the token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it",
+  "caption": "Eight tokens have buttons; the other eleven are typed in braces.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. File organization page with Rename in place chosen (unsaved). Crop to the Filename pattern box, the token buttons and the Advanced pattern syntax line.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-library",
+  "page": "reference/settings/library.md",
+  "after": "intro",
+  "alt": "The Library preferences page of Settings with the Time zone box showing the placeholder System time zone, the Key compatibility menu set to Harmonic and the Save library preferences button",
+  "caption": "Time zone and key mode are the two library preferences smart playlists use.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Library preferences page, defaults. Time zone empty so the placeholder shows.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-settings-smart-playlists",
+  "page": "reference/settings/smart-playlists.md",
+  "after": "intro",
+  "alt": "The Smart Playlists page of Settings with By BPM switched on and one range from 126 to 130, and the other four options By Artist, By release date, By Genre and By Key",
+  "caption": "Each family of automatic lists has its own switch; BPM ranges are yours to define.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Smart Playlists page. Draft only: tick By BPM, press Add BPM range once and type 126 and 130. Do not press Save Smart Playlist settings.",
+  "crop": "panel",
+  "needs": "Needs the BPM option ticked and one range typed in the unsaved page. Leave without saving."
+ },
+ {
+  "scene": "reference-settings-appearance",
+  "page": "reference/settings/appearance.md",
+  "after": "intro",
+  "alt": "The Appearance page of Settings with six waveform style buttons: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each with a sample waveform, CueRithm selected",
+  "caption": "Six waveform styles, each previewed on the same invented track.",
+  "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Appearance page, CueRithm style selected.",
+  "crop": "panel"
+ },
+ {
+  "scene": "reference-sidebar-collapsed",
+  "page": "reference/keyboard-shortcuts.md",
+  "after": "## Window { #window }",
+  "alt": "CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width",
+  "caption": "Ctrl or Command B collapses the sidebar to icons.",
+  "state": "Tracks view. Press cmd+B so the sidebar is a narrow rail, move the pointer away so it does not peek open. Press cmd+B again afterwards to restore it.",
+  "crop": "window"
+ },
+ {
+  "scene": "reference-cue-strip",
+  "page": "reference/cue-types.md",
+  "after": "## The seven cues { #names }",
+  "alt": "The player with the track 17 (Extended Mix) loaded: cue strip buttons A Start 0:00.0, B Drop 1:15.0, C Breakdown 2:15.0, D Drop #2 3:00.0 and E End / Fade-out 4:30.0, with their coloured lines on the waveform",
+  "caption": "Each cue has a slot letter, a name, a time and a colour.",
+  "state": "Tracks view. Double-click 17 (Extended Mix) so it is loaded (paused is fine). The whole player with the cue strip and the waveform must be visible, nothing hovered.",
+  "crop": "player"
+ },
+ {
+  "scene": "reference-cue-strip-sos",
+  "page": "reference/cue-types.md",
+  "after": "## Letters: the slot of each cue { #letters }",
+  "alt": "The player with a track that has six cues and the S.O.S. loop: Atoma (Extended Mix) with buttons A to F and a seventh S.O.S. button in magenta",
+  "caption": "The S.O.S. loop takes the slot after the other cues.",
+  "state": "Tracks view, the Emergency loop box in Settings > Cue generation turned on and saved, then Atoma (Extended Mix) analysed again and loaded. Cue strip and waveform visible.",
+  "crop": "player",
+  "needs": "Needs Emergency loop switched on and one track analysed again. This changes the real library; turn it off and analyse the track again afterwards, or skip the scene: the page reads correctly without it."
+ },
+ {
+  "scene": "reference-smart-field-picker",
+  "page": "reference/smart-playlist-fields.md",
+  "after": "## Fields { #fields }",
+  "alt": "The smart playlist rule editor with Condition 1 and its Field menu open, listing labels such as Album, Album artist, Artist or remixer credit, BPM and Bitrate (kbps)",
+  "caption": "The Field menu lists every field by its picker label, in alphabetical order.",
+  "state": "Sidebar PLAYLISTS plus button, choose a smart playlist, click Add condition, open the Field menu of Condition 1. A native menu may not be capturable; if so, capture the editor with Condition 1 showing Field and Operator.",
+  "crop": "panel",
+  "needs": "A native dropdown may not appear in a screenshot. If it cannot be captured, skip the scene."
+ },
+ {
+  "scene": "reference-smart-operators",
+  "page": "reference/smart-playlist-fields.md",
+  "after": "## Operators { #operators }",
+  "alt": "A smart playlist condition on the BPM field with the Operator menu showing equals, does not equal, is greater than, is at least, is less than, is at most, is between and is a whole BPM",
+  "caption": "The operators offered depend on the field.",
+  "state": "Smart playlist editor, Condition 1 set to the BPM field, Operator menu open. If the native menu cannot be captured, skip.",
+  "crop": "panel",
+  "needs": "A native dropdown may not appear in a screenshot. If it cannot be captured, skip the scene."
+ },
+ {
+  "scene": "reference-status-tracks",
+  "page": "reference/status-icons.md",
+  "after": "## Icons in the Status column { #table }",
+  "alt": "The Tracks table with the Status column showing ticks for tracks tagged from a catalog match, and the key, BPM and energy columns filled",
+  "caption": "A tick in the Status column means a catalog match was applied.",
+  "state": "Tracks view sorted by title, the first twelve rows visible. The Status icons must be the real ones for the demo tracks (ticks if the library has catalog matches).",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-incoming-overview",
+  "page": "reference/status-icons.md",
+  "after": "## Preparation stages { #stages }",
+  "alt": "Incoming view while the Beatport folder is prepared: the header reads Preparing 26 tracks and rows show Decoding, Analyzing and Queued next to their titles",
+  "caption": "Incoming shows each track's stage while a folder is prepared.",
+  "state": "Same scene as the Prepare tab: Incoming selected, a batch in progress, the header reading Preparing N tracks.",
+  "crop": "window",
+  "needs": "Reuse the capture from the Prepare tab: needs a batch in progress (Analyze again on all tracks, switch to Incoming at once)."
+ },
+ {
+  "scene": "reference-dash-preview",
+  "page": "reference/status-icons.md",
+  "after": "## The dash in a cell { #dash }",
+  "alt": "A Tracks table row whose PREVIEW cell shows a dash while its neighbours show a waveform with cue markers",
+  "caption": "A dash in PREVIEW means no waveform could be drawn for that track.",
+  "state": "Tracks view where a track's file is missing (the real library has 14 moved files whose rows show a dash in PREVIEW). Show that row beside rows with a normal preview.",
+  "crop": "panel",
+  "needs": "Needs a track whose file is missing. The real library has this situation; capture it as it is. If not available, skip."
+ }
+]
