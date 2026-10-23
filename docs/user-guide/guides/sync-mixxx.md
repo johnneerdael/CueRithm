@@ -105,7 +105,7 @@ adds any missing tracks. Mixxx's Auto DJ and history playlists are never touched
 | CueRithm | In Mixxx |
 | --- | --- |
 | Title, artist, album, genre, comment, year, rating, track colour | The same fields |
-| BPM and beatgrid | A constant grid, or a beat map when the tempo changes |
+| BPM and beatgrid | A constant grid from CueRithm's current track analysis |
 | Key | The key, shown in whichever notation your Mixxx uses |
 | Hot cues and loops | Hot cue slots 1–36, with names and exact colours |
 | Playlists and folders | Playlists or crates, as above |

@@ -568,16 +568,16 @@ media probe, which reports 48000 for Opus.
 
 ## Not established
 
-- **Linux and Windows.** No Linux or Windows system, and no libmad, Media Foundation
-  or FAAD decoder, was run. Their MP3 alignment is a measured raw-decoder alignment
-  plus libmad's first-frame drop read from source; their AAC alignment is
-  unverified. Path, process and database behavior on those systems was read from
-  source and exercised by authored fixtures on macOS only.
+- **Native CueRithm on Linux, other Linux packages, and Windows.** Debian's Mixxx
+  2.5.0 and libmad were run in a Linux container, as recorded in *Runtime acceptance*.
+  The sync itself ran on macOS using Linux timing, so that run does not establish
+  CueRithm's native Linux discovery or process checks. Other Linux packages, FAAD,
+  Windows and Media Foundation were not run; their behavior remains source-derived.
 - **CoreAudio outside the probe.** The macOS offsets were measured with the CoreAudio
   calls `SoundSourceCoreAudio` makes, on one macOS version (15.8) and one set of
   encoders. Apple can change its tag rules between releases, which is why the adapter
   asks `AudioFile` instead of predicting them. Playback inside the Mixxx application
-  is covered separately, in *Runtime acceptance* below.
+  is covered separately, in *Runtime acceptance* above.
 - **Opus, Ogg Vorbis and AIFF** alignment was measured in Mixxx 2.5.6 on macOS against
   FFmpeg's decode, not against libopusfile, libvorbisfile or libsndfile themselves.
 - **WMA** cannot be opened by the macOS download; whether a Linux or Windows build can
