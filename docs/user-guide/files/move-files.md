@@ -26,7 +26,7 @@ The watch folder noticed 14 files it had never seen at those locations and prepa
 | Key, BPM, energy, cues | Still shown from the earlier analysis | Measured again |
 | Playlists, categories, ratings, notes | Still attached | None |
 | Cues you corrected by hand | Kept | Not copied; the new track has fresh cues |
-| Playing it | Fails with *Audio file is missing* | Works |
+| Playing it | Fails with *File not found - move it back or run Maintenance* | Works |
 | Missing & broken scan | Listed as *Missing* | Present |
 
 Renaming a file in place does the same thing: the old name becomes a missing track and the new name becomes a new track. [I moved or renamed my files](../help/troubleshooting/files-moved.md) is the short symptom version of this page.
@@ -61,7 +61,7 @@ You have two choices.
 | What you see | Why | What to do |
 |---|---|---|
 | Every song appears twice in Tracks | You moved files inside a watch folder | Read [What happens when you move a file](#what-happens), then [repair it](#repair) |
-| Pressing play shows *Audio file is missing* | The file is not at its recorded location | Put it back, or see [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md) |
+| Pressing play shows *File not found - move it back or run Maintenance* | The file is not at its recorded location | Put it back, or see [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md) |
 | Many files report *Unavailable* instead of *Missing* | The whole drive or folder is not connected | Reconnect the drive and scan again |
 | Playlists lost tracks after a repair | The new tracks were never in them | Add the new tracks to the playlists |
 | The moved files were never picked up | They sit outside every watch folder | Add them with [Add tracks](add-tracks.md) |

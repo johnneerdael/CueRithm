@@ -18,7 +18,7 @@ The example here comes from a real library: a purchase folder, `~/Music/Beatport
 |---|---|
 | **Tracks** shows 40 tracks for 26 files | The watch folder found the 14 moved files at their new paths and prepared them as 14 new tracks. |
 | Some titles appear twice | One row is the old track, the other is the new track for the same file. |
-| The old row shows a dash in **PREVIEW**, and double-clicking it leaves the message `Audio file is missing` | The old track still points at the old path, where there is no file any more. See [A track shows a dash or will not play](no-waveform-or-playback.md). |
+| The old row shows a dash in **PREVIEW**, and double-clicking it leaves the message `File not found - move it back or run Maintenance` | The old track still points at the old path, where there is no file any more. See [A track shows a dash or will not play](no-waveform-or-playback.md). |
 | **Maintenance** → **Missing & broken** lists 14 files with the outcome **Missing** | Those are the old tracks. The **Recorded location** column shows the path CueRithm expects. |
 
 ## Why it happens { #why }
