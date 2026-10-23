@@ -64,7 +64,7 @@ jobs:
           # Root contributor guidance is also safe, even if its push started redundant checks.
           target=$(git rev-parse origin/main)
           if ! git merge-base --is-ancestor "$SHA" "$target"; then ok=false; fi
-          if git diff --name-only "$SHA" "$target" | grep -qvE '^(docs/|README\.md$|AGENTS\.md$|\.github/PULL_REQUEST_TEMPLATE\.md$|\.github/scripts/|\.github/workflows/(pr-gate|release|pages)\.yml$|mkdocs\.yml$|tools/release/)'; then ok=false; fi
+          if git diff --name-only "$SHA" "$target" | grep -qvE '^(docs/|README\.md$|AGENTS\.md$|\.github/PULL_REQUEST_TEMPLATE\.md$|\.github/scripts/|\.github/workflows/(pr-gate|release|pages)\.yml$|mkdocs\.yml$|tools/release/|tools/docs/)'; then ok=false; fi
           if [ -n "$(git tag --points-at "$target")" ]; then ok=false; fi
           # Automatic releases need at least one user-facing release note since the last release.
           if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ "$ok" = true ]; then

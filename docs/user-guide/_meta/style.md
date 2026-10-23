@@ -9,7 +9,7 @@ wins until this file is fixed.
 
 ## 1. Ground rules
 
-1. **The code is the truth.** Describe what CueRithm 0.1.13 does, verified in
+1. **The code is the truth.** Describe what CueRithm 0.1.14 does, verified in
    `apps/desktop/src/` (labels, flows), `apps/desktop/src-tauri/src/` (commands)
    and `crates/` (behaviour, limits, defaults). The previous guide (in git history,
    before the feature-order restructure) is a source of facts and wording to check,
