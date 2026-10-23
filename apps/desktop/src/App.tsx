@@ -41,6 +41,10 @@ import type {MetadataDraft} from "./editor-types";
 import {hasShortcutModifier,shortcut} from "./platform";
 import {PreviewLoadError} from "./components/RowPreview";
 
+// The table's row menu and Columns dialog are portals that leave focus on the button that opened them, so the
+// keydown target alone cannot tell that one is open. Look for any overlay in the document instead.
+const overlays="[role=dialog],[role=alertdialog],[role=menu],[aria-modal=true]";
+const overlayOpen=()=>Array.from(document.querySelectorAll(overlays)).some(node=>!node.closest("[hidden],[aria-hidden=true]"));
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
 function preference(key:string,fallback:number,min:number,max:number){try{const v=Number(localStorage.getItem(key));return v>=min&&v<=max?v:fallback;}catch{return fallback;}}
@@ -239,7 +243,7 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current||exitIntent.current||closePending.current)return;
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
-      if(hasShortcutModifier(event)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();return;}
+      if(hasShortcutModifier(event)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="f"&&!overlayOpen()){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();return;}
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(isLibraryView(view)&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}

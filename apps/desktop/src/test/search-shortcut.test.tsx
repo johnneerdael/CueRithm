@@ -1,4 +1,4 @@
-import {act,fireEvent,render,screen} from "@testing-library/react";
+import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,describe,expect,it,vi} from "vitest";
 import App from "../App";
 import {fakeBridge,track} from "./bridge";
@@ -98,5 +98,53 @@ describe("search shortcut",()=>{
       unmount();
       localStorage.clear();
     }
+  });
+});
+
+describe("search shortcut with the table's own overlays open",()=>{
+  // The row menu and the Columns dialog are portals that leave focus on the page, so the key's target is never inside them.
+  async function blockedWhileOpen(search:HTMLElement,overlay:HTMLElement,opener:HTMLElement,close:()=>void|Promise<void>){
+    expect(overlay.contains(document.activeElement)).toBe(false);
+    for(const target of [window,document.body,opener]){
+      const event=press({key:"f",ctrlKey:true},target);
+      expect(event.defaultPrevented).toBe(false);
+      expect(search).not.toHaveFocus();
+    }
+    await close();
+    const event=press({key:"f",ctrlKey:true});
+    expect(event.defaultPrevented).toBe(true);
+    expect(search).toHaveFocus();
+  }
+  it("leaves the cursor alone while the row actions menu is open, and works again after it closes",async()=>{
+    platform("Win32");
+    const search=await open();
+    const opener=screen.getByRole("button",{name:"Actions for Track a"});
+    fireEvent.click(opener);
+    const menu=screen.getByRole("menu");
+    await blockedWhileOpen(search,menu,opener,async()=>{
+      fireEvent.keyDown(document,{key:"Escape"});
+      await waitFor(()=>expect(screen.queryByRole("menu")).toBeNull());
+    });
+  });
+  it("leaves the cursor alone while the Columns dialog is open, and works again after it closes",async()=>{
+    platform("Win32");
+    const search=await open();
+    const opener=screen.getByRole("button",{name:"Columns"});
+    fireEvent.click(opener);
+    const dialog=screen.getByRole("dialog",{name:"Table columns"});
+    await blockedWhileOpen(search,dialog,opener,()=>{
+      fireEvent.click(screen.getByRole("button",{name:"Close columns"}));
+      expect(screen.queryByRole("dialog",{name:"Table columns"})).toBeNull();
+    });
+  });
+  it("ignores an overlay that is hidden from the page",async()=>{
+    platform("Win32");
+    const search=await open();
+    const hidden=document.createElement("div");
+    hidden.setAttribute("role","dialog");hidden.setAttribute("aria-hidden","true");hidden.setAttribute("data-test-overlay","");
+    document.body.append(hidden);
+    const event=press({key:"f",ctrlKey:true});
+    expect(event.defaultPrevented).toBe(true);
+    expect(search).toHaveFocus();
   });
 });
