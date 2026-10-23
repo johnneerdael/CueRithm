@@ -167,6 +167,11 @@ describe("automatic tagging Settings",()=>{
     bridge.changed({state:"running",stage:"writing_tags",track_id:"a",job_id:"job",sequence:2});
     await screen.findByText("Writing tags");
   });
+  it("says album matching works with Beatport and Traxsource releases",async()=>{
+    const bridge=fakeBridge([]);
+    render(<TaggingSettings bridge={bridge} config={structuredClone((catalog as TaggingCatalog).defaults)} enabled onChange={()=>{}}/>);
+    expect(await screen.findByText(/for the remaining incoming files in the same folder/)).toHaveTextContent("Use an identified Beatport or Traxsource release for the remaining incoming files in the same folder.");
+  });
   it("names the cleanup stage in Incoming instead of showing its internal id",async()=>{
     const bridge=fakeBridge([{...track("a"),state:"incoming"}]);
     bridge.jobs=[{id:"job",track_id:"a",title:"Track a",state:"running",stage:"cleanup",error:null,attempts:1}];

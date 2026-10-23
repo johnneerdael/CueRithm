@@ -111,7 +111,7 @@ Detected restrictions are remembered across restarts. Setup: [Get past a Cloudfl
 | **Filename template** | Pattern used when the switch above is on. `%artists%`, `%artist%` and `%title%` match those parts; other `%words%` match unused parts. | `%artists% - %title%` | A pattern; it is checked when the switch above is on |
 | **Title cleanup pattern** | A regular expression removed from the title before matching. Uses Rust `regex` syntax. | Empty | A valid pattern |
 | **Skip previously tagged catalog lookups** | Skip the catalog step for tracks carrying a OneTagger or CueRithm marker. Analysis and new cues still run. | Off | On or off |
-| **Album matching** | When one Beatport release is identified, reuse it for the remaining incoming files in the same folder | Off | On or off |
+| **Album matching** | When one Beatport or Traxsource release is identified, reuse it for the remaining incoming files in the same folder | Off | On or off |
 | **Album matching ratio** | Share of the folder's incoming files that must match one release before its track list is reused | `0.5` | `0` to `1`, in steps of `0.05` |
 
 How the choices play out: [Match a folder as a release](../../tagging/match-a-release.md) and [How does catalog matching work?](../../how-it-works/matching.md).
