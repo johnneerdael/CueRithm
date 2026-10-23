@@ -7,9 +7,9 @@
 //! deletes anything.
 use super::{
     files::{current_state, state_phrase},
-    records, removal,
+    removal,
     scan::SavedScan,
-    *,
+    track_removal, *,
 };
 use crate::{
     Library,
@@ -195,7 +195,7 @@ pub(super) fn plan(
             ));
             continue;
         };
-        if let Some(reason) = records::busy_reason(&*lib.conn()?, id)? {
+        if let Some(reason) = track_removal::busy_reason(&*lib.conn()?, id)? {
             skipped.push(skip(
                 id,
                 &item.path,
@@ -360,8 +360,7 @@ pub(super) fn plan(
     let mut impact = vec![];
     for file in &files {
         cancel.check()?;
-        let captured = records::capture(&*lib.conn()?, std::slice::from_ref(&file.track_id))?;
-        let counts = captured.counts();
+        let counts = track_removal::impact(&*lib.conn()?, &file.track_id)?;
         let count = |table: &str| counts.get(table).copied().unwrap_or_default();
         let named = ["cue_revisions", "track_custom_tags"]
             .into_iter()
@@ -380,12 +379,9 @@ pub(super) fn plan(
             sync_links: count("sync_links")
                 + count("native_track_links")
                 + count("native_sync_track_ownership"),
-            // The track record itself and its playlist entries (moved to the keeper) are
-            // not "other" records.
-            other_records: total
-                .saturating_sub(named)
-                .saturating_sub(count("tracks"))
-                .saturating_sub(count("playlist_members")),
+            // The track record itself is not an "other" record. Its playlist entries are not
+            // counted at all: they move to the keeper.
+            other_records: total.saturating_sub(named).saturating_sub(count("tracks")),
         });
     }
     Ok(DuplicateDeletionPlan {

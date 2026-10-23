@@ -158,7 +158,7 @@ fn delete_from_disk_moves_the_verified_duplicate_removes_its_record_and_undo_res
     // Nothing else records the merge as a pending recovery.
     assert!(f.lib.duplicate_recovery().unwrap().is_empty());
 
-    // Undo brings back the records, their rows in the original order and the playlist
+    // Undo brings back the records, every row that belonged to them and the playlist
     // position. The file is wherever the user keeps it (here: still in the stand-in Trash).
     let undone = service.undo(&result.id, &token()).unwrap();
     assert!(undone.restored_ids.contains(&f.ids[1]));
@@ -330,6 +330,43 @@ fn a_file_another_remaining_record_still_uses_is_not_deleted() {
     assert!(result.removed_ids.is_empty());
     assert!(f.paths[1].exists());
     assert!(stand_in.taken().is_empty());
+    assert_eq!(f.content(), before);
+}
+
+#[test]
+fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
+    let f = Fixture::new();
+    // The duplicate is in the middle of a file organization that has not finished.
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "INSERT INTO organization_operations VALUES('op',?1,'publishing','{}',NULL,0,0)",
+            [&f.ids[1]],
+        )
+        .unwrap();
+    let review = f.review(Tolerance::None);
+    let before = f.content();
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.files.is_empty(), "{plan:?}");
+    assert_eq!(plan.skipped.len(), 1);
+    assert_eq!(plan.skipped[0].reason, DuplicateSkipReason::Busy);
+    assert_eq!(plan.skipped[0].track_id, f.ids[1]);
+    assert!(
+        plan.skipped[0]
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("file organization"),
+        "{:?}",
+        plan.skipped[0]
+    );
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty());
+    assert!(f.paths[1].exists() && stand_in.taken().is_empty());
     assert_eq!(f.content(), before);
 }
 
@@ -942,6 +979,15 @@ fn undo_leaves_link_rows_that_changed_after_the_removal_alone_and_never_takes_th
         ),
         0
     );
+    // The rekordbox links stay as DJ-software tracks without a library track, exactly as
+    // when Missing & broken removes a record.
+    assert_eq!(
+        rows(
+            &f,
+            "SELECT COUNT(*) FROM native_track_links WHERE status='not_in_local_library'"
+        ),
+        2
+    );
 
     // The sync links the same external records to the kept track while the duplicate is gone.
     let conn = rusqlite::Connection::open(&f.db).unwrap();
@@ -950,7 +996,7 @@ fn undo_leaves_link_rows_that_changed_after_the_removal_alone_and_never_takes_th
         [&f.ids[0]],
     )
     .unwrap();
-    conn.execute("INSERT INTO native_track_links VALUES('desk','content-1',?1,'{}',NULL,NULL,'newer baseline','linked',2)", [&f.ids[0]]).unwrap();
+    conn.execute("UPDATE native_track_links SET local_track_id=?1,baseline_json='newer baseline',status='linked',updated=2 WHERE content_id='content-1'", [&f.ids[0]]).unwrap();
     drop(conn);
 
     let undone = service.undo(&result.id, &token()).unwrap();
@@ -1043,7 +1089,7 @@ fn undo_refuses_before_touching_anything_when_a_different_file_sits_at_a_removed
     // Someone puts an unrelated file where the removed track's file was.
     std::fs::write(&f.paths[1], b"not the same audio").unwrap();
     let error = service.undo(&result.id, &token()).unwrap_err().to_string();
-    assert!(error.contains("a different file now sits at"), "{error}");
+    assert!(error.contains("a different file is now at"), "{error}");
     assert_eq!(
         hash(&f.paths[0]),
         keeper_after_merge,

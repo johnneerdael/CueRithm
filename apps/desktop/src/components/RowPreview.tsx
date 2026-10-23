@@ -6,6 +6,9 @@ import {useWaveformStyle} from "../waveform-style";
 import {useAppliedTheme} from "../theme";
 import WaveformArt from "./WaveformArt";
 export type PreviewLoader=(id:string)=>Promise<{wave:Waveform;detail:Detail}>;
+export const FILE_NOT_FOUND="File not found - move it back or run Maintenance";
+/** Thrown by a loader when the track's file is definitely gone, so the row can say so instead of showing a bare dash. */
+export class FileNotFoundError extends Error{constructor(){super(FILE_NOT_FOUND);this.name="FileNotFoundError";}}
 interface Preview{duration:number;wave:Waveform;grid:number[];cues:Cue[]}
 const columns=120,width=240,height=36,phraseBars=16,settle=160,concurrency=2;
 let running=0;const waiting:{start:()=>void;drop:()=>void}[]=[];
@@ -43,19 +46,20 @@ function fetchPreview(load:PreviewLoader,id:string,identity:string){
   return {promise:held.promise,release};
 }
 export default function RowPreview({id,identity,load}:{id:string;identity:string;load?:PreviewLoader}){
-  const [data,setData]=useState<Preview|null>(null),[failed,setFailed]=useState(false);
+  const [data,setData]=useState<Preview|null>(null),[failed,setFailed]=useState(false),[missing,setMissing]=useState(false);
   const [style]=useWaveformStyle();
   const theme=useAppliedTheme();
   const gradient="wave-"+useId().replace(/[^a-zA-Z0-9_-]/g,"");
   useEffect(()=>{
-    setData(null);setFailed(false);
+    setData(null);setFailed(false);setMissing(false);
     if(!load)return;
     let current=true;
     let release=()=>{};
-    const timer=setTimeout(()=>{const job=fetchPreview(load,id,identity);release=job.release;job.promise.then(value=>{if(current)setData(value);}).catch(()=>{if(current)setFailed(true);});},settle);
+    const timer=setTimeout(()=>{const job=fetchPreview(load,id,identity);release=job.release;job.promise.then(value=>{if(current)setData(value);}).catch(error=>{if(current){setFailed(true);setMissing(error instanceof FileNotFoundError);}});},settle);
     return()=>{current=false;clearTimeout(timer);release();};
   },[id,identity,load]);
   const shape=useMemo(()=>data?buildShape(data.wave,style,{first:0,last:data.wave.bins.length,columns,x:bin=>(bin+.5)/data.wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true,theme}):null,[data,style,theme]);
+  if(missing)return <span className="dim" role="img" aria-label={FILE_NOT_FOUND} title={FILE_NOT_FOUND}>—</span>;
   if(!load||failed||(data&&!data.wave.bins.length))return <span className="dim">—</span>;
   if(!data||!shape)return <span className="row-preview-chart loading" aria-hidden="true"/>;
   const x=(t:number)=>Math.max(0,Math.min(width,t/Math.max(.001,data.duration)*width));

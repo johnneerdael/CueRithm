@@ -47,9 +47,10 @@ pub struct DuplicatePlaylistChange {
     pub before: Vec<String>,
     pub after: Vec<String>,
 }
-/// How many merges that delete files keep their Undo data. Older ones become final: the
-/// removed library records are no longer kept, and only the Trash still holds the files.
-pub const DUPLICATE_UNDO_LIMIT: usize = 10;
+/// How many removals keep their Undo data; a merge that deletes files is one of them. Older
+/// ones become final: the removed library records are no longer kept, and only the Trash
+/// still holds the files. The bound is shared with Missing & broken removals.
+pub const DUPLICATE_UNDO_LIMIT: usize = super::undo_window::REMOVAL_UNDO_LIMIT;
 
 /// What proves a file duplicates the track that is kept.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -381,9 +382,13 @@ pub struct FileScanProgress {
 #[serde(default)]
 pub struct BrokenScanRequest {
     pub inspect_audio: bool,
+    /// Archived records are library records too; repairing them needs them listed.
+    pub include_archived: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrokenScanTrack {
+    #[serde(default)]
+    pub archived: bool,
     pub id: String,
     pub display_path: String,
     pub state: MaintenanceFileState,

@@ -4,15 +4,14 @@ use super::{
     donor_state::{self, TrackImage},
     files::{current_state, ensure_available},
     merge::{self, SavedPreview},
-    purge,
-    records::{self, RecordSnapshot},
-    *,
+    purge, track_removal, undo_window, *,
 };
 use crate::{
     Library,
     artifacts::{Artifact, cleanup_temporaries, current_hash, owned_file, rollback, safe_target},
     model::{bytes_path, path_bytes},
     publish_files,
+    record_snapshot::{RecordImage, RestoreReport},
 };
 use anyhow::{Context, Result, ensure};
 use cuerithm_autotag::{
@@ -68,9 +67,10 @@ struct Payload {
     playlists: Vec<DuplicatePlaylistChange>,
     epochs: BTreeMap<String, u64>,
     undone_by: Option<String>,
-    /// Library records removed together with their files; the minimum Undo needs.
-    #[serde(default)]
-    removed: Option<RecordSnapshot>,
+    /// Library records removed together with their files; the minimum Undo needs. Records
+    /// saved in a format this build does not read are treated as no longer stored.
+    #[serde(default, deserialize_with = "saved_records")]
+    removed: Option<RecordImage>,
     #[serde(default)]
     trash_intent: Vec<TrashIntent>,
     /// The removed records are no longer kept, so the removal is final.
@@ -85,25 +85,27 @@ impl Payload {
         self.before.retain(|id, _| !removed.contains(id));
     }
 }
-/// Keep the records removed by the newest `keep` merges that delete files, so those can be
-/// undone. Older ones become final: the stored records are dropped and Undo is no longer offered.
-fn prune_undo_data(conn: &rusqlite::Connection, keep: usize) -> Result<()> {
-    let old = {
-        let mut q = conn.prepare("SELECT id,payload_json FROM maintenance_writes WHERE kind='apply' AND state='committed' AND json_extract(payload_json,'$.removed') IS NOT NULL ORDER BY created DESC,id DESC LIMIT -1 OFFSET ?1")?;
-        q.query_map([keep as i64], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?
-    };
-    for (id, text) in old {
-        let mut payload: Payload = serde_json::from_str(&text)?;
-        payload.forget_removed();
-        payload.undo_expired = true;
-        conn.execute(
-            "UPDATE maintenance_writes SET payload_json=?1 WHERE id=?2",
-            params![serde_json::to_string(&payload)?, id],
-        )?;
-    }
+fn saved_records<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<RecordImage>, D::Error> {
+    let value = <Option<serde_json::Value> as Deserialize>::deserialize(deserializer)?;
+    Ok(value.and_then(|value| serde_json::from_value(value).ok()))
+}
+/// A merge that fell out of the shared Undo window (see [`undo_window`]): the stored records
+/// are dropped and Undo is no longer offered. The summary stays in `result`.
+pub(super) fn drop_saved_records(conn: &rusqlite::Connection, id: &str) -> Result<()> {
+    let text: String = conn.query_row(
+        "SELECT payload_json FROM maintenance_writes WHERE id=?1",
+        [id],
+        |r| r.get(0),
+    )?;
+    let mut payload: Payload = serde_json::from_str(&text)?;
+    payload.forget_removed();
+    payload.undo_expired = true;
+    conn.execute(
+        "UPDATE maintenance_writes SET payload_json=?1 WHERE id=?2",
+        params![serde_json::to_string(&payload)?, id],
+    )?;
     Ok(())
 }
 /// An interrupted operation changed no library record, but it may already have moved files to
@@ -624,7 +626,7 @@ impl DuplicateMergeService {
         }
         let mut trashed_log: Vec<String> = vec![];
         let mut permanent: Vec<String> = vec![];
-        let mut orphaned: Vec<String> = vec![];
+        let mut orphans = None;
         let outcome = (|| -> Result<()> {
             let mut conn = self.lib.conn()?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -745,13 +747,10 @@ impl DuplicateMergeService {
                 .map(|f| f.track_id.clone())
                 .collect::<BTreeSet<_>>();
             if !removed_ids.is_empty() {
-                let everything =
-                    records::capture(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
-                records::delete(&tx, &everything)?;
-                // Undo keeps what it needs; rebuildable caches are purged, not stored.
-                payload.removed = Some(everything.without_derived(&tx, &purge::DERIVED_TABLES)?);
-                orphaned = purge::orphaned_hashes(&tx, &everything.track_hashes()?)?;
-                purge::analysis_cache(&tx, &orphaned)?;
+                let removed =
+                    track_removal::remove(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
+                payload.removed = Some(removed.image);
+                orphans = Some(removed.orphans);
             }
             for id in changed.iter().filter(|id| !removed_ids.contains(*id)) {
                 payload
@@ -764,12 +763,6 @@ impl DuplicateMergeService {
                 &payload.result.affected_playlists,
             )?;
             payload.result.stamp = merge::advance(&tx)?;
-            if !removed_ids.is_empty() {
-                // Every saved duplicate scan, review and preview is stale after this merge and
-                // lists the removed music; the bookkeeping row of a removed track is of no use.
-                purge::saved_duplicate_reports(&tx)?;
-                purge::epoch_rows(&tx, &removed_ids.iter().cloned().collect::<Vec<_>>())?;
-            }
             payload.result.updated_ids = staged.iter().map(|s| s.target.clone()).collect();
             payload.result.removed_ids = removed_ids.iter().cloned().collect();
             payload.result.trashed = doomed
@@ -798,7 +791,7 @@ impl DuplicateMergeService {
                 params![serde_json::to_string(&current)?, id],
             )?;
             if payload.removed.is_some() {
-                prune_undo_data(&tx, DUPLICATE_UNDO_LIMIT)?;
+                undo_window::enforce(&tx)?;
             }
             tx.commit()?;
             Ok(())
@@ -817,30 +810,21 @@ impl DuplicateMergeService {
         finish(&self.lib, &id_op, &files, reported.as_ref())?;
         outcome?;
         // Cover art and waveforms of content that is gone; rebuilt on demand if it returns.
-        purge::cache_files(self.lib.data_dir(), &self.runtime.identity, &orphaned);
+        if let Some(orphans) = &orphans {
+            purge::cache_files(
+                self.lib.data_dir(),
+                orphans,
+                std::slice::from_ref(&self.runtime.identity),
+            );
+        }
         Ok(payload.result)
     }
     /// Undo of a removal only goes ahead when the removed tracks' identities and locations are
     /// still free, and nothing else sits where a removed track's file was: a file there must
     /// be the very file the record describes (for example restored from the Trash). Nothing
     /// is changed when this fails.
-    fn verify_removed_world(&self, snapshot: &RecordSnapshot) -> Result<()> {
-        records::ensure_free(&*self.lib.conn()?, snapshot)?;
-        for (_, path, hash) in snapshot.identities()? {
-            let path = bytes_path(&path)?;
-            if std::fs::symlink_metadata(&path).is_err() {
-                continue;
-            }
-            let same = current_state(&path).is_available()
-                && file_sha256_cancellable(&path, &CancellationToken::default())
-                    .is_ok_and(|current| current == hash);
-            ensure!(
-                same,
-                "Undo needs review: a different file now sits at {}, where a removed track's file was",
-                path.display()
-            );
-        }
-        Ok(())
+    fn verify_removed_world(&self, image: &RecordImage, cancel: &CancellationToken) -> Result<()> {
+        track_removal::verify_world(&*self.lib.conn()?, image, cancel)
     }
     /// Check the files the preview listed once more and drop any that no longer pass.
     fn reverify(
@@ -980,7 +964,7 @@ impl DuplicateMergeService {
         );
         ensure!(
             !original.payload.undo_expired,
-            "Undo is no longer available: the removed library records were kept only for the last {DUPLICATE_UNDO_LIMIT} merges that delete files"
+            "Undo is no longer available: the removed library records were kept only for the last {REMOVAL_UNDO_LIMIT} removals (duplicate merges that delete files and Missing & broken removals count together)"
         );
         ensure!(
             original.payload.removed.is_some() == !original.payload.result.removed_ids.is_empty(),
@@ -994,8 +978,8 @@ impl DuplicateMergeService {
             .cloned()
             .collect::<BTreeSet<_>>();
         // Before anything is staged or reserved, check that the world is as the removal left it.
-        if let Some(snapshot) = &original.payload.removed {
-            self.verify_removed_world(snapshot)?;
+        if let Some(image) = &original.payload.removed {
+            self.verify_removed_world(image, cancel)?;
         }
         let tracks = original.payload.after.keys().cloned().collect::<Vec<_>>();
         let playlists = original.payload.result.affected_playlists.clone();
@@ -1133,10 +1117,9 @@ impl DuplicateMergeService {
             }
             // The removed records come back first: if the library no longer matches what the
             // removal left, this fails before any file is exchanged.
-            if let Some(snapshot) = &original.payload.removed {
-                records::ensure_free(&tx, snapshot)?;
-                payload.result.links_not_restored =
-                    records::restore(&tx, snapshot)?.links_not_restored;
+            if let Some(image) = &original.payload.removed {
+                let report: RestoreReport = track_removal::restore(&tx, image)?;
+                payload.result.links_not_restored = report.left_alone();
             }
             install(&files, cancel)?;
             #[cfg(test)]

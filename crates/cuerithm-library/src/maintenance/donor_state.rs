@@ -1,16 +1,59 @@
 //! Owned before/after data for coordinated donor publication.
-use super::records::Cell;
 use crate::model::{bytes_path, path_bytes};
 use anyhow::{Context, Result, ensure};
 use cuerithm_autotag::{
     Metadata, MetadataField as F, TransferDate, TransferSnapshot, TransferText,
 };
 use cuerithm_maintenance::{ImportField as I, ImportRecord};
-use rusqlite::{Connection, params, params_from_iter, types::Value as SqlValue};
+use rusqlite::{
+    Connection, params, params_from_iter,
+    types::{Value as SqlValue, ValueRef},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, path::PathBuf};
+/// One stored value of a row, exactly as SQLite holds it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub(super) enum Cell {
+    Null,
+    Integer(i64),
+    Real(f64),
+    Text(String),
+    Blob(Vec<u8>),
+}
+impl Cell {
+    pub(super) fn capture(value: ValueRef<'_>) -> Result<Self> {
+        Ok(match value {
+            ValueRef::Null => Self::Null,
+            ValueRef::Integer(n) => Self::Integer(n),
+            ValueRef::Real(n) => {
+                ensure!(n.is_finite(), "Nonfinite library value");
+                Self::Real(n)
+            }
+            ValueRef::Text(t) => Self::Text(std::str::from_utf8(t)?.into()),
+            ValueRef::Blob(b) => Self::Blob(b.into()),
+        })
+    }
+    pub(super) fn sql(&self) -> SqlValue {
+        match self {
+            Self::Null => SqlValue::Null,
+            Self::Integer(n) => SqlValue::Integer(*n),
+            Self::Real(n) => SqlValue::Real(*n),
+            Self::Text(s) => SqlValue::Text(s.clone()),
+            Self::Blob(b) => SqlValue::Blob(b.clone()),
+        }
+    }
+    pub(super) fn json(&self) -> Value {
+        match self {
+            Self::Null => Value::Null,
+            Self::Integer(n) => json!(n),
+            Self::Real(n) => json!(n),
+            Self::Text(s) => json!(s),
+            Self::Blob(b) => json!(b),
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(super) struct RowImage {
     pub columns: Vec<String>,

@@ -9,14 +9,18 @@ mod merge;
 pub use donors::DuplicateMergeService;
 mod model;
 mod purge;
-mod records;
 mod review;
 mod scan;
+mod track_removal;
 mod trash;
+mod undo_window;
 pub use model::*;
 pub use trash::{FileTrash, SystemTrash};
+pub use undo_window::REMOVAL_UNDO_LIMIT;
 
 mod broken;
+mod missing;
+pub use missing::*;
 mod removal;
 mod unused;
 
