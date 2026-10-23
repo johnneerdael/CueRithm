@@ -208,14 +208,20 @@ Only rows are involved; the engine never reads, moves or deletes an audio file o
 - **Purged, not saved.** Rebuildable per-track rows (`maintenance_fingerprints`,
   `smart_playlist_members`, `curation_native_stale`, `preparation_reuse`,
   `preparation_match_previews`), the track's change-bookkeeping row, review artwork of its
-  match generations, cached analysis results, cover-art and waveform cache files of content no
-  remaining track or job shares, and every saved duplicate scan, review and merge plan plus any
-  file report or repair preview that names a removed track. A derived table is kept in the
-  saved image only if a saved row still refers to it. `maintenance/purge.rs` is the one list.
+  match generations, cached analysis results, waveform cache files of content no remaining
+  track or job shares, and every saved duplicate scan, review and merge plan plus any file
+  report or repair preview that names a removed track. A derived table is kept in the saved
+  image only if a saved row still refers to it. `maintenance/purge.rs` is the one list.
+- **The cover is kept for Undo.** With the audio gone (missing, or in the Trash) the cached cover
+  can be the only copy of the picture, and Undo brings the record back without it. The removal's
+  saved record names the covers it holds (`artwork_hashes`); they are deleted when that record is
+  dropped (it leaves the window, or `discardUndo`), unless a track or another undoable removal
+  still needs the same content. Undo itself keeps them: the restored track uses them again.
 - **What Undo checks first.** Nothing is changed unless every removed track's identity and file
   location are still free and any file sitting at an old location has the content the record
-  describes (for example the file restored from the Trash). A key now in use or a parent that
-  is gone refuses Undo as a whole. A sync link, DJ-program ownership row or rekordbox link that
+  describes (for example the file restored from the Trash). Hashing happens before any lock is
+  taken; the write transaction only re-checks the file's size and modification time. A key now in
+  use or a parent that is gone refuses Undo as a whole. A sync link, DJ-program ownership row or rekordbox link that
   something changed after the removal is never overwritten or taken over: it stays as it is now
   and is counted.
 - **One bound.** `REMOVAL_UNDO_LIMIT` (ten) newest removals keep their saved records,
@@ -246,7 +252,9 @@ the same cancellation protocol as the scans.
 - `history()` lists repairs newest first (`undone_by`, `undo_discarded`, `undo_limit`).
   `undo(operationId, id)` reverses one removal or relink as a unit, or changes nothing and says
   why; a relink Undo verifies the audio hash and the old location before changing a path.
-  `discardUndo` frees the saved records of a removal that was not undone.
+  `discardUndo` frees the saved records of a removal that was not undone. An Undo result may
+  carry `notes`: for a relink whose file is still inside a watch folder it says the next scan
+  will follow the file again.
 
 A file moved inside a watch folder is followed before it can become a second track: when a
 discovered file has the content of exactly one ready track whose own file is gone from the same

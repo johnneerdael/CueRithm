@@ -37,6 +37,15 @@ fn count(f: &Fixture, query: &str) -> i64 {
         .unwrap()
 }
 
+/// The cached cover of one file content, as the app would have written it.
+fn plant_cover(f: &Fixture, hash: &str) -> std::path::PathBuf {
+    let folder = f.lib.data_dir().join("cache/artwork");
+    std::fs::create_dir_all(&folder).unwrap();
+    let cover = folder.join(hash);
+    std::fs::write(&cover, b"cover").unwrap();
+    cover
+}
+
 /// Gives a track one of everything that can hang off it, so a removal has to deal with all of
 /// it: DJ-program links, a custom tag, cached analysis, review artwork and a sync baseline.
 fn give_everything(f: &Fixture, id: &str, hash: &str) {
@@ -107,9 +116,18 @@ fn broken_report(f: &Fixture) -> cuerithm_library::BrokenScanReport {
 }
 
 /// A pair of identical files with a title of its own; the copy leaves through "Delete from disk".
-fn merge_removal(f: &mut Fixture, service: &DuplicateMergeService, n: usize) -> String {
-    let keep = f.add_track(&format!("pair-{n}-a.wav"), 301 + 2 * n as i32);
-    let copy = f.add_track(&format!("pair-{n}-b.wav"), 301 + 2 * n as i32);
+fn merge_removal(
+    f: &mut Fixture,
+    service: &DuplicateMergeService,
+    n: usize,
+) -> (String, std::path::PathBuf) {
+    let seed = 301 + 2 * n as i32;
+    let keep = f.add_track(&format!("pair-{n}-a.wav"), seed);
+    // The copy is the same audio with bytes of its own, so its cover is its own too.
+    let copy_path = f.dir.path().join(format!("pair-{n}-b.wav"));
+    wav_with_extra_chunk(&copy_path, seed);
+    let copy = f.import(copy_path);
+    let cover = plant_cover(f, &hash(&f.paths[copy]));
     let title = format!(
         "Merge pair {n} {}",
         [
@@ -141,12 +159,13 @@ fn merge_removal(f: &mut Fixture, service: &DuplicateMergeService, n: usize) -> 
         .apply_confirmed(&preview.id, true, &token())
         .unwrap();
     assert_eq!(result.removed_ids.len(), 1, "round {n}");
-    result.id
+    (result.id, cover)
 }
 
 /// A track whose file is gone is removed from the library through Missing & broken.
-fn missing_removal(f: &mut Fixture, n: usize) -> String {
+fn missing_removal(f: &mut Fixture, n: usize) -> (String, std::path::PathBuf) {
     let gone = f.add_track(&format!("gone-{n}.wav"), 601 + n as i32);
+    let cover = plant_cover(f, &hash(&f.paths[gone]));
     std::fs::remove_file(&f.paths[gone]).unwrap();
     let report = broken_report(f);
     let preview = f
@@ -154,10 +173,12 @@ fn missing_removal(f: &mut Fixture, n: usize) -> String {
         .preview_missing_removal(&report.id, std::slice::from_ref(&f.ids[gone]), &token())
         .unwrap();
     assert_eq!(preview.ready, 1, "round {n}");
-    f.lib
+    let id = f
+        .lib
         .apply_missing_removal(&preview.id, &token())
         .unwrap()
-        .id
+        .id;
+    (id, cover)
 }
 
 fn merge_is_final(f: &Fixture, id: &str) -> bool {
@@ -190,20 +211,27 @@ fn every_kind_of_removal_shares_one_undo_limit_of_ten() {
     let service = service(&f, &stand_in);
     // Fourteen removals, alternating between the two kinds. Counted together, the newest ten
     // keep their records; the four oldest are final, whichever kind they are.
-    let mut removals: Vec<(bool, String)> = vec![];
+    struct Removal {
+        merge: bool,
+        id: String,
+        cover: std::path::PathBuf,
+    }
+    let mut removals: Vec<Removal> = vec![];
     for n in 0..14 {
         std::thread::sleep(Duration::from_millis(3));
-        if n % 2 == 0 {
-            removals.push((true, merge_removal(&mut f, &service, n)));
+        let merge = n % 2 == 0;
+        let (id, cover) = if merge {
+            merge_removal(&mut f, &service, n)
         } else {
-            removals.push((false, missing_removal(&mut f, n)));
-        }
+            missing_removal(&mut f, n)
+        };
+        removals.push(Removal { merge, id, cover });
     }
-    let is_final = |f: &Fixture, (merge, id): &(bool, String)| {
-        if *merge {
-            merge_is_final(f, id)
+    let is_final = |f: &Fixture, removal: &Removal| {
+        if removal.merge {
+            merge_is_final(f, &removal.id)
         } else {
-            missing_is_final(f, id)
+            missing_is_final(f, &removal.id)
         }
     };
     for (n, removal) in removals.iter().enumerate() {
@@ -211,16 +239,22 @@ fn every_kind_of_removal_shares_one_undo_limit_of_ten() {
             is_final(&f, removal),
             n < 4,
             "removal {n} ({})",
-            if removal.0 { "merge" } else { "missing" }
+            if removal.merge { "merge" } else { "missing" }
+        );
+        // The cover of the removed music is kept for Undo exactly as long as its saved records.
+        assert_eq!(
+            removal.cover.exists(),
+            n >= 4,
+            "the cover of removal {n} follows its saved records"
         );
     }
     // A final removal refuses Undo, in either place.
-    for (merge, id) in &removals[..4] {
-        let error = if *merge {
-            service.undo(id, &token()).unwrap_err().to_string()
+    for removal in &removals[..4] {
+        let error = if removal.merge {
+            service.undo(&removal.id, &token()).unwrap_err().to_string()
         } else {
             f.lib
-                .undo_missing_repair(id, &token())
+                .undo_missing_repair(&removal.id, &token())
                 .unwrap_err()
                 .to_string()
         };
@@ -234,31 +268,38 @@ fn every_kind_of_removal_shares_one_undo_limit_of_ten() {
         &f,
         &format!(
             "SELECT COUNT(*) FROM maintenance_writes WHERE id='{}' AND json_extract(payload_json,'$.removed') IS NOT NULL",
-            removals[0].1
+            removals[0].id
         ),
     );
     assert_eq!(stored, 0);
 
     // Undoing one frees its place in the window: the next removal does not push another out.
-    let newest_merge = removals.iter().rev().find(|r| r.0).unwrap().1.clone();
-    service.undo(&newest_merge, &token()).unwrap();
+    // The undone track is back, so its cover stays with it.
+    let newest_merge = removals.iter().rev().find(|r| r.merge).unwrap();
+    service.undo(&newest_merge.id, &token()).unwrap();
+    assert!(newest_merge.cover.exists());
     std::thread::sleep(Duration::from_millis(3));
-    let extra = merge_removal(&mut f, &service, 13);
+    let (extra, extra_cover) = merge_removal(&mut f, &service, 13);
     for removal in &removals[4..] {
-        if removal.1 != newest_merge {
-            assert!(!is_final(&f, removal), "{}", removal.1);
+        if removal.id != newest_merge.id {
+            assert!(!is_final(&f, removal), "{}", removal.id);
+            assert!(removal.cover.exists());
         }
     }
-    assert!(!merge_is_final(&f, &extra));
+    assert!(!merge_is_final(&f, &extra) && extra_cover.exists());
     // One more now exceeds the limit again, and the oldest still-undoable one becomes final.
     std::thread::sleep(Duration::from_millis(3));
-    let last = missing_removal(&mut f, 99);
+    let (last, _) = missing_removal(&mut f, 99);
     assert!(!missing_is_final(&f, &last));
     assert!(
         is_final(&f, &removals[4]),
         "the oldest removal left in the window is pushed out by the eleventh"
     );
-    assert!(!is_final(&f, &removals[5]));
+    assert!(
+        !removals[4].cover.exists(),
+        "and its cover goes with its records"
+    );
+    assert!(!is_final(&f, &removals[5]) && removals[5].cover.exists());
 }
 
 #[test]
@@ -292,8 +333,8 @@ fn a_removal_leaves_nothing_derived_from_the_track_behind_whichever_way_it_happe
     let left = traces(&f, &[copy.clone(), hash_copy.clone(), copy_path.clone()]);
     assert!(left.is_empty(), "left behind by the merge: {left:#?}");
     assert!(
-        !art.join(&hash_copy).exists(),
-        "its cover art cache went too"
+        art.join(&hash_copy).exists(),
+        "its cover stays for Undo until the saved records are dropped"
     );
 
     // Through Missing & broken: the same call to the same engine, so the same result.
@@ -319,7 +360,7 @@ fn a_removal_leaves_nothing_derived_from_the_track_behind_whichever_way_it_happe
     f.lib.apply_missing_removal(&preview.id, &token()).unwrap();
     let left = traces(&f, &[id.clone(), hash_gone.clone(), gone_path]);
     assert!(left.is_empty(), "left behind by the removal: {left:#?}");
-    assert!(!art.join(&hash_gone).exists());
+    assert!(art.join(&hash_gone).exists(), "the cover stays for Undo");
     assert_eq!(
         audio_files(&f),
         audio_before,

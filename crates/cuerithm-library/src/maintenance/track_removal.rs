@@ -9,14 +9,14 @@ use super::purge::{self, CALLER_TABLES, DERIVED_TABLES, Orphans};
 use crate::{
     model::bytes_path,
     record_snapshot::{Plan, RecordImage, RestoreReport},
-    relink::work_in_flight,
+    relink::{is_gone, stamp, work_in_flight},
 };
 use anyhow::{Result, ensure};
 use cuerithm_media::{CancellationToken, file_sha256_cancellable};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// What a removal took out of the library.
@@ -89,27 +89,47 @@ pub(super) fn ensure_free(conn: &Connection, image: &RecordImage) -> Result<()> 
     Ok(())
 }
 
-/// Undo puts a record back at its old location. If something sits there now it must be the
-/// audio the record describes (for example the file restored from the Trash); otherwise the
-/// record and its retained analysis would silently describe the wrong file.
-pub(super) fn ensure_old_location(
+/// What stood at a record's old location when Undo looked, before it took any lock. Undo
+/// puts a record back there, so whatever sits there must be the audio the record
+/// describes (for example the file restored from the Trash); otherwise the record and its
+/// retained analysis would describe the wrong file. Hashing is slow, so it happens here,
+/// outside every transaction; the write transaction only re-checks cheaply with
+/// [`OldLocation::unchanged`].
+pub(super) struct OldLocation {
+    path: PathBuf,
+    /// Size and modification time of the file that was hashed; `None` if nothing was there.
+    seen: Option<(u64, std::time::SystemTime)>,
+}
+pub(super) fn observe_old_location(
     path: &Path,
     expected_hash: &str,
     cancel: &CancellationToken,
-) -> Result<()> {
+) -> Result<OldLocation> {
     match std::fs::symlink_metadata(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(OldLocation {
+            path: path.to_owned(),
+            seen: None,
+        }),
         Err(error) => anyhow::bail!(
             "Cannot undo: the old location {} cannot be checked ({error})",
             path.display()
         ),
         Ok(meta) if meta.is_file() => {
+            let before = stamp(path);
             ensure!(
                 file_sha256_cancellable(path, cancel)? == expected_hash,
-                "Cannot undo: a different file is now at {}, where the track's file was",
+                "Cannot undo: a different file is now at {}",
                 path.display()
             );
-            Ok(())
+            ensure!(
+                before.is_some() && stamp(path) == before,
+                "Cannot undo: {} changed while it was being checked; try again",
+                path.display()
+            );
+            Ok(OldLocation {
+                path: path.to_owned(),
+                seen: before,
+            })
         }
         Ok(_) => anyhow::bail!(
             "Cannot undo: something other than the audio file is now at {}",
@@ -117,21 +137,33 @@ pub(super) fn ensure_old_location(
         ),
     }
 }
-fn ensure_old_locations(image: &RecordImage, cancel: &CancellationToken) -> Result<()> {
-    for track in image.removed_tracks()? {
-        ensure_old_location(&bytes_path(&track.path)?, &track.hash, cancel)?;
+impl OldLocation {
+    /// The cheap check inside the transaction: it is still as it was observed.
+    pub(super) fn unchanged(&self) -> Result<()> {
+        let same = match self.seen {
+            None => is_gone(&self.path),
+            Some(seen) => stamp(&self.path) == Some(seen),
+        };
+        ensure!(
+            same,
+            "Cannot undo: {} changed while Undo was running; try again",
+            self.path.display()
+        );
+        Ok(())
     }
-    Ok(())
 }
-
-/// Everything Undo checks before it changes anything.
-pub(super) fn verify_world(
-    conn: &Connection,
+/// Looks at where each removed track's file was, hashing whatever is there. Call it before
+/// any lock is taken, and check the result with [`OldLocation::unchanged`] inside the
+/// transaction that restores the records.
+pub(super) fn observe_world(
     image: &RecordImage,
     cancel: &CancellationToken,
-) -> Result<()> {
-    ensure_free(conn, image)?;
-    ensure_old_locations(image, cancel)
+) -> Result<Vec<OldLocation>> {
+    image
+        .removed_tracks()?
+        .iter()
+        .map(|track| observe_old_location(&bytes_path(&track.path)?, &track.hash, cancel))
+        .collect()
 }
 
 /// Puts the removed records back, or fails and leaves the caller to roll back.
@@ -168,6 +200,7 @@ pub(super) fn busy_reason(conn: &Connection, track_id: &str) -> Result<Option<&'
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
 
     /// A library in the shape the app's own schema has, small enough to read.
     fn library() -> Connection {
@@ -206,5 +239,28 @@ mod tests {
         .unwrap();
         let error = ensure_free(&conn, &image).unwrap_err().to_string();
         assert!(error.contains("\"Other\""), "{error}");
+    }
+
+    #[test]
+    fn a_location_that_changes_after_it_was_observed_is_caught_without_hashing_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.flac");
+        let hash = format!("{:x}", Sha256::digest(b"the audio"));
+        let cancel = CancellationToken::default();
+        // Nothing there: observed as free, and a file turning up is a change.
+        let free = observe_old_location(&path, &hash, &cancel).unwrap();
+        free.unchanged().unwrap();
+        std::fs::write(&path, b"the audio").unwrap();
+        assert!(free.unchanged().is_err());
+        // The right bytes there: accepted; any later change to the file is caught.
+        let same = observe_old_location(&path, &hash, &cancel).unwrap();
+        same.unchanged().unwrap();
+        std::fs::write(&path, b"something longer than the audio").unwrap();
+        assert!(same.unchanged().is_err());
+        // Other bytes, or something that is not a file: refused outright.
+        assert!(observe_old_location(&path, &hash, &cancel).is_err());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(observe_old_location(&path, &hash, &cancel).is_err());
     }
 }

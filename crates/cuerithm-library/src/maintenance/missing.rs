@@ -36,7 +36,7 @@ pub const MISSING_REPAIR_LIMIT: usize = 1000;
 pub const MISSING_UNDO_WINDOW: usize = undo_window::REMOVAL_UNDO_LIMIT;
 pub(super) const PREVIEW_REMOVAL: &str = "missing_removal_preview";
 pub(super) const PREVIEW_RELINK: &str = "missing_relink_preview";
-const OPERATION: &str = "missing_repair";
+pub(super) const OPERATION: &str = "missing_repair";
 const OPEN_DRAFT: &str = "SELECT EXISTS(SELECT 1 FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') AND instr(payload_json,?1)>0)";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,6 +139,9 @@ pub struct MissingRepairEntry {
     pub track_count: usize,
     pub tracks: Vec<RepairedTrack>,
     pub skipped: Vec<SkippedTrack>,
+    /// Things worth knowing about what just happened, in plain words.
+    #[serde(default)]
+    pub notes: Vec<String>,
     pub playlist_ids: Vec<String>,
     pub playlist_memberships: usize,
     pub sync_links: usize,
@@ -187,6 +190,10 @@ struct Operation {
     undone_by: Option<String>,
     #[serde(default)]
     undo_discarded: bool,
+    /// Source hashes whose cached cover was kept because Undo may need it. With the
+    /// audio missing, that cache can be the only copy of the picture left.
+    #[serde(default)]
+    artwork_hashes: Vec<String>,
 }
 
 /// Held while records or paths change, in the order admission takes them.
@@ -371,23 +378,26 @@ fn unavailable_reason(conn: &Connection, row: &MissingRow, path: &Path) -> Resul
 
 impl Operation {
     /// Drops what Undo would need, and the names of the tracks.
-    fn discard_saved(&mut self) {
+    /// Returns the covers that were being kept for it.
+    fn discard_saved(&mut self) -> Vec<String> {
         self.snapshot = Snapshot::default();
         self.undo_discarded = true;
         self.entry.tracks.clear();
         self.entry.skipped.clear();
+        std::mem::take(&mut self.artwork_hashes)
     }
 }
 /// Drops the saved records of a removal that has fallen out of the shared Undo window (see
-/// [`undo_window`]). Its history line stays, without the track details.
-pub(super) fn drop_saved_records(conn: &Connection, id: &str) -> Result<()> {
+/// [`undo_window`]). Its history line stays, without the track details. Returns the covers it
+/// was holding.
+pub(super) fn drop_saved_records(conn: &Connection, id: &str) -> Result<Vec<String>> {
     let mut operation: Operation = load(conn, id, OPERATION)?;
-    operation.discard_saved();
+    let covers = operation.discard_saved();
     conn.execute(
         "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
         params![serde_json::to_string(&operation)?, id],
     )?;
-    Ok(())
+    Ok(covers)
 }
 
 impl Library {
@@ -612,6 +622,7 @@ impl Library {
                 })
                 .collect(),
             skipped,
+            notes: vec![],
             stamp: advance(&tx)?,
         };
         // A preview is good for one apply, and it names the tracks it was made for. (Saved file
@@ -626,6 +637,7 @@ impl Library {
             },
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: orphans.covers(),
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",
@@ -636,11 +648,14 @@ impl Library {
                 entry.created
             ],
         )?;
-        undo_window::enforce(&tx)?;
+        let freed = undo_window::enforce(&tx)?;
         tx.commit()?;
         drop(conn);
-        // Cache files go only after the records are really gone.
+        // Cache files go only after the records are really gone. The covers of the removed
+        // tracks stay until their saved records are dropped; those of removals that just
+        // left the Undo window go now.
         purge::cache_files(self.data_dir(), &orphans, &[]);
+        purge::free_covers(self, &freed)?;
         Ok(entry)
     }
 
@@ -965,6 +980,7 @@ impl Library {
             track_count: applied.len(),
             tracks: applied,
             skipped,
+            notes: vec![],
             playlist_ids: vec![],
             playlist_memberships: 0,
             sync_links: 0,
@@ -982,6 +998,7 @@ impl Library {
             },
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: vec![],
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",
@@ -1043,18 +1060,54 @@ impl Library {
             !original.undo_discarded,
             "The saved records were already discarded"
         );
-        original.discard_saved();
+        let covers = original.discard_saved();
         tx.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
             params![serde_json::to_string(&original)?, id],
         )?;
         tx.commit()?;
+        drop(conn);
+        purge::free_covers(self, &covers)?;
         Ok(MissingRepairHistory {
             entry: original.entry,
             undone_by: None,
             undo_discarded: true,
             undo_limit: MISSING_UNDO_WINDOW,
         })
+    }
+
+    /// Undoing a relink points a track back at its old location. If the file it was
+    /// relinked to is still inside the same watch folder, the next scan follows it
+    /// there again (one track, never a duplicate), which makes the Undo ineffective;
+    /// say so rather than let it look like it stuck.
+    fn watch_follow_notes(&self, operation: &Operation) -> Vec<String> {
+        if operation.entry.kind != MissingRepairKind::Relink {
+            return vec![];
+        }
+        let roots: Vec<PathBuf> = self
+            .settings()
+            .map(|s| s.settings.watch_folders)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|folder| folder.canonicalize().ok())
+            .collect();
+        let following = operation
+            .snapshot
+            .relinks
+            .iter()
+            .filter_map(|m| Some((bytes_path(&m.from).ok()?, bytes_path(&m.to).ok()?)))
+            .filter(|(from, to)| {
+                to.is_file()
+                    && roots
+                        .iter()
+                        .any(|root| from.starts_with(root) && to.starts_with(root))
+            })
+            .count();
+        match following {
+            0 => vec![],
+            1 => vec!["This file is still inside a watch folder, where it now is, so CueRithm will follow it again the next time that folder is scanned (for example when the app starts). Move it back as well to keep the old location.".into()],
+            n => vec![format!("{n} of these files are still inside a watch folder, where they now are, so CueRithm will follow them again the next time that folder is scanned (for example when the app starts). Move them back as well to keep the old locations.")],
+        }
     }
 
     /// Reverses a removal or a relink as one step, or changes nothing and says why not.
@@ -1076,14 +1129,31 @@ impl Library {
             !original.undo_discarded,
             "The saved records of this removal were discarded, so it cannot be undone"
         );
+        // Look at the old locations, hashing what is there, before any lock is taken.
+        let observed = match original.entry.kind {
+            MissingRepairKind::Remove => {
+                track_removal::observe_world(&original.snapshot.image, cancel)?
+            }
+            MissingRepairKind::Relink => original
+                .snapshot
+                .relinks
+                .iter()
+                .map(|m| {
+                    track_removal::observe_old_location(&bytes_path(&m.from)?, &m.hash, cancel)
+                })
+                .collect::<Result<Vec<_>>>()?,
+        };
+        let undo_notes = self.watch_follow_notes(&original);
         let _gates = self.repair_gates()?;
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        for location in &observed {
+            location.unchanged()?;
+        }
         let mut playlist_ids = Vec::new();
         let mut undo_skipped = Vec::new();
         match original.entry.kind {
             MissingRepairKind::Remove => {
-                track_removal::verify_world(&tx, &original.snapshot.image, cancel)?;
                 let restored = track_removal::restore(&tx, &original.snapshot.image)?;
                 // Rows that something changed after the removal stay as they are now.
                 for (table, count) in restored.detached_kept {
@@ -1167,7 +1237,6 @@ impl Library {
                     if let Some(reason) = work_in_flight(&tx, &m.track_id)? {
                         anyhow::bail!("Cannot undo: {reason}");
                     }
-                    track_removal::ensure_old_location(&bytes_path(&m.from)?, &m.hash, cancel)?;
                 }
                 for m in &original.snapshot.relinks {
                     tx.execute(
@@ -1193,6 +1262,7 @@ impl Library {
             track_count: original.entry.track_count,
             tracks: original.entry.tracks.clone(),
             skipped: undo_skipped,
+            notes: undo_notes,
             playlist_ids,
             playlist_memberships: original.entry.playlist_memberships,
             sync_links: original.entry.sync_links,
@@ -1202,6 +1272,8 @@ impl Library {
         original.undone_by = Some(entry.id.clone());
         // The records are back in the library; the copy kept for Undo is no longer needed.
         original.snapshot = Snapshot::default();
+        // The covers stay: the restored records use them again.
+        original.artwork_hashes.clear();
         tx.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
             params![serde_json::to_string(&original)?, id],
@@ -1211,6 +1283,7 @@ impl Library {
             snapshot: Snapshot::default(),
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: vec![],
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",

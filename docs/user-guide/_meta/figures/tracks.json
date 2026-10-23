@@ -1,0 +1,258 @@
+[
+ {
+  "scene": "tracks-overview",
+  "page": "analysis/index.md",
+  "after": "intro",
+  "alt": "The Tracks view with 26 tracks and Come To Life (Original Mix) loaded in the player, showing 130.00 BPM, key 7A and energy 7",
+  "caption": "The track table above and the player below: key, BPM, energy and cues for every track.",
+  "state": "Sidebar: Tracks, default columns, sorted by title, nothing selected, search box empty. Press the play button on the row for Come To Life (Original Mix), then press Space to pause. The player must show the title, 130.00 BPM, KEY 7A, ENERGY 7, the colour waveform and the five cue buttons.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-search-anyma",
+  "page": "analysis/find-tracks.md",
+  "after": "## Search by title, artist or genre { #searching-and-filtering }",
+  "alt": "The search box with anyma typed and four matching tracks: Atoma, No Good, Other Dimension and Prophecy",
+  "caption": "Searching for one word matches the title, artist and genre; here the artist Anyma (ofc) finds four tracks.",
+  "state": "Sidebar: Tracks. Type anyma in the search box at the top. The table lists Atoma (Extended Mix), No Good (Extended Mix), Other Dimension (Extended Mix) and Prophecy (Extended Mix). The bar above the table reads Search results and the footer reads 4 tracks. No row selected.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-sorted-by-energy",
+  "page": "analysis/find-tracks.md",
+  "after": "## Sort the table { #sorting }",
+  "alt": "The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow",
+  "caption": "Click a heading twice to put the highest value first.",
+  "state": "Sidebar: Tracks, search empty. Click the ENERGY heading twice so its arrow points down. Play With Fire (Original Mix) 8/10 is the first row, followed by 7/10 rows. The bar above the table reads SORTED BY ENERGY. No row selected. Restore title sort afterwards.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-columns-panel",
+  "page": "analysis/choose-columns.md",
+  "after": "## Open the column list { #open-the-column-list }",
+  "alt": "The Table columns panel open beside the track table, with the Find metadata box and a checkbox for each column",
+  "caption": "The Columns button at the end of the heading opens the list of columns with an arrow pair for each.",
+  "state": "Sidebar: Tracks. Click the Columns button at the right end of the table heading so the Table columns panel is open, the Find metadata box is empty and the default columns are ticked. Do not tick Location. Do not type in the box.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-extra-columns",
+  "page": "analysis/choose-columns.md",
+  "after": "## Put columns in your order { #reorder-columns }",
+  "alt": "The track table with extra Artist, Label and Bitrate columns next to Genre, BPM, Key and Energy",
+  "caption": "A column you tick appears at the right end of the table; the arrows move it.",
+  "state": "Sidebar: Tracks. Tick Artist, Label and Bitrate in the Table columns panel, untick Preview if the columns do not fit, move Artist next to the title with the arrow buttons, then close the panel. Never show the Location column: it displays the full file path. Restore the default columns afterwards.",
+  "crop": "panel",
+  "needs": "The library tags must include a Label tag; the Beatport purchase files normally do."
+ },
+ {
+  "scene": "tracks-selection-toolbar",
+  "page": "analysis/select-many.md",
+  "after": "## Act on the selection { #selection-toolbar }",
+  "alt": "Three tracks selected, with the bar above the table reading 3 selected and showing Edit metadata, Review match, Curate, Organize files, Analyze again, Archive and Drafts and history",
+  "caption": "The bar changes as soon as you select tracks; the playlist strip below it appears too.",
+  "state": "Sidebar: Tracks. Command-click the three 6A tracks: 17 (Extended Mix), Dancin (Extended Mix) and Other Dimension (Extended Mix). The bar shows 3 selected, Review match is disabled, and the Destination playlist strip with Add to playlist is visible below it. Click nothing else.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-row-menu",
+  "page": "analysis/select-many.md",
+  "after": "## Use the row menu for one track { #row-menu }",
+  "alt": "The row menu opened on Atoma (Extended Mix) listing Edit metadata, Review match, Curate, Analyze again and Archive track",
+  "caption": "The ⋯ button at the end of a row acts on that row.",
+  "state": "Sidebar: Tracks, nothing selected. Click the ⋯ button at the right end of the row for Atoma (Extended Mix) so the menu is open with Edit metadata, Review match, Curate, Analyze again and Archive track. Choose nothing; keep the pointer off the menu items.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-key-bpm-energy-columns",
+  "page": "analysis/read-key-bpm-energy.md",
+  "after": "## 1. Find the three columns { #columns }",
+  "alt": "The KEY chip 7A, the BPM 130.00 and the ENERGY bar 7/10 on the row for Come To Life (Original Mix)",
+  "caption": "Key, BPM and energy are three columns of the table.",
+  "state": "Sidebar: Tracks, default columns, sorted by title, nothing selected. The table heading and the rows from 17 (Extended Mix) to Dancin (Extended Mix) are visible, including Come To Life (Original Mix) with 7A, 130.00 and 7/10.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-sorted-by-bpm",
+  "page": "analysis/read-key-bpm-energy.md",
+  "after": "## 5. Sort to compare { #sort-to-compare }",
+  "alt": "The table sorted by BPM with the highest first: Nivk, Rabteu - PLV at 160.00, then Brackish and Play With Fire at 140.00",
+  "caption": "Click BPM twice to put the fastest track first.",
+  "state": "Sidebar: Tracks. Click the BPM heading twice so its arrow points down. The first rows are Nivk, Rabteu - PLV (Creeds remix - Extended) 160.00, then Brackish (Original Mix) and Play With Fire (Original Mix) at 140.00. The bar above the table reads SORTED BY BPM. Restore title sort afterwards.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-player-come-to-life",
+  "page": "analysis/read-key-bpm-energy.md",
+  "after": "## 7. Open the full detail { #open-the-full-detail }",
+  "alt": "The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons",
+  "caption": "The player repeats the three numbers and adds the waveform and the cues.",
+  "state": "Load Come To Life (Original Mix) with the row's play button, then pause with Space about 20 seconds in. The 32-second window is selected (default). Nothing selected in the table. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-mixes-with-7a",
+  "page": "analysis/camelot-keys.md",
+  "after": "## Where CueRithm uses the rule { #where-it-is-used }",
+  "alt": "The smart playlist Mixes with 7A listing six tracks with key chips 6A, 7A and 8A",
+  "caption": "The demo smart playlist Mixes with 7A holds the keys 6A, 7A, 8A and 7B.",
+  "state": "Open the smart playlist Mixes with 7A from the sidebar, sorted by title, KEY column visible, nothing selected. Expected rows: 17, Come To Life, Dancin, Other Dimension, Say Less, When The Fire Starts To Burn.",
+  "crop": "panel",
+  "needs": "Smart playlist Mixes with 7A as listed in ia.md."
+ },
+ {
+  "scene": "tracks-player-come-to-life",
+  "page": "analysis/preview-a-track.md",
+  "after": "## Read the player header { #header }",
+  "alt": "The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons",
+  "caption": "The player: header, transport, waveform, overview and cue buttons.",
+  "state": "Same state as the scene on read-key-bpm-energy.md: Come To Life (Original Mix) loaded and paused about 20 seconds in. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-player-entire-track",
+  "page": "analysis/preview-a-track.md",
+  "after": "## Read the waveform { #the-waveform }",
+  "alt": "The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E",
+  "caption": "Click the waveform to switch between 32 seconds and the entire track.",
+  "state": "Come To Life (Original Mix) loaded and paused, then click the big waveform once so the label above it reads Entire track. All five cue letters A to E must be visible. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-player-come-to-life",
+  "page": "analysis/jump-to-cues.md",
+  "after": "## 1. Load a track { #load-a-track }",
+  "alt": "The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons",
+  "caption": "A loaded track shows its numbers, waveform and one button per cue.",
+  "state": "Same state as the scene on read-key-bpm-energy.md. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-jump-to-drop",
+  "page": "analysis/jump-to-cues.md",
+  "after": "## 3. Jump to a cue { #jump-to-a-cue }",
+  "alt": "The player after clicking the B Drop button of Come To Life (Original Mix): the playhead sits on the red Drop cue line",
+  "caption": "Clicking a cue button moves the playhead to that cue.",
+  "state": "Come To Life (Original Mix) loaded. Click the B Drop cue button and then pause with Space. The 32-second window must show the red cue line labelled B near the playhead, and the time readout must be about 0:59. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-cue-strip-prophecy",
+  "page": "analysis/jump-to-cues.md",
+  "after": "## 6. Compare a track with fewer cues { #fewer-cues }",
+  "alt": "The player with Prophecy (Extended Mix) loaded and four cue buttons: A Start, B Drop, C Drop #2 and D End / Fade-out",
+  "caption": "Prophecy has four cues; the letters follow the order in time.",
+  "state": "Load Prophecy (Extended Mix) with the row's play button and pause. The cue strip must show A Start, B Drop, C Drop #2, D End / Fade-out. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-row-preview-cues",
+  "page": "analysis/jump-to-cues.md",
+  "after": "## 7. Spot the cues from the table { #spot-cues-in-the-table }",
+  "alt": "The PREVIEW column of the table: small waveforms with a triangle at each cue for 17, Atoma and Brackish",
+  "caption": "Each row's mini waveform marks its cues with triangles; the cue count differs per track.",
+  "state": "Sidebar: Tracks, default columns, sorted by title, nothing selected, scrolled to the top so 17 (Extended Mix), Atoma (Extended Mix) and Brackish (Original Mix) are visible. Their PREVIEW cells must be fully drawn (wait a few seconds): five, six and three cue triangles.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-player-entire-track",
+  "page": "analysis/check-the-beatgrid.md",
+  "after": "## 2. Look for drift { #look-for-drift }",
+  "alt": "The player showing the entire track of Come To Life (Original Mix) with dense beat lines and the five cue lines",
+  "caption": "In the entire-track view the beat lines are too dense to judge; use the 32-second window for the check.",
+  "state": "Same state as the entire-track scene on preview-a-track.md. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-beatgrid-32s",
+  "page": "analysis/check-the-beatgrid.md",
+  "after": "## What the beatgrid is { #what-the-grid-is }",
+  "alt": "The 32-second waveform of Come To Life (Original Mix) with thin beat lines running through the start of each kick",
+  "caption": "In the 32-second window every beat line should start where a kick starts.",
+  "state": "Come To Life (Original Mix) loaded. Click the B Drop button, play for a few seconds, then pause so the 32-second window shows a steady section with clear kicks and beat lines. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tracks-corrections-panel",
+  "page": "analysis/corrections/index.md",
+  "after": "intro",
+  "alt": "The Correct cues & beatgrid panel open above the player for Come To Life (Original Mix), with the Constant beatgrid box and the cue rows",
+  "caption": "The correction panel opens above the player and the player stays usable.",
+  "state": "Load Come To Life (Original Mix), pause, click Edit cues & grid so the panel Correct cues & beatgrid is open and the button reads Close corrections. Change nothing. The Constant beatgrid box and the first cue rows must be visible.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-corrections-cue-rows",
+  "page": "analysis/corrections/move-or-add-cues.md",
+  "after": "## 1. Open the correction panel { #open-the-panel }",
+  "alt": "The Cues & saved loops box with one row per cue showing Slot, Name, Start in seconds, Kind, Color, Seek and Remove",
+  "caption": "Each cue is one row: slot, name, start in seconds, kind and colour.",
+  "state": "Come To Life (Original Mix) loaded, panel open as in the corrections landing scene. Scroll the panel so the Cues & saved loops box with the five rows (Start, Drop, Breakdown, Drop #2, End / Fade-out) is visible. Change nothing.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-corrections-cue-preview",
+  "page": "analysis/corrections/move-or-add-cues.md",
+  "after": "## 5. Preview and save { #preview-and-save }",
+  "alt": "The Review before saving box listing Come To Life (Original Mix) with its five cues and a button for each cue",
+  "caption": "Preview shows the result and the cues; nothing is saved until Save preview.",
+  "state": "Come To Life (Original Mix), panel open. Type 59.5 in Start · seconds of the Drop row, choose Preview corrections so Review before saving is visible. Do NOT choose Save preview; close the panel afterwards (the draft is discarded).",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-corrections-saved-loop",
+  "page": "analysis/corrections/set-loops.md",
+  "after": "## 1. Add a loop at the playhead { #add-a-loop }",
+  "alt": "A new Saved loop row with End in seconds and the Save active-loop flag checkbox, added at the playhead of Come To Life (Original Mix)",
+  "caption": "A saved loop row has an end time and an active-loop checkbox.",
+  "state": "Come To Life (Original Mix): click B Drop, pause, open the panel, choose Add saved loop at playhead. The new row Saved loop is visible with End · seconds filled and Save active-loop flag unticked. Do NOT preview or save; close the panel afterwards.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-corrections-grid-fields",
+  "page": "analysis/corrections/fix-the-beatgrid.md",
+  "after": "## What you can change { #what-you-can-change }",
+  "alt": "The Constant beatgrid box with the BPM field, the half and double buttons, First beat in seconds and Set at playhead",
+  "caption": "The whole grid is a BPM and a first beat.",
+  "state": "Come To Life (Original Mix) loaded, panel open. The Constant beatgrid box at the top of the panel is visible with BPM 130, the ½ and ×2 buttons, First beat · seconds and Set at playhead. Change nothing.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-corrections-grid-preview",
+  "page": "analysis/corrections/fix-the-beatgrid.md",
+  "after": "## 4. Preview, save and check { #preview-and-save }",
+  "alt": "Review before saving for Play With Fire (Original Mix) showing 140.00 to 70.00 BPM after choosing the half button",
+  "caption": "Preview shows the BPM before and after; saving is a separate step.",
+  "state": "Load Play With Fire (Original Mix), open the panel, press ½ so BPM reads 70, choose Preview corrections. Review before saving shows '140.00 → 70.00 BPM'. Do NOT choose Save preview; close the panel afterwards.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-cue-template-editor",
+  "page": "analysis/corrections/cue-templates.md",
+  "after": "## 1. Make a template { #make-a-template }",
+  "alt": "The New cue template form named Mix out with six rows unticked and a seventh row anchored 32 beats before Last beat",
+  "caption": "A template is a named list of rows; this one adds one cue before the end.",
+  "state": "Come To Life (Original Mix), panel open. Choose New cue template, name it Mix out, leave Replace existing cue slots off, tick Keep row slot numbers, untick rows 1 to 6, Add template row and set Offset from marker, Mix out, Hot cue, orange, Anchor Last beat, Before, 32 beats. Capture before Save template, then Cancel template.",
+  "crop": "window"
+ },
+ {
+  "scene": "tracks-cue-template-batch-preview",
+  "page": "analysis/corrections/cue-templates.md",
+  "after": "## 3. Apply it to many tracks { #apply-to-many-tracks }",
+  "alt": "Review before saving for three selected tracks, each going from five to six cues with Mix out added",
+  "caption": "A batch preview lists every selected track before anything is saved.",
+  "state": "Select 17 (Extended Mix), Dancin (Extended Mix) and Come To Life (Original Mix) in Tracks, load Come To Life with its row play button, open the panel, choose Mix out in Saved template, tick Apply to 3 selected tracks, choose Preview template. Do NOT choose Save preview; close the panel.",
+  "crop": "window",
+  "needs": "A saved cue template named Mix out (settings in cue-templates.md). Create it once; delete it after the capture if unwanted."
+ },
+ {
+  "scene": "tracks-corrections-history",
+  "page": "analysis/corrections/undo-corrections.md",
+  "after": "## Read the correction history { #correction-history }",
+  "alt": "The bottom of the correction panel with Undo last saved correction enabled and Saved correction history opened, showing Latest correction, Undo available",
+  "caption": "The history says whether the latest correction can still be undone.",
+  "state": "Panel open on a track that has one saved correction: Undo last saved correction is enabled and the Saved correction history · 1 section is expanded.",
+  "crop": "window",
+  "needs": "One harmless saved correction on a spare track (for example rename a cue). Press Undo last saved correction after the capture so the library returns to its original cues."
+ }
+]

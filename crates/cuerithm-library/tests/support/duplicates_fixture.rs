@@ -177,6 +177,16 @@ pub fn wav(path: &Path, seed: i32) {
     }
     out.finalize().unwrap();
 }
+/// The same audio as `wav(path, seed)` with an extra chunk after it, so the file has bytes (and
+/// so a content hash) of its own.
+pub fn wav_with_extra_chunk(path: &Path, seed: i32) {
+    wav(path, seed);
+    let mut bytes = std::fs::read(path).unwrap();
+    bytes.extend_from_slice(b"JUNK\x04\0\0\0tag!");
+    let size = (bytes.len() - 8) as u32;
+    bytes[4..8].copy_from_slice(&size.to_le_bytes());
+    std::fs::write(path, bytes).unwrap();
+}
 pub fn hash(path: &Path) -> String {
     cuerithm_media::file_sha256(path).unwrap()
 }

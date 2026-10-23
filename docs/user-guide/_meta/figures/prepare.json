@@ -1,0 +1,192 @@
+[
+ {
+  "scene": "prepare-incoming-overview",
+  "page": "files/index.md",
+  "after": "intro",
+  "alt": "Incoming view while the Beatport folder is prepared: the header reads Preparing 26 tracks and rows show Decoding, Analyzing and Queued next to their titles",
+  "caption": "Incoming shows each track's stage while a folder is prepared.",
+  "state": "Sidebar: Incoming selected, the Incoming count highlighted. Capture mid-batch with rows in different stages. Header indicator must read 'Preparing N tracks'. Dark or light does not matter.",
+  "crop": "window",
+  "needs": "Needs a batch in progress: in Tracks press cmd/ctrl+A, choose Analyze again, switch to Incoming at once and capture before it finishes. Restore nothing afterwards; the tracks return to Tracks by themselves."
+ },
+ {
+  "scene": "prepare-add-tracks-button",
+  "page": "files/add-tracks.md",
+  "after": "## Pick files with Add tracks { #pick-files }",
+  "alt": "The CueRithm header with the Add tracks button at the top right, beside the colour theme button and the All up to date indicator",
+  "caption": "The Add tracks button sits at the top right of every library view.",
+  "state": "Tracks view, nothing selected, nothing preparing so the indicator reads 'All up to date'. The Add tracks button and the theme button must be visible and not hovered.",
+  "crop": "window"
+ },
+ {
+  "scene": "prepare-drop-overlay",
+  "page": "files/add-tracks.md",
+  "after": "## Drop files or a folder on the window { #drop }",
+  "alt": "The CueRithm window covered by the Drop to prepare overlay: Full analysis. Fresh cues. Ready for your library.",
+  "caption": "Dragging files over the window shows what will happen when you release.",
+  "state": "Tracks view. Drag any audio file from Finder over the CueRithm window and hold it there (do not release) while capturing, so the overlay with the upload icon and 'Drop to prepare' is visible.",
+  "crop": "window",
+  "needs": "Needs a drag held over the window. If the capture tool cannot hold a drag, skip this scene and the page still reads correctly."
+ },
+ {
+  "scene": "prepare-settings-incoming",
+  "page": "files/watch-folders.md",
+  "after": "## 1. Add the folder { #add-folder }",
+  "alt": "Settings, Incoming page, listing the watch folder ~/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below",
+  "caption": "The Incoming page of Settings lists every watch folder.",
+  "state": "Sidebar: Settings, then the Incoming page. One watch folder, ~/Music/Beatport, in the list. 'Add watch folder' and the 'Save settings' button visible. The path must not show a user name; use ~/Music/Beatport.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-incoming-overview",
+  "page": "files/watch-folders.md",
+  "after": "## 2. Check that it is working { #check }",
+  "alt": "Incoming view while the Beatport folder is prepared: the header reads Preparing 26 tracks and rows show Decoding, Analyzing and Queued next to their titles",
+  "caption": "Once the folder is saved, its files appear in Incoming and move through their stages.",
+  "state": "Sidebar: Incoming selected, the Incoming count highlighted. Capture mid-batch with rows in different stages. Header indicator must read 'Preparing N tracks'. Dark or light does not matter.",
+  "crop": "window",
+  "needs": "Needs a batch in progress: in Tracks press cmd/ctrl+A, choose Analyze again, switch to Incoming at once and capture before it finishes. Restore nothing afterwards; the tracks return to Tracks by themselves."
+ },
+ {
+  "scene": "prepare-incoming-overview",
+  "page": "files/follow-incoming.md",
+  "after": "## 2. Read the stage on a row { #stages }",
+  "alt": "Incoming view while the Beatport folder is prepared: the header reads Preparing 26 tracks and rows show Decoding, Analyzing and Queued next to their titles",
+  "caption": "The line under each title names the stage that track is in.",
+  "state": "Sidebar: Incoming selected, the Incoming count highlighted. Capture mid-batch with rows in different stages. Header indicator must read 'Preparing N tracks'. Dark or light does not matter.",
+  "crop": "window",
+  "needs": "Needs a batch in progress: in Tracks press cmd/ctrl+A, choose Analyze again, switch to Incoming at once and capture before it finishes. Restore nothing afterwards; the tracks return to Tracks by themselves."
+ },
+ {
+  "scene": "prepare-incoming-empty",
+  "page": "files/follow-incoming.md",
+  "after": "## Empty Incoming { #empty-incoming }",
+  "alt": "Incoming view with nothing to prepare: Nothing incoming, a hint to drop files or add a watch folder, an Add audio files button and the list of supported formats",
+  "caption": "An empty Incoming also lists the formats CueRithm accepts.",
+  "state": "Sidebar: Incoming selected while nothing is preparing and no track needs attention. Heading 'Nothing incoming', the Add audio files button and the formats line 'MP3 · AAC / ALAC · FLAC · WAV · AIFF · Ogg · Opus · WMA' must be visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-needs-attention-row",
+  "page": "files/needs-attention.md",
+  "after": "## What you see { #what-you-see }",
+  "alt": "Incoming with one track showing a warning triangle, a red decoder error under its title, and a Retry arrow at the end of the row; the header reads 1 need attention",
+  "caption": "A track that needs attention shows its error in place of the artist and a Retry arrow.",
+  "state": "Sidebar: Incoming. One row with the warning triangle, the error text under the title and the Retry arrow visible. Header indicator '1 need attention'. Do not hover the row.",
+  "crop": "window",
+  "needs": "Needs a failing file that is not part of the demo library: copy any demo FLAC, cut it in half (for example with head -c) as 'Truncated sample.flac' in a scratch folder and add it with Add tracks. Archive or remove it after the capture. The error will read 'Audio decoder failed: …'."
+ },
+ {
+  "scene": "prepare-incoming-empty",
+  "page": "files/supported-formats.md",
+  "after": "## Which formats work { #formats }",
+  "alt": "Incoming view with nothing to prepare, listing the supported formats at the bottom: MP3, AAC / ALAC, FLAC, WAV, AIFF, Ogg, Opus and WMA",
+  "caption": "CueRithm lists the formats it accepts wherever a view is empty.",
+  "state": "Same state as the empty Incoming scene: sidebar Incoming, nothing preparing, formats line visible.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-settings-cue-generation",
+  "page": "analysis/cue-rules.md",
+  "after": "## 1. Open the cue settings { #open }",
+  "alt": "Settings, Cue generation page: Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop checkbox",
+  "caption": "The four cue controls on one page.",
+  "state": "Sidebar: Settings, then the Cue generation page. Minimum breakdown length 64, Drop at start 'Never', Emergency loop unticked, Save settings button visible. Do not change or save anything.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-analyze-again-toolbar",
+  "page": "analysis/analyze-again.md",
+  "after": "## 2. Choose Analyze again { #choose }",
+  "alt": "Tracks view with three tracks selected and the toolbar above the table showing Edit metadata, Review match, Curate, Organize files, Analyze again and Archive",
+  "caption": "Select tracks, then choose Analyze again in the toolbar.",
+  "state": "Sidebar: Tracks. Select three rows with cmd/ctrl+click (for example Man Like Me, Desert and Prophecy). Toolbar with 'Analyze again' and 'Archive' visible. Do not click any toolbar button.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-row-menu",
+  "page": "analysis/analyze-again.md",
+  "after": "## 3. Check the result { #check }",
+  "alt": "A track row's actions menu open with Edit metadata, Review match, Curate, Analyze again and Archive track",
+  "caption": "The row menu offers Analyze again and Archive track for a single track.",
+  "state": "Sidebar: Tracks. Open the ⋯ button at the end of the row for 'Man Like Me (Extended Mix)' so the menu lists Edit metadata, Review match, Curate, Analyze again and Archive track. Do not click a menu item.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-settings-presets",
+  "page": "files/presets.md",
+  "after": "## 1. Create a preset { #create }",
+  "alt": "Settings, Preparation presets page with a preset named Beatport purchases selected and its action buttons below the Saved preset menu",
+  "caption": "Presets are created, loaded, exported and deleted from one page.",
+  "state": "Sidebar: Settings, then Preparation presets. One saved preset 'Beatport purchases' selected: status line 'Ready · 1 folder assignment', Load into settings draft, Update from current draft, Rename preset, Duplicate preset, Reconnect destination, Export preset and Delete preset visible.",
+  "crop": "panel",
+  "needs": "Needs a preset named 'Beatport purchases' created from the current Settings draft and assigned to ~/Music/Beatport (see the folder-assignments scene)."
+ },
+ {
+  "scene": "prepare-folder-assignments",
+  "page": "files/folder-presets.md",
+  "after": "## 2. Choose rules for a folder { #choose }",
+  "alt": "Settings, Incoming page, Folder preparation presets section: the row for ~/Music/Beatport with its preset menu open showing Inherit parent assignment, Global default and Beatport purchases",
+  "caption": "Each watch folder has a menu for its preparation rules.",
+  "state": "Sidebar: Settings, Incoming page, scrolled to 'Folder preparation presets'. The row for ~/Music/Beatport with its menu open (Inherit parent assignment, Global default, Beatport purchases). Status line 'Saved effective rules: Beatport purchases' visible if possible.",
+  "crop": "panel",
+  "needs": "Needs the preset 'Beatport purchases' (see the presets scene). Do not save a different assignment than the one already stored."
+ },
+ {
+  "scene": "prepare-archive-view",
+  "page": "files/archive.md",
+  "after": "## See what you archived { #archive-view }",
+  "alt": "The Archive view listing two archived tracks with key, BPM, energy and waveform, under the title Archived tracks keep their analysis and cues",
+  "caption": "Archived tracks keep their key, BPM, energy and cues.",
+  "state": "Sidebar: Archive selected, count 2. Two rows, for example 'Undercurrent (Original Mix)' and 'Dancin (Extended Mix)'. The Archive title area shows 'Archived tracks keep their analysis and cues.'",
+  "crop": "panel",
+  "needs": "Needs two demo tracks archived for the capture; restore them afterwards."
+ },
+ {
+  "scene": "prepare-analyze-again-toolbar",
+  "page": "files/archive.md",
+  "after": "## Archive tracks { #archive-tracks }",
+  "alt": "Tracks view with three tracks selected and the toolbar above the table showing Analyze again and Archive",
+  "caption": "Select tracks, then choose Archive in the toolbar.",
+  "state": "Same state as the Analyze again toolbar scene.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-missing-broken-moved",
+  "page": "files/move-files.md",
+  "after": "## Find out what a move broke { #find }",
+  "alt": "Maintenance, Missing & broken tab after a scan: the heading reads 14 files need attention and the table lists recorded locations with the outcome Missing",
+  "caption": "After a move, the scan lists each track whose file is gone as Missing.",
+  "state": "Sidebar: Maintenance, tab 'Missing & broken', after 'Scan library files' on the real library (the 14 moved files). Heading '14 files need attention', columns Recorded location and Outcome visible. Home folder name must not be visible in the paths: crop the Recorded location column to the part after ~/Music/Beatport, or blur the user name.",
+  "crop": "panel",
+  "needs": "Uses the real library's 14 moved files. Check every path for a user name before keeping the image."
+ },
+ {
+  "scene": "prepare-tracks-after-purchase-folder",
+  "page": "files/recipes/prepare-a-purchase-folder.md",
+  "after": "## The problem",
+  "alt": "Tracks view with the 26 prepared Beatport tracks, showing title, genre, BPM, key, energy, duration and a waveform preview with cue markers",
+  "caption": "The result: 26 tracks with key, BPM, energy and cues.",
+  "state": "Sidebar: Tracks, nothing selected, default columns, sorted by title, top of the list visible with a check in the status column for catalog-tagged tracks.",
+  "crop": "window"
+ },
+ {
+  "scene": "prepare-settings-tagging-purchase",
+  "page": "files/recipes/prepare-a-purchase-folder.md",
+  "after": "## The solution",
+  "alt": "Settings, Automatic tagging page with the Automatic tagging switch on, Beatport at position 1 and Traxsource at position 2 in the provider list, and No catalog match set to Keep existing tags and finish",
+  "caption": "Set the tagging rules before you add the folder.",
+  "state": "Sidebar: Settings, then Automatic tagging, top of the page. Switch on, providers Beatport (1) and Traxsource (2) ticked, 'No catalog match' = 'Keep existing tags and finish'. Do not save.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-settings-tagging-off",
+  "page": "files/recipes/analyze-only.md",
+  "after": "## The solution",
+  "alt": "Settings, Automatic tagging page with the Automatic tagging switch turned off",
+  "caption": "With the switch off, preparation reads files and writes nothing.",
+  "state": "Sidebar: Settings, Automatic tagging. Switch the 'Automatic tagging' toggle off, capture, then leave Settings with 'Library' without saving so nothing changes.",
+  "crop": "panel",
+  "needs": "Do not press Save settings; leave the page to discard the draft."
+ }
+]

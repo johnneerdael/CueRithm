@@ -98,8 +98,8 @@ acceptance and release-publication gates.
   recovery, disposal and the remaining UI handoff.
 - [Curation and presets](development/curation-and-presets-api.md) documents
   desired/publication revisions, shared metadata journals and per-source settings
-  capture. The [Curate](user-guide/guides/curating.md) and
-  [preset](user-guide/guides/preparation-presets.md) guides describe the controls.
+  capture. The [Curate](user-guide/tagging/curate-tracks.md) and
+  [preset](user-guide/files/presets.md) guides describe the controls.
 - [Direct Rekordbox contract](research/rekordbox-direct-contract.md) records the
   copied-data boundary. Initial per-field observations remain unacknowledged;
   storing an import baseline is not proof that either library was synchronized.

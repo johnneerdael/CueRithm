@@ -798,7 +798,10 @@ fn removing_a_track_purges_what_undo_does_not_need_and_keeps_what_it_does() {
     let analysis = "SELECT COUNT(*) FROM preparation_analysis WHERE source_hash=?1";
     assert_eq!(count(&f, analysis, &removed_hash), 0);
     assert_eq!(count(&f, analysis, &keeper_hash), 1);
-    assert!(removed_caches.iter().all(|file| !file.exists()));
+    // The waveforms are rebuilt on demand and go. The cover stays for Undo: with the file in the
+    // Trash it can be the only copy of the picture left (the first file is the cover).
+    assert!(removed_caches[0].exists(), "the cover is kept for Undo");
+    assert!(removed_caches[1..].iter().all(|file| !file.exists()));
     assert!(keeper_caches.iter().all(|file| file.exists()));
     let reports = "SELECT COUNT(*) FROM maintenance_scans WHERE kind IN ('duplicates','duplicate_review','duplicate_merge_plan') AND ?1=?1";
     assert_eq!(count(&f, reports, "x"), 0);
@@ -827,7 +830,11 @@ fn removing_a_track_purges_what_undo_does_not_need_and_keeps_what_it_does() {
     assert!(f.track_exists(&f.ids[1]));
     assert_eq!(count(&f, fingerprints, &f.ids[1]), 0);
     assert_eq!(count(&f, epoch, &f.ids[1]), 1);
-    assert!(removed_caches.iter().all(|file| !file.exists()));
+    assert!(
+        removed_caches[0].exists(),
+        "the restored track still has its cover"
+    );
+    assert!(removed_caches[1..].iter().all(|file| !file.exists()));
 }
 
 #[test]
