@@ -482,28 +482,65 @@ fn purge_derived_rows(conn: &Connection, derived: &Derived, ids: &[String]) -> R
         decoders: derived.decoders.clone(),
     })
 }
-/// Undo puts a record back at its old location. If something sits there now it
-/// must be the audio the record describes; otherwise the record and its retained
-/// analysis would silently describe the wrong file.
-fn ensure_old_location(path: &Path, expected_hash: &str, cancel: &CancellationToken) -> Result<()> {
+/// What stood at a record's old location when Undo looked, before it took any lock.
+/// Undo puts a record back there, so whatever sits there must be the audio the record
+/// describes; otherwise the record and its retained analysis would describe the wrong
+/// file. Hashing is slow, so it happens here; the write transaction only re-checks cheaply.
+struct OldLocation {
+    path: PathBuf,
+    /// Size and modification time of the file that was hashed; `None` if nothing was there.
+    seen: Option<(u64, std::time::SystemTime)>,
+}
+fn observe_old_location(
+    path: &Path,
+    expected_hash: &str,
+    cancel: &CancellationToken,
+) -> Result<OldLocation> {
     match std::fs::symlink_metadata(path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(OldLocation {
+            path: path.to_owned(),
+            seen: None,
+        }),
         Err(error) => anyhow::bail!(
             "Cannot undo: the old location {} cannot be checked ({error})",
             path.display()
         ),
         Ok(meta) if meta.is_file() => {
+            let before = stamp(path);
             ensure!(
                 file_sha256_cancellable(path, cancel)? == expected_hash,
                 "Cannot undo: a different file is now at {}",
                 path.display()
             );
-            Ok(())
+            ensure!(
+                before.is_some() && stamp(path) == before,
+                "Cannot undo: {} changed while it was being checked; try again",
+                path.display()
+            );
+            Ok(OldLocation {
+                path: path.to_owned(),
+                seen: before,
+            })
         }
         Ok(_) => anyhow::bail!(
             "Cannot undo: something other than the audio file is now at {}",
             path.display()
         ),
+    }
+}
+impl OldLocation {
+    /// The cheap check inside the transaction: it is still as it was observed.
+    fn unchanged(&self) -> Result<()> {
+        let same = match self.seen {
+            None => is_gone(&self.path),
+            Some(seen) => stamp(&self.path) == Some(seen),
+        };
+        ensure!(
+            same,
+            "Cannot undo: {} changed while Undo was running; try again",
+            self.path.display()
+        );
+        Ok(())
     }
 }
 impl Operation {
@@ -1311,18 +1348,48 @@ impl Library {
             !original.undo_discarded,
             "The saved records of this removal were discarded, so it cannot be undone"
         );
+        // Look at the old locations, hashing what is there, before any lock is taken.
+        let mut observed = Vec::new();
+        match original.entry.kind {
+            MissingRepairKind::Remove => {
+                if let Some(table) = original.snapshot.image.table("tracks") {
+                    let at = |name: &str| table.columns.iter().position(|c| c == name);
+                    let (Some(path_at), Some(hash_at)) = (at("path"), at("source_hash")) else {
+                        anyhow::bail!("The saved records are damaged");
+                    };
+                    for (_, values) in &table.rows {
+                        let path = bytes_of(&values[path_at]).unwrap_or_default();
+                        observed.push(observe_old_location(
+                            &bytes_path(&path)?,
+                            values[hash_at].as_str().unwrap_or_default(),
+                            cancel,
+                        )?);
+                    }
+                }
+            }
+            MissingRepairKind::Relink => {
+                for m in &original.snapshot.relinks {
+                    observed.push(observe_old_location(
+                        &bytes_path(&m.from)?,
+                        &m.hash,
+                        cancel,
+                    )?);
+                }
+            }
+        }
         let _gates = self.repair_gates()?;
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        for location in &observed {
+            location.unchanged()?;
+        }
         let mut playlist_ids = Vec::new();
         let mut undo_skipped = Vec::new();
         match original.entry.kind {
             MissingRepairKind::Remove => {
                 if let Some(table) = original.snapshot.image.table("tracks") {
                     let at = |name: &str| table.columns.iter().position(|c| c == name);
-                    let (Some(id_at), Some(path_at), Some(hash_at)) =
-                        (at("id"), at("path"), at("source_hash"))
-                    else {
+                    let (Some(id_at), Some(path_at)) = (at("id"), at("path")) else {
                         anyhow::bail!("The saved records are damaged");
                     };
                     for (_, values) in &table.rows {
@@ -1340,11 +1407,6 @@ impl Library {
                                 "Cannot undo: \"{title}\" is now in the library at the same place. Remove that track first, or keep the current library"
                             );
                         }
-                        ensure_old_location(
-                            &bytes_path(&path)?,
-                            values[hash_at].as_str().unwrap_or_default(),
-                            cancel,
-                        )?;
                     }
                 }
                 let restored = restore(&tx, &original.snapshot.image)?;
@@ -1415,7 +1477,6 @@ impl Library {
                     if let Some(reason) = work_in_flight(&tx, &m.track_id)? {
                         anyhow::bail!("Cannot undo: {reason}");
                     }
-                    ensure_old_location(&bytes_path(&m.from)?, &m.hash, cancel)?;
                 }
                 for m in &original.snapshot.relinks {
                     tx.execute(
@@ -1473,5 +1534,34 @@ impl Library {
         )?;
         tx.commit()?;
         Ok(entry)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    #[test]
+    fn a_location_that_changes_after_it_was_observed_is_caught_without_hashing_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.flac");
+        let hash = format!("{:x}", Sha256::digest(b"the audio"));
+        let cancel = CancellationToken::default();
+        // Nothing there: observed as free, and a file turning up is a change.
+        let free = observe_old_location(&path, &hash, &cancel).unwrap();
+        free.unchanged().unwrap();
+        std::fs::write(&path, b"the audio").unwrap();
+        assert!(free.unchanged().is_err());
+        // The right bytes there: accepted; any later change to the file is caught.
+        let same = observe_old_location(&path, &hash, &cancel).unwrap();
+        same.unchanged().unwrap();
+        std::fs::write(&path, b"something longer than the audio").unwrap();
+        assert!(same.unchanged().is_err());
+        // Other bytes, or something that is not a file: refused outright.
+        assert!(observe_old_location(&path, &hash, &cancel).is_err());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(observe_old_location(&path, &hash, &cancel).is_err());
     }
 }

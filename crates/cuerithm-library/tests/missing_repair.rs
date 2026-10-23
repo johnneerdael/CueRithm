@@ -1102,6 +1102,50 @@ fn relinked() -> (Library3, MissingRepairEntryHandle) {
 }
 struct MissingRepairEntryHandle(String);
 
+/// Another connection holds the write lock; Undo must not need it to decide to refuse.
+fn refused_without_waiting_for_the_write_lock(l: &Library3, entry: &str) -> String {
+    let holder = rusqlite::Connection::open(&l.fx.db).unwrap();
+    holder.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let started = std::time::Instant::now();
+    let error =
+        l.fx.lib
+            .undo_missing_repair(entry, &cancel())
+            .unwrap_err()
+            .to_string();
+    let waited = started.elapsed();
+    holder.execute_batch("ROLLBACK").unwrap();
+    assert!(
+        waited < std::time::Duration::from_secs(3),
+        "waited {waited:?} for the lock: {error}"
+    );
+    error
+}
+
+#[test]
+fn a_removal_undo_checks_the_old_location_before_it_takes_the_write_lock() {
+    let l = library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    std::fs::write(&l.files[0], "somebody else's recording").unwrap();
+    let error = refused_without_waiting_for_the_write_lock(&l, &entry.id);
+    assert!(error.contains("a different file is now at"), "{error}");
+}
+
+#[test]
+fn a_relink_undo_checks_the_old_location_before_it_takes_the_write_lock() {
+    let (l, entry) = relinked();
+    std::fs::write(&l.files[0], "an unrelated recording").unwrap();
+    let error = refused_without_waiting_for_the_write_lock(&l, &entry.0);
+    assert!(error.contains("a different file is now at"), "{error}");
+}
+
 #[test]
 fn relink_undo_refuses_when_the_audio_changed_after_the_relink() {
     let (l, entry) = relinked();
