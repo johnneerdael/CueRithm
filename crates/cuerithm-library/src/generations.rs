@@ -240,7 +240,12 @@ impl LibraryGenerations {
             })?;
         ensure!(fks == 0, "Staging foreign key check failed");
         conn.close().map_err(|(_, e)| e)?;
-        File::open(&path)?.sync_all()?;
+        // Windows requires write access to flush the checkpointed database.
+        File::options()
+            .read(true)
+            .write(cfg!(windows))
+            .open(&path)?
+            .sync_all()?;
         sync_dir(path.parent().unwrap())?;
         self.check_wal(&path)?;
         let sha256 = digest(&path)?;
