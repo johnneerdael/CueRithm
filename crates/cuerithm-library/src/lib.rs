@@ -72,10 +72,15 @@ pub use match_evidence::PreparationMatchSnapshot;
 pub use organization_references::{
     OrganizationReferenceGuard, OrganizationReferenceInfo, OrganizationReferenceSnapshot,
 };
+mod lean;
 pub mod playback;
 mod settings;
 mod store;
 pub mod waveform;
+pub use lean::{
+    RECLAIM_STEP_PAGES, StorageReclaim, StorageReport, WAL_AUTOCHECKPOINT_PAGES,
+    WAL_SIZE_LIMIT_BYTES, WalCheckpoint,
+};
 pub use model::*;
 pub use settings::*;
 pub use store::{Library, LibraryBusy, LibraryOperationLease};

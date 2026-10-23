@@ -75,6 +75,9 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
         }
         host.smart_playlists.shutdown();
         host.maintenance.wait_until_idle();
+        // Fold the write-ahead log into the library and truncate it, so a closed app leaves
+        // one database file behind. Best effort: the next start repeats it.
+        let _ = host.library.checkpoint_wal();
         if host
             .restart_requested
             .load(std::sync::atomic::Ordering::Acquire)

@@ -894,6 +894,7 @@ impl DuplicateMergeService {
             );
         }
         purge::free_covers(&self.lib, &freed)?;
+        self.lib.tidy_after_bulk_change();
         Ok(payload.result)
     }
     /// Undo of a removal only goes ahead when the removed tracks' identities and locations are

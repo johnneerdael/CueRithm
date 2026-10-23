@@ -120,6 +120,8 @@ impl Library {
         if version == 0 {
             let tables:i64=conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",[],|r|r.get(0))?;
             ensure!(tables == 0, "This is not a Cuerithm library");
+            // Must be set before the first table exists.
+            crate::lean::enable_incremental_vacuum(&conn)?;
             conn.execute_batch(&format!(
                 "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
                 include_str!("../migrations/001_initial.sql")
@@ -313,6 +315,7 @@ impl Library {
         conn.pragma_update(None, "foreign_keys", true)?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "FULL")?;
+        crate::lean::configure_wal(&conn)?;
         conn.execute(
             "UPDATE jobs SET state='queued',stage='queued',error=NULL WHERE state='running'",
             [],
@@ -360,6 +363,10 @@ impl Library {
         }
         lib.recover_curation()?;
         let _ = lib.cleanup_relocation_indexes();
+        // A log left by a process that was killed can be as large as its last transaction,
+        // and an older library holds space that its earlier versions never gave back.
+        lib.reclaim_storage_when_worthwhile();
+        lib.checkpoint_wal_when_idle();
         Ok(lib)
     }
     pub fn exclusive_operation(&self) -> Result<LibraryOperationLease<'_>> {
