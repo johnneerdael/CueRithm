@@ -3,7 +3,7 @@
 <p class="lead">CueRithm remembers each track by where its file is. If you move or rename a file yourself, the track no longer finds it. This page shows what that looks like, how to avoid it, and where to repair it. Understanding it takes two minutes.</p>
 
 !!! note "Move tracking is coming"
-    CueRithm 0.1.13 does not follow files you move yourself. Tracking moves inside a watch folder, and tools to reconnect a track, search a folder for missing tracks or replace a folder root, are planned and listed under In development on [What CueRithm does not do yet](../help/not-available-yet.md). None of it is released. After it ships, a file moved within a watch folder will be recognised as the same track. This page describes how CueRithm 0.1.13 behaves today and will be updated then.
+    CueRithm 0.1.14 does not follow files you move yourself. Tracking moves inside a watch folder, and tools to reconnect a track, search a folder for missing tracks or replace a folder root, are planned and listed under In development on [What CueRithm does not do yet](../help/not-available-yet.md). None of it is released. After it ships, a file moved within a watch folder will be recognised as the same track. This page describes how CueRithm 0.1.14 behaves today and will be updated then.
 
 ## What happens when you move a file { #what-happens }
 
@@ -53,7 +53,7 @@ You have two choices.
 
 **Keep the new locations.** The new tracks are the working copies, and the original tracks are missing. Follow [Find missing, moved or broken files](library/find-missing-files.md) to find and repair them. Afterwards, check the playlists that used to hold the original tracks, because the new tracks start with none.
 
-!!! warning "CueRithm 0.1.13"
+!!! warning "CueRithm 0.1.14"
     The Duplicates scan in Maintenance can list a missing track beside its present twin. Do not use it to repair missing files, and never choose a missing track as the keeper.
 
 ## What can go wrong { #what-can-go-wrong }
