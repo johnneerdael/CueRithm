@@ -9,7 +9,7 @@
   <a href="https://github.com/johnneerdael/CueRithm/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/johnneerdael/CueRithm?style=flat-square&color=3658F5&label=release"></a>
   <a href="https://github.com/johnneerdael/CueRithm/actions/workflows/desktop.yml"><img alt="Desktop checks" src="https://img.shields.io/github/actions/workflow/status/johnneerdael/CueRithm/desktop.yml?branch=main&style=flat-square&label=desktop%20checks"></a>
   <a href="https://github.com/johnneerdael/CueRithm/actions/workflows/ci.yml"><img alt="Engine checks" src="https://img.shields.io/github/actions/workflow/status/johnneerdael/CueRithm/ci.yml?branch=main&style=flat-square&label=engine%20checks"></a>
-  <a href="https://johnneerdael.github.io/CueRithm/"><img alt="User guide" src="https://img.shields.io/badge/user%20guide-online-FF785E?style=flat-square"></a>
+  <a href="https://cuerithm.neerdael.nl/"><img alt="User guide" src="https://img.shields.io/badge/user%20guide-online-FF785E?style=flat-square"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey?style=flat-square">
 </p>
 
@@ -19,9 +19,9 @@ Analysis runs on your computer without an account or audio uploads. Your music s
 
 <p align="center">
   <a href="https://github.com/johnneerdael/CueRithm/releases/latest"><b>Download</b></a> &nbsp;·&nbsp;
-  <a href="https://johnneerdael.github.io/CueRithm/get-started/"><b>Get started</b></a> &nbsp;·&nbsp;
-  <a href="https://johnneerdael.github.io/CueRithm/"><b>User guide</b></a> &nbsp;·&nbsp;
-  <a href="https://johnneerdael.github.io/CueRithm/how-it-works/"><b>How it works</b></a>
+  <a href="https://cuerithm.neerdael.nl/get-started/"><b>Get started</b></a> &nbsp;·&nbsp;
+  <a href="https://cuerithm.neerdael.nl/"><b>User guide</b></a> &nbsp;·&nbsp;
+  <a href="https://cuerithm.neerdael.nl/how-it-works/"><b>How it works</b></a>
 </p>
 
 <p align="center">
@@ -66,7 +66,7 @@ Key, tempo, energy and cues are computed on your computer from the decoded audio
 
 File organization can rename, move or copy audio when enabled for Incoming tracks or applied through a reviewed plan. Tagging and cleanup write to a staged copy, then decode it again to verify that the playable audio is identical. The original is kept, and an atomic swap with a journal allows recovery after a crash.
 
-The bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback use the same cue positions. Analysis agreement is measured against reference tools on my own library; it does not establish musical accuracy. Read [How accurate is it?](https://johnneerdael.github.io/CueRithm/how-it-works/accuracy/).
+The bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback use the same cue positions. Analysis agreement is measured against reference tools on my own library; it does not establish musical accuracy. Read [How accurate is it?](https://cuerithm.neerdael.nl/how-it-works/accuracy/).
 
 ## Install
 
@@ -78,7 +78,7 @@ Download the latest build from the [releases page](https://github.com/johnneerda
 | **Windows** (x86-64) | `.zip` | Portable app. Keep the `media` folder next to the program. Unsigned, so SmartScreen may warn on first launch. |
 | **Linux** (x86-64) | `.deb` | Unsigned. |
 
-Every release includes the matching application source, the FFmpeg source and `THIRD_PARTY_NOTICES.md`. For installation steps, see [Install](https://johnneerdael.github.io/CueRithm/get-started/install/).
+Every release includes the matching application source, the FFmpeg source and `THIRD_PARTY_NOTICES.md`. For installation steps, see [Install](https://cuerithm.neerdael.nl/get-started/install/).
 
 You can check an installation at any time:
 
@@ -102,23 +102,23 @@ Also planned: reconnecting externally moved music, portable `.cuerithm` backups 
 
 ## Documentation
 
-The [user guide](https://johnneerdael.github.io/CueRithm/) is organised by what you want to do:
+The [user guide](https://cuerithm.neerdael.nl/) is organised by what you want to do:
 
-- [Get started](https://johnneerdael.github.io/CueRithm/get-started/): install, learn the window, prepare your first tracks, and [pick the right guide for your goal](https://johnneerdael.github.io/CueRithm/get-started/choose-your-path/).
-- [Manage files](https://johnneerdael.github.io/CueRithm/files/): add tracks, watch a folder such as Beatport, follow Incoming, save presets, archive, and [look after your library](https://johnneerdael.github.io/CueRithm/files/library/) with duplicate checks, missing-file scans and backups.
-- [Playlists](https://johnneerdael.github.io/CueRithm/playlists/): playlists, smart playlists, generators, compatible tracks, playlist flow and tracklist matching.
-- [Auto tagging](https://johnneerdael.github.io/CueRithm/tagging/): tag from Beatport and Traxsource, review matches, edit tags, and clean up titles, genres and artists.
-- [Renaming](https://johnneerdael.github.io/CueRithm/rename/): name files from a pattern and sort them into folders, with Undo.
-- [Track analysis](https://johnneerdael.github.io/CueRithm/analysis/): key, BPM, energy, the player, cues and the beatgrid, and how to correct them.
-- [Sync](https://johnneerdael.github.io/CueRithm/sync/): rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx.
-- [Customize](https://johnneerdael.github.io/CueRithm/customize/), [How it works](https://johnneerdael.github.io/CueRithm/how-it-works/) and [Reference](https://johnneerdael.github.io/CueRithm/reference/): themes, the analysis pipeline, settings and shortcuts.
-- [Help](https://johnneerdael.github.io/CueRithm/help/): fix a problem, FAQ, [what works with which DJ software](https://johnneerdael.github.io/CueRithm/help/compatibility/) and [what is not available yet](https://johnneerdael.github.io/CueRithm/help/not-available-yet/).
+- [Get started](https://cuerithm.neerdael.nl/get-started/): install, learn the window, prepare your first tracks, and [pick the right guide for your goal](https://cuerithm.neerdael.nl/get-started/choose-your-path/).
+- [Manage files](https://cuerithm.neerdael.nl/files/): add tracks, watch a folder such as Beatport, follow Incoming, save presets, archive, and [look after your library](https://cuerithm.neerdael.nl/files/library/) with duplicate checks, missing-file scans and backups.
+- [Playlists](https://cuerithm.neerdael.nl/playlists/): playlists, smart playlists, generators, compatible tracks, playlist flow and tracklist matching.
+- [Auto tagging](https://cuerithm.neerdael.nl/tagging/): tag from Beatport and Traxsource, review matches, edit tags, and clean up titles, genres and artists.
+- [Renaming](https://cuerithm.neerdael.nl/rename/): name files from a pattern and sort them into folders, with Undo.
+- [Track analysis](https://cuerithm.neerdael.nl/analysis/): key, BPM, energy, the player, cues and the beatgrid, and how to correct them.
+- [Sync](https://cuerithm.neerdael.nl/sync/): rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx.
+- [Customize](https://cuerithm.neerdael.nl/customize/), [How it works](https://cuerithm.neerdael.nl/how-it-works/) and [Reference](https://cuerithm.neerdael.nl/reference/): themes, the analysis pipeline, settings and shortcuts.
+- [Help](https://cuerithm.neerdael.nl/help/): fix a problem, FAQ, [what works with which DJ software](https://cuerithm.neerdael.nl/help/compatibility/) and [what is not available yet](https://cuerithm.neerdael.nl/help/not-available-yet/).
 
 ## Credits
 
-CueRithm uses [OneTagger](https://github.com/Marekkon5/onetagger) by Marekkon5 for selected metadata providers, matching and tag writing (GPL v3), [OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer) for the key network (MIT), and FFmpeg for decoding (LGPL). Other components include TagLib, libsoxr, Tauri and React. The full list with licences is in [Credits and open source](https://johnneerdael.github.io/CueRithm/help/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+CueRithm uses [OneTagger](https://github.com/Marekkon5/onetagger) by Marekkon5 for selected metadata providers, matching and tag writing (GPL v3), [OpenKeyScan](https://github.com/rekordcloud/openkeyscan-analyzer) for the key network (MIT), and FFmpeg for decoding (LGPL). Other components include TagLib, libsoxr, Tauri and React. The full list with licences is in [Credits and open source](https://cuerithm.neerdael.nl/help/about/credits/) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-Mixed In Key and Lexicon DJ shaped how CueRithm behaves. I studied them using copies I own, and CueRithm is my own independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://johnneerdael.github.io/CueRithm/help/about/provenance/).
+Mixed In Key and Lexicon DJ shaped how CueRithm behaves. I studied them using copies I own, and CueRithm is my own independent implementation written in Rust. No original code, models or assets are included. See [How CueRithm was made](https://cuerithm.neerdael.nl/help/about/provenance/).
 
 CueRithm is not affiliated with, endorsed by or sponsored by Mixed In Key, Lexicon, Beatport, Traxsource, rekordbox, OneTagger or any other product named here.
 
