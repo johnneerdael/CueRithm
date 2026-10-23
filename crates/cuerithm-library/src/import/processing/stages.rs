@@ -47,6 +47,9 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
                 },
             ),
         };
+        if !super::super::projection::field_selected(policy, column) {
+            continue;
+        }
         if *mode == AnalysisAdoption::FillMissing && !missing(fields.get(column)) {
             continue;
         }
@@ -57,7 +60,9 @@ pub(super) fn plan(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> V
             blocker: None,
         });
     }
-    if policy.cue_generation == CueGeneration::Generate {
+    if policy.cue_generation == CueGeneration::Generate
+        && super::super::projection::field_selected(policy, "cues.hot")
+    {
         let occupied = super::super::performance::hotcue_occupied(fields);
         let unknown = fields.get("_hotcue_occupancy").and_then(Value::as_str) == Some("unknown");
         stages.push(Stage {

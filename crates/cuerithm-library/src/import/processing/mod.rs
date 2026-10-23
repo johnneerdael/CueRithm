@@ -30,6 +30,19 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
+// Canonical stage dependencies must survive retries that append newer receipts.
+pub(super) const STAGE_ORDER_SQL: &str = "CASE stage WHEN 'metadata.enrichment' THEN 0 WHEN 'metadata.cleanup' THEN 1 WHEN 'analysis.key' THEN 2 WHEN 'analysis.bpm' THEN 3 WHEN 'analysis.beatgrid' THEN 4 WHEN 'analysis.energy' THEN 5 WHEN 'generation.cues' THEN 6 WHEN 'file.tags' THEN 7 WHEN 'file.relocation' THEN 8 ELSE 9 END";
+pub(super) fn apply_proposal(fields: &mut BTreeMap<String, Value>, proposal: &Value) {
+    if let Some(changes) = proposal.get("fields").and_then(Value::as_object) {
+        fields.extend(
+            changes
+                .iter()
+                .map(|(field, value)| (field.clone(), value.clone())),
+        );
+    } else if let Some(field) = proposal.get("field").and_then(Value::as_str) {
+        fields.insert(field.into(), proposal["value"].clone());
+    }
+}
 
 pub(super) fn has_stages(policy: &ImportPolicy, fields: &BTreeMap<String, Value>) -> bool {
     !stages::plan(policy, fields).is_empty()
@@ -48,6 +61,8 @@ pub(crate) fn implementation_sha256() -> String {
         include_str!("../publication.rs"),
         include_str!("../publication/files.rs"),
         include_str!("../recovery.rs"),
+        include_str!("../projection.rs"),
+        include_str!("../reconcile.rs"),
         include_str!("../../metadata_edit/service.rs"),
         include_str!("../../metadata_edit/journal.rs"),
         include_str!("../../organization/service/planning.rs"),

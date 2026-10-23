@@ -121,7 +121,7 @@ impl Library {
                     row.provenance.get(field),
                 )?;
             }
-            sync_projection(&tx, &row.item)?;
+            sync_projection(&tx, &row.item, &row.values)?;
             if !row.values.is_empty() {
                 Library::bump(&tx)?;
             }
@@ -177,7 +177,16 @@ impl Library {
                         row.before_provenance.get(field),
                     )?;
                 }
-                sync_projection(&tx, &row.item)?;
+                let restored = row
+                    .values
+                    .keys()
+                    .filter_map(|field| {
+                        row.before
+                            .get(field)
+                            .map(|value| (field.clone(), value.clone()))
+                    })
+                    .collect();
+                sync_projection(&tx, &row.item, &restored)?;
                 if !row.values.is_empty() {
                     Library::bump(&tx)?;
                 }
@@ -248,15 +257,18 @@ fn write_active(
     }
     Ok(())
 }
-pub(crate) fn sync_projection(conn: &Connection, id: &str) -> Result<()> {
-    let fields = super::projection::active_fields_tx(conn, id)?;
+pub(crate) fn sync_projection(
+    conn: &Connection,
+    id: &str,
+    fields: &std::collections::BTreeMap<String, Value>,
+) -> Result<()> {
     let native: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM tracks WHERE id=?1)",
         [id],
         |r| r.get(0),
     )?;
     if native {
-        for (field, value) in &fields {
+        for (field, value) in fields {
             let column = match field.as_str() {
                 "metadata.title" => "title",
                 "metadata.artist" | "metadata.artists" => "artist",
@@ -304,7 +316,7 @@ pub(crate) fn sync_projection(conn: &Connection, id: &str) -> Result<()> {
                 id
             ],
         )?;
-        super::native_shadow::capture(conn, id, &fields)?;
+        super::native_shadow::capture(conn, id, fields)?;
     }
     super::projection::rebuild_summary_tx(conn, id)?;
     conn.execute(

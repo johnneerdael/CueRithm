@@ -60,8 +60,8 @@ impl Library {
         } else {
             String::new()
         };
-        let total=conn.query_row("SELECT COUNT(*) FROM import_collections WHERE (?1 IS NULL OR source_id=?1) AND ((?2 IS NULL AND parent_id IS NULL) OR parent_id=?2)",params![query.source_id,query.parent_id],|row|row.get(0))?;
-        let mut statement=conn.prepare("SELECT c.id,c.source_id,s.provider,c.parent_id,substr(c.name,1,4096),length(c.name)>4096,c.kind,(SELECT COUNT(*) FROM import_memberships m WHERE m.collection_id=c.id) FROM import_collections c JOIN import_sources s ON s.id=c.source_id WHERE (?1 IS NULL OR c.source_id=?1) AND ((?2 IS NULL AND c.parent_id IS NULL) OR c.parent_id=?2) AND c.id>?3 ORDER BY c.id LIMIT ?4")?;
+        let total=conn.query_row("SELECT COUNT(*) FROM import_collections c WHERE (?1 IS NULL OR c.source_id=?1) AND ((?2 IS NULL AND (c.parent_id IS NULL OR NOT EXISTS(SELECT 1 FROM import_collections p WHERE p.id=c.parent_id))) OR c.parent_id=?2)",params![query.source_id,query.parent_id],|row|row.get(0))?;
+        let mut statement=conn.prepare("SELECT c.id,c.source_id,s.provider,c.parent_id,substr(c.name,1,4096),length(c.name)>4096,c.kind,(SELECT COUNT(*) FROM import_memberships m WHERE m.collection_id=c.id) FROM import_collections c JOIN import_sources s ON s.id=c.source_id WHERE (?1 IS NULL OR c.source_id=?1) AND ((?2 IS NULL AND (c.parent_id IS NULL OR NOT EXISTS(SELECT 1 FROM import_collections p WHERE p.id=c.parent_id))) OR c.parent_id=?2) AND c.id>?3 ORDER BY c.id LIMIT ?4")?;
         let mut rows = statement.query(params![
             query.source_id,
             query.parent_id,

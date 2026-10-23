@@ -141,6 +141,7 @@ nav:
       - The track table: guides/track-table.md
       - Player, waveform and cues: guides/player.md
       - Incoming and Archive: guides/incoming-archive.md
+      - Import a DJ library: guides/import-library.md
       - Playlists, folders and favourites: guides/playlists.md
       - Smart playlist rules: guides/smart-rules.md
       - Playlist tools and generator: guides/playlist-tools.md

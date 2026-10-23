@@ -38,6 +38,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 | **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
 | **Waveform** | Three frequency bands in six colour palettes, with a default 32-second zoom for checking the grid. |
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
+| **DJ library import** | Preserve source metadata, playlists and crates, then choose analysis, hotcue replacement, retagging, tag writes and file naming independently. See the [Import guide](docs/user-guide/guides/import-library.md). |
 | **Tagging** | Optional DJ-store and public-catalog providers, private account setup, match review and staged writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |

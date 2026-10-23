@@ -67,6 +67,7 @@ snake_case names in their Rust types. Every long command requires a caller-creat
 | `recover_import_operation` | `operationId,id` | Recovery counts/errors |
 | `undo_import_operation` | `operationId,id` | Undo counts/errors |
 | `imported_item` | `id` | Active fields, provenance and observations |
+| `imported_collection_list` | `query` | Applied roots/folders, including children with an unimported parent |
 | `imported_collection_page` | `id,query` | Occurrence-preserving collection page |
 
 Preview requests select tracks/collections by native IDs or `all`, include the
@@ -82,6 +83,15 @@ values are never apply authority. Generated/provider/file proposals require a
 separate effects preview after generation completes. Existing library methods
 retain their `(cursor,limit)` preview-page signature; the IPC adapter accepts the
 common `{cursor,limit}` query envelope.
+
+Effects pages expose `changes.fields` and the corresponding `changes.before`
+values, `changes.audio_tags` with actual before/after native tag snapshots and
+the audio path, and `changes.files` with the resolved current/destination paths
+from the organization preview. Child mutation IDs stay in the backend-held
+effect row. The frontend renders complete, scrollable cue-family values; it
+does not truncate their serialized content. Existing record/page byte limits
+still apply. Selected field groups and descriptive subfields gate generated,
+enriched, cleaned and audio-tag values as well as initial source adoption.
 
 Pages default to100 and reject limits outside1–1000. Observation `kind` is track,
 collection, membership or issue. Cursors are opaque and bound to their inspection,
@@ -118,8 +128,10 @@ restart, local source access may need selecting again, including rekordbox key
 provisioning. A partial scan never authorizes deleting music.
 
 History exposes backend `can_retry`, `can_review`, `can_recover` and `can_undo`
-flags. Retry is scoped to one durable operation, retains completed proposals and
-runs only its incomplete authorized stages. Any effects publication journal,
+flags. Retry is scoped to one durable operation. It reconstructs preceding
+proposal outputs in dependency order, retains completed proposals with unchanged
+inputs, and recomputes dependent stages when their inputs changed. Effects use
+that same order for each item, independently of receipt insertion time. Any effects publication journal,
 including an undone journal, prevents replay through Retry or a new effects
 preview. Recover and Undo use the original guarded journals. Cancellation remains
 an incomplete outcome.
@@ -139,7 +151,10 @@ never pending/running processing.
 The sidebar's Imported playlists view opens applied folders, playlists, crates
 and smartlist snapshots after restart. It uses the read-only
 `imported_collection_list(query)` command with optional `source_id`, `parent_id`,
-`cursor` and `limit` (default100, maximum1000). An absent parent selects roots.
+`cursor` and `limit` (default100, maximum1000). An absent parent selects roots
+and collections whose recorded parent has not been imported. Those collections
+retain their recorded parent ID; importing the ancestor restores its navigation
+context without rewriting the source observation.
 Entries include opaque local IDs, provider, hierarchy parent, kind and occurrence
 count; pages expose total and next_cursor. Names longer than4096characters are
 shortened with `name_truncated`; original observations retain the full text. Page

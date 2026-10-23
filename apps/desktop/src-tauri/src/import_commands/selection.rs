@@ -111,7 +111,7 @@ fn eligible(provider: SourceProvider, relative: &Path) -> bool {
             name.eq_ignore_ascii_case("database.xml")
                 || matches!(extension.as_str(), "m3u" | "m3u8" | "vdjfolder")
         }
-        SourceProvider::EngineDj => matches!(name, "m.db" | "p.db"),
+        SourceProvider::EngineDj => matches!(name, "m.db" | "stm.db" | "hm.db"),
         SourceProvider::DjayPro => {
             matches!(name, "MediaLibrary.db" | "database2" | "Music.library")
         }
@@ -428,6 +428,26 @@ pub async fn choose_import_mapping(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn engine_inventory_includes_streaming_and_history_databases() {
+        let root = tempfile::tempdir().unwrap();
+        for name in ["m.db", "stm.db", "hm.db", "p.db"] {
+            let path = root.path().join("Engine Library/Database2").join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"authored").unwrap();
+        }
+        let artifacts = inventory_source(
+            root.path(),
+            SourceProvider::EngineDj,
+            &CancellationToken::default(),
+        )
+        .unwrap();
+        let names: std::collections::BTreeSet<_> = artifacts
+            .iter()
+            .map(|a| a.relative_path.file_name().unwrap().to_str().unwrap())
+            .collect();
+        assert_eq!(names, ["m.db", "stm.db", "hm.db"].into());
+    }
     #[test]
     fn mikdb_selection_uses_coherent_sqlite_acquisition() {
         let root = tempfile::tempdir().unwrap();

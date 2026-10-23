@@ -228,7 +228,8 @@ impl Library {
             let mut provenance = BTreeMap::new();
             let mut effects = Vec::new();
             for (field, value) in incoming {
-                let before = local.get(&field);
+                let alias = super::super::reconcile::aliased_local_value(&local, &field);
+                let before = local.get(&field).or(alias.as_ref());
                 let applied = baseline(&tx, &source, &candidate.external_id, &field)?;
                 let choice = decision(&request, &candidate.external_id, &field);
                 let (mut adopted, conflict) =

@@ -59,6 +59,7 @@ impl Library {
                 }
                 row.tag_preview = Some(preview.id);
                 row.tag_draft = Some(draft.id);
+                row.file_changes = json!({"audio_tags":preview.rows.iter().map(|change|json!({"title":change.title,"path":media.path.to_string_lossy(),"before":change.before,"after":change.after,"fields":change.fields})).collect::<Vec<_>>()});
                 return Ok(());
             }
             #[cfg(not(feature = "autotag"))]
@@ -120,6 +121,7 @@ impl Library {
             ensure!(preview.can_apply, "Organization has no applicable result");
         }
         row.organization = Some((preview.id, preview.revision));
+        row.file_changes = json!({"files":page.rows});
         Ok(())
     }
     fn promote_import_file_owner(
@@ -147,7 +149,8 @@ impl Library {
             "UPDATE import_items SET local_track_id=id WHERE id=?1 AND local_track_id IS NULL",
             [id],
         )?;
-        super::super::recovery::sync_projection(&tx, id)?;
+        let fields = super::super::projection::active_fields_tx(&tx, id)?;
+        super::super::recovery::sync_projection(&tx, id, &fields)?;
         super::super::native_shadow::capture_owned(&tx, id)?;
         tx.commit()?;
         Ok(())
@@ -155,7 +158,7 @@ impl Library {
     fn final_import_effect_fields(&self, op: &str, id: &str) -> Result<BTreeMap<String, Value>> {
         let mut fields = super::super::reconcile::local_fields(&*self.conn()?, id)?;
         let conn = self.conn()?;
-        let mut q=conn.prepare("SELECT identity_json,receipt_json FROM import_processing_receipts WHERE operation_id=?1 AND item_id=?2 AND state='proposed' AND stage NOT LIKE 'file.%' ORDER BY rowid")?;
+        let mut q=conn.prepare(&format!("SELECT identity_json,receipt_json FROM import_processing_receipts r WHERE operation_id=?1 AND item_id=?2 AND state='proposed' AND stage NOT LIKE 'file.%' AND stage!='publication.effects' AND NOT EXISTS(SELECT 1 FROM import_processing_receipts n WHERE n.operation_id=r.operation_id AND n.item_id=r.item_id AND n.stage=r.stage AND n.rowid>r.rowid) ORDER BY {},stage",super::super::processing::STAGE_ORDER_SQL))?;
         let mut rows = q.query(params![op, id])?;
         while let Some(row) = rows.next()? {
             let identity: Value = serde_json::from_str(&row.get::<_, String>(0)?)?;
@@ -188,7 +191,17 @@ impl Library {
         journal: &mut EffectJournal,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        if row.tag_preview.is_none() && row.organization.is_none() {
+            return Ok(());
+        }
         self.validate_import_source_processes(row)?;
+        if journal.file_projection.is_none() {
+            journal.file_projection = Some(super::super::reconcile::local_fields(
+                &*self.conn()?,
+                &row.item,
+            )?);
+            self.save_import_journal(op, &row.item, attempt, "applying", journal)?;
+        }
         #[cfg(feature = "autotag")]
         if let Some(preview) = &row.tag_preview {
             let service =
@@ -242,7 +255,13 @@ impl Library {
                 "Relocation requires recovery"
             );
         }
-        self.refresh_import_file_projection(&row.item)?;
+        self.refresh_import_file_projection(
+            &row.item,
+            journal
+                .file_projection
+                .as_ref()
+                .context("Missing file projection")?,
+        )?;
         Ok(())
     }
     pub(in crate::import) fn undo_import_file_row(
@@ -253,7 +272,17 @@ impl Library {
         journal: &mut EffectJournal,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        if journal.tag_batch.is_none() && journal.organization_batch.is_none() {
+            return Ok(());
+        }
         self.validate_import_source_processes(row)?;
+        if journal.undo_file_projection.is_none() {
+            journal.undo_file_projection = Some(super::super::reconcile::local_fields(
+                &*self.conn()?,
+                &row.item,
+            )?);
+            self.save_import_journal(op, &row.item, attempt, "applied", journal)?;
+        }
         if let Some(batch) = journal.organization_batch.clone() {
             if journal.undo_organization_batch.is_none() {
                 journal.undo_organization_batch=self.conn()?.query_row("SELECT id FROM organization_batches WHERE undo_of=?1 ORDER BY created,rowid DESC LIMIT 1",[&batch],|r|r.get(0)).optional()?;
@@ -305,7 +334,13 @@ impl Library {
                 undo.error.unwrap_or_default()
             );
         }
-        self.refresh_import_file_projection(&row.item)?;
+        self.refresh_import_file_projection(
+            &row.item,
+            journal
+                .undo_file_projection
+                .as_ref()
+                .context("Missing Undo file projection")?,
+        )?;
         Ok(())
     }
     pub(in crate::import) fn validate_import_relocation_references(
@@ -380,11 +415,33 @@ impl Library {
         }
         media.validate(cancel)
     }
-    fn refresh_import_file_projection(&self, id: &str) -> Result<()> {
+    fn refresh_import_file_projection(
+        &self,
+        id: &str,
+        fields: &BTreeMap<String, Value>,
+    ) -> Result<()> {
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         tx.execute("UPDATE import_items SET path=(SELECT path FROM tracks WHERE id=?1),source_hash=(SELECT source_hash FROM tracks WHERE id=?1) WHERE id=?1 AND local_track_id IS NOT NULL",[id])?;
-        super::super::recovery::sync_projection(&tx, id)?;
+        let columns = fields
+            .iter()
+            .filter(|(field, _)| {
+                matches!(
+                    field.as_str(),
+                    "metadata.title"
+                        | "metadata.artist"
+                        | "metadata.artists"
+                        | "metadata.album"
+                        | "metadata.genre"
+                        | "metadata.genres"
+                        | "key"
+                        | "bpm"
+                        | "energy"
+                )
+            })
+            .map(|(field, value)| (field.clone(), value.clone()))
+            .collect();
+        super::super::recovery::sync_projection(&tx, id, &columns)?;
         tx.commit()?;
         Ok(())
     }
@@ -403,9 +460,22 @@ fn tag_patch(
         } else {
             format!("metadata.{name}")
         };
-        let value = fields.get(&field).context(format!(
-            "Selected audio-tag field {name} has no accepted value"
-        ))?;
+        if !super::super::projection::field_selected(policy, &field) {
+            continue;
+        }
+        let alias = match name {
+            "artist" => Some("metadata.artists"),
+            "artists" => Some("metadata.artist"),
+            "genre" => Some("metadata.genres"),
+            "genres" => Some("metadata.genre"),
+            _ => None,
+        };
+        let value = fields
+            .get(&field)
+            .or_else(|| alias.and_then(|alias| fields.get(alias)))
+            .context(format!(
+                "Selected audio-tag field {name} has no accepted value"
+            ))?;
         if name == "bpm" {
             patch.bpm = match value.get("value").and_then(Value::as_f64) {
                 Some(v) => ValueEdit::Set { value: v },

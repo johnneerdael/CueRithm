@@ -89,6 +89,27 @@ fn policy(field: AnalysisField, adoption: AnalysisAdoption) -> ImportPolicy {
     }
 }
 #[test]
+fn review_fix_unselected_analysis_and_hotcues_never_create_proposals() {
+    let mut p = policy(AnalysisField::Key, AnalysisAdoption::ReplaceSelected);
+    p.selected_fields.remove(&FieldGroup::Key);
+    p.selected_fields.remove(&FieldGroup::HotCues);
+    p.cue_generation = CueGeneration::Generate;
+    p.replace_hotcues = true;
+    let (f, op, id) = setup(p, true);
+    let before = f.lib.imported_item(&id).unwrap().active_fields;
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    let result = service.run_pending(&CancellationToken::default()).unwrap();
+    assert_eq!(result.processed + result.reused, 0);
+    assert!(
+        f.lib
+            .import_processing_stages(&op, None, 100)
+            .unwrap()
+            .records
+            .is_empty()
+    );
+    assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, before);
+}
+#[test]
 fn explicit_retry_retains_completed_proposals_and_never_replays_publication() {
     let mut p = policy(AnalysisField::Energy, AnalysisAdoption::ReplaceSelected);
     p.cue_generation = CueGeneration::Generate;

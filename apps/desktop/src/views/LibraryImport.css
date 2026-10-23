@@ -2,3 +2,5 @@
 .import-history-operation{border:1px solid var(--border,#364148);border-radius:7px;margin:16px 0;padding:18px}.library-import textarea{width:min(100%,720px);min-height:110px;background:var(--input-bg,#22292d);color:inherit;border:1px solid var(--border,#465158);border-radius:5px;padding:8px}.import-history-operation dl{display:grid;gap:9px}.import-history-operation dd{margin:4px 0;color:var(--muted,#a6b3b9)}
 
 .import-occurrences{border-collapse:collapse;width:100%;min-width:850px}.import-occurrences th,.import-occurrences td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border,#364148)}.import-occurrences th{color:var(--muted,#a6b3b9);font-size:12px}.import-occurrences td:nth-child(2){min-width:180px}
+
+.import-effect-review{padding:16px 0;border-bottom:1px solid var(--border,#364148)}.import-effect-review dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px}.import-effect-review dd{margin:0;overflow-wrap:anywhere}.import-effect-review pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto}

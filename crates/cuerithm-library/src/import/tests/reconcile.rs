@@ -163,6 +163,52 @@ fn imported_collection_browser_pages_hierarchies_and_rejects_stale_cursors() {
             .is_err()
     );
 }
+#[test]
+fn review_fix_selected_nested_collection_remains_reachable_without_parent_selection() {
+    let f = Fixture::new();
+    let inspection = f
+        .try_inspect_records(
+            vec![track("Track")],
+            vec![
+                CollectionObservation {
+                    external_id: "folder".into(),
+                    name: "Folder".into(),
+                    kind: CollectionKind::Folder,
+                    ..Default::default()
+                },
+                CollectionObservation {
+                    external_id: "playlist".into(),
+                    parent_id: Some("folder".into()),
+                    name: "Selected playlist".into(),
+                    kind: CollectionKind::Playlist,
+                    ..Default::default()
+                },
+            ],
+            vec![],
+            Completeness::WholeLibrary,
+        )
+        .unwrap();
+    let mut request = f.request(&inspection);
+    request.collections = ImportRecordSelection::Ids(["playlist".into()].into());
+    f.apply(&f.preview(request));
+    let root = f
+        .lib
+        .imported_collection_list(ImportCollectionListQuery::default())
+        .unwrap();
+    assert_eq!(root.total, 1);
+    let selected = if root.records[0].kind == CollectionKind::Folder {
+        f.lib
+            .imported_collection_list(ImportCollectionListQuery {
+                parent_id: Some(root.records[0].id.clone()),
+                ..Default::default()
+            })
+            .unwrap()
+            .records
+    } else {
+        root.records
+    };
+    assert_eq!(selected[0].name, "Selected playlist");
+}
 pub(super) fn track(title: &str) -> TrackObservation {
     TrackObservation {
         external_id: "a".into(),
@@ -609,6 +655,35 @@ fn initial_native_artist_array_conflicts_with_existing_scalar_without_splitting_
     assert_eq!(p.conflicts, 1);
     f.apply(&p);
     assert_eq!(f.lib.track("existing").unwrap().artist, "Local, Band");
+}
+#[test]
+fn native_artist_alias_switch_preserves_a_later_local_edit() {
+    let f = Fixture::new();
+    f.lib.conn().unwrap().execute("INSERT INTO tracks(id,path,title,artist,source_hash,state,created,updated) VALUES('existing',?1,'A','','hash','ready',1,1)",[crate::model::path_bytes(std::path::Path::new("/Synthetic/existing.flac"))]).unwrap();
+    let mut first = track("A");
+    first
+        .metadata
+        .insert("artist".into(), Presence::Value(json!("Imported, Band")));
+    let inspection = f.inspect(vec![first], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.target_items.insert("a".into(), "existing".into());
+    f.apply(&f.preview(request));
+    f.lib
+        .conn()
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET artist='Edited, Band' WHERE id='existing'",
+            [],
+        )
+        .unwrap();
+    let mut next = track("A");
+    next.metadata
+        .insert("artists".into(), Presence::Value(json!(["Source, Band"])));
+    let inspection = f.inspect(vec![next], Completeness::WholeLibrary);
+    let preview = f.preview(f.request(&inspection));
+    assert_eq!(preview.conflicts, 1);
+    f.apply(&preview);
+    assert_eq!(f.lib.track("existing").unwrap().artist, "Edited, Band");
 }
 
 fn collection(order: &[&str]) -> CollectionObservation {

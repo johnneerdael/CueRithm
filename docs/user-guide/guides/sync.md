@@ -4,6 +4,9 @@ Use **Sync** in the sidebar to send prepared tracks, metadata, cues, beatgrids a
 playlists to a DJ library or USB drive. Each sync starts with a preview and saves a
 recoverable backup.
 
+To bring an existing DJ library into CueRithm, use
+[Import library](import-library.md).
+
 <figure markdown>
   ![Sync destination, options and a preview of 24 tracks and three playlists](../assets/screens/85-sync-preview.webp){ .screen loading=lazy }
 </figure>

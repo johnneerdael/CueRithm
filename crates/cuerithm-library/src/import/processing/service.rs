@@ -161,9 +161,16 @@ impl ImportProcessingService {
                 let mut audio = None;
                 for stage in planned {
                     self.check(cancel)?;
-                    let complete:bool=self.library.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM import_processing_receipts WHERE operation_id=?1 AND item_id=?2 AND stage=?3 AND state='proposed')",params![operation_id,candidate.item_id,stage.name],|r|r.get(0))?;
-                    if complete {
-                        continue;
+                    let completed:Option<(String,String,String)>=self.library.conn()?.query_row("SELECT state,identity_json,receipt_json FROM import_processing_receipts WHERE operation_id=?1 AND item_id=?2 AND stage=?3 ORDER BY rowid DESC LIMIT 1",params![operation_id,candidate.item_id,stage.name],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+                    if let Some((state, identity, receipt)) = completed {
+                        let identity: Value = serde_json::from_str(&identity)?;
+                        if state == "proposed"
+                            && identity.get("input_fields") == Some(&serde_json::to_value(&fields)?)
+                        {
+                            let receipt: Value = serde_json::from_str(&receipt)?;
+                            apply_proposal(&mut fields, &receipt["proposal"]);
+                            continue;
+                        }
                     }
                     let attempt = uuid::Uuid::new_v4().to_string();
                     let runtime_nonce = self
@@ -175,7 +182,7 @@ impl ImportProcessingService {
                         .nonce
                         .clone();
                     let expected = fields.get(stage.field).cloned();
-                    let initial = json!({"runtime_nonce":runtime_nonce,"media_guard":candidate.media,"policy_id":policy_id,"expected_value":expected,"field":stage.field,"decoder":self.runtime.identity});
+                    let initial = json!({"runtime_nonce":runtime_nonce,"media_guard":candidate.media,"policy_id":policy_id,"expected_value":expected,"field":stage.field,"decoder":self.runtime.identity,"input_fields":fields});
                     self.library.conn()?.execute("INSERT INTO import_processing_receipts VALUES(?1,?2,?3,?4,'running',?5,'{}',?6)",params![operation_id,candidate.item_id,stage.name,attempt,serde_json::to_string(&initial)?,now()])?;
                     #[cfg(test)]
                     if let Some(hook) = self.claim_hook.lock().unwrap().as_ref() {
@@ -191,11 +198,7 @@ impl ImportProcessingService {
                     );
                     let (state, receipt, identity) = match outcome {
                         Ok((value, identity)) => {
-                            if let Some(changes) = value.get("fields").and_then(Value::as_object) {
-                                for (field, value) in changes {
-                                    fields.insert(field.clone(), value.clone());
-                                }
-                            }
+                            apply_proposal(&mut fields, &value);
                             if identity.get("cache_reuse").is_some() {
                                 summary.reused += 1;
                             } else {

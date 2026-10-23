@@ -26,7 +26,7 @@ pub(super) fn execute(
         ));
     }
     let input = metadata(fields)?;
-    let (changes, metadata_evidence) = if stage.name == "metadata.cleanup" {
+    let (mut changes, metadata_evidence) = if stage.name == "metadata.cleanup" {
         if let Some(error) = &frozen.optional_error {
             return Err(service::BlockedStage(error.clone()).into());
         }
@@ -55,6 +55,7 @@ pub(super) fn execute(
             );
         }
     };
+    changes.retain(|field, _| super::super::projection::field_selected(policy, field));
     let expected: BTreeMap<_, _> = changes
         .keys()
         .map(|field| {

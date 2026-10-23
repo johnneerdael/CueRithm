@@ -25,6 +25,15 @@ fn setup_configured(
     codec: &str,
     configure: impl FnOnce(&Fixture),
 ) -> (Fixture, String, String, std::path::PathBuf) {
+    setup_observation(policy, extension, codec, configure, |_| {})
+}
+fn setup_observation(
+    policy: ImportPolicy,
+    extension: &str,
+    codec: &str,
+    configure: impl FnOnce(&Fixture),
+    observation: impl FnOnce(&mut TrackObservation),
+) -> (Fixture, String, String, std::path::PathBuf) {
     let f = Fixture::new();
     configure(&f);
     let path = f.root.path().join("original.wav");
@@ -78,6 +87,7 @@ fn setup_configured(
     let mut t = track("Accepted title");
     t.locations.native_path = Some(path.clone());
     t.locations.platform = Some(std::env::consts::OS.into());
+    observation(&mut t);
     let i = f.inspect(vec![t], Completeness::WholeLibrary);
     let mut r = f.request(&i);
     r.policy = policy;
@@ -86,6 +96,416 @@ fn setup_configured(
         .id
         .clone();
     (f, op, id, path)
+}
+#[test]
+fn review_fix_unrelated_native_edits_survive_effect_publication_and_undo() {
+    let policy = ImportPolicy {
+        analysis_fields: [(AnalysisField::Key, AnalysisAdoption::ReplaceSelected)].into(),
+        ..Default::default()
+    };
+    let (f, op, id, path) = setup(policy);
+    f.lib.conn().unwrap().execute("INSERT INTO tracks(id,path,title,source_hash,state,metadata_json,created,updated) SELECT id,?1,'Edited locally',source_hash,'ready','{}',created,updated FROM import_items WHERE id=?2",rusqlite::params![crate::model::path_bytes(&path),id]).unwrap();
+    f.lib
+        .conn()
+        .unwrap()
+        .execute(
+            "UPDATE import_items SET local_track_id=id WHERE id=?1",
+            [&id],
+        )
+        .unwrap();
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(preview.ready, 1);
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    let native = || {
+        f.lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT title,bpm,energy FROM tracks WHERE id=?1",
+                [&id],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, Option<f64>>(1)?,
+                        r.get::<_, Option<u8>>(2)?,
+                    ))
+                },
+            )
+            .unwrap()
+    };
+    assert_eq!(native().0, "Edited locally");
+    f.lib
+        .conn()
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET title='Edited after publication',bpm=143,energy=8 WHERE id=?1",
+            [&id],
+        )
+        .unwrap();
+    let undo = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undo.blocked, 0, "{:?}", undo.errors);
+    assert_eq!(
+        native(),
+        ("Edited after publication".into(), Some(143.), Some(8))
+    );
+}
+#[test]
+fn review_fix_refresh_cleanup_respects_descriptive_field_mask() {
+    let (f, _, id, _) = setup_observation(
+        ImportPolicy::default(),
+        "wav",
+        "pcm_s16le",
+        |f| {
+            f.lib
+                .save_settings(PreparationSettings {
+                    cleanup: Some(cuerithm_cleanup::CleanupConfig {
+                        fixes: vec![cuerithm_cleanup::ConfiguredFix {
+                            id: "decode".into(),
+                            enabled: true,
+                            ignored_values: Default::default(),
+                            rule: cuerithm_cleanup::SmartFix::DecodeEntities,
+                        }],
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .unwrap();
+        },
+        |t| {
+            t.metadata
+                .insert("title".into(), Presence::Value(json!("A &amp; B")));
+        },
+    );
+    let t = f.lib.imported_item(&id).unwrap().observations[0]
+        .track
+        .clone();
+    let inspection = f.inspect(vec![t], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.policy.descriptive_fields = Some(["artist".into()].into());
+    request.policy.cleanup = CleanupPolicy {
+        enabled: true,
+        rules: vec!["decode".into()],
+    };
+    let op = f.apply(&f.preview(request)).operation_id;
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        f.lib.imported_item(&id).unwrap().active_fields["metadata.title"]["value"],
+        "A &amp; B"
+    );
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn review_fix_retry_restores_dependencies_and_orders_multiple_items() {
+    use cuerithm_autotag::*;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    struct Catalog(Arc<AtomicBool>);
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            Ok(if self.0.load(Ordering::SeqCst) {
+                vec![CatalogMatch::new(
+                    1.,
+                    CatalogTrack {
+                        platform: "beatport".into(),
+                        title: "A &amp; B".into(),
+                        ..Default::default()
+                    },
+                )]
+            } else {
+                vec![]
+            })
+        }
+    }
+    for cancelled in [false, true] {
+        let (f, _, id, path) = setup_configured(ImportPolicy::default(), "wav", "pcm_s16le", |f| {
+            f.lib
+                .save_settings(PreparationSettings {
+                    cleanup: Some(cuerithm_cleanup::CleanupConfig {
+                        fixes: vec![cuerithm_cleanup::ConfiguredFix {
+                            id: "decode".into(),
+                            enabled: true,
+                            ignored_values: Default::default(),
+                            rule: cuerithm_cleanup::SmartFix::DecodeEntities,
+                        }],
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .unwrap();
+        });
+        let first = f.lib.imported_item(&id).unwrap().observations[0]
+            .track
+            .clone();
+        let mut second = first.clone();
+        second.external_id = "b".into();
+        let second_path = path.with_file_name("second.wav");
+        std::fs::copy(&path, &second_path).unwrap();
+        second.locations.native_path = Some(second_path);
+        let inspection = f.inspect(vec![first, second], Completeness::WholeLibrary);
+        let mut request = f.request(&inspection);
+        request.policy.metadata_enrichment = EnrichmentPolicy {
+            enabled: true,
+            providers: vec!["beatport".into()],
+            fields: ["title".into()].into(),
+            ..Default::default()
+        };
+        request.policy.cleanup = CleanupPolicy {
+            enabled: true,
+            rules: vec!["decode".into()],
+        };
+        let op = f.apply(&f.preview(request)).operation_id;
+        let available = Arc::new(AtomicBool::new(cancelled));
+        let service = ImportProcessingService::start_with_tagger(
+            f.lib.clone(),
+            runtime(),
+            Arc::new(Tagger::with_backends(vec![Arc::new(Catalog(available.clone()))]).unwrap()),
+        )
+        .unwrap();
+        let token = CancellationToken::default();
+        if cancelled {
+            let claimed = Arc::new(AtomicUsize::new(0));
+            let cancel = token.clone();
+            service.set_claim_hook(Box::new(move || {
+                if claimed.fetch_add(1, Ordering::SeqCst) == 1 {
+                    cancel.cancel();
+                }
+            }));
+        }
+        let first = service.run_pending(&token).unwrap();
+        assert!(if cancelled {
+            first.cancelled > 0
+        } else {
+            first.blocked > 0
+        });
+        available.store(true, Ordering::SeqCst);
+        service.set_claim_hook(Box::new(|| {}));
+        service
+            .retry_pending(&op, &CancellationToken::default())
+            .unwrap();
+        let preview = f
+            .lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            preview.blocked,
+            0,
+            "{:?}",
+            f.lib
+                .import_effects_page(&preview.preview_id, None, 100)
+                .unwrap()
+        );
+        assert_eq!(preview.ready, 4);
+        f.lib
+            .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+            .unwrap();
+        for row in f.lib.tracks(TrackQuery::default()).unwrap().rows {
+            assert_eq!(row.title, "A & B");
+        }
+    }
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn review_fix_first_tag_and_copy_handle_both_artist_and_genre_representations() {
+    for plural in [false, true] {
+        for copy in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let (f, _, id, path) = setup_observation(
+                ImportPolicy::default(),
+                "wav",
+                "pcm_s16le",
+                |_| {},
+                |t| {
+                    for (singular, plural_name, value) in [
+                        ("artist", "artists", "Artist"),
+                        ("genre", "genres", "House"),
+                    ] {
+                        t.metadata.insert(
+                            if plural { plural_name } else { singular }.into(),
+                            Presence::Value(if plural { json!([value]) } else { json!(value) }),
+                        );
+                    }
+                },
+            );
+            let mut policy = ImportPolicy::default();
+            if copy {
+                let destination = f
+                    .lib
+                    .register_organization_root(root.path().to_owned())
+                    .unwrap();
+                policy.relocation = RelocationPolicy::Copy {
+                    root_id: destination.id,
+                    rule: "{artist} - {title}".into(),
+                };
+            } else {
+                policy.write_audio_tags = ["title".into(), "artist".into(), "genre".into()].into();
+            }
+            let t = f.lib.imported_item(&id).unwrap().observations[0]
+                .track
+                .clone();
+            let inspection = f.inspect(vec![t], Completeness::WholeLibrary);
+            let mut request = f.request(&inspection);
+            request.policy = policy;
+            let op = f.apply(&f.preview(request)).operation_id;
+            let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+            service.run_pending(&CancellationToken::default()).unwrap();
+            let preview = f
+                .lib
+                .preview_import_effects(&op, &CancellationToken::default())
+                .unwrap();
+            let page = f
+                .lib
+                .import_effects_page(&preview.preview_id, None, 100)
+                .unwrap();
+            assert_eq!(preview.ready, 1, "{page:?}");
+            let row = &page.records[0];
+            f.lib
+                .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+                .unwrap();
+            if copy {
+                assert!(
+                    row.changes["files"][0]["before_path"]
+                        .as_str()
+                        .unwrap()
+                        .ends_with("original.wav")
+                );
+                assert!(
+                    row.changes["files"][0]["after_path"]
+                        .as_str()
+                        .unwrap()
+                        .ends_with("Artist - Accepted title.wav")
+                );
+            } else {
+                assert!(row.changes["audio_tags"][0]["before"].is_object());
+                assert!(
+                    row.changes["audio_tags"][0]["after"]
+                        .to_string()
+                        .contains("Accepted title")
+                );
+            }
+            assert!(path.exists());
+        }
+    }
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn review_fix_file_effects_expose_actual_tag_changes_before_apply() {
+    let (f, op, _, path) = setup(ImportPolicy {
+        write_audio_tags: ["title".into()].into(),
+        ..Default::default()
+    });
+    let original = std::fs::read(path).unwrap();
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    let page = f
+        .lib
+        .import_effects_page(&preview.preview_id, None, 100)
+        .unwrap();
+    let row = &page.records[0];
+    assert!(row.changes["audio_tags"][0]["before"].is_object());
+    assert!(
+        row.changes["audio_tags"][0]["after"]
+            .to_string()
+            .contains("Accepted title")
+    );
+    assert_eq!(
+        std::fs::read(row.changes["audio_tags"][0]["path"].as_str().unwrap()).unwrap(),
+        original
+    );
+}
+#[cfg(feature = "autotag")]
+#[test]
+fn review_fix_file_tag_projection_preserves_import_shapes_and_later_unrelated_edits() {
+    let (f, op, id, _) = setup_observation(
+        ImportPolicy {
+            write_audio_tags: ["title".into(), "label".into()].into(),
+            ..Default::default()
+        },
+        "wav",
+        "pcm_s16le",
+        |_| {},
+        |track| {
+            track
+                .metadata
+                .insert("artists".into(), Presence::Value(json!(["Artist"])));
+            track
+                .metadata
+                .insert("genres".into(), Presence::Value(json!(["House"])));
+            track
+                .metadata
+                .insert("label".into(), Presence::Value(json!(["Label"])));
+        },
+    );
+    let before = f.lib.imported_item(&id).unwrap();
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    f.lib
+        .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+        .unwrap();
+    let after = f.lib.imported_item(&id).unwrap();
+    assert_eq!(
+        after.active_fields["metadata.label"],
+        before.active_fields["metadata.label"]
+    );
+    assert_eq!(
+        after.provenance["metadata.label"],
+        before.provenance["metadata.label"]
+    );
+    let rows = f.lib.tracks(TrackQuery::default()).unwrap();
+    assert_eq!(
+        (&rows.rows[0].artist, &rows.rows[0].genre),
+        (&"Artist".to_owned(), &"House".to_owned())
+    );
+    f.lib
+        .conn()
+        .unwrap()
+        .execute("UPDATE tracks SET bpm=143,energy=8 WHERE id=?1", [&id])
+        .unwrap();
+    let undo = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undo.blocked, 1, "{:?}", undo.errors);
+    let after = f.lib.tracks(TrackQuery::default()).unwrap();
+    assert_eq!(
+        (after.rows[0].bpm, after.rows[0].energy),
+        (Some(143.), Some(8))
+    );
+    let detail = f.lib.imported_item(&id).unwrap();
+    assert_eq!(
+        detail.active_fields["metadata.label"],
+        before.active_fields["metadata.label"]
+    );
 }
 #[test]
 fn effects_require_review_and_preserve_later_local_edits() {

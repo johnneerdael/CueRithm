@@ -61,6 +61,22 @@ pub(crate) fn field_group(field: &str) -> FieldGroup {
         _ => FieldGroup::Markers,
     }
 }
+pub(crate) fn field_selected(policy: &ImportPolicy, field: &str) -> bool {
+    let group = field_group(field);
+    policy.selected_fields.contains(&group)
+        && (group != FieldGroup::DescriptiveTags
+            || policy.descriptive_fields.as_ref().is_none_or(|selected| {
+                let name = field.strip_prefix("metadata.").unwrap_or(field);
+                selected.contains(name)
+                    || match name {
+                        "artist" => selected.contains("artists"),
+                        "artists" => selected.contains("artist"),
+                        "genre" => selected.contains("genres"),
+                        "genres" => selected.contains("genre"),
+                        _ => false,
+                    }
+            }))
+}
 pub(crate) fn selected_source_values(
     conn: &Connection,
     track: &TrackObservation,
@@ -166,15 +182,8 @@ pub(crate) fn selected_source_values(
         }
     }
     for (field, value) in &metadata {
-        let group = metadata_group(field);
-        if !policy.selected_fields.contains(&group) || matches!(value, Presence::Absent) {
-            continue;
-        }
-        if group == FieldGroup::DescriptiveTags
-            && policy
-                .descriptive_fields
-                .as_ref()
-                .is_some_and(|selected| !selected.contains(field))
+        if !field_selected(policy, &format!("metadata.{field}"))
+            || matches!(value, Presence::Absent)
         {
             continue;
         }

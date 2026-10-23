@@ -37,6 +37,36 @@ pub(crate) fn choose_field(
         (None, Some(_)) => (None, true),
     }
 }
+/// Compare artist/genre aliases without adding derived fields to the accepted
+/// projection. A source can change representation after an earlier import.
+pub(crate) fn aliased_local_value(fields: &BTreeMap<String, Value>, field: &str) -> Option<Value> {
+    if fields.contains_key(field) {
+        return None;
+    }
+    let (alias, plural) = match field {
+        "metadata.artist" => ("metadata.artists", false),
+        "metadata.artists" => ("metadata.artist", true),
+        "metadata.genre" => ("metadata.genres", false),
+        "metadata.genres" => ("metadata.genre", true),
+        _ => return None,
+    };
+    let mut value = fields.get(alias)?.clone();
+    if let Some(raw) = value.get_mut("value") {
+        let converted = match (&*raw, plural) {
+            (Value::String(text), true) => Some(json!([text])),
+            (Value::Array(values), false) => values
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<Vec<_>>>()
+                .map(|values| json!(values.join("; "))),
+            _ => None,
+        };
+        if let Some(converted) = converted {
+            *raw = converted;
+        }
+    }
+    Some(value)
+}
 pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> {
     let mut fields = active_fields_tx(conn, id)?;
     type NativeFields = (
@@ -52,6 +82,10 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
     let row:Option<NativeFields>=conn.query_row("SELECT title,artist,album,genre,musical_key,bpm,energy,metadata_json FROM tracks WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?))).optional()?;
     if let Some((title, artist, album, genre, key, bpm, energy, metadata)) = row {
         let shadow = super::native_shadow::load(conn, id)?;
+        let artist_imported =
+            fields.contains_key("metadata.artist") || fields.contains_key("metadata.artists");
+        let genre_imported =
+            fields.contains_key("metadata.genre") || fields.contains_key("metadata.genres");
         for (name, value) in [
             ("title", title),
             ("artist", artist.clone()),
@@ -59,15 +93,30 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
             ("genre", genre.clone()),
         ] {
             let field = format!("metadata.{name}");
+            let alias = match name {
+                "artist" => Some("metadata.artists"),
+                "genre" => Some("metadata.genres"),
+                _ => None,
+            };
+            if !fields.contains_key(&field)
+                && alias.is_some_and(|alias| super::native_shadow::text(fields.get(alias)) == value)
+            {
+                continue;
+            }
             if super::native_shadow::text(fields.get(&field)) != value
                 || !value.is_empty() && !fields.contains_key(&field)
             {
                 fields.insert(field, json!({"presence":"value","value":value}));
             }
         }
-        for (name, value) in [("artists", artist), ("genres", genre)] {
+        for (name, value, imported) in [
+            ("artists", artist, artist_imported),
+            ("genres", genre, genre_imported),
+        ] {
             let field = format!("metadata.{name}");
-            if super::native_shadow::text(fields.get(&field)) != value {
+            if (fields.contains_key(&field) || !imported && !value.is_empty())
+                && super::native_shadow::text(fields.get(&field)) != value
+            {
                 fields.insert(field, json!({"presence":"value","value":[value]}));
             }
         }

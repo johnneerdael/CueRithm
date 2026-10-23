@@ -53,6 +53,8 @@ pub(super) struct EffectRow {
     pub tag_preview: Option<String>,
     pub tag_draft: Option<String>,
     pub organization: Option<(String, String)>,
+    #[serde(default)]
+    pub file_changes: Value,
 }
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub(super) struct EffectJournal {
@@ -67,6 +69,10 @@ pub(super) struct EffectJournal {
     pub undo_organization_batch: Option<String>,
     pub undo_tag_batch: Option<String>,
     pub undone: bool,
+    #[serde(default)]
+    pub file_projection: Option<BTreeMap<String, Value>>,
+    #[serde(default)]
+    pub undo_file_projection: Option<BTreeMap<String, Value>>,
 }
 fn encode(value: &impl Serialize) -> Result<String> {
     let s = serde_json::to_string(value)?;
@@ -126,17 +132,34 @@ impl Library {
             "INSERT INTO import_previews VALUES(?1,?2,?3,0,?4,'{}',?5,'building',?6)",
             params![id, source, snapshot, policy, nonce, now()],
         )?;
-        let mut after = 0i64;
+        let mut after = (String::new(), -1i64, String::new());
         let mut sequence = 0i64;
         let mut projected: Option<(String, BTreeMap<String, Value>)> = None;
         let mut projected_provenance = BTreeMap::new();
         loop {
             cancel.check()?;
-            let row:Option<(i64,String,String,String,String,String,String)>=self.conn()?.query_row("SELECT rowid,item_id,stage,attempt,state,identity_json,receipt_json FROM import_processing_receipts WHERE operation_id=?1 AND stage!='publication.effects' AND rowid>?2 AND NOT EXISTS(SELECT 1 FROM import_processing_receipts n WHERE n.operation_id=import_processing_receipts.operation_id AND n.item_id=import_processing_receipts.item_id AND n.stage=import_processing_receipts.stage AND n.rowid>import_processing_receipts.rowid) ORDER BY rowid LIMIT 1",params![operation,after],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?))).optional()?;
+            let sql = format!(
+                "SELECT stage_rank,item_id,stage,attempt,state,identity_json,receipt_json FROM (SELECT *,{} AS stage_rank FROM import_processing_receipts r WHERE operation_id=?1 AND stage!='publication.effects' AND NOT EXISTS(SELECT 1 FROM import_processing_receipts n WHERE n.operation_id=r.operation_id AND n.item_id=r.item_id AND n.stage=r.stage AND n.rowid>r.rowid)) WHERE (item_id,stage_rank,stage)>(?2,?3,?4) ORDER BY item_id,stage_rank,stage LIMIT 1",
+                super::processing::STAGE_ORDER_SQL
+            );
+            let row: Option<(i64, String, String, String, String, String, String)> = self
+                .conn()?
+                .query_row(&sql, params![operation, after.0, after.1, after.2], |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                        r.get(6)?,
+                    ))
+                })
+                .optional()?;
             let Some((rowid, item, stage, attempt, state, identity, receipt)) = row else {
                 break;
             };
-            after = rowid;
+            after = (item.clone(), rowid, stage.clone());
             let identity: Value = serde_json::from_str(&identity)?;
             let receipt: Value = serde_json::from_str(&receipt)?;
             let before = if let Some((previous, values)) = &projected
@@ -178,6 +201,7 @@ impl Library {
                 tag_preview: None,
                 tag_draft: None,
                 organization: None,
+                file_changes: Value::Null,
             };
             if state != "proposed" {
                 effect.outcome = "blocked".into();
@@ -195,6 +219,9 @@ impl Library {
                         .values
                         .insert(field.into(), proposal["value"].clone());
                 }
+                effect.values.retain(|field, _| {
+                    super::projection::field_selected(&meta.request.policy, field)
+                });
                 for field in effect.values.keys() {
                     let expected = identity
                         .get("expected_fields")
@@ -382,7 +409,7 @@ impl Library {
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             ensure!(tx.execute("UPDATE import_previews SET state='effects_applying' WHERE id=?1 AND state='effects_ready'",[id])?==1,"Effects preview already claimed");
-            let mut q=tx.prepare("SELECT proposal_json FROM import_preview_effects WHERE preview_id=?1 AND kind='processing'")?;
+            let mut q=tx.prepare("SELECT proposal_json FROM import_preview_effects WHERE preview_id=?1 AND kind='processing' ORDER BY sequence")?;
             let mut rows = q.query([id])?;
             while let Some(row) = rows.next()? {
                 let effect: EffectRow = serde_json::from_str(&row.get::<_, String>(0)?)?;
@@ -460,7 +487,7 @@ fn public_effect(row: &EffectRow) -> ImportEffect {
         stage: row.stage.clone(),
         outcome: row.outcome.clone(),
         reason: row.reason.clone(),
-        changes: json!({"fields":row.values,"tag_preview_id":row.tag_preview,"organization":row.organization}),
+        changes: json!({"fields":row.values,"before":row.before.iter().filter(|(field,_)| row.values.contains_key(*field)).collect::<BTreeMap<_,_>>(),"audio_tags":row.file_changes.get("audio_tags"),"files":row.file_changes.get("files")}),
     }
 }
 pub(crate) fn publication_metadata(

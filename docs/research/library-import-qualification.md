@@ -714,4 +714,73 @@ and only resolved media is playable. Smart rules remain observations. Browser,
 App-route, native-ID folder paging and stale-cursor controls cover this projection;
 no raw source occurrence is flattened into a deduplicated local playlist.
 
-Final stage validation: SDK528passed/3ignored,120matched library checks, four public native-service integrations, four native command/selection checks, frontend import and App-route controls, frontend build and changed-package all-target releaseClippy passed. Source executable matching includes quoted and non-UTF8 paths without inspecting unrelated arguments as executables. Public track details omit private planning keys; source observations and readiness retain their safety interpretation.
+Task22 stage validation: SDK528passed/3ignored,120matched library checks, four public native-service integrations, four native command/selection checks, frontend import and App-route controls, frontend build and changed-package all-target releaseClippy passed. Source executable matching includes quoted and non-UTF8 paths without inspecting unrelated arguments as executables. Public track details omit private planning keys; source observations and readiness retain their safety interpretation.
+
+## Final branch review and remaining acceptance
+
+The fresh whole-branch review examined base446aab6 through c02e1ae and all three
+plans' Review Focus. Seven Important findings entered one regression-tested fix
+pass: unrelated local-edit preservation during publication/Undo, selected-field
+authorization, stable artist/genre representations during first file operations,
+retry dependencies and ordering, actual file/cue review data, selective nested
+collection visibility, and complete supported Engine artifact inventory. The
+[implementation record](library-import-implementation-record.md#final-whole-branch-review)
+records each correction and the complete execution rulings. Final verification
+results and their source scopes are recorded below.
+
+One Minor remains deferred: distinct OneLibrary SQL cues with the same positive
+`kind` can produce duplicate hotcue slots without a slot-specific conflict
+diagnostic. Raw records are preserved; native clock/export restrictions remain.
+This does not qualify ambiguous slots for a native round trip.
+
+The reviewer did not infer these remaining acceptance gates from fixtures:
+
+- D3: real source-library samples for the supported reader profiles.
+- D4: inbound behavior using actual source applications.
+- D5: reopened-app writes and source-reference repair; original source-bound
+  renames/moves remain blocked, and the DJ.Studio writer remains unavailable in
+  the desktop flow.
+- D6: actual DJ device acceptance.
+- Actual macOS/Windows runtime and remote CI checks. Linux path fixtures and
+  headless native-command/React controls do not establish those results or a
+  launched native GUI workflow.
+- Serato-specific media-tag scanning throughput. The recorded100000-track M3U
+  benchmark uses tiny generated WAVs and does not measure that scanning path or
+  full-length music throughput.
+
+Existing CI already includes the added targets through its full SDK/all-features
+and library/desktop suites; no duplicate jobs were introduced. Local completion
+does not replace the latest-commit review and green Linux gates required by
+`docs/development/pr-workflow.md` before a future merge.
+
+### Final verification evidence
+
+| Check | Observed result and scope |
+| --- | --- |
+| Exact unchanged base446aab6 | Rust2072passed/48failed/11ignored; frontend535passed. The48 failure names are listed above and all have the block-device mount message. |
+| Full optimized workspace at c02e1ae |2347passed/48same mount failures/11ignored across168 completed targets. A separate desktop doctest compilation was invalidated by overlapping builds; the later sequential desktop and full workspace doctest runs both pass. |
+| Broad optimized library/desktop cohort during the fix pass |847passed/49failed/3ignored across45 targets. All integration targets pass, including scale2/2. The only additional unit failure was the existing legacy artist-array conflict control, corrected and reverified in the next row. |
+| Corrected library unit suite |444passed/48exact baseline mount failures/1ignored. All125 import-module tests pass, including the eight original review regressions, the existing legacy artist-array conflict case and the added adopted scalar/array refresh control. |
+| Corrected native unit suite |27passed/0failed/1ignored. The unchanged desktop main harness also passed4/4 in the broad optimized cohort. |
+| Corrected public import acceptance |4/4pass:13-provider all-off preservation, ten-format lazy loading, divergent/unselected refresh, and persisted repeated collection occurrences. |
+| SDK with experimental DJ.Studio feature |536passed/0failed/3ignored across25 targets. The feature stays off in production/desktop dependencies. |
+| Cleanup debug controls |13passed/0failed across5 targets, retaining overflow/debug coverage. |
+| Workspace formatting, all-target Clippy with `-D warnings`, release build |Pass on the corrected source. The unchanged native ASF C++ indentation warning remains; Rust lint has no errors. |
+| Workspace doctests after corrected source |All documentation targets compile/pass sequentially; the earlier missing-rlib error is closed. |
+| Frontend and guide |570frontend tests/65files and production build pass; strict MkDocs build passes. The post-compiler confirmation also passes570/570 and the production/strict-guide builds. |
+
+Final corrected unit/acceptance/doctest checks use release dependencies with
+opt-level0 for the active library/native packages, as in the recorded per-task
+resource policy. The broad cohorts and required release build use the optimized
+workspace profile. Unchanged integration/engine results are retained with their
+source scope; no single fully green current-tree workspace run is claimed.
+The48 mount failures are environmental acceptance gaps, not skipped assertions;
+no volume, object-identity or source-closure guard was weakened. Native platform,
+source-app/device and Rust-floor CI jobs remain separate unrun gates here.
+
+The added adopted scalar/array refresh witness also passed after reproducing a
+conflict bypass. Final alias-correction Clippy/build/docs retries initially hit
+the32GiB workspace limit; removing only obsolete completed test executables
+restored space. Fresh sequential lint, optimized release build, workspace
+doctests and formatting then pass on the final source. These resource failures
+are closed rather than classified as baseline failures.

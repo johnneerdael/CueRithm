@@ -3,7 +3,36 @@ import {render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {LibraryImport} from "../views/LibraryImport";
 import {importFixtureApi,importTrack} from "./import-fixtures";
+import type {ImportEffectsPage} from "../import-types";
 describe("import workflow",()=>{
+ it("shows actual file changes and the complete cue family before applying effects",async()=>{
+  const tail="Last generated cue after the previous display limit";
+  const summary={processed:1,reused:0,unchanged:0,blocked:0,failed:0,cancelled:0,recovery_required:0};
+  const api=importFixtureApi({
+   applyImport:vi.fn(async()=>({operation_id:"durable-operation",tracks_created:1,fields_changed:3,collections_changed:1,processing_requested:true})),
+   runImportProcessing:vi.fn(async()=>summary),
+   previewImportEffects:vi.fn(async()=>({preview_id:"actual-effects",operation_id:"durable-operation",ready:3,blocked:0,unchanged:0})),
+   importEffectsPage:vi.fn(async():Promise<ImportEffectsPage>=>({records:[
+    {item_id:"item-one",stage:"file.tags",outcome:"ready",reason:null,changes:{audio_tags:[{before:{text:{title:["Old title"]}},after:{text:{title:["Reviewed title"]}}}]}},
+    {item_id:"item-one",stage:"file.relocation",outcome:"ready",reason:null,changes:{files:[{before_path:"/example/original.wav",after_path:"/example/copies/Reviewed title.wav"}]}},
+    {item_id:"item-one",stage:"generation.cues",outcome:"ready",reason:null,changes:{fields:{"cues.hot":{cues:[{name:"x".repeat(4200)},{name:tail}]}}}},
+   ],next_cursor:null})),
+   applyImportEffects:vi.fn(async()=>summary),
+  });
+  render(<LibraryImport api={api} onClose={()=>{}}/>);
+  await userEvent.click(screen.getByRole("button",{name:"Choose library"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Inspect library"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Processing choices"}));
+  await userEvent.click(screen.getByRole("button",{name:"Review import"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Apply import"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Generate selected processing"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Review processing effects"}));
+  expect(await screen.findByText(/Old title/)).toBeVisible();
+  expect(screen.getByText(/Reviewed title.wav/)).toBeVisible();
+  expect(screen.getByText(new RegExp(tail))).toBeVisible();
+  await userEvent.click(screen.getByRole("button",{name:"Apply processing effects"}));
+  expect(api.applyImportEffects).toHaveBeenCalledWith(expect.any(String),"actual-effects");
+ });
  it("reviews server-held effects and applies only their preview ID",async()=>{
   const api=importFixtureApi();render(<LibraryImport api={api} onClose={()=>{}}/>);
   await userEvent.selectOptions(screen.getByLabelText("Source app"),"mixxx");

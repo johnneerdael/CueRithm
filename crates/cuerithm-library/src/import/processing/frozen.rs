@@ -29,13 +29,18 @@ pub(crate) struct FrozenModel {
 }
 pub(crate) fn selection(policy: &ImportPolicy) -> camelot_core::AnalysisSelection {
     camelot_core::AnalysisSelection {
-        key: policy.analysis_fields.contains_key(&AnalysisField::Key),
-        bpm: policy.analysis_fields.contains_key(&AnalysisField::Bpm),
+        key: policy.analysis_fields.contains_key(&AnalysisField::Key)
+            && super::super::projection::field_selected(policy, "key"),
+        bpm: policy.analysis_fields.contains_key(&AnalysisField::Bpm)
+            && super::super::projection::field_selected(policy, "bpm"),
         beatgrid: policy
             .analysis_fields
-            .contains_key(&AnalysisField::Beatgrid),
-        energy: policy.analysis_fields.contains_key(&AnalysisField::Energy),
-        cues: policy.cue_generation == CueGeneration::Generate,
+            .contains_key(&AnalysisField::Beatgrid)
+            && super::super::projection::field_selected(policy, "beatgrid"),
+        energy: policy.analysis_fields.contains_key(&AnalysisField::Energy)
+            && super::super::projection::field_selected(policy, "energy"),
+        cues: policy.cue_generation == CueGeneration::Generate
+            && super::super::projection::field_selected(policy, "cues.hot"),
     }
 }
 pub(crate) fn freeze(
