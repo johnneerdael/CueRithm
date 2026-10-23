@@ -1,5 +1,7 @@
 //! Read-only source adapters. D2 parser evidence never grants native write authority.
 pub mod apple_music;
+mod engine_codec;
+pub mod engine_dj;
 pub mod m3u;
 pub mod mixxx;
 mod mixxx_codec;
@@ -139,7 +141,7 @@ fn location(
     options: &ReadOptions,
 ) -> Result<LocationEvidence> {
     ensure!(!raw.contains('\0'), "NUL in media reference");
-    let windows = raw.starts_with("\\\\")
+    let windows_syntax = raw.starts_with("\\\\")
         || raw.starts_with("//")
         || raw.as_bytes().get(1) == Some(&b':')
         || raw
@@ -147,7 +149,8 @@ fn location(
             .is_some_and(|v| v.as_bytes().get(1) == Some(&b':'))
         || raw.starts_with("file://")
             && !raw.starts_with("file:///")
-            && !raw.starts_with("file://localhost/")
+            && !raw.starts_with("file://localhost/");
+    let windows = windows_syntax
         || options
             .origin
             .as_ref()
@@ -166,12 +169,18 @@ fn location(
         evidence.availability = "remote".into();
         return Ok(evidence);
     }
-    if !windows
+    if !windows_syntax
         && !raw.starts_with("file://")
+        && !raw.starts_with(['/', '\\'])
         && !Path::new(raw).is_absolute()
         && let Some(directory) = directory
     {
-        let native = lexical(&directory.join(raw))?;
+        let relative = if windows {
+            raw.replace('\\', "/")
+        } else {
+            raw.into()
+        };
+        let native = lexical(&directory.join(relative))?;
         evidence
             .extensions
             .insert("original_entry".into(), json!(raw));

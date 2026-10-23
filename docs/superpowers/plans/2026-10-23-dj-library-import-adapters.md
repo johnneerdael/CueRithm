@@ -95,11 +95,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `EngineDjReader`; identity is origin DB UUID plus origin track ID, with local row ID retained separately. Snapshot manifests participating `m.db`, selected `stm.db`/`hm.db` and required sidecars coherently.
 
-- [ ] Write `engine_reads_legacy_and_performance_view_without_migration` and `engine_vectors_keep_48k_sample_units` asserting grid native1.25/5.25 seconds, beat indices0/8, BPM120, quickcue1.25, loop4–8 and activeOnLoad bit1. Assert both grid lists/raw flags retained, UTF-8 cue name lengths use bytes, linked-list hierarchy/membership order and disconnected nodes accounted.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_engine_dj`; expect missing reader.
-- [ ] Query legacy Track columns versus PerformanceData table/view explicitly; never normalize/drop/migrate live schema. Decode four-byte BE declared-size + bounded zlib, mixed endianness, sample rate, sentinel/negative cues and loop flags. Invalid sample rate yields unresolved timing rather than assumed44100. Retain direct versus inherited folder membership and raw key/rating mappings.
-- [ ] Rerun with declaration mismatch, inflated bombs, invalid/cyclic next links, missing source UUID, streaming URI and unsupported schema; expect pass and byte-identical source artifacts.
-- [ ] Commit `feat: read Engine DJ sources without schema mutation`.
+- [x] Write `engine_reads_legacy_and_performance_view_without_migration` and `engine_vectors_keep_48k_sample_units` asserting grid native1.25/5.25 seconds, beat indices0/8, BPM120, quickcue1.25, loop4–8 and activeOnLoad bit1. Assert both grid lists/raw flags retained, UTF-8 cue name lengths use bytes, linked-list hierarchy/membership order and disconnected nodes accounted.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_engine_dj`; expect missing reader.
+- [x] Query legacy Track columns versus PerformanceData table/view explicitly; never normalize/drop/migrate live schema. Decode four-byte BE declared-size + bounded zlib, mixed endianness, sample rate, sentinel/negative cues and loop flags. Invalid sample rate yields unresolved timing rather than assumed44100. Retain direct versus inherited folder membership and raw key/rating mappings.
+- [x] Rerun with declaration mismatch, inflated bombs, invalid/cyclic next links, missing source UUID, streaming URI and unsupported schema; expect pass and byte-identical source artifacts.
+- [x] Commit `feat: read Engine DJ sources without schema mutation`.
 
 ### Task 14: djay Pro keyed archives and typed streams
 

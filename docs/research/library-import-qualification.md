@@ -262,3 +262,51 @@ separately passes32 tests. All-target Clippy `-D warnings`, formatting and diff
 checks pass. Container-envelope tests use invented metadata and the committed
 independent handover vectors; the file integration uses the existing synthetic
 silence FLAC fixture, never user music.
+
+## Engine DJ reader
+
+Engine Database2 imports use coherent selected `m.db`, `stm.db` and optional
+`hm.db` snapshots. Source profiles check the Information UUID and version plus
+known music-column projections. The decoder currently recognizes the2.20.2,
+2.20.3,2.21.0 and3.0.0 structural profiles. Independent legacy Track-column,
+PerformanceData-view and PerformanceData-table fixtures cover the projections;
+other source revisions fail explicitly. No writable source helper, migration,
+normalization, index change or checkpoint runs. A legacy performance view is
+not executed; its known Track columns are projected directly. Other music
+objects must be ordinary tables, preventing a view from reading unrelated data.
+
+Track identity uses origin database UUID plus origin track ID, retaining local
+row IDs independently. Default library identity comes from `m.db`, even when a
+streaming sidecar was selected first. Conflicting copies of one origin record
+require a narrower source selection; no database-order priority is invented.
+Remote and unavailable media retain their metadata and playlist references.
+Portable paths resolve against their captured original library directory,
+independently of an unqualified decoder-origin hint. Foreign absolute paths
+still require an appropriate origin or explicit folder mapping.
+
+Beat and quickcue envelopes enforce the BE declared size and bounded zlib
+inflation. Both mixed-endian beat lists, sample length bytes, flags and the
+witnessed one-byte footer remain preserved. At48kHz, the independent grid
+vectors retain1.25/5.25seconds and beat indices0/8, yielding120BPM; scalar
+`bpmAnalyzed` stays separate. Quickcues preserve UTF-8 byte lengths, sparse slots,
+empty sentinels and negative pre-roll. Loops retain original indices, raw flags,
+4–8second ranges and the active-on-load bit. Invalid rates leave native sample
+evidence unresolved; no44.1kHz or scalar zero-anchor grid is guessed. Malformed
+performance blobs retain raw bytes and field issues without dropping tracks.
+
+Playlist/entity chains determine order rather than row IDs. Disconnected nodes
+remain represented with ordering warnings; cycles fail safely. Inherited folder
+membership is preserved in raw pages and is never recreated as explicit direct
+membership. Native smart predicates and parent-path evidence survive, with
+unsupported live predicates and unresolved mixed smart/ordinary ordering marked.
+Unqualified history schemas are opt-in and produce individually counted typed
+issues and partial completeness, never a false complete baseline.
+
+These fixtures establish D2 parser behavior only. No Engine application/device
+was run; D4/D5/D6 remain unrun, and all imported timing remains native/unresolved.
+
+Task13 verification:466 dj-sync tests pass (3 ignored), including13 Engine
+reader cases and shared relative-path regressions. A separate existing Engine
+writer run passes21 tests. All-target Clippy `-D warnings`, formatting and diff
+checks pass. Source bytes and repeated observation identity are checked by the
+independent synthetic fixtures; no native-app acceptance is implied.
