@@ -2022,6 +2022,12 @@ mod tests {
             "INSERT INTO organization_operations VALUES('late-{track}','{track}','publishing','{{}}',NULL,0,0)"
         )
     }
+    /// An unsaved metadata draft that lists the track.
+    fn drafting(track: &str) -> String {
+        format!(
+            "INSERT INTO metadata_edit_drafts VALUES('late-draft-{track}',1,'editing','{{\"track_ids\":[\"{track}\"]}}',1,1)"
+        )
+    }
     /// A prepared write of another operation that targets the file.
     fn reserving(path: &std::path::Path) -> String {
         let hex = path_bytes(path)
@@ -2150,6 +2156,101 @@ mod tests {
             ),
             1
         );
+    }
+    #[test]
+    fn a_duplicate_that_joined_a_metadata_draft_after_it_was_verified_is_kept_with_that_draft() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let (result, aside) = apply_with_late_work(&ready, vec![drafting(&removed)]);
+        let result = result.unwrap();
+        assert_left_alone(&ready, &result, &aside, &removed, &path);
+        assert!(
+            result.not_deleted[0]
+                .detail
+                .as_deref()
+                .unwrap_or_default()
+                .contains("open metadata draft"),
+            "{:?}",
+            result.not_deleted[0]
+        );
+        assert_eq!(
+            rows(
+                &ready.lib,
+                "SELECT COUNT(*) FROM metadata_edit_drafts WHERE state='editing'"
+            ),
+            1
+        );
+    }
+    #[test]
+    fn a_draft_that_lists_only_the_kept_track_does_not_keep_the_copy() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let keeper = ready.preview.deletion.as_ref().unwrap().files[0]
+            .keeper_id
+            .clone();
+        let (result, _) = apply_with_late_work(&ready, vec![drafting(&keeper)]);
+        let result = result.unwrap();
+        assert_eq!(result.removed_ids, vec![removed]);
+        assert!(!path.exists());
+    }
+    thread_local! {
+        static EXCLUSIVE: std::cell::RefCell<Option<(Library, std::sync::mpsc::Receiver<()>)>> =
+            const { std::cell::RefCell::new(None) };
+        static EXCLUSIVE_HOLDER: std::cell::RefCell<Option<std::thread::JoinHandle<()>>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    /// A relocation or a portable restore takes the library's exclusive lease on its own thread
+    /// and keeps it until released.
+    fn exclusive_operation_elsewhere(phase: &str) {
+        if phase == "prepared"
+            && let Some((lib, release)) = EXCLUSIVE.with(|slot| slot.borrow_mut().take())
+        {
+            let (held, wait_for_it) = std::sync::mpsc::channel();
+            let holder = std::thread::spawn(move || {
+                let lease = lib.exclusive_operation().unwrap();
+                held.send(()).unwrap();
+                let _ = release.recv();
+                drop(lease);
+            });
+            wait_for_it.recv().unwrap();
+            EXCLUSIVE_HOLDER.with(|slot| *slot.borrow_mut() = Some(holder));
+        }
+    }
+    #[test]
+    fn an_exclusive_library_operation_stops_a_delete_merge_before_any_file_moves() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let (release, released) = std::sync::mpsc::channel();
+        EXCLUSIVE.with(|slot| *slot.borrow_mut() = Some((ready.lib.clone(), released)));
+        let mut service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            Arc::new(MustNotRun),
+        );
+        service.hook = Some(exclusive_operation_elsewhere);
+        let outcome = service.apply_confirmed(&ready.preview.id, true, &ready.token);
+        drop(release);
+        EXCLUSIVE_HOLDER
+            .with(|slot| slot.borrow_mut().take())
+            .unwrap()
+            .join()
+            .unwrap();
+        let error = outcome.unwrap_err();
+        assert!(
+            error.downcast_ref::<crate::LibraryBusy>().is_some(),
+            "{error:#}"
+        );
+        assert!(path.exists(), "no file moved");
+        assert!(ready.lib.track(&removed).is_ok());
+        // The reservation it had made is rolled back by the usual recovery.
+        let pending = ready.lib.duplicate_recovery().unwrap();
+        assert_eq!(pending.len(), 1, "{pending:?}");
+        let after = ready
+            .lib
+            .retry_duplicate_recovery(&pending[0].id, &ready.token)
+            .unwrap();
+        assert!(after.is_empty(), "{after:?}");
+        assert!(path.exists() && ready.lib.track(&removed).is_ok());
     }
     #[test]
     fn a_kept_file_another_operation_reserved_after_it_was_verified_keeps_the_copy() {

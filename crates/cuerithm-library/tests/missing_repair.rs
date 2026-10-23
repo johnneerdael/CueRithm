@@ -961,6 +961,29 @@ fn unfinished_work_and_open_drafts_block_removal() {
 }
 
 #[test]
+fn a_draft_opened_after_the_preview_keeps_its_track() {
+    let l = library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a, &l.b]), &cancel())
+            .unwrap();
+    assert_eq!(outcome(&preview, &l.b), MissingRowOutcome::Ready);
+    l.fx.exec(&format!(
+        "INSERT INTO metadata_edit_drafts VALUES('draft',1,'editing','{{\"tracks\":[\"{}\"]}}',1,1)",
+        l.b
+    ));
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    assert_eq!(entry.tracks.len(), 1);
+    assert_eq!(entry.skipped[0].id, l.b);
+    assert!(entry.skipped[0].reason.contains("open metadata draft"));
+    assert!(l.fx.lib.track(&l.b).is_ok());
+}
+
+#[test]
 fn archived_tracks_are_listed_on_request_and_can_be_removed_and_restored() {
     let l = library();
     l.fx.lib.set_archived(&l.b, true).unwrap();

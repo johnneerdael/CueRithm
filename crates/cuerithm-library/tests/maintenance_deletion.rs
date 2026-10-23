@@ -8,7 +8,7 @@ mod fixture;
 use cuerithm_library::{
     DuplicateIdentity, DuplicateMergePreview, DuplicateMergeService, DuplicateReview,
     DuplicateReviewEdit, DuplicateSkipReason, DuplicateTolerance as Tolerance, FileTrash,
-    GroupEdit, MergeDisposition,
+    GroupEdit, MergeDisposition, MetadataEditService,
 };
 use cuerithm_media::CancellationToken;
 use fixture::*;
@@ -679,6 +679,119 @@ fn a_kept_track_with_unfinished_file_work_keeps_its_duplicates_out_of_a_delete_m
     assert!(result.removed_ids.is_empty());
     assert!(f.paths[1].exists() && stand_in.taken().is_empty());
     assert_eq!(f.content(), before);
+}
+
+/// A metadata draft over these tracks, made the way the app makes one.
+fn draft_over(f: &Fixture, ids: &[&str]) -> (MetadataEditService, cuerithm_library::MetadataDraft) {
+    let editor = MetadataEditService::new(f.lib.clone(), f.runtime.clone());
+    let ids: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+    let draft = editor.create_draft(&ids).unwrap();
+    // It can be previewed now; this is what a deleted track would break.
+    editor.preview(&draft.id, draft.revision, &token()).unwrap();
+    (editor, draft)
+}
+
+#[test]
+fn a_duplicate_in_an_open_metadata_draft_is_kept_until_the_draft_is_discarded() {
+    let f = Fixture::new();
+    // One draft over the duplicate and an unrelated track that stays in the library.
+    let (editor, draft) = draft_over(&f, &[&f.ids[1], &f.ids[2]]);
+    let review = f.review(Tolerance::None);
+    let before = f.content();
+    let blocked = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = blocked.deletion.as_ref().unwrap();
+    assert!(plan.files.is_empty(), "{plan:?}");
+    assert_eq!(plan.skipped.len(), 1);
+    assert_eq!(plan.skipped[0].reason, DuplicateSkipReason::Busy);
+    assert_eq!(plan.skipped[0].track_id, f.ids[1]);
+    assert!(
+        plan.skipped[0]
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("open metadata draft"),
+        "{:?}",
+        plan.skipped[0]
+    );
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&blocked.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty());
+    assert!(f.paths[1].exists() && stand_in.taken().is_empty());
+    assert_eq!(f.content(), before);
+    editor
+        .preview(&draft.id, draft.revision, &token())
+        .expect("the draft is still usable");
+    // Once the draft is discarded the same duplicate can go.
+    editor.discard_draft(&draft.id, draft.revision).unwrap();
+    let review = f.review(Tolerance::None);
+    let open = preview(&f, &review, 0, MergeDisposition::Delete);
+    assert_eq!(open.deletion.as_ref().unwrap().files.len(), 1);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&open.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+}
+
+#[test]
+fn a_draft_that_lists_only_the_kept_track_does_not_stop_a_delete_merge() {
+    let f = Fixture::new();
+    // The kept track stays in the library, so the draft stays usable.
+    let (editor, draft) = draft_over(&f, &[&f.ids[0], &f.ids[2]]);
+    let review = f.review(Tolerance::None);
+    let ready = preview(&f, &review, 0, MergeDisposition::Delete);
+    assert_eq!(ready.deletion.as_ref().unwrap().files.len(), 1);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&ready.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+    editor
+        .preview(&draft.id, draft.revision, &token())
+        .expect("the draft over the kept track still works");
+}
+
+#[test]
+fn an_open_metadata_draft_does_not_stop_an_archive_only_merge() {
+    let f = Fixture::new();
+    // Nothing is deleted, so a draft over the duplicate is not in danger.
+    let (editor, draft) = draft_over(&f, &[&f.ids[1], &f.ids[2]]);
+    let review = f.review(Tolerance::None);
+    let archive = preview(&f, &review, 0, MergeDisposition::Archive);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&archive.id, false, &token())
+        .unwrap();
+    assert_eq!(result.archived_ids, vec![f.ids[1].clone()]);
+    assert!(result.removed_ids.is_empty() && f.paths[1].exists());
+    // The record and the draft are both still there (an archived track is not editable until it
+    // is unarchived, which is how archiving always behaves).
+    assert!(f.track_exists(&f.ids[1]));
+    assert_eq!(editor.draft(&draft.id).unwrap().state, "editing");
+}
+
+#[test]
+fn a_kept_track_that_is_still_being_prepared_keeps_its_duplicates_out_of_a_delete_merge() {
+    let f = Fixture::new();
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "UPDATE tracks SET state='incoming' WHERE id=?1",
+            [&f.ids[0]],
+        )
+        .unwrap();
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.files.is_empty(), "{plan:?}");
+    assert_eq!(plan.skipped.len(), 1);
+    assert_eq!(plan.skipped[0].reason, DuplicateSkipReason::Busy);
+    let detail = plan.skipped[0].detail.as_deref().unwrap_or_default();
+    assert!(
+        detail.contains("kept track") && detail.contains("still being prepared"),
+        "{detail}"
+    );
 }
 
 #[test]

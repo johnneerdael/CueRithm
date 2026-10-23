@@ -140,16 +140,21 @@ fn reserved(conn: &Connection, path: &Path, own_write: Option<&str>) -> Result<b
     )?;
     Ok(busy > 0)
 }
-/// Why the kept track cannot be relied on right now, if it cannot: another operation is in the
-/// middle of changing or moving its file, or has reserved it.
+/// Why the kept track cannot be relied on right now, if it cannot: it is still being prepared,
+/// another operation is in the middle of changing or moving its file, or has reserved it. An open
+/// metadata draft does not count: the kept track's record stays, so the draft stays usable.
 fn keeper_busy(
     conn: &Connection,
     keeper: &str,
     path: &Path,
     own_write: Option<&str>,
 ) -> Result<Option<String>> {
-    if let Some(reason) = work_in_flight(conn, keeper)? {
-        return Ok(Some(format!("The kept track is busy: {reason}.")));
+    let unsettled = track_removal::unsettled_reason(conn, keeper)?;
+    if let Some(reason) = unsettled.or(work_in_flight(conn, keeper)?) {
+        return Ok(Some(format!(
+            "The kept track is busy: {}.",
+            reason.trim_end_matches('.')
+        )));
     }
     if reserved(conn, path, own_write)? {
         return Ok(Some(

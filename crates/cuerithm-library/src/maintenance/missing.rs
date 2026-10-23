@@ -37,7 +37,6 @@ pub const MISSING_UNDO_WINDOW: usize = undo_window::REMOVAL_UNDO_LIMIT;
 pub(super) const PREVIEW_REMOVAL: &str = "missing_removal_preview";
 pub(super) const PREVIEW_RELINK: &str = "missing_relink_preview";
 pub(super) const OPERATION: &str = "missing_repair";
-const OPEN_DRAFT: &str = "SELECT EXISTS(SELECT 1 FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') AND instr(payload_json,?1)>0)";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -491,11 +490,8 @@ impl Library {
                     epochs.insert(id.clone(), record.epoch);
                     if let Some(reason) = unavailable_reason(&conn, &row, &record.path)? {
                         block(&mut row, reason);
-                    } else if conn.query_row(OPEN_DRAFT, [&id], |r| r.get::<_, bool>(0))? {
-                        block(
-                            &mut row,
-                            "Part of an open metadata draft; save or discard the draft first",
-                        );
+                    } else if track_removal::in_open_draft(&conn, &id)? {
+                        block(&mut row, track_removal::OPEN_DRAFT_REASON);
                     }
                 }
                 rows.push(row);
@@ -571,10 +567,8 @@ impl Library {
                 skipped.push(skip("The file is back at its recorded location".into()));
             } else if let Some(reason) = work_in_flight(&tx, &row.track_id)? {
                 skipped.push(skip(reason.into()));
-            } else if tx.query_row(OPEN_DRAFT, [&row.track_id], |r| r.get::<_, bool>(0))? {
-                skipped.push(skip(
-                    "Part of an open metadata draft; save or discard the draft first".into(),
-                ));
+            } else if track_removal::in_open_draft(&tx, &row.track_id)? {
+                skipped.push(skip(track_removal::OPEN_DRAFT_REASON.into()));
             } else {
                 removed.push((row.clone(), current));
             }

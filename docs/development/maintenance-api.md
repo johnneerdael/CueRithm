@@ -110,15 +110,24 @@ When a delete merge removes records it uses the same removal engine as Missing &
 purged instead, what Undo checks and how many removals stay undoable are defined once and
 are identical for both. A delete merge also refuses a track with unfinished work (an unfinished
 file organization, tag write, cleanup, metadata save, category save or preparation), the same
-guard Missing & broken applies. The same check covers the file and the track that keeps the
-audio: unfinished work on the kept track, or either file reserved by another operation's prepared
-write, leaves the duplicate where it is (`busy`). It runs when the preview is made and once more
+guard Missing & broken applies. That guard also covers an open metadata draft: a track listed in
+a draft that is not saved, discarded or undone (`track_removal::in_open_draft`, the one definition
+Missing & broken uses too) is never deleted, because the draft keeps the ids it was made for and
+previewing it fails at the first one that is gone, which would break it for the tracks that remain.
+The reason reads *Part of an open metadata draft; save or discard the draft first*. A draft that
+lists only the kept track does not block, since that record stays and the draft remains usable, and
+an archive-only merge is never blocked by a draft. The same check covers the file and the track that
+keeps the audio: a kept track that is still being prepared or has unfinished work, or either file
+reserved by another operation's prepared write, leaves the duplicate where it is (`busy`). It runs when the preview is made and once more
 inside the write transaction, immediately before each file is disposed of. Donor staging can take
 minutes, and a tag, cleanup, metadata or organization write that starts in that time would
 otherwise be removed together with the record, silently abandoning the operation. The merge's own
 journal does not count as a reservation. The transaction is an `IMMEDIATE` one that holds the write
 lock until the commit, so nothing new can start between that look and the Trash or permanent
-deletion that follows; the identity checks below come after it.
+deletion that follows; the identity checks below come after it. A relocation or portable restore
+holds the library's exclusive lease; every other library access, including the merge's next one,
+then fails with `LibraryBusy` before any file has moved (the journal it had reserved is rolled
+back by the usual recovery), and the lease cannot be taken while the merge's transaction is open.
 
 `mergeHistory()` returns committed transaction records and `undone_by` markers,
 ordered newest first, with `undo_expired` and `undo_limit` (the shared

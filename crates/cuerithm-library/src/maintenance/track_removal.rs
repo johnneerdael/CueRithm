@@ -174,19 +174,39 @@ pub(super) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<Resto
     crate::record_snapshot::restore(tx, image)
 }
 
-/// Why a track record must not be removed right now, if it must not: it is still being
-/// prepared, or work that changes its files or records has not finished.
-pub(super) fn busy_reason(conn: &Connection, track_id: &str) -> Result<Option<&'static str>> {
+/// Whether an unsaved metadata draft (or a category save that owns one) still lists the track.
+/// Saving or discarding the draft ends it. A draft keeps the ids it was made for, and previewing
+/// it fails at the first one that is gone, so a draft with a removed track cannot be used even
+/// for the tracks that remain.
+const OPEN_DRAFT: &str = "SELECT EXISTS(SELECT 1 FROM metadata_edit_drafts WHERE state NOT IN ('discarded','saved','undone') AND instr(payload_json,?1)>0)";
+/// What is said to the DJ when [`in_open_draft`] holds.
+pub(super) const OPEN_DRAFT_REASON: &str =
+    "Part of an open metadata draft; save or discard the draft first";
+pub(super) fn in_open_draft(conn: &Connection, track_id: &str) -> Result<bool> {
+    Ok(conn.query_row(OPEN_DRAFT, [track_id], |r| r.get(0))?)
+}
+
+/// Why a track is not a settled library record, if it is not: it is gone, or still being
+/// prepared.
+pub(super) fn unsettled_reason(conn: &Connection, track_id: &str) -> Result<Option<&'static str>> {
     let state: Option<String> = conn
         .query_row("SELECT state FROM tracks WHERE id=?1", [track_id], |r| {
             r.get(0)
         })
         .optional()?;
-    let Some(state) = state else {
-        return Ok(Some("The track is no longer in the library."));
-    };
-    if state != "ready" {
-        return Ok(Some("The track is still being prepared."));
+    Ok(match state.as_deref() {
+        None => Some("The track is no longer in the library."),
+        Some("ready") => None,
+        Some(_) => Some("The track is still being prepared."),
+    })
+}
+
+/// Why a track record must not be removed right now, if it must not: it is still being
+/// prepared, work that changes its files or records has not finished, or an open metadata draft
+/// lists it.
+pub(super) fn busy_reason(conn: &Connection, track_id: &str) -> Result<Option<&'static str>> {
+    if let Some(reason) = unsettled_reason(conn, track_id)? {
+        return Ok(Some(reason));
     }
     let unfinished: i64 = conn.query_row(
         "SELECT (SELECT COUNT(*) FROM jobs WHERE track_id=?1 AND state IN ('queued','running','attention'))+(SELECT COUNT(*) FROM tag_writes WHERE track_id=?1 AND state='prepared')+(SELECT COUNT(*) FROM cleanup_writes WHERE track_id=?1 AND state='prepared')",
@@ -196,7 +216,10 @@ pub(super) fn busy_reason(conn: &Connection, track_id: &str) -> Result<Option<&'
     if unfinished > 0 {
         return Ok(Some("The track has unfinished work."));
     }
-    work_in_flight(conn, track_id)
+    if let Some(reason) = work_in_flight(conn, track_id)? {
+        return Ok(Some(reason));
+    }
+    Ok(in_open_draft(conn, track_id)?.then_some(OPEN_DRAFT_REASON))
 }
 
 #[cfg(test)]

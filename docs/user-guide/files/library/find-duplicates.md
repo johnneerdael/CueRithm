@@ -92,7 +92,7 @@ Choose **Delete from disk** when you want the copies gone from your drive, not j
 - it is available and has not changed since the scan;
 - it is proven identical to the kept track: the same file bytes, or the same decoded sound, sample rate and channel count;
 - it is not the kept track's own file under another name, not used by any other track that stays in your library, and not in use by another operation;
-- neither the track nor the kept track has unfinished work, such as a tag write, a cleanup or a file organisation.
+- neither the track nor the kept track has unfinished work, such as a tag write, a cleanup or a file organisation, and the track is not part of an open metadata draft.
 
 So the groups found by **Artist/title** candidates, which may be different mixes, are never deleted. They can still be archived. The kept track's file is never deleted, and neither are cover images and other files beside the audio.
 
@@ -106,6 +106,7 @@ So the groups found by **Artist/title** candidates, which may be different mixes
 | Another library track still uses this file. | A second record points at the same file, for example through a link. |
 | This is the kept track’s own file. | Two records share one file. |
 | The track or file is in use by another operation. | Wait for it to finish. A busy kept track (*The kept track is busy: …*) counts too, and so does work that starts while you apply. The file and its record stay as they are, and the other work carries on. |
+| Part of an open metadata draft; save or discard the draft first. | An unsaved metadata edit lists this track. Deleting it would break the draft for the other tracks in it. Save or discard the draft under **Drafts and history** (see [Undo a tag change](../../tagging/tag-history.md)), then preview again. Archive only is not affected. |
 | The Trash could not take the file. | The Trash refused it when you applied. The file and its record stay where they are. |
 
 **Trash or permanent.** The files go to the Trash on macOS, the Recycle Bin on Windows and the freedesktop.org Trash on Linux. Some files cannot be trashed, for example on a network share or a read-only volume. The preview lists those first, under *N files cannot go to the Trash and will be permanently deleted*, with the warning that they cannot be recovered, and the apply button names them: **Delete 3 files (1 permanently) and merge**. Only those files are ever deleted for good, and only after the Trash has been tried and has refused them. A file the preview sent to the Trash that the Trash then refuses stays where it is.
