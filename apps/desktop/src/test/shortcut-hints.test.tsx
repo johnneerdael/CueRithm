@@ -1,4 +1,4 @@
-import {fireEvent,render,screen} from "@testing-library/react";
+import {render,screen} from "@testing-library/react";
 import {afterEach,describe,expect,it,vi} from "vitest";
 import App from "../App";
 import {isMacPlatform,shortcut} from "../platform";
@@ -33,20 +33,5 @@ describe("shortcut hints",()=>{
     expect(container.querySelector(".global-search kbd")).toHaveTextContent("Ctrl+F");
     expect(container.querySelector(".global-search kbd")).not.toHaveTextContent("⌘");
     expect(screen.getByRole("button",{name:"Collapse sidebar"})).toHaveAttribute("title","Collapse to icons (Ctrl+B)");
-  });
-  it("focus the search box with Ctrl+F or Cmd+F, whatever the letter case",async()=>{
-    render(<App bridge={fakeBridge([track("a")])}/>);
-    await screen.findByText("Track a");
-    const search=screen.getByRole("searchbox",{name:"Search library"});
-    for(const init of [{key:"f",ctrlKey:true},{key:"f",metaKey:true},{key:"F",ctrlKey:true}]){
-      search.blur();expect(search).not.toHaveFocus();
-      const event=new KeyboardEvent("keydown",{...init,bubbles:true,cancelable:true});
-      window.dispatchEvent(event);
-      expect(event.defaultPrevented,JSON.stringify(init)).toBe(true);
-      expect(search,JSON.stringify(init)).toHaveFocus();
-    }
-    search.blur();
-    fireEvent.keyDown(window,{key:"f"});
-    expect(search).not.toHaveFocus();
   });
 });

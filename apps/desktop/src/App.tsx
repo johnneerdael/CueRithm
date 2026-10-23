@@ -38,7 +38,7 @@ import CuratePanel,{type CurateHandle} from "./components/CuratePanel";
 import type {CurationCatalog,CurationFilter} from "./curation-types";
 import CurationFilters from "./components/CurationFilters";
 import type {MetadataDraft} from "./editor-types";
-import {shortcut} from "./platform";
+import {hasShortcutModifier,shortcut} from "./platform";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
@@ -231,8 +231,8 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current||exitIntent.current||closePending.current)return;
-      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
+      if(hasShortcutModifier(event)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();return;}
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
       if(isLibraryView(view)&&!playlistPanelRef.current&&(event.metaKey||event.ctrlKey)&&!event.altKey&&event.key.toLowerCase()==="a"){event.preventDefault();void selectAll();return;}
