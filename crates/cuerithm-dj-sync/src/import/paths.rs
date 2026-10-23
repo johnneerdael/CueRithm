@@ -41,7 +41,7 @@ fn percent_decode(input: &str) -> Result<String> {
     String::from_utf8(bytes)
         .context("File URI contains non-UTF8 path bytes; retain raw path evidence")
 }
-fn normalized(input: &str, windows: bool) -> Result<Option<String>> {
+pub(super) fn normalized(input: &str, windows: bool) -> Result<Option<String>> {
     ensure!(!input.contains('\0'), "NUL in source path");
     let path = if let Some(uri) = input.strip_prefix("file://") {
         ensure!(

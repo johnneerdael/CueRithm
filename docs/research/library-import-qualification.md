@@ -117,3 +117,31 @@ failures, 48 match the baseline above; the other two were old schema-version
 assertions, updated for migration 29 and independently rerun successfully
 (catalog-access target 3/3; historical tagging migration 1/1). The broad run is
 reported with its actual failures rather than described as fully passing.
+
+## M3U/M3U8 and Apple Music exported libraries
+
+The M3U reader supports UTF-8 (optional BOM), BOM-marked UTF-16LE and CR/LF
+line endings. Relative entries resolve against the original selected playlist
+folder, never the private snapshot folder. Windows drive/UNC/file-URI spellings
+retain their source context; equivalent Windows paths share a track while every
+occurrence retains its own position and original reference. EXTINF is a display
+hint only. Empty playlists remain visible. Other legacy encodings are rejected
+explicitly. Absolute foreign paths require an explicit origin or root mapping;
+no basename matching, media copying or analysis occurs.
+
+The Apple reader handles exported plist XML with the library-export 1.1 shape,
+not the native Music database. It retains library/track/persistent playlist IDs,
+parent hierarchy, repeated membership, materialized smart playlists and their
+original rules. Millisecond duration becomes fractional seconds; rating retains
+its raw 0–100 scale. Missing member rows become explicit unavailable references.
+Absent and empty metadata remain distinct. Safe unknown record and membership
+fields survive; account/credential/settings keys are filtered. DJ cues and grids
+are absent in this transport. Neither source reader triggers DSP or writes.
+
+Media-tag capture is optional and read-only, stored as a separate observation
+with raw payload blobs. The XML parser bounds bytes, nodes and nesting, rejects
+internal/external entity declarations and malformed structure, and never fetches
+the standard Apple DTD. Stable repeated reads and source fingerprints are tested.
+These reader fixtures establish D2 only; native-app acceptance remains unrun.
+
+Task 9 verification: all 421 dj-sync tests pass (3 ignored), including eight new reader cases; all-target Clippy `-D warnings`, formatting and diff checks pass.

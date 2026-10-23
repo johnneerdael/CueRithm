@@ -210,8 +210,22 @@ pub struct ImportSnapshot {
     pub artifacts: Vec<SnapshotArtifact>,
     pub snapshot_hash: String,
     paths: Vec<PathBuf>,
+    source_paths: Vec<PathBuf>,
 }
 impl ImportSnapshot {
+    /// Original selected context for interpreting relative references. Parsers
+    /// read artifact bytes exclusively through `artifact`, never through here.
+    pub fn original_artifact_path(&self, id: &str) -> Result<&Path> {
+        let index = self
+            .artifacts
+            .iter()
+            .position(|a| a.id == id)
+            .context("Unknown snapshot artifact")?;
+        Ok(&self.source_paths[index])
+    }
+    pub fn source_root(&self) -> &Path {
+        &self.root
+    }
     pub fn artifact(&self, id: &str) -> Result<&Path> {
         let index = self
             .artifacts
@@ -384,6 +398,11 @@ pub fn capture_source(
         artifacts: captured,
         snapshot_hash,
         paths,
+        source_paths: request
+            .artifacts
+            .iter()
+            .map(|a| request.root.join(&a.relative_path))
+            .collect(),
     };
     snapshot.validate_source(cancel)?;
     Ok(snapshot)

@@ -7,6 +7,7 @@ pub use policy::*;
 pub use validation::*;
 mod clock;
 mod paths;
+pub mod readers;
 mod registry;
 mod snapshot;
 mod tags;

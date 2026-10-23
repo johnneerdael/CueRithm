@@ -47,11 +47,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `M3uReader` and `AppleMusicReader` implementing the common interface. M3U identity includes source playlist binding plus normalized source entry path; occurrence identity includes entry position, not just track ID. Apple track IDs are source-library scoped; persistent playlist IDs govern hierarchy.
 
-- [ ] Write `m3u_resolves_relative_entries_and_preserves_a_b_a` asserting UTF-8/BOM/UTF-16LE/CRLF, UNC/drive/file URI, Unicode, relative playlist-directory paths, duplicate order and EXTINF as display hints only. Write `apple_plist_retains_milliseconds_and_missing_remote_records` asserting 1250 ms → 1.25 s, rating raw/scale, parent persistent IDs, exported smart membership/rules and absent DJ cues/grid; remote rows become unavailable references rather than disappearing.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_m3u --test import_apple_music`; expect missing reader failure.
-- [ ] Implement safe parsers with bounded text/plist traversal, exact percent-decoding errors and no external entities. Apple plist is distinct from prohibited rekordbox XML; do not add native Music-database access. Media tags require selected read-only file-tag capture; neither parser triggers DSP or copying.
-- [ ] Rerun tests with malformed URI/plist, empty playlist and missing member; expect common assertions and format assertions pass.
-- [ ] Commit `feat: read M3U and Apple Music library exports`.
+- [x] Write `m3u_resolves_relative_entries_and_preserves_a_b_a` asserting UTF-8/BOM/UTF-16LE/CRLF, UNC/drive/file URI, Unicode, relative playlist-directory paths, duplicate order and EXTINF as display hints only. Write `apple_plist_retains_milliseconds_and_missing_remote_records` asserting 1250 ms → 1.25 s, rating raw/scale, parent persistent IDs, exported smart membership/rules and absent DJ cues/grid; remote rows become unavailable references rather than disappearing.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_m3u --test import_apple_music`; expect missing reader failure.
+- [x] Implement safe parsers with bounded text/plist traversal, exact percent-decoding errors and no external entities. Apple plist is distinct from prohibited rekordbox XML; do not add native Music-database access. Media tags require selected read-only file-tag capture; neither parser triggers DSP or copying.
+- [x] Rerun tests with malformed URI/plist, empty playlist and missing member; expect common assertions and format assertions pass.
+- [x] Commit `feat: read M3U and Apple Music library exports`.
 
 ### Task 10: Traktor NML and VirtualDJ libraries
 

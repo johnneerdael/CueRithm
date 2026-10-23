@@ -54,6 +54,12 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::M3u {
+        return &super::readers::m3u::M3uReader;
+    }
+    if provider == SourceProvider::AppleMusicXml {
+        return &super::readers::apple_music::AppleMusicReader;
+    }
     static READERS: [UnavailableReader; 13] = [
         UnavailableReader(SourceProvider::Rekordbox),
         UnavailableReader(SourceProvider::Serato3),
