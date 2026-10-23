@@ -143,11 +143,11 @@ Add serde-defaulted `TrackSummary.import_state: Option<ImportedItemState>` and m
 
 **Interfaces:** `AnalysisSelection { key: bool, bpm: bool, beatgrid: bool, energy: bool, cues: bool }`; `Engine::analyze_prepared_selected(&mut self, audio: &cuerithm_media::PreparedAudio, selection: AnalysisSelection) -> Result<FileAnalysis>`; existing `analyze_prepared` behavior preserved. Disabled outputs are absent, and their stages/models are not initialized/evaluated unless a disclosed prerequisite of a selected stage. Selection is part of cache/config identity.
 
-- [ ] Write `key_only_skips_timing_energy_and_cues`, `energy_only_skips_key_and_cues`, `cue_prerequisites_do_not_publish_unselected_fields`, and `full_selection_matches_existing_engine`. Use stage spies plus generated PCM assertions: key-only output equals existing key, energy-only equals existing whole-track energy, full selected results equal existing analysis, existing cue calculations unchanged. Compare actual values and implementation identities, not just presence.
-- [ ] Run `cargo test -p camelot-core selected`; expect missing selective API failure.
-- [ ] Add a selective orchestration path, sharing existing stage implementations and direct-rate prepared inputs. Do not alter `lexicon_cues.rs`, key, rhythm or energy algorithms, model promotion or product labels. Read facts register revision 20 in full before touching orchestration; record applicable provenance/origin constraints and the absence of a modelling change in the implementation record. An all-off request returns before decoding, enforced by its caller and tested here where applicable.
-- [ ] Rerun selected tests and existing DSP regression tests; expect identical full-path results, independent key/energy execution, no disabled-stage initialization and no extra direct-rate inputs.
-- [ ] Commit `feat: orchestrate explicitly selected analysis stages`.
+- [x] Write `key_only_skips_timing_energy_and_cues`, `energy_only_skips_key_and_cues`, `cue_prerequisites_do_not_publish_unselected_fields`, and `full_selection_matches_existing_engine`. Use stage spies plus generated PCM assertions: key-only output equals existing key, energy-only equals existing whole-track energy, full selected results equal existing analysis, existing cue calculations unchanged. Compare actual values and implementation identities, not just presence.
+- [x] Run `cargo test -p camelot-core selected`; expect missing selective API failure.
+- [x] Add a selective orchestration path, sharing existing stage implementations and direct-rate prepared inputs. Do not alter `lexicon_cues.rs`, key, rhythm or energy algorithms, model promotion or product labels. Read facts register revision 20 in full before touching orchestration; record applicable provenance/origin constraints and the absence of a modelling change in the implementation record. An all-off request returns before decoding, enforced by its caller and tested here where applicable.
+- [x] Rerun selected tests and existing DSP regression tests; expect identical full-path results, independent key/energy execution, no disabled-stage initialization and no extra direct-rate inputs.
+- [x] Commit `feat: orchestrate explicitly selected analysis stages`.
 
 ### Task 7: Frozen import-processing coordinator
 

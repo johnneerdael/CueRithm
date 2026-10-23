@@ -72,6 +72,8 @@ impl Fixture {
             emergency_loop: None,
         });
         let result = FileAnalysis {
+            selection: None,
+            selected_beatgrid: None,
             publication: None,
             analysis,
             complete: true,

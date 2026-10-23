@@ -95,6 +95,15 @@ pub(crate) fn analyze_components(
     config: &AnalysisConfig,
     compute_tempo: bool,
 ) -> Result<Analysis> {
+    analyze_selected_components(samples, sample_rate, config, true, compute_tempo)
+}
+pub(crate) fn analyze_selected_components(
+    samples: &[f32],
+    sample_rate: u32,
+    config: &AnalysisConfig,
+    compute_key: bool,
+    compute_tempo: bool,
+) -> Result<Analysis> {
     config.validate()?;
     ensure!(
         (8000..=192000).contains(&sample_rate),
@@ -117,7 +126,7 @@ pub(crate) fn analyze_components(
         config_sha256: config.digest()?,
         duration_seconds: samples.len() as f64 / sample_rate as f64,
         sample_rate,
-        key: if audible {
+        key: if audible && compute_key {
             tonal::estimate(samples, sample_rate, config)
         } else {
             None
@@ -138,6 +147,7 @@ pub fn engine_source_sha256() -> String {
     let mut hash = Sha256::new();
     for source in [
         include_str!("analysis.rs"),
+        include_str!("selected.rs"),
         include_str!("audio.rs"),
         include_str!("key.rs"),
         include_str!("tonal.rs"),
