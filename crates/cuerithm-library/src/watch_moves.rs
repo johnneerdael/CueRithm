@@ -21,7 +21,7 @@ use anyhow::{Context, Result};
 use cuerithm_media::file_sha256;
 use rusqlite::OptionalExtension;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -49,6 +49,9 @@ struct Missing {
     path: PathBuf,
     hash: String,
     ready: bool,
+}
+fn spelling(path: &Path) -> String {
+    path.to_string_lossy().to_lowercase()
 }
 struct Arrival {
     given: PathBuf,
@@ -111,6 +114,27 @@ impl Library {
         if arrivals.is_empty() {
             return Ok(outcome);
         }
+        // A case-only rename on a case-insensitive volume: the stored spelling still
+        // resolves to this very file, so it is that track, not a new file. The track
+        // keeps its stored spelling, which works.
+        let spellings = self.stored_spellings()?;
+        arrivals.retain(|arrival| {
+            let alias = spellings
+                .get(&spelling(&arrival.path))
+                .is_some_and(|stored| {
+                    stored.iter().any(|known| {
+                        known != &arrival.path
+                            && same_file::is_same_file(known, &arrival.path).unwrap_or(false)
+                    })
+                });
+            if alias {
+                outcome.consumed.push(arrival.given.clone());
+            }
+            !alias
+        });
+        if arrivals.is_empty() {
+            return Ok(outcome);
+        }
         let missing = self.missing_in_roots(&roots)?;
         if missing.is_empty() {
             return Ok(outcome);
@@ -151,6 +175,24 @@ impl Library {
             }
         }
         Ok(outcome)
+    }
+
+    /// Every stored path, grouped by its lowercase spelling.
+    fn stored_spellings(&self) -> Result<HashMap<String, Vec<PathBuf>>> {
+        let rows: Vec<Vec<u8>> = {
+            let conn = self.conn()?;
+            let mut statement = conn.prepare("SELECT path FROM tracks")?;
+            statement
+                .query_map([], |row| row.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let mut spellings: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        for bytes in rows {
+            if let Ok(path) = bytes_path(&bytes) {
+                spellings.entry(spelling(&path)).or_default().push(path);
+            }
+        }
+        Ok(spellings)
     }
 
     fn path_is_owned(&self, path: &Path) -> Result<bool> {

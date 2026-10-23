@@ -507,3 +507,30 @@ fn a_file_is_reported_missing_only_when_it_is_definitely_gone() {
         "something is there"
     );
 }
+
+#[test]
+fn a_case_only_rename_is_the_same_track_not_a_new_one() {
+    let fx = Fixture::new();
+    let file = fx.file(&fx.watch, "Track.flac", 1);
+    let id = fx.ready(&file, 120.);
+    let renamed = fx.watch.join("track.flac");
+    std::fs::rename(&file, &renamed).unwrap();
+    let service = fx.start();
+    // A genuinely new file proves the pipeline has handled the folder.
+    fx.file(&fx.watch, "marker.flac", 99);
+    wait_until("the marker file to be admitted", 60, || {
+        fx.lib.counts().unwrap().incoming >= 1
+    });
+    std::thread::sleep(Duration::from_millis(800));
+    service.shutdown();
+    // On a case-insensitive volume the old spelling still resolves and the file is the
+    // same file; on a case-sensitive one the move is followed. Either way: no duplicate.
+    assert_eq!(
+        fx.total_tracks(),
+        2,
+        "the renamed file and the marker, nothing else"
+    );
+    assert!(fx.lib.track(&id).is_ok());
+    let stored = fx.lib.track_path(&id).unwrap();
+    assert!(stored == file || stored == renamed);
+}
