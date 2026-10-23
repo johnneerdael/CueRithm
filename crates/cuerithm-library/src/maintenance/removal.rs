@@ -518,6 +518,7 @@ impl Library {
             "INSERT INTO maintenance_scans VALUES(?1,'unused_removal_plan',?2,?3)",
             params![public.id, serde_json::to_string(&preview)?, crate::now()],
         )?;
+        super::saved::prune(&conn)?;
         Ok(public)
     }
     pub fn apply_unused_removal(

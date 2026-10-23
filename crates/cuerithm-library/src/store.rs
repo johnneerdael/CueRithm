@@ -379,6 +379,8 @@ impl Library {
         }
         lib.recover_curation()?;
         let _ = lib.cleanup_relocation_indexes();
+        // Saved scans, reviews and previews that earlier versions never trimmed.
+        let _ = lib.prune_saved_reports();
         // A log left by a process that was killed can be as large as its last transaction,
         // and an older library holds space that its earlier versions never gave back.
         lib.reclaim_storage_when_worthwhile();
