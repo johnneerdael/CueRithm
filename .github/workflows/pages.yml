@@ -7,6 +7,7 @@ on:
     paths:
       - 'docs/user-guide/**'
       - 'docs/site-requirements.txt'
+      - 'docs/hooks/**'
       - 'mkdocs.yml'
       - '.github/workflows/pages.yml'
   workflow_dispatch:

@@ -1,0 +1,118 @@
+[
+ {
+  "scene": "get-started-main-window",
+  "page": "get-started/main-window.md",
+  "after": "intro",
+  "alt": "The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons",
+  "caption": "Sidebar, header, track table and player are always on screen together.",
+  "state": "Sidebar: Tracks, library as is (26 tracks), status line 'All up to date', nothing selected, table sorted by title and scrolled to the top. Load Come To Life (Original Mix) (7A, 130 BPM, 7/10) with its row's play button and pause it with Space about 20 seconds in, so the player header and the cue strip (Start, Drop, Breakdown, Drop #2, End / Fade-out) are visible. Sidebar expanded at its default width. Whole window."
+ },
+ {
+  "scene": "get-started-main-window",
+  "page": "get-started/choose-your-path.md",
+  "after": "intro",
+  "alt": "The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons",
+  "caption": "Every group in the sidebar has a section on this page.",
+  "state": "Same picture as on get-started/main-window.md; reuse the scene, do not recapture."
+ },
+ {
+  "scene": "get-started-macos-dmg-window",
+  "page": "get-started/platforms/macos.md",
+  "after": "## 2. Drag CueRithm into Applications { #install }",
+  "alt": "The CueRithm disk image open in Finder: the CueRithm app icon on the left and an Applications shortcut on the right",
+  "caption": "Drag CueRithm onto the Applications shortcut.",
+  "state": "This is Finder, not the app. Double-click the downloaded Cuerithm-arm64 DMG so its window opens showing CueRithm.app and the Applications shortcut. Capture the Finder window only; skip the scene if the DMG cannot be mounted. Dark/light follow the system.",
+  "crop": "window"
+ },
+ {
+  "scene": "help-sidebar-version-footer",
+  "page": "get-started/install.md",
+  "after": "## Check that the install is healthy { #check-that-the-install-is-healthy }",
+  "alt": "Bottom of the sidebar with LOCAL LIBRARY, Settings and the footer line CUERITHM 0.1",
+  "caption": "The sidebar footer shows only 0.1; the diagnostics line has the full version.",
+  "state": "Any view, sidebar expanded. The bottom of the sidebar (LOCAL LIBRARY label, Settings button, 'CUERITHM 0.1' footer) must be visible.",
+  "crop": "window"
+ },
+ {
+  "scene": "reference-sidebar-collapsed",
+  "page": "get-started/main-window.md",
+  "after": "## Make the window fit your screen { #layout }",
+  "alt": "CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width",
+  "caption": "Press the shortcut again and the sidebar returns to full width.",
+  "state": "Tracks view. Press cmd+B so the sidebar is a narrow rail, move the pointer away so it does not peek open. Press cmd+B again afterwards to restore it.",
+  "crop": "window"
+ },
+ {
+  "scene": "prepare-settings-incoming",
+  "page": "get-started/first-hour.md",
+  "after": "## 1. Point CueRithm at the folder { #point-at-folder }",
+  "alt": "Settings, Incoming page, listing the watch folder ~/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below",
+  "caption": "Add watch folder, then Save settings.",
+  "state": "Sidebar: Settings, then the Incoming page. One watch folder, ~/Music/Beatport, in the list. 'Add watch folder' and the 'Save settings' button visible. The path must not show a user name; use ~/Music/Beatport.",
+  "crop": "panel"
+ },
+ {
+  "scene": "prepare-incoming-overview",
+  "page": "get-started/first-hour.md",
+  "after": "## 2. Let Incoming finish { #wait }",
+  "alt": "Incoming view while the Beatport folder is prepared: the header reads Preparing 26 tracks and rows show Decoding, Analyzing and Queued next to their titles",
+  "caption": "Each row names its stage while the header counts what is left.",
+  "state": "Same scene as the Prepare tab: Incoming selected, a batch in progress, the header reading Preparing N tracks.",
+  "crop": "window",
+  "needs": "Reuse the capture from the Prepare tab: needs a batch in progress (Analyze again on all tracks, switch to Incoming at once)."
+ },
+ {
+  "scene": "tracks-sorted-by-energy",
+  "page": "get-started/first-hour.md",
+  "after": "## 3. Read the numbers { #read-numbers }",
+  "alt": "The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow",
+  "caption": "Two clicks on ENERGY put the highest-energy track first.",
+  "state": "Sidebar: Tracks, search empty. Click the ENERGY heading twice so its arrow points down. Play With Fire (Original Mix) 8/10 is the first row, followed by 7/10 rows. The bar above the table reads SORTED BY ENERGY. No row selected. Restore title sort afterwards.",
+  "crop": "panel"
+ },
+ {
+  "scene": "tracks-player-come-to-life",
+  "page": "get-started/first-hour.md",
+  "after": "## 4. Jump to the drop { #cues }",
+  "alt": "The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons",
+  "caption": "Each cue button has its letter, name and time; click one to jump there.",
+  "state": "Load Come To Life (Original Mix) with the row's play button, then pause with Space about 20 seconds in. The 32-second window is selected (default). Nothing selected in the table. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "playlists-warm-up-open",
+  "page": "get-started/first-hour.md",
+  "after": "## 6. Build the Warm-up set { #playlist }",
+  "alt": "The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10",
+  "caption": "Warm-up set climbs from 126 to 130 BPM.",
+  "state": "Click Warm-up set in the sidebar (heading Warm-up set 8). Table in manual order (default on opening an ordinary playlist), nothing selected, BPM, Key and Energy columns visible.",
+  "needs": "Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
+ },
+ {
+  "scene": "sync-rekordbox-preview-club-nights",
+  "page": "get-started/first-hour.md",
+  "after": "## 7. Send it to rekordbox { #sync }",
+  "alt": "Sync with rekordbox 6 / 7 chosen after Preview rekordbox sync for the Club nights folder: a summary line, a panel of new tracks and a Playlists and My Tags table",
+  "caption": "Preview rekordbox sync shows what will change before anything is written.",
+  "state": "Sidebar: Sync. Sync to = rekordbox 6 / 7. rekordbox and rekordbox Agent are quit. What to sync = Playlist or folder, Playlist = Club nights. Include in sync at its defaults. Click Preview rekordbox sync and wait for it to finish. Scroll so the summary line, the 'N new tracks' panel (Tracks to add collapsed) and the first rows of 'Playlists and My Tags' (Create · Folder Club nights, Create · Playlist Warm-up set and Peak hour) are visible. Do not click Sync rekordbox. The 'Installed library' line and the database path line contain the home folder name: mask or crop them. Dark and light both needed.",
+  "needs": "None of the 26 demo tracks may already be in rekordbox at their ~/Music/Beatport paths, otherwise a Review fields table also appears."
+ },
+ {
+  "scene": "tracks-player-entire-track",
+  "page": "get-started/coming-from-other-tools.md",
+  "after": "## Cues: structural, named and kept in the library { #cues }",
+  "alt": "The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E",
+  "caption": "Cues carry a letter, a name and a colour, and no energy label.",
+  "state": "Come To Life (Original Mix) loaded and paused, then click the big waveform once so the label above it reads Entire track. All five cue letters A to E must be visible. Capture the player only.",
+  "crop": "player"
+ },
+ {
+  "scene": "tag-settings-fields-to-write",
+  "page": "get-started/coming-from-other-tools.md",
+  "after": "## Keep both tools in your workflow { #both-tools }",
+  "alt": "Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not",
+  "caption": "Fields to write decides which tags CueRithm may change in your files.",
+  "state": "Settings, Automatic tagging page, scrolled to the Fields to write group. Default selection: Genre, BPM, Style, Label, Release date ticked under Write, Overwrite all selected fields ticked. The line under each field names the providers that supply it. Capture the group heading, the first dozen rows and the 'Key and BPM written to files' control.",
+  "crop": "panel"
+ }
+]

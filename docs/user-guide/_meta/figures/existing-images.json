@@ -1,0 +1,596 @@
+[
+ {
+  "scene": "existing-00-empty-first-tracks",
+  "page": "get-started/first-tracks.md",
+  "after": "## 1. Start from an empty library { #1-start-from-an-empty-library }",
+  "alt": "Empty library with the message Your library starts here and the list of supported formats",
+  "caption": "A new library is empty. The window lists the formats CueRithm accepts.",
+  "image": "00-empty.webp"
+ },
+ {
+  "scene": "existing-21-incoming-analyzing-first-tracks",
+  "page": "get-started/first-tracks.md",
+  "after": "## 3. Watch Incoming { #3-watch-incoming }",
+  "alt": "Incoming with tracks in the Decoding, Analyzing and Queued states",
+  "caption": "Each track shows its stage while CueRithm prepares it.",
+  "image": "21-incoming-analyzing.webp"
+ },
+ {
+  "scene": "existing-30-tracks-first-tracks",
+  "page": "get-started/first-tracks.md",
+  "after": "## 4. Find them in Tracks { #4-find-them-in-tracks }",
+  "alt": "The Tracks table sorted by title, with key, BPM, energy, duration and a waveform preview for each row",
+  "caption": "Prepared tracks land in Tracks with their key, BPM and energy.",
+  "image": "30-tracks.webp"
+ },
+ {
+  "scene": "existing-crop-player-panel-first-tracks",
+  "page": "get-started/first-tracks.md",
+  "after": "## 5. Play one and read its numbers { #5-play-one }",
+  "alt": "The player panel with the waveform and the cue buttons",
+  "caption": "Select a track to see its waveform, beatgrid and cues in the player.",
+  "image": "crop-player-panel.webp"
+ },
+ {
+  "scene": "existing-crop-sidebar-main-window",
+  "page": "get-started/main-window.md",
+  "after": "## Move between your library, playlists and tools { #the-sidebar }",
+  "alt": "The sidebar listing Library, Playlists, Tools and Settings",
+  "caption": "The sidebar holds your library views, your playlists and the tools.",
+  "image": "crop-sidebar.webp"
+ },
+ {
+  "scene": "existing-33-search-main-window",
+  "page": "get-started/main-window.md",
+  "after": "## Search, check progress and add music { #the-header }",
+  "alt": "Search results for a single artist",
+  "caption": "The search box filters the table as you type.",
+  "image": "33-search.webp"
+ },
+ {
+  "scene": "existing-crop-table-head-main-window",
+  "page": "get-started/main-window.md",
+  "after": "## Read, select and act on tracks { #the-track-table }",
+  "alt": "The table header and the first rows",
+  "caption": "One row per track, with key, BPM, energy and a preview.",
+  "image": "crop-table-head.webp"
+ },
+ {
+  "scene": "existing-crop-player-panel-2-main-window",
+  "page": "get-started/main-window.md",
+  "after": "## Preview a track in the player { #the-player }",
+  "alt": "The player with the waveform and cue buttons",
+  "caption": "The player stays on screen under every view.",
+  "image": "crop-player-panel.webp"
+ },
+ {
+  "scene": "existing-92-light-player-main-window",
+  "page": "get-started/main-window.md",
+  "after": "## Switch between light and dark { #light-and-dark }",
+  "alt": "CueRithm in the light theme",
+  "caption": "The same window in the light theme.",
+  "image": "92-light-player.webp"
+ },
+ {
+  "scene": "existing-21-incoming-analyzing-2-follow-incoming",
+  "page": "files/follow-incoming.md",
+  "after": "## 2. Read the stage on a row { #stages }",
+  "alt": "Incoming with tracks in the Decoding, Analyzing and Queued states",
+  "caption": "Each row shows the stage a track has reached.",
+  "image": "21-incoming-analyzing.webp"
+ },
+ {
+  "scene": "existing-20-incoming-empty-follow-incoming",
+  "page": "files/follow-incoming.md",
+  "after": "## Empty Incoming { #empty-incoming }",
+  "alt": "Incoming with nothing in it",
+  "caption": "When every track is ready, Incoming is empty.",
+  "image": "20-incoming-empty.webp"
+ },
+ {
+  "scene": "existing-10-settings-incoming-watch-folders",
+  "page": "files/watch-folders.md",
+  "after": "intro",
+  "alt": "Settings, Incoming page, listing a watch folder",
+  "caption": "Watch folders are listed under Settings → Incoming.",
+  "image": "10-settings-incoming.webp"
+ },
+ {
+  "scene": "existing-80-archive-archive",
+  "page": "files/archive.md",
+  "after": "intro",
+  "alt": "The Archive view with one track",
+  "caption": "Archived tracks leave Tracks and playlists but keep their analysis.",
+  "image": "80-archive.webp"
+ },
+ {
+  "scene": "existing-90-preparation-presets-light-presets",
+  "page": "files/presets.md",
+  "after": "## 1. Create a preset { #create }",
+  "alt": "Preparation presets in Settings",
+  "caption": "Save a tagging, cleanup and cue setup under a name.",
+  "images": {
+   "light": "90-preparation-presets-light.png",
+   "dark": "90-preparation-presets-dark.png"
+  }
+ },
+ {
+  "scene": "existing-maintenance-duplicates-find-duplicates",
+  "page": "files/library/find-duplicates.md",
+  "after": "intro",
+  "alt": "Duplicate review with independent keeper and donor choices",
+  "caption": "Choose a keeper for each group and, optionally, a tag and cue donor.",
+  "image": "maintenance-duplicates.png"
+ },
+ {
+  "scene": "existing-maintenance-unused-preview-clean-up-unused-files",
+  "page": "files/library/clean-up-unused-files.md",
+  "after": "intro",
+  "alt": "Reviewed unused-file removal with an associated sidecar and an empty parent folder",
+  "caption": "The preview lists every file that would be removed.",
+  "image": "maintenance-unused-preview.png"
+ },
+ {
+  "scene": "existing-library-backup-back-up-library",
+  "page": "files/library/back-up-library.md",
+  "after": "## Create a backup { #create }",
+  "alt": "Library backup with a restore preview and the player still visible",
+  "caption": "Create a backup, and review a restore before it is scheduled.",
+  "image": "library-backup.png"
+ },
+ {
+  "scene": "existing-40-player-index",
+  "page": "analysis/index.md",
+  "after": "intro",
+  "alt": "The CueRithm window with the track table above the player and its labelled cues",
+  "caption": "Track table, player, beatgrid and cues in one window.",
+  "image": "40-player.webp"
+ },
+ {
+  "scene": "existing-33-search-2-find-tracks",
+  "page": "analysis/find-tracks.md",
+  "after": "## Search by title, artist or genre { #searching-and-filtering }",
+  "alt": "Search results for a single artist",
+  "caption": "Search matches titles, artists and genres.",
+  "image": "33-search.webp"
+ },
+ {
+  "scene": "existing-34-columns-dialog-choose-columns",
+  "page": "analysis/choose-columns.md",
+  "after": "intro",
+  "alt": "The Table columns dialog with checkboxes for the columns and a Find metadata box",
+  "caption": "Choose which columns the table shows.",
+  "image": "34-columns-dialog.webp"
+ },
+ {
+  "scene": "existing-32-selection-toolbar-select-many",
+  "page": "analysis/select-many.md",
+  "after": "## Act on the selection { #selection-toolbar }",
+  "alt": "The selection toolbar with Analyze again, Archive and Add to playlist",
+  "caption": "Select tracks to act on them together.",
+  "image": "32-selection-toolbar.webp"
+ },
+ {
+  "scene": "existing-40-player-2-preview-a-track",
+  "page": "analysis/preview-a-track.md",
+  "after": "intro",
+  "alt": "The player under the track table with the waveform, beatgrid and cue buttons",
+  "caption": "The player shows the whole track and its cues.",
+  "image": "40-player.webp"
+ },
+ {
+  "scene": "existing-41-player-zoom16-check-the-beatgrid",
+  "page": "analysis/check-the-beatgrid.md",
+  "after": "intro",
+  "alt": "The zoomed waveform showing beat lines",
+  "caption": "Zoom in until you can see the beat lines against the kicks.",
+  "image": "41-player-zoom16.webp"
+ },
+ {
+  "scene": "existing-crop-cue-chips-jump-to-cues",
+  "page": "analysis/jump-to-cues.md",
+  "after": "## 3. Jump to a cue { #jump-to-a-cue }",
+  "alt": "A row of cue buttons: Start, Drop, Breakdown, Drop #2 and End / Fade-out, each with a time",
+  "caption": "Each cue button shows its name and its time.",
+  "image": "crop-cue-chips.webp"
+ },
+ {
+  "scene": "existing-11-settings-cue-generation-cue-rules",
+  "page": "analysis/cue-rules.md",
+  "after": "intro",
+  "alt": "Cue generation settings",
+  "caption": "The cue rules live under Settings → Cue generation.",
+  "image": "11-settings-cue-generation.webp"
+ },
+ {
+  "scene": "existing-manual-cues-editor-index",
+  "page": "analysis/corrections/index.md",
+  "after": "intro",
+  "alt": "The cue and beatgrid correction panel with the player visible",
+  "caption": "Correct cues, loops and the beatgrid beside the player.",
+  "image": "manual-cues-editor.png"
+ },
+ {
+  "scene": "existing-manual-cue-template-cue-templates",
+  "page": "analysis/corrections/cue-templates.md",
+  "after": "intro",
+  "alt": "The reusable cue template editor",
+  "caption": "A cue template names and places cues for many tracks.",
+  "image": "manual-cue-template.png"
+ },
+ {
+  "scene": "existing-51-playlist-editor-named-create-a-playlist",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 2. Create the Warm-up set playlist inside it { #create-playlist }",
+  "alt": "The Create playlist form with a name, a type and a parent folder",
+  "caption": "Name the playlist and choose where it lives.",
+  "image": "51-playlist-editor-named.webp"
+ },
+ {
+  "scene": "existing-54-playlist-with-tracks-create-a-playlist",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 3. Add seven tracks { #add-seven }",
+  "alt": "A playlist with five tracks in manual order",
+  "caption": "A playlist keeps the order you give it.",
+  "image": "54-playlist-with-tracks.webp"
+ },
+ {
+  "scene": "existing-57-sidebar-playlists-create-a-playlist",
+  "page": "playlists/create-a-playlist.md",
+  "after": "## 1. Create the Club nights folder { #create-folder }",
+  "alt": "The sidebar with a playlist, a smart playlist and a folder",
+  "caption": "Folders, playlists and smart playlists share the sidebar.",
+  "image": "57-sidebar-playlists.webp"
+ },
+ {
+  "scene": "existing-58-playlist-menu-organize-playlists",
+  "page": "playlists/organize-playlists.md",
+  "after": "## Open the playlist menu { #playlist-menu }",
+  "alt": "The playlist menu with Edit, Duplicate, Add to favorites, Move up, Move down, Move to folder and Remove",
+  "caption": "The ⋯ menu beside each playlist.",
+  "image": "58-playlist-menu.webp"
+ },
+ {
+  "scene": "existing-55-smart-playlist-editor-build-a-smart-playlist",
+  "page": "playlists/build-a-smart-playlist.md",
+  "after": "## 2. Set the first condition { #first-condition }",
+  "alt": "The smart playlist rule editor",
+  "caption": "Each condition is a field, an operator and a value.",
+  "image": "55-smart-playlist-editor.webp"
+ },
+ {
+  "scene": "existing-56-smart-playlist-result-build-a-smart-playlist",
+  "page": "playlists/build-a-smart-playlist.md",
+  "after": "## 5. Create the playlist { #create }",
+  "alt": "A smart playlist showing its matching tracks",
+  "caption": "The playlist fills itself with the tracks that match.",
+  "image": "56-smart-playlist-result.webp"
+ },
+ {
+  "scene": "existing-16-settings-smart-playlists-automatic-smart-playlists",
+  "page": "playlists/automatic-smart-playlists.md",
+  "after": "## See what each group creates { #options }",
+  "alt": "Smart Playlist settings with one configured BPM range",
+  "caption": "Automatic smart playlists are switched on in Settings.",
+  "image": "16-settings-smart-playlists.png"
+ },
+ {
+  "scene": "existing-60-playlist-tools-combine-combine-and-tidy-playlists",
+  "page": "playlists/combine-and-tidy-playlists.md",
+  "after": "## Combine playlists into a new one { #combine }",
+  "alt": "Playlist tools showing the Combine playlists tool",
+  "caption": "Combine playlists with a rule for which tracks to keep.",
+  "image": "60-playlist-tools-combine.webp"
+ },
+ {
+  "scene": "existing-62-playlist-generator-generate-playlists",
+  "page": "playlists/generate-playlists.md",
+  "after": "## Preview, then apply { #preview-apply }",
+  "alt": "Generate playlists with a BPM ranges dimension and a preview of two smart playlists",
+  "caption": "Preview the playlists before you create them.",
+  "image": "62-playlist-generator.webp"
+ },
+ {
+  "scene": "existing-playlist-flow-check-playlist-flow",
+  "page": "playlists/check-playlist-flow.md",
+  "after": "## Read each row { #read }",
+  "alt": "A playlist's order with whole-track energy and the BPM and key of neighbouring tracks",
+  "caption": "Read the order and the step between neighbouring tracks.",
+  "image": "playlist-flow.png"
+ },
+ {
+  "scene": "existing-12-settings-automatic-tagging-tag-new-tracks-automatically",
+  "page": "tagging/tag-new-tracks-automatically.md",
+  "after": "## 1. Switch on automatic tagging { #switch-on }",
+  "alt": "Automatic tagging settings",
+  "caption": "Automatic tagging is switched on under Settings → Automatic tagging.",
+  "image": "12-settings-automatic-tagging.webp"
+ },
+ {
+  "scene": "existing-88-metadata-editor-light-edit-tags-by-hand",
+  "page": "tagging/edit-tags-by-hand.md",
+  "after": "intro",
+  "alt": "Editing common metadata with the library and player still visible",
+  "caption": "Edit tags beside the table and the player.",
+  "images": {
+   "light": "88-metadata-editor-light.png",
+   "dark": "88-metadata-editor-dark.png"
+  }
+ },
+ {
+  "scene": "existing-89-curate-light-curate-tracks",
+  "page": "tagging/curate-tracks.md",
+  "after": "intro",
+  "alt": "Curate with categories and choices for the selected tracks",
+  "caption": "Group tracks with categories you define.",
+  "images": {
+   "light": "89-curate-light.png",
+   "dark": "89-curate-dark.png"
+  }
+ },
+ {
+  "scene": "existing-70-cleanup-empty-cleanup-messy-titles",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 1. Select the tracks and open Cleanup { #open-cleanup }",
+  "alt": "The Cleanup tool on the Smart Fixes tab with no rules yet",
+  "caption": "Cleanup starts empty.",
+  "image": "70-cleanup-empty.webp"
+ },
+ {
+  "scene": "existing-71-cleanup-smart-fixes-cleanup-messy-titles",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 2. Add a Smart Fix that removes \"(Original Mix)\" { #add-a-smart-fix }",
+  "alt": "Cleanup with two Smart Fix rules",
+  "caption": "Add the rules you want before scanning.",
+  "image": "71-cleanup-smart-fixes.webp"
+ },
+ {
+  "scene": "existing-72-cleanup-preview-cleanup-messy-titles",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 4. Scan and read the preview { #scan }",
+  "alt": "Cleanup preview: 10 proposed changes, 7 unchanged, 0 unavailable",
+  "caption": "Scanning previews every change before anything is written.",
+  "image": "72-cleanup-preview.webp"
+ },
+ {
+  "scene": "existing-74-cleanup-applied-cleanup-messy-titles",
+  "page": "tagging/cleanup-messy-titles.md",
+  "after": "## 5. Apply the changes { #apply }",
+  "alt": "Cleanup result: 10 applied, 0 unchanged, 0 conflicts, 0 failed, with the Undo history",
+  "caption": "The result, with Undo history below.",
+  "image": "74-cleanup-applied.webp"
+ },
+ {
+  "scene": "existing-71-cleanup-smart-fixes-2-cleanup-rules",
+  "page": "tagging/cleanup-rules.md",
+  "after": "## Smart Fixes { #smart-fixes }",
+  "alt": "Cleanup on the Smart Fixes tab with two rules",
+  "caption": "Smart Fixes run in the order shown.",
+  "image": "71-cleanup-smart-fixes.webp"
+ },
+ {
+  "scene": "existing-17-settings-file-organization-organize-files",
+  "page": "rename/organize-files.md",
+  "after": "## 3. Write the pattern { #write-the-pattern }",
+  "alt": "File organization settings with example tracks",
+  "caption": "The naming pattern and its live examples.",
+  "image": "17-settings-file-organization.jpg"
+ },
+ {
+  "scene": "existing-87-organization-preview-organize-files",
+  "page": "rename/organize-files.md",
+  "after": "## 4. Preview the complete plan { #preview }",
+  "alt": "The complete organization preview with eligible and blocked counts",
+  "caption": "Read the complete plan before you apply it.",
+  "image": "87-organization-preview.jpg"
+ },
+ {
+  "scene": "existing-88-organization-history-undo-organize",
+  "page": "rename/undo-organize.md",
+  "after": "## Read the history { #history }",
+  "alt": "Organization history with a recoverable interruption and a guarded Undo",
+  "caption": "Each batch is listed with its result and Undo.",
+  "image": "88-organization-history.jpg"
+ },
+ {
+  "scene": "existing-85-sync-preview-index",
+  "page": "sync/index.md",
+  "after": "intro",
+  "alt": "Sync destination, options and a preview of 24 tracks and three playlists",
+  "caption": "Choose a destination, set the options, then preview.",
+  "image": "85-sync-preview.webp"
+ },
+ {
+  "scene": "existing-86-sync-pioneer-usb-pioneer-usb",
+  "page": "sync/pioneer-usb.md",
+  "after": "intro",
+  "alt": "Pioneer USB options with key notation, cue destination and CDJ compatibility controls",
+  "caption": "Pioneer USB has its own options.",
+  "image": "86-sync-pioneer-usb.webp"
+ },
+ {
+  "scene": "existing-85-sync-preview-2-preview-apply-restore",
+  "page": "sync/preview-apply-restore.md",
+  "after": "## 2. Preview { #preview }",
+  "alt": "A sync preview of 24 tracks and three playlists",
+  "caption": "The preview says what will change before anything is written.",
+  "image": "85-sync-preview.webp"
+ },
+ {
+  "scene": "existing-92-light-player-2-theme",
+  "page": "customize/theme.md",
+  "after": "intro",
+  "alt": "CueRithm in the light theme",
+  "caption": "The light theme.",
+  "image": "92-light-player.webp"
+ },
+ {
+  "scene": "existing-31-dark-selected-player-theme",
+  "page": "customize/theme.md",
+  "after": "intro",
+  "alt": "CueRithm in the dark theme with a track selected and the player open",
+  "caption": "The dark theme.",
+  "image": "31-dark-selected-player.webp"
+ },
+ {
+  "scene": "existing-15-settings-appearance-waveform-style",
+  "page": "customize/waveform-style.md",
+  "after": "intro",
+  "alt": "Appearance settings with six waveform style previews",
+  "caption": "Pick a waveform style under Settings → Appearance.",
+  "image": "15-settings-appearance.webp"
+ },
+ {
+  "scene": "existing-93-style-dusk-waveform-style",
+  "page": "customize/waveform-style.md",
+  "after": "intro",
+  "alt": "The Dusk waveform style",
+  "caption": "Dusk.",
+  "image": "93-style-dusk.webp"
+ },
+ {
+  "scene": "existing-94-style-lagoon-waveform-style",
+  "page": "customize/waveform-style.md",
+  "after": "intro",
+  "alt": "The Lagoon waveform style",
+  "caption": "Lagoon.",
+  "image": "94-style-lagoon.webp"
+ },
+ {
+  "scene": "existing-10-settings-incoming-reference-settings-incoming",
+  "page": "reference/settings/incoming.md",
+  "after": "## Watch folders { #watch-folders }",
+  "alt": "Settings, Incoming page, listing a watch folder",
+  "caption": "Watch folders are listed under Settings → Incoming.",
+  "image": "10-settings-incoming.webp"
+ },
+ {
+  "scene": "existing-90-preparation-presets-light-reference-settings-incoming",
+  "page": "reference/settings/incoming.md",
+  "after": "## Preparation presets { #preparation-presets }",
+  "alt": "Preparation presets in Settings",
+  "caption": "Preparation presets are saved from the same screen.",
+  "images": {
+   "light": "90-preparation-presets-light.png",
+   "dark": "90-preparation-presets-dark.png"
+  }
+ },
+ {
+  "scene": "existing-11-settings-cue-generation-reference-settings-cue-generation",
+  "page": "reference/settings/cue-generation.md",
+  "after": "intro",
+  "alt": "Cue generation settings",
+  "caption": "The Cue generation section of Settings.",
+  "image": "11-settings-cue-generation.webp"
+ },
+ {
+  "scene": "existing-12-settings-automatic-tagging-reference-settings-automatic-tagging",
+  "page": "reference/settings/automatic-tagging.md",
+  "after": "intro",
+  "alt": "Automatic tagging settings",
+  "caption": "The Automatic tagging section of Settings.",
+  "image": "12-settings-automatic-tagging.webp"
+ },
+ {
+  "scene": "existing-13-settings-cleanup-reference-settings-cleanup",
+  "page": "reference/settings/cleanup.md",
+  "after": "intro",
+  "alt": "Cleanup settings",
+  "caption": "The Cleanup section of Settings.",
+  "image": "13-settings-cleanup.webp"
+ },
+ {
+  "scene": "existing-14-settings-library-reference-settings-library",
+  "page": "reference/settings/library.md",
+  "after": "intro",
+  "alt": "Library preferences settings",
+  "caption": "The Library preferences section of Settings.",
+  "image": "14-settings-library.webp"
+ },
+ {
+  "scene": "existing-15-settings-appearance-reference-settings-appearance",
+  "page": "reference/settings/appearance.md",
+  "after": "intro",
+  "alt": "Appearance settings with six waveform style previews",
+  "caption": "The Appearance section of Settings.",
+  "image": "15-settings-appearance.webp"
+ },
+ {
+  "scene": "existing-16-settings-smart-playlists-reference-settings-smart-playlists",
+  "page": "reference/settings/smart-playlists.md",
+  "after": "intro",
+  "alt": "Smart Playlist settings with one configured BPM range",
+  "caption": "The Smart Playlists section of Settings.",
+  "image": "16-settings-smart-playlists.png"
+ },
+ {
+  "scene": "existing-17-settings-file-organization-reference-settings-file-organization",
+  "page": "reference/settings/file-organization.md",
+  "after": "intro",
+  "alt": "File organization settings with example tracks",
+  "caption": "The File organization section of Settings.",
+  "image": "17-settings-file-organization.jpg"
+ },
+ {
+  "scene": "existing-21-incoming-analyzing-how-it-works-pipeline",
+  "page": "how-it-works/pipeline.md",
+  "after": "## Where you see each stage in the app { #where-you-see-it }",
+  "alt": "Incoming with tracks in the Decoding, Analyzing and Queued states",
+  "caption": "Each stage of the pipeline is visible on the Incoming row.",
+  "image": "21-incoming-analyzing.webp"
+ },
+ {
+  "scene": "existing-11-settings-cue-generation-how-it-works-cues",
+  "page": "how-it-works/cues.md",
+  "after": "## Settings that matter { #settings-that-matter }",
+  "alt": "Cue generation settings",
+  "caption": "The settings that change where cues land.",
+  "image": "11-settings-cue-generation.webp"
+ },
+ {
+  "scene": "existing-95-style-cuerithm-bars-how-it-works-waveform",
+  "page": "how-it-works/waveform.md",
+  "after": "intro",
+  "alt": "The CueRithm bars waveform style",
+  "caption": "One of six waveform styles.",
+  "image": "95-style-cuerithm-bars.webp"
+ },
+ {
+  "scene": "existing-72-cleanup-preview-how-it-works-cleanup-engine",
+  "page": "how-it-works/cleanup-engine.md",
+  "after": "intro",
+  "alt": "Cleanup preview: 10 proposed changes, 7 unchanged, 0 unavailable",
+  "caption": "What the cleanup engine proposes, before anything is written.",
+  "image": "72-cleanup-preview.webp"
+ },
+ {
+  "scene": "existing-55-smart-playlist-editor-how-it-works-smart-engine",
+  "page": "how-it-works/smart-engine.md",
+  "after": "intro",
+  "alt": "The smart playlist rule editor",
+  "caption": "The rules the smart playlist engine evaluates.",
+  "image": "55-smart-playlist-editor.webp"
+ },
+ {
+  "scene": "existing-help-preview-dash-light-help-troubleshooting-no-waveform-or-playback",
+  "page": "help/troubleshooting/no-waveform-or-playback.md",
+  "after": "intro",
+  "alt": "The Tracks table with a dash in the PREVIEW column for tracks whose files are missing, next to their working duplicates",
+  "caption": "A dash in PREVIEW means CueRithm cannot load the file at its stored location.",
+  "images": {
+   "light": "help-preview-dash-light.webp",
+   "dark": "help-preview-dash-dark.webp"
+  }
+ },
+ {
+  "scene": "existing-help-preview-dash-light-help-troubleshooting-files-moved",
+  "page": "help/troubleshooting/files-moved.md",
+  "after": "intro",
+  "alt": "The Tracks table after files were moved: each moved track appears twice, once with a dash instead of a preview",
+  "caption": "After a move the old track is missing and the moved file is added again as a new track.",
+  "images": {
+   "light": "help-preview-dash-light.webp",
+   "dark": "help-preview-dash-dark.webp"
+  }
+ }
+]

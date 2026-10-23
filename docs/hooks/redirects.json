@@ -1,0 +1,274 @@
+{
+ "about/credits.md": {
+  "to": "help/about/credits.md",
+  "anchors": {
+   "the-components": "help/about/credits.md#components",
+   "how-the-licences-fit-together": "help/about/credits.md#licences"
+  }
+ },
+ "about/faq.md": "help/faq.md",
+ "about/index.md": "help/about/index.md",
+ "about/provenance.md": "help/about/provenance.md",
+ "about/roadmap.md": {
+  "to": "help/not-available-yet.md",
+  "anchors": {
+   "available-now": "help/compatibility.md",
+   "bring-an-existing-dj-library-into-cuerithm": "help/not-available-yet.md#dj-library-import",
+   "portable-backup-restore-and-lexicon-migration": "help/not-available-yet.md#portable-backup",
+   "reconnect-moved-music": "help/not-available-yet.md#reconnect-moved-music",
+   "in-development": "help/not-available-yet.md#in-development"
+  }
+ },
+ "get-started/add-music.md": {
+  "to": "files/add-tracks.md",
+  "anchors": {
+   "which-files-are-accepted": "files/supported-formats.md",
+   "when-does-a-file-start-processing": "files/watch-folders.md",
+   "what-happens-next": "files/add-tracks.md#after-adding",
+   "watch-folders": "reference/settings/incoming.md#watch-folders"
+  }
+ },
+ "get-started/shortcuts.md": "reference/keyboard-shortcuts.md",
+ "guides/catalog-solver.md": "tagging/cloudflare-solver.md",
+ "guides/cleanup-rules.md": {
+  "to": "tagging/cleanup-rules.md",
+  "anchors": {
+   "automatic-cleanup": "tagging/cleanup-automatically.md"
+  }
+ },
+ "guides/compatible-tracks.md": "playlists/find-compatible-tracks.md",
+ "guides/curating.md": "tagging/curate-tracks.md",
+ "guides/file-organization.md": {
+  "to": "rename/organize-files.md",
+  "anchors": {
+   "naming-patterns": "rename/naming-patterns.md",
+   "history-recovery-and-undo": "rename/undo-organize.md",
+   "organize-existing-tracks": "rename/organize-files.md",
+   "linked-dj-libraries-and-playback": "rename/organize-files.md#safety-rules"
+  }
+ },
+ "guides/incoming-archive.md": {
+  "to": "files/follow-incoming.md",
+  "anchors": {
+   "archive": "files/archive.md",
+   "when-a-track-needs-attention": "files/needs-attention.md",
+   "incoming": "files/follow-incoming.md#open-incoming"
+  }
+ },
+ "guides/index.md": "get-started/choose-your-path.md",
+ "guides/library-backup.md": {
+  "to": "files/library/back-up-library.md",
+  "anchors": {
+   "restore-preparation": "files/library/restore-library.md",
+   "create-a-backup": "files/library/back-up-library.md#create",
+   "limits": "files/library/back-up-library.md#blocked"
+  }
+ },
+ "guides/maintenance.md": {
+  "to": "files/library/index.md",
+  "anchors": {
+   "review-duplicates": "files/library/find-duplicates.md",
+   "check-missing-and-broken-files": "files/library/find-missing-files.md",
+   "review-unused-files": "files/library/clean-up-unused-files.md",
+   "restore-files-and-manage-retained-originals": "files/library/undo-maintenance.md",
+   "cancellation-stale-reports-and-recovery": "files/library/undo-maintenance.md"
+  }
+ },
+ "guides/manual-corrections.md": {
+  "to": "analysis/corrections/index.md",
+  "anchors": {
+   "reuse-a-cue-template": "analysis/corrections/cue-templates.md",
+   "undo-and-conflicts": "analysis/corrections/undo-corrections.md"
+  }
+ },
+ "guides/metadata-editing.md": {
+  "to": "tagging/edit-tags-by-hand.md",
+  "anchors": {
+   "review-a-catalog-match": "tagging/review-a-match.md",
+   "results-and-undo": "tagging/tag-history.md"
+  }
+ },
+ "guides/player.md": {
+  "to": "analysis/preview-a-track.md",
+  "anchors": {
+   "the-light-theme": "customize/theme.md"
+  }
+ },
+ "guides/playlist-flow.md": "playlists/check-playlist-flow.md",
+ "guides/playlist-tools.md": {
+  "to": "playlists/combine-and-tidy-playlists.md",
+  "anchors": {
+   "generate-playlists": "playlists/generate-playlists.md",
+   "the-tools": "playlists/combine-and-tidy-playlists.md#open-tools"
+  }
+ },
+ "guides/playlists.md": {
+  "to": "playlists/organize-playlists.md",
+  "anchors": {
+   "creating": "playlists/create-a-playlist.md",
+   "automatic-smart-playlists": "playlists/automatic-smart-playlists.md",
+   "removing-and-restoring": "playlists/edit-playlist-tracks.md",
+   "drag-and-drop": "playlists/edit-playlist-tracks.md",
+   "the-membership-toolbar": "playlists/edit-playlist-tracks.md",
+   "archived-and-incoming-tracks": "playlists/edit-playlist-tracks.md",
+   "send-playlists-to-dj-software": "sync/index.md",
+   "the-playlist-menu": "playlists/organize-playlists.md#playlist-menu"
+  }
+ },
+ "guides/preparation-presets.md": {
+  "to": "files/presets.md",
+  "anchors": {
+   "folder-assignments": "files/folder-presets.md",
+   "save-and-load-rules": "files/presets.md#create",
+   "import-and-export": "files/presets.md#share"
+  }
+ },
+ "guides/settings.md": {
+  "to": "reference/settings/index.md",
+  "anchors": {
+   "incoming": "reference/settings/incoming.md",
+   "cue-generation": "reference/settings/cue-generation.md",
+   "automatic-tagging": "reference/settings/automatic-tagging.md",
+   "cleanup": "reference/settings/cleanup.md",
+   "file-organization": "reference/settings/file-organization.md",
+   "library-preferences": "reference/settings/library.md",
+   "smart-playlists": "reference/settings/smart-playlists.md",
+   "appearance": "reference/settings/appearance.md"
+  }
+ },
+ "guides/smart-rules.md": {
+  "to": "playlists/smart-rules.md",
+  "anchors": {
+   "fields": "reference/smart-playlist-fields.md",
+   "operators": "reference/smart-playlist-fields.md",
+   "how-comparisons-behave": "reference/smart-playlist-fields.md",
+   "regular-expressions": "reference/smart-playlist-fields.md",
+   "combining-conditions": "playlists/smart-rules.md#combine-conditions",
+   "preview-evaluation-and-refresh": "playlists/smart-rules.md#preview-and-refresh"
+  }
+ },
+ "guides/sync-mixxx.md": {
+  "to": "sync/mixxx.md",
+  "anchors": {
+   "start-from-nothing-or-replace-everything": "sync/mixxx.md#choose-library",
+   "preview-apply-and-restore": "sync/mixxx.md#preview",
+   "flatpak-and-folders-mixxx-scans": "sync/mixxx.md#folders-and-sandbox",
+   "mixxx-on-macos-runs-in-a-sandbox": "sync/mixxx.md#folders-and-sandbox",
+   "what-has-been-tested": "sync/mixxx.md#tested"
+  }
+ },
+ "guides/sync.md": {
+  "to": "sync/index.md",
+  "anchors": {
+   "windows-libraries-on-linux": "sync/windows-libraries-on-linux.md",
+   "sync-directly-to-rekordbox-6-or-7": "sync/rekordbox-direct.md",
+   "choose-what-to-sync": "sync/choose-what-to-sync.md",
+   "set-the-options": "sync/sync-options.md",
+   "pioneer-usb": "sync/pioneer-usb.md",
+   "preview-and-apply": "sync/preview-apply-restore.md#preview",
+   "backups-and-interrupted-operations": "sync/preview-apply-restore.md#guarantees",
+   "choose-a-destination": "sync/index.md#which-software"
+  }
+ },
+ "guides/tagging-settings.md": {
+  "to": "tagging/choose-providers.md",
+  "anchors": {
+   "provider-setup": "tagging/provider-accounts.md",
+   "cloudflare-challenge-solver": "tagging/cloudflare-solver.md",
+   "identify-unresolved-recordings": "tagging/identify-unknown-tracks.md",
+   "master-switches": "tagging/tag-new-tracks-automatically.md#switch-on"
+  }
+ },
+ "guides/track-table.md": {
+  "to": "analysis/find-tracks.md",
+  "anchors": {
+   "columns": "analysis/choose-columns.md",
+   "selecting": "analysis/select-many.md",
+   "row-menu": "analysis/select-many.md",
+   "status-icons": "reference/status-icons.md"
+  }
+ },
+ "guides/tracklist-matcher.md": "playlists/match-a-tracklist.md",
+ "learn/appearance.md": {
+  "to": "customize/theme.md",
+  "anchors": {
+   "waveform-style": "customize/waveform-style.md",
+   "theme": "reference/settings/appearance.md#theme"
+  }
+ },
+ "learn/auto-tagging.md": {
+  "to": "tagging/tag-new-tracks-automatically.md",
+  "anchors": {
+   "provider-setup": "tagging/provider-accounts.md",
+   "identify-an-unresolved-recording": "tagging/identify-unknown-tracks.md",
+   "match-a-folder-as-a-release": "tagging/match-a-release.md",
+   "1-open-the-settings": "tagging/tag-new-tracks-automatically.md#switch-on",
+   "2-switch-it-on": "tagging/tag-new-tracks-automatically.md#switch-on",
+   "3-choose-providers": "tagging/tag-new-tracks-automatically.md#providers",
+   "4-decide-what-happens-without-a-match": "tagging/tag-new-tracks-automatically.md#no-match",
+   "5-choose-the-fields-to-write": "tagging/tag-new-tracks-automatically.md#fields",
+   "6-save-and-run-it": "tagging/tag-new-tracks-automatically.md#save",
+   "the-safeguards": "tagging/tag-new-tracks-automatically.md#check",
+   "what-just-happened": "tagging/tag-new-tracks-automatically.md#check"
+  }
+ },
+ "learn/cleanup.md": {
+  "to": "tagging/cleanup-messy-titles.md",
+  "anchors": {
+   "5-undo": "tagging/cleanup-messy-titles.md#undo",
+   "make-it-automatic": "tagging/cleanup-automatically.md",
+   "1-open-cleanup": "tagging/cleanup-messy-titles.md#open-cleanup",
+   "2-add-smart-fixes": "tagging/cleanup-messy-titles.md#add-a-smart-fix",
+   "3-scan": "tagging/cleanup-messy-titles.md#scan",
+   "4-apply": "tagging/cleanup-messy-titles.md#apply",
+   "what-just-happened": "get-started/first-tracks.md#what-just-happened"
+  }
+ },
+ "learn/first-tracks.md": "get-started/first-tracks.md",
+ "learn/index.md": "get-started/choose-your-path.md",
+ "learn/navigate-with-cues.md": {
+  "to": "analysis/jump-to-cues.md",
+  "anchors": {
+   "4-zoom-to-the-beats": "analysis/check-the-beatgrid.md",
+   "1-load-a-track": "analysis/jump-to-cues.md#load-a-track",
+   "2-read-the-waveform": "analysis/jump-to-cues.md#read-the-waveform",
+   "3-jump-to-a-cue": "analysis/jump-to-cues.md#jump-to-a-cue"
+  }
+ },
+ "learn/playlists.md": {
+  "to": "playlists/create-a-playlist.md",
+  "anchors": {
+   "1-create-a-playlist": "playlists/create-a-playlist.md#create-playlist",
+   "2-add-tracks": "playlists/create-a-playlist.md#add-seven",
+   "3-reorder": "playlists/create-a-playlist.md#manual-order",
+   "4-make-a-folder": "playlists/create-a-playlist.md#create-folder",
+   "5-the-playlist-menu": "playlists/organize-playlists.md#playlist-menu"
+  }
+ },
+ "learn/read-analysis.md": "analysis/read-key-bpm-energy.md",
+ "learn/smart-playlist.md": {
+  "to": "playlists/build-a-smart-playlist.md",
+  "anchors": {
+   "1-choose-the-type": "playlists/build-a-smart-playlist.md#start",
+   "2-add-conditions": "playlists/build-a-smart-playlist.md#first-condition",
+   "3-preview-then-create": "playlists/build-a-smart-playlist.md#preview",
+   "4-it-keeps-itself-current": "playlists/build-a-smart-playlist.md#it-stays-current",
+   "ideas": "playlists/recipes/index.md",
+   "what-just-happened": "get-started/first-tracks.md#what-just-happened"
+  }
+ },
+ "technical/accuracy.md": "how-it-works/accuracy.md",
+ "technical/cleanup-engine.md": "how-it-works/cleanup-engine.md",
+ "technical/cues.md": "how-it-works/cues.md",
+ "technical/decoding.md": "how-it-works/decoding.md",
+ "technical/energy.md": "how-it-works/energy.md",
+ "technical/index.md": "how-it-works/index.md",
+ "technical/key.md": "how-it-works/key.md",
+ "technical/library.md": "how-it-works/library.md",
+ "technical/matching.md": "how-it-works/matching.md",
+ "technical/pipeline.md": "how-it-works/pipeline.md",
+ "technical/smart-engine.md": "how-it-works/smart-engine.md",
+ "technical/tag-writing.md": "how-it-works/tag-writing.md",
+ "technical/tempo.md": "how-it-works/tempo.md",
+ "technical/waveform.md": "how-it-works/waveform.md"
+}

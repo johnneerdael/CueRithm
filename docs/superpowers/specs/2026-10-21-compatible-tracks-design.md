@@ -18,7 +18,7 @@ Extend CueRithm's existing charcoal surfaces, teal controls, compact row spacing
 
 Rust owns validation/matching and reads one consistent SQLite transaction. Tauri forwards typed requests. React owns controls and transient preview/selection only. No schema change, audio-file writes, raw analysis change or automatic playlists. Saved playlists are ordinary snapshots and do not update automatically.
 
-User instructions: `docs/user-guide/guides/compatible-tracks.md`.
+User instructions: `docs/user-guide/playlists/find-compatible-tracks.md`.
 
 Verification: authored-fixture standalone React view rendered in Chrome at 1280×1240; screenshot `.analysis/compatible-tracks-2026-10-21.png`. No native playback or real-music transition acceptance is claimed.
 

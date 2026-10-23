@@ -1,0 +1,109 @@
+[
+ {
+  "scene": "help-preview-dash",
+  "steps": [
+   [
+    "click",
+    "^button Tracks \\d"
+   ],
+   [
+    "wait",
+    "2.5"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "help-player-missing-file",
+  "steps": [
+   [
+    "dblclick",
+    "^row .*Atoma",
+    "0"
+   ],
+   [
+    "wait",
+    "3"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-duplicates-scan-0113",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^tab Duplicates"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "wait_for",
+    "Review groups"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "library-duplicates-review-0113",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "click",
+    "^tab Duplicates"
+   ],
+   [
+    "click",
+    "^button Scan duplicates"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan duplicates"
+   ],
+   [
+    "click",
+    "^button Review groups"
+   ],
+   [
+    "wait_for",
+    "Review duplicates"
+   ],
+   [
+    "scroll",
+    "^container Duplicate review",
+    "down",
+    "0.6"
+   ],
+   [
+    "wait",
+    "1.5"
+   ]
+  ],
+  "settle": 1.0
+ }
+]
