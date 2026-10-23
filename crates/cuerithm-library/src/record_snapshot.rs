@@ -26,10 +26,19 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(crate) struct TableImage {
     pub table: String,
     pub columns: Vec<String>,
-    /// The table's own `INTEGER PRIMARY KEY` is its rowid, so it is restored as a column.
-    pub rowid_alias: bool,
+    /// Declared primary key columns. Rows are identified by these, never by SQLite's
+    /// internal rowid, which is handed out again once a row is deleted.
+    #[serde(default)]
+    pub key: Vec<String>,
     /// Rows that stay in place with an optional reference cleared, not deleted rows.
     pub detached: bool,
+    /// For detached rows: the columns the removal changed and the values it left there.
+    /// Undo puts the saved values back only where these are still what the removal left.
+    #[serde(default)]
+    pub owned: Vec<String>,
+    #[serde(default)]
+    pub held: Vec<Value>,
+    /// Saved rows, in their original order. The number is only informational.
     pub rows: Vec<(i64, Vec<Value>)>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -55,7 +64,6 @@ struct Table {
     columns: Vec<Column>,
     keys: Vec<ForeignKey>,
     primary: Vec<String>,
-    rowid_alias: bool,
 }
 fn quote(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
@@ -89,7 +97,6 @@ fn schema(conn: &Connection) -> Result<BTreeMap<String, Table>> {
             });
         }
         primary.sort();
-        let rowid_alias = primary.len() == 1 && primary[0].2 == "INTEGER";
         let mut grouped: BTreeMap<i64, ForeignKey> = BTreeMap::new();
         let mut statement = conn.prepare(&format!("PRAGMA foreign_key_list({})", quote(&name)))?;
         let rows = statement.query_map([], |row| {
@@ -116,7 +123,6 @@ fn schema(conn: &Connection) -> Result<BTreeMap<String, Table>> {
                 columns,
                 keys: grouped.into_values().collect(),
                 primary: primary.into_iter().map(|(_, column, _)| column).collect(),
-                rowid_alias,
             },
         );
     }
@@ -133,6 +139,30 @@ fn schema(conn: &Connection) -> Result<BTreeMap<String, Table>> {
         }
     }
     Ok(tables)
+}
+
+/// What a removal changes on a row that stays: its optional references are
+/// cleared, and a rekordbox link is marked as having no library track.
+fn detach_set(name: &str, table: &Table) -> Vec<(String, Value)> {
+    let mut set: Vec<(String, Value)> = table
+        .keys
+        .iter()
+        .filter(|key| {
+            !key.from
+                .iter()
+                .any(|from| table.columns.iter().any(|c| &c.name == from && c.required))
+        })
+        .flat_map(|key| key.from.iter())
+        .map(|from| (from.clone(), Value::Null))
+        .collect();
+    if name == "native_track_links" {
+        // The existing status for a DJ-software track without a library match.
+        set.push((
+            "status".into(),
+            Value::String("not_in_local_library".into()),
+        ));
+    }
+    set
 }
 
 fn placeholders(count: usize) -> String {
@@ -283,11 +313,18 @@ impl Plan {
                         captured.push((row.get::<_, i64>(0)?, values));
                     }
                 }
+                let (owned, held): (Vec<String>, Vec<Value>) = if detached {
+                    detach_set(name, table).into_iter().unzip()
+                } else {
+                    (vec![], vec![])
+                };
                 image.tables.push(TableImage {
                     table: name.clone(),
                     columns: columns.clone(),
-                    rowid_alias: table.rowid_alias,
+                    key: table.primary.clone(),
                     detached,
+                    owned,
+                    held,
                     rows: captured,
                 });
             }
@@ -372,36 +409,25 @@ impl Plan {
         let tables = schema(tx)?;
         for name in self.order.iter().rev() {
             if let Some(rows) = self.detached.get(name) {
-                let table = &tables[name];
-                let keys: Vec<&ForeignKey> = table
-                    .keys
+                let set = detach_set(name, &tables[name]);
+                let assignments = set
                     .iter()
-                    .filter(|key| {
-                        !key.from
-                            .iter()
-                            .any(|from| table.columns.iter().any(|c| &c.name == from && c.required))
-                    })
-                    .collect();
-                let clear = keys
-                    .iter()
-                    .flat_map(|key| key.from.iter())
-                    .map(|from| format!("{}=NULL", quote(from)))
+                    .map(|(column, _)| format!("{}=?", quote(column)))
                     .collect::<Vec<_>>()
                     .join(",");
-                let extra = if name == "native_track_links" {
-                    // The existing status for a DJ-software track without a library match.
-                    ",status='not_in_local_library'"
-                } else {
-                    ""
-                };
                 for chunk in rows.iter().copied().collect::<Vec<_>>().chunks(400) {
+                    let mut bound: Vec<Box<dyn ToSql>> = Vec::new();
+                    for (_, value) in &set {
+                        bound.push(from_json(value)?);
+                    }
+                    bound.extend(chunk.iter().map(|rowid| Box::new(*rowid) as Box<dyn ToSql>));
                     tx.execute(
                         &format!(
-                            "UPDATE {} SET {clear}{extra} WHERE rowid IN ({})",
+                            "UPDATE {} SET {assignments} WHERE rowid IN ({})",
                             quote(name),
                             placeholders(chunk.len())
                         ),
-                        params_from_iter(chunk),
+                        params_from_iter(bound.iter().map(|b| b.as_ref())),
                     )?;
                 }
             }
@@ -422,15 +448,23 @@ impl Plan {
     }
 }
 
-/// Puts a captured set of rows back. Fails, leaving the caller to roll back,
-/// if anything no longer fits: a key now in use, or a parent that is gone.
-pub(crate) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<()> {
+/// What `restore` left alone because it had changed since the removal.
+#[derive(Debug, Default)]
+pub(crate) struct RestoreReport {
+    /// Rows that stay in place (a rekordbox link) which were not reattached, by table.
+    pub detached_kept: Vec<(String, usize)>,
+}
+
+/// Puts a captured set of rows back. Rows are inserted by their declared columns
+/// and take fresh rowids. Fails, leaving the caller to roll back, if anything no
+/// longer fits: a key now in use, or a parent that is gone. A row that stayed in
+/// place is touched only if it is still exactly as the removal left it, and then
+/// only in the columns the removal changed.
+pub(crate) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<RestoreReport> {
     tx.execute_batch("PRAGMA defer_foreign_keys = ON")?;
+    let mut report = RestoreReport::default();
     for table in image.tables.iter().filter(|t| !t.detached) {
-        let mut names: Vec<String> = table.columns.iter().map(|c| quote(c)).collect();
-        if !table.rowid_alias {
-            names.insert(0, "rowid".into());
-        }
+        let names: Vec<String> = table.columns.iter().map(|c| quote(c)).collect();
         let sql = format!(
             "INSERT INTO {}({}) VALUES ({})",
             quote(&table.table),
@@ -438,11 +472,8 @@ pub(crate) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<()> {
             placeholders(names.len())
         );
         let mut statement = tx.prepare(&sql)?;
-        for (rowid, values) in &table.rows {
+        for (_, values) in &table.rows {
             let mut bound: Vec<Box<dyn ToSql>> = Vec::with_capacity(names.len());
-            if !table.rowid_alias {
-                bound.push(Box::new(*rowid));
-            }
             for value in values {
                 bound.push(from_json(value)?);
             }
@@ -452,24 +483,49 @@ pub(crate) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<()> {
         }
     }
     for table in image.tables.iter().filter(|t| t.detached) {
+        ensure!(
+            table.owned.len() == table.held.len() && !table.owned.is_empty(),
+            "The saved {} rows are damaged",
+            table.table
+        );
+        let owned = |column: &String| table.owned.iter().position(|o| o == column);
         let set = table
-            .columns
+            .owned
             .iter()
             .map(|c| format!("{}=?", quote(c)))
             .collect::<Vec<_>>()
             .join(",");
+        let expect = table
+            .columns
+            .iter()
+            .map(|c| format!("{} IS ?", quote(c)))
+            .collect::<Vec<_>>()
+            .join(" AND ");
         let mut statement = tx.prepare(&format!(
-            "UPDATE {} SET {set} WHERE rowid=?",
+            "UPDATE {} SET {set} WHERE {expect}",
             quote(&table.table)
         ))?;
-        for (rowid, values) in &table.rows {
-            let mut bound: Vec<Box<dyn ToSql>> = Vec::with_capacity(values.len() + 1);
-            for value in values {
-                bound.push(from_json(value)?);
+        let mut kept = 0;
+        for (_, values) in &table.rows {
+            let mut bound: Vec<Box<dyn ToSql>> = Vec::new();
+            for column in &table.owned {
+                let at = table
+                    .columns
+                    .iter()
+                    .position(|c| c == column)
+                    .context("Damaged saved row")?;
+                bound.push(from_json(&values[at])?);
             }
-            bound.push(Box::new(*rowid));
-            // A link that has since been removed is simply not there to repair.
-            statement.execute(params_from_iter(bound.iter().map(|b| b.as_ref())))?;
+            for (at, column) in table.columns.iter().enumerate() {
+                bound.push(from_json(
+                    owned(column).map_or(&values[at], |i| &table.held[i]),
+                )?);
+            }
+            let changed = statement.execute(params_from_iter(bound.iter().map(|b| b.as_ref())))?;
+            kept += usize::from(changed == 0);
+        }
+        if kept > 0 {
+            report.detached_kept.push((table.table.clone(), kept));
         }
     }
     let mut broken = BTreeSet::new();
@@ -494,5 +550,5 @@ pub(crate) fn restore(tx: &Transaction<'_>, image: &RecordImage) -> Result<()> {
         "Something these records depended on is gone ({})",
         broken.into_iter().collect::<Vec<_>>().join(", ")
     );
-    Ok(())
+    Ok(report)
 }

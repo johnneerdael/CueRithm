@@ -83,6 +83,12 @@ pub(crate) enum Scope {
     /// A person chose the track in Maintenance; archived and unfinished tracks included.
     Any,
 }
+/// What a relink changed besides the track's own path.
+pub(crate) struct Relinked {
+    /// Owned artwork rows re-pointed with the track, as (old path, new path), so
+    /// that undoing the relink can put them back.
+    pub sidecars: Vec<(Vec<u8>, Vec<u8>)>,
+}
 pub(crate) struct Move<'a> {
     pub track: &'a str,
     pub from: &'a Path,
@@ -99,18 +105,18 @@ impl Library {
         tx: &Transaction<'_>,
         moved: &Move<'_>,
         scope: Scope,
-    ) -> Result<Option<String>> {
+    ) -> Result<std::result::Result<Relinked, String>> {
         if !is_gone(moved.from) {
-            return Ok(Some("The file is back at its old location".into()));
+            return Ok(Err("The file is back at its old location".into()));
         }
         let (old, new) = (path_bytes(moved.from), path_bytes(moved.to));
         if path_taken(tx, &new)? {
-            return Ok(Some(
+            return Ok(Err(
                 "Another library track or file operation already uses the new location".into(),
             ));
         }
         if let Some(reason) = work_in_flight(tx, moved.track)? {
-            return Ok(Some(reason.into()));
+            return Ok(Err(reason.into()));
         }
         let changed = tx.execute(
             "UPDATE tracks SET path=?1,updated=?2 WHERE id=?3 AND path=?4 AND source_hash=?5
@@ -125,20 +131,24 @@ impl Library {
             ],
         )?;
         if changed != 1 {
-            return Ok(Some("The track changed".into()));
+            return Ok(Err("The track changed".into()));
         }
-        Self::follow_owned_sidecars(tx, moved)?;
+        let sidecars = Self::follow_owned_sidecars(tx, moved)?;
         Self::bump(tx)?;
-        Ok(None)
+        Ok(Ok(Relinked { sidecars }))
     }
 
     /// Artwork the library wrote beside the audio moves with a renamed album
     /// folder. A recorded file is re-pointed only if it is gone from its old
     /// place and the identical bytes sit at the same position next to the
     /// track's new location; anything else keeps its recorded location.
-    fn follow_owned_sidecars(tx: &Transaction<'_>, moved: &Move<'_>) -> Result<()> {
+    fn follow_owned_sidecars(
+        tx: &Transaction<'_>,
+        moved: &Move<'_>,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let mut followed = Vec::new();
         let (Some(old_parent), Some(new_parent)) = (moved.from.parent(), moved.to.parent()) else {
-            return Ok(());
+            return Ok(followed);
         };
         let rows: Vec<(Vec<u8>, String)> = {
             let mut statement = tx.prepare(
@@ -162,11 +172,15 @@ impl Library {
             {
                 continue;
             }
-            tx.execute(
+            let new_path = path_bytes(&found);
+            let changed = tx.execute(
                 "UPDATE OR IGNORE organization_owned_sidecars SET path=?1 WHERE track_id=?2 AND path=?3",
-                params![path_bytes(&found), moved.track, recorded],
+                params![new_path, moved.track, recorded],
             )?;
+            if changed == 1 {
+                followed.push((recorded, new_path));
+            }
         }
-        Ok(())
+        Ok(followed)
     }
 }

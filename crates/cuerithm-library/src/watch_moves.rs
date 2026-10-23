@@ -226,7 +226,7 @@ impl Library {
             to: &arrival.path,
             hash: &track.hash,
         };
-        if Self::relink_in_tx(&tx, &moved, Scope::ActiveReady)?.is_some() {
+        if Self::relink_in_tx(&tx, &moved, Scope::ActiveReady)?.is_err() {
             return Ok(None);
         }
         tx.commit().context("Relink moved track")?;

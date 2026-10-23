@@ -160,6 +160,9 @@ struct Match {
     from: Vec<u8>,
     to: Vec<u8>,
     hash: String,
+    /// Owned artwork rows that followed the track, as (old path, new path).
+    #[serde(default)]
+    sidecars: Vec<(Vec<u8>, Vec<u8>)>,
 }
 #[derive(Serialize, Deserialize)]
 struct SavedPreview {
@@ -474,6 +477,30 @@ fn purge_derived_rows(conn: &Connection, derived: &Derived, ids: &[String]) -> R
         hashes: orphaned,
         decoders: derived.decoders.clone(),
     })
+}
+/// Undo puts a record back at its old location. If something sits there now it
+/// must be the audio the record describes; otherwise the record and its retained
+/// analysis would silently describe the wrong file.
+fn ensure_old_location(path: &Path, expected_hash: &str, cancel: &CancellationToken) -> Result<()> {
+    match std::fs::symlink_metadata(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => anyhow::bail!(
+            "Cannot undo: the old location {} cannot be checked ({error})",
+            path.display()
+        ),
+        Ok(meta) if meta.is_file() => {
+            ensure!(
+                file_sha256_cancellable(path, cancel)? == expected_hash,
+                "Cannot undo: a different file is now at {}",
+                path.display()
+            );
+            Ok(())
+        }
+        Ok(_) => anyhow::bail!(
+            "Cannot undo: something other than the audio file is now at {}",
+            path.display()
+        ),
+    }
 }
 impl Operation {
     /// Drops what Undo would need, and the names of the tracks.
@@ -950,6 +977,7 @@ impl Library {
                         from: path_bytes(&record.path),
                         to: path_bytes(&path),
                         hash: record.hash.clone(),
+                        sidecars: vec![],
                     });
                 } else if let Some(title) = tracked_by {
                     row.outcome = MissingRowOutcome::AlreadyTracked;
@@ -1079,10 +1107,13 @@ impl Library {
                 to: &to,
                 hash: &m.hash,
             };
-            if let Some(reason) = Self::relink_in_tx(&tx, &moved, Scope::Any)? {
-                skipped.push(reject(&reason));
-                continue;
-            }
+            let followed = match Self::relink_in_tx(&tx, &moved, Scope::Any)? {
+                Ok(done) => done.sidecars,
+                Err(reason) => {
+                    skipped.push(reject(&reason));
+                    continue;
+                }
+            };
             applied.push(RepairedTrack {
                 id: current.id.clone(),
                 title: current.title.clone(),
@@ -1096,6 +1127,7 @@ impl Library {
                 from: m.from.clone(),
                 to: m.to.clone(),
                 hash: m.hash.clone(),
+                sidecars: followed,
             });
         }
         ensure!(
@@ -1228,11 +1260,14 @@ impl Library {
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let mut playlist_ids = Vec::new();
+        let mut undo_skipped = Vec::new();
         match original.entry.kind {
             MissingRepairKind::Remove => {
                 if let Some(table) = original.snapshot.image.table("tracks") {
                     let at = |name: &str| table.columns.iter().position(|c| c == name);
-                    let (Some(id_at), Some(path_at)) = (at("id"), at("path")) else {
+                    let (Some(id_at), Some(path_at), Some(hash_at)) =
+                        (at("id"), at("path"), at("source_hash"))
+                    else {
                         anyhow::bail!("The saved records are damaged");
                     };
                     for (_, values) in &table.rows {
@@ -1250,9 +1285,28 @@ impl Library {
                                 "Cannot undo: \"{title}\" is now in the library at the same place. Remove that track first, or keep the current library"
                             );
                         }
+                        ensure_old_location(
+                            &bytes_path(&path)?,
+                            values[hash_at].as_str().unwrap_or_default(),
+                            cancel,
+                        )?;
                     }
                 }
-                restore(&tx, &original.snapshot.image)?;
+                let restored = restore(&tx, &original.snapshot.image)?;
+                for (table, count) in restored.detached_kept {
+                    let label = if table == "native_track_links" {
+                        "rekordbox links".to_owned()
+                    } else {
+                        table
+                    };
+                    undo_skipped.push(SkippedTrack {
+                        id: String::new(),
+                        title: label,
+                        reason: format!(
+                            "{count} changed after the removal (rescanned or linked to another track) and were left as they are"
+                        ),
+                    });
+                }
                 let gone: BTreeSet<&String> = original.entry.tracks.iter().map(|t| &t.id).collect();
                 for change in &original.snapshot.playlists {
                     let exists: bool = tx.query_row(
@@ -1284,10 +1338,16 @@ impl Library {
                 }
             }
             MissingRepairKind::Relink => {
+                // Check every track before changing any: Undo is all or nothing.
                 for m in &original.snapshot.relinks {
                     let current = record(&tx, &m.track_id)?
                         .filter(|r| path_bytes(&r.path) == m.to)
                         .with_context(|| "Cannot undo: a relinked track has changed since")?;
+                    ensure!(
+                        current.hash == m.hash,
+                        "Cannot undo: the audio of \"{}\" changed after it was relinked (it was prepared again)",
+                        current.title
+                    );
                     let taken: bool = tx.query_row(
                         "SELECT EXISTS(SELECT 1 FROM tracks WHERE path=?1)",
                         [&m.from],
@@ -1300,10 +1360,20 @@ impl Library {
                     if let Some(reason) = work_in_flight(&tx, &m.track_id)? {
                         anyhow::bail!("Cannot undo: {reason}");
                     }
+                    ensure_old_location(&bytes_path(&m.from)?, &m.hash, cancel)?;
+                }
+                for m in &original.snapshot.relinks {
                     tx.execute(
-                        "UPDATE tracks SET path=?1,updated=?2 WHERE id=?3 AND path=?4",
-                        params![m.from, now(), current.id, m.to],
+                        "UPDATE tracks SET path=?1,updated=?2 WHERE id=?3 AND path=?4 AND source_hash=?5",
+                        params![m.from, now(), m.track_id, m.to, m.hash],
                     )?;
+                    // Artwork rows that followed the track go back with it.
+                    for (old, new) in &m.sidecars {
+                        tx.execute(
+                            "UPDATE OR IGNORE organization_owned_sidecars SET path=?1 WHERE track_id=?2 AND path=?3",
+                            params![old, m.track_id, new],
+                        )?;
+                    }
                 }
             }
         }
@@ -1315,7 +1385,7 @@ impl Library {
             undo_of: Some(id.into()),
             track_count: original.entry.track_count,
             tracks: original.entry.tracks.clone(),
-            skipped: vec![],
+            skipped: undo_skipped,
             playlist_ids,
             playlist_memberships: original.entry.playlist_memberships,
             sync_links: original.entry.sync_links,

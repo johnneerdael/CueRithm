@@ -250,12 +250,9 @@ impl Fixture {
             .unwrap();
         let mut dump = BTreeMap::new();
         for table in tables.iter().filter(|t| !BOOKKEEPING.contains(&t.as_str())) {
-            // Playlist rows are rewritten as a whole; their rowid carries no meaning.
-            let select = if table == "playlist_members" {
-                "*"
-            } else {
-                "rowid,*"
-            };
+            // SQLite's internal rowid is handed out again after a delete and carries no
+            // meaning; rows are compared by their declared columns.
+            let select = "*";
             let mut statement = conn
                 .prepare(&format!("SELECT {select} FROM \"{table}\""))
                 .unwrap();

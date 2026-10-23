@@ -413,6 +413,173 @@ fn only_the_newest_removals_keep_their_saved_records() {
     );
 }
 
+fn track_row(fx: &Fixture, id: &str) -> String {
+    fx.sql(
+        &format!(
+            "SELECT json_object('id',id,'path',hex(path),'state',state,'hash',source_hash,'analysis',analysis_json,'meta',metadata_json,'bpm',bpm,'created',created,'updated',updated) FROM tracks WHERE id='{id}'"
+        ),
+        |r| r.get(0).unwrap(),
+    )
+}
+fn latest_cue(fx: &Fixture, id: &str) -> String {
+    fx.sql(
+        &format!("SELECT id FROM cue_revisions WHERE track_id='{id}' ORDER BY created DESC,rowid DESC LIMIT 1"),
+        |r| r.get(0).unwrap(),
+    )
+}
+
+#[test]
+fn undo_still_works_after_sqlite_hands_the_freed_rowids_to_new_records() {
+    let l = library();
+    // `z` is the newest track, so it holds the highest rowid in every table it touches.
+    let z_file = l.fx.file(&l.fx.watch.join("Album"), "z.flac", 90);
+    let z = l.fx.ready(&z_file, 140.);
+    l.fx.exec(&format!(
+        "INSERT INTO cue_revisions VALUES('tie-first','{z}',NULL,'{{}}',9000000000000);
+         INSERT INTO cue_revisions VALUES('tie-second','{z}',NULL,'{{}}',9000000000000);"
+    ));
+    assert_eq!(latest_cue(&l.fx, &z), "tie-second");
+    let (track_rowid, job_rowid): (i64, i64) = l.fx.sql(
+        &format!("SELECT (SELECT rowid FROM tracks WHERE id='{z}'),(SELECT rowid FROM jobs WHERE track_id='{z}')"),
+        |r| (r.get(0).unwrap(), r.get(1).unwrap()),
+    );
+    let before = track_row(&l.fx, &z);
+    std::fs::remove_file(&z_file).unwrap();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&z]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    // An unrelated import is given the very rowids the removal freed.
+    let newcomer = l.fx.ready(&l.fx.file(&l.fx.watch, "new.flac", 91), 141.);
+    let (new_track_rowid, new_job_rowid): (i64, i64) = l.fx.sql(
+        &format!("SELECT (SELECT rowid FROM tracks WHERE id='{newcomer}'),(SELECT rowid FROM jobs WHERE track_id='{newcomer}')"),
+        |r| (r.get(0).unwrap(), r.get(1).unwrap()),
+    );
+    assert_eq!(
+        (new_track_rowid, new_job_rowid),
+        (track_rowid, job_rowid),
+        "the premise: SQLite reuses the freed rowids"
+    );
+    l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert_eq!(track_row(&l.fx, &z), before, "the record is back as it was");
+    assert_eq!(
+        latest_cue(&l.fx, &z),
+        "tie-second",
+        "cue order does not depend on rowids"
+    );
+    assert!(
+        l.fx.lib.track(&newcomer).is_ok(),
+        "the unrelated track is untouched"
+    );
+    assert_eq!(l.fx.lib.cue_revision_count(&z).unwrap(), 3);
+}
+
+#[test]
+fn every_table_has_a_declared_primary_key_so_saved_rows_never_depend_on_rowids() {
+    let fx = Fixture::new();
+    let conn = rusqlite::Connection::open(&fx.db).unwrap();
+    let without: Vec<String> = conn
+        .prepare("SELECT m.name FROM sqlite_master m WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND NOT EXISTS(SELECT 1 FROM pragma_table_info(m.name) WHERE pk>0)")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(
+        without.is_empty(),
+        "a table without a declared key cannot be restored by identity: {without:?}"
+    );
+}
+
+#[test]
+fn undo_leaves_a_rescanned_or_reassigned_rekordbox_link_as_it_is_now() {
+    let l = library();
+    l.fx.exec(&format!(
+        "INSERT INTO native_track_links(target_id,content_id,local_track_id,identity_json,observation_json,observation_hash,baseline_json,status,updated)
+           VALUES('target','content-b','{b}','{{}}',NULL,NULL,'{{}}','linked',0)",
+        b = l.b
+    ));
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a, &l.b]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    // After the removal rekordbox is scanned again: `a`'s link gets a new observation
+    // and baseline, and `b`'s link is matched to a different library track.
+    l.fx.exec(&format!(
+        "UPDATE native_track_links SET observation_json='{{\"seen\":2}}',observation_hash='h2',baseline_json='{{\"bpm\":99}}',status='linked',updated=9 WHERE content_id='content-a';
+         UPDATE native_track_links SET local_track_id='{c}',status='linked' WHERE content_id='content-b';",
+        c = l.c
+    ));
+    let links = |fx: &Fixture| -> Vec<String> {
+        let conn = rusqlite::Connection::open(&fx.db).unwrap();
+        let mut q = conn
+            .prepare("SELECT json_array(content_id,local_track_id,status,observation_json,observation_hash,baseline_json,updated) FROM native_track_links ORDER BY content_id")
+            .unwrap();
+        q.query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    let current = links(&l.fx);
+    let undo = l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert_eq!(
+        links(&l.fx),
+        current,
+        "newer observations and the other track's link survive"
+    );
+    assert!(
+        l.fx.lib.track(&l.a).is_ok() && l.fx.lib.track(&l.b).is_ok(),
+        "the records themselves are back"
+    );
+    let note = undo
+        .skipped
+        .iter()
+        .find(|s| s.title == "rekordbox links")
+        .unwrap();
+    assert!(
+        note.reason.starts_with("2 changed after the removal"),
+        "{}",
+        note.reason
+    );
+}
+
+#[test]
+fn undo_refuses_an_unrelated_file_at_the_old_location_of_a_removed_track() {
+    let l = library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    std::fs::write(&l.files[0], "somebody else's recording").unwrap();
+    let after_removal = l.fx.dump();
+    let error =
+        l.fx.lib
+            .undo_missing_repair(&entry.id, &cancel())
+            .unwrap_err()
+            .to_string();
+    assert!(error.contains("a different file is now at"), "{error}");
+    assert_same_dump(&l.fx.dump(), &after_removal);
+    // The same bytes back at the old place are fine: the record is accurate again.
+    std::fs::write(&l.files[0], "audio bytes of track 1\n".repeat(40)).unwrap();
+    l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert!(l.fx.lib.track(&l.a).is_ok());
+}
+
 #[test]
 fn playlist_positions_come_back_even_after_the_playlist_was_edited() {
     let l = library();
@@ -809,6 +976,125 @@ fn moved_files_are_found_by_content_and_the_tracks_keep_everything() {
     assert_eq!(
         l.fx.lib.track_path(&l.a).unwrap(),
         l.files[0].canonicalize().unwrap_or(l.files[0].clone())
+    );
+}
+
+fn relinked() -> (Library3, MissingRepairEntryHandle) {
+    let (l, elsewhere) = moved_library();
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_relink(
+                &report.id,
+                &ids(&[&l.a]),
+                std::slice::from_ref(&elsewhere),
+                &cancel(),
+                |_| {},
+            )
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_relink(&preview.id, &cancel())
+            .unwrap();
+    (l, MissingRepairEntryHandle(entry.id))
+}
+struct MissingRepairEntryHandle(String);
+
+#[test]
+fn relink_undo_refuses_when_the_audio_changed_after_the_relink() {
+    let (l, entry) = relinked();
+    // The track was prepared again (tags written): its stored content identity moved on.
+    l.fx.exec(&format!(
+        "UPDATE tracks SET source_hash='after-preparation' WHERE id='{}'",
+        l.a
+    ));
+    let after_relink = l.fx.dump();
+    let error =
+        l.fx.lib
+            .undo_missing_repair(&entry.0, &cancel())
+            .unwrap_err()
+            .to_string();
+    assert!(error.contains("changed after it was relinked"), "{error}");
+    assert_same_dump(&l.fx.dump(), &after_relink);
+    assert!(
+        l.fx.lib
+            .missing_repair_history()
+            .unwrap()
+            .iter()
+            .all(|h| h.undone_by.is_none())
+    );
+}
+
+#[test]
+fn relink_undo_refuses_an_unrelated_file_at_the_old_location() {
+    let (l, entry) = relinked();
+    let old = l.files[0].clone();
+    std::fs::write(&old, "an unrelated recording").unwrap();
+    let after_relink = l.fx.dump();
+    let error =
+        l.fx.lib
+            .undo_missing_repair(&entry.0, &cancel())
+            .unwrap_err()
+            .to_string();
+    assert!(error.contains("a different file is now at"), "{error}");
+    assert_same_dump(&l.fx.dump(), &after_relink);
+    // A directory (or anything else that is not the audio) in the way is refused too.
+    std::fs::remove_file(&old).unwrap();
+    std::fs::create_dir(&old).unwrap();
+    assert!(l.fx.lib.undo_missing_repair(&entry.0, &cancel()).is_err());
+    std::fs::remove_dir(&old).unwrap();
+    // With the identical bytes at the old place, Undo is accurate and goes ahead.
+    std::fs::write(&old, "audio bytes of track 1\n".repeat(40)).unwrap();
+    l.fx.lib.undo_missing_repair(&entry.0, &cancel()).unwrap();
+    assert_eq!(l.fx.lib.track_path(&l.a).unwrap(), old);
+}
+
+#[cfg(unix)]
+#[test]
+fn relink_undo_puts_followed_artwork_back_too() {
+    let l = library();
+    let folder = l.fx.watch.join("Album");
+    let cover = folder.join("cover.jpg");
+    std::fs::write(&cover, b"cover art").unwrap();
+    let hash = cuerithm_media::file_sha256(&cover).unwrap();
+    l.fx.exec(&format!(
+        "INSERT INTO organization_owned_sidecars VALUES('{a}',CAST('unix:{p}' AS BLOB),'{hash}','m',1)",
+        a = l.a,
+        p = cover.display()
+    ));
+    // The album folder was renamed: a.flac and the cover moved together.
+    let renamed = l.fx.watch.join("Album (2024)");
+    std::fs::rename(&folder, &renamed).unwrap();
+    // (library() deleted a.flac before the rename, so put its bytes in the new folder.)
+    l.fx.file(&renamed, "a.flac", 1);
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_relink(
+                &report.id,
+                &ids(&[&l.a]),
+                std::slice::from_ref(&renamed),
+                &cancel(),
+                |_| {},
+            )
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_relink(&preview.id, &cancel())
+            .unwrap();
+    let stored = |fx: &Fixture| -> Vec<u8> {
+        fx.sql("SELECT path FROM organization_owned_sidecars", |r| {
+            r.get(0).unwrap()
+        })
+    };
+    assert_eq!(
+        stored(&l.fx),
+        format!("unix:{}", renamed.join("cover.jpg").display()).into_bytes()
+    );
+    l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert_eq!(
+        stored(&l.fx),
+        format!("unix:{}", cover.display()).into_bytes()
     );
 }
 
