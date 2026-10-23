@@ -309,6 +309,170 @@ impl Host {
 mod tests {
     use super::*;
     #[test]
+    fn imported_only_media_loads_without_native_analysis_or_locator() {
+        use cuerithm_dj_sync::import::{ArtifactRequest, FieldGroup, ImportPolicy, SourceProvider};
+        use cuerithm_library::{
+            ImportInspectRequest, ImportPreviewRequest, ImportSourceSelection, SourceBindingChoice,
+            TrackQuery,
+        };
+        use cuerithm_media::CancellationToken;
+
+        let temporary_root = std::env::temp_dir().canonicalize().unwrap();
+        let temp = tempfile::tempdir_in(temporary_root).unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let host = Host::open(
+            &temp.path().join("app"),
+            &root.join("tools/media-runtime/bin"),
+            None,
+        )
+        .unwrap();
+        let source = temp.path().join("imported.flac");
+        std::fs::copy(
+            root.join("crates/cuerithm-media/tests/fixtures/covered.flac"),
+            &source,
+        )
+        .unwrap();
+        let import_root = temp.path().join("VirtualDJ");
+        std::fs::create_dir(&import_root).unwrap();
+        let xml_path = source
+            .to_string_lossy()
+            .replace('&', "&amp;")
+            .replace('"', "&quot;");
+        let unavailable_xml_path = temp
+            .path()
+            .join("unavailable.flac")
+            .to_string_lossy()
+            .replace('&', "&amp;")
+            .replace('"', "&quot;");
+        std::fs::write(
+            import_root.join("database.xml"),
+            format!(r#"<VirtualDJ_Database Version="8.5"><Song FilePath="{xml_path}"><Tags Title="Imported track"/></Song><Song FilePath="{unavailable_xml_path}"><Tags Title="Unavailable track"/></Song></VirtualDJ_Database>"#),
+        )
+        .unwrap();
+        let cancel = CancellationToken::default();
+        let inspection = host
+            .library
+            .inspect_import(
+                ImportInspectRequest {
+                    provider: SourceProvider::VirtualDj,
+                    selection: ImportSourceSelection {
+                        root: import_root,
+                        artifacts: vec![ArtifactRequest::stable("database.xml")],
+                    },
+                    binding: SourceBindingChoice::Automatic,
+                    origin: None,
+                    path_mappings: vec![],
+                    capture_file_tags: false,
+                    include_history: false,
+                    include_queue: false,
+                },
+                &cancel,
+            )
+            .unwrap();
+        let preview = host
+            .library
+            .preview_import(
+                ImportPreviewRequest {
+                    inspection_id: inspection.inspection_id,
+                    policy: ImportPolicy {
+                        selected_fields: [FieldGroup::DescriptiveTags].into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(preview.blocked, 0);
+        host.library
+            .apply_import(&preview.preview_id, &cancel)
+            .unwrap();
+        let mut tracks = host.library.tracks(TrackQuery::default()).unwrap().rows;
+        assert_eq!(tracks.len(), 2);
+        let unavailable = tracks.remove(
+            tracks
+                .iter()
+                .position(|track| track.title == "Unavailable track")
+                .unwrap(),
+        );
+        assert!(!unavailable.import_state.unwrap().playback_allowed);
+        assert_eq!(
+            host.library.source_hash_optional(&unavailable.id).unwrap(),
+            None
+        );
+        assert!(
+            host.library
+                .source_locator(&unavailable.id)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            host.library
+                .accepted_musical_data(&unavailable.id)
+                .unwrap()
+                .is_none()
+        );
+        let unavailable_detail = host.detail(&unavailable.id).unwrap();
+        assert!(!unavailable_detail.file_available);
+        assert!(unavailable_detail.analysis.is_none());
+        assert!(unavailable_detail.musical.is_none());
+        assert!(unavailable_detail.source_sha256.is_empty());
+        assert_eq!(
+            host.load(unavailable.id, host.begin_load())
+                .err()
+                .unwrap()
+                .to_string(),
+            FILE_NOT_FOUND
+        );
+        let track = tracks.remove(0);
+        let id = &track.id;
+        assert!(track.import_state.unwrap().playback_allowed);
+        assert!(host.library.jobs().unwrap().is_empty());
+        let file_hash = cuerithm_media::file_sha256(&source).unwrap();
+        assert_eq!(
+            host.library.source_hash_optional(id).unwrap(),
+            Some(file_hash.clone())
+        );
+        assert!(host.library.source_locator(id).unwrap().is_none());
+        assert!(host.library.accepted_musical_data(id).unwrap().is_none());
+        assert!(host.library.source_hash_optional("unknown-track").is_err());
+        assert!(host.library.source_locator("unknown-track").is_err());
+        assert!(host.library.accepted_musical_data("unknown-track").is_err());
+        let detail = host.detail(id).unwrap();
+        assert!(detail.file_available);
+        assert!(detail.analysis.is_none());
+        assert!(detail.musical.is_none());
+        assert!(detail.source_locator.is_none());
+        assert_eq!(detail.source_sha256, file_hash);
+        assert!(detail.pcm_sha256.is_none());
+
+        let loaded = host.load(id.clone(), host.begin_load()).unwrap();
+        assert_eq!(loaded.source_sha256, file_hash);
+        assert!(loaded.pcm_sha256.is_some());
+        assert!(loaded.analysis.is_none());
+        assert!(loaded.musical.is_none());
+        assert!(loaded.source_locator.is_none());
+        assert_eq!(
+            host.player.lock().unwrap().status().track_id.as_deref(),
+            Some(id.as_str())
+        );
+        assert!(host.library.analysis(id).unwrap().is_none());
+        assert_eq!(host.library.cue_revision_count(id).unwrap(), 0);
+
+        std::fs::remove_file(&source).unwrap();
+        assert!(!host.detail(id).unwrap().file_available);
+        assert_eq!(
+            host.load(id.clone(), host.begin_load())
+                .err()
+                .unwrap()
+                .to_string(),
+            FILE_NOT_FOUND
+        );
+        host.preparation.shutdown();
+        host.smart_playlists.shutdown();
+        host.curation_worker.lock().unwrap().shutdown();
+    }
+    #[test]
     fn host_startup_recovers_a_torn_active_pointer_before_looking_up_its_path() {
         let temp = tempfile::tempdir().unwrap();
         let manager = cuerithm_library::LibraryGenerations::new(temp.path()).unwrap();

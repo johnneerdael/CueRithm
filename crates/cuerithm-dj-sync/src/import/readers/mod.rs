@@ -59,10 +59,10 @@ fn header(
         contract_version: 1,
         source: SourceKey {
             provider: snapshot.provider,
-            library_instance_id: options
-                .library_instance_id
-                .clone()
-                .or_else(|| instance.map(str::to_owned))
+            // The registry fallback must not conceal a different native library.
+            library_instance_id: instance
+                .map(str::to_owned)
+                .or_else(|| options.library_instance_id.clone())
                 .unwrap_or_else(|| {
                     format!(
                         "root:{}",

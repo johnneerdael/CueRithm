@@ -196,6 +196,170 @@ fn source_replica_requires_explicit_binding() {
         .unwrap();
     assert_ne!(fork.source_id, first.source_id);
 }
+
+fn source_reader_request(
+    root: &Path,
+    provider: SourceProvider,
+    name: &str,
+) -> ImportInspectRequest {
+    ImportInspectRequest {
+        provider,
+        selection: ImportSourceSelection {
+            root: root.into(),
+            artifacts: vec![ArtifactRequest::stable(name)],
+        },
+        binding: SourceBindingChoice::Automatic,
+        origin: None,
+        path_mappings: Vec::new(),
+        capture_file_tags: false,
+        include_history: false,
+        include_queue: false,
+    }
+}
+fn apple_identity_request(root: &Path, native_id: &str) -> ImportInspectRequest {
+    fs::write(root.join("Music.xml"), format!("<plist><dict><key>Library Persistent ID</key><string>{native_id}</string><key>Tracks</key><dict><key>1</key><dict><key>Track ID</key><integer>1</integer><key>Name</key><string>Fixture track</string></dict></dict></dict></plist>")).unwrap();
+    source_reader_request(root, SourceProvider::AppleMusicXml, "Music.xml")
+}
+fn source_count(library: &Library) -> u64 {
+    library
+        .conn()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM import_sources", [], |r| r.get(0))
+        .unwrap()
+}
+
+#[test]
+fn native_source_identity_requires_a_choice_for_copies_and_retains_independent_sources() {
+    let dir = tempfile::tempdir().unwrap();
+    let original = tempfile::tempdir().unwrap();
+    let copied = tempfile::tempdir().unwrap();
+    let independent = tempfile::tempdir().unwrap();
+    let library = Library::open(&dir.path().join("library.db")).unwrap();
+    let cancel = CancellationToken::default();
+    let first = library
+        .inspect_import(
+            apple_identity_request(original.path(), "APPLE-ORIGINAL"),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(
+        first.header.extensions["native_library_instance_id"],
+        "APPLE-ORIGINAL"
+    );
+    let copied_request = apple_identity_request(copied.path(), "APPLE-ORIGINAL");
+    let error = library
+        .inspect_import(copied_request.clone(), &cancel)
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("replica or new library"),
+        "{error:#}"
+    );
+    assert_eq!(source_count(&library), 1);
+    let mut replica_request = copied_request;
+    replica_request.binding = SourceBindingChoice::Replica {
+        source_id: first.source_id.clone(),
+    };
+    let replica = library.inspect_import(replica_request, &cancel).unwrap();
+    assert_eq!(replica.source_id, first.source_id);
+    assert_eq!(
+        replica.header.extensions["native_library_instance_id"],
+        "APPLE-ORIGINAL"
+    );
+    let mut independent_request = apple_identity_request(independent.path(), "APPLE-ORIGINAL");
+    independent_request.binding = SourceBindingChoice::NewLibrary;
+    let separate = library
+        .inspect_import(independent_request.clone(), &cancel)
+        .unwrap();
+    assert_ne!(separate.source_id, first.source_id);
+    assert_eq!(
+        separate.header.extensions["native_library_instance_id"],
+        "APPLE-ORIGINAL"
+    );
+    independent_request.binding = SourceBindingChoice::Automatic;
+    assert_eq!(
+        library
+            .inspect_import(independent_request, &cancel)
+            .unwrap()
+            .source_id,
+        separate.source_id
+    );
+    assert_eq!(source_count(&library), 2);
+}
+
+#[test]
+fn native_source_identity_rejects_unrelated_replicas_and_detects_same_root_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let original = tempfile::tempdir().unwrap();
+    let unrelated = tempfile::tempdir().unwrap();
+    let library = Library::open(&dir.path().join("library.db")).unwrap();
+    let cancel = CancellationToken::default();
+    let first = library
+        .inspect_import(
+            apple_identity_request(original.path(), "APPLE-ORIGINAL"),
+            &cancel,
+        )
+        .unwrap();
+    let mut invalid_replica = apple_identity_request(unrelated.path(), "APPLE-UNRELATED");
+    invalid_replica.binding = SourceBindingChoice::Replica {
+        source_id: first.source_id.clone(),
+    };
+    let error = library
+        .inspect_import(invalid_replica, &cancel)
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("Replica source identity differs"),
+        "{error:#}"
+    );
+    assert_eq!(source_count(&library), 1);
+    let replacement = library
+        .inspect_import(
+            apple_identity_request(original.path(), "APPLE-REPLACEMENT"),
+            &cancel,
+        )
+        .unwrap();
+    assert_ne!(replacement.source_id, first.source_id);
+    assert_eq!(
+        replacement.header.extensions["native_library_instance_id"],
+        "APPLE-REPLACEMENT"
+    );
+    assert_eq!(source_count(&library), 2);
+}
+
+#[test]
+fn native_source_identity_m3u_registered_fallback_survives_reopen_and_scope_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    fs::write(root.path().join("first.m3u8"), "#EXTM3U\nmissing-a.flac\n").unwrap();
+    fs::write(root.path().join("second.m3u8"), "#EXTM3U\nmissing-b.flac\n").unwrap();
+    let db = dir.path().join("library.db");
+    let library = Library::open(&db).unwrap();
+    let cancel = CancellationToken::default();
+    let first = library
+        .inspect_import(
+            source_reader_request(root.path(), SourceProvider::M3u, "first.m3u8"),
+            &cancel,
+        )
+        .unwrap();
+    let native = first.header.extensions["native_library_instance_id"].clone();
+    assert!(!native.as_str().unwrap().is_empty());
+    drop(library);
+    let library = Library::open(&db).unwrap();
+    let second = library
+        .inspect_import(
+            source_reader_request(root.path(), SourceProvider::M3u, "second.m3u8"),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(second.source_id, first.source_id);
+    assert_eq!(
+        second.header.extensions["native_library_instance_id"],
+        native
+    );
+    assert_eq!(source_count(&library), 1);
+}
+
 #[test]
 fn same_path_is_not_global_identity() {
     let local = IdentityCandidate {

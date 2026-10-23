@@ -160,9 +160,11 @@ pub(crate) fn accepted_snapshot_from_analysis(
     use rusqlite::OptionalExtension;
     use sha2::{Digest, Sha256};
     let raw: Option<String> =
-        conn.query_row("SELECT analysis_json FROM tracks WHERE id=?1", [id], |r| {
-            r.get(0)
-        })?;
+        conn.query_row(
+            "SELECT analysis_json FROM tracks WHERE id=?1 UNION ALL SELECT NULL FROM import_items WHERE id=?1 AND local_track_id IS NULL LIMIT 1",
+            [id],
+            |r| r.get(0),
+        )?;
     let saved:Option<String>=conn.query_row("SELECT json FROM cue_revisions WHERE track_id=?1 ORDER BY created DESC,rowid DESC LIMIT 1",[id],|r|r.get(0)).optional()?;
     let analysis = raw
         .as_deref()

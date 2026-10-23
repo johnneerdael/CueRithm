@@ -6,6 +6,30 @@ use std::fs;
 use support::*;
 
 #[test]
+fn m3u_identity_uses_registered_fallback_without_a_native_id() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(root.path().join("list.m3u8"), "#EXTM3U\nmissing.flac\n").unwrap();
+    let snapshot = snapshot(root.path(), SourceProvider::M3u, &["list.m3u8"]);
+    let options = ReadOptions {
+        library_instance_id: Some("registered-playlist".into()),
+        ..Default::default()
+    };
+    for _ in 0..2 {
+        let header = adapter(SourceProvider::M3u)
+            .read(
+                &snapshot,
+                &options,
+                &mut Records::default(),
+                &CancellationToken::default(),
+            )
+            .unwrap();
+        assert_eq!(header.source.library_instance_id, "registered-playlist");
+    }
+    let (header, _) = read(SourceProvider::M3u, &snapshot);
+    assert!(header.source.library_instance_id.starts_with("root:"));
+}
+
+#[test]
 fn m3u_resolves_relative_entries_and_preserves_a_b_a() {
     let root = tempfile::tempdir().unwrap();
     fs::create_dir(root.path().join("sets")).unwrap();

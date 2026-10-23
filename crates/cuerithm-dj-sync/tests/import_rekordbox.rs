@@ -73,6 +73,25 @@ fn grid() -> Vec<u8> {
     data
 }
 #[test]
+fn rekordbox_native_identity_takes_precedence_over_registered_fallback() {
+    let root = tempfile::tempdir().unwrap();
+    drop(fixture::fixture(&root.path().join("master.db")));
+    let reader = reader();
+    let snapshot = capture(root.path(), &reader, false);
+    let header = reader
+        .read(
+            &snapshot,
+            &ReadOptions {
+                library_instance_id: Some("registered-fallback".into()),
+                ..Default::default()
+            },
+            &mut Records::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert_eq!(header.source.library_instance_id, "db-alpha");
+}
+#[test]
 fn rekordbox_preserves_memory_hot_same_time_and_sixteen_slots() {
     let root = tempfile::tempdir().unwrap();
     let db = fixture::fixture(&root.path().join("master.db"));

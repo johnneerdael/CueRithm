@@ -820,3 +820,26 @@ The required latest-commit Codex review and Linux checks remain merge gates;
 post-merge platform checks and the automated release remain separate gates.
 Source-application/device acceptance and new native clock qualification are
 still unverified.
+### Desktop-load and native-source identity corrections
+
+The latest Codex review identified two missing integration boundaries. Desktop
+optional detail readers now recognize known imported-only items, retain verified
+import hashes, and return no native locator or qualified analysis for them.
+Unknown IDs continue to error. A public VirtualDJ import followed by real
+`Host::detail` and `Host::load` reproduced the missing-row failure before the
+fix and passes afterward, including unresolved media and subsequent file removal.
+This is decoder/load coverage, not physical audio-output or native-app acceptance.
+
+Reader headers now prefer observed native library IDs over registered fallbacks.
+Actual Apple Music and rekordbox reader fixtures plus public inspection tests
+cover copied-source choices, explicit replica binding, unrelated-source
+rejection, independent sources, same-root replacement and persistent M3U fallback
+identity across reopening and changed selections. Empty native Apple IDs remain
+invalid rather than silently becoming a generated identity.
+
+Fresh corrected-source checks: SDK all features 542 passed / 0 failed / 3 ignored;
+all library import unit tests 134 passed; desktop library unit tests 37 passed /
+0 failed / 1 ignored; existing portable identity integration tests 23 passed.
+Workspace release build, formatting and all-target Clippy with `-D warnings`
+also pass. The broad workspace evidence above retains its original source scope;
+latest-commit review, CI and release gates still apply.

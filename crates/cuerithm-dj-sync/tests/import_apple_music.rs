@@ -66,12 +66,44 @@ fn apple_plist_retains_milliseconds_and_missing_remote_records() {
 }
 
 #[test]
+fn apple_native_identity_takes_precedence_over_registered_fallback() {
+    for (native, expected) in [
+        (
+            "<key>Library Persistent ID</key><string>APPLE-NATIVE</string>",
+            "APPLE-NATIVE",
+        ),
+        ("", "registered-fallback"),
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(
+            root.path().join("Music.xml"),
+            format!("<plist><dict>{native}<key>Tracks</key><dict/></dict></plist>"),
+        )
+        .unwrap();
+        let snapshot = snapshot(root.path(), SourceProvider::AppleMusicXml, &["Music.xml"]);
+        let header = adapter(SourceProvider::AppleMusicXml)
+            .read(
+                &snapshot,
+                &ReadOptions {
+                    library_instance_id: Some("registered-fallback".into()),
+                    ..Default::default()
+                },
+                &mut Records::default(),
+                &CancellationToken::default(),
+            )
+            .unwrap();
+        assert_eq!(header.source.library_instance_id, expected);
+    }
+}
+
+#[test]
 fn apple_plist_rejects_entities_malformed_profile_and_cycles() {
     for xml in [
         r#"<!DOCTYPE plist [<!ENTITY secret SYSTEM "file:///etc/passwd">]><plist><dict><key>Tracks</key><dict>&secret;</dict></dict></plist>"#,
         "<plist><dict><key>Tracks</key><dict>",
         "<REKORDBOX><dict/></REKORDBOX>",
         "<plist><dict><key>Tracks</key><dict/><key>Library Persistent ID</key><integer>3</integer></dict></plist>",
+        "<plist><dict><key>Tracks</key><dict/><key>Library Persistent ID</key><string></string></dict></plist>",
         r#"<plist><dict><key>Tracks</key><dict/><key>Playlists</key><array><dict><key>Playlist Persistent ID</key><string>A</string><key>Parent Persistent ID</key><string>A</string><key>Name</key><string>Cycle</string></dict></array></dict></plist>"#,
     ] {
         let root = tempfile::tempdir().unwrap();
