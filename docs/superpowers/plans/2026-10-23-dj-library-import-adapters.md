@@ -155,11 +155,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `DjStudioReader`; consumes exact schema/migration/record fingerprints, native+renderer identities when known, and coherent SQL+JSON snapshot. SQL integer ID, JSON record key, structure key and project identities remain separate.
 
-- [ ] Write `djstudio_keeps_sql_and_json_divergence_and_unknown_fields`, `djstudio_shards_utf16_and_preserves_cue_arrays`, and `djstudio_rejects_unsafe_keys`. Assert key12→8A/Am, -1/-2 unknown values, fractional BPM despite INTEGER affinity, duplicate PlaylistTracks, deterministic `(sort,id)` explicitly unverified order, beat2 resolves to selected structure entry2.time, time=-1 distinct from0 and no cue RGB field invented. Test Unicode surrogate sharding, alternate grids, integer/negative/fractional beat cues and system/hot/memory array holes/order.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_dj_studio`; expect missing reader.
-- [ ] Read Explorer Tracks/Playlists/memberships/bookmarked Folders, separate audio-library and referenced track structures. Join by unique normalized path conservatively, retaining both surfaces and conflicts. Preserve processed file identity/source provenance, external maps, analysis state, alternate structures and projects as untouched references. Refuse traversal/absolute/NUL keys and symlink escape. Unresolved/fractional beat timing has no invented canonical endpoint; BPM-only never regenerates grid.
-- [ ] Rerun malformed/trailing JSON, duplicate path, missing target record, unknown migrations/renderer and source mutation during capture; expect accounted issues and no writes/cache invalidation.
-- [ ] Commit `feat: read DJ.Studio native and imported library surfaces`.
+- [x] Write `djstudio_keeps_sql_and_json_divergence_and_unknown_fields`, `djstudio_shards_utf16_and_preserves_cue_arrays`, and `djstudio_rejects_unsafe_keys`. Assert key12→8A/Am, -1/-2 unknown values, fractional BPM despite INTEGER affinity, duplicate PlaylistTracks, deterministic `(sort,id)` explicitly unverified order, beat2 resolves to selected structure entry2.time, time=-1 distinct from0 and no cue RGB field invented. Test Unicode surrogate sharding, alternate grids, integer/negative/fractional beat cues and system/hot/memory array holes/order.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_dj_studio`; expect missing reader.
+- [x] Read Explorer Tracks/Playlists/memberships/bookmarked Folders, separate audio-library and referenced track structures. Join by unique normalized path conservatively, retaining both surfaces and conflicts. Preserve processed file identity/source provenance, external maps, analysis state, alternate structures and projects as untouched references. Refuse traversal/absolute/NUL keys and symlink escape. Unresolved/fractional beat timing has no invented canonical endpoint; BPM-only never regenerates grid.
+- [x] Rerun malformed/trailing JSON, duplicate path, missing target record, unknown migrations/renderer and source mutation during capture; expect accounted issues and no writes/cache invalidation.
+- [x] Commit `feat: read DJ.Studio native and imported library surfaces`.
 
 ### Task 18b: Restricted DJ.Studio existing-record write experiment
 

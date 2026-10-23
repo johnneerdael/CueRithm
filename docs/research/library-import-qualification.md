@@ -486,3 +486,57 @@ heap overflow/cycles, both catalogs, malformed/unknown fields, missing files,
 cue precedence and black RGB, history selection, repeated occurrences,
 cancellation and source immutability. Hardware acceptance remains explicitly
 unrun.
+
+## DJ.Studio Explorer and imported records
+
+The reader observes the native Explorer SQL index and imported JSON/structure
+records separately. The SQL profile checks the pinned column, null/default,
+primary-key, unique/index and foreign-key manifest, all ten migration names and
+version PRAGMAs. Unknown SQL profiles keep individually accounted raw music-table
+rows; no migration or version rewrite runs. Recognized JSON records can still be
+inspected. Native/renderer last-writer acceptance remains unverified and all
+source write capabilities stay disabled.
+
+SQL IDs, processed audio record keys/hashes, structure keys and project references
+remain distinct. Only a unique normalized recorded path joins the two music
+surfaces. Duplicate/ambiguous paths retain separate records and issues. Conflicting
+SQL/JSON values are withheld from active normalization, with both immutable field
+candidates retained; no unqualified metadata precedence is silently chosen.
+JSON tags, original/effective key fields, analysis state, external mappings and
+unknown properties remain separate provenance. Key12 maps to8A/Am; all24 numeric
+keys and unknown-1/-2 controls preserve source values. Fractional SQL BPM is not
+truncated despite INTEGER affinity.
+
+Filesystem record sharding sums JavaScript UTF-16 code units modulo256 and uses
+unpadded lowercase hex. Nested structure keys are retained while traversal,
+absolute/NUL/unsafe keys, mismatched shards and source symlink escape are refused.
+Strict bounded JSON rejects duplicate object keys, trailing junk, nonfinite
+numbers and excessive depth/nodes. Malformed records remain raw blobs with
+individual issues. Provenance/reference pages and private disk indexes bound
+working sets rather than collecting the imported library in memory.
+
+Active structure selection retains alternate references and explicit beat arrays.
+Valid integer cue beats resolve against the selected array entry, never a guessed
+BPM formula. Negative/fractional/out-of-range beats, conflicting beat/time values
+and unqualified loop ends stay unresolved. Loop length is a beat-coordinate span,
+not seconds. System/hot/memory arrays keep their order, holes, sentinels, removed
+source types and cueKey fields; no cue RGB is invented. Array positions are marked
+as unqualified external pad mappings. Native/canonical clock alignment remains
+unqualified, including for processed-audio identities.
+
+Native playlists retain duplicate membership IDs and deterministic(sort,id)
+ordering explicitly labeled unverified against the app UI. Bookmarked Folders
+remain filesystem references and do not become nested native playlists or trigger
+a directory scan. Projects stay untouched references; derived caches, Chromium
+storage, music, images, stems and authentication configuration are not mutated.
+Read acquisition performs no renderer/IPC invocation, audio decoding or analysis.
+
+Task18 verification:526 dj-sync tests pass (3 ignored), including13 DJ.Studio
+integration cases and a deterministic source-JSON mutation-during-SQL-backup
+control. All-target Clippy with warnings denied, formatting and diff checks pass.
+Controls cover all24 keys and unknown sentinels, SQL/JSON divergence, UTF-16
+surrogate sharding, alternate structures, loop beat units, array holes/removed
+cues, malformed/duplicate/trailing JSON, unknown migrations/renderer, duplicate
+paths, missing structures, paged invalid/project provenance, symlink refusal and
+unchanged source/cache bytes. These are D2 controls; app reopen/write acceptance
+remains unrun and production DJ.Studio writes remain disabled.

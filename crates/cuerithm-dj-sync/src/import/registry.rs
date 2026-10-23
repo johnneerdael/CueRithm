@@ -73,6 +73,9 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::DjStudio {
+        return &super::readers::dj_studio::DjStudioReader;
+    }
     if provider == SourceProvider::PioneerUsb {
         return &super::readers::pioneer_usb::PioneerUsbReader;
     }
