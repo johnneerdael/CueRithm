@@ -134,8 +134,15 @@ def main():
                 page = os.path.join(DOCS, entry["page"])
                 if not os.path.exists(page):
                     errors.append(f"figures {os.path.basename(path)}: {entry['scene']}: unknown page {entry['page']}")
-                elif (entry.get("image") or entry.get("images")) and not all(os.path.exists(os.path.join(DOCS, "assets", "screens", n)) for n in ([entry["image"]] if entry.get("image") else entry["images"].values())):
-                    errors.append(f"figures {os.path.basename(path)}: {entry['scene']}: image not found: {entry['image']}")
+                elif entry.get("image") or entry.get("images"):
+                    names = [entry["image"]] if entry.get("image") else list(entry["images"].values())
+                    missing = [n for n in names if not os.path.exists(os.path.join(DOCS, "assets", "screens", n))]
+                    if missing:
+                        errors.append(f"figures {os.path.basename(path)}: {entry['scene']}: image not found: {missing[0]}")
+                    elif entry["after"] != "intro":
+                        with open(page, encoding="utf-8") as text:
+                            if entry["after"] not in (line.strip() for line in text):
+                                errors.append(f"figures {os.path.basename(path)}: {entry['scene']}: heading not found: {entry['after']}")
                 elif entry["after"] != "intro":
                     with open(page, encoding="utf-8") as text:
                         if entry["after"] not in (line.strip() for line in text):

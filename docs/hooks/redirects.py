@@ -83,8 +83,12 @@ def _page(default, anchors, canonical):
         "<script>\n"
         f"var base = {json.dumps(default)}, map = {json.dumps(anchors)};\n"
         "var id = decodeURIComponent(location.hash.slice(1));\n"
-        "var target = Object.prototype.hasOwnProperty.call(map, id) ? map[id] : base + location.hash;\n"
-        "location.replace(target.indexOf('?') < 0 ? target + location.search : target);\n"
+        "var target = Object.prototype.hasOwnProperty.call(map, id) ? map[id] : base;\n"
+        "var cut = target.indexOf('#');\n"
+        "var path = cut < 0 ? target : target.slice(0, cut);\n"
+        "var hash = cut < 0 ? '' : target.slice(cut);\n"
+        "if (!Object.prototype.hasOwnProperty.call(map, id) && location.hash) { hash = location.hash; }\n"
+        "location.replace(path + location.search + hash);\n"
         "</script>\n"
     )
     return (

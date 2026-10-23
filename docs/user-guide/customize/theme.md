@@ -2,17 +2,17 @@
 
 <p class="lead">One button in the header switches CueRithm between light, dark and your computer's own setting. It takes a few seconds and CueRithm remembers your choice.</p>
 
-<!-- figure:existing-31-dark-selected-player-theme -->
-<figure markdown>
-![CueRithm in the dark theme with a track selected and the player open](../assets/screens/31-dark-selected-player.webp){ .screen loading=lazy }
-<figcaption>The dark theme.</figcaption>
-</figure>
-<!-- /figure -->
-
 <!-- figure:existing-92-light-player-2-theme -->
 <figure markdown>
 ![CueRithm in the light theme](../assets/screens/92-light-player.webp){ .screen loading=lazy }
 <figcaption>The light theme.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:existing-31-dark-selected-player-theme -->
+<figure markdown>
+![CueRithm in the dark theme with a track selected and the player open](../assets/screens/31-dark-selected-player.webp){ .screen loading=lazy }
+<figcaption>The dark theme.</figcaption>
 </figure>
 <!-- /figure -->
 

@@ -2,10 +2,10 @@
 
 <p class="lead">Pick one of six colour palettes for every waveform in CueRithm. It takes a few seconds, applies at once and needs no saving.</p>
 
-<!-- figure:existing-94-style-lagoon-waveform-style -->
+<!-- figure:existing-15-settings-appearance-waveform-style -->
 <figure markdown>
-![The Lagoon waveform style](../assets/screens/94-style-lagoon.webp){ .screen loading=lazy }
-<figcaption>Lagoon.</figcaption>
+![Appearance settings with six waveform style previews](../assets/screens/15-settings-appearance.webp){ .screen loading=lazy }
+<figcaption>Pick a waveform style under Settings → Appearance.</figcaption>
 </figure>
 <!-- /figure -->
 
@@ -16,10 +16,10 @@
 </figure>
 <!-- /figure -->
 
-<!-- figure:existing-15-settings-appearance-waveform-style -->
+<!-- figure:existing-94-style-lagoon-waveform-style -->
 <figure markdown>
-![Appearance settings with six waveform style previews](../assets/screens/15-settings-appearance.webp){ .screen loading=lazy }
-<figcaption>Pick a waveform style under Settings → Appearance.</figcaption>
+![The Lagoon waveform style](../assets/screens/94-style-lagoon.webp){ .screen loading=lazy }
+<figcaption>Lagoon.</figcaption>
 </figure>
 <!-- /figure -->
 

@@ -73,6 +73,20 @@ def insertion_point(lines, after):
     return i
 
 
+def skip_placed(lines, at):
+    """Move past figures already placed at this point, so co-located figures keep manifest order."""
+    while True:
+        j = at
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+        if j < len(lines) and lines[j].startswith("<!-- figure:"):
+            while j < len(lines) and not lines[j].startswith("<!-- /figure -->"):
+                j += 1
+            at = j + 1
+        else:
+            return at
+
+
 def have_pair(scene):
     return all(os.path.exists(os.path.join(SCREENS, f"{scene}-{theme}.webp")) for theme in ("light", "dark"))
 
@@ -118,7 +132,7 @@ def main():
                 pending.append(scene)
                 continue
             try:
-                at = insertion_point(lines, entry["after"])
+                at = skip_placed(lines, insertion_point(lines, entry["after"]))
             except KeyError:
                 problems.append(f"{entry['_manifest']}: {scene}: heading not found in {page}: {entry['after']}")
                 continue
