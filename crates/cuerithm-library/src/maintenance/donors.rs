@@ -80,6 +80,12 @@ struct Payload {
     /// the Trash, that cache can be the only copy of the picture left.
     #[serde(default)]
     artwork_hashes: Vec<String>,
+    /// Files that had already left their place (to the Trash, or deleted) when an operation was
+    /// rolled back, so their records were kept. Shown under Recovery until acknowledged.
+    #[serde(default)]
+    interrupted_deletions: Vec<String>,
+    #[serde(default)]
+    deletions_acknowledged: bool,
 }
 impl Payload {
     /// Drop what only Undo of a removal needs, keeping the summary in `result`. Returns the
@@ -117,15 +123,19 @@ pub(super) fn drop_saved_records(conn: &rusqlite::Connection, id: &str) -> Resul
 }
 /// An interrupted operation changed no library record, but it may already have moved files to
 /// the Trash. Say which, so the user can find them.
-fn interruption(write: &Write, base: &str) -> anyhow::Error {
-    let gone = write
+/// Files this operation meant to move to the Trash that are no longer at their place.
+fn gone_files(write: &Write) -> Vec<String> {
+    write
         .payload
         .trash_intent
         .iter()
         .filter_map(|item| bytes_path(&item.path).ok())
         .filter(|path| !path.exists())
         .map(|path| path.display().to_string())
-        .collect::<Vec<_>>();
+        .collect()
+}
+fn interruption(write: &Write, base: &str) -> anyhow::Error {
+    let gone = gone_files(write);
     if gone.is_empty() {
         anyhow::anyhow!("{base}")
     } else {
@@ -606,6 +616,8 @@ impl DuplicateMergeService {
             undone_by: None,
             removed: None,
             artwork_hashes: vec![],
+            interrupted_deletions: vec![],
+            deletions_acknowledged: false,
             trash_intent: doomed
                 .iter()
                 .map(|f| {
@@ -726,6 +738,10 @@ impl DuplicateMergeService {
                     group
                         .delete_ids
                         .retain(|id| doomed.iter().any(|f| &f.track_id == id));
+                }
+                #[cfg(test)]
+                if let Some(hook) = self.hook {
+                    hook("trashed");
                 }
             }
             for item in &staged {
@@ -1117,6 +1133,8 @@ impl DuplicateMergeService {
             trash_intent: vec![],
             undo_expired: false,
             artwork_hashes: vec![],
+            interrupted_deletions: vec![],
+            deletions_acknowledged: false,
         };
         let _gate = self
             .lib
@@ -1202,7 +1220,7 @@ impl DuplicateMergeService {
 impl Library {
     pub fn duplicate_recovery(&self) -> Result<Vec<DuplicateRecovery>> {
         let conn = self.conn()?;
-        let mut q=conn.prepare("SELECT id,kind,state,created,error FROM maintenance_writes WHERE state IN ('prepared','conflict') OR (cleanup_complete=0 AND error IS NOT NULL) ORDER BY created,id")?;
+        let mut q=conn.prepare("SELECT id,kind,state,created,error FROM maintenance_writes WHERE state IN ('prepared','conflict') OR (cleanup_complete=0 AND error IS NOT NULL) OR (json_array_length(COALESCE(json_extract(payload_json,'$.interrupted_deletions'),'[]'))>0 AND COALESCE(json_extract(payload_json,'$.deletions_acknowledged'),0)=0) ORDER BY created,id")?;
         Ok(q.query_map([], |r| {
             Ok(DuplicateRecovery {
                 id: r.get(0)?,
@@ -1228,11 +1246,37 @@ impl Library {
         let write = load(self, id)?;
         if matches!(write.state.as_str(), "prepared" | "conflict") {
             let error = interruption(&write, "Explicit duplicate recovery retry");
+            let gone = gone_files(&write);
             finish(self, id, &write.files, Some(&error))?;
+            self.note_interrupted_deletions(id, &gone)?;
         } else {
             finish(self, id, &write.files, None)?;
+            // A rolled-back operation that had already moved files is shown until the DJ has
+            // seen it; selecting it in History acknowledges it, and it does not come back.
+            if write.state == "rolled_back" && !write.payload.interrupted_deletions.is_empty() {
+                self.acknowledge_interrupted_deletions(id)?;
+            }
         }
         self.duplicate_recovery()
+    }
+    /// Remembers which files an interrupted operation had already moved away, so that History
+    /// keeps showing the operation after it was rolled back.
+    fn note_interrupted_deletions(&self, id: &str, files: &[String]) -> Result<()> {
+        if files.is_empty() {
+            return Ok(());
+        }
+        self.conn()?.execute(
+            "UPDATE maintenance_writes SET payload_json=json_set(payload_json,'$.interrupted_deletions',json(?1),'$.deletions_acknowledged',json('false')) WHERE id=?2",
+            params![serde_json::to_string(files)?, id],
+        )?;
+        Ok(())
+    }
+    fn acknowledge_interrupted_deletions(&self, id: &str) -> Result<()> {
+        self.conn()?.execute(
+            "UPDATE maintenance_writes SET payload_json=json_set(payload_json,'$.deletions_acknowledged',json('true')) WHERE id=?1",
+            params![id],
+        )?;
+        Ok(())
     }
     pub(crate) fn recover_duplicate_writes(&self) -> Result<()> {
         let ids = {
@@ -1246,7 +1290,9 @@ impl Library {
         for id in ids {
             let write = load(self, &id)?;
             let error = interruption(&write, "Interrupted duplicate operation rolled back");
+            let gone = gone_files(&write);
             finish(self, &write.id, &write.files, Some(&error))?;
+            self.note_interrupted_deletions(&write.id, &gone)?;
         }
         let ids = {
             let conn = self.conn()?;
@@ -1380,6 +1426,8 @@ mod tests {
             let lib = Library::open(&dir.path().join("app/library.sqlite")).unwrap();
             assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), hash);
             assert_eq!(lib.track(&target).unwrap().title, "Before");
+            // Nothing had left its place, so there is nothing for the DJ to be told.
+            assert!(lib.duplicate_recovery().unwrap().is_empty());
             assert_eq!(
                 lib.conn()
                     .unwrap()
@@ -1456,7 +1504,18 @@ mod tests {
             changed_duplicate_is_kept(hook, whole_merge_fails, keeper);
         }
     }
-    fn changed_duplicate_is_kept(hook: fn(&str), whole_merge_fails: bool, change_keeper: bool) {
+    /// Two identical tracks with a Delete from disk preview ready to apply.
+    struct DeleteReady {
+        dir: tempfile::TempDir,
+        lib: Library,
+        runtime: MediaRuntime,
+        preview: DuplicateMergePreview,
+        ids: Vec<String>,
+        paths_zero: PathBuf,
+        duplicate: PathBuf,
+        token: CancellationToken,
+    }
+    fn delete_ready() -> DeleteReady {
         let (dir, lib, runtime, _donor_preview, paths_zero, _target) = fixture();
         let token = CancellationToken::default();
         let ids = {
@@ -1497,6 +1556,28 @@ mod tests {
                 &token,
             )
             .unwrap();
+        DeleteReady {
+            dir,
+            lib,
+            runtime,
+            preview,
+            ids,
+            paths_zero,
+            duplicate,
+            token,
+        }
+    }
+    fn changed_duplicate_is_kept(hook: fn(&str), whole_merge_fails: bool, change_keeper: bool) {
+        let DeleteReady {
+            dir: _dir,
+            lib,
+            runtime,
+            preview,
+            ids,
+            paths_zero,
+            duplicate,
+            token,
+        } = delete_ready();
         let listed = preview.deletion.as_ref().unwrap().files.clone();
         assert_eq!(listed.len(), 1);
         let removed = listed[0].track_id.clone();
@@ -1553,6 +1634,77 @@ mod tests {
             "its record stays in the library"
         );
         assert!(!lib.track(&removed).unwrap().archived);
+    }
+    /// A Trash that really moves the file, into a folder of the test.
+    struct MovesAside(PathBuf);
+    impl FileTrash for MovesAside {
+        fn move_to_trash(&self, path: &std::path::Path) -> std::result::Result<(), String> {
+            std::fs::create_dir_all(&self.0).map_err(|e| e.to_string())?;
+            std::fs::rename(path, self.0.join(path.file_name().unwrap())).map_err(|e| e.to_string())
+        }
+    }
+    fn exit_after_trash(phase: &str) {
+        if phase == "trashed" {
+            panic!("simulated exit after a file went to the Trash");
+        }
+    }
+    #[test]
+    fn a_deletion_interrupted_after_the_file_went_to_the_trash_stays_visible_until_acknowledged() {
+        let ready = delete_ready();
+        let listed = ready.preview.deletion.as_ref().unwrap().files.clone();
+        assert_eq!(listed.len(), 1);
+        let removed = listed[0].track_id.clone();
+        let removed_path = if removed == ready.ids[1] {
+            ready.duplicate.clone()
+        } else {
+            ready.paths_zero.clone()
+        };
+        let database = ready.dir.path().join("app/library.sqlite");
+        let mut service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            Arc::new(MovesAside(ready.dir.path().join("moved-aside"))),
+        );
+        service.hook = Some(exit_after_trash);
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                service.apply_confirmed(&ready.preview.id, true, &ready.token)
+            }))
+            .is_err()
+        );
+        assert!(!removed_path.exists(), "the file had already gone");
+        let DeleteReady { dir, lib, .. } = ready;
+        drop(service);
+        drop(lib);
+        // Start-up recovery rolls the operation back; the record is kept, the file is gone.
+        let lib = Library::open(&database).unwrap();
+        assert!(lib.track(&removed).is_ok());
+        let pending = lib.duplicate_recovery().unwrap();
+        assert_eq!(pending.len(), 1, "{pending:?}");
+        assert_eq!(pending[0].state, "rolled_back");
+        let shown = removed_path.display().to_string();
+        assert!(
+            pending[0]
+                .error
+                .as_deref()
+                .unwrap_or_default()
+                .contains(&shown),
+            "the entry names the file: {:?}",
+            pending[0].error
+        );
+        // It survives another start, until someone acknowledges it.
+        drop(lib);
+        let lib = Library::open(&database).unwrap();
+        assert_eq!(lib.duplicate_recovery().unwrap().len(), 1);
+        let after = lib
+            .retry_duplicate_recovery(&pending[0].id, &CancellationToken::default())
+            .unwrap();
+        assert!(after.is_empty(), "acknowledged: {after:?}");
+        drop(lib);
+        let lib = Library::open(&database).unwrap();
+        assert!(lib.duplicate_recovery().unwrap().is_empty());
+        assert!(lib.track(&removed).is_ok(), "the record was never removed");
+        drop(dir);
     }
     #[test]
     fn recovery_preserves_a_later_user_file_and_retains_its_recovery_assets() {

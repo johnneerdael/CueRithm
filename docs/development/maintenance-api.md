@@ -170,7 +170,9 @@ cues and grid without archive/reference actions.
 App startup rolls back interrupted prepared operations. An interrupted undo
 returns to the previously committed after-state and remains retryable. Later user
 file edits are preserved and recorded as recovery conflicts with backups retained.
-`recovery()` lists pending/conflicted operations and incomplete recovery cleanup;
+`recovery()` lists pending/conflicted operations and incomplete recovery cleanup, and a delete
+merge that was rolled back after files had already left their place (state `rolled_back`, `error`
+naming the files; their records were kept) until `retryRecovery` acknowledges it;
 `retryRecovery(operationId, journalId)` retries guarded rollback/cleanup after the
 user resolves the conflicting source/location. It cannot overwrite an unknown
 later file version. Show these errors rather than presenting a partial merge as
