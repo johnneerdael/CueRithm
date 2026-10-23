@@ -144,6 +144,14 @@ pub(super) fn plan(
         .iter()
         .map(|t| (t.id.as_str(), t))
         .collect::<BTreeMap<_, _>>();
+    // The scan proves each file by its raw path. `display_path` is only for showing: a name that
+    // is not valid text cannot be rebuilt from it.
+    let proofs = scan
+        .files
+        .iter()
+        .zip(&scan.report.tracks)
+        .map(|(proof, track)| (track.id.as_str(), proof))
+        .collect::<BTreeMap<_, _>>();
     let candidates = merge
         .groups
         .iter()
@@ -261,7 +269,9 @@ pub(super) fn plan(
         let kept_row = rows.get(keeper.as_str());
         let unchanged = scanned.observed_sha256.as_deref() == Some(hash.as_str())
             && kept_row.is_some_and(|k| k.observed_sha256.as_deref() == Some(kept_hash.as_str()))
-            && path_bytes(&item.path) == path_bytes(Path::new(&scanned.display_path));
+            && proofs
+                .get(id.as_str())
+                .is_some_and(|proof| proof.path == path_bytes(&item.path));
         if !unchanged {
             skipped.push(skip(
                 id,

@@ -333,6 +333,97 @@ fn a_file_another_remaining_record_still_uses_is_not_deleted() {
     assert_eq!(f.content(), before);
 }
 
+/// Rewrites the shown text of one path wherever a saved scan or review holds it, the way a lossy
+/// conversion of a name that is not valid text would, and leaves the raw proofs alone.
+fn garble_shown_path(f: &Fixture, shown: &str) {
+    fn walk(value: &mut serde_json::Value, shown: &str) {
+        match value {
+            serde_json::Value::String(text) if text == shown => {
+                *text = shown.replace(".wav", "\u{FFFD}.wav");
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(|v| walk(v, shown)),
+            serde_json::Value::Object(map) => map.values_mut().for_each(|v| walk(v, shown)),
+            _ => {}
+        }
+    }
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let saved: Vec<(String, String)> = conn
+        .prepare("SELECT id,payload_json FROM maintenance_scans WHERE kind IN ('duplicates','duplicate_review')")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(!saved.is_empty());
+    for (id, text) in saved {
+        let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        walk(&mut value, shown);
+        conn.execute(
+            "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
+            rusqlite::params![value.to_string(), id],
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn a_file_whose_shown_path_differs_from_its_raw_path_can_still_be_deleted() {
+    // A file name that is not valid text is shown with replacement characters, so the shown
+    // path can never be turned back into the file's real path. The scan's raw proof is what
+    // the deletion check compares.
+    let f = Fixture::new();
+    let review = f.review(Tolerance::None);
+    let shown = f.paths[1]
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    garble_shown_path(&f, &shown);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.skipped.is_empty(), "{:?}", plan.skipped);
+    assert_eq!(plan.files.len(), 1);
+    assert_eq!(plan.files[0].track_id, f.ids[1]);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[1].clone()]);
+    assert_eq!(stand_in.taken(), vec!["track-1.wav"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_duplicate_with_a_file_name_that_is_not_valid_text_can_be_deleted() {
+    use std::os::unix::ffi::OsStrExt;
+    let mut f = Fixture::empty();
+    f.add_track("keep.wav", 61);
+    let odd = f
+        .dir
+        .path()
+        .join(std::ffi::OsStr::from_bytes(b"odd-\xFF-name.wav"));
+    // Some file systems (APFS on a Mac) refuse such a name; there the shown-path test above
+    // covers the same comparison.
+    if std::fs::File::create(&odd).is_err() {
+        eprintln!("this file system refuses a name that is not valid text; skipped");
+        return;
+    }
+    wav(&odd, 61);
+    let copy = f.import(odd.clone());
+    let review = f.review(Tolerance::None);
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.skipped.is_empty(), "{:?}", plan.skipped);
+    assert_eq!(plan.files.len(), 1);
+    assert_eq!(plan.files[0].track_id, f.ids[copy]);
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert_eq!(result.removed_ids, vec![f.ids[copy].clone()]);
+    assert!(!odd.exists());
+}
+
 #[test]
 fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
     let f = Fixture::new();
