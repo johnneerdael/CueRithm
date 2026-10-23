@@ -74,9 +74,14 @@ impl Library {
     /// - the track has no file work in flight.
     ///
     /// Anything else is left untouched so the caller admits it as it always has.
-    /// `settled` is asked, only for a candidate that may match a missing track,
-    /// whether the file has stopped changing; a file still being written is
-    /// reported in `deferred` instead of being hashed.
+    /// `settled` is asked, once at least one track is missing from a watch folder,
+    /// about every candidate that no track owns, whether the file has stopped
+    /// changing; a file still being written is reported in `deferred` instead of
+    /// being hashed. There is no way to tell beforehand which of those files could
+    /// match: a track keeps no size or other fingerprint of the file as it is on
+    /// disk now (the probed size is from analysis and goes stale when tags are
+    /// written), so each is hashed and the hash is compared with the missing
+    /// tracks'. A library with nothing missing never reaches this point.
     pub fn relink_moved_tracks(
         &self,
         candidates: &[PathBuf],
