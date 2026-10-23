@@ -19,7 +19,7 @@ Shortcuts depend on where the focus is.
 | You are dragging tracks or a playlist | ++esc++ cancels the drag; other shortcuts wait |
 | CueRithm is saving a draft before it quits | Shortcuts are ignored |
 
-The search box shows the hint "⌘ F" on every system. On Windows and Linux the key is ++ctrl+f++.
+The search box shows the hint for your system: "⌘ F" on a Mac, "Ctrl+F" on Windows and Linux.
 
 ## Find and select { #find }
 
@@ -46,7 +46,7 @@ The waveform's tooltip reminds you: "← / → jump one bar". More on cues and z
 
 | Shortcut | What it does | Notes |
 |---|---|---|
-| ++cmd+b++ / ++ctrl+b++ | Collapses the sidebar to an icon rail, or pins it open again | The choice is remembered. A collapsed sidebar opens over the content while you point at it. Its tooltip reads "Collapse to icons (⌘B)". |
+| ++cmd+b++ / ++ctrl+b++ | Collapses the sidebar to an icon rail, or pins it open again | The choice is remembered. A collapsed sidebar opens over the content while you point at it. Its tooltip reads "Collapse to icons (⌘B)" on a Mac and "Collapse to icons (Ctrl+B)" on Windows and Linux. |
 
 The sidebar and the player can also be resized by dragging the divider: the sidebar between 180 and 340 pixels wide and the player between 200 and 420 pixels tall. See [Resize the sidebar and player](../customize/layout.md).
 
@@ -104,4 +104,4 @@ The panel notes: "While Curate is focused: 1–9 toggle the first choices. [ / ]
 - [Find the setting you need](../customize/find-a-setting.md)
 - [Find your way around the window](../get-started/main-window.md)
 
-<!-- verified: apps/desktop/src/App.tsx (keydown handler: Mod+F, Mod+B, Mod+A, arrows, Space and their guards; header kbd hint; jumpBar = 240/bpm; resize clamps 180-340 and 200-420; onSelect click/Cmd/Shift); apps/desktop/src/components/TrackTable.tsx (ArrowUp/Down/Enter, double-click, Escape for row menu); apps/desktop/src/components/PlayerPanel.tsx (waveform Enter/Space zoom, tooltip, CUE and Back to start, cue buttons, overview click); apps/desktop/src/components/MetadataEditor.tsx (Mod+S check/save; discard dialog Escape/Tab trap; button labels Preview changes and Save changes); apps/desktop/src/components/CuratePanel.tsx (1-9 and [ ]); apps/desktop/src/components/InspectorFrame.tsx (Escape closes panel); apps/desktop/src/components/PlaylistMenu.tsx; PlaylistMoveDialog.tsx; CurationFilters.tsx; apps/desktop/src/use-playlist-drag.ts (Escape cancels drag); apps/desktop/src/components/Sidebar.tsx (title with the keyboard hint); apps/desktop/src-tauri/src/lib.rs and tauri.conf.json (no menu or accelerator defined, checked by search); apps/desktop/src/test/workspace.test.tsx and brand-ui.test.tsx; legacy get-started/shortcuts.md re-checked. UNVERIFIED: the standard operating-system shortcuts a Tauri window may add (for example quit or copy and paste) are not defined by CueRithm and are not listed. -->
+<!-- verified: apps/desktop/src/App.tsx (keydown handler: Mod+F, Mod+B, Mod+A, arrows, Space and their guards; header kbd hint; jumpBar = 240/bpm; resize clamps 180-340 and 200-420; onSelect click/Cmd/Shift); apps/desktop/src/components/TrackTable.tsx (ArrowUp/Down/Enter, double-click, Escape for row menu); apps/desktop/src/components/PlayerPanel.tsx (waveform Enter/Space zoom, tooltip, CUE and Back to start, cue buttons, overview click); apps/desktop/src/components/MetadataEditor.tsx (Mod+S check/save; discard dialog Escape/Tab trap; button labels Preview changes and Save changes); apps/desktop/src/components/CuratePanel.tsx (1-9 and [ ]); apps/desktop/src/components/InspectorFrame.tsx (Escape closes panel); apps/desktop/src/components/PlaylistMenu.tsx; PlaylistMoveDialog.tsx; CurationFilters.tsx; apps/desktop/src/use-playlist-drag.ts (Escape cancels drag); apps/desktop/src/components/Sidebar.tsx (title with the keyboard hint); apps/desktop/src/platform.ts (hint wording by platform; the handlers accept Cmd or Ctrl); apps/desktop/src-tauri/src/lib.rs and tauri.conf.json (no menu or accelerator defined, checked by search); apps/desktop/src/test/workspace.test.tsx and brand-ui.test.tsx; legacy get-started/shortcuts.md re-checked. UNVERIFIED: the standard operating-system shortcuts a Tauri window may add (for example quit or copy and paste) are not defined by CueRithm and are not listed. -->

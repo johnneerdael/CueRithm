@@ -9,6 +9,7 @@ import markLight from "../brand/cuerithm-mark-on-light.svg";
 import markDark from "../brand/cuerithm-mark-on-dark.svg";
 import type {PlaylistDragPayload} from "../playlist-drag";
 import type {LibraryState,WorkspaceView} from "../types";
+import {shortcut} from "../platform";
 const peekDelay=140;
 export default function Sidebar({view,onView,state,playlists,activePlaylistId,onPlaylist,onCreate,onEdit,onAction,onUndo,busy,playlistPanel,onTools,drag,onPlaylistDragStart,collapsed,onToggleCollapsed}:{view:WorkspaceView;onView:(view:WorkspaceView)=>void;state:LibraryState|null;playlists:PlaylistWorkspace|null;activePlaylistId:string|null;onPlaylist:(id:string)=>void;onCreate:()=>void;onEdit:(node:PlaylistNode)=>void;onAction:(edit:PlaylistEdit,revision:number)=>Promise<boolean>;onUndo:()=>void;busy:boolean;playlistPanel:"tools"|"generator"|null;onTools:()=>void;drag:PlaylistDragPayload|null;onPlaylistDragStart:(id:string,event:React.PointerEvent)=>void;collapsed:boolean;onToggleCollapsed:()=>void}){
   const [expanded,setExpanded]=useState(new Set<string>()),[removedOpen,setRemovedOpen]=useState(false);
@@ -35,7 +36,7 @@ export default function Sidebar({view,onView,state,playlists,activePlaylistId,on
   return <div className="sidebar-slot" data-collapsed={collapsed}>
   <aside className={"sidebar"+(rail?" rail":"")+(collapsed&&!rail?" peek":"")} onMouseEnter={enter} onMouseLeave={leave} onFocus={enter} onBlur={leave}>
     <div className="brand" data-tauri-drag-region><picture><img className="mark-light" src={markLight} alt=""/><img className="mark-dark" src={markDark} alt=""/></picture><span className="brand-name">CueRithm<small>MUSIC LIBRARY</small></span>
-      <button className="rail-toggle" aria-label={collapsed?"Pin sidebar open":"Collapse sidebar"} aria-pressed={collapsed} title={collapsed?"Pin sidebar open (⌘B)":"Collapse to icons (⌘B)"} onClick={onToggleCollapsed}>{collapsed?<PanelLeftOpen size={16}/>:<PanelLeftClose size={16}/>}</button></div>
+      <button className="rail-toggle" aria-label={collapsed?"Pin sidebar open":"Collapse sidebar"} aria-pressed={collapsed} title={collapsed?`Pin sidebar open (${shortcut("B")})`:`Collapse to icons (${shortcut("B")})`} onClick={onToggleCollapsed}>{collapsed?<PanelLeftOpen size={16}/>:<PanelLeftClose size={16}/>}</button></div>
     <div className="sidebar-section">LIBRARY</div>
     <nav aria-label="Library">
       <button className={view==="tracks"&&!activePlaylistId&&!playlistPanel?"nav active":"nav"} title="Tracks" onClick={()=>onView("tracks")}><Glyph name="library"/><span className="nav-label">Tracks</span><span className="count">{state?.counts.tracks??0}</span></button>

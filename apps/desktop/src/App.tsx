@@ -38,6 +38,7 @@ import CuratePanel,{type CurateHandle} from "./components/CuratePanel";
 import type {CurationCatalog,CurationFilter} from "./curation-types";
 import CurationFilters from "./components/CurationFilters";
 import type {MetadataDraft} from "./editor-types";
+import {shortcut} from "./platform";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
@@ -230,7 +231,7 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   useEffect(()=>{
     const key=(event:KeyboardEvent)=>{
       if(event.defaultPrevented||internalDrag.active.current||exitIntent.current||closePending.current)return;
-      if((event.metaKey||event.ctrlKey)&&event.key==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();}
+      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="f"){event.preventDefault();setPlaylistPanel(null);if(!isLibraryView(view))setView(lastView);searchInput.current?.focus();}
       if(playlistEditorRef.current||event.target instanceof Element&&event.target.closest("[role=dialog],[role=menu]"))return;
       if((event.metaKey||event.ctrlKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==="b"){event.preventDefault();setCollapsed(v=>!v);return;}
       if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement||event.target instanceof HTMLTextAreaElement||(event.target instanceof HTMLElement&&event.target.isContentEditable))return;
@@ -336,7 +337,7 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
     <div className="sidebar-resize" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" onPointerDown={e=>resize(e,"sidebar")}/>
     <div className="main-column" inert={exiting}>
       <header className="app-header" data-tauri-drag-region>
-        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(!isLibraryView(view))onView(lastView);}}/><kbd>⌘ F</kbd></div>
+        <div className="global-search"><Search size={16}/><input ref={searchInput} type="search" aria-label="Search library" placeholder="Search tracks, artists, genres…" value={search} onChange={e=>{setSearch(e.target.value);setPlaylistPanel(null);if(!isLibraryView(view))onView(lastView);}}/><kbd>{shortcut("F",true)}</kbd></div>
         <div className="processing-indicator">{!state?<span>{bootError?"Library unavailable":"Opening library…"}</span>:active.length?<><LoaderCircle size={14} className="spin"/><span>Preparing {active.length} {active.length===1?"track":"tracks"}</span></>:attention.length?<span className="attention">{attention.length} need attention</span>:<><i/><span>All up to date</span></>}</div>
         <button className="icon-button theme-toggle" aria-label={"Colour theme: "+mode} title={"Colour theme: "+mode+" (click to change)"} onClick={cycle}>{mode==="light"?<Sun size={17}/>:mode==="dark"?<Moon size={17}/>:<SunMoon size={17}/>}</button>
         <button className="primary add-tracks" onClick={()=>void bridge.chooseFiles().then(addPaths).catch(notify)}><Plus size={17}/>Add tracks</button>
