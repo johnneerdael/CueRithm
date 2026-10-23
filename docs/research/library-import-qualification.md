@@ -310,3 +310,44 @@ reader cases and shared relative-path regressions. A separate existing Engine
 writer run passes21 tests. All-target Clippy `-D warnings`, formatting and diff
 checks pass. Source bytes and repeated observation identity are checked by the
 independent synthetic fixtures; no native-app acceptance is implied.
+
+## djay Pro and shared Apple archive graphs
+
+The read-only djay reader covers the known Yap `database2` music collections,
+current TSAF3.0/3.0 records and bplist00/NSKeyedArchiver shapes described for v5+
+storage. It does not infer compatibility from a marketing version or inspect
+account/settings collections or derived search indexes. Source blobs and optional
+record metadata stay separate from decoded fields; lookup/playlist auxiliary
+records are paged on private disk. Missing files, artists, parent/child references
+and orphan items remain visible without diagnostic text becoming song tags.
+
+The shared native archive decoder keeps binary-plist transport references and
+NS UID references distinct, preserving ordered arrays, dictionaries, numbers,
+unknown classes and binary blocks. Counts, offsets, lengths, payloads, expansion
+and reference depth are bounded. Classes are never instantiated. Supported
+Foundation containers normalize as data; unresolved cycles remain explicit
+reference evidence and cannot become descriptive text fields. Credentials/account
+key names are filtered from normalized metadata. The plist crate is used only as
+an independent fixture encoder in tests, not a product parser/runtime.
+
+TSAF decoding checks its20-byte header/class marker, aligns numeric fields to the
+original blob start, bounds string/numeric pointer tables and retains URI/control
+and binary-block evidence. Apple epoch0 becomes2001-01-01T00:00:00Z independently
+of the host timezone. Native manual key and signed tempo exponents take precedence
+while analyzed values remain separate cached observations. Scalar BPM remains
+independent of variable grids; explicit alternate grids are retained with an
+unsupported-field issue, rather than manufactured straight beats.
+
+Cues retain original one-based numbers, native seconds, optional end times and
+slot roles; no lossy near-loop deduplication runs. Playlist child arrays determine
+hierarchy/order, with parent recovery when roots are empty; missing references
+retain empty-name placeholders and raw identity. Smart filters stay opaque with
+explicit loss information. All performance timing remains native/unresolved.
+These synthetic fixtures establish D2 only; real djay v5/current app acceptance
+and cross-platform native writes remain unrun (D4/D5/D6).
+
+Task14 verification:479 dj-sync tests pass (3 ignored), including13 djay/archive
+cases. A separate existing djay writer run passes47 tests. All-target Clippy
+`-D warnings`, formatting and diff checks pass. Binary-plist fixtures use an
+independent dev-only encoder; TSAF fixtures include hand-positioned absolute
+alignment witnesses. No native app, music decoding or source writes occur.

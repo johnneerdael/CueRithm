@@ -1,7 +1,10 @@
 //! Read-only source adapters. D2 parser evidence never grants native write authority.
 pub mod apple_music;
+pub mod djay_codec;
+pub mod djay_pro;
 mod engine_codec;
 pub mod engine_dj;
+pub mod keyed_archive;
 pub mod m3u;
 pub mod mixxx;
 mod mixxx_codec;

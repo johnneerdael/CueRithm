@@ -107,11 +107,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `DjayProReader`; `decode_keyed_archive(bytes: &[u8], limits: &ImportLimits) -> Result<ArchivedValue>` and `decode_djay_stream(bytes: &[u8], limits: &ImportLimits) -> Result<ArchivedValue>`. `ArchivedValue` retains scalars, dictionaries, ordered arrays, UID references and opaque unknown class/block bytes; never instantiates vendor classes.
 
-- [ ] Write `djay_typed_stream_alignment_and_pointers_are_bounded`, `djay_joins_collections_without_dropping_missing_locations` and `djay_manual_tempo_and_key_remain_distinct`. Assert 20-byte header/class marker, LE alignment, null/control/URI/block handling, bounded pointer arrays, analyzed/manual key and signed tempo exponents. Epoch0 converts to 2001-01-01 UTC, independent of host timezone. Foreign-origin compressed timing stays unresolved.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_djay_pro`; expect missing reader/codecs.
-- [ ] Decode database2 collection/key rows, bplist/NSKeyedArchiver and typed-stream routes with raw unknown preservation. Resolve ordered childUUID hierarchy and parent recovery; preserve cue numbers/end times, alternate location candidates, straight-grid/manual shift/exponent evidence and smart filter losses. Gate exact v5+ shapes rather than trusting marketing version alone.
-- [ ] Rerun malformed alignment/count/pointer/UID cycles, alternate grids, orphan artists/items, repeated members and unknown archive classes; expect pass and explicit issues without placeholder values becoming tags.
-- [ ] Commit `feat: read djay Pro library archives and typed records`.
+- [x] Write `djay_typed_stream_alignment_and_pointers_are_bounded`, `djay_joins_collections_without_dropping_missing_locations` and `djay_manual_tempo_and_key_remain_distinct`. Assert 20-byte header/class marker, LE alignment, null/control/URI/block handling, bounded pointer arrays, analyzed/manual key and signed tempo exponents. Epoch0 converts to 2001-01-01 UTC, independent of host timezone. Foreign-origin compressed timing stays unresolved.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_djay_pro`; expect missing reader/codecs.
+- [x] Decode database2 collection/key rows, bplist/NSKeyedArchiver and typed-stream routes with raw unknown preservation. Resolve ordered childUUID hierarchy and parent recovery; preserve cue numbers/end times, alternate location candidates, straight-grid/manual shift/exponent evidence and smart filter losses. Gate exact v5+ shapes rather than trusting marketing version alone.
+- [x] Rerun malformed alignment/count/pointer/UID cycles, alternate grids, orphan artists/items, repeated members and unknown archive classes; expect pass and explicit issues without placeholder values becoming tags.
+- [x] Commit `feat: read djay Pro library archives and typed records`.
 
 ### Task 15: Mixed In Key 11 macOS-origin artifacts
 

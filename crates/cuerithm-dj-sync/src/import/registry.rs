@@ -62,6 +62,9 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::DjayPro {
+        return &super::readers::djay_pro::DjayProReader;
+    }
     if provider == SourceProvider::EngineDj {
         return &super::readers::engine_dj::EngineDjReader;
     }
