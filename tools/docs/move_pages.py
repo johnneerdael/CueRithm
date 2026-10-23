@@ -51,8 +51,20 @@ def write_moves(docs, outputs):
             handle.write(text)
 
 
+def ambiguous_moves(mapping):
+    """Pages whose new path is another moved page's old path (a chain or a swap)."""
+    return sorted(old for old, new in mapping.items() if new in mapping)
+
+
 def fix_stale(mapping):
-    """Rewrite links that point at a moved page's OLD path, for pages written after the move."""
+    """Rewrite links that point at a moved page's OLD path, for pages written after the move.
+
+    A link to a path that is both some page's old path and another page's new path cannot be
+    translated reliably, so such maps are refused instead of rewriting links to the wrong page.
+    """
+    if ambiguous_moves(mapping):
+        sys.exit("--fix-stale cannot translate links when a page's new path is another moved page's old path: "
+                 + ", ".join(ambiguous_moves(mapping)))
     changed = 0
     for folder, _, files in os.walk(DOCS):
         for name in files:

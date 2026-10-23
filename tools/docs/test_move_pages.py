@@ -42,5 +42,18 @@ class WriteMoves(unittest.TestCase):
         self.assertEqual(self.run_moves({"a.md": "A2"}, {}), {"a.md": "A2"})
 
 
+class AmbiguousMaps(unittest.TestCase):
+    def test_chain_and_swap_are_ambiguous(self):
+        self.assertEqual(move_pages.ambiguous_moves({"a.md": "b.md", "b.md": "c.md"}), ["a.md"])
+        self.assertEqual(move_pages.ambiguous_moves({"a.md": "b.md", "b.md": "a.md"}), ["a.md", "b.md"])
+
+    def test_plain_moves_are_not_ambiguous(self):
+        self.assertEqual(move_pages.ambiguous_moves({"a.md": "x/a.md", "b.md": "x/b.md"}), [])
+
+    def test_fix_stale_refuses_an_ambiguous_map(self):
+        with self.assertRaises(SystemExit):
+            move_pages.fix_stale({"a.md": "b.md", "b.md": "c.md"})
+
+
 if __name__ == "__main__":
     unittest.main()
