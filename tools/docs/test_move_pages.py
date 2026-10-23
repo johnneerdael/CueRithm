@@ -79,5 +79,23 @@ class ExternalRewrites(unittest.TestCase):
         self.assertEqual(move_pages.rewrite_urls(text, mapping), f"{self.SITE}z/page/ {self.SITE}y/")
 
 
+class NavSkeleton(unittest.TestCase):
+    def test_exact_paths_follow_the_move(self):
+        text = "  - prepare/index.md\n  - prepare/add-tracks.md\n  - help/faq.md\n"
+        mapping = {"prepare/index.md": "files/index.md", "prepare/add-tracks.md": "files/add-tracks.md"}
+        self.assertEqual(move_pages.rewrite_nav(text, mapping), "  - files/index.md\n  - files/add-tracks.md\n  - help/faq.md\n")
+
+    def test_a_glob_follows_pages_that_keep_their_names(self):
+        mapping = {"tag/recipes/a.md": "tagging/recipes/a.md", "tag/recipes/b.md": "tagging/recipes/b.md"}
+        self.assertEqual(move_pages.rewrite_nav("- tag/recipes/*.md", mapping), "- tagging/recipes/*.md")
+
+    def test_a_glob_is_left_alone_when_pages_split_up(self):
+        mapping = {"tag/recipes/a.md": "tagging/recipes/a.md", "tag/recipes/b.md": "rename/recipes/b.md"}
+        self.assertEqual(move_pages.rewrite_nav("- tag/recipes/*.md", mapping), "- tag/recipes/*.md")
+
+    def test_unrelated_globs_are_untouched(self):
+        self.assertEqual(move_pages.rewrite_nav("- playlists/recipes/*.md", {"a.md": "b.md"}), "- playlists/recipes/*.md")
+
+
 if __name__ == "__main__":
     unittest.main()

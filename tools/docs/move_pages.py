@@ -16,6 +16,7 @@ What it updates, in one pass:
   - repository paths and published URLs that point at a moved page, in the README and
     in docs/*.md outside the guide.
 """
+import fnmatch
 import glob
 import json
 import os
@@ -51,6 +52,25 @@ def rewrite_repo_paths(text, mapping):
     """Rewrite repository paths such as docs/user-guide/<page>.md once, by lookup."""
     pattern = re.compile(r"((?:\.\./)*(?:docs/)?user-guide/)([\w./-]+?\.md)(#[\w-]+)?")
     return pattern.sub(lambda m: m.group(1) + mapping.get(m.group(2), m.group(2)) + (m.group(3) or ""), text)
+
+
+def rewrite_nav(text, mapping):
+    """Rewrite page paths in the navigation skeleton. A glob such as files/recipes/*.md follows its
+    pages when every moved page it matches goes to one folder and keeps its file name."""
+
+    def fix(match):
+        token = match.group(0)
+        if any(c in token for c in "*?"):
+            moved = [page for page in mapping if fnmatch.fnmatch(page, token)]
+            folders = {os.path.dirname(mapping[page]) for page in moved}
+            same_names = all(os.path.basename(mapping[page]) == os.path.basename(page) for page in moved)
+            if moved and len(folders) == 1 and same_names:
+                folder = folders.pop()
+                return (folder + "/" if folder else "") + os.path.basename(token)
+            return token
+        return mapping.get(token, token)
+
+    return re.sub(r"[\w./*?-]+\.md", fix, text)
 
 
 def write_moves(docs, outputs):
@@ -163,6 +183,10 @@ def main():
     with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as handle:
         mkdocs = handle.read()
     mkdocs_new = re.sub(r"[\w./-]+\.md", lambda m: new_of(m.group(0)), mkdocs)
+    skeleton_path = os.path.join(DOCS, "_meta", "nav.yml")
+    with open(skeleton_path, encoding="utf-8") as handle:
+        skeleton = handle.read()
+    skeleton_new = rewrite_nav(skeleton, mapping)
 
     figures = {}
     for path in glob.glob(os.path.join(DOCS, "_meta", "figures", "*.json")):
@@ -210,6 +234,8 @@ def main():
             os.rmdir(folder)
     with open(os.path.join(ROOT, "mkdocs.yml"), "w", encoding="utf-8") as handle:
         handle.write(mkdocs_new)
+    with open(skeleton_path, "w", encoding="utf-8") as handle:
+        handle.write(skeleton_new)
     for path, entries in figures.items():
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(entries, handle, indent=1, ensure_ascii=False)
