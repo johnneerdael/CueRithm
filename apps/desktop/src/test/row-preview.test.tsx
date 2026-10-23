@@ -1,5 +1,5 @@
 import {render,screen,waitFor} from "@testing-library/react";
-import {describe,expect,it} from "vitest";
+import {describe,expect,it,vi} from "vitest";
 import RowPreview from "../components/RowPreview";
 import type {Analysis,Detail,PublishedCue,Waveform} from "../types";
 import {sampleWaveform} from "../views/WaveformSettings";
@@ -28,6 +28,25 @@ describe("row preview markers",()=>{
     const publication=saved({name:"First",startTime:5,type:"1",position:0,color:"red"},{name:"Third",startTime:30,type:"1",position:2,color:"red"});
     render(<RowPreview id="gap" identity="a" load={loader(analysis(publication))}/>);
     expect(await screen.findByRole("img",{name:"2 cues"},{timeout:2000})).toHaveAttribute("title","A · First\nC · Third");
+  });
+});
+
+describe("row preview identity",()=>{
+  // The table keys a preview by the file hash plus the row's modified date; saving a cue correction bumps that date.
+  it("draws the newly saved cues when the same row comes back with a later modified date",async()=>{
+    let corrected=false;
+    const publication=saved({name:"Saved drop",startTime:30,type:"1",position:0,color:"red"});
+    const load=vi.fn(async()=>({wave:sampleWaveform(40),detail:{analysis:analysis(corrected?publication:undefined)} as unknown as Detail}));
+    const view=render(<RowPreview id="row" identity="hash:100" load={load}/>);
+    await waitFor(()=>expect(markers(view.container)).toEqual(["Detector drop"]),{timeout:2000});
+    view.rerender(<RowPreview id="row" identity="hash:100" load={load}/>);
+    await new Promise(done=>setTimeout(done,250));
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(markers(view.container)).toEqual(["Detector drop"]);
+    corrected=true;
+    view.rerender(<RowPreview id="row" identity="hash:200" load={load}/>);
+    await waitFor(()=>expect(markers(view.container)).toEqual(["Saved drop"]),{timeout:2000});
+    expect(load).toHaveBeenCalledTimes(2);
   });
 });
 
