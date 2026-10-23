@@ -80,13 +80,9 @@ Mixxx has not been run on Windows. Linux acceptance covers Debian's 2.5.0 packag
 
 CueRithm does not update itself. Download new releases from the [releases page](https://github.com/johnneerdael/CueRithm/releases/latest) ([What's new in CueRithm](../get-started/whats-new.md)).
 
-### A raw word in the Incoming stage line { #cleanup-stage-label }
-
-While cleanup runs, an Incoming row can show the lower-case word `cleanup` instead of a stage name. It is a display quirk. The stage is the cleanup step of preparation ([Follow a track through Incoming](../files/follow-incoming.md)).
-
 ## Relocation and portable libraries { #missing-and-moved-files }
 
-Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. A watch folder can still discover a changed path as a new track; review the complete survivor when a destination is already occupied.
+Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. Moves inside the same watch folder are followed when the file contents identify one missing ready track and one new file. Ambiguous or edited files need review; choose the complete survivor when a destination is already occupied.
 
 ### Reconnect moved music { #reconnect-moved-music }
 
@@ -104,9 +100,9 @@ Synthetic format, path-flavour and scale tests do not establish every real-machi
 
 The remaining capabilities below are separate from reviewed relocation and portable replacement. No delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
 
-### Follow external moves automatically { #in-development-missing-files }
+### Moves outside watch folders { #in-development-missing-files }
 
-Automatically following files moved outside CueRithm, and removing stale library records through a dedicated maintenance action, remain separate work. A watch folder may still add a moved file again. Reconnect the original through [Relocate](../files/library/find-missing-files.md#relocate), review any occupied destination, or [archive](../files/archive.md) records you no longer want.
+Automatic move tracking is limited to a single watch folder and exact, unambiguous content matches. Reconnect other moves through [Relocate](../files/library/find-missing-files.md#relocate). **Maintenance → Missing & broken** also offers reviewed removal of missing library records, with Undo in History & recovery; audio files are kept.
 
 Improvements to excluding unavailable tracks from duplicate candidate groups are also separate from relocation. Do not choose a missing file as a duplicate keeper; use the [reconnection workflow](../files/library/find-missing-files.md#repair).
 

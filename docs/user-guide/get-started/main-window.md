@@ -43,7 +43,7 @@ The sidebar has three groups and a footer. Click an item to open it in the main 
 | **Organize files** | Rename and sort files by a pattern | [Rename and sort files into folders](../rename/organize-files.md) |
 | **Sync** | Send playlists, cues and grids to DJ software | [Send your library to DJ software](../sync/index.md) |
 
-The footer holds **Settings**, a **LOCAL LIBRARY** label and a version label that shows only *0.1*. See [Open Settings](#settings).
+The footer holds **Settings**, a **LOCAL LIBRARY** label and a version label that shows the version you installed, for example *0.1.13*. See [Open Settings](#settings).
 
 Press ++cmd+b++ / ++ctrl+b++ to collapse the sidebar to a rail of icons. The rail opens again while the pointer or keyboard focus is on it, and the button at the top of the sidebar switches between collapsed and pinned open.
 

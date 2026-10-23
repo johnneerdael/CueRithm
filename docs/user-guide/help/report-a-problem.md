@@ -13,7 +13,7 @@ Check these first. They answer most questions and tell you whether you have foun
 
 ## Find your version { #find-version }
 
-CueRithm has no About window or Help menu. The sidebar footer shows only the release series (`CUERITHM 0.1`). Use one of these for the full number:
+CueRithm has no About window or Help menu. The sidebar footer shows your version, for example `CUERITHM 0.1.13`. When the sidebar is collapsed to icons, point at it to see the footer. You can also use one of these:
 
 - **The file you downloaded.** The version is in its name, for example `Cuerithm-arm64-0.1.14.dmg`, `Cuerithm-linux-x64-0.1.14.deb` or `Cuerithm-windows-x64-0.1.14.zip`.
 - **The releases page.** The [latest release](https://github.com/johnneerdael/CueRithm/releases/latest) shows the newest number. Yours may be older.
@@ -70,4 +70,4 @@ If you find a mistake in this guide, choose the pencil icon at the top of the pa
 - [How CueRithm was made](about/provenance.md)
 - [Download and install CueRithm](../get-started/install.md)
 
-<!-- verified: apps/desktop/src/components/Sidebar.tsx (footer "CUERITHM 0.1", no About view), src-tauri/src/lib.rs (no menu builder; diagnostics() prints version), .github/workflows/release.yml (file names Cuerithm-<platform>-<version>.<ext>), mkdocs.yml (repo_url, edit_uri, content.action.edit), legacy about/faq.md ("Please do not attach copyrighted audio"), provenance.md (open an issue for corrections), tauri.conf.json (productName/identifier) -->
+<!-- verified: apps/desktop/src/components/Sidebar.tsx and app-version.ts (footer shows the app version from the Tauri app API, no number outside Tauri, no About view), src-tauri/src/lib.rs (no menu builder; diagnostics() prints version), .github/workflows/release.yml (file names Cuerithm-<platform>-<version>.<ext>), mkdocs.yml (repo_url, edit_uri, content.action.edit), legacy about/faq.md ("Please do not attach copyrighted audio"), provenance.md (open an issue for corrections), tauri.conf.json (productName/identifier) -->

@@ -12,18 +12,20 @@
 
 ## What you see { #what-you-see }
 
-The example here comes from a real library: a purchase folder, `~/Music/Beatport`, watched by CueRithm and holding 26 FLAC files. Fourteen of the files were moved up one folder inside the watch folder. Afterwards:
+This historical example predates automatic watch-folder move tracking. Current CueRithm follows exact, unambiguous moves within one watch folder. Edited, ambiguous and cross-folder moves may still need the repair steps below.
+
+The earlier example comes from a real library: a purchase folder, `~/Music/Beatport`, watched by CueRithm and holding 26 FLAC files. Fourteen of the files were moved up one folder inside the watch folder. Afterwards:
 
 | What you see | What it means |
 |---|---|
 | **Tracks** shows 40 tracks for 26 files | The watch folder found the 14 moved files at their new paths and prepared them as 14 new tracks. |
 | Some titles appear twice | One row is the old track, the other is the new track for the same file. |
-| The old row shows a dash in **PREVIEW**, and double-clicking it leaves the message `Audio file is missing` | The old track still points at the old path, where there is no file any more. See [A track shows a dash or will not play](no-waveform-or-playback.md). |
+| The old row shows a dash in **PREVIEW**, and double-clicking it leaves the message `File not found - move it back or run Maintenance` | The old track still points at the old path, where there is no file any more. See [A track shows a dash or will not play](no-waveform-or-playback.md). |
 | **Maintenance** → **Missing & broken** lists 14 files with the outcome **Missing** | Those are the old tracks. The **Recorded location** column shows the path CueRithm expects. |
 
 ## Why it happens { #why }
 
-A track has a stable library identity and a file reference. A move outside CueRithm can leave the reference pointing at the old location. A [watch folder](../../files/watch-folders.md) may discover the new location as an additional track; it does not choose which record’s playlists or corrections should survive.
+A track has a stable library identity and a file reference. A move outside CueRithm can leave the reference pointing at the old location. A [watch folder](../../files/watch-folders.md) follows exact, unambiguous moves inside that same folder. For edited or ambiguous files and moves between folders, it does not choose which record’s playlists or corrections should survive.
 
 Use [Relocate](../../files/library/find-missing-files.md#relocate) to make that decision explicitly. Moves made through [Organize files](../../rename/organize-files.md) update CueRithm’s references as part of their own reviewed operation.
 

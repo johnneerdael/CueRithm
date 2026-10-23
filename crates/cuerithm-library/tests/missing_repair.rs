@@ -1345,6 +1345,28 @@ fn identical_files_are_ambiguous_and_a_tracked_twin_is_not_taken_over() {
     assert!(l.fx.lib.track(&twin).is_ok());
 }
 
+/// SQL blob literal for a path in the library's own stored encoding (see `model::path_bytes`).
+fn stored_path(path: &Path) -> String {
+    #[cfg(unix)]
+    let bytes = {
+        use std::os::unix::ffi::OsStrExt;
+        [b"unix:".as_slice(), path.as_os_str().as_bytes()].concat()
+    };
+    #[cfg(windows)]
+    let bytes = {
+        use std::os::windows::ffi::OsStrExt;
+        let mut out = b"windows:".to_vec();
+        for unit in path.as_os_str().encode_wide() {
+            out.extend(unit.to_le_bytes());
+        }
+        out
+    };
+    format!(
+        "X'{}'",
+        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
+}
+
 #[test]
 fn a_file_that_changes_or_is_claimed_before_apply_is_skipped() {
     let (l, elsewhere) = moved_library();
@@ -1363,8 +1385,8 @@ fn a_file_that_changes_or_is_claimed_before_apply_is_skipped() {
     std::fs::write(elsewhere.join("a.flac"), "edited since the preview").unwrap();
     let b_new = elsewhere.canonicalize().unwrap().join("b.flac");
     l.fx.exec(&format!(
-        "UPDATE tracks SET path=CAST('unix:{}' AS BLOB) WHERE id='{}'",
-        b_new.display(),
+        "UPDATE tracks SET path={} WHERE id='{}'",
+        stored_path(&b_new),
         l.c
     ));
     let error =

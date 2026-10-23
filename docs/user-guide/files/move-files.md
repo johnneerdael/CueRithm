@@ -8,7 +8,9 @@ Use [Organize files](../rename/organize-files.md) when CueRithm should move the 
 
 A track has a stable library identity and a local file reference. When you move or rename a file in Finder, Explorer or your file manager, CueRithm sees two things at once: a location where a known track's file used to be, and a new file at a new location. It treats them separately.
 
-Here is a real case. A watch folder, `~/Music/Beatport`, holds 26 prepared FLAC files. Fourteen of them are moved up one folder, from a subfolder into its parent, inside the watch folder.
+The following example describes earlier versions, before watch-folder move tracking. Current CueRithm follows an exact, unambiguous move within one watch folder while keeping the same track. Moves outside that folder, edited files and ambiguous matches still need review.
+
+Here is the earlier case. A watch folder, `~/Music/Beatport`, holds 26 prepared FLAC files. Fourteen of them are moved up one folder, from a subfolder into its parent, inside the watch folder.
 
 | | Before | After |
 |---|---|---|
@@ -25,7 +27,7 @@ The watch folder noticed 14 files it had never seen at those locations and prepa
 | Key, BPM, energy, cues | Still shown from the earlier analysis | Measured again |
 | Playlists, categories, ratings, notes | Still attached | None |
 | Cues you corrected by hand | Kept | Not copied; the new track has fresh cues |
-| Playing it | Fails with *Audio file is missing* | Works |
+| Playing it | Fails with *File not found - move it back or run Maintenance* | Works |
 | Missing & broken scan | Listed as *Missing* | Present |
 
 Renaming a file in place does the same thing: the old name becomes a missing track and the new name becomes a new track. [I moved or renamed my files](../help/troubleshooting/files-moved.md) is the short symptom version of this page.
@@ -33,7 +35,7 @@ Renaming a file in place does the same thing: the old name becomes a missing tra
 ## Avoid the problem { #avoid }
 
 - **Rename and move through CueRithm.** Select the tracks and choose **Organize files**, or set a rule under Settings → File organization for tracks that are still coming in. CueRithm previews the changes, updates its own records, repairs known paths in linked DJ libraries and keeps a history you can undo. See [Rename and sort files into folders](../rename/organize-files.md) and [Recover or undo a reorganisation](../rename/undo-organize.md).
-- **Do not rearrange a watch folder by hand.** Moving files out of the folder leaves missing tracks and no new ones. Moving them within it also adds new twins, as above.
+- **Review moves outside a watch folder.** Exact, unambiguous moves within one watch folder keep the original track. Other moves may need Relocate; edited or ambiguous files can be admitted as new tracks.
 - **Put a track's file back before you do anything else** if you moved it by mistake. A track whose file returns to its recorded location works again at once.
 
 ## Find out what a move broke { #find }
@@ -55,7 +57,7 @@ You can instead put the files back at their recorded locations and scan again. [
 | What you see | Why | What to do |
 |---|---|---|
 | Every song appears twice in Tracks | You moved files inside a watch folder | Read [What happens when you move a file](#what-happens), then [repair it](#repair) |
-| Pressing play shows *Audio file is missing* | The file is not at its recorded location | Put it back, or see [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md) |
+| Pressing play shows *File not found - move it back or run Maintenance* | The file is not at its recorded location | Put it back, or see [A track shows a dash or will not play](../help/troubleshooting/no-waveform-or-playback.md) |
 | Many files report *Unavailable* instead of *Missing* | The whole drive or folder is not connected | Reconnect the drive and scan again |
 | A new track has none of the old playlists or corrections | Discovery created a separate identity | Review relocation and its complete survivor before archiving either track |
 | The moved files were never picked up | They sit outside every watch folder | Add them with [Add tracks](add-tracks.md) |

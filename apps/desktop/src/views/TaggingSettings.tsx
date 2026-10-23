@@ -91,7 +91,7 @@ export default function TaggingSettings({bridge,config,enabled,onChange,catalogR
       {text("filenameTemplate","Filename template","For example: %artists% - %title%. Other placeholders match unused parts.")}
       {text("titleRegex","Title cleanup pattern","A regular expression removed from the title before matching.")}
       {bool("skipTagged","Skip previously tagged catalog lookups","Recognizes OneTagger and CueRithm markers. Full audio analysis and replacement cues still run.")}
-      {bool("albumTagging","Album matching","Use an identified Beatport release for the remaining incoming files in the same folder.")}
+      {bool("albumTagging","Album matching","Use an identified Beatport or Traxsource release for the remaining incoming files in the same folder.")}
       {number("albumTaggingRatio","Album matching ratio",0,1,0.05,"Fraction of incoming files that must match one release before reusing its track list.")}
     </details>
     <details className="tagging-group" open><summary>Fields to write</summary>

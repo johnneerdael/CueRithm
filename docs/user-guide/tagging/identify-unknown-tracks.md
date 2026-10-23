@@ -31,8 +31,8 @@ The example is a file named `track01.flac` with empty artist and title tags.
 1. Add the file with **Add tracks**, or drop it into a watch folder.
 2. In **Incoming**, the row passes **Matching catalog**. Without a title and artist the catalogs cannot be asked, so identification starts.
 3. When it finishes, the row shows a warning triangle. That is expected: recognition always asks you to confirm the edition.
-4. Select the triangle to open **Review match**. The candidates are listed with `musicbrainz` as the provider, and **Recording and release evidence** shows the recording and release identifiers, credits and the release date.
-5. Pick the candidate whose release you own. If it is a recording without a release, the conflict *release_edition_unresolved* asks you to confirm it. Tick **I reviewed the recording/version conflicts and want to use this candidate**.
+4. Select the triangle to open **Review match**. The candidates are listed with **MusicBrainz** as the provider, and **Recording and release evidence** shows the recording and release identifiers, credits and the release date.
+5. Pick the candidate whose release you own. If it is a recording without a release, the conflict **Release edition could not be resolved** asks you to confirm it. Tick **I reviewed the recording/version conflicts and want to use this candidate**.
 6. Change the fields you want from **Keep current** to **Replace**, then choose **Use selected match**.
 
 The track continues through preparation and moves into Tracks. [Review and fix a wrong match](review-a-match.md) explains each control.

@@ -27,7 +27,7 @@ A present file can still carry the flag **· Source changed** in **Details**. It
 
 ## Why moved files look like a missing track and a duplicate { #moved-files }
 
-A track keeps a library identity and a file reference. A move in Finder or Explorer can leave that reference pointing at the old location. A watch folder may discover the new location as another track before you reconnect the original. [Reviewed relocation](#relocate) repairs the reference while preserving the chosen track’s identity.
+A track keeps a library identity and a file reference. A move in Finder or Explorer can leave that reference pointing at the old location. Moves within one watch folder are followed automatically when exact contents identify one missing ready track and one new file. Edited, ambiguous or cross-folder moves can still need manual review. [Reviewed relocation](#relocate) repairs the reference while preserving the chosen track’s identity.
 
 An earlier example from the demo library shows this discovery behaviour. 14 files were moved up one level inside `~/Music/Beatport`, out of a subfolder named after the release. Afterwards the library holds 40 tracks for 26 files: 12 untouched, 14 old tracks whose file is gone, and 14 new tracks for the same files.
 

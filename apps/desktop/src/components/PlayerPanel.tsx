@@ -3,7 +3,7 @@ import {Play,Pause,SkipBack,Volume2,LoaderCircle,Headphones} from "lucide-react"
 import Artwork from "./Artwork";
 import BrandMark from "./BrandMark";
 import type {Playback,Detail,Waveform,Bridge} from "../types";
-import {time,cueColor} from "../display";
+import {time,cueColor,cueSlot} from "../display";
 import {playbackBpm,playbackBeats,playbackCues} from "../published-analysis";
 import {buildShape} from "../waveform-shape";
 import {useWaveformStyle} from "../waveform-style";
@@ -13,7 +13,6 @@ import PublicationEditor from "./PublicationEditor";
 import type {ManualPublicationApi,ManualPublicationResult} from "../manual-publication-types";
 
 const cueTime=(seconds:number)=>(seconds<0?"−":"")+time(Math.abs(seconds),true);
-const cueSlot=(position:number)=>position<26?String.fromCharCode(65+position):String(position+1);
 
 function Wave({data,position,start,end,beats,cues,onSeek,onToggleZoom,zoomed=false,small=false}:{data:Waveform|null;position:number;start:number;end:number;beats:number[];cues:NonNullable<Detail["analysis"]>["analysis"]["lexicon_cues"];onSeek:(time:number)=>void;onToggleZoom?:()=>void;zoomed?:boolean;small?:boolean}){
   const span=Math.max(0.001,end-start);
