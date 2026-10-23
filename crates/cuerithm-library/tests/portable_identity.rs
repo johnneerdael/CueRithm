@@ -59,6 +59,78 @@ fn imported() -> PortableTrack {
         }),
     }
 }
+#[cfg(feature = "autotag")]
+#[test]
+fn unbound_file_actions_explain_relocation_without_mutating_imported_data() {
+    let temp = tempfile::tempdir().unwrap();
+    let library = Library::open(&temp.path().join("library.sqlite")).unwrap();
+    let track = imported();
+    library
+        .import_portable_tracks(std::slice::from_ref(&track))
+        .unwrap();
+    let runtime = cuerithm_media::MediaRuntime::from_bundle(
+        &std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../tools/media-runtime/bin")
+            }),
+    )
+    .unwrap();
+    let editor = MetadataEditService::new(library.clone(), runtime.clone());
+    assert!(library.track_file_missing(&track.id).unwrap());
+    let preparation = PreparationService::start(library.clone(), runtime).unwrap();
+    let error = preparation.reprepare(track.id.clone()).unwrap_err();
+    preparation.shutdown();
+    assert!(error.to_string().contains("relocate it first"), "{error:#}");
+    for error in [
+        editor
+            .snapshot(std::slice::from_ref(&track.id))
+            .unwrap_err(),
+        library.track_match_review(&track.id).unwrap_err(),
+        library.manual_publication_snapshot(&track.id).unwrap_err(),
+    ] {
+        assert!(
+            error
+                .to_string()
+                .contains("Local file is not linked; relocate"),
+            "{error:#}"
+        );
+    }
+    assert!(library.jobs().unwrap().is_empty());
+    assert_eq!(library.portable_tracks().unwrap()[0].locator, track.locator);
+    assert_eq!(
+        library
+            .accepted_musical_data(&track.id)
+            .unwrap()
+            .unwrap()
+            .cues[0]
+            .start_seconds,
+        -0.25
+    );
+    let audio = temp.path().join("bound.wav");
+    std::fs::write(&audio, b"authored source").unwrap();
+    library
+        .bind_portable_track(&track.id, &audio, None)
+        .unwrap();
+    assert!(!library.track_file_missing(&track.id).unwrap());
+    for error in [
+        editor
+            .snapshot(std::slice::from_ref(&track.id))
+            .unwrap_err(),
+        library.track_match_review(&track.id).unwrap_err(),
+        library.manual_publication_snapshot(&track.id).unwrap_err(),
+    ] {
+        assert!(
+            error
+                .to_string()
+                .contains("File identity is unknown; analyze"),
+            "{error:#}"
+        );
+    }
+    std::fs::remove_file(audio).unwrap();
+    assert!(library.track_file_missing(&track.id).unwrap());
+}
 #[cfg(unix)]
 #[test]
 fn restore_binding_rejects_a_parent_swapped_after_root_review() {

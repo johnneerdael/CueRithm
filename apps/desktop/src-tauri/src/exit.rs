@@ -72,11 +72,19 @@ impl ExitCoordinator {
         Ok(())
     }
     pub fn cancel(&self, id: &str) -> Result<bool> {
+        self.cancel_with(id, || Ok(()))
+    }
+    pub fn cancel_with(
+        &self,
+        id: &str,
+        cancel_restart: impl FnOnce() -> Result<()>,
+    ) -> Result<bool> {
         let mut state = self
             .state
             .lock()
             .map_err(|_| anyhow::anyhow!("Exit state interrupted"))?;
         if !state.stopping && state.pending.as_deref() == Some(id) {
+            cancel_restart()?;
             state.pending = None;
             return Ok(true);
         }
@@ -87,6 +95,37 @@ impl ExitCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn failed_restart_cancellation_keeps_the_request_retryable() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let gate = ExitCoordinator::default();
+        let restart = AtomicBool::new(true);
+        gate.register().unwrap();
+        let ExitAction::Notify(id) = gate.request(true).unwrap() else {
+            panic!("Missing request")
+        };
+        assert!(
+            gate.cancel_with(&id, || anyhow::bail!("activation journal is locked"))
+                .is_err()
+        );
+        assert!(restart.load(Ordering::Acquire));
+        assert_eq!(gate.register().unwrap(), Some(id.clone()));
+        assert_eq!(gate.request(true).unwrap(), ExitAction::Waiting);
+        assert!(
+            gate.cancel_with(&id, || {
+                restart.store(false, Ordering::Release);
+                Ok(())
+            })
+            .unwrap()
+        );
+        assert!(!restart.load(Ordering::Acquire));
+        assert_eq!(gate.register().unwrap(), None);
+        assert!(
+            !gate
+                .cancel_with(&id, || anyhow::bail!("stale callback ran"))
+                .unwrap()
+        );
+    }
     #[test]
     fn quit_waits_for_the_current_draft_receipt_and_rejects_stale_completion() {
         let gate = ExitCoordinator::default();

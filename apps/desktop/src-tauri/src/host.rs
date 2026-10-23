@@ -21,7 +21,7 @@ pub struct Detail {
     pub pcm_sha256: Option<String>,
     pub musical: Option<cuerithm_library::AcceptedMusicalData>,
     pub source_locator: Option<cuerithm_library::PortableLocator>,
-    /// False only when the track's file is definitely gone.
+    /// False for unlinked tracks or a file that is definitely gone.
     pub file_available: bool,
 }
 /// Shown wherever a track's file cannot be found.

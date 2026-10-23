@@ -217,9 +217,9 @@ impl PreparationService {
         Ok(())
     }
     pub fn reprepare(&self, track: TrackId) -> Result<()> {
+        let path = self.library.track_path(&track)?;
         self.library.invalidate_unpublished_preparation(&track)?;
         self.library.clear_track_analysis_cache(&track)?;
-        let path = self.library.track_path(&track)?;
         let jobs = self.enqueue_paths(&[path])?;
         for job in jobs {
             self.retry(job, Some(self.library.settings()?.revision))?;

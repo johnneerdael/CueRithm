@@ -575,10 +575,12 @@ impl Library {
                 .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))?;
         bytes_path(&bytes.context("Track has no local file binding; relocate it first")?)
     }
-    /// True only when the track's file is definitely gone. A file that cannot be
-    /// inspected (an unplugged disk, a permission error) is not reported missing.
+    /// Unlinked tracks and definitely absent files cannot be previewed. A bound
+    /// file that cannot be inspected keeps the existing transient-error behavior.
     pub fn track_file_missing(&self, id: &str) -> Result<bool> {
-        Ok(matches!(self.track_path(id)?.try_exists(), Ok(false)))
+        Ok(self
+            .local_track_binding(id)?
+            .is_none_or(|path| matches!(path.try_exists(), Ok(false))))
     }
     pub fn analysis(&self, id: &str) -> Result<Option<camelot_core::FileAnalysis>> {
         let text: Option<String> = self

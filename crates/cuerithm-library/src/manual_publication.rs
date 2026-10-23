@@ -164,8 +164,8 @@ fn load(
     id: &str,
 ) -> Result<(ManualPublicationSnapshot, FileAnalysis, Option<f64>)> {
     let (path, source, state, archived, text, bpm): (
-        Vec<u8>,
-        String,
+        Option<Vec<u8>>,
+        Option<String>,
         String,
         bool,
         Option<String>,
@@ -184,6 +184,9 @@ fn load(
             ))
         },
     )?;
+    let path = path.context("Local file is not linked; relocate the track before editing cues")?;
+    let source =
+        source.context("File identity is unknown; analyze the track before editing cues")?;
     ensure!(
         state == "ready" && !archived,
         "Prepare and restore this track before editing cues"

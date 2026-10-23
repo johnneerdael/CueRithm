@@ -430,8 +430,8 @@ impl Library {
     }
     pub(super) fn initial_review_capture(&self, track: &str) -> Result<Capture> {
         type InitialRow = (
-            Vec<u8>,
-            String,
+            Option<Vec<u8>>,
+            Option<String>,
             String,
             bool,
             Option<String>,
@@ -441,6 +441,10 @@ impl Library {
             Option<f64>,
         );
         let(path,hash,state,archived,job,attempt,job_revision,metadata,duration):InitialRow=self.conn()?.query_row("SELECT t.path,t.source_hash,t.state,t.archived,t.current_job,COALESCE(j.attempts,0),COALESCE(j.settings_revision,''),t.metadata_json,t.duration FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[track],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?)))?;
+        let path =
+            path.context("Local file is not linked; relocate the track before reviewing matches")?;
+        let hash =
+            hash.context("File identity is unknown; analyze the track before reviewing matches")?;
         ensure!(
             !archived,
             "Restore this track before reviewing catalog matches"
