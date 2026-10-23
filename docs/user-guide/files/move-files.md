@@ -5,7 +5,7 @@
 Use [Organize files](../rename/organize-files.md) when CueRithm should move the audio itself. If you move files yourself inside a [watch folder](watch-folders.md), CueRithm follows them and keeps the same track. If you have moved them elsewhere, [Find moved files](library/find-missing-files.md#find-moved) or [Relocate](library/find-missing-files.md#relocate) reconnects the original record without moving audio again.
 
 !!! note "Which version"
-    Following moves inside a watch folder, **Find moved files…** and **Remove from library…** need CueRithm 0.1.15 or later. Earlier versions treat every move as described under [What happens when you move a file](#what-happens).
+    Following moves inside a watch folder, **Find moved files…** and **Remove from library…** need CueRithm 0.1.15 or later. Earlier versions treat every move as described under [What happens when you move a file](#what-happens). **Relocate** and **Find Lost Tracks** need CueRithm 0.1.16 or later.
 
 ## What happens when you move a file { #what-happens }
 

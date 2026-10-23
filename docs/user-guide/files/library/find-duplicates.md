@@ -11,7 +11,7 @@
 
 **You need:**
 
-- [ ] CueRithm 0.1.16 or later with prepared tracks in **Tracks**
+- [ ] CueRithm 0.1.17 or later with prepared tracks in **Tracks**
 - [ ] At least one pair of identical tracks, both with their file in place. To make a practice pair, copy one file from a [watch folder](../watch-folders.md) into a second subfolder of the same watch folder and wait until **Tracks** counts it. The screenshots use *Man Like Me (Extended Mix)* by Kevin de Vries and Platero (<span class="cr-key">4A</span>, <span class="cr-bpm">128</span> BPM, <span class="cr-energy">7/10</span>, 5:15), once in `~/Music/Beatport` and once in a subfolder.
 
 Duplicates only works with tracks whose file is there. A track whose file is missing, or sits on a drive that is not connected, is left out of the scan: it never joins a group, is never counted as a duplicate and can never be a keeper or a donor. The scan tells you how many it left out and sends you to [Missing & broken](find-missing-files.md#scan), where you can repair or remove them.
@@ -19,7 +19,7 @@ Duplicates only works with tracks whose file is there. A track whose file is mis
 You choose what happens to the copies you do not keep. **Archive only** keeps every file where it is and moves the extra records to Archive. **Delete from disk** moves each verified identical copy to the Trash and removes its record. This tutorial uses **Archive only**; [Delete the extra files instead](#delete) covers the other choice.
 
 !!! note "Older versions"
-    Version 0.1.15 and earlier can still list a track whose file is missing inside a group, marked **Unavailable**, and always archive the copies you do not keep. Never choose an unavailable track as keeper, and leave such a group unselected: applying it would archive the track with the missing file and give its playlist places to the available one.
+    Version 0.1.16 and earlier can still list a track whose file is missing inside a group, marked **Unavailable**, and always archive the copies you do not keep. Never choose an unavailable track as keeper, and leave such a group unselected: applying it would archive the track with the missing file and give its playlist places to the available one.
 
 ## 1. Scan for duplicates { #scan }
 

@@ -1,6 +1,6 @@
 # What's new in CueRithm
 
-<p class="lead">The seven most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
+<p class="lead">The eight most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
 
 CueRithm is pre-1.0 software. The version you have is the `version` in the line printed by the [built-in check](install.md#check-that-the-install-is-healthy). To get a newer one, follow [Update to a newer version](install.md#update); the full text of every release, with its downloads, is on the [releases page](https://github.com/johnneerdael/CueRithm/releases).
 
@@ -8,6 +8,9 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 
 | You want to… | Arrived in | Guide |
 |---|---|---|
+| Reconnect moved files when a folder or drive changes | 0.1.16 | [Find missing, moved or broken files](../files/library/find-missing-files.md#relocate) |
+| Take your library to another computer | 0.1.16 | [Back up your library](../files/library/back-up-library.md) and [Restore your library from a backup](../files/library/restore-library.md) |
+| Bring preparation in from a Lexicon backup | 0.1.16 | [Import a Lexicon backup](../files/library/restore-library.md#lexicon) |
 | Keep moved files as the same track | 0.1.15 | [Move or rename files without breaking the library](../files/move-files.md) |
 | Clear out tracks whose files are gone | 0.1.15 | [Remove the records of files that are gone](../files/library/find-missing-files.md#remove) |
 | Reconnect moved files by their content | 0.1.15 | [Find moved files by their content](../files/library/find-missing-files.md#find-moved) |
@@ -22,6 +25,14 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 | Save presets and use them per folder | 0.1.10 | [Save your setup as a preparation preset](../files/presets.md) |
 | Tag from more catalogs | 0.1.10 | [Choose providers and fields to write](../tagging/choose-providers.md) |
 | Rename and sort files | 0.1.9 | [Rename and sort files into folders](../rename/organize-files.md) |
+
+## Version 0.1.16: reconnect moved music and move your library { #v0-1-16 }
+
+Released 23 October 2026.
+
+- **Reconnect moved music.** Use **Relocate** or **Find Lost Tracks** to keep saved cues and playlist membership when files move. Review uncertain matches and undo library changes: [Find missing, moved or broken files](../files/library/find-missing-files.md#relocate) and [Undo relocation](../files/library/find-missing-files.md#undo-relocation).
+- **Take your library to another computer.** Export a metadata-only `.cuerithm` backup, copy music separately, and map its folders when restoring. Your previous library stays available for recovery: [Back up your library](../files/library/back-up-library.md#create) and [Connect music folders](../files/library/restore-library.md#connect-folders).
+- **Bring preparation from Lexicon.** Import the supported Lexicon v26 backup profile, including saved cues and tempo changes. Other Lexicon versions remain unsupported: [Import a Lexicon backup](../files/library/restore-library.md#lexicon).
 
 ## Version 0.1.15: moved music stays in your library { #v0-1-15 }
 
@@ -147,4 +158,4 @@ Versions 0.1.0 to 0.1.8 are on the [releases page](https://github.com/johnneerda
 - [Send your library to DJ software](../sync/index.md) collects the sync features in one place.
 - [Pick the right guide for your goal](choose-your-path.md) maps every feature to its page.
 
-<!-- verified: gh release view v0.1.15, v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->
+<!-- verified: gh release view v0.1.16, v0.1.15, v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->

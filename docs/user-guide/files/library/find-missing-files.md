@@ -5,7 +5,7 @@
 Start with the [scan](#scan). Then choose what fits: [Find moved files](#find-moved) when you know a folder that holds them unchanged, [Relocate](#relocate) for selected tracks and [Find Lost Tracks](#find-lost-tracks) for a folder or drive change, or [Remove from library](#remove) for tracks whose files are gone for good. Reconnecting changes library references, not music files, and removing deletes only library records. For a move you want CueRithm to perform itself, use [Organize files](../../rename/organize-files.md).
 
 !!! note "Which version"
-    Removing records, **Find moved files…**, the **Include archived tracks** option and automatic following of moves inside a watch folder need CueRithm 0.1.15 or later.
+    Removing records, **Find moved files…**, the **Include archived tracks** option and automatic following of moves inside a watch folder need CueRithm 0.1.15 or later. **Relocate**, **Find Lost Tracks** and **Undo relocation** need CueRithm 0.1.16 or later.
 
 ## Scan the library files { #scan }
 
@@ -126,7 +126,7 @@ Use this when a file is gone for good, because you deleted it on purpose or lost
 
 Playlists lose the track and keep the order of the others. A track's cues, analysis history, tags and metadata are saved with the removal, so **Undo removal** can bring everything back, including the track's place in each playlist. The cached waveforms, fingerprints and analysis results built from the removed audio are deleted, unless another track has the same content, and so are saved scans that listed the track. The cover art stays until the saved records are dropped.
 
-CueRithm keeps the saved records of your last 10 removals. In CueRithm 0.1.16 or later, duplicate merges that [delete files](find-duplicates.md#delete) count toward the same 10. When an eleventh removal pushes the oldest one out, its history line stays but it can no longer be undone. To drop the saved records of a removal sooner, use **Discard saved records…** in [History & recovery](undo-maintenance.md#undo-repairs).
+CueRithm keeps the saved records of your last 10 removals. In CueRithm 0.1.17 or later, duplicate merges that [delete files](find-duplicates.md#delete) count toward the same 10. When an eleventh removal pushes the oldest one out, its history line stays but it can no longer be undone. To drop the saved records of a removal sooner, use **Discard saved records…** in [History & recovery](undo-maintenance.md#undo-repairs).
 
 ## When a whole drive is missing { #drive }
 

@@ -33,7 +33,7 @@ Use [Find moved files](../../files/library/find-missing-files.md#find-moved) or 
 
 1. Choose **Maintenance** in the sidebar, open **Missing & broken** and select **Scan library files**. Read **Recorded location** and **Outcome**.
 2. Reconnect an unplugged drive first if many tracks are **Unavailable**. See [When a whole drive is missing](../../files/library/find-missing-files.md#drive).
-3. If the files are unchanged, tick the original tracks in the report, select **Find moved files…**, choose the folder that holds them and select **Search for matching files**, then **Relink N tracks**. Only exact content is matched. Otherwise, in **Tracks**, select the original tracks and choose **Relocate**. Choose one replacement file, or a folder to search for several tracks. For a whole folder or drive change, use **Find Lost Tracks** in the missing-file tab.
+3. If the files are unchanged, tick the original tracks in the report, select **Find moved files…**, choose the folder that holds them and select **Search for matching files**, then **Relink N tracks**. Only exact content is matched. Otherwise, in **Tracks**, select the original tracks and choose **Relocate** (CueRithm 0.1.16 or later). Choose one replacement file, or a folder to search for several tracks. For a whole folder or drive change, use **Find Lost Tracks** in the missing-file tab.
 4. [Review candidates and occupied destinations](../../files/library/find-missing-files.md#survivor), choose the complete survivor, and keep the portable preflight backup enabled. A filename match alone does not prove identical audio.
 5. Confirm and reconnect only the reviewed entries. This changes references without moving or tagging the music.
 

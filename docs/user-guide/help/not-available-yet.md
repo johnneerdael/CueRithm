@@ -82,6 +82,8 @@ CueRithm does not update itself. Download new releases from the [releases page](
 
 ## Relocation and portable libraries { #missing-and-moved-files }
 
+They need CueRithm 0.1.16 or later.
+
 Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. [Find moved files](../files/library/find-missing-files.md#find-moved) does the same for unchanged files by their exact content, and [Remove from library](../files/library/find-missing-files.md#remove) clears out the records of files that are gone for good, with Undo; no audio file is touched. Moves inside the same watch folder are followed when the file contents identify one missing ready track and one new file (CueRithm 0.1.15 or later). Ambiguous or edited files need review; choose the complete survivor when a destination is already occupied.
 
 ### Reconnect moved music { #reconnect-moved-music }

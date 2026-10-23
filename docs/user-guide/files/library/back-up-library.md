@@ -2,6 +2,9 @@
 
 <p class="lead">Save tracks, playlists, cues and settings in one portable `.cuerithm` file. Music stays separate. Allow several minutes for a large library.</p>
 
+!!! note "Which version"
+    Portable `.cuerithm` backups need CueRithm 0.1.16 or later.
+
 Use **Library backup** under TOOLS in the sidebar. The main panel creates portable archives; **Same-installation recovery snapshots** opens the older recovery-folder workflow. [Restore your library](restore-library.md#inspect) explains how to choose between them.
 
 ## What a backup holds { #what-it-holds }
