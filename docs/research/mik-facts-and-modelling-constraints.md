@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 20 · 23 October 2026 CEST / UTC · Required engineering reference.
+Revision 21 · 23 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–20 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–21 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -23,7 +23,7 @@ track ledger. Each item distinguishes observations,
 derivations and their scope. Project decisions and proposed techniques are
 identified explicitly; they are not recovered vendor mechanisms. No predictive
 model was trained while compiling revision 1. Later experimental fits are
-recorded alongside input/data audits in F078–F120 and retained in separate experiment records.
+recorded alongside input/data audits from F078 onward and retained in separate experiment records.
 
 The frozen through-09 set has 295 captured synthetic fixture IDs and 277 distinct
 retained requests; 281 IDs / 263 requests are qualified against local extraction.
@@ -42,7 +42,7 @@ from its eight exact native-key failures and six authored-bar-phase failures
 (F127–F129); it is not added to the old 277-request benchmark. There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 131 scoped findings. Evidence references E001–E201 identify immutable private source snapshots by
+The current register contains 134 scoped findings. Evidence references E001–E241 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -60,6 +60,8 @@ reproduced a finding. Public aggregates alone do not enable full reproduction.
 | Whole-track energy | 963/1,288 (74.77%) | Ratings 8–9 match only 16/50; inputs and learner both change against the earlier baseline (F094). |
 | Window energy comparison control | 26,944/29,892 (90.14%) | 200/1,288 entire sequences match; retained as a reproducible control, not an exact recovered rule (F101). |
 | Window energy unaccepted challenger | 27,711/29,892 (92.70%) | 307/1,288 entire sequences match, but 783 previously correct windows and 73 complete sequences regress; class 9 falls 11→10/18, class 10 remains 0/2 (F118). |
+| Cue count comparison control | 1,091/1,288 (84.70%) | 175 over-counts and 22 under-counts; no matches among 44 cases with two to five cues (F132). |
+| Complete ordered cue positions | 568/1,288 (44.10%) | Correct count coexists with early position misses in 140 requests; event recall is a separate diagnostic (F133). |
 | Complete cue lists | 200/1,288 (15.53%) within 1 ns | 196 timestamp-bit-exact; full-list fixes/regressions 7/6. Selected placement falls 571→568; the prior position-only reference remains better (F106). |
 | Frozen key model on prior synthetic diagnostics | 202/277 (72.92%) | Only 15/48 major responses match; 14 requests remain locally unqualified (F097). |
 
@@ -1955,6 +1957,119 @@ and PCM/native/format gates remain unresolved. No product defaults change.
 
 **Evidence:** E186, E187, E192, E196, E194, E200, E201.
 
+
+#### F132 — Rare counts fail, and nondecreasing scalar calibration cannot repair one local pair
+
+**Type:** Frozen local-model diagnostic and mathematical exclusion; no new MIK observation.
+
+The retained count predictor matches 1,091 of 1,288 spent requests: 175 are
+over-counted and 22 under-counted. It matches none of 44 requests with two to five
+total cues. Training contains 4,372 of 5,098 requests with eight total cues.
+Relative to the constant-eight training-mode control (1,080 matches), the predictor
+corrects 28 non-eight-count cases and regresses 17 eight-count cases.
+
+In one existing synthetic family, its upper-only raw additional-count estimate
+5.924926874015134 needs target one, while the lower-only estimate
+5.476725344581922 needs target two. The greater local estimate needs the smaller
+target. Therefore no nondecreasing unary calibration of this frozen local scalar
+can fit both. This is not an exclusion about the MIK server's architecture.
+
+**Scope:** No model fits, loads or forwards. The audit reconstructs all 6,386
+admitted real rows and nine dependent run-13 files. All 140,690 raw-22 and 447,650
+expanded-70 values match independent reconstruction. No conflicting-target
+bucket exists for either representation; the one three-record duplicate bucket
+is baseline/copy/rerender. The synthetic duration is inside the training min/max
+but below its first percentile. Marginal range checks do not establish joint
+support, acoustic causes or representation sufficiency. Only saved synthetic raw
+estimates are used; this is not a real-bank raw-residual audit.
+
+**Rules out / prevents:** Do not repair this pair with a nondecreasing map of
+that single local output, infer a universal eight-cue cap, treat count estimates as
+probabilities or use target-based routing. Nonmonotone and richer input-dependent
+models remain open. Class imbalance does not prove that reweighting will work.
+Correct count is not complete cue parity. No model gain, new audio, vendor run,
+unseen/native/format qualification or product-default change follows.
+
+**Evidence:** E202, E205, E213, E216, E239.
+
+#### F133 — Correct counts coexist with early position misses in the retained control
+
+**Type:** Frozen local-model error diagnostic; no newly recovered vendor rule.
+
+The retained 194-input cue pipeline misses 950 of 8,634 additional target
+occurrences and adds 1,233 spurious occurrences. Among 7,684 matched additional
+positions, 1,334 have incorrect energy labels. The first forced anchor is counted
+separately: 200 of 1,288 anchor labels are wrong; none fails the 1 ns clock gate.
+
+Define early as nonnegative file time satisfying either fewer than 128 elapsed
+beats at captured tempo or the first quarter of captured duration. The union has
+2,012 target occurrences; 208 are missed across 169 of 1,136 requests with early
+targets. Among 1,091 correct-count requests, 140 still have early misses: 172 of
+1,779 early targets. Correct total count cannot guarantee the intended events.
+
+First-quarter recall is 1,768/1,957 (90.34%); last-quarter recall is 855/1,013
+(84.40%). The 32–64 elapsed-beat bin is 204/250 (81.60%). These unequal-support
+event strata do not establish a general early-only weakness or identify any
+missed event as a breakdown.
+
+**Scope:** No fits, loads, forwards, new response reads or PCM decoding. Independent
+reconstruction covers all 1,288 requests in 1,287 recording groups, both occurrence
+streams, 1,288 anchors and 58 table rows, including float bits. FIFO coordinate
+occurrences preserve multiplicity and original indices; ordered whole-list flags
+remain separate. Target and predicted exposures are binned on their respective
+times; zero denominators are null. File/group means retain their support. Nine
+configured historically qualified audio editions have no eligible early position
+miss, so the initial passage selection explicitly uses three energy-error fill-ins.
+Those fill-ins are not missing-breakdown witnesses.
+
+**Rules out / prevents:** Do not substitute correct count for position/label
+agreement, call a matched cue with wrong energy a missing position, inflate early
+recall with the guaranteed anchor or repair an exact miss with a nearby false
+positive. This is spent development and posthoc triage, not a causal early-bias
+finding, an OpenKeyscan benchmark or unseen/native/product qualification. Retained
+scores remain 1,091 correct counts, 568 complete position lists and 200 complete
+timed/labelled lists within 1 ns; no improvement is accepted.
+
+**Evidence:** E217, E219, E223, E226, E240.
+
+#### F134 — Qualified early misses already exist in the candidate universe
+
+**Type:** Current PCM-to-captured-input bridge and frozen local-model diagnostic.
+
+Three posthoc failure editions reproduce all ten retained captured analysis
+fields; all four cue scalars per file and all 9,483 independently checked numeric
+leaves are bit-equal. All three model outputs have the correct eight total cues
+but omit a legal early candidate. Two missed candidates rank eighth and one
+thirteenth for seven additional slots, without ties; one case also misses a
+candidate ranked ninth. In two cases a selected false point has lower submitted
+cue-score amplitude but higher local model intensity than the missed true point.
+
+The complete cache contains 1,057,216 candidate rows. Its ordered numeric digest
+matches the independently verified 194-input reference, and an independent decoder
+reproduces all 1,288 lists and timestamp bits using their own saved predicted
+counts. Replacing count with truth cannot change these three lists because those
+counts already agree. Candidate priority must change to repair their full lists.
+
+**Scope:** Three pinned offline extraction calls; no new MIK analysis, decision
+fit, load, forward or response admission. Current PCM hashes and frame counts are
+recorded; no capture-time PCM hash proves historical original PCM byte identity.
+Analysed-duration tails remain present and timelines are not rescaled. The passage
+audit independently verifies 24 unclipped before/after masks, 24 full Welch PSDs,
+12 level differences and three figures. Two early markers show an RMS rise and
+one a fall in the declared two-quarter-beat masks. No audition or independent
+section annotation was performed. Same-file correct controls are contextual
+comparisons, not one-variable counterfactuals.
+
+**Rules out / prevents:** These cases fail at priority in this frozen predictor;
+the decoder follows its declared selection. Do not infer the learner's causal
+feature error, a MIK server mechanism, a breakdown label or a universal score-peak
+rule. Local intensities are not probabilities or MIK scores. Do not force a cue
+position, increase count per track or select models from targets. PCM-input parity
+for three spent cases is not unseen, all-format or native product qualification,
+and no new model accuracy gain or default replacement follows.
+
+**Evidence:** E229, E232, E235, E230, E233, E236, E241.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2093,7 +2208,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E201 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E241 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -2301,3 +2416,43 @@ retain prior IDs or explicitly version replacement evidence.
 | E199 | `2874b474d50eafc6ef371868ee0f13d58157edc585dfa5755a7abed1bf6947bb` |
 | E200 | `ceecafb31d0823d0a61e1bb5b946ed66476e0913eea266b7187550676606e1d2` |
 | E201 | `6d83baf3f7bd91a7ee364ba35bf6e84ea33bd3102e3530ea04dc211005c16f68` |
+| E202 | `745dc72c716d217275e4d89472fe24e3cb3189cc9198f8facba131cfd717ea00` |
+| E203 | `548149335a287b73897f81ce657b0f0d4f18861ce99967a9cab70ec2fcfed88a` |
+| E204 | `0eba9bb5a71832a033d154f1d5b371ac2982b8fab3c4996bfea7b5fdadf9fe4a` |
+| E205 | `55a6f527cb5c1e5a8dede345ce6706829c54c08054924f69fcf6b94a50fdf945` |
+| E206 | `c79e301e3a38ca617b959ca788769835954b8debb6f458d79a5adcc57eb654b3` |
+| E207 | `3ce728169a46a23c50f1930bd8405f1c720a87d36c269289711568ddbf7815e4` |
+| E208 | `36a8ae0befe6ddadc2a775412055f6088cfe282fd44ecd63069c3d70f20e8a07` |
+| E209 | `f8ebf06718463da53874cf04a15fe445657ce7019c0fbb3c09063dbcc16281ac` |
+| E210 | `92a2f53712a61cdd93dba8c07c7e3f1d75d1a7484c03b776309f99751cc56ee8` |
+| E211 | `9bac24ea133e2ffcf45e524f0347c65657c18ddca8b82f8c85b05412d291b44b` |
+| E212 | `765c8e35b3950fc3b0648f42f6f3b03473e1a3b54d3d8d9f6e75c798881d8c5d` |
+| E213 | `80f54d18e7880f9d3a10a3f6755461e9e4f839af9a88f4119f18c557f519698b` |
+| E214 | `eb134027fd5b9422a3b2d2620c36228674507a524585a2f993aec0d81333adf1` |
+| E215 | `6b66bfb6c043eac54e9f14efe4dfff0740ebdad71c33e259fdfc894d805f09f9` |
+| E216 | `3b6db777228f1ba5fd0ddf7b8aa6bb326385a39b7ccfafb34333eb76dd19ad6b` |
+| E217 | `4226b6fd02539bfb7ceb6c4ede87587f26383dce72b04e482ec17b9185a9eb39` |
+| E218 | `276a0938ecbe58d0898f5502237ae90a1a76a929a1a4e59b63fb54739e1efab6` |
+| E219 | `420f1d2dc9f1097ae794de6b0ad1b30a1f8e3d2fcad468109cb1e92cd91b8b6d` |
+| E220 | `839c43adbddd7887701c8f4fd861a0f678731b8f787b96ae6726ea3225b10e73` |
+| E221 | `3d700fc6e4b6df0c62802ca1ca60c04f2bdd1aa1db5b2d8a4d72ace1fdfd0231` |
+| E222 | `6fd3d328b4fb79eacf6f5b2287efe7d3f731f63612f2d0a43a263822e7c99253` |
+| E223 | `fe3f244cd9e53e0c9f199ec47ad8c67303f7ac33037bfbbf65200cdb92876013` |
+| E224 | `7f0217af21d746d00ec584c7ee40c77a4d44e992e2a6f05cded6bd86fad08dac` |
+| E225 | `8f05941354ec74ae73b3832f04108407dd4564f19a337a5d85445b33408a321f` |
+| E226 | `1363d471e150622bada1d5c910de66bdbfe683d9f4c78c6518ff8b352b12a132` |
+| E227 | `4e4a36cde06427a50a5db75a043421916b59b85c3b926d9cdc85eb1f18b4e77e` |
+| E228 | `c9a7a14503ab2c74f3012f9da3992a29dbc4d689fccf54650801130c22ca5a30` |
+| E229 | `d4aa433757ec0680bdb62f885fef872c392fb36aea5d3f4984b22cdaeae1ee29` |
+| E230 | `6ece844187fa6a953f3b959d8283ae521fb6a7605138dba2f4a2ef0160f3769b` |
+| E231 | `b329d098a7d0b8dac2add5a74a2044ec1c2afce32e93f5275d76c736269e1627` |
+| E232 | `2ce6c2216e1248f40c39707d2e768859b8a2cc27b28d93c6522e88b6f761cfa7` |
+| E233 | `edc206b582748ed414df280c1d73f977515167bfbc45f6dbf9c013d9a1f7b494` |
+| E234 | `dc2692a303088b729086c0ca335887a51b89a5334d2f5e9afafbdce877028827` |
+| E235 | `f78bd8ffe4d4312faeb21b15783dc0b96993a4d66be05cdf4f53a87d5af9685e` |
+| E236 | `baf3588ce359609d65a697da51ce075c219810bf8e2ecf07a345eaeae622d787` |
+| E237 | `565630cd8a79e396038495f96acc2323b5789ef84949905d60e982de5df6bf67` |
+| E238 | `58b41ccaa8c7a3dcbafd50b32adb98c8006ad2bb28dce8295acc74e729d5af93` |
+| E239 | `1cf34b8d8970dccc64e2f9b74066e4f954aeb2932b418deaaff3419a369ce89f` |
+| E240 | `bc1b5a8ef6bbb6912972c49bf89541eea7450589cb296e3e15399d80f5dd918b` |
+| E241 | `00ea93c04c832b9922c4c45443e965b0c11a0fd4496d3075b06086e65d8d96cb` |
