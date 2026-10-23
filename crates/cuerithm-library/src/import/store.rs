@@ -214,11 +214,47 @@ struct PageCursor {
     sequence: i64,
 }
 impl Library {
+    /// Native commands provision access locally; runtime keys never enter requests.
+    pub fn inspect_rekordbox_import(
+        &self,
+        request: ImportInspectRequest,
+        reader: cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader,
+        cancel: &CancellationToken,
+    ) -> Result<ImportInspection> {
+        ensure!(
+            request.provider == SourceProvider::Rekordbox,
+            "Mismatched direct import provider"
+        );
+        let reader = Arc::new(reader);
+        let inspection = self.inspect_import_with_reader(request, reader.as_ref(), cancel)?;
+        self.inner
+            .import_runtime
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
+            .rekordbox_readers
+            .insert(inspection.source_id.clone(), reader);
+        Ok(inspection)
+    }
     pub fn inspect_import(
         &self,
         request: ImportInspectRequest,
         cancel: &CancellationToken,
     ) -> Result<ImportInspection> {
+        if request.provider == SourceProvider::Rekordbox
+            && let SourceBindingChoice::Replica { source_id } = &request.binding
+        {
+            let reader = self
+                .inner
+                .import_runtime
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
+                .rekordbox_readers
+                .get(source_id)
+                .cloned();
+            if let Some(reader) = reader {
+                return self.inspect_import_with_reader(request, reader.as_ref(), cancel);
+            }
+        }
         let reader = adapter(request.provider);
         self.inspect_import_with_reader(request, reader, cancel)
     }
@@ -246,7 +282,7 @@ impl Library {
         let limits = ImportLimits::default();
         let work_root = self.data_dir().join("import-work");
         std::fs::create_dir_all(&work_root)?;
-        let snapshot = Arc::new(capture_source(&capture, &work_root, &limits, cancel)?);
+        let snapshot = Arc::new(reader.capture(&capture, &work_root, &limits, cancel)?);
         let profile = reader.inspect(&snapshot)?;
         ensure!(
             profile.provider == request.provider,

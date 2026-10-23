@@ -1,5 +1,52 @@
 use super::*;
 use std::path::Path;
+/// Reuse an exact existing native identity without changing native ownership.
+pub(super) fn legacy_rekordbox(
+    lib: &Library,
+    header: &ObservationHeader,
+    track: &TrackObservation,
+) -> Result<Option<String>> {
+    if header.source.provider != SourceProvider::Rekordbox
+        || track
+            .extensions
+            .get("native_deleted")
+            .and_then(Value::as_i64)
+            != Some(0)
+    {
+        return Ok(None);
+    }
+    let Some(database) = header.extensions.get("native_database_identity") else {
+        return Ok(None);
+    };
+    let Some(database_id) = database["DBID"].as_str() else {
+        return Ok(None);
+    };
+    let device = database["DeviceID"].as_str().unwrap_or("");
+    let Some(source) = track.extensions.get("native_identity") else {
+        return Ok(None);
+    };
+    let Some(uuid) = source["uuid"].as_str().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let Some(master) = source["master_song_id"].as_str().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let conn = lib.conn()?;
+    let row: Option<(String, String)> = conn.query_row(
+        "SELECT l.local_track_id,l.identity_json FROM native_track_links l JOIN native_targets t ON t.id=l.target_id JOIN tracks s ON s.id=l.local_track_id WHERE t.provider='rekordbox' AND t.database_id=?1 AND t.device_id=?2 AND l.content_id=?3",
+        params![database_id,device,track.external_id],
+        |r| Ok((r.get(0)?,r.get(1)?)),
+    ).optional()?;
+    let Some((local, identity)) = row else {
+        return Ok(None);
+    };
+    let identity: cuerithm_rekordbox::TrackIdentity = serde_json::from_str(&identity)?;
+    Ok((identity.database_id == database_id
+        && identity.content_id == track.external_id
+        && identity.uuid.as_deref() == Some(uuid)
+        && identity.master_song_id.as_deref() == Some(master))
+    .then_some(local))
+}
 /// Exact-path linking is restricted to a qualified native volume. Overlay/tmpfs
 /// cannot supply that proof and therefore yields no automatic identity match.
 pub(super) fn exact_path(

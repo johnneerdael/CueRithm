@@ -83,6 +83,7 @@ impl Library {
                     })
                     .transpose()?
                     .flatten();
+                let automatic = identity::legacy_rekordbox(self, &header, &track)?.or(automatic);
                 let (item_id, local_track_id, is_new, current_path, established) = {
                     let conn = self.conn()?;
                     let binding:Option<String>=conn.query_row("SELECT item_id FROM import_bindings WHERE source_id=?1 AND external_id=?2",params![source,track.external_id],|r|r.get(0)).optional()?;

@@ -308,6 +308,15 @@ pub fn capture_source(
     limits: &ImportLimits,
     cancel: &CancellationToken,
 ) -> Result<ImportSnapshot> {
+    capture_source_with_sqlite(request, workspace, limits, cancel, backup_sqlite)
+}
+pub(crate) fn capture_source_with_sqlite(
+    request: &SourceCaptureRequest,
+    workspace: &Path,
+    limits: &ImportLimits,
+    cancel: &CancellationToken,
+    mut backup: impl FnMut(&Path, &Path, &ImportLimits, &CancellationToken) -> Result<()>,
+) -> Result<ImportSnapshot> {
     cancel.check()?;
     ensure!(workspace.is_dir(), "Import workspace is unavailable");
     let owned = tempfile::Builder::new()
@@ -356,7 +365,7 @@ pub fn capture_source(
         let input = safe_path(&request.root, &artifact.relative_path)?;
         let path = owned.path().join(format!("artifact-{index}"));
         match artifact.kind {
-            ArtifactKind::Sqlite => backup_sqlite(&input, &path, limits, cancel)?,
+            ArtifactKind::Sqlite => backup(&input, &path, limits, cancel)?,
             ArtifactKind::StableFile => {
                 let mut input = File::open(input)?;
                 let mut output = File::create(&path)?;

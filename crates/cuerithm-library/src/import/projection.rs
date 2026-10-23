@@ -364,6 +364,7 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
         "Source binding changed after preview"
     );
     conn.execute("INSERT INTO import_bindings(source_id,external_id,item_id,identity_json,observed_hash) VALUES(?1,?2,?3,?4,NULL) ON CONFLICT(source_id,external_id) DO UPDATE SET identity_json=excluded.identity_json",params![p.source_id,p.observation.external_id,p.item_id,json!({"snapshot_id":p.snapshot_id,"location":p.observation.locations}).to_string()])?;
+    retain_legacy_rekordbox_binding(conn, &p)?;
     conn.execute("UPDATE import_memberships SET item_id=?1 WHERE item_id IS NULL AND external_track_id=?2 AND collection_id IN (SELECT id FROM import_collections WHERE source_id=?3)",params![p.item_id,p.observation.external_id,p.source_id])?;
     let provenance = json!({"kind":"source","source_id":p.source_id,"external_id":p.observation.external_id,"snapshot_id":p.snapshot_id});
     for (field, value) in p.fields {
@@ -636,4 +637,46 @@ impl Library {
         tx.commit()?;
         Ok(true)
     }
+}
+
+fn retain_legacy_rekordbox_binding(conn: &Connection, p: &TrackProjection<'_>) -> Result<()> {
+    let Some(local) = p.local_track_id else {
+        return Ok(());
+    };
+    let raw: String = conn.query_row(
+        "SELECT header_json FROM import_snapshots WHERE id=?1",
+        [p.snapshot_id],
+        |r| r.get(0),
+    )?;
+    let header: ObservationHeader = serde_json::from_str(&raw)?;
+    if header.source.provider != SourceProvider::Rekordbox
+        || p.observation
+            .extensions
+            .get("native_deleted")
+            .and_then(Value::as_i64)
+            != Some(0)
+    {
+        return Ok(());
+    }
+    let Some(identity) = header.extensions.get("native_database_identity") else {
+        return Ok(());
+    };
+    let Some(database) = identity["DBID"].as_str() else {
+        return Ok(());
+    };
+    let device = identity["DeviceID"].as_str().unwrap_or("");
+    let Some(track) = p.observation.extensions.get("native_identity") else {
+        return Ok(());
+    };
+    let Some(uuid) = track["uuid"].as_str().filter(|s| !s.is_empty()) else {
+        return Ok(());
+    };
+    let Some(master) = track["master_song_id"].as_str().filter(|s| !s.is_empty()) else {
+        return Ok(());
+    };
+    let target:Option<String>=conn.query_row("SELECT t.id FROM native_targets t JOIN native_track_links l ON l.target_id=t.id WHERE t.provider='rekordbox' AND t.database_id=?1 AND t.device_id=?2 AND l.content_id=?3 AND l.local_track_id=?4 AND json_extract(l.identity_json,'$.database_id')=?1 AND json_extract(l.identity_json,'$.content_id')=?3 AND json_extract(l.identity_json,'$.uuid')=?5 AND json_extract(l.identity_json,'$.master_song_id')=?6",params![database,device,p.observation.external_id,local,uuid,master],|r|r.get(0)).optional()?;
+    if let Some(target) = target {
+        ensure!(conn.execute("UPDATE import_bindings SET legacy_target_id=?3,legacy_content_id=?2 WHERE source_id=?1 AND external_id=?2 AND (legacy_target_id IS NULL OR legacy_target_id=?3)",params![p.source_id,p.observation.external_id,target])?==1,"Existing native import binding differs from the selected source");
+    }
+    Ok(())
 }

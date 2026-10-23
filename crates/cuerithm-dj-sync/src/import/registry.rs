@@ -23,6 +23,17 @@ pub struct ReadOptions {
 }
 pub trait SourceAdapter: Send + Sync {
     fn provider(&self) -> SourceProvider;
+    /// Runtime-only adapters may provide authenticated SQLite acquisition.
+    /// The selection and original source guards remain owned by the backend.
+    fn capture(
+        &self,
+        request: &SourceCaptureRequest,
+        workspace: &std::path::Path,
+        limits: &ImportLimits,
+        cancel: &CancellationToken,
+    ) -> Result<ImportSnapshot> {
+        capture_source(request, workspace, limits, cancel)
+    }
     fn inspect(&self, snapshot: &ImportSnapshot) -> Result<SourceProfile>;
     fn read(
         &self,
@@ -62,6 +73,11 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::Rekordbox {
+        static REKORDBOX: super::readers::rekordbox::RekordboxReader =
+            super::readers::rekordbox::RekordboxReader::unconfigured();
+        return &REKORDBOX;
+    }
     if provider == SourceProvider::MixedInKey11 {
         return &super::readers::mixed_in_key11::MixedInKey11Reader;
     }

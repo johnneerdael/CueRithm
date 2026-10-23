@@ -131,11 +131,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `RekordboxReader`; consumes existing approved source-profile/key provisioning and inspection APIs. Retains both relational content ID and MasterSongID and exact target/library identity; bridges existing native links without changing their owner/baseline state.
 
-- [ ] Write `rekordbox_general_import_never_enqueues_incoming`, `rekordbox_preserves_memory_hot_same_time_and_sixteen_slots` and `rekordbox_profile_acceptance_is_not_widened`. Assert Kind0/4 memory, Kinds1–3 slots0–2 and5–17 slots3–15, millisecond conversion, sentinel OutMsec=-1, active-loop flags, full PQTZ beat rows and playlist order. Missing ANLZ/media retains metadata with issues.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_rekordbox` and the library import bridge test; expect new API failure.
-- [ ] Implement source-neutral projection from accepted direct read snapshots, explicit LEFT JOINs/deletion completeness, native/cached/file tag separation, My Tags and smart-rule provenance. Preserve accepted encryption/version constraints. No XML route, live migrations or new automatic jobs. Existing legacy import commands retain compatibility; shared UI uses the new import service.
-- [ ] Rerun with source moves/cloud recorded paths, raw unknown cue kinds, corrupt ANLZ section lengths, initial local conflicts and existing native state; expect pass and existing direct sync tests unchanged.
-- [ ] Commit `feat: connect accepted direct rekordbox sources to shared import`.
+- [x] Write `rekordbox_general_import_never_enqueues_incoming`, `rekordbox_preserves_memory_hot_same_time_and_sixteen_slots` and `rekordbox_profile_acceptance_is_not_widened`. Assert Kind0/4 memory, Kinds1–3 slots0–2 and5–17 slots3–15, millisecond conversion, sentinel OutMsec=-1, active-loop flags, full PQTZ beat rows and playlist order. Missing ANLZ/media retains metadata with issues.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_rekordbox` and the library import bridge test; expect new API failure.
+- [x] Implement source-neutral projection from accepted direct read snapshots, explicit LEFT JOINs/deletion completeness, native/cached/file tag separation, My Tags and smart-rule provenance. Preserve accepted encryption/version constraints. No XML route, live migrations or new automatic jobs. Existing legacy import commands retain compatibility; shared UI uses the new import service.
+- [x] Rerun with source moves/cloud recorded paths, raw unknown cue kinds, corrupt ANLZ section lengths, initial local conflicts and existing native state; expect pass and existing direct sync tests unchanged.
+- [x] Commit `feat: connect accepted direct rekordbox sources to shared import`.
 
 ### Task 17: Pioneer/AlphaTheta USB PDB and OneLibrary
 

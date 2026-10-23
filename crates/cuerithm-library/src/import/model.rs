@@ -83,6 +83,8 @@ pub struct ImportPage {
 pub(crate) struct ImportRuntime {
     pub nonce: String,
     pub inspections: BTreeMap<String, Arc<ImportSnapshot>>,
+    pub rekordbox_readers:
+        BTreeMap<String, Arc<cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader>>,
     pub processing_gate: Arc<std::sync::Mutex<()>>,
     pub decoder_identity: Option<String>,
     pub media_runtime: Option<cuerithm_media::MediaRuntime>,
@@ -92,6 +94,7 @@ impl Default for ImportRuntime {
         Self {
             nonce: uuid::Uuid::new_v4().to_string(),
             inspections: BTreeMap::new(),
+            rekordbox_readers: BTreeMap::new(),
             processing_gate: Arc::new(std::sync::Mutex::new(())),
             decoder_identity: None,
             media_runtime: None,

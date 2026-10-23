@@ -11,6 +11,7 @@ pub mod mixed_in_key11;
 pub mod mixxx;
 mod mixxx_codec;
 mod mixxx_schema;
+pub mod rekordbox;
 pub mod serato3;
 pub mod serato4;
 pub mod serato_tags;

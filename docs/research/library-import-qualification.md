@@ -390,3 +390,54 @@ source guards verify deterministic observations and unchanged source artifacts.
 Task15 verification:492 dj-sync tests pass (3 ignored), including13 MIK cases.
 All-target Clippy with warnings denied and formatting pass. Existing outbound
 adapters, including the prior bookmark parser, retain their regression coverage.
+
+## Direct rekordbox reader
+
+Shared import reuses the existing runtime key provider and SQLCipher 4 direct
+read boundary. Keys stay in memory; they are absent from requests, source rows
+and durable operations. The generic source guard still captures the original
+database/WAL identities before and after the coherent encrypted backup. Runtime
+provisioning supports refresh; reopening requires local access to be provisioned
+again. No XML transport, native migration or source write is introduced.
+
+A bounded cursor visits the existing fourteen music tables and only the
+`localUpdateCount` registry row. Ordinary tables and known database headers are
+required. A private indexed disk spool replaces whole-library DTO expansion.
+These controls establish a D2 read projection; they neither add an accepted
+native write schema nor turn a structural fixture into source-app acceptance.
+The existing exact application/schema write-capability checks remain unchanged.
+
+Observations retain relational content ID, MasterSongID, UUID and native database
+identity separately. Missing lookup/media/analysis records keep the track with
+issues. Native/cached contentCue/file tags remain separate. All sixteen numbered
+hotcue slots coexist with memory cues at the same time; Kind4 memory loops retain
+their active state, unknown kinds stay raw, and the -1 loop-end sentinel is not a
+zero endpoint. Full PQTZ beat rows retain their original numbers, tempos and
+millisecond positions, with unresolved canonical clocks. Original ANLZ bytes,
+including unknown or malformed sections, remain private blobs. Artifact labels
+alone cannot associate a different captured path with a source analysis reference.
+
+Source order, repeated playlist occurrences, smart rules, My Tags, deleted flags,
+unknown fields and raw record pages remain provenance. Unlinked cue/cache/tag
+rows have individual accounting issues. The desktop integration must expose
+source deletion states explicitly and must not infer deletions from omissions.
+
+An exact existing native link can identify a local track only when database,
+device, content ID, UUID and MasterSongID agree. Shared import stores the legacy
+reference while leaving native owner/baseline/observation state unchanged. Initial
+local conflicts retain the local choice by default. All-off imports create
+unprepared imported items and no Incoming preparation jobs.
+
+Controlled tests cover all sixteen pads plus coincident memory cues, negative
+positions, native loops, explicit beat arrays, cloud/original paths, missing
+lookups/assets, corrupt and mislabeled analysis, committed WAL, raw/comment/cache
+separation, repeated reads, row/cancellation limits, source immutability, runtime
+refresh and preservation of existing native state. Native app acceptance remains
+separate from these fixture results.
+
+Task16 verification:502 dj-sync tests pass (3 ignored); the existing direct
+rekordbox crate passes136 tests (1 ignored). Library import suites pass77 tests
+in the default build and93 with tagging enabled, including the three direct
+import/bridge/refresh cases. All three changed Rust packages pass all-target
+Clippy with warnings denied; formatting and diff checks pass. The known broader
+library mount limitations listed above remain outside these focused runs.
