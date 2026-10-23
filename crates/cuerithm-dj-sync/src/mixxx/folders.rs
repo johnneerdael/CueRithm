@@ -175,25 +175,24 @@ mod tests {
             let directory = temp.path().join("Music");
             std::fs::create_dir(&directory).unwrap();
             let home = temp.path().join("MUSIC");
+            let directory_key = super::super::tracks::location_key(&directory).unwrap();
+            let home_key = super::super::tracks::location_key(&home).unwrap();
             let _identity = super::super::tracks::pretend_same_file(if same_directory {
                 |_, _| true
             } else {
                 |_, _| false
             });
             let mut connection = fixture::create(&temp.path().join("mixxxdb.sqlite"), 39);
-            let id = fixture::add_track(
-                &connection,
-                directory.join("track.mp3").to_str().unwrap(),
-                "track",
-            );
+            let id =
+                fixture::add_track(&connection, &format!("{directory_key}/track.mp3"), "track");
             let tx = connection.transaction().unwrap();
-            let seeded = seed(&tx, [id], home.to_str(), true).unwrap();
+            let seeded = seed(&tx, [id], Some(&home_key), true).unwrap();
             tx.commit().unwrap();
             assert_eq!(seeded.too_broad, usize::from(same_directory));
             let expected = if same_directory {
                 Vec::new()
             } else {
-                vec![directory.to_str().unwrap().to_owned()]
+                vec![directory_key]
             };
             assert_eq!(seeded.added, expected);
             assert_eq!(listed(&connection), expected);
