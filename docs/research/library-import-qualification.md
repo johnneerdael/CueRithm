@@ -209,3 +209,56 @@ Task11 verification: all439 dj-sync tests pass (3 ignored), including eight new
 Mixxx cases. A separate existing Mixxx regression run passes134 tests (2 ignored).
 All-target Clippy `-D warnings`, formatting and diff checks pass. These results
 establish D2 fixture behavior; D4/D5/D6 native-app acceptance remains unrun.
+
+## Serato readers and file-owned performance data
+
+Serato3 reads parent-bounded legacy databaseV2/crate chunks, UTF-16BE text,
+per-volume identities, nested `%%` crate names, repeated ordered occurrences,
+empty crates and `neworder.pref`. Unknown fields and smart predicates remain
+raw with explicit unsupported-rule diagnostics. Large track sets stage on
+private disk instead of accumulating the whole library in memory. Truncated
+children cannot consume a following track; configured hierarchy limits and
+BOM-marked ordering text are covered.
+
+Serato4 currently qualifies the aggregate `master.sqlite` schema12 music-table
+projection, with explicit optional columns/tables. A missing keep-alive table
+preserves crates; when present, retained child crates preserve their parents.
+Database metadata remains authoritative. Unmounted location roots, dangling
+assets and null membership references remain visible. A/B/A occurrences keep
+native row identities and order. Equal-position ties retain a diagnostic.
+Top-level Apple Music/Streaming Tracks pseudo-containers are excluded; native
+smart rules are preserved without claiming equivalent live predicates.
+
+The shared read-only performance decoder handles the independent handover
+Markers2/BeatGrid vectors through actual ID3 GEOB, FLAC comment, MP4 freeform
+and Ogg comment envelopes. Cue1250ms becomes native1.25seconds; saved loops
+retain sparse indices, lock and4–8second ranges. BeatGrid intermediate BPM is
+computed from native seconds/beat counts, independently of scalar BPM.
+Autotags retain BPM and both gain values separately. Track color and grid lock
+remain distinct native values. Unknown entries, duplicate slots and original
+source blobs survive. Ambiguous duplicate tags never select a replacement by
+query order. Malformed performance fields leave other decoded fields intact.
+
+Legacy Markers_ has no decoded replacement cues and emits
+`unsupported_legacy_serato_markers`. Serato5/CUELOOP, service metadata XML,
+product-specific Lite differences and other aggregate schema revisions have no
+qualified parser/app acceptance claim. Remote/native cache path evidence can
+remain visible without reading account tables or enabling online services.
+The named Serato3/4 storage fixtures establish D2 only, including optional-table
+variants; no Serato application was launched. D4/D5/D6 remain unrun.
+
+Serato performance observations require reading the referenced audio's tags,
+independently of optional general tag capture. They stay separate from native
+database metadata and never run DSP or write music/source databases. Unavailable
+audio has an explicit performance-unavailable issue. All imported timing stays
+native/unresolved until an exact originating decoder profile is qualified.
+Live multi-volume source selection still requires the guarded native entry
+points assigned to Task19; coherent copied-root fixtures do not grant authority
+over unselected volumes.
+
+Task12 verification:453 dj-sync tests pass (3 ignored), including14 new Serato
+cases across the three reader/codec targets. The existing Serato4 writer suite
+separately passes32 tests. All-target Clippy `-D warnings`, formatting and diff
+checks pass. Container-envelope tests use invented metadata and the committed
+independent handover vectors; the file integration uses the existing synthetic
+silence FLAC fixture, never user music.

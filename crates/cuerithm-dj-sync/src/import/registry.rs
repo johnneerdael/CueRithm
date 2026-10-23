@@ -62,6 +62,12 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::Serato4 {
+        return &super::readers::serato4::Serato4Reader;
+    }
+    if provider == SourceProvider::Serato3 {
+        return &super::readers::serato3::Serato3Reader;
+    }
     if provider == SourceProvider::Mixxx {
         return &super::readers::mixxx::MixxxReader;
     }
