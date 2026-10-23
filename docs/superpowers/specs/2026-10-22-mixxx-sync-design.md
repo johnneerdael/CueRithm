@@ -153,7 +153,8 @@ crates/cuerithm-dj-sync/src/
 4. Beats: constant tempo writes `BeatGrid-2.0`; several tempo anchors write a dense
    `BeatMap-1.0` that keeps every anchor exactly. `bpm` is the track average.
    `bpm_lock` follows the lock option: *Default* keeps an existing row's lock and is
-   unlocked on a new row, *Lock* and *Unlock* set it.
+   unlocked on a new row, *Lock* and *Unlock* set it when a grid is written. A new
+   row without a grid stays unlocked so Mixxx can analyze it.
 5. Key: `KeyMap-1.0` blob with source *user*, ID3v2 `key` text and `key_id`.
 6. Cues: replace only hot cue and loop rows (types 1 and 4) for a track that has
    CueRithm cues; main cue, intro/outro and other rows stay. Positions are

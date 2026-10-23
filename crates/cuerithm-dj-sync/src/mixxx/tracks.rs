@@ -539,10 +539,9 @@ fn insert(
         ("coverart_hash", Value::Integer(0)),
         (
             "bpm_lock",
-            Value::Integer(i64::from(matches!(
-                options.beatgrid_lock,
-                BeatgridLock::Lock
-            ))),
+            Value::Integer(i64::from(
+                plan.beats.is_some() && matches!(options.beatgrid_lock, BeatgridLock::Lock),
+            )),
         ),
     ];
     if let Some(color) = track.color {
@@ -1123,6 +1122,31 @@ mod tests {
                 value(&s.connection, outcome.library_ids["t"], "bpm_lock"),
                 Value::Integer(expected)
             );
+        }
+    }
+
+    #[test]
+    fn new_rows_without_written_grids_stay_unlocked() {
+        for version in [39, 40] {
+            for skip_beatgrids in [false, true] {
+                let mut s = setup(version);
+                let (path, _) = s.file("new.mp3");
+                let mut track = full_track("t", &path);
+                if !skip_beatgrids {
+                    track.beatgrid.clear();
+                }
+                let mut opts = options(MixxxExistingTracks::Keep);
+                opts.beatgrid_lock = BeatgridLock::Lock;
+                opts.skip_beatgrids = skip_beatgrids;
+                let (outcome, _) = s.run(vec![track], &opts, false).unwrap();
+                let id = outcome.library_ids["t"];
+                assert_eq!(value(&s.connection, id, "beats"), Value::Null);
+                assert_eq!(
+                    value(&s.connection, id, "bpm_lock"),
+                    Value::Integer(0),
+                    "schema {version}, skip_beatgrids={skip_beatgrids}"
+                );
+            }
         }
     }
 

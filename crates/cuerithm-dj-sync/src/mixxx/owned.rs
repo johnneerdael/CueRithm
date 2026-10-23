@@ -219,9 +219,23 @@ fn create(tx: &Transaction<'_>, kind: Kind, name: &str, members: &[i64]) -> Resu
             tx.last_insert_rowid()
         }
         Kind::Crate => {
+            // A partial sync may omit the source that owns this name. Consult
+            // the live database, including objects created earlier in this pass.
+            let mut available = name.to_owned();
+            for suffix in 2.. {
+                let taken = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM crates WHERE name = ?1)",
+                    [&available],
+                    |row| row.get::<_, bool>(0),
+                )?;
+                if !taken {
+                    break;
+                }
+                available = format!("{name} ({suffix})");
+            }
             tx.execute(
                 "INSERT INTO crates(name, locked, autodj_source) VALUES(?1, 0, 0)",
-                [name],
+                [available],
             )?;
             tx.last_insert_rowid()
         }
@@ -486,11 +500,13 @@ pub(super) fn write_containers(
         let existing_binding = previous.get(&want.source_id);
         let mut created = true;
         let mut id = None;
+        let mut preserved_fingerprint = None;
         match existing_binding.and_then(|b| parse_locator(&b.locator).map(|(k, i)| (b, k, i))) {
             Some((binding, bound_kind, bound_id)) if bound_kind == kind => {
                 created = binding.created;
                 match natives.get(&bound_id).cloned() {
                     Some(native) if native.hidden || native.locked => {
+                        preserved_fingerprint = Some(binding.fingerprint.clone());
                         warnings.push(format!(
                             "Mixxx {} '{}' is locked, so it was left unchanged",
                             kind.noun(),
@@ -501,7 +517,7 @@ pub(super) fn write_containers(
                     Some(native) => {
                         id = Some(bound_id);
                         let unchanged = native.print(kind)? == binding.fingerprint;
-                        if unchanged || replace {
+                        if replace || (unchanged && binding.created) {
                             if !unchanged {
                                 warnings.push(format!(
                                     "Mixxx {} '{}' was edited in Mixxx and was reset to CueRithm's version",
@@ -513,11 +529,16 @@ pub(super) fn write_containers(
                                 outcome.1 += 1;
                             }
                         } else {
-                            warnings.push(format!(
-                                "Mixxx {} '{}' was edited in Mixxx, so only missing tracks were added",
-                                kind.noun(),
-                                native.name
-                            ));
+                            if !unchanged {
+                                // Keep the last acknowledged structure: preserving an
+                                // edit must not authorize replacing or deleting it later.
+                                preserved_fingerprint = Some(binding.fingerprint.clone());
+                                warnings.push(format!(
+                                    "Mixxx {} '{}' was edited in Mixxx, so only missing tracks were added",
+                                    kind.noun(),
+                                    native.name
+                                ));
+                            }
                             if append_missing(tx, kind, bound_id, &native, want)? {
                                 outcome.1 += 1;
                             }
@@ -597,16 +618,21 @@ pub(super) fn write_containers(
                 locator: locator(kind, id),
                 parent_source_id: want.parent_id.clone(),
                 created,
-                // Replaced below from the final database state.
-                fingerprint: String::new(),
+                // Refresh exact writes below; deliberately preserved Mixxx edits
+                // retain their earlier ownership evidence.
+                fingerprint: preserved_fingerprint.unwrap_or_default(),
             },
         );
     }
 
-    // Fingerprints come from what is actually stored once every change is made.
+    // Exact writes acknowledge the final structure. Preserved external edits keep
+    // the previous fingerprint so a later sync cannot mistake them for our work.
     let mut final_state: BTreeMap<Kind, BTreeMap<i64, Native>> = BTreeMap::new();
     for want in &wanted {
         let binding = bindings.get_mut(&want.source_id).expect("bound above");
+        if !binding.fingerprint.is_empty() {
+            continue;
+        }
         let (bound_kind, id) = parse_locator(&binding.locator).context("Invalid Mixxx locator")?;
         if let Entry::Vacant(slot) = final_state.entry(bound_kind) {
             slot.insert(load(tx, bound_kind)?);
@@ -1016,6 +1042,110 @@ mod tests {
     }
 
     #[test]
+    fn repeated_keep_sync_preserves_adopted_members() {
+        for container in [PLAYLISTS, MixxxContainer::Crates] {
+            let mut s = setup();
+            let x = fixture::add_track(&s.connection, "/music/x.mp3", "x");
+            match container {
+                PLAYLISTS => fixture::add_playlist(&s.connection, "Warmup", &[x]),
+                MixxxContainer::Crates => fixture::add_crate(&s.connection, "Warmup", &[x]),
+            };
+            let lists = vec![pl("p", None, "Warmup", false, &["a", "b"])];
+            let (first, _) = s
+                .run(lists.clone(), &opts(container, KEEP), &none())
+                .unwrap();
+            let changes = s.connection.total_changes();
+            let (second, _) = s
+                .run(lists, &opts(container, KEEP), &request(&first.report, &[]))
+                .unwrap();
+            let containers = match container {
+                PLAYLISTS => s.playlists(),
+                MixxxContainer::Crates => s.crates(),
+            };
+            let expected = match container {
+                PLAYLISTS => vec![x, s.id("a"), s.id("b")],
+                MixxxContainer::Crates => vec![s.id("a"), s.id("b"), x],
+            };
+            assert_eq!(containers, vec![("Warmup".into(), expected)]);
+            assert_eq!(s.connection.total_changes(), changes);
+            assert_eq!((second.created, second.updated, second.deleted), (0, 0, 0));
+        }
+    }
+
+    #[test]
+    fn repeated_keep_sync_preserves_owned_edits_and_retires_them_on_removal() {
+        let mut s = setup();
+        let lists = vec![pl("p", None, "Set", false, &["a"])];
+        let (first, _) = s
+            .run(lists.clone(), &opts(PLAYLISTS, KEEP), &none())
+            .unwrap();
+        s.connection
+            .execute("UPDATE Playlists SET name = 'My edit'", [])
+            .unwrap();
+        let (second, _) = s
+            .run(
+                vec![pl("p", None, "Set", false, &["a", "b"])],
+                &opts(PLAYLISTS, KEEP),
+                &request(&first.report, &[]),
+            )
+            .unwrap();
+        let changes = s.connection.total_changes();
+        let (third, _) = s
+            .run(lists, &opts(PLAYLISTS, KEEP), &request(&second.report, &[]))
+            .unwrap();
+        assert_eq!(
+            s.playlists(),
+            vec![("My edit".into(), vec![s.id("a"), s.id("b")])]
+        );
+        assert_eq!(s.connection.total_changes(), changes);
+        let (removed, _) = s
+            .run(
+                vec![],
+                &opts(PLAYLISTS, KEEP),
+                &request(&third.report, &["p"]),
+            )
+            .unwrap();
+        assert_eq!(removed.deleted, 0);
+        assert!(removed.report.retired.contains("p"));
+        assert_eq!(
+            s.playlists(),
+            vec![("My edit".into(), vec![s.id("a"), s.id("b")])]
+        );
+    }
+
+    #[test]
+    fn edited_locked_playlist_is_not_acknowledged_as_unchanged_on_removal() {
+        let mut s = setup();
+        let lists = vec![pl("p", None, "Set", false, &["a"])];
+        let (first, _) = s
+            .run(lists.clone(), &opts(PLAYLISTS, KEEP), &none())
+            .unwrap();
+        s.connection
+            .execute("UPDATE Playlists SET name = 'My edit', locked = 1", [])
+            .unwrap();
+        let (second, _) = s
+            .run(
+                lists,
+                &opts(PLAYLISTS, REPLACE),
+                &request(&first.report, &[]),
+            )
+            .unwrap();
+        s.connection
+            .execute("UPDATE Playlists SET locked = 0", [])
+            .unwrap();
+        let (removed, _) = s
+            .run(
+                vec![],
+                &opts(PLAYLISTS, KEEP),
+                &request(&second.report, &["p"]),
+            )
+            .unwrap();
+        assert_eq!(removed.deleted, 0);
+        assert!(removed.report.retired.contains("p"));
+        assert_eq!(s.playlists(), vec![("My edit".into(), vec![s.id("a")])]);
+    }
+
+    #[test]
     fn two_same_name_playlists_are_not_adopted() {
         let mut s = setup();
         fixture::add_playlist(&s.connection, "Warmup", &[]);
@@ -1066,6 +1196,87 @@ mod tests {
             s.binding(&second, "q").locator
         );
         assert!(s.binding(&second, "q").created);
+    }
+
+    #[test]
+    fn partial_crate_sync_uses_a_free_name_without_adopting_another_sources_crate() {
+        let mut s = setup();
+        let (first, _) = s
+            .run(
+                vec![pl("p", None, "Set", false, &["a"])],
+                &opts(MixxxContainer::Crates, KEEP),
+                &none(),
+            )
+            .unwrap();
+        fixture::add_crate(&s.connection, "Set (2)", &[s.id("c")]);
+        let (second, _) = s
+            .run(
+                vec![pl("q", None, "Set", false, &["b"])],
+                &opts(MixxxContainer::Crates, REPLACE),
+                &request(&first.report, &[]),
+            )
+            .unwrap();
+        assert_eq!(
+            s.crates(),
+            vec![
+                ("Set".into(), vec![s.id("a")]),
+                ("Set (2)".into(), vec![s.id("c")]),
+                ("Set (3)".into(), vec![s.id("b")]),
+            ]
+        );
+        assert_eq!(s.binding(&second, "p"), s.binding(&first, "p"));
+        assert_ne!(
+            s.binding(&second, "p").locator,
+            s.binding(&second, "q").locator
+        );
+        assert!(s.binding(&second, "q").created);
+        let changes = s.connection.total_changes();
+        let (third, _) = s
+            .run(
+                vec![pl("q", None, "Set", false, &["b"])],
+                &opts(MixxxContainer::Crates, REPLACE),
+                &request(&second.report, &[]),
+            )
+            .unwrap();
+        assert_eq!(s.connection.total_changes(), changes);
+        assert_eq!((third.created, third.updated, third.deleted), (0, 0, 0));
+        assert_eq!(s.binding(&third, "q"), s.binding(&second, "q"));
+    }
+
+    #[test]
+    fn missing_owned_crate_is_recreated_with_a_free_name() {
+        let mut s = setup();
+        let (first, _) = s
+            .run(
+                vec![pl("p", None, "Set", false, &["a"])],
+                &opts(MixxxContainer::Crates, KEEP),
+                &none(),
+            )
+            .unwrap();
+        s.connection
+            .execute("DELETE FROM crate_tracks", [])
+            .unwrap();
+        s.connection.execute("DELETE FROM crates", []).unwrap();
+        fixture::add_crate(&s.connection, "Set", &[s.id("c")]);
+        let (second, _) = s
+            .run(
+                vec![pl("p", None, "Set", false, &["b"])],
+                &opts(MixxxContainer::Crates, REPLACE),
+                &request(&first.report, &[]),
+            )
+            .unwrap();
+        assert_eq!(
+            s.crates(),
+            vec![
+                ("Set".into(), vec![s.id("c")]),
+                ("Set (2)".into(), vec![s.id("b")]),
+            ]
+        );
+        assert!(s.binding(&second, "p").created);
+        assert_ne!(
+            s.binding(&second, "p").locator,
+            s.binding(&first, "p").locator
+        );
     }
 
     #[test]

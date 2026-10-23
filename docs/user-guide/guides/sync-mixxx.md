@@ -85,7 +85,8 @@ Mixxx's main cue, intro and outro markers are kept.
 
 - **Playlists (keep order)** keeps track order and repeated tracks. This is the default.
 - **Crates (unordered)** puts each list in a Mixxx crate. Crates have no order and no
-  duplicates.
+  duplicates. If a crate name is already used by another synced list, CueRithm
+  adds a number to the new name, such as **Warmup (2)**.
 
 Mixxx has no folders and no smart playlists, so:
 
@@ -114,6 +115,7 @@ into **Comment** with **Field mappings** if you want it), whether a loop starts
 active, and cues beyond slot 36. The preview names skipped cues. **Do not send
 beatgrids** leaves the grid to Mixxx's own analysis. **Beatgrid locks** sets Mixxx's
 BPM lock so Mixxx will not re-analyze a grid you trust.
+A new track stays unlocked when no beatgrid is sent, so Mixxx can analyze it.
 
 CueRithm does not change Mixxx's settings, play counts, replay gain or cover art. It
 changes the list of folders Mixxx scans in one case only: when that list is empty.
