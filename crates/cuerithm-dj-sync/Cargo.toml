@@ -7,6 +7,8 @@ license.workspace = true
 [features]
 # Authored Mixxx fixtures and the process-guard seam, for other crates' tests only.
 test-support = []
+# Disposable generated-fixture laboratory only; never enabled by desktop.
+experimental-djstudio-write = []
 
 [dependencies]
 anyhow.workspace = true

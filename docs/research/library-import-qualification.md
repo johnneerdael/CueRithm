@@ -540,3 +540,40 @@ cues, malformed/duplicate/trailing JSON, unknown migrations/renderer, duplicate
 paths, missing structures, paged invalid/project provenance, symlink refusal and
 unchanged source/cache bytes. These are D2 controls; app reopen/write acceptance
 remains unrun and production DJ.Studio writes remain disabled.
+
+## Disposable DJ.Studio existing-record experiment
+
+The optional `experimental-djstudio-write` Cargo feature exposes a laboratory
+only. It is disabled by default and is not enabled by the desktop dependency.
+Its root capability can only be minted by an internal generator creating a new
+empty temporary directory; it cannot adopt a selected user library. Generated
+evidence is retained for inspection. There is no production writer constructor
+or Tauri command, and every receipt reports production writes disabled.
+
+The experiment owns existing title/artist/comment metadata and the SQL key plus
+JSON effective Camelot key only. It preserves analyzed state, original/note/MIK
+keys, tag-cache keys, beatgrids, cue arrays/keys, external identities and project
+records. It never inserts an analyzed audio identity. The SQLite schema and
+partial records are authored public fixtures, not an installable app export.
+
+An exclusive lease and native process check require the fixture to be closed.
+Root/control identities, native/renderer marker and the entire generated file
+inventory are guarded. Preparation backs up every fixture file, stages an
+isolated SQLite transaction with integrity/foreign-key checks and stages exact
+JSON patches. Journals and replacement temporaries stay outside recursively
+scanned record tables. Publication replaces JSON and SQLite, invalidates only
+the affected audio aggregate cache and verifies canonical SQL/JSON readback.
+Guarded rollback restores byte-exact original persistence and refuses later
+external edits. Idempotent retry and interrupted publication/recovery are
+exercised with the original runtime capability; this does not establish
+cross-process user-root recovery or native application acceptance.
+
+Native DJ.Studio reopen (D5) and arbitrary cue/grid writes remain unrun and
+unavailable. Compiling the experiment does not promote any source capability.
+
+Task18b verification: eight experiment tests pass, including eleven publication
+fault boundaries, interrupted rollback, later external edits, exclusive lease,
+stale before-hashes, changed root, cancellation and native/renderer mismatch.
+The default dj-sync suite remains526 passed,0 failed,3 ignored. All-target
+Clippy with warnings denied passes with the experiment enabled. The desktop
+feature tree does not enable the experiment; formatting and diff checks pass.
