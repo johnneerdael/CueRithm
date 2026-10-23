@@ -45,7 +45,7 @@ Good to know:
 
 - Each list is a smart playlist whose rule is exact: the **Key** dimension makes the list `7A` with the rule **Key** **is** `7A`, which matches that key only. For tracks that mix with a key, use [automatic key lists](automatic-smart-playlists.md#options) or [a rule](recipes/tracks-that-mix-with-a-key.md).
 - BPM bands end in `.99` because BPM is compared to two decimals. A band is only made if a track falls in it.
-- For **Energy** and **Rating** you can tick **Include all 0–10 energy values, even without matches** (or **0–5 star rating**) to make a list for every value.
+- For **Energy** and **Rating** you can tick **Include all 1–10 energy values, even without matches** (or **0–5 star rating**) to make a list for every value. Energy is a whole-track rating from 1 to 10, but the generator also makes a list named `00 Energy`, which always stays empty.
 
 ## Combine dimensions or keep them apart { #combine }
 
