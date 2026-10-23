@@ -272,6 +272,7 @@ pub enum ObservationRecord {
     Issue(ImportIssue),
 }
 pub trait ObservationSink {
+    fn put_blob(&mut self, bytes: &[u8], media_type: Option<&str>) -> Result<BlobRef>;
     fn push(&mut self, record: ObservationRecord) -> Result<()>;
 }
 pub trait ObservationReader {

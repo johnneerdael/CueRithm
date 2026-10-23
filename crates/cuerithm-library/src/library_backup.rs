@@ -180,7 +180,7 @@ fn schema(conn: &Connection) -> Result<i64> {
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     ensure!(
-        (27..=28).contains(&version),
+        (27..=29).contains(&version),
         "Unsupported library backup schema"
     );
     Ok(version)

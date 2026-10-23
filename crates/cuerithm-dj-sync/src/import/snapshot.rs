@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     fs::{self, File},
+    hash::{Hash, Hasher},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
     time::{Duration, Instant, SystemTime},
@@ -81,7 +82,7 @@ impl SourceCaptureRequest {
     pub fn from_selected_root(
         provider: SourceProvider,
         root: &Path,
-        artifacts: Vec<ArtifactRequest>,
+        mut artifacts: Vec<ArtifactRequest>,
     ) -> Result<Self> {
         let root = root.canonicalize().context("Source root is unavailable")?;
         ensure!(
@@ -96,6 +97,7 @@ impl SourceCaptureRequest {
             );
             safe_path(&root, &artifact.relative_path)?;
         }
+        artifacts.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(Self {
             provider,
             root,
@@ -108,9 +110,37 @@ impl SourceCaptureRequest {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Fingerprint {
+    object_identity: String,
     sha256: String,
     bytes: u64,
     modified: Option<SystemTime>,
+}
+struct ObjectIdentityHasher(Sha256);
+impl Hasher for ObjectIdentityHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+    fn finish(&self) -> u64 {
+        u64::from_le_bytes(
+            self.0.clone().finalize()[..8]
+                .try_into()
+                .expect("eight digest bytes"),
+        )
+    }
+}
+fn object_identity(file: &File) -> Result<String> {
+    // same-file's pinned Hash implementation encodes native dev/inode or
+    // volume/file-index equality keys. Capture/drop handles here rather than
+    // retaining one descriptor per source artifact in a large library.
+    let first = same_file::Handle::from_file(file.try_clone()?)?;
+    let second = same_file::Handle::from_file(file.try_clone()?)?;
+    ensure!(
+        first == second,
+        "Source filesystem does not expose stable file identity"
+    );
+    let mut state = ObjectIdentityHasher(Sha256::new());
+    first.hash(&mut state);
+    Ok(format!("{:x}", state.0.finalize()))
 }
 fn fingerprint(
     path: &Path,
@@ -124,6 +154,7 @@ fn fingerprint(
         Err(e) => return Err(e.into()),
     };
     let before = file.metadata()?;
+    let identity = object_identity(&file)?;
     ensure!(
         before.is_file() && before.len() <= max_bytes,
         "Source artifact exceeds capture budget or is not a file"
@@ -151,6 +182,7 @@ fn fingerprint(
         "Source changed while fingerprinting"
     );
     Ok(Some(Fingerprint {
+        object_identity: identity,
         sha256: format!("{:x}", hash.finalize()),
         bytes: read,
         modified: before.modified().ok(),

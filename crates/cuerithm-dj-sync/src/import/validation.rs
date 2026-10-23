@@ -25,7 +25,8 @@ fn fingerprint(value: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
-fn validate_track(track: &TrackObservation, limits: &ImportLimits) -> Result<()> {
+/// Validate typed values before JSON serialization can turn nonfinite floats into null.
+pub fn validate_track_observation(track: &TrackObservation, limits: &ImportLimits) -> Result<()> {
     ensure!(!track.external_id.is_empty(), "Empty track ID");
     if let Some(bpm) = &track.bpm {
         positive(bpm.value, "BPM")?;
@@ -178,15 +179,17 @@ pub fn validate_observation(
     db.execute_batch(
         "PRAGMA cache_size=-2048; PRAGMA temp_store=FILE;
         CREATE TABLE tracks(id TEXT PRIMARY KEY);
+        CREATE TABLE row_issues(id TEXT PRIMARY KEY);
         CREATE TABLE collections(id TEXT PRIMARY KEY,parent TEXT);
         CREATE TABLE members(collection TEXT,id TEXT,track TEXT,PRIMARY KEY(collection,id));
         BEGIN;",
     )?;
     let mut report = ValidationReport::default();
+    let mut accounted_rows = 0u64;
     while let Some(record) = records.next()? {
         match record {
             ObservationRecord::Track(track) => {
-                validate_track(&track, limits)?;
+                validate_track_observation(&track, limits)?;
                 if header.completeness != Completeness::WholeLibrary {
                     ensure!(
                         !track
@@ -199,6 +202,7 @@ pub fn validate_observation(
                 }
                 db.execute("INSERT INTO tracks VALUES(?1)", [&track.external_id])
                     .context("duplicate track ID")?;
+                report.issues += track.issues.len() as u64;
                 report.tracks += 1;
             }
             ObservationRecord::Collection(c) => {
@@ -217,7 +221,13 @@ pub fn validate_observation(
                 collection_id,
                 occurrence,
             } => insert_member(&db, &collection_id, &occurrence, &mut report)?,
-            ObservationRecord::Issue(_) => report.issues += 1,
+            ObservationRecord::Issue(issue) => {
+                if let Some(id) = issue.record_id {
+                    accounted_rows +=
+                        db.execute("INSERT OR IGNORE INTO row_issues VALUES(?1)", [id])? as u64;
+                }
+                report.issues += 1;
+            }
         }
     }
     let dangling: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM members m LEFT JOIN tracks t ON t.id=m.track LEFT JOIN collections c ON c.id=m.collection WHERE t.id IS NULL OR c.id IS NULL)",[],|r|r.get(0))?;
@@ -267,6 +277,10 @@ pub fn validate_observation(
     {
         bail!("Unrepresented source records require partial completeness");
     }
+    ensure!(
+        header.accounting.unrepresented_records <= accounted_rows,
+        "Unrepresented source records require accounted typed issues"
+    );
     db.execute_batch("COMMIT")?;
     Ok(report)
 }

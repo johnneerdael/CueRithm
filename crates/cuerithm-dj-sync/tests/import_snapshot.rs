@@ -141,3 +141,39 @@ fn changing_one_artifact_invalidates_the_entire_captured_set() {
         b"two"
     );
 }
+
+#[test]
+fn byte_identical_source_replacement_with_restored_timestamp_invalidates_snapshot() {
+    let source = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    let path = source.path().join("source.bin");
+    fs::write(&path, b"same bytes").unwrap();
+    let modified = path.metadata().unwrap().modified().unwrap();
+    let request = SourceCaptureRequest::from_selected_root(
+        SourceProvider::M3u,
+        source.path(),
+        vec![ArtifactRequest::stable("source.bin")],
+    )
+    .unwrap();
+    let snapshot = capture_source(
+        &request,
+        workspace.path(),
+        &ImportLimits::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    fs::rename(&path, source.path().join("parked.bin")).unwrap();
+    fs::write(&path, b"same bytes").unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(modified))
+        .unwrap();
+    assert!(
+        snapshot
+            .validate_source(&CancellationToken::default())
+            .is_err(),
+        "replacement must invalidate captured source authority even if bytes and modified time match"
+    );
+}

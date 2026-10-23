@@ -34,3 +34,14 @@ Additional execution decisions:
 - The concrete SourceAdapter/ReadOptions interfaces landed with ImportSnapshot in Task 2, avoiding a placeholder authority type in Task 1. Later consumers compile against this interface.
 - Track observation records use a Box to reduce the enum from a 960-byte largest inline variant; serialization is unchanged. Rust callers must use the boxed variant.
 - Archive/XML/TOC/UID malformed-input controls run with their owning reader tasks (9/14/15), where those formats are implemented. Shared snapshot, allocation/count and native-container bounds are exercised in Task 2. Reader qualification remains contingent on those owner tests.
+
+## Durable observations and identity
+
+Task 3 adds migration 029, disk-spooled inspections, bounded record paging, content-addressed raw blobs, source bindings and runtime-bound snapshot authority. Ten store tests pass, including fresh/reopened storage, copied-library replica/new-library choices, artifact-order independence, existing rekordbox observations/links/field owners/reconciliation decisions/journals preserved, atomic cancellation, backup contents and field/row issue accounting. Two regressions reproduced before fixes: nonfinite numbers could become JSON null, and a byte-identical source replacement with a restored timestamp could retain snapshot authority. Validation now runs before JSON serialization; source guards also retain a digest of the native file-identity key.
+
+Broad library testing initially found 495 passes, 57 failures and two ignored tests. Forty-eight failures match the baseline block-device limitation. Nine were older migration expectations/fixtures that assumed schema 28 or retained newer tables while pretending to be schema 18/23. Their expected version and fixture teardown were updated without relaxing migration or restore checks; all 97 affected integration checks passed afterward. The store tests passed 10/10, shared validator/snapshot regressions 12/12, and the dj-sync suite 413 passed/three ignored. All-target Clippy with warnings denied, formatting and diff checks passed. A final whole-workspace run remains required after all tasks.
+
+Additional execution decisions:
+
+- ObservationSink now transports raw bytes through `put_blob(bytes, media_type) -> BlobRef`. References alone could not preserve payloads. Every sink must implement storage; actual blob read-back is tested.
+- Backup schema inspection accepts version 29; strict same-schema restore and integrity guards remain intact. Source hashing runs outside the main library transaction, and row/blob transfer checks cancellation between bounded batches. Preview/apply must revalidate the captured source before authorizing changes.
