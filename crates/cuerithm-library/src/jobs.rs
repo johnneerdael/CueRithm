@@ -106,6 +106,13 @@ impl Library {
                 .tag_gate
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Publication gate interrupted"))?;
+            // Imported media stays in Tracks when a tag/rename publication triggers
+            // a watcher event. Explicit Incoming actions retain their normal path.
+            if discovered && self.conn()?.query_row(
+                "SELECT EXISTS(SELECT 1 FROM import_items i LEFT JOIN tracks t ON t.id=i.local_track_id WHERE i.path IN (?1,?2) OR t.path IN (?1,?2))",
+                params![path_bytes(&path),path_bytes(&requested_path)],
+                |r|r.get::<_,bool>(0),
+            )? { continue; }
             let hash = hash_source(&path)?;
             #[cfg(feature = "autotag")]
             if let Some(track) = self.metadata_edit_source_owner(&path, &hash)? {

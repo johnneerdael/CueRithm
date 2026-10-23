@@ -397,6 +397,7 @@ fn mislabeled_analysis_artifact_does_not_claim_a_different_native_reference() {
                 id: "PIONEER/USBANLZ/a/ANLZ0000.DAT".into(),
                 relative_path: "unrelated.DAT".into(),
                 kind: ArtifactKind::StableFile,
+                selected_root: None,
             },
         ],
     )

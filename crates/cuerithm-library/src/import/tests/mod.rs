@@ -7,4 +7,5 @@ mod processing;
 
 mod publication;
 
+mod desktop;
 mod rekordbox;

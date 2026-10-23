@@ -28,6 +28,8 @@ pub struct Host {
     pub library: Library,
     pub runtime: MediaRuntime,
     pub preparation: PreparationService,
+    pub import_processing: cuerithm_library::ImportProcessingService,
+    pub import_selections: crate::import_commands::ImportSelections,
     pub provider_setup: cuerithm_library::ProviderSetupService,
     pub smart_playlists: cuerithm_library::SmartPlaylistService,
     pub curation: CurationService,
@@ -98,6 +100,8 @@ impl Host {
             runtime.clone(),
             provider_setup.runtime().clone(),
         )?;
+        let import_processing =
+            cuerithm_library::ImportProcessingService::start(library.clone(), runtime.clone())?;
         let smart_playlists = cuerithm_library::SmartPlaylistService::start(library.clone())?;
         let curation = CurationService::new(library.clone(), Some(runtime.clone()));
         let curation_worker = Mutex::new(curation.start_background()?);
@@ -108,6 +112,8 @@ impl Host {
             library,
             runtime,
             preparation,
+            import_processing,
+            import_selections: crate::import_commands::ImportSelections::default(),
             provider_setup,
             smart_playlists,
             curation,

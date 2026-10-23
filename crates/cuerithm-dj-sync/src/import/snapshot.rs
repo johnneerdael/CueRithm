@@ -28,6 +28,13 @@ pub struct ArtifactRequest {
     #[serde(with = "crate::path_serde")]
     pub relative_path: PathBuf,
     pub kind: ArtifactKind,
+    /// A separately selected real volume/directory. Backend-only source authority.
+    #[serde(
+        default,
+        with = "crate::path_serde::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub selected_root: Option<PathBuf>,
 }
 impl ArtifactRequest {
     pub fn sqlite(path: &str) -> Self {
@@ -35,6 +42,7 @@ impl ArtifactRequest {
             id: path.into(),
             relative_path: path.into(),
             kind: ArtifactKind::Sqlite,
+            selected_root: None,
         }
     }
     pub fn stable(path: &str) -> Self {
@@ -42,7 +50,13 @@ impl ArtifactRequest {
             id: path.into(),
             relative_path: path.into(),
             kind: ArtifactKind::StableFile,
+            selected_root: None,
         }
+    }
+    pub fn with_selected_root(mut self, id: &str, root: &Path) -> Self {
+        self.id = id.into();
+        self.selected_root = Some(root.to_path_buf());
+        self
     }
 }
 /// Constructed by backend/native selection, never from a client-supplied preview path.
@@ -90,12 +104,24 @@ impl SourceCaptureRequest {
             "Choose a source root and artifacts"
         );
         let mut ids = BTreeSet::new();
-        for artifact in &artifacts {
+        for artifact in &mut artifacts {
             ensure!(
                 !artifact.id.is_empty() && ids.insert(&artifact.id),
                 "Duplicate source artifact ID"
             );
-            safe_path(&root, &artifact.relative_path)?;
+            if let Some(selected) = &mut artifact.selected_root {
+                *selected = selected
+                    .canonicalize()
+                    .context("Additional source root is unavailable")?;
+                ensure!(
+                    selected.is_dir(),
+                    "Additional source root is not a directory"
+                );
+            }
+            safe_path(
+                artifact.selected_root.as_deref().unwrap_or(&root),
+                &artifact.relative_path,
+            )?;
         }
         artifacts.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(Self {
@@ -190,6 +216,7 @@ fn fingerprint(
 }
 #[derive(Debug)]
 struct SourceGuard {
+    root: PathBuf,
     relative: PathBuf,
     fingerprint: Option<Fingerprint>,
 }
@@ -240,7 +267,7 @@ impl ImportSnapshot {
     }
     pub fn validate_source(&self, cancel: &CancellationToken) -> Result<()> {
         for guard in &self.guards {
-            let path = safe_path(&self.root, &guard.relative)?;
+            let path = safe_path(&guard.root, &guard.relative)?;
             let current = fingerprint(
                 &path,
                 guard.fingerprint.as_ref().map_or(0, |f| f.bytes),
@@ -325,6 +352,7 @@ pub(crate) fn capture_source_with_sqlite(
     let mut guards = Vec::new();
     let mut total = 0u64;
     for artifact in &request.artifacts {
+        let root = artifact.selected_root.as_deref().unwrap_or(&request.root);
         let mut paths = vec![artifact.relative_path.clone()];
         if matches!(artifact.kind, ArtifactKind::Sqlite) {
             for suffix in ["-wal", "-journal"] {
@@ -334,11 +362,7 @@ pub(crate) fn capture_source_with_sqlite(
             }
         }
         for relative in paths {
-            let state = fingerprint(
-                &safe_path(&request.root, &relative)?,
-                limits.snapshot_bytes,
-                cancel,
-            )?;
+            let state = fingerprint(&safe_path(root, &relative)?, limits.snapshot_bytes, cancel)?;
             if relative == artifact.relative_path {
                 ensure!(state.is_some(), "Source artifact is missing");
             }
@@ -352,6 +376,7 @@ pub(crate) fn capture_source_with_sqlite(
                 );
             }
             guards.push(SourceGuard {
+                root: root.to_path_buf(),
                 relative,
                 fingerprint: state,
             });
@@ -362,7 +387,10 @@ pub(crate) fn capture_source_with_sqlite(
     let mut copied = 0u64;
     for (index, artifact) in request.artifacts.iter().enumerate() {
         cancel.check()?;
-        let input = safe_path(&request.root, &artifact.relative_path)?;
+        let input = safe_path(
+            artifact.selected_root.as_deref().unwrap_or(&request.root),
+            &artifact.relative_path,
+        )?;
         let path = owned.path().join(format!("artifact-{index}"));
         match artifact.kind {
             ArtifactKind::Sqlite => backup(&input, &path, limits, cancel)?,
@@ -410,7 +438,12 @@ pub(crate) fn capture_source_with_sqlite(
         source_paths: request
             .artifacts
             .iter()
-            .map(|a| request.root.join(&a.relative_path))
+            .map(|a| {
+                a.selected_root
+                    .as_deref()
+                    .unwrap_or(&request.root)
+                    .join(&a.relative_path)
+            })
             .collect(),
     };
     snapshot.validate_source(cancel)?;

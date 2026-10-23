@@ -1,4 +1,6 @@
 mod collections;
+mod desktop;
+pub use desktop::*;
 mod guard;
 mod identity;
 mod model;

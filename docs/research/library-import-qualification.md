@@ -577,3 +577,20 @@ stale before-hashes, changed root, cancellation and native/renderer mismatch.
 The default dj-sync suite remains526 passed,0 failed,3 ignored. All-target
 Clippy with warnings denied passes with the experiment enabled. The desktop
 feature tree does not enable the experiment; formatting and diff checks pass.
+
+## Desktop API and native source selection
+
+Task19 adds opaque native file/folder/installation selections, original guarded
+additional volumes/share roots, bounded/redacted history, explicit path mappings
+and cancellable command leases. Native rekordbox key access remains runtime-only;
+reopen requires local selection again. DJ.Studio acquisition excludes browser,
+account and aggregate-cache data. No experimental write command exists.
+
+Verification:527 dj-sync tests pass (3 ignored),100 matched library tests and
+4 native command/selection tests pass, including original-root mutation guards,
+stale-session preview rejection, history paging, cancellation lease release,
+MIK coherent SQLite selection and imported watcher events producing zero Incoming
+jobs. Rust/TS fixture parity,4 frontend API tests, frontend typecheck, changed
+package all-target Clippy with warnings denied, formatting and diff checks pass.
+These Linux cloud checks do not qualify native app reopen/device acceptance or
+macOS/Windows runtime behavior.

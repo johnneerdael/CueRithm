@@ -218,14 +218,14 @@ impl Library {
     pub fn inspect_rekordbox_import(
         &self,
         request: ImportInspectRequest,
-        reader: cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader,
+        reader: impl Into<Arc<cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader>>,
         cancel: &CancellationToken,
     ) -> Result<ImportInspection> {
         ensure!(
             request.provider == SourceProvider::Rekordbox,
             "Mismatched direct import provider"
         );
-        let reader = Arc::new(reader);
+        let reader = reader.into();
         let inspection = self.inspect_import_with_reader(request, reader.as_ref(), cancel)?;
         self.inner
             .import_runtime

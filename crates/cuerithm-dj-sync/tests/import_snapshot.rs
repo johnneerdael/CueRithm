@@ -177,3 +177,56 @@ fn byte_identical_source_replacement_with_restored_timestamp_invalidates_snapsho
         "replacement must invalidate captured source authority even if bytes and modified time match"
     );
 }
+
+#[test]
+fn explicitly_selected_additional_roots_keep_original_file_guards() {
+    let main = tempfile::tempdir().unwrap();
+    let external = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    std::fs::write(main.path().join("database.xml"), b"main invented library").unwrap();
+    std::fs::write(
+        external.path().join("database.xml"),
+        b"external invented library",
+    )
+    .unwrap();
+    let request = SourceCaptureRequest::from_selected_root(
+        SourceProvider::VirtualDj,
+        main.path(),
+        vec![
+            ArtifactRequest::stable("database.xml"),
+            ArtifactRequest::stable("database.xml")
+                .with_selected_root("external-volume", external.path()),
+        ],
+    )
+    .unwrap();
+    let snapshot = capture_source(
+        &request,
+        workspace.path(),
+        &ImportLimits::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(snapshot.source_root(), main.path());
+    assert_eq!(
+        snapshot.original_artifact_path("external-volume").unwrap(),
+        external.path().join("database.xml")
+    );
+    assert_eq!(
+        std::fs::read(snapshot.artifact("external-volume").unwrap()).unwrap(),
+        b"external invented library"
+    );
+    std::fs::write(
+        external.path().join("database.xml"),
+        b"later external library edit",
+    )
+    .unwrap();
+    assert!(
+        snapshot
+            .validate_source(&CancellationToken::default())
+            .is_err()
+    );
+    assert_eq!(
+        std::fs::read(main.path().join("database.xml")).unwrap(),
+        b"main invented library"
+    );
+}
