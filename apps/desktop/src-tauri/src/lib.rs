@@ -11,6 +11,7 @@ mod maintenance_commands;
 mod manual_publication_commands;
 mod match_review_commands;
 mod metadata_commands;
+mod missing_commands;
 mod organization_commands;
 mod preparation_preset_commands;
 mod provider_commands;
@@ -116,6 +117,16 @@ pub fn run() {
                         event.state.as_str(),
                         "completed" | "attention" | "superseded"
                     );
+                    // A track that followed its file inside a watch folder has no job
+                    // to report. The library and any open editor refresh instead.
+                    if event.stage == cuerithm_library::RELINKED_STAGE {
+                        let _ = handle.emit(
+                            "library-change",
+                            serde_json::json!({"track_ids":[event.track_id]}),
+                        );
+                        let _ = handle.emit("metadata-edit-change", ());
+                        continue;
+                    }
                     let _ = handle.emit("preparation", event);
                     if settled {
                         // Incoming overrides can settle after their invoke has
@@ -273,6 +284,13 @@ pub fn run() {
             maintenance_commands::maintenance_preview_merge,
             maintenance_commands::maintenance_merge_history,
             maintenance_commands::maintenance_cancel,
+            missing_commands::maintenance_preview_missing_removal,
+            missing_commands::maintenance_apply_missing_removal,
+            missing_commands::maintenance_preview_missing_relink,
+            missing_commands::maintenance_apply_missing_relink,
+            missing_commands::maintenance_missing_repair_history,
+            missing_commands::maintenance_undo_missing_repair,
+            missing_commands::maintenance_discard_missing_repair_undo,
             maintenance_commands::maintenance_scan_duplicates,
             maintenance_commands::maintenance_scan_unused,
             maintenance_commands::maintenance_scan_broken,

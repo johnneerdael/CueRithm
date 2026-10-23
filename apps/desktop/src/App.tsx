@@ -6,6 +6,7 @@ import {nativeBridge,errorMessage} from "./api";
 import type {Bridge,Track,TrackPage,View,Sort,LibraryState,Detail,Playback,Waveform,TrackQuery,WorkspaceView} from "./types";
 import Sidebar from "./components/Sidebar";
 import TrackTable from "./components/TrackTable";
+import {FileNotFoundError,PreviewLoadError} from "./components/RowPreview";
 import PlayerPanel from "./components/PlayerPanel";
 import Settings from "./views/Settings";
 import Cleanup from "./views/Cleanup";
@@ -39,7 +40,6 @@ import type {CurationCatalog,CurationFilter} from "./curation-types";
 import CurationFilters from "./components/CurationFilters";
 import type {MetadataDraft} from "./editor-types";
 import {hasShortcutModifier,shortcut} from "./platform";
-import {PreviewLoadError} from "./components/RowPreview";
 
 // The table's row menu and Columns dialog are portals that leave focus on the button that opened them, so the
 // keydown target alone cannot tell that one is open. Look for any overlay in the document instead.
@@ -92,12 +92,14 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   const [sideWidth,setSideWidth]=useState(()=>preference("sidebar-width",224,180,340));
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
   useEffect(()=>{try{localStorage.setItem("sidebar-collapsed",collapsed?"1":"0");}catch{}},[collapsed]);
-  // The track lookup is a library request; only a waveform that fails after a good lookup points at the audio itself.
+  // The library is asked first. A file it knows is gone is named without decoding anything; a failed lookup is a
+  // request problem; only a waveform that fails after a good lookup points at the audio itself.
   const previewLoader=useCallback(async(id:string)=>{
-    const [wave,detail]=await Promise.allSettled([bridge.getWaveform(id,240),bridge.getTrack(id)]);
-    if(detail.status==="rejected")throw new PreviewLoadError("request",detail.reason);
-    if(wave.status==="rejected")throw new PreviewLoadError("audio",wave.reason);
-    return {wave:wave.value,detail:detail.value};
+    let detail:Detail,wave:Waveform;
+    try{detail=await bridge.getTrack(id);}catch(error){throw new PreviewLoadError("request",error);}
+    if(detail.file_available===false)throw new FileNotFoundError();
+    try{wave=await bridge.getWaveform(id,240);}catch(error){throw new PreviewLoadError("audio",error);}
+    return {wave,detail};
   },[bridge]);
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const playlistRequest=useRef(0);

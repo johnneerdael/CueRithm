@@ -16,7 +16,7 @@ export interface Cue {time_seconds:number;name:string;color:string|null;position
 export interface PublishedCue {name:string;startTime:number;type:"1"|"5";position:number;color:string|null;endTime?:number;activeLoop?:boolean;data?:unknown}
 export interface Publication {grid:{bpm:number;startTime:number};cues:PublishedCue[];implementation_sha256:string;inputs_sha256:string}
 export interface Analysis {publication?:Publication;analysis:{duration_seconds:number;key:{camelot:string}|null;tempo:{bpm:number;beats_seconds:number[];downbeats_seconds:number[]|null}|null;energy:{level:number;method:string}|null;lexicon_cues:{cues:Cue[];emergency_loop:{time_seconds:number;loop_beats:number}|null}|null};media?:{source_sha256:string;pcm_sha256?:string;codec:string};source_sample_rate:number;complete:boolean}
-export interface Detail {track:Track;analysis:Analysis|null;source_sha256:string;pcm_sha256:string|null}
+export interface Detail {track:Track;analysis:Analysis|null;source_sha256:string;pcm_sha256:string|null;file_available?:boolean}
 export interface Job {id:string;track_id:string;title:string;state:string;stage:string;error:string|null;attempts:number}
 export interface LexiconConfig {genre:string|null;drop_at_start:"Auto"|"Never";min_cue_length_beats:number;add_emergency_loop:boolean}
 export interface EngineSettings {

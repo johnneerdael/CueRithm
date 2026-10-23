@@ -12,6 +12,9 @@ export class PreviewLoadError extends Error{
   constructor(readonly kind:"audio"|"request",cause:unknown){super(cause instanceof Error?cause.message:String(cause));this.name="PreviewLoadError";}
 }
 export type PreviewLoader=(id:string)=>Promise<{wave:Waveform;detail:Detail}>;
+export const FILE_NOT_FOUND="File not found - move it back or run Maintenance";
+/** Thrown by a loader when the track's file is definitely gone, so the row can say so instead of showing a bare dash. */
+export class FileNotFoundError extends Error{constructor(){super(FILE_NOT_FOUND);this.name="FileNotFoundError";}}
 interface Preview{duration:number;wave:Waveform;grid:number[];cues:Cue[]}
 const columns=120,width=240,height=36,phraseBars=16,settle=160,concurrency=2;
 let running=0;const waiting:{start:()=>void;drop:()=>void}[]=[];
@@ -25,9 +28,11 @@ function slot<T>(work:()=>Promise<T>):{promise:Promise<T>;cancel:()=>boolean}{
   const cancel=()=>{const at=item?waiting.indexOf(item):-1;if(at<0)return false;waiting.splice(at,1)[0].drop();return true;};
   return {promise,cancel};
 }
-// A dash says why there is no chart. It only claims what the load tells us: the audio step failed, the request failed, or the waveform is empty.
-const unavailable={audio:"No preview: the audio file could not be read. It may be missing, moved or in an unsupported format.",request:"No preview: it could not be loaded.",empty:"No preview: this track has no waveform data.",none:"No preview available."};
+// A dash says why there is no chart. It only claims what the load tells us: the file is gone, the audio step failed, the request failed, or the waveform is empty.
+const unavailable={missing:FILE_NOT_FOUND,audio:"No preview: the audio file could not be read. It may be missing, moved or in an unsupported format.",request:"No preview: it could not be loaded.",empty:"No preview: this track has no waveform data.",none:"No preview available."};
 const dash=(reason:string)=><span className="dim" role="img" aria-label={reason} title={reason}>—</span>;
+// A file the library knows is gone keeps its own message; a step that failed says which step; anything else claims the least.
+const failure=(error:unknown):"audio"|"request"|"missing"=>error instanceof FileNotFoundError?"missing":error instanceof PreviewLoadError?error.kind:"request";
 function build(wave:Waveform,detail:Detail):Preview{
   const analysis=detail.analysis?.analysis,tempo=analysis?.tempo;
   const bars=tempo?.downbeats_seconds??tempo?.beats_seconds.filter((_,i)=>i%4===0)??[];
@@ -52,7 +57,7 @@ function fetchPreview(load:PreviewLoader,id:string,identity:string){
   return {promise:held.promise,release};
 }
 export default function RowPreview({id,identity,load}:{id:string;identity:string;load?:PreviewLoader}){
-  const [data,setData]=useState<Preview|null>(null),[failed,setFailed]=useState<"audio"|"request"|null>(null);
+  const [data,setData]=useState<Preview|null>(null),[failed,setFailed]=useState<"audio"|"request"|"missing"|null>(null);
   const [style]=useWaveformStyle();
   const theme=useAppliedTheme();
   const gradient="wave-"+useId().replace(/[^a-zA-Z0-9_-]/g,"");
@@ -61,10 +66,11 @@ export default function RowPreview({id,identity,load}:{id:string;identity:string
     if(!load)return;
     let current=true;
     let release=()=>{};
-    const timer=setTimeout(()=>{const job=fetchPreview(load,id,identity);release=job.release;job.promise.then(value=>{if(current)setData(value);}).catch(error=>{if(current)setFailed(error instanceof PreviewLoadError?error.kind:"request");});},settle);
+    const timer=setTimeout(()=>{const job=fetchPreview(load,id,identity);release=job.release;job.promise.then(value=>{if(current)setData(value);}).catch(error=>{if(current)setFailed(failure(error));});},settle);
     return()=>{current=false;clearTimeout(timer);release();};
   },[id,identity,load]);
   const shape=useMemo(()=>data?buildShape(data.wave,style,{first:0,last:data.wave.bins.length,columns,x:bin=>(bin+.5)/data.wave.bins.length*width,width,mid:height/2,half:height/2-5,stacked:true,theme}):null,[data,style,theme]);
+  if(failed==="missing")return dash(unavailable.missing);
   if(!load)return dash(unavailable.none);
   if(failed)return dash(unavailable[failed]);
   if(data&&!data.wave.bins.length)return dash(unavailable.empty);
