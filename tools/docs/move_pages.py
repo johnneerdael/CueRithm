@@ -25,7 +25,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCS = os.path.join(ROOT, "docs", "user-guide")
-SITE = "https://johnneerdael.github.io/CueRithm/"
+SITE = "https://cuerithm.neerdael.nl/"
 SKIP = ("_meta/", "_snippets/", "assets/", "stylesheets/")
 
 LINK = re.compile(r"(\]\(|href=\"|src=\")(?!https?:|mailto:|#|/)([^)\"\s#]+)(#[^)\"\s]*)?")

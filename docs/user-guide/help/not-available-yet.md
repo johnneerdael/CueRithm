@@ -86,7 +86,7 @@ While cleanup runs, an Incoming row can show the lower-case word `cleanup` inste
 
 ## Missing and moved files { #missing-and-moved-files }
 
-In CueRithm 0.1.13 a track is known by the location of its file. This has four consequences:
+In CueRithm 0.1.14 a track is known by the location of its file. This has four consequences:
 
 - A file you move or rename outside CueRithm leaves its track pointing at nothing.
 - Moves inside a watch folder are not tracked. The watch folder adds the moved file again as a new track.
