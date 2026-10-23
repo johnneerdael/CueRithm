@@ -34,6 +34,11 @@ the checks read Mixxx's database and debug log. MP3 is decoded there with libmad
 first click is measured by `mad_probe.c`, which does what Mixxx's MP3 source does. The sync
 runs on the host as a Linux system would (`CUERITHM_MIXXX_HOST=linux`: libmad timing).
 
+`--linux-main VOLUME` does the same with a Mixxx built from source (`main`, schema 40, with
+FAAD and libmad) in a Docker volume made by `linux-main/build.sh`: AAC in M4A is then decoded
+by FAAD, measured with `faad_probe.c`, and the library CueRithm creates (schema 39) is
+upgraded to 40 by Mixxx itself, after which its tables must equal a library Mixxx created.
+
 In all of them the sync goes through the real preview/apply path. The written rows are
 checked (grid, key, BPM lock, hot cues and loop, the playlist, the music folder, and that
 the first beat lands where CoreAudio, the decoder Mixxx uses on macOS, puts the first
@@ -74,6 +79,7 @@ DEFAULT_MIXXX = "/Applications/Mixxx.app/Contents/MacOS/Mixxx"
 CONTAINER = Path.home() / "Library/Containers/org.mixxx.mixxx/Data/Library/Application Support"
 DOCKER = "docker"
 LINUX_IMAGE = "cuerithm-mixxx-linux"
+LINUX_MAIN = None  # the Docker volume holding a Mixxx built from source, with --linux-main
 _containers = itertools.count()
 SAMPLE_RATE = 44100
 BPM = 128.0
@@ -157,8 +163,11 @@ def decode_key_map(blob):
     return parts[1], parts[2].decode(), parts.get(4, 0)
 
 
-def read_library(database):
-    uri = f"file:{database}?mode=ro"
+def read_library(database, live=False):
+    """The library's rows. While Mixxx is running (`live`), read without taking SQLite's locks:
+    over a shared mount a reader's lock can make Mixxx's own writes fail with "database is
+    locked", and a count that is a moment stale does no harm."""
+    uri = f"file:{database}?mode=ro" + ("&immutable=1" if live else "")
     for _ in range(40):
         try:
             connection = sqlite3.connect(uri, uri=True, timeout=2)
@@ -215,15 +224,31 @@ class Mixxx:
 
     def __init__(self, mixxx, settings, tracks, log):
         self.log = open(log, "wb")
+        self.settings = settings
         self.container = None
+        self.volume = None
         if mixxx == DOCKER:
-            # Debian's Mixxx on a virtual display. Its library folder is ~/.mixxx, the Linux
-            # default, and the music is mounted at the same path the host wrote into the library.
+            # Mixxx on a virtual display. Its library folder is ~/.mixxx, the Linux default, and
+            # the music is mounted at the same path the host wrote into the library.
+            #
+            # The library lives on a Docker volume while Mixxx runs. SQLite's locking is not
+            # reliable on a folder shared with the host: Mixxx main failed its import there with
+            # "database is locked" every time, and imported all tracks in seconds on a volume. The
+            # host's copy (the one CueRithm syncs) is copied in before the start and back after
+            # the stop.
             music = (settings.parent / "music").resolve()
             self.container = f"cuerithm-mixxx-{os.getpid()}-{next(_containers)}"
+            self.volume = self.container + "-settings"
+            subprocess.run(["docker", "volume", "create", self.volume], capture_output=True, check=True)
+            subprocess.run(["docker", "run", "--rm", "-v", f"{self.volume}:/v", "-v", f"{settings}:/h:ro",
+                            LINUX_IMAGE, "sh", "-c", "cp -a /h/. /v/"], capture_output=True, check=True)
+            extra, program = [], ["mixxx"]
+            if LINUX_MAIN:
+                extra = ["-v", f"{LINUX_MAIN}:/out"]
+                program = ["env", "LD_LIBRARY_PATH=/out/mp4v2/lib", "/out/install/bin/mixxx"]
             command = ["docker", "run", "--rm", "--init", "--name", self.container,
-                       "-v", f"{settings}:/root/.mixxx", "-v", f"{music}:{music}", LINUX_IMAGE,
-                       "timeout", "900", "xvfb-run", "-a", "mixxx", "--log-level", "debug",
+                       "-v", f"{self.volume}:/root/.mixxx", "-v", f"{music}:{music}", *extra, LINUX_IMAGE,
+                       "timeout", "900", "xvfb-run", "-a", *program, "--log-level", "debug",
                        "--log-flush-level", "debug", *map(str, tracks)]
         else:
             command = [mixxx, "--settings-path", str(settings), "--log-level", "debug",
@@ -241,6 +266,35 @@ class Mixxx:
                 self.process.kill()
                 self.process.wait()
         self.log.close()
+        if self.volume:
+            # bring the library back to the host, exactly as Mixxx left it
+            subprocess.run(["docker", "run", "--rm", "-v", f"{self.volume}:/v:ro", "-v", f"{self.settings}:/h",
+                            LINUX_IMAGE, "sh", "-c", "find /h -mindepth 1 -delete; cp -a /v/. /h/"],
+                           capture_output=True, check=True)
+            subprocess.run(["docker", "volume", "rm", "-f", self.volume], capture_output=True)
+            self.volume = None
+
+    def sql(self, query):
+        """Run a query on the library of the running Linux Mixxx (None until it can answer)."""
+        done = subprocess.run(["docker", "exec", self.container, "sqlite3",
+                               "file:/root/.mixxx/mixxxdb.sqlite?mode=ro&immutable=1", query],
+                              capture_output=True, text=True)
+        return done.stdout.strip() if done.returncode == 0 else None
+
+    def ready(self):
+        """Mixxx has created and migrated its library."""
+        if self.container:
+            return bool(self.sql("SELECT value FROM settings WHERE name = 'mixxx.schema.version'"))
+        return library_ready(self.settings / "mixxxdb.sqlite")
+
+    def track_count(self):
+        if self.container:
+            count = self.sql("SELECT COUNT(*) FROM library")
+            return int(count) if count and count.isdigit() else 0
+        try:
+            return len(read_library(self.settings / "mixxxdb.sqlite", live=True)["tracks"])
+        except RuntimeError:
+            return 0
 
     def __enter__(self):
         return self
@@ -337,6 +391,16 @@ def mad_frame(path):
     return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
 
 
+def faad_frame(path):
+    """Mixxx's frame of the first click for an M4A read with FAAD (see faad_probe.c)."""
+    build = ("gcc -O2 -I/out/mp4v2/include -o /tmp/faad_probe /probe/faad_probe.c "
+             "-L/out/mp4v2/lib -lfaad -lmp4v2 -lm")
+    out = run("docker", "run", "--rm", "-v", f"{HERE}:/probe:ro", "-v", f"{path.parent}:{path.parent}:ro",
+              "-v", f"{LINUX_MAIN}:/out:ro", LINUX_IMAGE, "sh", "-c",
+              f"{build} && LD_LIBRARY_PATH=/out/mp4v2/lib /tmp/faad_probe '{path}'").stdout.decode()
+    return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
+
+
 def format_truth(probe, files, providers):
     """Where the decoder Mixxx uses reads the first click, and at what rate, for each file."""
     truth, rates = {}, {}
@@ -346,6 +410,12 @@ def format_truth(probe, files, providers):
         rates[name] = native_rate(path)
         if first.startswith("MAD"):
             truth[name] = mad_frame(path)
+        elif LINUX_MAIN and ("FAAD" in first.upper() or "M4A" in first.upper()):
+            try:
+                truth[name] = faad_frame(path)
+            except subprocess.CalledProcessError:
+                # FAAD cannot open Apple Lossless in an M4A; Mixxx then tries its next decoder.
+                truth[name] = ffmpeg_first_click(path, rates[name])
         elif "CoreAudio" in first:
             truth[name] = probe_frames(probe, {name: path})[name]
         else:
@@ -358,7 +428,7 @@ def library_ready(database):
     if not database.exists():
         return False
     try:
-        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=2)
+        connection = sqlite3.connect(f"file:{database}?mode=ro&immutable=1", uri=True, timeout=2)
         try:
             return connection.execute(
                 "SELECT value FROM settings WHERE name = 'mixxx.schema.version'").fetchone() is not None
@@ -437,7 +507,8 @@ def mixxx_rows(database):
         connection.close()
 
 
-def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, probe=None, host=""):
+def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, probe=None, host="",
+             upgrade=False, aac=""):
     """mode is fresh, existing, overwrite or created; reference collects what Mixxx made."""
     label = mode
     settings, music = work / "settings", work / "music"
@@ -460,8 +531,8 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         # 1. Mixxx creates its own, empty library.
         settings.mkdir()
         print(f"[{label}] Starting Mixxx (a window may open) so it creates its library...")
-        with Mixxx(mixxx, settings, [], work / "mixxx-create.log"):
-            wait_for(lambda: library_ready(database), 120, "Mixxx to create its library")
+        with Mixxx(mixxx, settings, [], work / "mixxx-create.log") as running:
+            wait_for(running.ready, 120, "Mixxx to create its library")
             time.sleep(10)
         created = (work / "mixxx-create.log").read_text(errors="replace")
         report.check(f"[{label}] a new library has no music folder and Mixxx waits at its folder prompt",
@@ -477,12 +548,14 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         connection.commit()
         connection.close()
         print(f"[{label}] Starting Mixxx so that it adds the tracks itself...")
-        with Mixxx(mixxx, settings, files.values(), work / "mixxx-first.log"):
-            def added():
-                library = read_library(database)
-                return library if len(library["tracks"]) == len(names) else None
-            first = wait_for(added, 180, f"Mixxx to add the {len(names)} tracks")
+        # On Linux the scanner alone adds the tracks. Files given on the command line are loaded onto
+        # decks at once, and a Mixxx main (schema 40) racing that against its scan failed the deck's
+        # insert with "database is locked" every time.
+        first_files = [] if mixxx == DOCKER else list(files.values())
+        with Mixxx(mixxx, settings, first_files, work / "mixxx-first.log") as running:
+            wait_for(lambda: running.track_count() >= len(names), 180, f"Mixxx to add the {len(names)} tracks")
             time.sleep(5)
+        first = read_library(database)
         report.check(f"[{label}] Mixxx created a schema 39 or 40 library", first["schema"] in ("39", "40"),
                      f"schema {first['schema']}")
         report.check(f"[{label}] Mixxx itself added all {len(names)} tracks", len(first["tracks"]) == len(names))
@@ -526,7 +599,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     env = dict(os.environ, CUERITHM_MIXXX_ACCEPTANCE=str(work),
                CUERITHM_MIXXX_MODE="replace" if mode in ("existing", "formats") else "keep",
                CUERITHM_MIXXX_LIBRARY="overwrite" if mode == "overwrite" else "update",
-               CUERITHM_MIXXX_HOST=host)
+               CUERITHM_MIXXX_HOST=host, CUERITHM_MIXXX_AAC=aac)
     sync = subprocess.run(
         ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
          "write_acceptance_library", "--nocapture"],
@@ -551,7 +624,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         report.check(f"[{label}] a playlist only Mixxx had is gone",
                      [p["name"] for p in written["playlists"]] == ["CueRithm acceptance"],
                      str([p["name"] for p in written["playlists"]]))
-    if mode in ("created", "overwrite"):
+    if mode in ("created", "overwrite") and not upgrade:
         ours = master(database)
         same = ours == reference["master"]
         report.check(f"[{label}] the tables, indexes and views equal the ones Mixxx made itself",
@@ -582,10 +655,27 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         second = text()
     report.check(f"[{label}] Mixxx started without asking for a music folder",
                  "Creating ControllerManager" in second)
-    report.check(f"[{label}] Mixxx found the schema current and upgraded nothing",
-                 "Database schema is up-to-date" in second and "Upgrading database schema" not in second,
-                 next((line.split("SchemaManager - ")[-1] for line in second.splitlines()
-                       if "Database schema is up-to-date" in line), ""))
+    if upgrade and mode in ("created", "overwrite"):
+        # Mixxx here is newer than the schema CueRithm creates: it must upgrade it itself, and
+        # what it leaves must be the library Mixxx would have created.
+        done = next((line.split("SchemaManager - ")[-1] for line in second.splitlines()
+                     if "Upgraded database schema to version" in line), "")
+        report.check(f"[{label}] Mixxx upgraded the schema 39 library CueRithm created",
+                     "Upgrading database schema from version 39" in second and bool(done), done)
+        ours = master(database)
+        same = ours == reference["master"]
+        report.check(f"[{label}] after the upgrade the tables, indexes and views equal a library Mixxx created",
+                     same, f"{len(ours)} objects" if same else "differs: " + str(
+                         [o[1] for o in set(ours) ^ set(reference["master"])][:6]))
+        report.check(f"[{label}] after the upgrade the schema settings equal Mixxx's own",
+                     [(n, v) for n, v in mixxx_rows(database)[0] if n != "mixxx.schema.last_used_version"]
+                     == [(n, v) for n, v in reference["rows"][0] if n != "mixxx.schema.last_used_version"],
+                     str(mixxx_rows(database)[0]))
+    else:
+        report.check(f"[{label}] Mixxx found the schema current and upgraded nothing",
+                     "Database schema is up-to-date" in second and "Upgrading database schema" not in second,
+                     next((line.split("SchemaManager - ")[-1] for line in second.splitlines()
+                           if "Database schema is up-to-date" in line), ""))
     grids = second.count('Successfully deserialized Beats ("BeatGrid-2.0")')
     keys = second.count("Successfully deserialized KeyMap")
     locked = second.count("Track is BpmLocked: Beat calculation will not start")
@@ -606,19 +696,55 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     return {"first_log_lines": created.count("\n"), "second_log_lines": second.count("\n")}
 
 
+def check_detection(report, work):
+    """CueRithm's FAAD detection, run on the real Mixxx executables of the builds at hand.
+
+    The scenarios tell the adapter which AAC decoder to assume (CUERITHM_MIXXX_AAC) because the
+    sync runs on the host, not in the container, so this is what shows that reading the
+    installed `mixxx` gives the same answer.
+    """
+    builds = {}
+    if LINUX_MAIN:
+        builds["CUERITHM_MIXXX_WITH_FAAD"] = [
+            "-v", f"{LINUX_MAIN}:/out:ro", LINUX_IMAGE, "cat", "/out/install/bin/mixxx"]
+    if subprocess.run(["docker", "image", "inspect", "cuerithm-mixxx-linux"],
+                      capture_output=True).returncode == 0:
+        builds["CUERITHM_MIXXX_WITHOUT_FAAD"] = ["cuerithm-mixxx-linux", "cat", "/usr/bin/mixxx"]
+    env = dict(os.environ)
+    for variable, docker_args in builds.items():
+        target = work / variable.lower()
+        with open(target, "wb") as out:
+            subprocess.run(["docker", "run", "--rm", *docker_args], stdout=out, check=True)
+        env[variable] = str(target)
+    result = subprocess.run(
+        ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
+         "real_mixxx_executables_are_told_apart"],
+        cwd=REPO, env=env, capture_output=True, text=True)
+    named = " and ".join("built with FAAD" if "WITH_" in v else "built without it" for v in builds)
+    report.check(f"CueRithm reads which AAC decoder the real Mixxx executable has ({named})",
+                 "1 passed" in result.stdout, result.stdout[-300:] if "1 passed" not in result.stdout else "")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mixxx", default=DEFAULT_MIXXX)
     parser.add_argument("--only", help="run just these scenarios (comma separated)")
+    parser.add_argument("--linux-main", metavar="VOLUME",
+                        help="like --linux, with a Mixxx built from source in this Docker volume")
     parser.add_argument("--linux", action="store_true",
                         help="run the formats scenario against Debian's Mixxx in Docker (Linux)")
     parser.add_argument("--work", help="scratch folder inside Mixxx's sandbox container "
                         "(default: MixxxAcceptance/run-<time> beside Mixxx's own folder)")
     args = parser.parse_args()
+    if args.linux_main:
+        global LINUX_IMAGE, LINUX_MAIN
+        LINUX_MAIN, LINUX_IMAGE = args.linux_main, "cuerithm-mixxx-main-deps"
+        args.linux = True
     if args.linux:
         args.mixxx = DOCKER
         if subprocess.run(["docker", "image", "inspect", LINUX_IMAGE], capture_output=True).returncode:
-            sys.exit(f"build the image first: docker build -t {LINUX_IMAGE} {HERE / 'linux'}")
+            sys.exit(f"build the image first: docker build -t {LINUX_IMAGE} "
+                     f"{HERE / ('linux-main' if LINUX_MAIN else 'linux')}")
     else:
         if sys.platform != "darwin":
             sys.exit("this harness drives the macOS Mixxx build and its CoreAudio decoder")
@@ -662,12 +788,26 @@ def main():
         manifest_formats.append(
             {"file": name, "title": f"Acceptance {name}", "key": "8A", "bpm": BPM, "first_beat": FIRST_BEAT,
              "duration": DURATION, "sample_rate": native_rate(target), "cues": CUES})
+    # AAC from Apple's encoder as well: it writes more priming than FFmpeg's, and a decoder that
+    # does not read the priming (FAAD) would place it differently.
+    if shutil.which("afconvert"):
+        apple = sources / "click128.apple.m4a"
+        run("afconvert", "-f", "m4af", "-d", "aac", "-b", "192000", str(wav), str(apple))
+        format_names.append(apple.name)
+        manifest_formats.append(
+            {"file": apple.name, "title": f"Acceptance {apple.name}", "key": "8A", "bpm": BPM,
+             "first_beat": FIRST_BEAT, "duration": DURATION, "sample_rate": native_rate(apple), "cues": CUES})
     (sources / "manifest-formats.json").write_text(json.dumps(manifest_formats))
 
     wanted = args.only.split(",") if args.only else ["fresh", "existing", "overwrite", "created", "formats"]
     if args.linux:
-        wanted = ["formats"]
+        wanted = ["formats", "created"]
     logs, reference = {}, {}
+    linux_truth = {}
+    if args.linux and "created" in wanted:
+        # the files of the created scenario, read by the decoders Mixxx lists for them on Linux
+        linux_truth, _ = format_truth(None, {n: sources / n for n in NAMES},
+                                      {"mp3": ["MAD"], "wav": ["libsndfile"], "flac": ["libFLAC"]})
     for name in wanted:
         if name == "formats":
             names = tuple(format_names)
@@ -679,10 +819,17 @@ def main():
             (sources / "manifest.json").write_text(json.dumps(
                 [m for m in manifest if m["file"] in names] + manifest_formats))
             logs[name] = scenario(report, args.mixxx, work / name, sources, {}, name, reference,
-                                  names=names, probe=probe, host=host)
+                                  names=names, probe=probe, host=host,
+                                  aac=("faad" if LINUX_MAIN else "ffmpeg") if args.linux else "")
         else:
             (sources / "manifest.json").write_text(json.dumps(manifest))
-            logs[name] = scenario(report, args.mixxx, work / name, sources, truth, name, reference)
+            logs[name] = scenario(report, args.mixxx, work / name, sources,
+                                  linux_truth if args.linux else truth, name, reference,
+                                  host="linux" if args.linux else "", upgrade=bool(LINUX_MAIN),
+                                  aac=("faad" if LINUX_MAIN else "ffmpeg") if args.linux else "")
+
+    if args.linux:
+        check_detection(report, work)
 
     failed = [c for c in report.checks if not c["ok"]]
     (work / "report.json").write_text(json.dumps(

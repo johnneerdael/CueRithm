@@ -129,9 +129,9 @@ stabilization change.
 Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx, with a desktop Sync workspace.
 Mixxx writes its SQLite library directly in an Add only or Manage library mode, can
 create a library where Mixxx has none and replace a whole one, and was run as the
-installed Mixxx 2.5.6 on macOS (168 checks passed, and 72 more for other formats) and as Debian's Mixxx 2.5.0 on Linux in a container (105). Its storage contract, measured MP3
-alignment and the unverified AAC, Windows, Linux and newer-Mixxx gaps are recorded in
-`docs/research/mixxx-sync-contract.md`.
+installed Mixxx 2.5.6 on macOS (168 checks passed, and 72 more for other formats), as Debian's Mixxx 2.5.0 on Linux in a container (157) and as Mixxx `main` (schema 40) built from source with FAAD in a container (157). Its storage contract, measured MP3
+and FAAD-decoded AAC alignment and the remaining Windows, Linux-package and release-build
+gaps are recorded in `docs/research/mixxx-sync-contract.md`.
 
 Mixxx feature coverage (tests are the evidence; the installed Mixxx 2.5.6 on macOS adds
 the runs noted):
@@ -140,7 +140,7 @@ the runs noted):
 | --- | --- |
 | Tracks, metadata, playlists and crates | Covered. Adapter and service tests for both containers; the installed Mixxx ran with playlists |
 | Hot cues with names, colours and saved loops | Covered. Slots, names, exact RGB, loops and the rows Mixxx's loader would discard are tested; the installed Mixxx ran with names, positions and a loop |
-| Beatgrids with correct timing across audio formats | Covered for WAV, FLAC, MP3, AAC, ALAC, AIFF, Ogg Vorbis and Opus in the installed Mixxx 2.5.6 on macOS and in Debian's Mixxx 2.5.0 on Linux (MP3 through libmad, measured with a libmad probe; the AIFF, Ogg, Opus and FFmpeg-AAC click positions come from FFmpeg's decode). WMA cannot be opened by either. Windows was not run, and Linux builds with FAAD were not either, so those AAC cases stay open |
+| Beatgrids with correct timing across audio formats | Covered for WAV, FLAC, MP3, AAC, ALAC, AIFF, Ogg Vorbis and Opus in the installed Mixxx 2.5.6 on macOS and in Debian's Mixxx 2.5.0 on Linux (MP3 through libmad, measured with a libmad probe; the AIFF, Ogg, Opus and FFmpeg-AAC click positions come from FFmpeg's decode), and for AAC under FAAD in Mixxx `main` built from source (a probe that follows its decoder: Apple's encoder is 1088 frames late and CueRithm moves it, FFmpeg's is not; two encoders only). WMA cannot be opened by the builds tested. Windows was not run, so Media Foundation AAC stays open, and AppImage, Flatpak and release builds of 2.4 and 2.6 or later were not run |
 | Preview, conflict handling and recoverable backups | Covered. Preview, stale-preview, running-Mixxx, half-written-library and ambiguous-match refusals, and byte-identical restore after update, create and replace are tested |
 | Protection for changes users make inside Mixxx | Covered. Add only never touches existing tracks, Manage replaces only the chosen groups, edited playlists are reset or appended to, hidden and locked rows and a user's scan folders are untouched, and the staged copy is verified before publishing |
 Implemented behavior includes measured export timing, supported native smart-rule

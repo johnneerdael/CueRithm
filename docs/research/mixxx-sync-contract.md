@@ -290,7 +290,9 @@ would start migrating a half-made file.
   Today's history playlist and `mixxx.db.model.autodj.ColumnsSorting` are written by Mixxx at
   run time and are not created.
 - **Version.** Always 39. A newer Mixxx upgrades 39 to 40 itself, as it would any older
-  library, so one template serves every supported Mixxx.
+  library, so one template serves every supported Mixxx. Mixxx `main` (schema 40) did exactly
+  that to a library CueRithm created, and the result equalled one Mixxx created itself
+  (*Linux: Mixxx `main`, built from source*, below).
 - **Licence.** The layout is the structure of a GPL-2.0-or-later program's database, copied
   so that CueRithm can interoperate with it. It is a single file, `schema39.sql`, with its
   provenance in its header.
@@ -327,12 +329,16 @@ file is opened with the highest-priority provider that supports its type. Read f
 | --- | --- | --- | --- |
 | macOS | Apple CoreAudio (`Higher`; its list includes `mp3`) | Apple CoreAudio (`Higher`) | libsndfile and the format libraries |
 | Windows | MAD / libmad (`Default`) | Media Foundation (`Higher`) | libsndfile and the format libraries |
-| Linux | MAD / libmad (`Default`) | FAAD through `SoundSourceM4A` (`Default`) | libsndfile and the format libraries |
+| Linux | MAD / libmad (`Default`) | FAAD through `SoundSourceM4A` (`Default`) when Mixxx is built with it, otherwise FFmpeg | libsndfile and the format libraries |
 
 On the installed macOS bundle the log confirms the first row: for both `mp3` and
 `m4a` Mixxx 2.5.6 lists `4 (higher): "Apple CoreAudio Version 15.8 (Build 24H23)"` and
-`1 (lowest): "FFmpeg 6.0"`, and no MAD provider is built in. The Linux and Windows rows
-come from the source only.
+`1 (lowest): "FFmpeg 6.0"`, and no MAD provider is built in. The Linux row was read from
+two real builds' logs: Debian's Mixxx 2.5.0 lists MAD for `mp3` and only FFmpeg for `m4a`
+(its build has no FAAD), and a Mixxx `main` built from source with FAAD lists
+`"Nero FAAD2"` for `m4a`. `SoundSourceM4A` supports `m4a` and `mp4` only, so AAC in ADTS
+never reaches FAAD, and FAAD does not open Apple Lossless (Mixxx falls back to FFmpeg).
+The Windows row comes from the source only.
 
 FFmpeg is registered everywhere it is built, but its hint is `Lowest`
 (`SoundSourceProviderFFmpeg::getPriorityHint`), so it only opens a file when nothing
@@ -432,6 +438,43 @@ The rule, from header facts read from the file:
   the 12-bit value at frame offset `marker + 141` when the tag carries the usual
   fields (marker at `4 + side_info`; the position follows the Xing flags).
 
+### AAC under FAAD, measured
+
+An earlier reading of `SoundSourceM4A` found no trim at the start of the stream (2112 is
+only the number of frames it decodes ahead when it seeks) and concluded that AAC needs no
+offset anywhere. The measurement disproved that for one encoder. `faad_probe.c` does what
+`SoundSourceM4A` does (libmp4v2 to read the samples, FAAD to decode each from the first)
+and finds the first click of the same one-second click files. It is the same kind of
+evidence as `mad_probe.c`: the probe follows the source's steps with the same libraries
+and was not compared with the position Mixxx itself reports. Frames are at 44.1 kHz, the
+click is at 22050 in every source (the detector reads every file 2 frames after that,
+the same in every row), and `FAAD shift` is FAAD's click minus FFmpeg's:
+
+| M4A | Priming | Written beat | Click read | FAAD shift |
+| --- | ---: | ---: | ---: | ---: |
+| AAC from FFmpeg's encoder (edit list: media time 1024) | 1024 | 22050 | 22052 (FAAD) | 0 |
+| AAC from Apple's encoder (`afconvert`, `iTunSMPB` 2112, no edit list) | 2112 | 23138 | 23140 (FAAD) | **1088** (24.7 ms) |
+| Apple Lossless | n/a | 22050 | 22052 (FFmpeg: FAAD does not open it) | 0 |
+
+What it shows: FAAD returns the music `priming - 1024` frames later than FFmpeg and
+CoreAudio do, which both drop the whole priming. Two encoders fit that line (1024 and
+2112); no other priming value was measured, so it is a two-point model, not a derived
+rule. It is consistent with FAAD keeping every decoded block except the first, but that
+reading of the decoder is not proven by this run. The priming is what FFmpeg trims: the
+first edit of the track's edit list (`elst`) whose media time is not negative, or, when
+the file has no edit list, the second number of Apple's `iTunSMPB` tag (`0x840` = 2112).
+
+The adapter adds `priming - 1024` for AAC in M4A or MP4 only when the system is Linux and
+Mixxx decodes AAC with FAAD. CoreAudio and FFmpeg already drop the priming, so they need
+nothing. Linux builds differ (Debian's has no FAAD, Mixxx's own has), so the adapter reads
+the installed `mixxx` executable: it looks in `PATH`, `/usr/bin`, `/usr/local/bin`,
+`/opt/mixxx/bin` and the Flatpak export folders, and a `libfaad` or `libmp4v2` name in an
+ELF file means FAAD. A wrapper script, or no executable found, means unknown: no shift is
+applied and the preview says how late the music would play if the build did use FAAD. When
+a shift is applied, the preview says how many tracks were moved and by how many
+milliseconds. AppImage and Flatpak packages were not run, so their detection is by those
+paths only.
+
 ### What the adapter adds
 
 Offsets are in the source file's own frames and apply additively to cue starts, loop
@@ -441,13 +484,14 @@ for the `-F` and `-529` cases) is moved to the start.
 | Format | macOS | Linux and Windows |
 | --- | --- | --- |
 | MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above; measured with libmad in Debian's Mixxx 2.5.0 for a LAME file with an Info frame: +1105 |
-| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | 0 with FFmpeg, measured in Debian's Mixxx 2.5.0 (its only AAC decoder there); **not verified** for Media Foundation (Windows) and FAAD (Linux builds that have it), which were not run; the FAAD path shows no start trim in source (2112 is only a seek prefetch) |
+| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | Linux with FFmpeg: 0, measured in Debian's Mixxx 2.5.0. Linux with FAAD: `priming - 1024` for AAC in M4A or MP4, measured in Mixxx `main` with two encoders (FFmpeg's 0, Apple's +1088); which decoder applies is read from the installed `mixxx`, and unknown means 0 with a warning. Windows (Media Foundation): **not verified**, not run |
 | WAV, FLAC | 0, measured in Mixxx 2.5.6 | 0 |
 | AIFF, Ogg Vorbis | 0, measured in Mixxx 2.5.6 (libsndfile, `Xiph.org OggVorbis`) against FFmpeg's decode | 0 |
 | Opus | 0, measured in Mixxx 2.5.6 (`Xiph.org libopusfile`) against FFmpeg's decode, counted at 48 kHz: Mixxx always decodes Opus at 48000 Hz and reports that rate for the file | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does |
 | WMA | not openable: the 2.5.6 download registers no decoder for `wma` (its debug log lists none), so the tracks are added and do not play | 0, plays only if Mixxx was built with FFmpeg (or Media Foundation on Windows); not verified |
 
-The preview warns for each case marked not verified.
+The preview warns for each case marked not verified, and for AAC tracks that FAAD would
+play late.
 
 ### Reproducing
 
@@ -456,8 +500,9 @@ python3 tools/mixxx-acceptance/decoder_table.py
 ```
 
 builds the probe, generates every file above and prints the table (macOS with `clang`,
-`afconvert`, `ffmpeg` and `lame`). The Linux and Windows rows are not reproducible with
-it; a libmad probe, or a run of Mixxx itself, would settle them.
+`afconvert`, `ffmpeg` and `lame`). The Linux rows come from `mad_probe.c` and
+`faad_probe.c` inside the Docker runs described under *Runtime acceptance*; Windows has
+no probe.
 
 ## Representation gaps and chosen conversions
 
@@ -527,8 +572,9 @@ inserted by the script, standing in for choosing the folder in Mixxx's dialog.
 schema 39, arm64) in a Docker container, on a virtual display (Xvfb) with software OpenGL
 and no audio device. Nobody clicks anything: the checks read Mixxx's database and its debug
 log, and the folder prompt does not appear because the sync fills the folder list. Mixxx
-creates its library at `~/.mixxx` there, as the platform table says. **105 of 105 checks
-passed** for MP3, WAV, FLAC, AAC and ALAC in M4A, AIFF, Ogg Vorbis and Opus:
+creates its library at `~/.mixxx` there, as the platform table says. **157 of 157 checks
+passed** (the formats scenario, a library CueRithm created, and the detection check below) for MP3, WAV, FLAC, AAC
+from FFmpeg's and from Apple's encoder, ALAC in M4A, AIFF, Ogg Vorbis and Opus:
 
 - Mixxx's log lists the decoders: MAD (libmad 0.15.1) for MP3, FFmpeg 7.1 only for AAC and
   M4A (this build has no FAAD decoder), libsndfile for AIFF and WAV, libFLAC, OggVorbis,
@@ -538,18 +584,78 @@ passed** for MP3, WAV, FLAC, AAC and ALAC in M4A, AIFF, Ogg Vorbis and Opus:
   file whose source click is at 22050. The adapter's Linux timing wrote the grid at 23155, a
   shift of 1105 frames (576 of encoder delay and 529 of decoder delay, read from the LAME
   header), within 2 frames. This is the first measurement of the libmad derivation above.
-- AAC, ALAC, AIFF, Ogg Vorbis and Opus land within 2 frames with no shift (the Opus grid
-  counted at 48 kHz, as on macOS). Their click positions come from FFmpeg's decode on the
-  host, assumed to equal where Mixxx's FFmpeg source and the format libraries start.
+- AAC (both encoders), ALAC, AIFF, Ogg Vorbis and Opus land within 2 frames with no shift
+  (the Opus grid counted at 48 kHz, as on macOS). Their click positions come from FFmpeg's
+  decode on the host, assumed to equal where Mixxx's FFmpeg source and the format libraries
+  start. The Apple-encoded AAC file is the case FAAD would move; FFmpeg trims its 2112
+  priming itself, so it needs no shift here. The sync runs on the host, so the scenario
+  tells the adapter that this Mixxx decodes AAC with FFmpeg (`CUERITHM_MIXXX_AAC`) and
+  none was written. Separately, the run copies Debian's `mixxx` executable out of the
+  container and CueRithm's own detection reads it as having no FAAD.
 - Mixxx started without asking for a folder, found the schema current, deserialized the
   grids and keys, left the BPM-locked grids alone and did not change the rows.
 
 What this does **not** show: the sync itself ran on macOS and only behaved as a Linux system
 would (libmad timing, `CUERITHM_MIXXX_HOST=linux`), so CueRithm running on Linux (process
 names, folder discovery) is covered by tests and by the repository's Linux checks, not by
-this run; Mixxx builds with FAAD (AAC in M4A would not be trimmed, from its source) or other
-packaging (AppImage, Flatpak, Ubuntu); Windows, where Media Foundation decodes AAC and no
-Windows system was available.
+this run; other packaging (AppImage, Flatpak, Ubuntu); Windows, where Media Foundation
+decodes AAC and no Windows system was available. A Mixxx with FAAD is the next section.
+
+### Linux: Mixxx `main`, built from source, schema 40 and FAAD
+
+Debian's package has neither FAAD nor schema 40, so `run.py --linux-main VOLUME` runs the
+same scenarios against Mixxx built from source (`main` at `2086fe0e55`, version 2.7.0,
+schema 40, Qt 6, with FAAD, MAD and FFmpeg) in an Ubuntu 24.04 container. The image and the
+build are `tools/mixxx-acceptance/linux-main/Dockerfile` and `build.sh`. libmp4v2, which
+FAAD needs, has no package in current Debian or Ubuntu, so `build.sh` builds it from the
+maintained fork (`enzo1982/mp4v2`, commit `f4c2f1b8`). Engine DJ export (libdjinterop) is
+switched off because it does not build with GCC 13 here and has nothing to do with the
+test. Same method as the Debian run, on a virtual display with no audio device. **157 of
+157 checks passed:**
+
+- Mixxx's log lists `"Nero FAAD2"` for M4A and MAD for MP3. The M4A files that FAAD opens
+  (AAC from both encoders) were checked against `faad_probe.c`, ALAC against FFmpeg, since
+  FAAD cannot open it and Mixxx falls back.
+- **AAC from Apple's encoder.** The scenario told the adapter that this Mixxx decodes AAC
+  with FAAD (`CUERITHM_MIXXX_AAC`, because the sync runs on the host); it moved that file's
+  grid and cues 1088 frames (24.7 ms) and the preview said so: "1 AAC
+  track(s) come from an encoder with more priming than 1024 samples (Apple's, for one).
+  Your Mixxx decodes AAC with FAAD, which does not skip it, so CueRithm moved their grid
+  and cues up to 25 ms later to match." The written first beat was 23138 against FAAD's
+  click at 23140. FFmpeg's encoder (no shift, 22050 against 22052) and ALAC (22050 against
+  22052) were within 2 frames.
+- **Detection.** The run copies the `mixxx` executable out of the container and CueRithm's
+  own reader (`executable_has_faad`) finds `libfaad` and `libmp4v2` named in this build and
+  neither in Debian's, so the two builds are told apart the way the adapter does on a
+  user's Linux machine. It reads files; it does not run Mixxx.
+- MP3 through libmad again showed the 1105-frame shift (23155 against 23157).
+- **Schema 40.** A library CueRithm created at schema 39 was upgraded by Mixxx on its next
+  start ("Upgraded database schema to version 40"), and afterwards its tables, indexes and
+  views (30 objects) equalled those of a library Mixxx created itself. A schema 40
+  library Mixxx created was then synced by CueRithm and read back by the running Mixxx
+  (grids and keys deserialized, BPM-locked grids untouched, rows unchanged after its scan).
+
+Mixxx `main` has a start-up race that the harness works around and does not hide: a track
+loaded onto a deck from the command line while the library scanner is importing the same
+folder fails its insert with "database is locked". The harness lets the scanner add the
+tracks on this build and loads nothing from the command line.
+
+What this does **not** show: Mixxx 2.4 and 2.6 release builds (this is development `main`,
+not a release); AppImage and Flatpak packages, so their FAAD detection by file paths is
+untested; and the FAAD model beyond the two encoders measured.
+
+To reproduce (needs Docker, a Mixxx source checkout and a Rust toolchain; the build takes
+a long time and the volume holds several gigabytes):
+
+```sh
+docker build -t cuerithm-mixxx-main-deps tools/mixxx-acceptance/linux-main
+docker run --rm -v /path/to/mixxx:/src:ro -v mixxx-main-out:/out \
+    -v "$PWD/tools/mixxx-acceptance/linux-main:/ctx:ro" cuerithm-mixxx-main-deps sh /ctx/build.sh
+python3 tools/mixxx-acceptance/run.py --linux-main mixxx-main-out
+```
+
+Remove the volume and image afterwards (`docker volume rm mixxx-main-out`,
+`docker image rm cuerithm-mixxx-main-deps`).
 
 ### Formats, measured in Mixxx 2.5.6 on macOS
 
@@ -569,10 +675,14 @@ media probe, which reports 48000 for Opus.
 ## Not established
 
 - **Native CueRithm on Linux, other Linux packages, and Windows.** Debian's Mixxx
-  2.5.0 and libmad were run in a Linux container, as recorded in *Runtime acceptance*.
-  The sync itself ran on macOS using Linux timing, so that run does not establish
-  CueRithm's native Linux discovery or process checks. Other Linux packages, FAAD,
-  Windows and Media Foundation were not run; their behavior remains source-derived.
+  2.5.0 with libmad, and Mixxx `main` with libmad and FAAD, were run in Linux containers,
+  as recorded in *Runtime acceptance*. The sync itself ran on macOS using Linux timing, so
+  those runs do not establish CueRithm's native Linux discovery or process checks. AppImage
+  and Flatpak packages were not run. Windows and Media Foundation were not run; their
+  behavior remains source-derived, and the adapter warns that AAC there is unchecked.
+- **The FAAD shift beyond two encoders.** `priming - 1024` was measured for priming 1024
+  (FFmpeg) and 2112 (Apple) only. An encoder with another priming value, or an M4A with an
+  edit list that disagrees with `iTunSMPB`, has not been measured.
 - **CoreAudio outside the probe.** The macOS offsets were measured with the CoreAudio
   calls `SoundSourceCoreAudio` makes, on one macOS version (15.8) and one set of
   encoders. Apple can change its tag rules between releases, which is why the adapter
@@ -583,7 +693,5 @@ media probe, which reports 48000 for Opus.
 - **WMA** cannot be opened by the macOS download; whether a Linux or Windows build can
   was not run.
 - **Mixxx versions** other than schema 39 and 40, and builds without MAD or CoreAudio.
-- **Schema 40 against a running Mixxx.** Mixxx 2.5.6 (schema 39) is the only release
-  available on the development machine; schema 40 was exercised with a schema-39
-  library plus the one column Mixxx's source adds, and the upgrade of a library CueRithm
-  created from 39 to 40 by a newer Mixxx was not run.
+  Schema 40 ran against Mixxx `main` built from source (and its upgrade of a CueRithm-made
+  schema 39 library), not against a 2.6 or later release build; Mixxx 2.4 was not run.

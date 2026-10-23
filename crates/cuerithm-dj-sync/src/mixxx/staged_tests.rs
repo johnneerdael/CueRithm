@@ -352,6 +352,60 @@ fn a_newer_mixxx_release_that_keeps_the_format_is_written_and_reported() {
 }
 
 #[test]
+fn aac_with_more_priming_than_faad_skips_is_flagged_by_which_decoder_mixxx_has() {
+    use crate::mixxx::{AacDecoder, pretend_aac, sample_m4a};
+    let env = Env::new(39);
+    // One file from Apple's encoder (2112 samples of priming) and one from FFmpeg's (1024).
+    let apple = env.track("a", "apple.m4a");
+    std::fs::write(&apple.path, sample_m4a(b"mp4a", None, true)).unwrap();
+    let ffmpeg = env.track("b", "ffmpeg.m4a");
+    std::fs::write(
+        &ffmpeg.path,
+        sample_m4a(b"mp4a", Some(&[(1_058_400, 1024)]), false),
+    )
+    .unwrap();
+    let library = SyncLibrary {
+        tracks: vec![apple, ffmpeg],
+        playlists: vec![],
+    };
+    let warnings = |decoder: AacDecoder| {
+        let _aac = pretend_aac(decoder);
+        write_staged(
+            &env.database,
+            &env.database,
+            &library,
+            &options(MixxxExistingTracks::Keep),
+            &none(),
+            LINUX,
+        )
+        .unwrap()
+        .warnings
+        .into_iter()
+        .filter(|w| w.contains("AAC track"))
+        .collect::<Vec<_>>()
+    };
+    // FAAD: the grid and cues were moved, and only the Apple file needed it (1088 frames, 25 ms).
+    let faad = warnings(AacDecoder::Faad);
+    assert_eq!(faad.len(), 1, "{faad:?}");
+    assert!(
+        faad[0].starts_with("1 AAC track(s)")
+            && faad[0].contains("FAAD")
+            && faad[0].contains("moved")
+            && faad[0].contains("25 ms"),
+        "{faad:?}"
+    );
+    // A decoder that drops the priming like CueRithm's clock does: nothing to say.
+    assert!(warnings(AacDecoder::TrimsPriming).is_empty());
+    // A Mixxx that could not be found: say what each decoder would do.
+    let unknown = warnings(AacDecoder::Unknown);
+    assert_eq!(unknown.len(), 1, "{unknown:?}");
+    assert!(
+        unknown[0].contains("could not tell") && unknown[0].contains("25 ms late"),
+        "{unknown:?}"
+    );
+}
+
+#[test]
 fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
     let env = Env::new(39);
     let library = SyncLibrary {
@@ -375,15 +429,11 @@ fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
         .unwrap()
         .warnings
     };
-    // Linux and Windows decode AAC with FAAD or Media Foundation: unverified.
+    // Files that say nothing about priming have nothing for FAAD to get wrong.
     let linux = run(LINUX, &library);
-    let aac: Vec<_> = linux.iter().filter(|w| w.contains("AAC track")).collect();
-    assert_eq!(aac.len(), 1, "{linux:?}");
     assert!(
-        aac[0].starts_with("2 AAC track(s)")
-            && aac[0].contains("FFmpeg")
-            && aac[0].contains("not checked"),
-        "{aac:?}"
+        linux.iter().all(|w| !w.contains("AAC track")),
+        "no priming to compare: {linux:?}"
     );
     assert_eq!(linux.iter().filter(|w| w.contains("WMA track")).count(), 1);
     // macOS decodes AAC with CoreAudio, measured to match: no AAC warning there.

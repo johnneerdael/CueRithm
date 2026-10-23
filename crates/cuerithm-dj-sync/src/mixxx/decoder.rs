@@ -49,6 +49,127 @@ impl Mp3Decoder {
     }
 }
 
+/// How the Mixxx on this system decodes AAC in an M4A, which decides whether the encoder's
+/// priming is skipped (see `mp4.rs` for what was measured).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AacDecoder {
+    /// FAAD, which reads from the first block and ignores the file's priming.
+    Faad,
+    /// FFmpeg (Debian's Mixxx) or CoreAudio (macOS): the priming is dropped, as CueRithm's own
+    /// clock drops it.
+    TrimsPriming,
+    /// Windows (Media Foundation, not run) or a Linux Mixxx that was not found or not readable.
+    Unknown,
+}
+
+#[cfg(test)]
+thread_local! {
+    static AAC: std::cell::Cell<Option<AacDecoder>> = const { std::cell::Cell::new(None) };
+}
+/// Tests only: undoes `pretend_aac` when dropped.
+#[cfg(test)]
+pub(crate) struct PretendAac;
+#[cfg(test)]
+impl Drop for PretendAac {
+    fn drop(&mut self) {
+        AAC.set(None);
+    }
+}
+/// Tests only: behave as if the Mixxx on this system decoded AAC with `decoder`, until the
+/// returned guard is dropped.
+#[cfg(test)]
+pub(crate) fn pretend_aac(decoder: AacDecoder) -> PretendAac {
+    AAC.set(Some(decoder));
+    PretendAac
+}
+
+/// Where a Linux Mixxx's executable may be: on the PATH, in the usual places, and as a Flatpak.
+fn linux_candidates() -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    if let Some(path) = std::env::var_os("PATH") {
+        found.extend(std::env::split_paths(&path).map(|dir| dir.join("mixxx")));
+    }
+    for fixed in [
+        "/usr/bin/mixxx",
+        "/usr/local/bin/mixxx",
+        "/opt/mixxx/bin/mixxx",
+        "/var/lib/flatpak/app/org.mixxx.Mixxx/current/active/files/bin/mixxx",
+    ] {
+        found.push(fixed.into());
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        found.push(
+            std::path::Path::new(&home)
+                .join(".local/share/flatpak/app/org.mixxx.Mixxx/current/active/files/bin/mixxx"),
+        );
+    }
+    found
+}
+
+/// Whether a Mixxx executable has the FAAD decoder: a build with it links `libmp4v2` and loads
+/// `libfaad` by name, and a build without it (Debian's) does neither. `None` when the file is
+/// not a readable ELF executable, for example a wrapper script.
+fn executable_has_faad(path: &std::path::Path) -> Option<bool> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut magic = [0u8; 4];
+    file.read_exact(&mut magic).ok()?;
+    if &magic != b"\x7fELF" {
+        return None;
+    }
+    const MARKERS: [&[u8]; 2] = [b"libfaad.so", b"libmp4v2.so"];
+    let longest = MARKERS.iter().map(|m| m.len()).max().unwrap_or(0);
+    let mut buffer = vec![0u8; 1 << 20];
+    let mut carried = 0usize;
+    loop {
+        let read = file.read(&mut buffer[carried..]).ok()?;
+        if read == 0 {
+            return Some(false);
+        }
+        let filled = carried + read;
+        if MARKERS
+            .iter()
+            .any(|marker| buffer[..filled].windows(marker.len()).any(|w| w == *marker))
+        {
+            return Some(true);
+        }
+        // keep the end, in case a marker straddles two reads
+        carried = (longest - 1).min(filled);
+        buffer.copy_within(filled - carried..filled, 0);
+    }
+}
+
+/// The AAC decoder of the first Mixxx executable among `candidates` that can be read.
+fn aac_decoder_of(candidates: &[std::path::PathBuf]) -> AacDecoder {
+    candidates
+        .iter()
+        .find_map(|path| executable_has_faad(path))
+        .map_or(AacDecoder::Unknown, |faad| {
+            if faad {
+                AacDecoder::Faad
+            } else {
+                AacDecoder::TrimsPriming
+            }
+        })
+}
+
+/// How this system's Mixxx decodes AAC. macOS is CoreAudio (measured). A Linux Mixxx is looked
+/// for on disk, once. Windows is Media Foundation, which was not run.
+pub(crate) fn aac_decoder() -> AacDecoder {
+    #[cfg(test)]
+    if let Some(decoder) = AAC.get() {
+        return decoder;
+    }
+    if cfg!(target_os = "macos") {
+        return AacDecoder::TrimsPriming;
+    }
+    if !cfg!(target_os = "linux") {
+        return AacDecoder::Unknown;
+    }
+    static FOUND: std::sync::OnceLock<AacDecoder> = std::sync::OnceLock::new();
+    *FOUND.get_or_init(|| aac_decoder_of(&linux_candidates()))
+}
+
 /// The 528 + 1 samples of decoder delay every MP3 decoder produces before the signal.
 const DECODER_DELAY: i64 = 529;
 
@@ -168,5 +289,91 @@ mod tests {
             Mp3Decoder::Mad
         };
         assert_eq!(Mp3Decoder::host(), expected);
+    }
+}
+
+#[cfg(test)]
+mod aac_tests {
+    use super::*;
+
+    fn elf(dir: &std::path::Path, name: &str, body: &[u8]) -> std::path::PathBuf {
+        let path = dir.join(name);
+        let mut bytes = b"\x7fELF\x02\x01\x01".to_vec();
+        bytes.extend_from_slice(&[0u8; 32]);
+        bytes.extend_from_slice(body);
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    #[test]
+    fn a_mixxx_that_names_libfaad_or_links_mp4v2_has_faad_and_one_that_names_neither_does_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let built_in = elf(dir.path(), "main", b"..NeAACDecOpen..libfaad.so.2..");
+        let linked = elf(
+            dir.path(),
+            "linked",
+            b"NEEDED libmp4v2.so.2 libQt6Core.so.6",
+        );
+        let debian = elf(dir.path(), "debian", b"NEEDED libavcodec.so.61 libmad.so.0");
+        assert_eq!(executable_has_faad(&built_in), Some(true));
+        assert_eq!(executable_has_faad(&linked), Some(true));
+        assert_eq!(executable_has_faad(&debian), Some(false));
+    }
+
+    #[test]
+    fn a_marker_split_across_two_reads_is_still_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut body = vec![b'x'; (1 << 20) - 36 - 4];
+        body.extend_from_slice(b"libfaad.so.2");
+        let path = elf(dir.path(), "big", &body);
+        assert_eq!(executable_has_faad(&path), Some(true));
+    }
+
+    #[test]
+    fn wrapper_scripts_and_missing_files_say_nothing_and_the_first_readable_executable_decides() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("mixxx");
+        std::fs::write(&script, b"#!/bin/sh\nexec mixxx.bin \"$@\"\n").unwrap();
+        assert_eq!(executable_has_faad(&script), None);
+        assert_eq!(executable_has_faad(&dir.path().join("absent")), None);
+        let faad = elf(dir.path(), "faad", b"libfaad.so.2");
+        let ffmpeg = elf(dir.path(), "ffmpeg", b"libavcodec.so.61");
+        let missing = dir.path().join("absent");
+        assert_eq!(
+            aac_decoder_of(&[
+                missing.clone(),
+                script.clone(),
+                faad.clone(),
+                ffmpeg.clone()
+            ]),
+            AacDecoder::Faad
+        );
+        assert_eq!(
+            aac_decoder_of(&[script, ffmpeg, faad]),
+            AacDecoder::TrimsPriming
+        );
+        assert_eq!(aac_decoder_of(&[missing]), AacDecoder::Unknown);
+    }
+
+    /// Run by `tools/mixxx-acceptance/run.py` on the real executables it copies out of the
+    /// containers: a Mixxx built with FAAD and/or one built without, whichever it has.
+    #[test]
+    #[ignore = "needs real Mixxx executables; run through tools/mixxx-acceptance/run.py"]
+    fn real_mixxx_executables_are_told_apart() {
+        let path = |name: &str| std::env::var_os(name).map(std::path::PathBuf::from);
+        let with = path("CUERITHM_MIXXX_WITH_FAAD");
+        let without = path("CUERITHM_MIXXX_WITHOUT_FAAD");
+        assert!(
+            with.is_some() || without.is_some(),
+            "name a Mixxx executable"
+        );
+        if let Some(with) = with {
+            assert_eq!(executable_has_faad(&with), Some(true), "{with:?}");
+            assert_eq!(aac_decoder_of(&[with]), AacDecoder::Faad);
+        }
+        if let Some(without) = without {
+            assert_eq!(executable_has_faad(&without), Some(false), "{without:?}");
+            assert_eq!(aac_decoder_of(&[without]), AacDecoder::TrimsPriming);
+        }
     }
 }

@@ -47,6 +47,13 @@ fn write_acceptance_library() {
     if std::env::var("CUERITHM_MIXXX_HOST").as_deref() == Ok("linux") {
         super::decoder::pretend_host(super::Mp3Decoder::Mad);
     }
+    // ...and with the AAC decoder of the Mixxx under test: the writer cannot read a Mixxx that
+    // lives in a container.
+    let _aac = match std::env::var("CUERITHM_MIXXX_AAC").as_deref() {
+        Ok("faad") => Some(super::decoder::pretend_aac(super::AacDecoder::Faad)),
+        Ok("ffmpeg") => Some(super::decoder::pretend_aac(super::AacDecoder::TrimsPriming)),
+        _ => None,
+    };
     let manifest: Vec<Entry> =
         serde_json::from_slice(&std::fs::read(folder.join("music/manifest.json")).unwrap())
             .unwrap();

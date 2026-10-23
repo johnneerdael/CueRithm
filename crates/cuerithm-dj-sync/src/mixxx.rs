@@ -14,6 +14,7 @@ pub mod fixture;
 mod folders;
 mod keys;
 mod lame;
+mod mp4;
 mod owned;
 mod proto;
 mod repair;
@@ -31,8 +32,12 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-pub(crate) use decoder::{Mp3Decoder, mp3_offset_samples};
+#[cfg(test)]
+pub(crate) use decoder::pretend_aac;
+pub(crate) use decoder::{AacDecoder, Mp3Decoder, aac_decoder, mp3_offset_samples};
 pub(crate) use lame::mp3_start;
+#[cfg(test)]
+pub(crate) use mp4::sample::m4a as sample_m4a;
 pub(crate) use repair::{reference_id, repair_reference};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -101,6 +106,12 @@ pub fn resolve_database_target(path: &Path) -> Result<DatabaseTarget> {
         );
     }
     Ok(DatabaseTarget { database, exists })
+}
+
+/// Frames later than CueRithm's clock that FAAD plays an M4A, which does not skip the encoder's
+/// priming (0 for Apple Lossless and anything that is not an M4A with AAC).
+pub(crate) fn faad_shift_frames(path: &Path) -> Result<u32> {
+    Ok(mp4::aac_start(path)?.map_or(0, mp4::AacStart::faad_shift))
 }
 
 /// The folder to watch for changes between preview and apply: the settings folder, or
@@ -194,7 +205,7 @@ pub(crate) struct Host {
 impl Host {
     pub(crate) fn current() -> Self {
         Self {
-            case_insensitive: tracks::case_insensitive_host(),
+            case_insensitive: tracks::fold_case_candidates(),
             decoder: Mp3Decoder::host(),
         }
     }
@@ -384,6 +395,8 @@ fn advisories(
     let case_insensitive = host.case_insensitive;
     let mut keys = Vec::new();
     let (mut aac, mut wma) = (0usize, 0usize);
+    // AAC tracks whose priming FAAD would not skip: the frames, at the track's rate.
+    let mut late: Vec<(u32, u32)> = Vec::new();
     for track in &library.tracks {
         keys.push(tracks::location_key(&std::fs::canonicalize(&track.path)?)?);
         let extension = track
@@ -393,20 +406,53 @@ fn advisories(
             .unwrap_or("")
             .to_ascii_lowercase();
         match extension.as_str() {
-            "m4a" | "mp4" | "aac" => aac += 1,
+            "m4a" | "mp4" => {
+                aac += 1;
+                let shift = faad_shift_frames(&track.path).unwrap_or(0);
+                if shift > 0 {
+                    late.push((shift, track.sample_rate));
+                }
+            }
+            "aac" => aac += 1,
             "wma" => wma += 1,
             _ => {}
         }
     }
-    // Measured on macOS (CoreAudio) and with FFmpeg on Linux (Debian's Mixxx 2.5.0, which
-    // has no FAAD decoder). Which decoder a Linux or Windows Mixxx uses depends on its build:
-    // FAAD (Linux builds that include it) and Media Foundation (Windows) were not run.
+    // AAC. Measured: CoreAudio (macOS) and FFmpeg (Debian's Mixxx 2.5.0) drop the encoder's
+    // priming like CueRithm's clock does; FAAD (Mixxx built with it) does not, so its timeline
+    // is `priming - 1024` frames later (see `mp4.rs`), which the timing step applies when it
+    // finds FAAD. Media Foundation (Windows) was not run.
     if aac > 0 && host.decoder == Mp3Decoder::Mad {
-        warnings.push(format!(
-            "{aac} AAC track(s): this Mixxx decodes AAC with FFmpeg (checked on Debian's Mixxx \
-             2.5.0, no shift needed), FAAD or Media Foundation (not checked), so their cues and \
-             grid may sit a few milliseconds off if it uses one of the last two."
-        ));
+        let latest_ms = late
+            .iter()
+            .filter(|(_, rate)| *rate > 0)
+            .map(|(frames, rate)| f64::from(*frames) * 1000.0 / f64::from(*rate))
+            .fold(0.0, f64::max);
+        if cfg!(windows) {
+            warnings.push(format!(
+                "{aac} AAC track(s): Mixxx on Windows decodes AAC with Media Foundation, which \
+                 CueRithm has not checked, so their cues and grid may sit a few milliseconds off."
+            ));
+        } else if !late.is_empty() {
+            match aac_decoder() {
+                AacDecoder::Faad => warnings.push(format!(
+                    "{} AAC track(s) come from an encoder with more priming than 1024 samples \
+                     (Apple's, for one). Your Mixxx decodes AAC with FAAD, which does not skip \
+                     it, so CueRithm moved their grid and cues up to {:.0} ms later to match.",
+                    late.len(),
+                    latest_ms
+                )),
+                AacDecoder::Unknown => warnings.push(format!(
+                    "{} AAC track(s) come from an encoder with more priming than 1024 samples \
+                     (Apple's, for one). CueRithm could not tell which AAC decoder your Mixxx \
+                     uses: with FFmpeg (Debian's) their cues are right, with FAAD (builds that \
+                     include it) they sit about {:.0} ms late.",
+                    late.len(),
+                    latest_ms
+                )),
+                AacDecoder::TrimsPriming => {}
+            }
+        }
     }
     if wma > 0 {
         warnings.push(if host.decoder == Mp3Decoder::CoreAudio {
