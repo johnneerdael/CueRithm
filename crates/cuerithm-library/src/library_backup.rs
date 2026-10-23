@@ -265,9 +265,12 @@ pub(crate) fn quiet_database(conn: &Connection) -> Result<()> {
     );
     Ok(())
 }
+/// The write kinds that delete their original once they have settled.
+const RETIRING_BACKUPS: [&str; 1] = ["tag"];
 fn settled(conn: &Connection, root: &Path) -> Result<()> {
     quiet_database(conn)?;
-    // Every changed committed publication keeps its original bytes for recovery/Undo.
+    // A changed committed publication keeps its original bytes for recovery or Undo until its
+    // cleanup retires them, which clears the path from the journal.
     for table in ["tag", "cleanup", "maintenance"] {
         let query = format!(
             "SELECT f.backup,f.before_hash FROM {table}_write_files f JOIN {table}_writes w ON w.id=f.write_id WHERE w.state='committed' AND f.before_hash IS NOT NULL AND f.before_hash<>f.after_hash"
@@ -277,7 +280,15 @@ fn settled(conn: &Connection, root: &Path) -> Result<()> {
             Ok((r.get::<_, Option<Vec<u8>>>(0)?, r.get::<_, String>(1)?))
         })? {
             let (path, hash) = row?;
-            let path = bytes_path(&path.context("Recovery backup path is missing")?)?;
+            let Some(path) = path else {
+                // Retired: the write has settled and its original was deleted on purpose.
+                ensure!(
+                    RETIRING_BACKUPS.contains(&table),
+                    "Recovery backup path is missing"
+                );
+                continue;
+            };
+            let path = bytes_path(&path)?;
             let observed = location(&path)?;
             ensure!(
                 observed.sha256.as_deref() == Some(hash.as_str()),

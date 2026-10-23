@@ -73,6 +73,8 @@ pub use organization_references::{
     OrganizationReferenceGuard, OrganizationReferenceInfo, OrganizationReferenceSnapshot,
 };
 mod lean;
+mod legacy_originals;
+pub use legacy_originals::OriginalsSweep;
 pub mod playback;
 mod settings;
 mod store;

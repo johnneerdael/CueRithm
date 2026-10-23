@@ -381,6 +381,8 @@ impl Library {
         let _ = lib.cleanup_relocation_indexes();
         // Saved scans, reviews and previews that earlier versions never trimmed.
         let _ = lib.prune_saved_reports();
+        // Original audio that earlier versions kept after a write had settled.
+        let _ = lib.sweep_legacy_originals();
         // A log left by a process that was killed can be as large as its last transaction,
         // and an older library holds space that its earlier versions never gave back.
         lib.reclaim_storage_when_worthwhile();
