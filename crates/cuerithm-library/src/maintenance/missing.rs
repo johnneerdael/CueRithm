@@ -183,6 +183,10 @@ struct Operation {
     undone_by: Option<String>,
     #[serde(default)]
     undo_discarded: bool,
+    /// Source hashes whose cached cover was kept because Undo may need it. With the
+    /// audio missing, that cache can be the only copy of the picture left.
+    #[serde(default)]
+    artwork_hashes: Vec<String>,
 }
 
 /// Held while records or paths change, in the order admission takes them.
@@ -504,16 +508,18 @@ fn ensure_old_location(path: &Path, expected_hash: &str, cancel: &CancellationTo
 }
 impl Operation {
     /// Drops what Undo would need, and the names of the tracks.
-    fn discard_saved(&mut self) {
+    /// Returns the covers that were being kept for it.
+    fn discard_saved(&mut self) -> Vec<String> {
         self.snapshot = Snapshot::default();
         self.undo_discarded = true;
         self.entry.tracks.clear();
         self.entry.skipped.clear();
+        std::mem::take(&mut self.artwork_hashes)
     }
 }
 /// Keeps the saved records of the newest `MISSING_UNDO_WINDOW` removals that can
 /// still be undone; older ones are discarded.
-fn trim_removal_undo(conn: &Connection) -> Result<()> {
+fn trim_removal_undo(conn: &Connection) -> Result<Vec<String>> {
     let old: Vec<String> = conn
         .prepare(
             "SELECT id FROM maintenance_scans WHERE kind=?1
@@ -525,25 +531,27 @@ fn trim_removal_undo(conn: &Connection) -> Result<()> {
         )?
         .query_map(params![OPERATION, MISSING_UNDO_WINDOW as i64], |r| r.get(0))?
         .collect::<rusqlite::Result<_>>()?;
+    let mut covers = Vec::new();
     for id in old {
         let mut operation: Operation = load(conn, &id, OPERATION)?;
-        operation.discard_saved();
+        covers.extend(operation.discard_saved());
         conn.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
             params![serde_json::to_string(&operation)?, id],
         )?;
     }
-    Ok(())
+    Ok(covers)
+}
+fn is_hash(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|c| c.is_ascii_hexdigit())
 }
 
 impl Library {
-    /// Removes the artwork and waveform files cached for hashes nothing uses any more.
+    /// Removes the waveform files cached for hashes nothing uses any more. Covers are
+    /// kept for Undo and freed later by `purge_covers`.
     fn purge_cache_files(&self, orphans: &Orphans) {
         let cache = self.data_dir().join("cache");
         for hash in &orphans.hashes {
-            if hash.len() == 64 && hash.bytes().all(|c| c.is_ascii_hexdigit()) {
-                let _ = std::fs::remove_file(cache.join("artwork").join(hash));
-            }
             for decoder in &orphans.decoders {
                 for bins in WAVEFORM_BINS {
                     let key = format!("{:x}", Sha256::digest(format!("{hash}:{decoder}:{bins}")));
@@ -552,6 +560,43 @@ impl Library {
                 }
             }
         }
+    }
+    /// Deletes cached covers nothing needs any more: no track has the audio's hash and
+    /// no removal that can still be undone is holding the cover. Run after the records
+    /// that justified keeping them were dropped (a trim, a discard, or an undo).
+    fn purge_covers(&self, hashes: &[String]) -> Result<()> {
+        if hashes.is_empty() {
+            return Ok(());
+        }
+        let wanted: BTreeSet<String> = {
+            let conn = self.conn()?;
+            let mut wanted: BTreeSet<String> = conn
+                .prepare(
+                    "SELECT DISTINCT j.value FROM maintenance_scans s,json_each(s.payload_json,'$.artwork_hashes') j
+                     WHERE s.kind=?1
+                       AND json_extract(s.payload_json,'$.entry.kind')='remove'
+                       AND json_extract(s.payload_json,'$.entry.undo_of') IS NULL
+                       AND json_extract(s.payload_json,'$.undone_by') IS NULL
+                       AND COALESCE(json_extract(s.payload_json,'$.undo_discarded'),0)=0",
+                )?
+                .query_map([OPERATION], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for chunk in hashes.chunks(400) {
+                let m = marks(chunk.len());
+                for table in ["tracks", "jobs"] {
+                    wanted.extend(column(
+                        &conn,
+                        &format!("SELECT source_hash FROM {table} WHERE source_hash IN ({m})"),
+                        chunk,
+                    )?);
+                }
+            }
+            wanted
+        };
+        for hash in hashes.iter().filter(|h| is_hash(h) && !wanted.contains(*h)) {
+            let _ = std::fs::remove_file(self.data_dir().join("cache/artwork").join(hash));
+        }
+        Ok(())
     }
     /// The saved Missing & broken report, if the library has not changed since.
     /// A report only says which tracks to look at; every track is checked against
@@ -809,6 +854,12 @@ impl Library {
             },
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: orphaned
+                .hashes
+                .iter()
+                .filter(|h| is_hash(h))
+                .cloned()
+                .collect(),
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",
@@ -819,11 +870,12 @@ impl Library {
                 entry.created
             ],
         )?;
-        trim_removal_undo(&tx)?;
+        let trimmed = trim_removal_undo(&tx)?;
         tx.commit()?;
         drop(conn);
         // Files go only after the records are really gone.
         self.purge_cache_files(&orphaned);
+        self.purge_covers(&trimmed)?;
         Ok(entry)
     }
 
@@ -1164,6 +1216,7 @@ impl Library {
             },
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: vec![],
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",
@@ -1224,12 +1277,14 @@ impl Library {
             !original.undo_discarded,
             "The saved records were already discarded"
         );
-        original.discard_saved();
+        let covers = original.discard_saved();
         tx.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
             params![serde_json::to_string(&original)?, id],
         )?;
         tx.commit()?;
+        drop(conn);
+        self.purge_covers(&covers)?;
         Ok(MissingRepairHistory {
             entry: original.entry,
             undone_by: None,
@@ -1395,6 +1450,7 @@ impl Library {
         original.undone_by = Some(entry.id.clone());
         // The records are back in the library; the copy kept for Undo is no longer needed.
         original.snapshot = Snapshot::default();
+        original.artwork_hashes.clear();
         tx.execute(
             "UPDATE maintenance_scans SET payload_json=?1 WHERE id=?2",
             params![serde_json::to_string(&original)?, id],
@@ -1404,6 +1460,7 @@ impl Library {
             snapshot: Snapshot::default(),
             undone_by: None,
             undo_discarded: false,
+            artwork_hashes: vec![],
         };
         tx.execute(
             "INSERT INTO maintenance_scans VALUES(?1,?2,?3,?4)",

@@ -310,8 +310,10 @@ fn removal_purges_what_is_derived_from_the_tracks_but_keeps_a_twins_caches() {
         l.fx.lib
             .apply_missing_removal(&preview.id, &cancel())
             .unwrap();
-    // `b` was the only user of its bytes: everything derived from it is gone.
-    assert!(!artwork_cache(&l.fx, &hash_b).exists());
+    // `b` was the only user of its bytes: what is derived from the audio is gone. Its
+    // cover may be the only copy left now that the audio is missing, so it is kept
+    // for Undo (see the cover tests below).
+    assert!(artwork_cache(&l.fx, &hash_b).exists());
     assert!(!waveform_cache(&l.fx, &hash_b, "decoder-1", 240).exists());
     assert!(!waveform_cache(&l.fx, &hash_b, "decoder-1", 16384).exists());
     assert_eq!(derived_rows(&l.fx, &hash_b, &l.b), [0, 0, 0, 0]);
@@ -329,7 +331,107 @@ fn removal_purges_what_is_derived_from_the_tracks_but_keeps_a_twins_caches() {
         0,
         "fingerprints are not restored"
     );
-    assert!(!artwork_cache(&l.fx, &hash_b).exists());
+}
+
+#[test]
+fn a_removed_tracks_cover_survives_undo_and_is_freed_with_its_saved_records() {
+    let l = library();
+    let hash_a = derive_caches(&l.fx, &l.a);
+    let hash_b = derive_caches(&l.fx, &l.b);
+    // A present twin shares `a`'s bytes, so its cover is not the removed track's alone.
+    let twin =
+        l.fx.ready(&l.fx.file(&l.fx.watch.join("Copy"), "a.flac", 1), 130.);
+    assert_eq!(l.fx.lib.source_hash(&twin).unwrap(), hash_a);
+    let remove = |ids_: &[&String]| {
+        let report = l.fx.scan(false);
+        let preview =
+            l.fx.lib
+                .preview_missing_removal(&report.id, &ids(ids_), &cancel())
+                .unwrap();
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap()
+    };
+    // Removal keeps the cover; Undo brings the track back with its picture.
+    let first = remove(&[&l.b]);
+    assert!(artwork_cache(&l.fx, &hash_b).is_file());
+    l.fx.lib.undo_missing_repair(&first.id, &cancel()).unwrap();
+    assert!(
+        artwork_cache(&l.fx, &hash_b).is_file(),
+        "the restored track still has its cover"
+    );
+    // Removed again, the cover goes when someone discards the saved records...
+    let second = remove(&[&l.b]);
+    assert!(artwork_cache(&l.fx, &hash_b).is_file());
+    l.fx.lib.discard_missing_repair_undo(&second.id).unwrap();
+    assert!(
+        !artwork_cache(&l.fx, &hash_b).exists(),
+        "nothing can need it any more"
+    );
+    // ...but never while another track still has the same bytes.
+    let third = remove(&[&l.a]);
+    l.fx.lib.discard_missing_repair_undo(&third.id).unwrap();
+    assert!(
+        artwork_cache(&l.fx, &hash_a).is_file(),
+        "the twin keeps its cover"
+    );
+}
+
+#[test]
+fn a_cover_held_by_two_removals_is_freed_only_with_the_last_of_them() {
+    let l = library();
+    let hash = derive_caches(&l.fx, &l.a);
+    let remove = |id: &String| {
+        let report = l.fx.scan(false);
+        let preview =
+            l.fx.lib
+                .preview_missing_removal(&report.id, &ids(&[id]), &cancel())
+                .unwrap();
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap()
+    };
+    let first = remove(&l.a);
+    // The same audio comes back as another track and is removed too.
+    let file = l.fx.file(&l.fx.watch.join("Again"), "a.flac", 1);
+    let again = l.fx.ready(&file, 125.);
+    std::fs::remove_file(&file).unwrap();
+    let second = remove(&again);
+    l.fx.lib.discard_missing_repair_undo(&first.id).unwrap();
+    assert!(
+        artwork_cache(&l.fx, &hash).is_file(),
+        "the second removal can still be undone"
+    );
+    l.fx.lib.discard_missing_repair_undo(&second.id).unwrap();
+    assert!(!artwork_cache(&l.fx, &hash).exists());
+}
+
+#[test]
+fn covers_follow_the_bounded_undo_window() {
+    let l = library();
+    let mut covers = Vec::new();
+    for n in 0..=MISSING_UNDO_WINDOW {
+        let file =
+            l.fx.file(&l.fx.watch.join("Old"), &format!("cover-{n}.flac"), 70 + n);
+        let id = l.fx.ready(&file, 100. + n as f64);
+        covers.push(derive_caches(&l.fx, &id));
+        std::fs::remove_file(&file).unwrap();
+        let report = l.fx.scan(false);
+        let preview =
+            l.fx.lib
+                .preview_missing_removal(&report.id, &ids(&[&id]), &cancel())
+                .unwrap();
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    }
+    assert!(
+        !artwork_cache(&l.fx, &covers[0]).exists(),
+        "the oldest removal left the window, so its cover is freed"
+    );
+    for hash in &covers[1..] {
+        assert!(artwork_cache(&l.fx, hash).is_file());
+    }
 }
 
 #[test]
