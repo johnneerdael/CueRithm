@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 21 · 23 October 2026 CEST / UTC · Required engineering reference.
+Revision 22 · 23 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–21 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–22 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -42,7 +42,7 @@ from its eight exact native-key failures and six authored-bar-phase failures
 (F127–F129); it is not added to the old 277-request benchmark. There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 134 scoped findings. Evidence references E001–E241 identify immutable private source snapshots by
+The current register contains 135 scoped findings. Evidence references E001–E255 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -2070,6 +2070,67 @@ and no new model accuracy gain or default replacement follows.
 
 **Evidence:** E229, E232, E235, E230, E233, E236, E241.
 
+
+#### F135 — Added raw acoustic and window-edge context do not repair this cue control
+
+**Type:** Controlled local-model experiment; no new MIK observation or recovered server rule.
+
+The experiment holds the existing 194-input point representation and learner
+fixed while appending two declared blocks: 552 raw acoustic values, six explicit
+window-edge offsets, or both. The raw block contains all 183 submitted energy
+features plus RMS for the current, previous and following windows. The offsets
+preserve the historical client clock and window mapping, with offsets expressed
+in captured quarter beats.
+
+| Condition | Complete timed/labelled lists within 1 ns / 1,288 | Complete fixes / regressions | Complete positions | Position-list fixes / regressions |
+|---|---:|---:|---:|---:|
+| Retained 194-input control | 200 | — | 568 | — |
+| Added raw acoustic block | 194 | 6 / 12 | 557 | 24 / 35 |
+| Added window-edge timing | 200 | 5 / 5 | 570 | 17 / 15 |
+| Both additions | 196 | 9 / 13 | 555 | 33 / 46 |
+
+The timing condition's two-list position gain is a valid partial observation,
+while its unchanged complete-list total hides five corrections and five
+regressions. Additional target positions recovered/lost are 75/90, 54/45 and
+83/107 respectively. Cue-count agreement remains 1,091/1,288. All three qualified
+early misses from F134 persist. Their legal candidates still rank below the
+seven-slot budget. None of these configurations is an accepted replacement.
+
+All nine dependent run-13 files, representing six conditions, retain zero correct
+complete lists. Previously matched additional occurrences fall from 15 to 9, 10
+and 10; none is newly recovered. Each candidate improves some anchor labels but
+still loses known positions. Partial attribute gains do not repair full lists.
+
+**Scope:** Exactly seven 300-tree, single-thread Poisson fits: a fresh control and
+three candidates with independent repeats. The original 194-input prefix,
+360,656 samples from 5,098 training groups, multiplicity targets including four,
+weights, matched R3 window branch, count model, cue-energy state, legal candidates
+and alpha-8 decoder remain fixed. Changes in selected positions legitimately
+change downstream spans and labels. Joint presence-and-correctness outcomes are
+reported separately from label/clock changes at common matched positions.
+
+Independent checks cover all 6,386 query contexts, training matrix/target/weight
+hashes and the 79-key exclusion guard. Historical and fresh-control complete
+numeric outputs match before candidate fits. All candidate raw/canonical states,
+reloads, numeric outputs and complete lists repeat exactly in the pinned
+environment. The completed review replays all seven states on 1,288 spent
+requests in 1,287 recording groups and nine dependent synthetic files. It also
+checks 9,600 independent tree paths with exact leaf IDs and raw scores. All 32
+inspected witness scores are untied. Runtime is about 23 minutes, reported peak
+process memory about 6.41 GiB and retained output about 60 MB.
+
+**Rules out / prevents:** Reject these three replacements and retain every
+correction and regression. Do not erase the measured position-only gain or call
+an unchanged aggregate a regression-free fix. This is one fixed learner and
+budget; it does not exclude acoustic information, timing, other objectives,
+capacities, sequence models or frameworks. F102 already records two failed
+104-input ranking configurations; they must not be relabelled as untried.
+The underlying acoustic/learning cause of the demonstrated misses remains open.
+No accepted accuracy gain, new MIK run, audio render, response admission,
+unseen/PCM/native/format qualification or product-default change follows.
+
+**Evidence:** E242, E244, E245, E250, E254, E255.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2208,7 +2269,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E241 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E255 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -2456,3 +2517,17 @@ retain prior IDs or explicitly version replacement evidence.
 | E239 | `1cf34b8d8970dccc64e2f9b74066e4f954aeb2932b418deaaff3419a369ce89f` |
 | E240 | `bc1b5a8ef6bbb6912972c49bf89541eea7450589cb296e3e15399d80f5dd918b` |
 | E241 | `00ea93c04c832b9922c4c45443e965b0c11a0fd4496d3075b06086e65d8d96cb` |
+| E242 | `87cb846c42393f2002074e2c5375958601772d1adf7ff02197acbcff2b4f3c8a` |
+| E243 | `f642e1917d96de2a6af28ec583463ab437481e78fe735b6c020156efff13c50b` |
+| E244 | `9e05a9f6bf2db48ecbca4d1fa1835bd7536421310d92a1b5f92bee7cfdab3620` |
+| E245 | `a28a3ff9d858f2ca158d2a8a6a49c4cdacdd97ad9e9c9b7f45616f84a9375d70` |
+| E246 | `df9c9064d5f78c2ca805dd1f9bd09e6922ace797fd820c723ab859a8baab9810` |
+| E247 | `48aab92d5c84888601e1483b86d1a782b7d41e390dadd1b4cb56dd46fd728856` |
+| E248 | `43ad71ebb999451b2eb7f46cc23fc00f37cf414f7dc912edc05c68cc53c13a3e` |
+| E249 | `49ff67bdda21be4ccb17c8d4f7ca5cf9bbda6909f2b6e33b147ef73e9a4b7591` |
+| E250 | `356bcdeac7a4167d3f507da7968407b82e65708e42b84f48bb134a6e427f738c` |
+| E251 | `20321c8dae644d9796345f42e997fe8feaebe628ba2823ee559d478ec1000974` |
+| E252 | `65f77233c9a31ec92d34482bfb67cb08b93dfe05b3f5e52580631ec2c08f6e9f` |
+| E253 | `03861aebfc2afc9c13324195026c12f51ead26560bcbc3197211f32d15879a97` |
+| E254 | `b1a2c6b8d0c58462fac9da3c489b6b50c1be098a860cb298e5923baf8a2ac78c` |
+| E255 | `3b3b19108cd4cf5d58bd7697505ab1007599534215925b7247a9df5dceff8bcc` |
