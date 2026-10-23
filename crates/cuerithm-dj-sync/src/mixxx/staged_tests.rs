@@ -479,12 +479,9 @@ fn folders_mixxx_does_not_scan_are_reported_only_when_it_scans_some() {
             .iter()
             .any(|w| w.contains("1 track(s) are outside the folders Mixxx scans"))
     );
-    let root = std::fs::canonicalize(env.directory.path()).unwrap();
+    let root = tracks::location_key(&std::fs::canonicalize(env.directory.path()).unwrap()).unwrap();
     env.connection()
-        .execute(
-            "INSERT INTO directories(directory) VALUES(?1)",
-            [root.to_str().unwrap()],
-        )
+        .execute("INSERT INTO directories(directory) VALUES(?1)", [&root])
         .unwrap();
     let inside = env
         .run(&library, &options(MixxxExistingTracks::Keep), &none())
@@ -586,12 +583,12 @@ fn macos_sandbox_warns_about_tracks_outside_the_folders_mixxx_may_read() {
     assert!(plain.iter().all(|w| !w.contains("sandbox")), "{plain:?}");
     // Once the user has chosen that folder in Mixxx, its bookmark is in sandbox.cfg
     // (the key is the base64 of the path) and the warning goes.
-    let root = std::fs::canonicalize(env.directory.path()).unwrap();
+    let root = tracks::location_key(&std::fs::canonicalize(env.directory.path()).unwrap()).unwrap();
     std::fs::write(
         container.join("sandbox.cfg"),
         format!(
             "<MixxxMinimalSettings><group name=\"[OSXBookmark]\"><item name=\"{}\">AAAA</item></group></MixxxMinimalSettings>",
-            BASE64.encode(root.to_str().unwrap())
+            BASE64.encode(&root)
         ),
     )
     .unwrap();
@@ -604,8 +601,9 @@ fn macos_sandbox_warns_about_tracks_outside_the_folders_mixxx_may_read() {
     // Music inside Mixxx's own container needs no grant.
     let inside = Env::new(39);
     // The library's path is canonical in production, and so are the tracks' locations.
-    let own = std::fs::canonicalize(inside.directory.path())
-        .unwrap()
+    let own_root =
+        tracks::location_key(&std::fs::canonicalize(inside.directory.path()).unwrap()).unwrap();
+    let own = Path::new(&own_root)
         .join("home/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx");
     std::fs::create_dir_all(&own).unwrap();
     let library = SyncLibrary {
@@ -645,8 +643,7 @@ fn an_empty_scan_list_is_seeded_once_and_a_users_list_is_left_alone() {
     let first = env
         .run(&library, &options(MixxxExistingTracks::Keep), &none())
         .unwrap();
-    let root = std::fs::canonicalize(env.directory.path()).unwrap();
-    let root = root.to_str().unwrap();
+    let root = tracks::location_key(&std::fs::canonicalize(env.directory.path()).unwrap()).unwrap();
     assert!(first.changed);
     assert_eq!(
         scan_list(&env.connection()),
