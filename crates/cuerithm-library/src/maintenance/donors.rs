@@ -20,7 +20,7 @@ use cuerithm_autotag::{
 };
 use cuerithm_maintenance::{MergeDisposition, MergePlan};
 use cuerithm_media::{CancellationToken, MediaRuntime};
-use rusqlite::{TransactionBehavior, params};
+use rusqlite::{Connection, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -388,6 +388,29 @@ fn finish(
     }
     Ok(())
 }
+/// Whether the duplicate and the track that keeps its audio are still free of other work, as far
+/// as the library's records can tell; `Some(reason)` when they are not.
+fn unreserved(
+    conn: &Connection,
+    file: &DuplicateDeletionFile,
+    snapshots: &BTreeMap<String, TrackImage>,
+    own_write: &str,
+) -> Result<Option<String>> {
+    let path_of = |id: &str| snapshots.get(id).and_then(|image| image.row.path().ok());
+    // A track that is not part of the merge any more is reported by the checks that follow.
+    let (Some(path), Some(keeper_path)) = (path_of(&file.track_id), path_of(&file.keeper_id))
+    else {
+        return Ok(None);
+    };
+    deletion::busy_now(
+        conn,
+        &file.track_id,
+        &path,
+        &file.keeper_id,
+        &keeper_path,
+        own_write,
+    )
+}
 fn result(
     id: &str,
     preview: &DuplicateMergePreview,
@@ -712,6 +735,21 @@ impl DuplicateMergeService {
                 cancel.check()?;
                 let mut moved = vec![];
                 for file in std::mem::take(&mut doomed) {
+                    // First of all, with the write lock held, the library's own records: other work
+                    // may have started on the duplicate or on the track that keeps its audio since
+                    // they were checked. Removing the record would remove that work with it, so the
+                    // file stays. The lock is held until the commit, so nothing can start between
+                    // this look and the Trash or the permanent deletion that follows.
+                    if let Some(reason) = unreserved(&tx, &file, &snapshots, &id_op)? {
+                        not_deleted.push(DuplicateDeletionSkip {
+                            track_id: file.track_id.clone(),
+                            display_path: file.display_path.clone(),
+                            keeper_id: Some(file.keeper_id.clone()),
+                            reason: DuplicateSkipReason::Busy,
+                            detail: Some(reason),
+                        });
+                        continue;
+                    }
                     // The kept track's file as it is meant to be now: what was approved, or what a
                     // donor copy has just made of it.
                     let keeper_now = staged
@@ -1530,21 +1568,26 @@ mod tests {
             changed_duplicate_is_kept(hook, whole_merge_fails, keeper);
         }
     }
-    /// Two identical tracks with a Delete from disk preview ready to apply.
+    /// Identical tracks with a Delete from disk preview ready to apply.
     struct DeleteReady {
         dir: tempfile::TempDir,
         lib: Library,
         runtime: MediaRuntime,
         preview: DuplicateMergePreview,
         ids: Vec<String>,
+        /// Where each track of `ids` has its file.
+        paths: Vec<PathBuf>,
         paths_zero: PathBuf,
         duplicate: PathBuf,
         token: CancellationToken,
     }
     fn delete_ready() -> DeleteReady {
+        delete_ready_of(2)
+    }
+    fn delete_ready_of(count: usize) -> DeleteReady {
         let (dir, lib, runtime, _donor_preview, paths_zero, _target) = fixture();
         let token = CancellationToken::default();
-        let ids = {
+        let mut ids = {
             let conn = lib.conn().unwrap();
             let mut q = conn
                 .prepare("SELECT id FROM tracks ORDER BY rowid")
@@ -1558,6 +1601,7 @@ mod tests {
         // Make the two tracks the same audio so the second can be deleted.
         std::fs::copy(&paths_zero, &duplicate).unwrap();
         let hash = cuerithm_media::file_sha256(&duplicate).unwrap();
+        let mut paths = vec![paths_zero.clone(), duplicate.clone()];
         {
             let conn = lib.conn().unwrap();
             conn.execute(
@@ -1568,6 +1612,34 @@ mod tests {
             // A ready track has finished its preparation job.
             conn.execute("UPDATE jobs SET state='completed',stage='completed'", [])
                 .unwrap();
+        }
+        for index in 2..count {
+            let path = dir.path().join(format!("track-{index}.wav"));
+            std::fs::copy(&paths_zero, &path).unwrap();
+            let job = lib
+                .enqueue(
+                    std::slice::from_ref(&path),
+                    lib.settings().unwrap().revision,
+                )
+                .unwrap()[0]
+                .clone();
+            let id = lib
+                .jobs()
+                .unwrap()
+                .into_iter()
+                .find(|j| j.id == job)
+                .unwrap()
+                .track_id;
+            let conn = lib.conn().unwrap();
+            conn.execute(
+                "UPDATE tracks SET state='ready',duration=20,title='Before',artist='North' WHERE id=?1",
+                [&id],
+            )
+            .unwrap();
+            conn.execute("UPDATE jobs SET state='completed',stage='completed'", [])
+                .unwrap();
+            ids.push(id);
+            paths.push(path);
         }
         let scan = lib
             .scan_duplicates(DuplicateScanRequest::default(), &runtime, &token)
@@ -1588,6 +1660,7 @@ mod tests {
             runtime,
             preview,
             ids,
+            paths,
             paths_zero,
             duplicate,
             token,
@@ -1603,6 +1676,7 @@ mod tests {
             paths_zero,
             duplicate,
             token,
+            ..
         } = delete_ready();
         let listed = preview.deletion.as_ref().unwrap().files.clone();
         assert_eq!(listed.len(), 1);
@@ -1925,6 +1999,277 @@ mod tests {
             "the retry finished the cleanup: {after:?}"
         );
         drop(dir);
+    }
+    thread_local! {
+        static LATE_WORK: std::cell::RefCell<Option<(Library, Vec<String>)>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    /// Another part of the app starts work in the library after the files were checked and the
+    /// merge was reserved, but before the write transaction that removes the records opens.
+    fn start_late_work(phase: &str) {
+        if phase == "prepared"
+            && let Some((lib, statements)) = LATE_WORK.with(|work| work.borrow_mut().take())
+        {
+            let conn = lib.conn().unwrap();
+            for sql in statements {
+                conn.execute_batch(&sql).unwrap();
+            }
+        }
+    }
+    /// A file organization of the track that has not finished.
+    fn organizing(track: &str) -> String {
+        format!(
+            "INSERT INTO organization_operations VALUES('late-{track}','{track}','publishing','{{}}',NULL,0,0)"
+        )
+    }
+    /// A prepared write of another operation that targets the file.
+    fn reserving(path: &std::path::Path) -> String {
+        let hex = path_bytes(path)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        format!(
+            "INSERT INTO maintenance_writes(id,kind,state,payload_json,created) VALUES('late-write','apply','prepared','{{}}',0);\
+             INSERT INTO maintenance_write_files VALUES('late-write',0,X'{hex}',X'00',NULL,NULL,'aa',X'00',X'00',X'00')"
+        )
+    }
+    /// Applies the Delete from disk preview, with a Trash that really moves files aside, while
+    /// `statements` run against the library at the last moment before the records are removed.
+    fn apply_with_late_work(
+        ready: &DeleteReady,
+        statements: Vec<String>,
+    ) -> (Result<DuplicateMergeResult>, PathBuf) {
+        let aside = ready.dir.path().join("moved-aside");
+        LATE_WORK.with(|work| *work.borrow_mut() = Some((ready.lib.clone(), statements)));
+        let mut service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            Arc::new(MovesAside(aside.clone())),
+        );
+        service.hook = Some(start_late_work);
+        let result = service.apply_confirmed(&ready.preview.id, true, &ready.token);
+        LATE_WORK.with(|work| *work.borrow_mut() = None);
+        (result, aside)
+    }
+    fn rows(lib: &Library, sql: &str) -> i64 {
+        lib.conn()
+            .unwrap()
+            .query_row(sql, [], |r| r.get(0))
+            .unwrap()
+    }
+    /// The duplicate was left exactly as it was, and the work that started on it was not touched.
+    fn assert_left_alone(
+        ready: &DeleteReady,
+        result: &DuplicateMergeResult,
+        aside: &std::path::Path,
+        removed: &str,
+        path: &std::path::Path,
+    ) {
+        assert!(result.removed_ids.is_empty(), "{result:?}");
+        assert!(result.trashed.is_empty() && result.permanently_deleted.is_empty());
+        assert_eq!(result.not_deleted.len(), 1, "{:?}", result.not_deleted);
+        assert_eq!(result.not_deleted[0].track_id, removed);
+        assert_eq!(result.not_deleted[0].reason, DuplicateSkipReason::Busy);
+        assert!(path.exists(), "the file stays where it was");
+        assert!(!aside.exists(), "nothing was moved to the Trash");
+        assert!(ready.lib.track(removed).is_ok(), "its record stays");
+    }
+    #[test]
+    fn a_duplicate_that_started_work_after_it_was_verified_is_kept_with_that_work() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let (result, aside) = apply_with_late_work(&ready, vec![organizing(&removed)]);
+        let result = result.unwrap();
+        assert_left_alone(&ready, &result, &aside, &removed, &path);
+        assert!(ready.lib.duplicate_recovery().unwrap().is_empty());
+        assert!(
+            result.not_deleted[0]
+                .detail
+                .as_deref()
+                .unwrap_or_default()
+                .contains("organization"),
+            "{:?}",
+            result.not_deleted[0]
+        );
+        assert_eq!(
+            rows(
+                &ready.lib,
+                &format!(
+                    "SELECT COUNT(*) FROM organization_operations WHERE track_id='{removed}' AND state='publishing'"
+                )
+            ),
+            1,
+            "the operation that started was not abandoned"
+        );
+    }
+    #[test]
+    fn a_duplicate_another_operation_reserved_after_it_was_verified_is_kept_with_that_reservation()
+    {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        // The library knows the file by its canonical location, which is what is reserved.
+        let stored = PathBuf::from(&ready.preview.deletion.as_ref().unwrap().files[0].display_path);
+        let (result, aside) = apply_with_late_work(&ready, vec![reserving(&stored)]);
+        let result = result.unwrap();
+        assert_left_alone(&ready, &result, &aside, &removed, &path);
+        assert_eq!(
+            result.not_deleted[0].detail.as_deref(),
+            Some("Another operation is using this file.")
+        );
+        assert_eq!(
+            rows(
+                &ready.lib,
+                "SELECT COUNT(*) FROM maintenance_writes WHERE id='late-write' AND state='prepared'"
+            ),
+            1
+        );
+    }
+    #[test]
+    fn a_kept_track_that_started_work_after_it_was_verified_keeps_the_copy() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let keeper = ready.preview.deletion.as_ref().unwrap().files[0]
+            .keeper_id
+            .clone();
+        let (result, aside) = apply_with_late_work(&ready, vec![organizing(&keeper)]);
+        let result = result.unwrap();
+        assert_left_alone(&ready, &result, &aside, &removed, &path);
+        assert!(
+            result.not_deleted[0]
+                .detail
+                .as_deref()
+                .unwrap_or_default()
+                .contains("kept track"),
+            "{:?}",
+            result.not_deleted[0]
+        );
+        assert_eq!(
+            rows(
+                &ready.lib,
+                &format!("SELECT COUNT(*) FROM organization_operations WHERE track_id='{keeper}'")
+            ),
+            1
+        );
+    }
+    #[test]
+    fn a_kept_file_another_operation_reserved_after_it_was_verified_keeps_the_copy() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let keeper = ready.preview.deletion.as_ref().unwrap().files[0]
+            .keeper_display_path
+            .clone();
+        let (result, aside) =
+            apply_with_late_work(&ready, vec![reserving(std::path::Path::new(&keeper))]);
+        let result = result.unwrap();
+        assert_left_alone(&ready, &result, &aside, &removed, &path);
+        assert_eq!(
+            result.not_deleted[0].detail.as_deref(),
+            Some("Another operation is using the kept track's file.")
+        );
+    }
+    /// The Trash cannot take the file, so the permanent deletion is tried. Both calls try to start
+    /// work in the library from another connection while they run.
+    struct ProbesTheLibrary {
+        database: PathBuf,
+        refused: std::sync::Mutex<Vec<bool>>,
+    }
+    impl ProbesTheLibrary {
+        fn probe(&self) {
+            let other = rusqlite::Connection::open(&self.database).unwrap();
+            other.busy_timeout(std::time::Duration::ZERO).unwrap();
+            let started = other.execute(
+                "INSERT INTO organization_operations VALUES('probe','no-track','publishing','{}',NULL,0,0)",
+                [],
+            );
+            self.refused.lock().unwrap().push(matches!(
+                started,
+                Err(rusqlite::Error::SqliteFailure(error, _))
+                    if error.code == rusqlite::ErrorCode::DatabaseBusy
+            ));
+        }
+    }
+    impl FileTrash for ProbesTheLibrary {
+        fn can_trash(&self, _: &std::path::Path) -> bool {
+            false
+        }
+        fn move_to_trash(&self, _: &std::path::Path) -> std::result::Result<(), String> {
+            self.probe();
+            Err("The Trash refused the file".into())
+        }
+        fn delete_permanently(&self, path: &std::path::Path) -> std::result::Result<(), String> {
+            self.probe();
+            std::fs::remove_file(path).map_err(|e| e.to_string())
+        }
+    }
+    #[test]
+    fn no_other_work_can_start_between_the_last_look_and_the_trash_or_the_permanent_deletion() {
+        let ready = delete_ready();
+        let (removed, path) = listed_duplicate(&ready);
+        let trash = Arc::new(ProbesTheLibrary {
+            database: ready.dir.path().join("app/library.sqlite"),
+            refused: Default::default(),
+        });
+        let preview = ready
+            .lib
+            .preview_duplicate_merge_choice_with(
+                &ready.preview.review_id,
+                ready.preview.review_revision,
+                vec![ready.preview.plan.groups[0].group_id.clone()],
+                Some(MergeDisposition::Delete),
+                &*trash,
+                &ready.token,
+            )
+            .unwrap();
+        assert!(preview.deletion.as_ref().unwrap().files[0].permanent);
+        let service = DuplicateMergeService::with_trash(
+            ready.lib.clone(),
+            ready.runtime.clone(),
+            trash.clone(),
+        );
+        let result = service
+            .apply_confirmed(&preview.id, true, &ready.token)
+            .unwrap();
+        assert_eq!(result.removed_ids, vec![removed.clone()], "{result:?}");
+        assert_eq!(result.permanently_deleted.len(), 1);
+        assert!(!path.exists());
+        assert_eq!(
+            *trash.refused.lock().unwrap(),
+            vec![true, true],
+            "the library took no new work while the Trash and the permanent deletion ran"
+        );
+    }
+    #[test]
+    fn only_the_duplicate_that_became_busy_is_kept_and_the_others_still_go_to_the_trash() {
+        let ready = delete_ready_of(3);
+        let listed = ready.preview.deletion.as_ref().unwrap().files.clone();
+        assert_eq!(listed.len(), 2, "{listed:?}");
+        let path_of = |id: &str| {
+            let at = ready.ids.iter().position(|t| t == id).unwrap();
+            ready.paths[at].clone()
+        };
+        let (busy, other) = (listed[0].track_id.clone(), listed[1].track_id.clone());
+        let (result, aside) = apply_with_late_work(&ready, vec![organizing(&busy)]);
+        let result = result.unwrap();
+        assert_eq!(result.removed_ids, vec![other.clone()], "{result:?}");
+        assert_eq!(result.trashed.len(), 1);
+        assert_eq!(result.not_deleted.len(), 1);
+        assert_eq!(result.not_deleted[0].track_id, busy);
+        assert_eq!(result.not_deleted[0].reason, DuplicateSkipReason::Busy);
+        assert!(path_of(&busy).exists() && ready.lib.track(&busy).is_ok());
+        assert!(
+            !path_of(&other).exists(),
+            "the other copy went to the Trash"
+        );
+        assert!(aside.join(path_of(&other).file_name().unwrap()).exists());
+        assert!(ready.lib.track(&other).is_err(), "its record was removed");
+        assert_eq!(
+            rows(
+                &ready.lib,
+                &format!("SELECT COUNT(*) FROM organization_operations WHERE track_id='{busy}'")
+            ),
+            1
+        );
+        assert!(ready.lib.duplicate_recovery().unwrap().is_empty());
     }
     #[test]
     fn recovery_preserves_a_later_user_file_and_retains_its_recovery_assets() {

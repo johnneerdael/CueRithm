@@ -14,6 +14,7 @@ use super::{
 use crate::{
     Library,
     model::{bytes_path, path_bytes},
+    relink::work_in_flight,
 };
 use anyhow::{Context, Result};
 use cuerithm_maintenance::MergePlan;
@@ -124,17 +125,59 @@ fn sharing_records(
     }
     Ok(shared)
 }
-fn reserved(conn: &Connection, path: &Path) -> Result<bool> {
+/// Whether another operation has reserved the file: a pending removal of unused files, or a
+/// prepared tag, cleanup or maintenance write that targets it. `own_write` is a maintenance
+/// journal that does not count, the merge's own.
+fn reserved(conn: &Connection, path: &Path, own_write: Option<&str>) -> Result<bool> {
     let bytes = path_bytes(path);
     if removal::ensure_unused_unreserved(conn, std::slice::from_ref(&bytes)).is_err() {
         return Ok(true);
     }
     let busy: i64 = conn.query_row(
-        "SELECT (SELECT COUNT(*) FROM tag_write_files f JOIN tag_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')+(SELECT COUNT(*) FROM cleanup_write_files f JOIN cleanup_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')+(SELECT COUNT(*) FROM maintenance_write_files f JOIN maintenance_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state IN ('prepared','conflict'))",
-        [&bytes],
+        "SELECT (SELECT COUNT(*) FROM tag_write_files f JOIN tag_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')+(SELECT COUNT(*) FROM cleanup_write_files f JOIN cleanup_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.state='prepared')+(SELECT COUNT(*) FROM maintenance_write_files f JOIN maintenance_writes w ON w.id=f.write_id WHERE f.target=?1 AND w.id IS NOT ?2 AND w.state IN ('prepared','conflict'))",
+        rusqlite::params![bytes, own_write],
         |r| r.get(0),
     )?;
     Ok(busy > 0)
+}
+/// Why the kept track cannot be relied on right now, if it cannot: another operation is in the
+/// middle of changing or moving its file, or has reserved it.
+fn keeper_busy(
+    conn: &Connection,
+    keeper: &str,
+    path: &Path,
+    own_write: Option<&str>,
+) -> Result<Option<String>> {
+    if let Some(reason) = work_in_flight(conn, keeper)? {
+        return Ok(Some(format!("The kept track is busy: {reason}.")));
+    }
+    if reserved(conn, path, own_write)? {
+        return Ok(Some(
+            "Another operation is using the kept track's file.".to_owned(),
+        ));
+    }
+    Ok(None)
+}
+/// The library's own records, looked at once more by the transaction that is about to dispose of
+/// the duplicate: it, and the track that keeps its audio, must still be free of other work. The
+/// listing and the first check can be minutes old (donor staging takes time), and a tag, cleanup,
+/// metadata or organization write that started since would otherwise be removed with the record.
+/// Returns the reason when it is no longer free; nothing is changed either way.
+pub(super) fn busy_now(
+    conn: &Connection,
+    track_id: &str,
+    path: &Path,
+    keeper: &str,
+    keeper_path: &Path,
+    own_write: &str,
+) -> Result<Option<String>> {
+    if let Some(reason) = track_removal::busy_reason(conn, track_id)? {
+        return Ok(Some(reason.to_owned()));
+    }
+    if reserved(conn, path, None)? {
+        return Ok(Some("Another operation is using this file.".to_owned()));
+    }
+    keeper_busy(conn, keeper, keeper_path, Some(own_write))
 }
 
 /// Verify every file the plan would delete. Files that pass stay in the plan and are
@@ -243,13 +286,23 @@ pub(super) fn plan(
             ));
             continue;
         }
-        if reserved(&*lib.conn()?, &item.path)? {
+        if reserved(&*lib.conn()?, &item.path, None)? {
             skipped.push(skip(
                 id,
                 &item.path,
                 keeper,
                 DuplicateSkipReason::Busy,
                 "Another operation is using this file.".to_owned(),
+            ));
+            continue;
+        }
+        if let Some(reason) = keeper_busy(&*lib.conn()?, keeper, &kept.path, None)? {
+            skipped.push(skip(
+                id,
+                &item.path,
+                keeper,
+                DuplicateSkipReason::Busy,
+                reason,
             ));
             continue;
         }

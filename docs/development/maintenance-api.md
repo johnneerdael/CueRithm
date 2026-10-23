@@ -110,7 +110,15 @@ When a delete merge removes records it uses the same removal engine as Missing &
 purged instead, what Undo checks and how many removals stay undoable are defined once and
 are identical for both. A delete merge also refuses a track with unfinished work (an unfinished
 file organization, tag write, cleanup, metadata save, category save or preparation), the same
-guard Missing & broken applies.
+guard Missing & broken applies. The same check covers the file and the track that keeps the
+audio: unfinished work on the kept track, or either file reserved by another operation's prepared
+write, leaves the duplicate where it is (`busy`). It runs when the preview is made and once more
+inside the write transaction, immediately before each file is disposed of. Donor staging can take
+minutes, and a tag, cleanup, metadata or organization write that starts in that time would
+otherwise be removed together with the record, silently abandoning the operation. The merge's own
+journal does not count as a reservation. The transaction is an `IMMEDIATE` one that holds the write
+lock until the commit, so nothing new can start between that look and the Trash or permanent
+deletion that follows; the identity checks below come after it.
 
 `mergeHistory()` returns committed transaction records and `undone_by` markers,
 ordered newest first, with `undo_expired` and `undo_limit` (the shared
@@ -143,9 +151,11 @@ lead to those very files, unchanged. A copy swapped in under its name keeps the 
 *The file changed after it was verified.*, and a survivor that was replaced or edited keeps it
 with *The kept track's file changed after it was verified.* The Trash and permanent deletion act
 on a path, so the check and the call are not one atomic step: a change in that instant is not
-excluded. The library records only the files that really moved. If the library
-commit fails after files were moved, the operation is rolled back and its error
-lists the files that are already in the Trash; their records were kept, so they
+excluded. The two hashed files stay open until the call returns; on Windows the Recycle Bin call
+with those handles open has not been tried, and Delete from disk needs one manual run on a real
+Windows machine before a release that includes it. The library records only the files that
+really moved. If the library commit fails after files were moved, the operation is rolled back
+and its error lists the files that are already in the Trash; their records were kept, so they
 appear in Missing & broken. A restart after an interruption lists the same files.
 
 `undoMerge(operationId, operationIdToUndo)` uses a new reverse file journal and

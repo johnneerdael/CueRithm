@@ -649,6 +649,39 @@ fn a_track_with_unfinished_file_work_is_not_deleted_by_a_merge() {
 }
 
 #[test]
+fn a_kept_track_with_unfinished_file_work_keeps_its_duplicates_out_of_a_delete_merge() {
+    let f = Fixture::new();
+    // The track that keeps the audio is in the middle of a file organization.
+    rusqlite::Connection::open(&f.db)
+        .unwrap()
+        .execute(
+            "INSERT INTO organization_operations VALUES('op',?1,'publishing','{}',NULL,0,0)",
+            [&f.ids[0]],
+        )
+        .unwrap();
+    let review = f.review(Tolerance::None);
+    let before = f.content();
+    let preview = preview(&f, &review, 0, MergeDisposition::Delete);
+    let plan = preview.deletion.as_ref().unwrap();
+    assert!(plan.files.is_empty(), "{plan:?}");
+    assert_eq!(plan.skipped.len(), 1);
+    assert_eq!(plan.skipped[0].reason, DuplicateSkipReason::Busy);
+    assert_eq!(plan.skipped[0].track_id, f.ids[1]);
+    let detail = plan.skipped[0].detail.as_deref().unwrap_or_default();
+    assert!(
+        detail.contains("kept track") && detail.contains("file organization"),
+        "{detail}"
+    );
+    let stand_in = trash(&f);
+    let result = service(&f, &stand_in)
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(result.removed_ids.is_empty());
+    assert!(f.paths[1].exists() && stand_in.taken().is_empty());
+    assert_eq!(f.content(), before);
+}
+
+#[test]
 fn a_trash_failure_leaves_that_file_and_its_record_untouched_and_removes_only_what_moved() {
     let mut f = Fixture::new();
     let third = f.add_track("track-4.wav", 37);
