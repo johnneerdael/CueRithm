@@ -7,6 +7,41 @@ pub(super) struct Node {
     pub text: String,
     pub children: Vec<Node>,
 }
+impl Node {
+    pub fn attr(&self, name: &str) -> Option<&str> {
+        self.attributes.get(name).map(String::as_str)
+    }
+    pub fn child(&self, name: &str) -> Option<&Self> {
+        self.children.iter().find(|n| n.name == name)
+    }
+    pub fn number(&self, name: &str) -> Option<f64> {
+        self.attr(name)?
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+    }
+    pub fn raw(&self) -> Value {
+        self.raw_without(&[])
+    }
+    pub fn raw_without(&self, excluded: &[&str]) -> Value {
+        let safe = |name: &str| {
+            ![
+                "password",
+                "credential",
+                "secret",
+                "token",
+                "account",
+                "authorization",
+                "cookie",
+                "settings",
+            ]
+            .iter()
+            .any(|p| name.to_ascii_lowercase().contains(p))
+        };
+        json!({"name":self.name,"attributes":self.attributes.iter().filter(|(k,_)|safe(k)).collect::<BTreeMap<_,_>>(),
+            "text":self.text,"children":self.children.iter().filter(|n|safe(&n.name) && !excluded.contains(&n.name.as_str())).map(|n|n.raw_without(excluded)).collect::<Vec<_>>()})
+    }
+}
 pub(super) fn parse(
     bytes: &[u8],
     limits: &ImportLimits,

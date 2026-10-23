@@ -83,7 +83,7 @@ fn safe_native(value: &Value) -> Value {
         value => value.clone(),
     }
 }
-fn presence(value: &Value) -> Presence<Value> {
+pub(super) fn presence(value: &Value) -> Presence<Value> {
     if value.as_str().is_some_and(str::is_empty) || value.as_array().is_some_and(Vec::is_empty) {
         Presence::Empty(value.clone())
     } else {

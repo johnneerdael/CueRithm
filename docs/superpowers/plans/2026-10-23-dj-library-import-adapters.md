@@ -59,11 +59,11 @@ Public integration tests: `crates/cuerithm-dj-sync/tests/import_<provider>.rs`, 
 
 **Interfaces:** Produces `TraktorReader` and `VirtualDjReader`. Traktor path decoding precedes playlist-key resolution. VirtualDJ snapshot includes selected home/per-volume databases and My Lists/legacy playlist artifacts.
 
-- [ ] Write `traktor_preserves_cue_classes_sparse_slots_and_unknown_xml` asserting START=1250 ms → 1.25 s, nonzero loop LEN, independent nested grid BPM, raw INFO key vs numeric key, all 24 key mappings, `/:`/volume escaping and no invented sample rate. Write `virtualdj_distinguishes_scan_and_poi_bpm` asserting Scan.Bpm=0.5 → 120 BPM, POI.Bpm=128 → 128 BPM, cue Num=1 → slot0, loop Size=8 → 4 seconds at Scan.Bpm=0.5. Preserve same-time memory/hot rows, actions/flags, My Lists and legacy folder tracks.
-- [ ] Run `cargo test -p cuerithm-dj-sync --test import_traktor --test import_virtual_dj`; expect missing readers.
-- [ ] Implement NML PROGRAM/root checks, safe recursive hierarchy, raw smart-rule/unknown XML retention and separate opt-in history. Implement VirtualDJ per-volume path authority and `.vdjfolder`/`.subfolders`/M3U parsing; unsupported filters retain materialized membership and a loss issue. Preserve source times as native until clock-qualified.
-- [ ] Rerun with cycles, invalid lengths, malformed XML/entity input, equal basenames on two volumes, streaming/missing records and duplicate slots; expect pass without fabricated normalization.
-- [ ] Commit `feat: read Traktor and VirtualDJ library sources`.
+- [x] Write `traktor_preserves_cue_classes_sparse_slots_and_unknown_xml` asserting START=1250 ms → 1.25 s, nonzero loop LEN, independent nested grid BPM, raw INFO key vs numeric key, all 24 key mappings, `/:`/volume escaping and no invented sample rate. Write `virtualdj_distinguishes_scan_and_poi_bpm` asserting Scan.Bpm=0.5 → 120 BPM, POI.Bpm=128 → 128 BPM, cue Num=1 → slot0, loop Size=8 → 4 seconds at Scan.Bpm=0.5. Preserve same-time memory/hot rows, actions/flags, My Lists and legacy folder tracks.
+- [x] Run `cargo test -p cuerithm-dj-sync --test import_traktor --test import_virtual_dj`; expect missing readers.
+- [x] Implement NML PROGRAM/root checks, safe recursive hierarchy, raw smart-rule/unknown XML retention and separate opt-in history. Implement VirtualDJ per-volume path authority and `.vdjfolder`/`.subfolders`/M3U parsing; unsupported filters retain materialized membership and a loss issue. Preserve source times as native until clock-qualified.
+- [x] Rerun with cycles, invalid lengths, malformed XML/entity input, equal basenames on two volumes, streaming/missing records and duplicate slots; expect pass without fabricated normalization.
+- [x] Commit `feat: read Traktor and VirtualDJ library sources`.
 
 ### Task 11: Mixxx relational data and versioned codecs
 

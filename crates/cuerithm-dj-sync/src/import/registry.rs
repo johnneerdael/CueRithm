@@ -54,6 +54,12 @@ impl SourceAdapter for UnavailableReader {
     }
 }
 pub fn adapter(provider: SourceProvider) -> &'static dyn SourceAdapter {
+    if provider == SourceProvider::Traktor {
+        return &super::readers::traktor::TraktorReader;
+    }
+    if provider == SourceProvider::VirtualDj {
+        return &super::readers::virtual_dj::VirtualDjReader;
+    }
     if provider == SourceProvider::M3u {
         return &super::readers::m3u::M3uReader;
     }

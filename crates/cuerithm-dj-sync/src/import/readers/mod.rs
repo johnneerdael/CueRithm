@@ -1,6 +1,8 @@
 //! Read-only source adapters. D2 parser evidence never grants native write authority.
 pub mod apple_music;
 pub mod m3u;
+pub mod traktor;
+pub mod virtual_dj;
 mod xml;
 use super::*;
 use anyhow::{Context, Result, ensure};
@@ -55,7 +57,7 @@ fn header(
         snapshot_hash: snapshot.snapshot_hash.clone(),
         adapter_version: format!("{}:1", profile.profile_id),
         completeness: Completeness::SelectedScope,
-        scope: json!({"artifacts":snapshot.artifacts.iter().map(|a| &a.id).collect::<Vec<_>>() }),
+        scope: json!({"artifacts":snapshot.artifacts.iter().map(|a| &a.id).collect::<Vec<_>>(),"include_history":options.include_history,"include_queue":options.include_queue}),
         observed_at: chrono::DateTime::<chrono::Utc>::from(std::time::SystemTime::now())
             .to_rfc3339(),
         accounting: RecordAccounting {
@@ -66,6 +68,30 @@ fn header(
         },
         extensions: BTreeMap::new(),
     }
+}
+fn issue(track: &mut TrackObservation, code: &str, field: &str) {
+    track.issues.push(ImportIssue {
+        code: code.into(),
+        field: Some(field.into()),
+        record_id: Some(track.external_id.clone()),
+        message: code.replace('_', " "),
+    });
+}
+fn history_path(relative: &Path) -> bool {
+    relative.components().next().is_some_and(|c| {
+        c.as_os_str()
+            .to_str()
+            .is_some_and(|s| s.eq_ignore_ascii_case("History"))
+    })
+}
+fn camelot(raw: &str) -> Option<String> {
+    if !raw.is_ascii() {
+        return None;
+    }
+    let raw = raw.trim().to_ascii_uppercase();
+    let (number, mode) = raw.split_at(raw.len().checked_sub(1)?);
+    let number: u8 = number.parse().ok()?;
+    ((1..=12).contains(&number) && matches!(mode, "A" | "B")).then(|| format!("{number}{mode}"))
 }
 fn bytes(
     snapshot: &ImportSnapshot,

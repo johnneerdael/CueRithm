@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::BTreeSet;
 pub struct M3uReader;
-fn text(bytes: &[u8]) -> Result<String> {
+pub(super) fn text(bytes: &[u8]) -> Result<String> {
     if let Some(bytes) = bytes.strip_prefix(&[0xff, 0xfe]) {
         ensure!(bytes.len().is_multiple_of(2), "Truncated UTF-16LE playlist");
         let units = bytes

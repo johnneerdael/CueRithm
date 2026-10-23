@@ -145,3 +145,33 @@ the standard Apple DTD. Stable repeated reads and source fingerprints are tested
 These reader fixtures establish D2 only; native-app acceptance remains unrun.
 
 Task 9 verification: all 421 dj-sync tests pass (3 ignored), including eight new reader cases; all-target Clippy `-D warnings`, formatting and diff checks pass.
+
+## Traktor and VirtualDJ readers
+
+The Traktor parser currently qualifies NML19 with Traktor Pro3/4 program
+markers. It decodes Traktor path separators before resolving playlist keys,
+retains the textual INFO key independently of the 24-value musical-key mapping,
+and converts cue milliseconds to native seconds. Nested grid BPM remains
+independent of track BPM; no sample rate is invented. Same-time memory/hot
+cues, sparse and duplicate slots, loop ranges and unknown XML survive. Invalid
+loop lengths retain their raw source and a field issue instead of an invented
+end. Ordered playlist and smart-list membership/rules are preserved.
+
+The VirtualDJ parser covers XML8.4/8.5, selected per-volume database artifacts,
+My Lists `.vdjfolder` files, `.subfolders` hierarchy/order files and legacy
+M3U/M3U8 lists. Scan BPM is seconds per beat (`0.5` → `120` BPM); grid POI BPM
+is already BPM (`128` stays `128`). Loop size is beats. Actions and unknown
+flags remain raw, rather than becoming hotcues. Unsupported dynamic filters
+retain materialized membership and an explicit issue. Empty folders with a
+selected `order` file remain visible. Tracks from different database artifacts
+retain separate source identity; ambiguous references require review.
+
+Both readers keep native clocks unresolved, retain unavailable/streaming media
+and preserve source bytes. History collections are opt-in; an ordinary folder
+named History does not become a history source. NML/playlist cycles, unsupported
+profiles, malformed XML/entities and order-file traversal are rejected. Parser
+fixtures establish D2 only. Live multi-volume selection must preserve every
+original root authority in desktop integration; the copied-source fixture does
+not establish D4 native multi-volume acceptance or D5 reference-repair support.
+
+Task 10 verification: all 431 dj-sync tests pass (3 ignored), including ten new Traktor/VirtualDJ cases. All-target Clippy `-D warnings`, formatting and diff checks pass.
