@@ -57,6 +57,7 @@ describe("Missing & broken: remove from library",()=>{
     expect(within(preview).getByText(/2 playlist memberships in 1 playlist will be removed: Warm up \(2\)/)).toBeInTheDocument();
     expect(within(preview).getByText(/1 DJ-software sync link will be removed/)).toBeInTheDocument();
     expect(within(preview).getByText(/1 rekordbox link will be unlinked. rekordbox itself is not changed/)).toBeInTheDocument();
+    expect(within(preview).getByText(/The cover art is kept until these saved records are dropped/)).toBeInTheDocument();
     const remove=within(preview).getByRole("button",{name:"Remove 2 records"});
     expect(remove).toBeDisabled();
     fireEvent.click(within(preview).getByRole("checkbox",{name:"I understand these library records will be removed"}));
