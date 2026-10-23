@@ -176,7 +176,10 @@ returns to the previously committed after-state and remains retryable. Later use
 file edits are preserved and recorded as recovery conflicts with backups retained.
 `recovery()` lists pending/conflicted operations and incomplete recovery cleanup, and a delete
 merge that was rolled back after files had already left their place (state `rolled_back`, `error`
-naming the files; their records were kept) until `retryRecovery` acknowledges it;
+naming the files; their records were kept) until `retryRecovery` acknowledges it. Every row has
+`files_moved`, true while such an operation is unacknowledged: show **Acknowledge** only for a
+`rolled_back` row with `files_moved`, and **Retry merge recovery** for every other row (a rolled-back
+row that only waits on cleanup, or a `conflict` row, is retried and must not be dismissed);
 `retryRecovery(operationId, journalId)` retries guarded rollback/cleanup after the
 user resolves the conflicting source/location. It cannot overwrite an unknown
 later file version. Show these errors rather than presenting a partial merge as

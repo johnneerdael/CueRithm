@@ -86,13 +86,13 @@ The entry becomes **File restore** and reads **Restored by** an ID. A restored f
 
 If CueRithm quits or loses power in the middle of a merge or a removal, it rolls the operation back the next time it starts. A file you changed in the meantime is never overwritten. It is kept, the operation is marked as a conflict with its backups retained, and the entry appears under **Recovery** or in the removals list with the error shown.
 
-If CueRithm quit after a delete merge had already moved files to the Trash, but before the library recorded it, the merge is rolled back and an entry reading `apply · rolled_back` stays under **Recovery**, with the error naming the files. Their library records were kept, so those tracks show as missing in [Missing & broken](find-missing-files.md#scan): restore the files from the Trash, or remove the records. Select **Acknowledge** once you have read it; the entry does not come back.
+If CueRithm quit after a delete merge had already moved files to the Trash, but before the library recorded it, the merge is rolled back and an entry reading `apply · rolled_back` stays under **Recovery**, with the error naming the files. Their library records were kept, so those tracks show as missing in [Missing & broken](find-missing-files.md#scan): restore the files from the Trash, or remove the records. Only this kind of entry has **Acknowledge**. Select it once you have read the entry; it does not come back. Any other entry under **Recovery**, including an `apply · rolled_back` one that only waited on a temporary-file cleanup, keeps **Retry merge recovery**.
 
 Fix the cause first: free the path, reconnect the drive or put the newer file where you want it. Then select the retry button on the entry:
 
 | Button | Where |
 |---|---|
-| **Retry merge recovery** | **Recovery** |
+| **Retry merge recovery** | **Recovery**, on every entry except one that already moved files to the Trash (that one has **Acknowledge**) |
 | **Retry file recovery** | A removal whose state is not *committed*, or that has an error or *Cleanup pending* |
 | **Retry disposal recovery** | **Backup disposal history** |
 

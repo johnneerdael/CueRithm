@@ -38,7 +38,7 @@ export interface DuplicateMergePreview {id:string;review_id:string;review_revisi
 export interface DuplicateMergeResult {id:string;preview_id:string;stamp:MaintenanceStamp;archived_ids:string[];restored_ids:string[];affected_playlists:string[];undo_of:string|null;updated_ids:string[];removed_ids:string[];trashed:DuplicateDeletionFile[];permanently_deleted:DuplicateDeletionFile[];not_deleted:DuplicateDeletionSkip[];links_not_restored:number}
 export interface DuplicateMergeHistory {result:DuplicateMergeResult;created:number;undone_by:string|null;undo_expired:boolean;undo_limit:number}
 
-export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null}
+export interface DuplicateRecovery {id:string;kind:string;state:string;created:number;error:string|null;files_moved?:boolean}
 
 export interface UnusedRemovalFile extends UnusedFile {role:"selected"|"sibling"|"folder_metadata"}
 export interface UnusedRemovalPreview {directories:string[];id:string;scan_id:string;stamp:MaintenanceStamp;files:UnusedRemovalFile[];size_bytes:number}

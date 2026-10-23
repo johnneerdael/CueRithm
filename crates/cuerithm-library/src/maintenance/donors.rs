@@ -335,6 +335,10 @@ fn install(files: &[(Artifact, PathBuf)], cancel: &CancellationToken) -> Result<
     }
     Ok(())
 }
+/// SQL condition: the operation moved audio files away before it was interrupted and nobody has
+/// acknowledged that yet. It keeps History showing the operation after it was rolled back.
+const UNACKNOWLEDGED_DELETIONS: &str = "(json_array_length(COALESCE(json_extract(payload_json,'$.interrupted_deletions'),'[]'))>0 AND COALESCE(json_extract(payload_json,'$.deletions_acknowledged'),0)=0)";
+
 fn finish(
     lib: &Library,
     id: &str,
@@ -1239,7 +1243,9 @@ impl DuplicateMergeService {
 impl Library {
     pub fn duplicate_recovery(&self) -> Result<Vec<DuplicateRecovery>> {
         let conn = self.conn()?;
-        let mut q=conn.prepare("SELECT id,kind,state,created,error FROM maintenance_writes WHERE state IN ('prepared','conflict') OR (cleanup_complete=0 AND error IS NOT NULL) OR (json_array_length(COALESCE(json_extract(payload_json,'$.interrupted_deletions'),'[]'))>0 AND COALESCE(json_extract(payload_json,'$.deletions_acknowledged'),0)=0) ORDER BY created,id")?;
+        let mut q = conn.prepare(&format!(
+            "SELECT id,kind,state,created,error,{UNACKNOWLEDGED_DELETIONS} FROM maintenance_writes WHERE state IN ('prepared','conflict') OR (cleanup_complete=0 AND error IS NOT NULL) OR {UNACKNOWLEDGED_DELETIONS} ORDER BY created,id"
+        ))?;
         Ok(q.query_map([], |r| {
             Ok(DuplicateRecovery {
                 id: r.get(0)?,
@@ -1247,6 +1253,7 @@ impl Library {
                 state: r.get(2)?,
                 created: r.get(3)?,
                 error: r.get(4)?,
+                files_moved: r.get(5)?,
             })
         })?
         .collect::<rusqlite::Result<_>>()?)
@@ -1851,6 +1858,10 @@ mod tests {
         let pending = lib.duplicate_recovery().unwrap();
         assert_eq!(pending.len(), 1, "{pending:?}");
         assert_eq!(pending[0].state, "rolled_back");
+        assert!(
+            pending[0].files_moved,
+            "the file left its place: {pending:?}"
+        );
         let shown = removed_path.display().to_string();
         assert!(
             pending[0]
@@ -1873,6 +1884,46 @@ mod tests {
         let lib = Library::open(&database).unwrap();
         assert!(lib.duplicate_recovery().unwrap().is_empty());
         assert!(lib.track(&removed).is_ok(), "the record was never removed");
+        drop(dir);
+    }
+    #[test]
+    fn a_cleanup_failure_after_a_rollback_is_retried_not_reported_as_moved_files() {
+        let (dir, lib, runtime, preview, _, _) = fixture();
+        let mut service = DuplicateMergeService::new(lib.clone(), runtime);
+        service.hook = Some(crash_files);
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                || service.apply(&preview.id, &CancellationToken::default())
+            ))
+            .is_err()
+        );
+        drop(service);
+        drop(lib);
+        let database = dir.path().join("app/library.sqlite");
+        let lib = Library::open(&database).unwrap();
+        assert!(lib.duplicate_recovery().unwrap().is_empty());
+        // The rollback finished, but removing its temporary files failed.
+        lib.conn()
+            .unwrap()
+            .execute(
+                "UPDATE maintenance_writes SET cleanup_complete=0,error='Recovery cleanup pending: simulated' WHERE state='rolled_back'",
+                [],
+            )
+            .unwrap();
+        let pending = lib.duplicate_recovery().unwrap();
+        assert_eq!(pending.len(), 1, "{pending:?}");
+        assert_eq!(pending[0].state, "rolled_back");
+        assert!(
+            !pending[0].files_moved,
+            "no audio file left its place, so this is a retry and not an acknowledgement: {pending:?}"
+        );
+        let after = lib
+            .retry_duplicate_recovery(&pending[0].id, &CancellationToken::default())
+            .unwrap();
+        assert!(
+            after.is_empty(),
+            "the retry finished the cleanup: {after:?}"
+        );
         drop(dir);
     }
     #[test]

@@ -421,6 +421,11 @@ pub struct DuplicateRecovery {
     pub state: String,
     pub created: i64,
     pub error: Option<String>,
+    /// True while the operation had already moved audio files out of their library locations
+    /// and the DJ has not acknowledged it yet. Rows without it are plain recovery failures that
+    /// can be retried.
+    #[serde(default)]
+    pub files_moved: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
