@@ -318,8 +318,24 @@ fn full_domains_are_explicit_and_separate_dimensions_have_separate_folders() {
             false,
         ))
         .unwrap();
-    assert_eq!(all.items.len(), 11);
-    assert_eq!(all.items[0].name, "00 Energy");
+    assert_eq!(all.items.len(), 10);
+    assert_eq!(all.items[0].name, "01 Energy");
+    assert_eq!(all.items[9].name, "10 Energy");
+    assert!(all.items.iter().all(|i| i.name != "00 Energy"));
+    // Star rating keeps its zero: 0 means unrated, which is a real value.
+    let stars = f
+        .lib
+        .preview_smart_generation(request(
+            vec![GenerationDimension::Field {
+                field: "rating".into(),
+                include_unobserved: true,
+            }],
+            false,
+        ))
+        .unwrap();
+    assert_eq!(stars.items.len(), 6);
+    assert_eq!(stars.items[0].name, "0");
+    assert_eq!(stars.items[5].name, "5");
     assert_eq!(all.items.iter().map(|i| i.track_count).sum::<usize>(), 4);
     let separate = f
         .lib
