@@ -1,7 +1,7 @@
 import {render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,it,expect,vi} from "vitest";
-import LibraryBackup from "../views/LibraryBackup";
+import {InstallationBackup as LibraryBackup} from "../views/LibraryBackup";
 import type {LibraryBackupBridge,LibraryBackupPreview} from "../backup-types";
 const preview:LibraryBackupPreview={path:"/generated/backup",database_sha256:"abc",created:1792540800000,tracks:12,missing_sources:0,schema:15,music_included:false};
 function bridge():LibraryBackupBridge{return {chooseFolder:vi.fn().mockResolvedValue(preview.path),create:vi.fn().mockResolvedValue(preview),inspect:vi.fn().mockResolvedValue(preview),stage:vi.fn().mockResolvedValue({id:"fixture",created:preview.created,database_sha256:"abc"}),pending:vi.fn().mockResolvedValue(null),retry:vi.fn().mockResolvedValue({id:"fixture",created:0,database_sha256:"abc"}),cancel:vi.fn().mockResolvedValue(undefined)};}

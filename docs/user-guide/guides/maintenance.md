@@ -24,7 +24,31 @@ Use **Ignored tracks** to load the persistent ignore list and stop ignoring a tr
 
 Choose **Scan library files** for availability checks. Enable **Inspect audio decoding** for stricter checks. Missing, unavailable, unsupported, timed-out and decode-error outcomes remain distinct. A present file in an availability-only report has not passed decoding inspection.
 
-Reconnect unavailable drives or restore files to their recorded locations, then scan again. This screen does not relocate files. **Show present files** includes successful checks in the results.
+Reconnect unavailable drives and scan again. **Show present files** includes successful checks in the results.
+
+### Reconnect moved music
+
+Select tracks and choose **Relocate** from the selection toolbar or track context
+menu. For one track, choose a replacement file; for several, choose a folder to
+search recursively. Existing available files are skipped. Review each old path,
+candidate, evidence and collision before applying. Filename matches are suggestions;
+only matching known encoded-file hashes count as verified content.
+
+Choose **Find Lost Tracks** to replace a complete source folder or drive root.
+The default scope is missing files; unavailable storage is a separate option.
+**All tracks** permits a reviewed change to available files too. An extension
+change is always an explicit replacement and can require checking cue timing.
+
+Keep the preflight backup enabled and choose its destination folder. A failed
+backup blocks Apply. Turning the backup off is an explicit review choice.
+Relocation changes the library reference while retaining track identity, cues and
+playlist membership. It never moves or edits audio.
+
+For an occupied destination, choose the complete surviving entry or skip the
+collision. CueRithm archives the other entry and rewires ordinary playlist
+membership; it does not silently mix their metadata. Use relocation history to
+Undo after restart while the guarded library state still matches. Undo reconnects
+the old reference even if that old audio is still missing.
 
 ## Review unused files
 

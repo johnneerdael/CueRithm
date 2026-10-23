@@ -1,0 +1,618 @@
+use cuerithm_library::*;
+use std::collections::BTreeMap;
+fn imported() -> PortableTrack {
+    PortableTrack {
+        id: "track-one".into(),
+        locator: PortableLocator {
+            id: "locator-one".into(),
+            flavor: PathFlavor::WindowsDrive,
+            original: EncodedPath::utf8("D:\\Music\\track.wav"),
+            source_root: Some(EncodedPath::utf8("D:\\Music")),
+            components: Some(vec![EncodedPath::utf8("track.wav")]),
+        },
+        source_sha256: None,
+        title: "Imported".into(),
+        artist: "Artist".into(),
+        album: String::new(),
+        genre: String::new(),
+        metadata: BTreeMap::new(),
+        key: Some("8A".into()),
+        bpm: Some(128.),
+        energy: Some(7),
+        duration: Some(200.),
+        archived: false,
+        origin: "lexicon".into(),
+        analysis_status: AnalysisStatus::Imported,
+        musical: Some(AcceptedMusicalData {
+            id: "revision-one".into(),
+            source: "lexicon".into(),
+            cues: vec![AcceptedCue {
+                id: "cue-one".into(),
+                kind: CueKind::Cue,
+                start_seconds: -0.25,
+                end_seconds: None,
+                slot: Some(0),
+                memory: false,
+                name: Some("Lead in".into()),
+                color: None,
+                active_loop: false,
+                source_data: BTreeMap::new(),
+            }],
+            tempo_markers: vec![
+                TempoMarker {
+                    id: "tempo-one".into(),
+                    start_seconds: -0.25,
+                    bpm: 128.,
+                    beat_number: None,
+                    beats_per_bar: Some(4),
+                    source_data: BTreeMap::new(),
+                },
+                TempoMarker {
+                    id: "tempo-two".into(),
+                    start_seconds: 64.,
+                    bpm: 130.,
+                    beat_number: Some(1),
+                    beats_per_bar: Some(4),
+                    source_data: BTreeMap::new(),
+                },
+            ],
+        }),
+    }
+}
+#[cfg(unix)]
+#[test]
+fn restore_binding_rejects_a_parent_swapped_after_root_review() {
+    use std::os::unix::fs::symlink;
+    let temp = tempfile::tempdir().unwrap();
+    let base = temp.path().canonicalize().unwrap();
+    let library = Library::open(&base.join("library.sqlite")).unwrap();
+    let track = imported();
+    library
+        .import_portable_tracks(std::slice::from_ref(&track))
+        .unwrap();
+    let root = base.join("music");
+    let outside = base.join("outside");
+    std::fs::create_dir_all(root.join("Album")).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    let reviewed = root.join("Album/track.wav");
+    std::fs::write(&reviewed, b"authored fixture").unwrap();
+    std::fs::write(outside.join("track.wav"), b"authored fixture").unwrap();
+    let hash = cuerithm_media::file_sha256(&reviewed).unwrap();
+    std::fs::rename(root.join("Album"), root.join("saved")).unwrap();
+    symlink(&outside, root.join("Album")).unwrap();
+    assert!(
+        library
+            .bind_portable_track_in_root(&track.id, &reviewed, &root, &hash, &Default::default())
+            .is_err()
+    );
+    assert!(
+        library
+            .bind_portable_track_in_root(
+                &track.id,
+                &outside.join("track.wav"),
+                &root,
+                &hash,
+                &Default::default()
+            )
+            .is_err()
+    );
+    assert!(library.local_track_binding(&track.id).unwrap().is_none());
+}
+#[test]
+fn posix_filename_atoms_remain_unresolved_when_windows_cannot_represent_them() {
+    for atom in [
+        "A\\B.wav",
+        "A:B.wav",
+        "CON.flac",
+        "LPT9.wav",
+        "trailing.wav.",
+        "trailing ",
+        "../escape",
+        "has?mark.mp3",
+    ] {
+        assert!(
+            !EncodedPath::utf8(atom)
+                .windows_filename_compatible()
+                .unwrap(),
+            "{atom}"
+        );
+    }
+    for atom in ["normal.wav", "A_B.flac", "雪.flac", "COM0.wav", "LPT10.wav"] {
+        assert!(
+            EncodedPath::utf8(atom)
+                .windows_filename_compatible()
+                .unwrap(),
+            "{atom}"
+        );
+    }
+}
+#[test]
+fn unresolved_ready_entries_keep_identity_and_musical_data_without_jobs() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let track = imported();
+    lib.import_portable_tracks(std::slice::from_ref(&track))
+        .unwrap();
+    let page = lib.tracks(TrackQuery::default()).unwrap();
+    assert_eq!(page.rows.len(), 1);
+    assert_eq!(page.rows[0].bpm, Some(128.));
+    assert_eq!(lib.counts().unwrap().incoming, 0);
+    assert!(lib.track_path(&track.id).is_err());
+    assert!(lib.source_hash(&track.id).is_err());
+    assert!(lib.analysis(&track.id).unwrap().is_none());
+    CurationService::new(lib.clone(), None)
+        .snapshot(std::slice::from_ref(&track.id))
+        .unwrap();
+    let m = lib.accepted_musical_data(&track.id).unwrap().unwrap();
+    assert_eq!(m.cues[0].start_seconds, -0.25);
+    assert_eq!(m.tempo_at(70.).unwrap().bpm, 130.);
+    assert_eq!(m.tempo_at(0.).unwrap().beat_number, None);
+    assert_eq!(lib.portable_tracks().unwrap()[0].locator, track.locator);
+    let conn = rusqlite::Connection::open(d.path().join("library.sqlite")).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM jobs", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r
+            .get::<_, i64>(
+            0
+        ))
+        .unwrap(),
+        0
+    );
+}
+#[test]
+fn malformed_or_conflicting_source_records_roll_back_the_batch() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let good = imported();
+    let mut bad = good.clone();
+    bad.id = "second".into();
+    bad.locator.components = Some(vec![EncodedPath::utf8("..")]);
+    assert!(lib.import_portable_tracks(&[good, bad]).is_err());
+    assert_eq!(lib.counts().unwrap().tracks, 0);
+}
+#[test]
+fn opaque_components_validate_decoded_separators_and_preserve_surrogates() {
+    let mut locator = imported().locator;
+    locator.components = Some(vec![EncodedPath {
+        encoding: PathEncoding::Base64Utf16le,
+        data: "ANg=".into(),
+    }]);
+    locator.validate().unwrap();
+    let json = serde_json::to_string(&locator).unwrap();
+    assert_eq!(
+        serde_json::from_str::<PortableLocator>(&json).unwrap(),
+        locator
+    );
+    locator.components = Some(vec![EncodedPath {
+        encoding: PathEncoding::Base64Utf16le,
+        data: "LwA=".into(),
+    }]);
+    assert!(locator.validate().is_err());
+}
+#[test]
+fn binding_and_watcher_preserve_ready_import_without_preparation_identity() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let track = imported();
+    lib.import_portable_tracks(std::slice::from_ref(&track))
+        .unwrap();
+    let path = d.path().join("track.wav");
+    std::fs::write(&path, b"bound synthetic source").unwrap();
+    lib.bind_portable_track(&track.id, &path, None).unwrap();
+    assert_eq!(
+        lib.track_path(&track.id).unwrap(),
+        path.canonicalize().unwrap()
+    );
+    assert_eq!(lib.portable_tracks().unwrap()[0].locator, track.locator);
+    assert!(
+        lib.enqueue_discovered(
+            std::slice::from_ref(&path),
+            lib.settings().unwrap().revision
+        )
+        .unwrap()
+        .is_empty()
+    );
+    assert_eq!(lib.counts().unwrap().incoming, 0);
+    assert!(lib.analysis(&track.id).unwrap().is_none());
+    assert!(lib.accepted_musical_data(&track.id).unwrap().is_some());
+}
+#[test]
+fn taxonomy_ids_allow_same_display_names_without_collapsing_entities() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let conn = rusqlite::Connection::open(d.path().join("library.sqlite")).unwrap();
+    conn.execute_batch("INSERT INTO custom_tag_categories(id,name) VALUES('group-a','Mood'),('group-b','Mood');INSERT INTO custom_tags(id,category_id,name) VALUES('a','group-a','Warm'),('b','group-a','Warm');").unwrap();
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM custom_tags", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    drop(lib);
+}
+#[test]
+fn conflicting_tempo_anchors_require_review_and_invalid_loops_stay_inert() {
+    let mut musical = imported().musical.unwrap();
+    musical.tempo_markers[1].start_seconds = musical.tempo_markers[0].start_seconds;
+    assert!(musical.validate().is_err());
+    musical.tempo_markers.pop();
+    musical.cues[0].kind = CueKind::Loop;
+    musical.cues[0].end_seconds = Some(-1.);
+    musical.validate().unwrap();
+}
+#[test]
+fn unresolved_imported_scalars_and_markers_participate_in_smart_rules() {
+    use cuerithm_smartlists::{Operator, RuleValue, SmartDefinition, SmartRule};
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    lib.import_portable_tracks(&[imported()]).unwrap();
+    for (field, operator, value) in [
+        ("bpm", Operator::NumberEquals, RuleValue::Number(128.)),
+        ("energy", Operator::NumberEquals, RuleValue::Number(7.)),
+        (
+            "cues",
+            Operator::CuepointAnyLabelIncludes,
+            RuleValue::Text("Lead".into()),
+        ),
+    ] {
+        let preview = lib
+            .preview_smart_list(
+                SmartDefinition {
+                    match_all: true,
+                    rules: vec![SmartRule {
+                        id: "rule".into(),
+                        field: field.into(),
+                        operator,
+                        value,
+                        or: false,
+                    }],
+                },
+                SmartPreviewScope::default(),
+                1_700_000_000_000,
+            )
+            .unwrap();
+        assert_eq!(preview.track_ids, vec!["track-one"], "{field}");
+    }
+}
+#[test]
+fn migration_failure_rolls_back_nullable_schema_and_all_new_tables() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("library.sqlite");
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    let mut migrations =
+        std::fs::read_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations"))
+            .unwrap()
+            .map(|p| p.unwrap().path())
+            .filter(|p| {
+                p.file_name().unwrap().to_string_lossy()[..3]
+                    .parse::<u32>()
+                    .unwrap()
+                    <= 28
+            })
+            .collect::<Vec<_>>();
+    migrations.sort();
+    for migration in migrations {
+        conn.execute_batch(&std::fs::read_to_string(migration).unwrap())
+            .unwrap();
+    }
+    conn.execute("INSERT INTO tracks(id,path,title,source_hash,created,updated) VALUES('old',?1,'Original',?2,1,1)",rusqlite::params![b"unix:/music/original.wav".as_slice(),"a".repeat(64)]).unwrap();
+    conn.execute_batch("CREATE TRIGGER injected_portable_failure BEFORE UPDATE OF source_locator_json ON tracks BEGIN SELECT RAISE(ABORT,'injected portable migration failure');END;").unwrap();
+    drop(conn);
+    assert!(Library::open(&path).is_err());
+    let conn = rusqlite::Connection::open(path).unwrap();
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        28
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('tracks') WHERE name='path' AND \"notnull\"=1",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name='accepted_musical_revisions'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+}
+#[test]
+fn existing_native_blobs_produce_portable_roots_without_losing_path_units() {
+    let posix =
+        PortableLocator::from_native_path_bytes("posix", b"unix:/Music/odd\\name\xff.wav").unwrap();
+    assert_eq!(posix.flavor, PathFlavor::OpaquePosix);
+    assert_eq!(
+        posix.components.as_ref().unwrap()[0].bytes().unwrap(),
+        b"odd\\name\xff.wav"
+    );
+    let mut windows = b"windows:".to_vec();
+    for u in "C:\\Music\\track.wav".encode_utf16() {
+        windows.extend(u.to_le_bytes());
+    }
+    let locator = PortableLocator::from_native_path_bytes("windows", &windows).unwrap();
+    assert_eq!(locator.flavor, PathFlavor::WindowsDrive);
+    assert!(locator.source_root.is_some());
+    assert_eq!(locator.components.unwrap().len(), 1);
+}
+#[test]
+fn stale_measured_data_is_hidden_but_saved_publication_remains_inspectable() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let mut track = imported();
+    track.musical = None;
+    lib.import_portable_tracks(&[track]).unwrap();
+    let publication = serde_json::json!({"grid":{"bpm":128.0,"startTime":0.25},"cues":[{"name":"Saved Drop","startTime":32.25,"type":"1","position":0,"color":"red"}],"implementation_sha256":"saved","inputs_sha256":"saved"});
+    let conn = rusqlite::Connection::open(d.path().join("library.sqlite")).unwrap();
+    conn.execute(
+        "UPDATE tracks SET analysis_json=?1,analysis_status='stale' WHERE id='track-one'",
+        [serde_json::json!({"publication":publication}).to_string()],
+    )
+    .unwrap();
+    assert!(lib.analysis("track-one").unwrap().is_none());
+    let saved = lib.accepted_musical_data("track-one").unwrap().unwrap();
+    assert_eq!(saved.cues[0].start_seconds, 32.25);
+    assert_eq!(saved.tempo_markers[0].start_seconds, 0.25);
+    assert_eq!(saved.tempo_markers[0].beat_number, None);
+    assert!(lib.dj_sync_library(DjSyncScope::Full).is_err());
+    assert!(
+        conn.query_row(
+            "SELECT analysis_json IS NOT NULL FROM tracks WHERE id='track-one'",
+            [],
+            |r| r.get::<_, bool>(0)
+        )
+        .unwrap()
+    );
+}
+#[test]
+fn exclusive_library_operation_rejects_clone_writers_and_releases_on_error() {
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let path = d.path().join("source.wav");
+    std::fs::write(&path, b"synthetic").unwrap();
+    let revision = lib.settings().unwrap().revision;
+    let _failure = (|| -> anyhow::Result<()> {
+        let _lease = lib.exclusive_operation()?;
+        assert_eq!(lib.counts()?.tracks, 0);
+        lib.import_portable_tracks(&[imported()])?;
+        let clone = lib.clone();
+        let p = path.clone();
+        let r = revision.clone();
+        assert!(
+            std::thread::spawn(move || clone.enqueue(&[p], r))
+                .join()
+                .unwrap()
+                .is_err()
+        );
+        anyhow::bail!("injected operation failure")
+    })();
+    let clone = lib.clone();
+    assert!(
+        std::thread::spawn(move || clone.enqueue(&[path], revision))
+            .join()
+            .unwrap()
+            .is_ok()
+    );
+    assert!(lib.exclusive_operation().err().unwrap().is::<LibraryBusy>());
+    assert!(lib.claim_next().unwrap().is_some());
+    assert!(lib.exclusive_operation().err().unwrap().is::<LibraryBusy>());
+}
+#[test]
+fn watcher_resumes_after_exclusive_operation_busy_period() {
+    use std::time::{Duration, Instant};
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+    let runtime = cuerithm_media::MediaRuntime::from_bundle(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let service = PreparationService::start_with_workers(lib.clone(), runtime, 1).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let gate = loop {
+        match lib.exclusive_operation() {
+            Ok(g) => break g,
+            Err(e) if e.is::<LibraryBusy>() && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(10))
+            }
+            Err(e) => panic!("{e}"),
+        }
+    };
+    service.wake();
+    std::thread::sleep(Duration::from_millis(450));
+    let mut settings = lib.settings().unwrap().settings;
+    settings.watch_folders = vec![d.path().join("offline-folder")];
+    lib.save_settings(settings).unwrap();
+    drop(gate);
+    service.wake();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while service.status().watch_errors.is_empty() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(
+        service
+            .status()
+            .watch_errors
+            .iter()
+            .any(|s| s.contains("offline-folder")),
+        "Watcher must remain alive and resume reading settings after the operation"
+    );
+    assert!(service.status().last_error.is_none());
+    service.shutdown();
+}
+
+fn windows_native_blob(units: &[u16]) -> Vec<u8> {
+    let mut blob = b"windows:".to_vec();
+    blob.extend(units.iter().flat_map(|u| u.to_le_bytes()));
+    blob
+}
+fn decoded_utf16(path: &EncodedPath) -> Vec<u16> {
+    path.bytes()
+        .unwrap()
+        .chunks_exact(2)
+        .map(|b| u16::from_le_bytes([b[0], b[1]]))
+        .collect()
+}
+#[test]
+fn canonical_windows_verbatim_paths_keep_original_and_export_safe_logical_roots() {
+    for (native, expected_flavor, expected_root) in [
+        (
+            r"\\?\C:\Music\track.wav",
+            PathFlavor::WindowsDrive,
+            "C:/Music",
+        ),
+        (
+            r"\\?\UNC\server\share\Music\track.wav",
+            PathFlavor::WindowsUnc,
+            "//server/share/Music",
+        ),
+    ] {
+        let units = native.encode_utf16().collect::<Vec<_>>();
+        let locator =
+            PortableLocator::from_native_path_bytes("canonical", &windows_native_blob(&units))
+                .unwrap();
+        assert_eq!(locator.flavor, expected_flavor);
+        assert_eq!(decoded_utf16(&locator.original), units);
+        assert_eq!(
+            String::from_utf16(&decoded_utf16(locator.source_root.as_ref().unwrap())).unwrap(),
+            expected_root
+        );
+        assert_eq!(
+            String::from_utf16(&decoded_utf16(&locator.components.as_ref().unwrap()[0])).unwrap(),
+            "track.wav"
+        );
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("source.sqlite")).unwrap();
+        let mut track = imported();
+        track.locator = locator.clone();
+        lib.import_portable_tracks(&[track]).unwrap();
+        let archive = lib.portable_snapshot().unwrap();
+        assert_eq!(archive.records["roots"].len(), 1);
+        let encoded: EncodedPath =
+            serde_json::from_value(archive.records["roots"][0].value["source_root"].clone())
+                .unwrap();
+        assert_eq!(
+            String::from_utf16(&decoded_utf16(&encoded)).unwrap(),
+            expected_root
+        );
+        let roots = lib.relocation_roots().unwrap();
+        assert!(roots.iter().any(|r| r.source_root == expected_root));
+        let target = tempfile::tempdir().unwrap();
+        let restored = Library::open(&target.path().join("restored.sqlite")).unwrap();
+        restored.restore_logical_archive(&archive).unwrap();
+        assert_eq!(
+            restored.source_locator("track-one").unwrap().unwrap(),
+            locator
+        );
+    }
+}
+#[test]
+fn canonical_windows_opaque_units_are_lossless_and_other_devices_stay_unresolved() {
+    let mut units = r"\\?\C:\Music\odd".encode_utf16().collect::<Vec<_>>();
+    units.push(0xd800);
+    units.extend(".wav".encode_utf16());
+    let locator =
+        PortableLocator::from_native_path_bytes("opaque", &windows_native_blob(&units)).unwrap();
+    assert_eq!(locator.flavor, PathFlavor::OpaqueWindows);
+    assert_eq!(decoded_utf16(&locator.original), units);
+    assert_eq!(
+        decoded_utf16(&locator.components.unwrap()[0]),
+        [
+            "odd".encode_utf16().collect::<Vec<_>>(),
+            vec![0xd800],
+            ".wav".encode_utf16().collect()
+        ]
+        .concat()
+    );
+    let opaque =
+        PortableLocator::from_native_path_bytes("opaque", &windows_native_blob(&units)).unwrap();
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("opaque.sqlite")).unwrap();
+    let mut track = imported();
+    track.locator = opaque.clone();
+    lib.import_portable_tracks(&[track]).unwrap();
+    let archive = lib.portable_snapshot().unwrap();
+    let target = tempfile::tempdir().unwrap();
+    let restored = Library::open(&target.path().join("restored.sqlite")).unwrap();
+    restored.restore_logical_archive(&archive).unwrap();
+    assert_eq!(
+        restored.source_locator("track-one").unwrap().unwrap(),
+        opaque
+    );
+    // Foreign verbatim text alone is inert; only a vetted native decomposition
+    // supplies portable root/components.
+    let mut foreign = PortableLocator::from_native_path_bytes(
+        "foreign",
+        &windows_native_blob(&r"\\?\C:\Music\track.wav".encode_utf16().collect::<Vec<_>>()),
+    )
+    .unwrap();
+    foreign.source_root = None;
+    foreign.components = None;
+    let d = tempfile::tempdir().unwrap();
+    let lib = Library::open(&d.path().join("foreign.sqlite")).unwrap();
+    let mut track = imported();
+    track.locator = foreign;
+    lib.import_portable_tracks(&[track]).unwrap();
+    assert!(lib.portable_snapshot().unwrap().records["roots"].is_empty());
+    assert!(lib.relocation_roots().unwrap().is_empty());
+    for device in [
+        r"\\.\PhysicalDrive0",
+        r"\\?\GLOBALROOT\Device\HarddiskVolume1\track.wav",
+        r"\\?\C:relative.wav",
+    ] {
+        let units = device.encode_utf16().collect::<Vec<_>>();
+        let locator =
+            PortableLocator::from_native_path_bytes("device", &windows_native_blob(&units))
+                .unwrap();
+        assert!(locator.source_root.is_none());
+        assert!(locator.components.is_none());
+        assert_eq!(decoded_utf16(&locator.original), units);
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("db")).unwrap();
+        let mut track = imported();
+        track.locator = locator;
+        lib.import_portable_tracks(&[track]).unwrap();
+        let archive = lib.portable_snapshot().unwrap();
+        assert!(archive.records["roots"].is_empty());
+        assert!(archive.records["locators"][0].value["root_id"].is_null());
+        assert!(lib.relocation_roots().unwrap().is_empty());
+    }
+}
+#[cfg(windows)]
+#[test]
+fn actual_windows_canonical_binding_roundtrips_without_native_path_changes() {
+    use std::os::windows::ffi::OsStrExt;
+    let d = tempfile::tempdir().unwrap();
+    let file = d.path().join("canonical.wav");
+    std::fs::write(&file, b"synthetic").unwrap();
+    let canonical = file.canonicalize().unwrap();
+    let units = canonical.as_os_str().encode_wide().collect::<Vec<_>>();
+    let locator =
+        PortableLocator::from_native_path_bytes("actual-canonical", &windows_native_blob(&units))
+            .unwrap();
+    assert!(locator.source_root.is_some());
+    let lib = Library::open(&d.path().join("db")).unwrap();
+    let mut track = imported();
+    track.locator = locator.clone();
+    lib.import_portable_tracks(&[track]).unwrap();
+    lib.bind_portable_track("track-one", &file, None).unwrap();
+    assert_eq!(lib.track_path("track-one").unwrap(), canonical);
+    let archive = lib.portable_snapshot().unwrap();
+    let target = tempfile::tempdir().unwrap();
+    let restored = Library::open(&target.path().join("db")).unwrap();
+    restored.restore_logical_archive(&archive).unwrap();
+    assert_eq!(
+        restored.source_locator("track-one").unwrap().unwrap(),
+        locator
+    );
+}

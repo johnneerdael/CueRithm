@@ -163,8 +163,8 @@ impl MetadataEditService {
             );
         }
         ensure!(
-            capture.path.0 == expected.path
-                && capture.fingerprint.sha256 == expected.source_hash
+            Some(&capture.path.0) == expected.path.as_ref()
+                && Some(capture.fingerprint.sha256.as_str()) == expected.source_hash.as_deref()
                 && capture.public.path_revision == expected.path_revision
                 && capture.public.metadata_revision == expected.metadata_revision
                 && capture.job == expected.current_job

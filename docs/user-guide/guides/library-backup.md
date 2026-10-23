@@ -1,15 +1,60 @@
-# Back up your library
+# Back up and restore your library
 
-![Reviewed restore preview with explicit acknowledgement and the player still visible](../assets/screens/library-backup.png)
+**Library data only. Music files are not included.** Copy your music separately.
+Open **Library backup** under Tools for portable exports and library replacement.
+Same-installation recovery snapshots remain in a separate expandable section.
 
-Library backup saves your CueRithm preparation: playlists, cues, analysis and
-library settings, preparation presets and Curate history. Appearance preferences
-and provider credentials are not included. Music files are excluded. Keep a
-separate backup of your music.
-The backup folder contains a SQLite database and a private location manifest;
-keep both files together. The manifest records source locations and file hashes.
+## Export a portable library
 
-## Create a backup
+1. Finish preparation and any metadata, organization or DJ sync operations.
+2. Choose **Export .cuerithm** and a destination file.
+3. Keep **Include musical revision history** enabled to retain older accepted
+   cue and tempo revisions as well as the selected revision.
+
+CueRithm writes a logical archive, reads it back and checks its record counts and
+checksums before publishing it. Existing destination files are preserved; choose
+another filename when one already exists. Offline music does not prevent export.
+The archive contains source locations and library metadata. Store it privately.
+
+## Restore or import a Lexicon backup
+
+1. Choose **Inspect backup or Lexicon ZIP**. CueRithm detects the format from its
+   contents. Lexicon import currently accepts the database-backup v26 profile.
+2. For Lexicon timestamps without an offset, set the library's original timezone.
+3. Review track, cue and playlist totals and all compatibility notes.
+4. Map each source music folder to its folder on this computer, or leave it
+   unresolved. An unresolved track keeps its metadata, cues and playlist entries.
+5. Acknowledge excluded or unsupported data, then confirm the named active library
+   will be replaced and retained for recovery.
+6. Choose **Restore and restart CueRithm**. Finish the existing unsaved-draft
+   prompt. Cancelling that prompt also cancels the scheduled replacement.
+
+Restore builds and validates a separate library before restart. Startup activates
+only the validated generation; the previous library stays retained. Restored
+watch folders, automatic tagging and external DJ write targets are disabled.
+Import does not prepare tracks, write music tags or change another DJ database.
+An imported BPM, key or energy is saved source data, rather than a CueRithm DSP
+measurement. Saved cues and tempo markers remain usable without analysis.
+
+A changed, invalid or colliding destination file stays unresolved. Use **Relocate**
+to review an explicit replacement. A different file can require checking saved cue
+and beat timing. Copying music or selecting folders does not move the source files.
+
+## Return to a retained library
+
+Choose a library under **Retained libraries**, then **Use retained library and
+restart**. This returns to its complete saved state; later edits in the current
+library remain there and are not merged. Retained generations are not deleted
+by an automatic retention policy.
+
+## Same-installation recovery snapshots
+
+These retain the older database-and-location-manifest format. Keep both files
+in each dated backup folder together. They include preparation settings, presets
+and local recovery history and have stricter file-consistency requirements than
+portable archives. They cannot migrate a library to another installation.
+
+### Create a recovery snapshot
 
 1. Finish preparation, metadata/Curate writes, file organization and any cleanup, maintenance or DJ sync work. Resolve
    recovery warnings and discard unused sync previews.
@@ -20,7 +65,7 @@ CueRithm checks source bytes and retained recovery files while creating the
 snapshot. A changed source must be prepared again before making a fresh backup.
 Missing source files stay listed as unavailable; their audio is not recovered.
 
-## Restore preparation
+### Restore a recovery snapshot
 
 1. Choose **Inspect backup folder** and select a dated CueRithm backup folder.
 2. Review its date, track count and unavailable sources.
@@ -42,7 +87,7 @@ A blocked request is never retried silently. An interruption during the database
 update is handled separately; startup stops if its retained recovery snapshot
 cannot be validated.
 
-## Limits
+### Recovery snapshot limits
 
 This delivery supports the same CueRithm version, operating system and library
 installation. It does not move a library to another computer. The installation

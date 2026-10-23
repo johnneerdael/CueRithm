@@ -76,30 +76,17 @@ Coverage is planned across the DJ software destinations and **Mixxx**.
 **DJ.Studio is a potential additional integration**, still under consideration.
 This import work extends the current sync from CueRithm to DJ software.
 
-### Reconnect moved music
+### Relocation, portable backup and Lexicon migration acceptance
 
-Planned relocation tools will reconnect an individual track, search a selected
-folder recursively for missing tracks, or replace a music-folder root or drive
-letter across a library. Review matches and replacements while retaining track
-identities, cues and playlist membership. This complements the existing organizer,
-which already renames and moves files from within CueRithm.
+Reviewed track relocation, `.cuerithm` logical export, root mapping, retained
+library replacement and the Lexicon v26 database-backup parser are implemented.
+See [Library backup](../guides/library-backup.md) and
+[Maintenance](../guides/maintenance.md). Music is copied separately. Replacing
+independent libraries is supported; merging them remains separate planned work.
 
-### Portable backup, restore and Lexicon migration
-
-A planned **`.cuerithm` portable backup** will contain library data, without music
-files or disposable caches. Restore it on macOS, Windows or Linux and map the old
-music folders to their locations on the destination computer. Unresolved music
-references will remain visible in the library and playlists.
-
-A separate **Lexicon backup ZIP import** is specified to bring over tracks, cues,
-tempo markers, the playlist tree and supported smart rules. That first migration
-creates a new library and retains the current one for recovery; merging independent
-libraries is outside that delivery. The broader DJ-library import workflow above
-includes merge as a separate capability.
-
-Portable restore will replace the active library with recovery available. Music
-must be copied separately. Existing local library backup and restore remains
-available while portable cross-platform backups are developed.
+Acceptance across real macOS, Windows and Linux computers, the original private
+Lexicon backup and large libraries is still being validated. Synthetic profile
+and path-flavor fixtures do not establish those runtime results.
 
 Broader DJ-application, physical-device and platform acceptance also continues.
 No delivery dates are promised.

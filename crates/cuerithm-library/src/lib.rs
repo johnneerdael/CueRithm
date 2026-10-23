@@ -74,7 +74,7 @@ mod store;
 pub mod waveform;
 pub use model::*;
 pub use settings::*;
-pub use store::Library;
+pub use store::{Library, LibraryBusy, LibraryOperationLease};
 
 mod dj_sync;
 pub use dj_sync::*;
@@ -94,3 +94,16 @@ pub use manual_publication::*;
 
 mod library_backup;
 pub use library_backup::*;
+
+pub mod musical;
+pub mod portable;
+pub use musical::*;
+pub use portable::*;
+
+pub mod backup;
+
+mod generations;
+pub use generations::{LibraryGeneration, LibraryGenerations};
+
+mod relocation;
+pub use relocation::*;

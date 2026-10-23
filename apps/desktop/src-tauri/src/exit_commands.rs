@@ -23,5 +23,9 @@ pub fn complete_exit(host: Managed<'_>, app: tauri::AppHandle, request_id: Strin
 }
 #[tauri::command]
 pub fn cancel_exit(host: Managed<'_>, request_id: String) -> Ipc<bool> {
-    host.exit.cancel(&request_id).map_err(Into::into)
+    let canceled = host.exit.cancel(&request_id)?;
+    if canceled && host.restart_requested.swap(false, Ordering::AcqRel) {
+        host.libraries.cancel_scheduled()?;
+    }
+    Ok(canceled)
 }

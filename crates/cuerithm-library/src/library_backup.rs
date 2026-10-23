@@ -145,7 +145,7 @@ fn file_lease(path: &Path, message: &str) -> Result<File> {
     }
     Ok(file)
 }
-fn sync_lease(root: &Path) -> Result<File> {
+pub(crate) fn sync_lease(root: &Path) -> Result<File> {
     let directory = root.join("sync");
     fs::create_dir_all(&directory)?;
     ensure!(
@@ -180,12 +180,12 @@ fn schema(conn: &Connection) -> Result<i64> {
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     ensure!(
-        (27..=28).contains(&version),
+        (27..=29).contains(&version),
         "Unsupported library backup schema"
     );
     Ok(version)
 }
-fn quiet_database(conn: &Connection) -> Result<()> {
+pub(crate) fn quiet_database(conn: &Connection) -> Result<()> {
     // Match startup's non-tagging recovery guard, including accepted edits on
     // attention jobs. Completed physical publications can still need cleanup.
     let metadata_pending: bool = conn.query_row(
@@ -363,14 +363,18 @@ fn inventory(conn: &Connection, root: &Path) -> Result<BackupInventory> {
     #[cfg(test)]
     inventory_phase_tests::run_hook();
     let mut sources = BTreeMap::new();
-    let mut q = conn.prepare("SELECT path,source_hash FROM tracks ORDER BY id")?;
+    let mut q =
+        conn.prepare("SELECT path,source_hash FROM tracks WHERE path IS NOT NULL ORDER BY id")?;
     for row in q.query_map([], |r| {
-        Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, String>(1)?))
+        Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, Option<String>>(1)?))
     })? {
         let (path, hash) = row?;
         let observed = location(&bytes_path(&path)?)?;
         ensure!(
-            observed.kind == "missing" || observed.sha256.as_deref() == Some(hash.as_str()),
+            observed.kind == "missing"
+                || hash
+                    .as_deref()
+                    .is_none_or(|hash| observed.sha256.as_deref() == Some(hash)),
             "A source file changed since its saved preparation. Reprepare it before using this backup"
         );
         sources.insert(path, observed);
@@ -798,7 +802,7 @@ fn preparation_inventory(conn: &Connection, locations: &mut OrganizationLocation
     // Old proofs after an unrelated edit stay historical; they grant no authority.
     let mut query = conn.prepare(
         "SELECT c.input_proof_json,c.input_json,t.path,t.source_hash,t.path_revision,t.metadata_revision
-         FROM curation_tracks c JOIN tracks t ON t.id=c.track_id WHERE c.input_proof_json IS NOT NULL",
+         FROM curation_tracks c JOIN tracks t ON t.id=c.track_id WHERE c.input_proof_json IS NOT NULL AND t.path IS NOT NULL AND t.source_hash IS NOT NULL",
     )?;
     #[derive(Deserialize)]
     struct Proof {
@@ -1221,12 +1225,19 @@ fn snapshot(conn: &Connection, root: &Path, destination: &Path) -> Result<Librar
     publish_snapshot(prepare_snapshot(conn, root, destination)?, destination)
 }
 fn preview(path: &Path, m: &Manifest) -> Result<LibraryBackupPreview> {
+    let conn = readonly(&path.join("library.sqlite"))?;
+    let (tracks, unresolved): (u64, u64) = conn.query_row(
+        "SELECT COUNT(*),COUNT(*) FILTER(WHERE path IS NULL) FROM tracks",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
     Ok(LibraryBackupPreview {
         path: path.to_path_buf(),
         database_sha256: m.database_sha256.clone(),
         created: m.created,
-        tracks: m.sources.len() as u64,
-        missing_sources: m.sources.iter().filter(|s| s.kind == "missing").count() as u64,
+        tracks,
+        missing_sources: m.sources.iter().filter(|s| s.kind == "missing").count() as u64
+            + unresolved,
         schema: m.schema,
         music_included: false,
     })
@@ -1346,7 +1357,7 @@ impl Library {
     fn revalidate_backup_database(
         &self,
         captured: &CapturedDatabase,
-    ) -> Result<std::sync::MutexGuard<'_, Connection>> {
+    ) -> Result<crate::store::ConnectionGuard<'_>> {
         let conn = self.conn()?;
         ensure!(
             captured.stamp == DatabaseStamp::read(&conn)?,
@@ -1711,6 +1722,39 @@ mod inventory_phase_tests {
         fs::write(&path, b"authored source bytes").unwrap();
         library.conn().unwrap().execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('fixture',?1,'Authored',?2,'ready',0,0)",rusqlite::params![path_bytes(&path),cuerithm_media::file_sha256(&path).unwrap()]).unwrap();
         (directory, library)
+    }
+    #[test]
+    fn schema_29_local_recovery_snapshot_retains_unresolved_records() {
+        let (directory, library) = fixture();
+        library.conn().unwrap().execute("INSERT INTO tracks(id,path,source_hash,title,state,created,updated) VALUES('unresolved',NULL,NULL,'Offline imported track','ready',0,0)",[]).unwrap();
+        let saved = library
+            .create_library_backup(&directory.path().join("backups"))
+            .unwrap();
+        assert_eq!(saved.schema, 29);
+        assert_eq!(saved.tracks, 2);
+        assert_eq!(saved.missing_sources, 1);
+        let inspected = library.inspect_library_backup(&saved.path).unwrap();
+        assert_eq!(inspected.tracks, 2);
+        library
+            .stage_library_restore(&saved.path, &saved.database_sha256)
+            .unwrap();
+        let database = library.data_dir().join("library.sqlite");
+        drop(library);
+        apply_pending_library_restore(&database).unwrap();
+        let reopened = Library::open(&database).unwrap();
+        assert_eq!(reopened.counts().unwrap().tracks, 2);
+        assert!(
+            reopened
+                .local_track_binding("unresolved")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            reopened
+                .source_hash_optional("unresolved")
+                .unwrap()
+                .is_none()
+        );
     }
     fn query_during_inventory(library: &Library) {
         let library = library.clone();

@@ -6,11 +6,13 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::File,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 pub(crate) struct Inner {
     pub conn: Mutex<Connection>,
+    operation_gate: RwLock<()>,
+    operation_owner: Mutex<Option<std::thread::ThreadId>>,
     pub organization_gate: Mutex<()>,
     #[cfg(feature = "autotag")]
     pub tag_gate: Mutex<()>,
@@ -24,6 +26,45 @@ pub(crate) struct Inner {
 #[derive(Clone)]
 pub struct Library {
     pub(crate) inner: Arc<Inner>,
+}
+#[derive(Debug)]
+pub struct LibraryBusy;
+impl std::fmt::Display for LibraryBusy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Library operation is busy; retry after it finishes")
+    }
+}
+impl std::error::Error for LibraryBusy {}
+/// A short exclusive library operation. Keep the lease on this thread; background
+/// connections fail busy until it is dropped, while owner methods remain usable.
+pub struct LibraryOperationLease<'a> {
+    inner: &'a Inner,
+    _gate: RwLockWriteGuard<'a, ()>,
+}
+impl Drop for LibraryOperationLease<'_> {
+    fn drop(&mut self) {
+        *self
+            .inner
+            .operation_owner
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+    }
+}
+pub(crate) struct ConnectionGuard<'a> {
+    connection: MutexGuard<'a, Connection>,
+    // Field order releases the SQLite mutex before its shared operation lease.
+    _operation: Option<RwLockReadGuard<'a, ()>>,
+}
+impl std::ops::Deref for ConnectionGuard<'_> {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        &self.connection
+    }
+}
+impl std::ops::DerefMut for ConnectionGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Connection {
+        &mut self.connection
+    }
 }
 impl Library {
     pub fn open(path: &Path) -> Result<Self> {
@@ -65,7 +106,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=28).contains(&version),
+            (0..=29).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -240,6 +281,9 @@ impl Library {
                 include_str!("../migrations/028_sync_target_configurations.sql")
             ))?;
         }
+        if version < 29 {
+            crate::portable::migrate_identity(&conn)?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -272,6 +316,8 @@ impl Library {
         let lib = Self {
             inner: Arc::new(Inner {
                 conn: Mutex::new(conn),
+                operation_gate: RwLock::new(()),
+                operation_owner: Mutex::new(None),
                 organization_gate: Mutex::new(()),
                 #[cfg(feature = "autotag")]
                 tag_gate: Mutex::new(()),
@@ -306,11 +352,63 @@ impl Library {
         lib.recover_curation()?;
         Ok(lib)
     }
-    pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>> {
-        self.inner
+    pub fn exclusive_operation(&self) -> Result<LibraryOperationLease<'_>> {
+        let gate = self
+            .inner
+            .operation_gate
+            .try_write()
+            .map_err(|_| anyhow::Error::new(LibraryBusy))?;
+        // Once the write lease is held, no new job can be claimed. Refuse
+        // existing work before exposing busy errors to an in-flight DSP worker.
+        let running: bool = self
+            .inner
             .conn
             .lock()
-            .map_err(|_| anyhow::anyhow!("Library connection interrupted"))
+            .map_err(|_| anyhow::anyhow!("Library connection interrupted"))?
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM jobs WHERE state IN ('queued','running'))",
+                [],
+                |r| r.get(0),
+            )?;
+        if running {
+            return Err(anyhow::Error::new(LibraryBusy));
+        }
+        *self
+            .inner
+            .operation_owner
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Library operation owner interrupted"))? =
+            Some(std::thread::current().id());
+        Ok(LibraryOperationLease {
+            inner: &self.inner,
+            _gate: gate,
+        })
+    }
+    pub(crate) fn conn(&self) -> Result<ConnectionGuard<'_>> {
+        let owner = *self
+            .inner
+            .operation_owner
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Library operation owner interrupted"))?;
+        let operation = if owner == Some(std::thread::current().id()) {
+            None
+        } else {
+            Some(
+                self.inner
+                    .operation_gate
+                    .try_read()
+                    .map_err(|_| anyhow::Error::new(LibraryBusy))?,
+            )
+        };
+        let connection = self
+            .inner
+            .conn
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Library connection interrupted"))?;
+        Ok(ConnectionGuard {
+            connection,
+            _operation: operation,
+        })
     }
     pub fn data_dir(&self) -> &Path {
         &self.inner.root
@@ -449,25 +547,25 @@ impl Library {
         Ok(track)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
-        Ok(self
-            .conn()?
+        self.conn()?
             .query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
-                r.get(0)
-            })?)
+                r.get::<_, Option<String>>(0)
+            })?
+            .context("Track content hash is unknown")
     }
     pub fn counts(&self) -> Result<LibraryCounts> {
         Ok(self.conn()?.query_row("SELECT COUNT(CASE WHEN state='ready' AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM tracks",[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
     }
     pub fn track_path(&self, id: &str) -> Result<PathBuf> {
-        let bytes: Vec<u8> =
+        let bytes: Option<Vec<u8>> =
             self.conn()?
                 .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))?;
-        bytes_path(&bytes)
+        bytes_path(&bytes.context("Track has no local file binding; relocate it first")?)
     }
     pub fn analysis(&self, id: &str) -> Result<Option<camelot_core::FileAnalysis>> {
         let text: Option<String> = self
             .conn()?
-            .query_row("SELECT analysis_json FROM tracks WHERE id=?1", [id], |r| {
+            .query_row("SELECT CASE WHEN analysis_status='stale' THEN NULL ELSE analysis_json END FROM tracks WHERE id=?1", [id], |r| {
                 r.get(0)
             })
             .optional()?
@@ -559,8 +657,8 @@ impl Library {
 }
 
 pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummary> {
-    let path: Vec<u8> = r.get(1)?;
-    let path = bytes_path(&path).map_err(|e| {
+    let path: Option<Vec<u8>> = r.get(1)?;
+    let path = path.as_deref().map(bytes_path).transpose().map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(
             1,
             rusqlite::types::Type::Blob,
@@ -569,9 +667,17 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
     })?;
     let mut metadata: std::collections::BTreeMap<String, serde_json::Value> = r
         .get::<_, Option<String>>(12)?
-        .and_then(|s| serde_json::from_str::<cuerithm_media::MediaInfo>(&s).ok())
-        .map(|info| info.columns())
+        .map(|s| {
+            serde_json::from_str::<cuerithm_media::MediaInfo>(&s)
+                .map(|info| info.columns())
+                .unwrap_or_else(|_| serde_json::from_str(&s).unwrap_or_default())
+        })
         .unwrap_or_default();
+    metadata.insert("library.path_bound".into(), path.is_some().into());
+    metadata.insert(
+        "library.content_hash_known".into(),
+        r.get::<_, Option<String>>(11)?.is_some().into(),
+    );
     metadata.insert("library.date_added".into(), r.get::<_, i64>(13)?.into());
     metadata.insert("library.date_modified".into(), r.get::<_, i64>(14)?.into());
     if let Some(status) = r.get::<_, Option<String>>(16)? {
@@ -580,8 +686,10 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
     Ok(TrackSummary {
         metadata,
         id: r.get(0)?,
-        source_sha256: r.get(11)?,
-        display_path: path.to_string_lossy().into_owned(),
+        source_sha256: r.get::<_, Option<String>>(11)?.unwrap_or_default(),
+        display_path: path
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default(),
         title: r.get(2)?,
         artist: r.get(3)?,
         album: r.get(4)?,

@@ -24,7 +24,7 @@ CueRithm keeps its library state in a single SQLite database, with caches and re
 
 On macOS the data folder is `~/Library/Application Support/com.cuerithm.app`. See [Install](../get-started/install.md#where-cuerithm-keeps-its-data).
 
-If you move or delete a track outside CueRithm, its stored path breaks. Use [Maintenance](../guides/maintenance.md) to scan for missing or unreadable files. This identifies problems; it does not automatically relocate music.
+If you move or delete a track outside CueRithm, its stored path breaks. Use [Maintenance](../guides/maintenance.md) to scan for missing or unreadable files. Use the reviewed **Relocate** action or **Find Lost Tracks** utility to reconnect moved files without moving audio.
 
 ## Core tables
 
@@ -69,4 +69,4 @@ Everything in the preparation settings (watch folders, cue settings, tagging, cl
 
 Original bytes of every file that CueRithm changes are kept indefinitely under `tagging/`. There is no retention control yet. The size is visible as *Recovery backups* on the tagging settings page.
 
-[Library backup](../guides/library-backup.md) saves the database and a consistency manifest. It excludes music and requires this installation, a compatible app/schema and unchanged required files for restore. A database restore does not reverse music-tag or DJ-software edits.
+[Library backup](../guides/library-backup.md) exports logical `.cuerithm` records with portable source locators. Restore stages a new generation and switches at restart, retaining the old library. Same-installation recovery snapshots remain separate. Neither format includes music or reverses edits to music tags or external DJ software.

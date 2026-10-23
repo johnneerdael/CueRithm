@@ -44,7 +44,7 @@ impl Library {
             let tx = conn.transaction()?;
             let stamp = super::scan::stamp(&tx)?;
             let mut statement = tx.prepare(
-                "SELECT id,path,source_hash FROM tracks WHERE archived=0 ORDER BY rowid",
+                "SELECT id,path,source_hash FROM tracks WHERE archived=0 AND path IS NOT NULL AND source_hash IS NOT NULL ORDER BY rowid",
             )?;
             let rows = statement
                 .query_map([], |r| {
