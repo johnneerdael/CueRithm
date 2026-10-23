@@ -351,14 +351,25 @@ fn summary(tracks: &tracks::TrackOutcome, containers: &owned::ContainerOutcome) 
     format!("Mixxx: {}.", parts.join("; "))
 }
 
+/// Whether `key` is `directory` or inside it. Where case folding is on, a match that
+/// differs only by case also needs the file system to say the leading folder is that
+/// directory: on a case-sensitive volume `/Music/A` and `/Music/a` are two folders.
 fn is_under(key: &str, directory: &str, case_insensitive: bool) -> bool {
-    let (key, directory) = if case_insensitive {
-        (key.to_lowercase(), directory.to_lowercase())
-    } else {
-        (key.to_owned(), directory.to_owned())
-    };
     let directory = directory.trim_end_matches('/');
-    key == directory || key.starts_with(&format!("{directory}/"))
+    if key == directory || key.starts_with(&format!("{directory}/")) {
+        return true;
+    }
+    if !case_insensitive {
+        return false;
+    }
+    let (folded_key, folded_directory) = (key.to_lowercase(), directory.to_lowercase());
+    if folded_key != folded_directory && !folded_key.starts_with(&format!("{folded_directory}/")) {
+        return false;
+    }
+    // The leading components of `key` that stand for `directory`.
+    let depth = directory.split('/').count();
+    let leading = key.split('/').take(depth).collect::<Vec<_>>().join("/");
+    tracks::file_check()(&leading, directory)
 }
 
 /// Facts that do not stop a sync but change what the user will see in Mixxx.
@@ -387,13 +398,14 @@ fn advisories(
             _ => {}
         }
     }
-    // Measured on macOS, where Mixxx decodes AAC with CoreAudio; elsewhere it uses
-    // Media Foundation (Windows) or FAAD (Linux), which this has not been run against.
+    // Measured on macOS (CoreAudio) and with FFmpeg on Linux (Debian's Mixxx 2.5.0, which
+    // has no FAAD decoder). Which decoder a Linux or Windows Mixxx uses depends on its build:
+    // FAAD (Linux builds that include it) and Media Foundation (Windows) were not run.
     if aac > 0 && host.decoder == Mp3Decoder::Mad {
         warnings.push(format!(
-            "{aac} AAC track(s): Mixxx on this system decodes AAC with Media Foundation or FAAD, \
-             which CueRithm has not verified, so their cues and grid may sit a few milliseconds \
-             off."
+            "{aac} AAC track(s): this Mixxx decodes AAC with FFmpeg (checked on Debian's Mixxx \
+             2.5.0, no shift needed), FAAD or Media Foundation (not checked), so their cues and \
+             grid may sit a few milliseconds off if it uses one of the last two."
         ));
     }
     if wma > 0 {
@@ -503,6 +515,31 @@ fn advisories(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_case_only_match_of_a_folder_needs_the_file_system_to_agree() {
+        // Same spelling: no question. Different case: only if the file system says the
+        // leading folder is the directory.
+        assert!(is_under("/Music/a/x.mp3", "/Music/a", false));
+        assert!(!is_under("/Music/A/x.mp3", "/Music/a", false));
+        {
+            let _same = tracks::pretend_same_file(|leading, directory| {
+                assert_eq!((leading, directory), ("/Music/A", "/Music/a"));
+                true
+            });
+            assert!(is_under("/Music/A/x.mp3", "/Music/a", true));
+        }
+        {
+            let _different = tracks::pretend_same_file(|_, _| false);
+            assert!(!is_under("/Music/A/x.mp3", "/Music/a", true));
+            assert!(!is_under("/Music/A", "/Music/a/", true));
+            assert!(
+                is_under("/Music/a/x.mp3", "/Music/a/", true),
+                "exact needs no check"
+            );
+        }
+        assert!(!is_under("/Other/x.mp3", "/Music/a", true));
+    }
 
     #[test]
     fn mixxx_candidates_cover_every_platform_layout() {

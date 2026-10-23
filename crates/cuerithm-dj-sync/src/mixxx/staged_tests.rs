@@ -379,7 +379,12 @@ fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
     let linux = run(LINUX, &library);
     let aac: Vec<_> = linux.iter().filter(|w| w.contains("AAC track")).collect();
     assert_eq!(aac.len(), 1, "{linux:?}");
-    assert!(aac[0].starts_with("2 AAC track(s)") && aac[0].contains("not verified"));
+    assert!(
+        aac[0].starts_with("2 AAC track(s)")
+            && aac[0].contains("FFmpeg")
+            && aac[0].contains("not checked"),
+        "{aac:?}"
+    );
     assert_eq!(linux.iter().filter(|w| w.contains("WMA track")).count(), 1);
     // macOS decodes AAC with CoreAudio, measured to match: no AAC warning there.
     let env_two = Env::new(39);

@@ -43,6 +43,10 @@ fn write_acceptance_library() {
         Ok("overwrite") => crate::MixxxLibrary::Overwrite,
         _ => crate::MixxxLibrary::Update,
     };
+    // Sync as a Linux system would: Mixxx there decodes MP3 with libmad, not CoreAudio.
+    if std::env::var("CUERITHM_MIXXX_HOST").as_deref() == Ok("linux") {
+        super::decoder::pretend_host(super::Mp3Decoder::Mad);
+    }
     let manifest: Vec<Entry> =
         serde_json::from_slice(&std::fs::read(folder.join("music/manifest.json")).unwrap())
             .unwrap();

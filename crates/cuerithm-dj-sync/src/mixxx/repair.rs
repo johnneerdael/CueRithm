@@ -20,14 +20,22 @@ fn find(connection: &Connection, key: &str) -> Result<Vec<(i64, String)>> {
     if !exact.is_empty() || !case_insensitive_host() {
         return Ok(exact);
     }
-    // A row spelled differently is only this file's when the file system says so.
+    // SQLite's lower() folds only ASCII, so `\u{c9}` and `\u{e9}` would never meet: fold in
+    // Rust, with the rules the track index uses. A row spelled differently is only this
+    // file's when the file system says so. This reads every location, which only happens
+    // when no row has the exact spelling, on a system that folds case.
+    let folded = key.to_lowercase();
     let same = super::tracks::file_check();
-    Ok(
-        read("SELECT id, location FROM track_locations WHERE lower(location) = lower(?1)")?
-            .into_iter()
-            .filter(|(_, location)| same(key, location))
-            .collect(),
-    )
+    let mut statement = connection.prepare("SELECT id, location FROM track_locations")?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows
+        .into_iter()
+        .filter(|(_, location)| location.to_lowercase() == folded && same(key, location))
+        .collect())
 }
 
 fn key_of(path: &Path) -> Result<String> {
@@ -175,6 +183,26 @@ mod tests {
                     .contains("duplicates")
             );
         }
+    }
+
+    #[test]
+    fn a_row_that_differs_only_by_non_ascii_case_is_found_where_case_folds() {
+        // A case-only rename of a file with an accented capital: SQLite's lower() cannot
+        // fold it, so the match has to be made in Rust. Only systems that fold case look.
+        if !case_insensitive_host() {
+            return;
+        }
+        let _same = crate::mixxx::tracks::pretend_same_file(|_, _| true);
+        let env = env();
+        let source = env.audio("caf\u{e9}.mp3");
+        let key = key_of(&source).unwrap();
+        let stored = key.replace("caf\u{e9}", "CAF\u{c9}");
+        assert_ne!(stored, key);
+        let id = fixture::add_track(&env.connection(), &stored, "Cafe");
+        assert_eq!(
+            reference_id(&env.database, &source).unwrap(),
+            id.to_string()
+        );
     }
 
     #[test]
