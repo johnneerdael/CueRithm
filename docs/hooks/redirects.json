@@ -31,7 +31,8 @@
    "bring-an-existing-dj-library-into-cuerithm": "help/not-available-yet.md#dj-library-import",
    "portable-backup-restore-and-lexicon-migration": "help/not-available-yet.md#portable-backup",
    "reconnect-moved-music": "help/not-available-yet.md#reconnect-moved-music",
-   "in-development": "help/not-available-yet.md#in-development"
+   "in-development": "help/not-available-yet.md#in-development",
+   "relocation-portable-backup-and-lexicon-migration-acceptance": "help/not-available-yet.md#portable-backup"
   }
  },
  "get-started/add-music.md": {
@@ -76,7 +77,14 @@
   "anchors": {
    "restore-preparation": "files/library/restore-library.md",
    "create-a-backup": "files/library/back-up-library.md#create",
-   "limits": "files/library/back-up-library.md#blocked"
+   "limits": "files/library/back-up-library.md#blocked",
+   "export-a-portable-library": "files/library/back-up-library.md#create",
+   "restore-or-import-a-lexicon-backup": "files/library/restore-library.md#inspect",
+   "return-to-a-retained-library": "files/library/restore-library.md#go-back",
+   "same-installation-recovery-snapshots": "files/library/back-up-library.md#installation-snapshots",
+   "create-a-recovery-snapshot": "files/library/back-up-library.md#installation-snapshots",
+   "restore-a-recovery-snapshot": "files/library/restore-library.md#installation-snapshots",
+   "recovery-snapshot-limits": "files/library/back-up-library.md#installation-snapshots"
   }
  },
  "guides/maintenance.md": {
@@ -86,7 +94,8 @@
    "check-missing-and-broken-files": "files/library/find-missing-files.md",
    "review-unused-files": "files/library/clean-up-unused-files.md",
    "restore-files-and-manage-retained-originals": "files/library/undo-maintenance.md",
-   "cancellation-stale-reports-and-recovery": "files/library/undo-maintenance.md"
+   "cancellation-stale-reports-and-recovery": "files/library/undo-maintenance.md",
+   "reconnect-moved-music": "files/library/find-missing-files.md#relocate"
   }
  },
  "guides/manual-corrections.md": {

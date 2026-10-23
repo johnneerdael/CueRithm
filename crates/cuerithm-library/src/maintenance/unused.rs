@@ -317,7 +317,7 @@ impl Library {
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
             let stamp = super::scan::stamp(&tx)?;
-            let mut statement = tx.prepare("SELECT path FROM tracks")?;
+            let mut statement = tx.prepare("SELECT path FROM tracks WHERE path IS NOT NULL")?;
             let paths = statement
                 .query_map([], |r| r.get::<_, Vec<u8>>(0))?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -590,7 +590,7 @@ impl Library {
 }
 
 pub(super) fn ensure_unreferenced(conn: &rusqlite::Connection, paths: &[PathBuf]) -> Result<()> {
-    let mut q = conn.prepare("SELECT path FROM tracks")?;
+    let mut q = conn.prepare("SELECT path FROM tracks WHERE path IS NOT NULL")?;
     let mut references = BTreeSet::new();
     let mut keys: BTreeMap<u64, Vec<PathBuf>> = BTreeMap::new();
     for value in q.query_map([], |r| r.get::<_, Vec<u8>>(0))? {

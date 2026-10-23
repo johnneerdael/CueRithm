@@ -82,6 +82,8 @@ struct Manifest {
     platform: String,
     installation: Vec<u8>,
     installation_id: String,
+    #[serde(default)]
+    data_directory: Option<Vec<u8>>,
     created: i64,
     schema: i64,
     database_sha256: String,
@@ -93,6 +95,36 @@ struct Manifest {
 }
 fn root_identity(root: &Path) -> Result<Vec<u8>> {
     Ok(path_bytes(&root.canonicalize()?))
+}
+fn snapshot_data_directory(manifest: &Manifest, installation: &Path) -> Result<PathBuf> {
+    let data = manifest
+        .data_directory
+        .as_deref()
+        .unwrap_or(&manifest.installation);
+    let data = bytes_path(data)?;
+    ensure!(
+        data.canonicalize()? == data,
+        "Backup data directory changed"
+    );
+    if data != installation {
+        let id = data
+            .file_name()
+            .and_then(|s| s.to_str())
+            .context("Invalid backup generation")?;
+        ensure!(
+            uuid::Uuid::parse_str(id).is_ok()
+                && data.parent() == Some(installation.join("libraries").as_path()),
+            "Backup data directory is outside this installation"
+        );
+        for directory in [data.as_path(), data.parent().unwrap()] {
+            let meta = fs::symlink_metadata(directory)?;
+            ensure!(
+                meta.is_dir() && !meta.file_type().is_symlink(),
+                "Unsafe backup data directory"
+            );
+        }
+    }
+    Ok(data)
 }
 fn managed_directory(root: &Path) -> Result<PathBuf> {
     let path = root.join("library-backups");
@@ -145,7 +177,7 @@ fn file_lease(path: &Path, message: &str) -> Result<File> {
     }
     Ok(file)
 }
-fn sync_lease(root: &Path) -> Result<File> {
+pub(crate) fn sync_lease(root: &Path) -> Result<File> {
     let directory = root.join("sync");
     fs::create_dir_all(&directory)?;
     ensure!(
@@ -180,12 +212,12 @@ fn schema(conn: &Connection) -> Result<i64> {
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     ensure!(
-        (27..=28).contains(&version),
+        (27..=29).contains(&version),
         "Unsupported library backup schema"
     );
     Ok(version)
 }
-fn quiet_database(conn: &Connection) -> Result<()> {
+pub(crate) fn quiet_database(conn: &Connection) -> Result<()> {
     // Match startup's non-tagging recovery guard, including accepted edits on
     // attention jobs. Completed physical publications can still need cleanup.
     let metadata_pending: bool = conn.query_row(
@@ -363,14 +395,18 @@ fn inventory(conn: &Connection, root: &Path) -> Result<BackupInventory> {
     #[cfg(test)]
     inventory_phase_tests::run_hook();
     let mut sources = BTreeMap::new();
-    let mut q = conn.prepare("SELECT path,source_hash FROM tracks ORDER BY id")?;
+    let mut q =
+        conn.prepare("SELECT path,source_hash FROM tracks WHERE path IS NOT NULL ORDER BY id")?;
     for row in q.query_map([], |r| {
-        Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, String>(1)?))
+        Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, Option<String>>(1)?))
     })? {
         let (path, hash) = row?;
         let observed = location(&bytes_path(&path)?)?;
         ensure!(
-            observed.kind == "missing" || observed.sha256.as_deref() == Some(hash.as_str()),
+            observed.kind == "missing"
+                || hash
+                    .as_deref()
+                    .is_none_or(|hash| observed.sha256.as_deref() == Some(hash)),
             "A source file changed since its saved preparation. Reprepare it before using this backup"
         );
         sources.insert(path, observed);
@@ -798,7 +834,7 @@ fn preparation_inventory(conn: &Connection, locations: &mut OrganizationLocation
     // Old proofs after an unrelated edit stay historical; they grant no authority.
     let mut query = conn.prepare(
         "SELECT c.input_proof_json,c.input_json,t.path,t.source_hash,t.path_revision,t.metadata_revision
-         FROM curation_tracks c JOIN tracks t ON t.id=c.track_id WHERE c.input_proof_json IS NOT NULL",
+         FROM curation_tracks c JOIN tracks t ON t.id=c.track_id WHERE c.input_proof_json IS NOT NULL AND t.path IS NOT NULL AND t.source_hash IS NOT NULL",
     )?;
     #[derive(Deserialize)]
     struct Proof {
@@ -1156,11 +1192,12 @@ struct PreparedSnapshot {
 fn prepare_snapshot(
     conn: &Connection,
     root: &Path,
+    installation: &Path,
     destination: &Path,
 ) -> Result<PreparedSnapshot> {
     settled(conn, root)?;
     let schema = schema(conn)?;
-    let installation_id = installation_id(root, true)?;
+    let installation_id = installation_id(installation, true)?;
     let (sources, models, resources, organization) = inventory(conn, root)?;
     fs::create_dir_all(destination)?;
     ensure!(
@@ -1186,8 +1223,9 @@ fn prepare_snapshot(
         application: "CueRithm".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         platform: std::env::consts::OS.into(),
-        installation: root_identity(root)?,
+        installation: root_identity(installation)?,
         installation_id,
+        data_directory: Some(path_bytes(root)),
         created,
         schema,
         database_sha256: cuerithm_media::file_sha256(&temp.path().join("library.sqlite"))?,
@@ -1217,16 +1255,31 @@ fn publish_snapshot(
     sync_directory(destination)?;
     preview(&path, &prepared.manifest)
 }
-fn snapshot(conn: &Connection, root: &Path, destination: &Path) -> Result<LibraryBackupPreview> {
-    publish_snapshot(prepare_snapshot(conn, root, destination)?, destination)
+fn snapshot(
+    conn: &Connection,
+    root: &Path,
+    installation: &Path,
+    destination: &Path,
+) -> Result<LibraryBackupPreview> {
+    publish_snapshot(
+        prepare_snapshot(conn, root, installation, destination)?,
+        destination,
+    )
 }
 fn preview(path: &Path, m: &Manifest) -> Result<LibraryBackupPreview> {
+    let conn = readonly(&path.join("library.sqlite"))?;
+    let (tracks, unresolved): (u64, u64) = conn.query_row(
+        "SELECT COUNT(*),COUNT(*) FILTER(WHERE path IS NULL) FROM tracks",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
     Ok(LibraryBackupPreview {
         path: path.to_path_buf(),
         database_sha256: m.database_sha256.clone(),
         created: m.created,
-        tracks: m.sources.len() as u64,
-        missing_sources: m.sources.iter().filter(|s| s.kind == "missing").count() as u64,
+        tracks,
+        missing_sources: m.sources.iter().filter(|s| s.kind == "missing").count() as u64
+            + unresolved,
         schema: m.schema,
         music_included: false,
     })
@@ -1273,8 +1326,9 @@ fn inspect(bundle: &Path, root: &Path, current_schema: i64) -> Result<(Manifest,
     ensure!(integrity == "ok", "Backup SQLite integrity check failed");
     let violations: bool = conn.prepare("PRAGMA foreign_key_check")?.exists([])?;
     ensure!(!violations, "Backup has broken library references");
-    settled(&conn, root)?;
-    let (sources, models, resources, organization) = inventory(&conn, root)?;
+    let data = snapshot_data_directory(&m, root)?;
+    settled(&conn, &data)?;
+    let (sources, models, resources, organization) = inventory(&conn, &data)?;
     ensure!(
         m.sources == sources,
         "Backup source locations have changed. Music files and tag edits are not restored"
@@ -1346,7 +1400,7 @@ impl Library {
     fn revalidate_backup_database(
         &self,
         captured: &CapturedDatabase,
-    ) -> Result<std::sync::MutexGuard<'_, Connection>> {
+    ) -> Result<crate::store::ConnectionGuard<'_>> {
         let conn = self.conn()?;
         ensure!(
             captured.stamp == DatabaseStamp::read(&conn)?,
@@ -1375,7 +1429,12 @@ impl Library {
             .lock()
             .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
-        let prepared = prepare_snapshot(&captured.connection, self.data_dir(), destination)?;
+        let prepared = prepare_snapshot(
+            &captured.connection,
+            self.data_dir(),
+            self.installation_dir(),
+            destination,
+        )?;
         let _current = self.revalidate_backup_database(&captured)?;
         publish_snapshot(prepared, destination)
     }
@@ -1400,7 +1459,7 @@ impl Library {
             .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
         settled(&captured.connection, self.data_dir())?;
-        let (manifest, _) = inspect(bundle, self.data_dir(), captured.stamp.schema)?;
+        let (manifest, _) = inspect(bundle, self.installation_dir(), captured.stamp.schema)?;
         let _current = self.revalidate_backup_database(&captured)?;
         preview(bundle, &manifest)
     }
@@ -1409,8 +1468,16 @@ impl Library {
         bundle: &Path,
         sha256: &str,
     ) -> Result<LibraryRestoreRequest> {
-        let root = self.data_dir();
-        let _sync = sync_lease(root)?;
+        let root = self.installation_dir();
+        let _activation = file_lease(
+            &root.join("generation-switch.lock"),
+            "Another library switch is running",
+        )?;
+        ensure!(
+            !root.join("library-activation.json").exists(),
+            "Finish or cancel the scheduled library activation first"
+        );
+        let _sync = sync_lease(self.data_dir())?;
         let _organization = self
             .inner
             .organization_gate
@@ -1429,7 +1496,7 @@ impl Library {
             .lock()
             .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
-        settled(&captured.connection, root)?;
+        settled(&captured.connection, self.data_dir())?;
         let schema = captured.stamp.schema;
         let (m, _) = inspect(bundle, root, schema)?;
         ensure!(
@@ -1473,8 +1540,8 @@ impl Library {
         Ok(request)
     }
     pub fn retry_library_restore(&self) -> Result<LibraryRestoreRequest> {
-        let root = self.data_dir();
-        let _sync = sync_lease(root)?;
+        let root = self.installation_dir();
+        let _sync = sync_lease(self.data_dir())?;
         let _organization = self
             .inner
             .organization_gate
@@ -1493,7 +1560,7 @@ impl Library {
             .lock()
             .map_err(|_| anyhow::anyhow!("Artifact cleanup gate interrupted"))?;
         let captured = self.capture_backup_database()?;
-        settled(&captured.connection, root)?;
+        settled(&captured.connection, self.data_dir())?;
         let mut request = pending(root)?.context("No library restore is scheduled")?;
         ensure!(
             !request.mutation_started,
@@ -1511,18 +1578,18 @@ impl Library {
         Ok(request)
     }
     pub fn pending_library_restore(&self) -> Result<Option<LibraryRestoreRequest>> {
-        pending(self.data_dir())
+        pending(self.installation_dir())
     }
     pub fn cancel_library_restore(&self) -> Result<()> {
         let _sync = sync_lease(self.data_dir())?;
-        let Some(intent) = pending(self.data_dir())? else {
+        let Some(intent) = pending(self.installation_dir())? else {
             return Ok(());
         };
         ensure!(
             !intent.mutation_started && intent.pre_restore.is_none(),
             "A started restore requires recovery; its evidence cannot be cancelled"
         );
-        let directory = managed_directory(self.data_dir())?;
+        let directory = managed_directory(self.installation_dir())?;
         let staged = directory.join(&intent.id);
         match fs::symlink_metadata(&staged) {
             Ok(meta) => {
@@ -1587,6 +1654,13 @@ pub(crate) fn ensure_library_open_safe(root: &Path) -> Result<()> {
 /// An error after durable mutation intent must stop startup for recovery.
 pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreStartup> {
     let root = database.parent().context("Library has no data directory")?;
+    apply_pending_in_installation(database, root, &|_| Ok(()))
+}
+pub(crate) fn apply_pending_in_installation(
+    database: &Path,
+    root: &Path,
+    activate: &dyn Fn(&Path) -> Result<()>,
+) -> Result<LibraryRestoreStartup> {
     let Some(mut request) = pending(root)? else {
         return Ok(LibraryRestoreStartup::NoPending);
     };
@@ -1601,19 +1675,61 @@ pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreSt
         );
         return Ok(LibraryRestoreStartup::BlockedBeforeMutation { request, reason });
     }
+    let directory = managed_directory(root)?;
+    let target_data = (|| -> Result<PathBuf> {
+        regular(
+            &directory.join(&request.id).join("manifest.json"),
+            MAX_MANIFEST,
+        )?;
+        let staged: Manifest = serde_json::from_slice(&fs::read(
+            directory.join(&request.id).join("manifest.json"),
+        )?)?;
+        ensure!(
+            staged.database_sha256 == request.database_sha256,
+            "Staged restore identity changed"
+        );
+        snapshot_data_directory(&staged, root)
+    })();
+    let data = match target_data {
+        Ok(data) => data,
+        Err(error) if !request.mutation_started => {
+            let reason = format!("{error:#}");
+            request.blocked_reason = Some(reason.clone());
+            atomic_json(&directory.join("pending.json"), &request)?;
+            return Ok(LibraryRestoreStartup::BlockedBeforeMutation { request, reason });
+        }
+        Err(error) => return Err(error.context("Restore recovery data directory is unavailable")),
+    };
+    let target = data.join(
+        database
+            .file_name()
+            .context("Library has no database name")?,
+    );
+    // A restore to a retained generation must also close the running generation.
+    let _active_lease = if database.canonicalize()? != target.canonicalize()? {
+        let mut lock = database.as_os_str().to_owned();
+        lock.push(".lock");
+        Some(file_lease(
+            Path::new(&lock),
+            "Close CueRithm before restoring this library",
+        )?)
+    } else {
+        None
+    };
+    let database = target.as_path();
     let mut lock = database.as_os_str().to_owned();
     lock.push(".lock");
     let _lease = file_lease(
         Path::new(&lock),
         "Close CueRithm before restoring this library",
     )?;
-    let _sync = sync_lease(root)?;
+    let _sync = sync_lease(&data)?;
     regular(database, MAX_DATABASE)?;
     let mut current = Connection::open(database)?;
     current.busy_timeout(Duration::from_secs(5))?;
     let directory = managed_directory(root)?;
     let validation = (|| -> Result<(Connection, PathBuf)> {
-        settled(&current, root)?;
+        settled(&current, &data)?;
         let version = schema(&current)?;
         let (manifest, source) = inspect(&directory.join(&request.id), root, version)?;
         ensure!(
@@ -1643,7 +1759,7 @@ pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreSt
             let temporary = tempfile::Builder::new()
                 .prefix(".pre-restore-")
                 .tempdir_in(&directory)?;
-            let saved = snapshot(&current, root, temporary.path())?;
+            let saved = snapshot(&current, &data, root, temporary.path())?;
             let name = saved
                 .path
                 .file_name()
@@ -1677,6 +1793,7 @@ pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreSt
     copy_connection(&source, &mut current)
         .context("Library restore stopped during database update; pre-restore snapshot retained")?;
     current.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+    activate(&data)?;
     atomic_json(
         &directory.join(format!("applied-{}.json", request.id)),
         &request,
@@ -1692,6 +1809,42 @@ pub fn apply_pending_library_restore(database: &Path) -> Result<LibraryRestoreSt
 mod inventory_phase_tests {
     use super::*;
     use std::cell::RefCell;
+    #[test]
+    fn generation_restore_retries_activation_without_losing_recovery() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = crate::LibraryGenerations::new(&temp.path().join("app")).unwrap();
+        let legacy = manager.open_active().unwrap();
+        let backup = legacy
+            .create_library_backup(&temp.path().join("backups"))
+            .unwrap();
+        drop(legacy);
+        let stage = manager.create_staging().unwrap();
+        drop(Library::open(&stage.database).unwrap());
+        let seal = manager.seal(&stage.id).unwrap();
+        manager.schedule(&stage.id, "legacy", &seal).unwrap();
+        let active = manager.open_active().unwrap();
+        active
+            .stage_library_restore(&backup.path, &backup.database_sha256)
+            .unwrap();
+        assert!(
+            apply_pending_in_installation(&stage.database, manager.root(), &|_| Ok(())).is_err()
+        );
+        assert!(!pending(manager.root()).unwrap().unwrap().mutation_started);
+        drop(active);
+        let failure = apply_pending_in_installation(&stage.database, manager.root(), &|_| {
+            anyhow::bail!("simulated activation interruption")
+        });
+        assert!(failure.is_err());
+        let intent = pending(manager.root()).unwrap().unwrap();
+        assert!(intent.mutation_started);
+        assert!(intent.pre_restore.as_ref().unwrap().is_dir());
+        assert!(Library::open_in_installation(&stage.database, manager.root()).is_err());
+        let recovered = manager.open_active().unwrap();
+        assert_eq!(manager.active_id().unwrap(), "legacy");
+        assert!(recovered.pending_library_restore().unwrap().is_none());
+        recovered.inspect_library_backup(&backup.path).unwrap();
+        assert!(intent.pre_restore.unwrap().is_dir());
+    }
     thread_local! {
         static HOOK: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
     }
@@ -1711,6 +1864,39 @@ mod inventory_phase_tests {
         fs::write(&path, b"authored source bytes").unwrap();
         library.conn().unwrap().execute("INSERT INTO tracks(id,path,title,source_hash,state,created,updated) VALUES('fixture',?1,'Authored',?2,'ready',0,0)",rusqlite::params![path_bytes(&path),cuerithm_media::file_sha256(&path).unwrap()]).unwrap();
         (directory, library)
+    }
+    #[test]
+    fn schema_29_local_recovery_snapshot_retains_unresolved_records() {
+        let (directory, library) = fixture();
+        library.conn().unwrap().execute("INSERT INTO tracks(id,path,source_hash,title,state,created,updated) VALUES('unresolved',NULL,NULL,'Offline imported track','ready',0,0)",[]).unwrap();
+        let saved = library
+            .create_library_backup(&directory.path().join("backups"))
+            .unwrap();
+        assert_eq!(saved.schema, 29);
+        assert_eq!(saved.tracks, 2);
+        assert_eq!(saved.missing_sources, 1);
+        let inspected = library.inspect_library_backup(&saved.path).unwrap();
+        assert_eq!(inspected.tracks, 2);
+        library
+            .stage_library_restore(&saved.path, &saved.database_sha256)
+            .unwrap();
+        let database = library.data_dir().join("library.sqlite");
+        drop(library);
+        apply_pending_library_restore(&database).unwrap();
+        let reopened = Library::open(&database).unwrap();
+        assert_eq!(reopened.counts().unwrap().tracks, 2);
+        assert!(
+            reopened
+                .local_track_binding("unresolved")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            reopened
+                .source_hash_optional("unresolved")
+                .unwrap()
+                .is_none()
+        );
     }
     fn query_during_inventory(library: &Library) {
         let library = library.clone();

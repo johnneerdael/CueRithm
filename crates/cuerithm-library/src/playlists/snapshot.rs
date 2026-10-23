@@ -484,12 +484,12 @@ impl Library {
         need_art &= inspect_files;
         need_wave &= inspect_files;
         need_rating &= inspect_files;
-        let mut statement=tx.prepare("SELECT id,path,title,artist,album,genre,state,archived,analysis_json,metadata_json,native_metadata_json,created,updated,(SELECT json FROM cue_revisions c WHERE c.track_id=tracks.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1) FROM tracks ORDER BY sort_title,id")?;
+        let mut statement=tx.prepare("SELECT id,path,title,artist,album,genre,state,archived,CASE WHEN analysis_status='stale' THEN NULL ELSE analysis_json END,metadata_json,native_metadata_json,created,updated,(SELECT json FROM cue_revisions c WHERE c.track_id=tracks.id ORDER BY c.created DESC,c.rowid DESC LIMIT 1),musical_key,bpm,energy,duration,(SELECT json FROM accepted_musical_revisions m WHERE m.id=tracks.selected_musical_revision AND m.track_id=tracks.id) FROM tracks ORDER BY sort_title,id")?;
         let rows = statement
             .query_map([], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
-                    r.get::<_, Vec<u8>>(1)?,
+                    r.get::<_, Option<Vec<u8>>>(1)?,
                     r.get::<_, String>(2)?,
                     r.get::<_, String>(3)?,
                     r.get::<_, String>(4)?,
@@ -502,6 +502,11 @@ impl Library {
                     r.get::<_, i64>(11)?,
                     r.get::<_, i64>(12)?,
                     r.get::<_, Option<String>>(13)?,
+                    r.get::<_, Option<String>>(14)?,
+                    r.get::<_, Option<f64>>(15)?,
+                    r.get::<_, Option<u8>>(16)?,
+                    r.get::<_, Option<f64>>(17)?,
+                    r.get::<_, Option<String>>(18)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -554,6 +559,11 @@ impl Library {
             created,
             updated,
             cue_json,
+            accepted_key,
+            accepted_bpm,
+            accepted_energy,
+            accepted_duration,
+            accepted_musical,
         ) in rows
         {
             ensure!(
@@ -600,6 +610,14 @@ impl Library {
                 .fields
                 .insert("dateModified".into(), FieldValue::Date(updated));
             let media = serde_json::from_str::<cuerithm_media::MediaInfo>(&info);
+            if media.is_err()
+                && let Ok(fields) =
+                    serde_json::from_str::<BTreeMap<String, serde_json::Value>>(&info)
+            {
+                for (key, value) in fields {
+                    row.track.fields.insert(key, metadata_value(&value));
+                }
+            }
             if let Ok(info) = &media {
                 for (key, value) in info.columns() {
                     let typed = metadata_value(&value);
@@ -838,7 +856,55 @@ impl Library {
                     }
                 }
             }
-            match crate::bytes_path(&path) {
+            // Measured values remain authoritative for ordinary analyzed tracks.
+            // Nullable/imported/stale records use their accepted scalar projection;
+            // an explicitly selected musical revision may override measured data.
+            if !matches!(&parsed, Some(Ok(_))) || accepted_musical.is_some() {
+                for (field, value) in [
+                    ("bpm", accepted_bpm),
+                    ("energy", accepted_energy.map(f64::from)),
+                    ("duration", accepted_duration),
+                ] {
+                    if let Some(value) = value {
+                        row.track
+                            .fields
+                            .insert(field.into(), FieldValue::Number(value));
+                        row.unavailable.remove(field);
+                    }
+                }
+                if let Some(key) = accepted_key {
+                    row.track.key = Some(key.clone());
+                    row.track.fields.insert("key".into(), FieldValue::Text(key));
+                    row.unavailable.remove("key");
+                }
+            }
+            if let Some(json) = accepted_musical {
+                let musical: crate::AcceptedMusicalData = serde_json::from_str(&json)?;
+                row.track.tempos = musical.tempo_markers.iter().map(|m| m.bpm).collect();
+                row.track.cues = musical
+                    .cues
+                    .into_iter()
+                    .map(|c| SmartCue {
+                        label: c.name,
+                        color: c.color,
+                        kind: match c.kind {
+                            crate::CueKind::Loop => CueKind::Loop,
+                            _ => CueKind::Cue,
+                        },
+                        memory: c.memory,
+                        active_loop: c.active_loop
+                            && c.end_seconds.is_some_and(|end| end > c.start_seconds),
+                    })
+                    .collect();
+                for field in ["cuepoints", "cues", "tempomarkers", "tempos"] {
+                    row.unavailable.remove(field);
+                }
+            }
+            match path
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("Track has no local file binding"))
+                .and_then(crate::bytes_path)
+            {
                 Ok(path) => {
                     row.track.fields.insert(
                         "location".into(),

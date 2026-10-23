@@ -2,7 +2,7 @@
 
 <p class="lead">Undo a duplicate merge, restore files you removed as unused, and retry anything that was interrupted. All of it happens in History &amp; recovery, and the history survives restarts.</p>
 
-**Before you start:** you need a merge from [Find and merge duplicate tracks](find-duplicates.md) or a removal from [Find and remove unused files](clean-up-unused-files.md) to undo. Scans change nothing, and **Missing & broken** has no action, so neither has anything to undo.
+**Before you start:** you need a merge from [Find and merge duplicate tracks](find-duplicates.md) or a removal from [Find and remove unused files](clean-up-unused-files.md) to undo. Scans change nothing. A [relocation](find-missing-files.md#undo-relocation) has its own **Previous relocations** list and Undo controls in the reconnection workspace. A [portable restore](restore-library.md#go-back) uses retained-library recovery instead.
 
 ## Open History & recovery { #open }
 

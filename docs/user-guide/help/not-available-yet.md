@@ -20,15 +20,15 @@ Native playlist export is part of [Send your library to DJ software](../sync/ind
 
 ### Variable-tempo grids and downbeat detection { #variable-tempo }
 
-Each track has one BPM and one first beat. A live drummer or a tempo change drifts away from the beat lines. You can correct the saved constant grid ([Fix a wrong beatgrid](../analysis/corrections/fix-the-beatgrid.md)), but there is no variable grid. The detector searches 98 to 195 BPM and folds other tempos into that range, with no setting to change it ([My key or BPM differs from another app](troubleshooting/key-or-bpm-differs.md)).
+CueRithm’s own analysis and constant-grid editor use one BPM and one first beat. A live drummer or a tempo change drifts away from the beat lines. You can correct the saved constant grid ([Fix a wrong beatgrid](../analysis/corrections/fix-the-beatgrid.md)), but there is no variable-tempo detector or general variable-grid editor. A [supported Lexicon backup](../files/library/restore-library.md#lexicon) retains its source tempo markers; unsupported DJ-sync timing is refused rather than flattened. The detector searches 98 to 195 BPM and folds other tempos into that range, with no setting to change it ([My key or BPM differs from another app](troubleshooting/key-or-bpm-differs.md)).
 
 ### Per-segment energy and energy-labelled cues { #per-segment-energy }
 
 Deliberately not offered. CueRithm rates the whole track once, from 1 to 10 ([How is energy rated?](../how-it-works/energy.md)).
 
-### Plays, last played and danceability { #plays-danceability }
+### Playback-history tools and danceability analysis { #plays-danceability }
 
-Deliberately excluded.
+CueRithm does not predict danceability or provide a playback-history dashboard. Supported Lexicon imports can preserve source play counts, dates and danceability provenance; those imported values are not new CueRithm measurements.
 
 ### Other OneTagger workflows { #other-onetagger }
 
@@ -66,11 +66,11 @@ There is no Intel Mac build. Windows and Linux builds are unsigned, and their na
 
 ### Older versions cannot open a newer library { #library-schema }
 
-The library schema is version 28. An older CueRithm refuses a library that a newer one has opened, with `Library schema is newer than this application`, and there is no downgrade. [Back up your library](../files/library/back-up-library.md) before you update.
+The library schema is version 29. An older CueRithm refuses a library that a newer one has opened, with `Library schema is newer than this application`, and there is no downgrade. [Back up your library](../files/library/back-up-library.md) before you update.
 
 ### Measured agreement, not accuracy { #accuracy-not-measured }
 
-Published figures measure agreement with reference tools on the owner's own library. Held-out accuracy, real-music energy agreement and large-library performance are not measured ([How accurate is it?](../how-it-works/accuracy.md)).
+Published figures measure agreement with reference tools on the owner's own library. Held-out accuracy, real-music energy agreement and large-library analysis performance are not measured ([How accurate is it?](../how-it-works/accuracy.md)).
 
 ### How much of each DJ program was tested { #dj-program-checks }
 
@@ -80,55 +80,35 @@ Mixxx has not been run on Windows. Linux acceptance covers Debian's 2.5.0 packag
 
 CueRithm does not update itself. Download new releases from the [releases page](https://github.com/johnneerdael/CueRithm/releases/latest) ([What's new in CueRithm](../get-started/whats-new.md)).
 
-## Missing and moved files { #missing-and-moved-files }
+## Relocation and portable libraries { #missing-and-moved-files }
 
-In CueRithm 0.1.14 a track is known by the location of its file. This has four consequences:
-
-- A file you move or rename outside CueRithm leaves its track pointing at nothing.
-- Moves inside a watch folder are not tracked. The watch folder adds the moved file again as a new track.
-- **Maintenance** → **Missing & broken** only lists unavailable files. The screen says *Relocating files is not available in this maintenance screen.* There is no action to relocate a track or to remove one from the library.
-- The **Duplicates** scan can list a missing track beside its present twin. Never choose a missing track as the keeper.
-
-What you can do today: move the files back, or archive the tracks you no longer want. Archiving never deletes a file, and an archived track leaves Tracks and later Missing & broken scans. [I moved or renamed my files](troubleshooting/files-moved.md) shows the symptoms, and [Find missing, moved or broken files](../files/library/find-missing-files.md) has the repair steps. [Move or rename files without breaking the library](../files/move-files.md) explains how to avoid the problem.
-
-## In development { #in-development }
-
-Nothing in this section is available in a release. Work on it is under way, and no delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
-
-### Missing and moved files { #in-development-missing-files }
-
-Changes for the four problems described under [Missing and moved files](#missing-and-moved-files) are in development:
-
-- **Missing & broken** has no action to relocate a track or to remove a stale one. Tools for both are in development.
-- Moves inside a watch folder are not tracked. Following them, so that a move no longer leaves a missing track and a new twin, is in development.
-- Reconnecting moved music is in development (see below).
-- The **Duplicates** scan can pair a missing track with its present twin. Keeping missing files out of it is in development.
-
-Until these ship, the guide describes the released behaviour.
-
-### Bring an existing DJ library into CueRithm { #dj-library-import }
-
-Full DJ-library import is being developed, so that an existing managed database can become the starting point for managing music in CueRithm. The intended workflow covers the import options that Lexicon offers:
-
-- Import a whole library, or selected playlists and their tracks.
-- Merge libraries from different DJ applications, updating existing entries and adding new ones.
-- Replace a library when starting over is the intention.
-- Choose which fields to import, including cues, with BPM and beatgrids selectable separately.
-- Back up the current library before importing.
-
-Coverage is planned across the DJ software destinations and Mixxx. DJ.Studio is a possible additional integration that is still under consideration. This work extends today's one-way sync from CueRithm to DJ software.
+Reviewed [Relocate and Find Lost Tracks](../files/library/find-missing-files.md#relocate) reconnect existing tracks to moved files without moving audio or automatically preparing them again. Moves inside the same watch folder are followed when the file contents identify one missing ready track and one new file. Ambiguous or edited files need review; choose the complete survivor when a destination is already occupied.
 
 ### Reconnect moved music { #reconnect-moved-music }
 
-Planned relocation tools will reconnect a single track, search a chosen folder and its subfolders for missing tracks, or replace a music-folder root or drive letter across the library. You will review matches and replacements, and tracks will keep their identities, cues and playlist membership. This complements the organizer, which already renames and moves files from within CueRithm.
+Choose **Relocate** for selected tracks, or **Find Lost Tracks** in **Maintenance → Missing & broken** for a root or drive change. Review candidates, replacements and collisions. Guarded Undo is available in **Previous relocations**. [The reconnection guide](../files/library/find-missing-files.md#find-lost-tracks) covers preflight backups and unavailable drives.
 
 ### Portable backup, restore and Lexicon migration { #portable-backup }
 
-A **`.cuerithm` portable backup** will hold library data without music files or disposable caches. You will restore it on macOS, Windows or Linux and map the old music folders to their places on the new computer. Unresolved music references will stay visible in the library and playlists.
+[Library backup](../files/library/back-up-library.md#create) creates metadata-only `.cuerithm` archives. [Restore](../files/library/restore-library.md#connect-folders) maps source music roots explicitly, stages a replacement and restarts into it, retaining the previous library. Unresolved tracks remain in the library and playlists. Music is copied separately.
 
-A separate **Lexicon backup ZIP import** is specified to bring over tracks, cues, tempo markers, the playlist tree and supported smart rules. The first migration creates a new library and keeps the current one for recovery. Merging independent libraries is outside that delivery, although the broader DJ-library import above includes merging as its own capability.
+The supported Lexicon backup profile is `lexicon-main-db-v26`. Import replaces a library; it does not merge independent libraries. Other versions or mismatched schemas are refused. Imported cues and musical values remain separate from a completed CueRithm analysis.
 
-A portable restore will replace the active library, with recovery available. Music has to be copied separately. Local library backup and restore, as described in [Restore your library from a backup](../files/library/restore-library.md), stays available while portable backups are developed.
+Synthetic format, path-flavour and scale tests do not establish every real-machine migration. Nine source/destination OS combinations, device playback and the original private Lexicon sample remain separate acceptance work. Check the [recorded verification scope](https://github.com/johnneerdael/CueRithm/blob/main/docs/development/relocation-portable-backups.md) and your download’s release notes.
+
+## In development { #in-development }
+
+The remaining capabilities below are separate from reviewed relocation and portable replacement. No delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
+
+### Moves outside watch folders { #in-development-missing-files }
+
+Automatic move tracking is limited to a single watch folder and exact, unambiguous content matches. Reconnect other moves through [Relocate](../files/library/find-missing-files.md#relocate). **Maintenance → Missing & broken** also offers reviewed removal of missing library records, with Undo in History & recovery; audio files are kept.
+
+Improvements to excluding unavailable tracks from duplicate candidate groups are also separate from relocation. Do not choose a missing file as a duplicate keeper; use the [reconnection workflow](../files/library/find-missing-files.md#repair).
+
+### Bring other DJ libraries into CueRithm { #dj-library-import }
+
+The supported Lexicon ZIP profile above is a replacement workflow. Broader DJ-library import is planned separately: selected playlists, merging independent libraries, choosing imported fields and additional source applications. Coverage across DJ destinations and Mixxx, with DJ.Studio under consideration, is not a promise that every source format can be imported now.
 
 ## Related
 
@@ -137,4 +117,4 @@ A portable restore will replace the active library, with recovery available. Mus
 - [Report a problem or ask for a feature](report-a-problem.md)
 - [Fix a problem](troubleshooting/index.md)
 
-<!-- verified: legacy about/roadmap.md (updated version: Not in the app, Known limitations, In development); coordinator messages on missing and moved files; README.md (Compatibility and validation, In development); docs/release-readiness.md (loop playback "seeks rather than looping", backup retention, platform acceptance); crates/cuerithm-library/src/store.rs (schema <= 28 check, migrations to 028); crates/cuerithm-media/src/decode.rs (64_000_000*8 byte cap, about 24 min); crates/cuerithm-autotag/src/config.rs (excluded tools: post_command, spotify, shazam, move_success/failed, LRC); apps/desktop/src-tauri/src/headless.rs and docs/automation.md (M3U8 command); apps/desktop (no updater in Cargo.toml/tauri.conf.json; playback.rs from_default_device; editor-fields.ts File key tag only; PlayerPanel.tsx no loop playback; TrackTable.tsx stages map lacks cleanup, so the raw word shows); MaintenanceBroken.tsx note text; maintenance/broken.rs (WHERE archived=0); store.rs set_archived; .github/workflows (arm64 macOS only, unsigned Windows/Linux). Plans in the In development section are quoted from the roadmap and are not implemented -->
+<!-- verified: apps/desktop/src/views/PortableBackup.tsx; Relocation.tsx; crates/cuerithm-library/src/store.rs (schema 29); backup/lexicon_stream.rs; maintenance/relocate.rs; docs/development/relocation-portable-backups.md. Unrelated limits retained from upstream guide; relocation/portable planned claims replaced with current source behaviour and explicit acceptance boundaries. -->

@@ -20,7 +20,7 @@ Begin with [Find and merge duplicate tracks](find-duplicates.md). It is the one 
 
     ---
 
-    See which tracks lost their file, why moved files show up twice and how to repair the library.
+    Find lost references and reconnect them while preserving the chosen track’s work.
 
     [:octicons-arrow-right-24: Find missing, moved or broken files](find-missing-files.md)
 
@@ -45,7 +45,10 @@ Begin with [Find and merge duplicate tracks](find-duplicates.md). It is the one 
 | Retry an operation that was interrupted | [Undo a merge or restore removed files](undo-maintenance.md#recover) |
 | Free disk space taken by retained originals | [Undo a merge or restore removed files](undo-maintenance.md#dispose) |
 | Save a dated copy of the library | [Back up your library](back-up-library.md) |
-| Put a saved copy back | [Restore your library from a backup](restore-library.md) |
+| Restore a portable archive or import a supported Lexicon ZIP | [Restore your library from a backup](restore-library.md#inspect) |
+| Connect old music folders on another computer | [Connect music folders](restore-library.md#connect-folders) |
+| Return to a retained library | [Go back to before the restore](restore-library.md#go-back) |
+| Reconnect moved tracks or replace a drive root | [Relocate and Find Lost Tracks](find-missing-files.md#relocate) |
 | Find the library on disk or see what takes space | [Where CueRithm keeps your data](where-data-lives.md) |
 
 ## How the tools work
@@ -55,11 +58,13 @@ Begin with [Find and merge duplicate tracks](find-duplicates.md). It is the one 
 | Tab | What it does | What it changes |
 |---|---|---|
 | **Duplicates** | Finds tracks that are the same recording | Archives the copies you do not keep and repoints playlists. Never deletes a music file |
-| **Missing & broken** | Lists tracks whose file is missing, unreadable or edited elsewhere | Nothing. It only reports |
+| **Missing & broken** | Reports missing or unreadable files; **Find Lost Tracks** reviews reconnection | Relocation changes reviewed library references and survivor membership, without moving audio |
 | **Unused files** | Lists files in a folder that no track uses | Removes the files you select, after a preview, keeping a copy for Restore |
 | **History & recovery** | Undo, Restore and retry for the tools above | Reverses or finishes their changes |
 
-Every tool follows the same rhythm. A scan reads your library and files and saves a report. You review the report and make choices. You preview exactly what will change. You apply it. Anything that changes your library or files can then be undone from **History & recovery**, while nothing relevant has changed since.
+Relocation has its own **Previous relocations** list and guarded Undo in the [reconnection workspace](find-missing-files.md#undo-relocation). Portable replacement has [retained-library recovery](restore-library.md#go-back), rather than replaying old file-write Undo journals.
+
+Every maintenance tool follows the same rhythm. A scan reads your library and files and saves a report. You review the report and make choices. You preview exactly what will change. You apply it. Anything that changes your library or files can then be undone from **History & recovery**, while nothing relevant has changed since.
 
 One operation runs at a time. A progress line shows what is happening, and **Cancel operation** stops it; the operation finishes cleanly first. If you leave the Maintenance screen, a running scan is cancelled. Reports and reviews are saved, so after a restart use **Reload saved report** or **Resume saved review**. A report goes stale when your library or files change; scan again.
 

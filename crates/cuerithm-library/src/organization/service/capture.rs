@@ -48,8 +48,8 @@ pub(super) struct FrozenPlan {
 }
 struct RowData {
     id: String,
-    path: Vec<u8>,
-    hash: String,
+    path: Option<Vec<u8>>,
+    hash: Option<String>,
     path_revision: u64,
     metadata_revision: u64,
     current_job: Option<String>,
@@ -99,7 +99,7 @@ impl Library {
                 Parent::reopen(&authority)?;
                 let root = authority.path.path()?;
                 let conn = self.conn()?;
-                let mut q=conn.prepare("SELECT id,path FROM tracks WHERE state='ready' AND archived=0 ORDER BY sort_title,id")?;
+                let mut q=conn.prepare("SELECT id,path FROM tracks WHERE state='ready' AND archived=0 AND path IS NOT NULL ORDER BY sort_title,id")?;
                 q.query_map([], |r| {
                     Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))
                 })?
@@ -141,7 +141,11 @@ impl Library {
             !row.archived && (row.state == "ready" || (allow_incoming && row.state == "incoming")),
             "Only eligible, non-archived tracks can be organized"
         );
-        let path = bytes_path(&row.path)?;
+        let path = bytes_path(
+            row.path
+                .as_deref()
+                .context("Local file is not linked; relocate the track before organization")?,
+        )?;
         ensure!(
             !cuerithm_organize::paths::is_within(&self.data_dir().canonicalize()?, &path),
             "Application cache files cannot be organized"
@@ -151,7 +155,7 @@ impl Library {
         let fingerprint =
             parent.fingerprint(Path::new(path.file_name().context("Missing source name")?))?;
         ensure!(
-            fingerprint.sha256 == row.hash,
+            Some(fingerprint.sha256.as_str()) == row.hash.as_deref(),
             "Source changed; prepare the track before organization"
         );
         let metadata: Metadata = if !needs_naming {
@@ -502,5 +506,115 @@ impl Library {
             )?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod portable_scan_tests {
+    use super::*;
+    #[test]
+    fn folder_scope_keeps_mapped_tracks_with_unbound_portable_entries() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let library = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let music = root.join("music");
+        std::fs::create_dir(&music).unwrap();
+        let source = music.join("mapped.flac");
+        std::fs::write(&source, b"opaque authored source").unwrap();
+        library
+            .enqueue(
+                std::slice::from_ref(&source),
+                library.settings().unwrap().revision,
+            )
+            .unwrap();
+        library
+            .conn()
+            .unwrap()
+            .execute("UPDATE tracks SET state='ready'", [])
+            .unwrap();
+        let mut native = Metadata::default();
+        native.fields.insert(F::Title, vec!["Mapped title".into()]);
+        native
+            .fields
+            .insert(F::Artist, vec!["Authored artist".into()]);
+        library
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE tracks SET native_metadata_json=?1",
+                [serde_json::to_string(&native).unwrap()],
+            )
+            .unwrap();
+        let mut unresolved = library.portable_tracks().unwrap().remove(0);
+        let bound_id = unresolved.id.clone();
+        unresolved.id = "unresolved".into();
+        unresolved.locator.id = "locator:unresolved".into();
+        unresolved.source_sha256 = None;
+        unresolved.metadata.insert(
+            "comment".into(),
+            serde_json::json!("Portable metadata survives"),
+        );
+        library
+            .import_portable_tracks(&[unresolved.clone()])
+            .unwrap();
+        let jobs = library.jobs().unwrap().len();
+        let registered = library.register_organization_root(music).unwrap();
+        let preview = library
+            .preview_organization(
+                OrganizationPreviewRequest {
+                    scope: OrganizationScope::Folder {
+                        root_id: registered.id,
+                        recursive: true,
+                    },
+                    settings: OrganizationSettings {
+                        mode: OrganizationSettingMode::RenameInPlace,
+                        ..Default::default()
+                    },
+                },
+                &CancellationToken::default(),
+            )
+            .unwrap();
+        let rows = library
+            .organization_preview_page(&preview.id, 0, 100)
+            .unwrap();
+        assert_eq!(rows.total, 1);
+        assert_eq!(rows.rows[0].track_id, bound_id);
+        assert_ne!(rows.rows[0].outcome, "blocked", "{:?}", rows.rows[0].reason);
+        let selected = library
+            .preview_organization(
+                OrganizationPreviewRequest {
+                    scope: OrganizationScope::Tracks {
+                        track_ids: vec!["unresolved".into()],
+                    },
+                    settings: OrganizationSettings {
+                        mode: OrganizationSettingMode::RenameInPlace,
+                        ..Default::default()
+                    },
+                },
+                &CancellationToken::default(),
+            )
+            .unwrap();
+        let selected_rows = library
+            .organization_preview_page(&selected.id, 0, 100)
+            .unwrap();
+        assert_eq!(selected_rows.rows[0].outcome, "blocked");
+        assert!(
+            selected_rows.rows[0]
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("Local file is not linked")
+        );
+        assert_eq!(library.local_track_binding("unresolved").unwrap(), None);
+        let after = library
+            .portable_tracks()
+            .unwrap()
+            .into_iter()
+            .find(|t| t.id == "unresolved")
+            .unwrap();
+        assert_eq!(after.metadata, unresolved.metadata);
+        assert_eq!(after.locator, unresolved.locator);
+        assert_eq!(library.jobs().unwrap().len(), jobs);
+        assert_eq!(std::fs::read(source).unwrap(), b"opaque authored source");
     }
 }

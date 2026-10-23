@@ -1,66 +1,82 @@
 # Restore your library from a backup
 
-<p class="lead">Replace your library's current playlists, cues, analysis and settings with a saved backup. The restore runs the next time CueRithm starts, and your current library is kept first. Plan about five minutes plus a restart.</p>
+<p class="lead">Restore a portable library, import a supported Lexicon backup or return to a retained library. Review the contents and music-folder mappings first; activation then restarts CueRithm.</p>
 
-**Before you start:** you need a backup made by [Back up your library](back-up-library.md) on this computer, with the same CueRithm version. Restore replaces the library's records only. It does not touch music files, undo tag edits written into them, or change anything in DJ software.
-
-!!! warning "Gotcha"
-    Everything you did in CueRithm after the backup is replaced: tracks added, playlists changed, settings and presets edited. CueRithm saves your current library as a pre-restore backup first, so you can go back; see [Go back to before the restore](#go-back).
+**Before you start:** keep a separate copy of your music. A `.cuerithm` archive holds library data only. Restore replaces the active library and retains the current one for [recovery](#go-back); it does not merge their later edits or change files in DJ software.
 
 ## Check the backup { #inspect }
 
 1. Choose **Library backup** under TOOLS in the sidebar.
-2. Select **Inspect backup folder**.
-3. In the picker (*Select a CueRithm backup folder*), choose the dated backup folder itself, the one named `CueRithm-` followed by a time stamp. Do not choose the folder that contains it.
+2. For a Lexicon import, check **Lexicon timestamp timezone** before inspecting. Use the time zone that should interpret source dates without an explicit offset.
+3. Select **Inspect backup or Lexicon ZIP** and choose the `.cuerithm` file or Lexicon backup ZIP.
+4. Read **Restore portable library** or **Import Lexicon library**, its profile, counts, **Compatibility notes** and **Review excluded or unsupported data**.
 
-**Restore preview** appears with the backup's date, a track count such as *26 tracks*, one of two messages, and the backup's path:
+Inspection checks the archive before replacing anything. Corrupt files, unsupported required features, invalid references and unsupported Lexicon schemas are refused. [Back up your library](back-up-library.md#create) if you need a fresh portable copy first.
 
-- *Music locations and retained recovery files match this backup.* Every music file is where and what the backup expects.
-- *14 source files were unavailable when saved and remain unavailable.* Those files were already missing when the backup was made, and they must still be missing.
+### Import a Lexicon backup { #lexicon }
 
-Inspecting runs every check a restore runs. If it fails, an error message names the reason and no restore button appears. See [When a restore is blocked](#blocked).
+The supported profile is `lexicon-main-db-v26`, a backup ZIP containing its root `main.db`. A version number alone is not a compatibility promise: the required schema must match too. The ZIP and the installed Lexicon application remain unchanged.
+
+Tracks, accepted musical values, signed cue times, tempo markers, playlist folders and memberships, custom tags and supported smart definitions are preserved. An unsupported smart definition remains disabled with its source data retained. Imported streaming references remain unavailable for local playback.
+
+Imported values are accepted library data, not a claim that CueRithm has analysed the audio. Import does not enqueue preparation or replace those cues. [Analyze again](../../analysis/analyze-again.md) is a separate, explicit action. Imported variable-tempo data is retained; a DJ sync refuses timing it cannot represent instead of flattening it.
+
+Merging libraries and importing arbitrary DJ databases are separate work. See [What is still planned](../../help/not-available-yet.md#dj-library-import) for that distinction.
+
+## Connect music folders { #connect-folders }
+
+Under **Connect music folders**, each source root shows its original path and track count. Select **Choose folder** beside it and choose that music subtree on this computer. For example, map a source `D:/Music` to the folder that now contains the same relative albums and files. Copy the audio yourself before doing this.
+
+Leave a destination empty (**Keep unresolved**) when a drive is offline or you have not copied those files. The metadata, cues and playlists stay in the library. Foreign Windows drive and network paths are preserved as source references; they do not become local paths automatically.
+
+CueRithm verifies candidate files before binding them. Case collisions, unsupported names, changed known file hashes, unreadable files or unsafe links leave affected tracks unresolved with a warning. Use [Relocate](find-missing-files.md#relocate) later for individual files; see [When a whole drive is missing](find-missing-files.md#drive) before substituting another location.
 
 ## Schedule the restore { #schedule }
 
-1. Read the line *Your current library is kept as a pre-restore backup. This restore is applied before the library opens on your next launch.*
-2. Tick *Replace my current preparation state with this backup on the next launch.*
-3. Select **Restore on next launch**.
+1. Read the active library identifier under **Replace and retain**.
+2. If exclusions or unsupported data are listed, review them and tick **I accept these compatibility losses.**
+3. Tick **Replace this active library with the reviewed backup and restart CueRithm.**
+4. Select **Restore and restart CueRithm**.
 
-The panel changes to **Restore scheduled**. While a restore is scheduled, **Create backup** and **Inspect backup folder** are off. To change your mind, select **Cancel scheduled restore** at any time before you restart. It removes the copy CueRithm staged.
+A new library is validated and staged before the restart. If CueRithm asks you to review unsaved drafts, finish that review. Cancelling the restart cancels the pending replacement and keeps the current library active.
 
 ## Apply it { #apply }
 
-Finish anything that is running, quit CueRithm completely and open it again. During start-up, before the library opens, CueRithm checks the files again, saves your current library as a pre-restore backup, and swaps in the backup's records. Then it opens as normal with the restored library.
+The restart closes the current library before opening the staged one. The previous library is retained. After activation, check the restored and unresolved counts, [preview a connected track](../../analysis/preview-a-track.md), and review [playlists](../../playlists/edit-playlist-tracks.md).
 
-If any check fails at that point, CueRithm opens your current library unchanged and keeps the request on screen. Nothing is retried on its own.
+Automatic tagging, cleanup, watch-folder bindings and external DJ writes start disabled. Configure them deliberately after checking the restored library. Incoming intent can be preserved without creating runnable preparation jobs.
 
 ## When a restore is blocked { #blocked }
 
-A blocked request shows **Restore blocked**, the reason, and *Your current library was left unchanged. Fix the reported file consistency problem and retry, or cancel this restore.* Choose **Retry on next launch** once you have fixed the cause, or **Cancel scheduled restore** to carry on with your current library.
+| What happens | What to do |
+|---|---|
+| Archive damage, invalid data, an unsupported profile or a resource limit is reported | Use another intact copy or a supported backup. Do not edit archive internals |
+| The source archive or current library changed after inspection | Inspect again and repeat the review |
+| A chosen folder cannot supply a verified file | Review the warning, keep the track unresolved and [reconnect it separately](find-missing-files.md#relocate) |
+| Writers cannot stop, storage is unavailable or staging fails | Finish the reported work or free space, then retry; the current library remains active |
+| Start-up cannot validate the proposed replacement | CueRithm retains or returns to the previous validated library; keep the data folder intact and [report the error](../../help/report-a-problem.md) |
 
-Most reasons come down to one rule: **every music file and recovery file the backup recorded must be exactly as it was when the backup was made.** That keeps a restore from putting back records that describe files that no longer exist.
-
-| Message | What changed since the backup | What to do |
-|---|---|---|
-| *Backup source locations have changed. Music files and tag edits are not restored* | A recorded music file was moved, replaced or deleted, or a file that was missing has come back | Put the files back as they were, or make a newer backup. See [Find missing, moved or broken files](find-missing-files.md) |
-| *A source file changed since its saved preparation. Reprepare it before using this backup* | A recorded music file was edited, for example re-tagged | Use a newer backup |
-| *Retained recovery resources or models have changed; this database-only backup cannot be restored safely* or *Organization or metadata recovery resources, retained originals or native identities changed; this backup cannot restore them* | CueRithm wrote tags, ran cleanup, reorganised files, removed unused files or synced since the backup | Use a newer backup. Work done after a backup usually rules it out |
-| *This backup requires the same CueRithm version, platform and library installation* | You updated CueRithm, or the backup came from another computer or library | Make a new backup with the current version |
-| *Backup library schema differs from the current library* | The library format changed | Make a new backup with the current version |
-| *Backup contains unexpected entries*, *Backup database hash does not match its manifest* or *Backup SQLite integrity check failed* | The backup folder was edited, renamed or damaged | Use another copy of the backup |
-| *A library restore is already scheduled* | An earlier request is still waiting | Cancel it first |
-
-If a restore stops in the middle of the database update, CueRithm will not open the library again until its pre-restore backup can be validated. This is rare. Report it through [Report a problem](../../help/report-a-problem.md) and keep the data folder untouched.
+Restoring library data cannot undo music-tag changes. Use the original operation's [tag history](../../tagging/tag-history.md), [cleanup Undo](../../tagging/undo-cleanup.md) or [sync Restore backup](../../sync/preview-apply-restore.md) for those operations.
 
 ## Go back to before the restore { #go-back }
 
-Each restore keeps the library it replaced as a normal backup in CueRithm's data folder, under `library-backups/pre-restore-…`. Inside that folder is a `CueRithm-…` backup folder. To return to it, select **Inspect backup folder**, choose that inner folder and follow the same steps. CueRithm does not delete pre-restore backups. See [Where CueRithm keeps your data](where-data-lives.md#what-is-in-the-folder) for the location on each system.
+In **Library backup**, find **Retained libraries**. Choose a recovery library, read which active library will be kept, tick its activation confirmation and select **Use retained library and restart**.
+
+This returns to that complete library. Edits made afterwards are not merged into it; the library you leave is retained in turn. Keep these directories untouched as explained in [Where CueRithm keeps your data](where-data-lives.md#what-is-in-the-folder).
+
+## Restore a same-installation snapshot { #installation-snapshots }
+
+The older folder format has a separate workflow. Expand **Same-installation recovery snapshots**, select **Inspect backup folder** and choose its generated `CueRithm-…` folder containing `library.sqlite` and `manifest.json`. Read **Restore preview**, tick **Replace my current preparation state with this backup on the next launch.**, then choose **Restore on next launch**.
+
+Quit and reopen CueRithm to apply it. **Cancel scheduled restore** cancels it before restart. A **Restore blocked** result leaves the current library unchanged; resolve the reported consistency problem and choose **Retry on next launch**, or cancel.
+
+This format requires the same installation and compatible app/schema, with saved music locations, hashes and recovery resources unchanged. Later tagging, organisation, removal or sync can invalidate it. A pre-restore snapshot is kept under that library's `library-backups/pre-restore-…` directory; inspect its inner `CueRithm-…` folder to restore it through the same controls. For moved music or another computer, use the portable workflow above.
 
 ## Related
 
-- [Back up your library](back-up-library.md)
-- [Where CueRithm keeps your data](where-data-lives.md)
-- [Undo a merge or restore removed files](undo-maintenance.md)
-- [Find missing, moved or broken files](find-missing-files.md)
+- [Back up your library](back-up-library.md#create)
+- [Reconnect missing or moved files](find-missing-files.md#relocate)
+- [Where CueRithm keeps your data](where-data-lives.md#what-is-in-the-folder)
+- [Undo a merge or restore removed files](undo-maintenance.md#recover)
 
-<!-- verified: apps/desktop/src/views/LibraryBackup.tsx; apps/desktop/src/test/library-backup.test.tsx (labels, restore blocked, retry, cancel); crates/cuerithm-library/src/library_backup.rs (inspect checks and messages, stage_library_restore, cancel, apply_pending_library_restore, pre-restore-<id>-<uuid> folder, blocked-before-mutation, mutation_started); crates/cuerithm-library/tests/library_backup.rs (restore replaces settings; changed source blocks; returned file blocks); apps/desktop/src-tauri/src/lib.rs (restore applied before Host::open); legacy guides/library-backup.md re-checked. The 14-file message is shown with an illustrative count -->
+<!-- verified: apps/desktop/src/views/PortableBackup.tsx; LibraryBackup.tsx; portable-backup-api.ts; apps/desktop/src-tauri/src/portable_commands.rs; exit_commands.rs; host.rs; crates/cuerithm-library/src/generations.rs; backup/{spool,validate,lexicon,lexicon_stream}.rs; library_backup.rs; tests/library_generations.rs; tests/portable_backup.rs; tests/lexicon_spool.rs. Full real-machine migration and original private Lexicon sample acceptance remain separate from synthetic profile tests. -->

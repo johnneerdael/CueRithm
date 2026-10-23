@@ -52,7 +52,7 @@ impl Library {
         if input.current_job.as_deref() != Some(run.id.as_str()) || input.state != "incoming" {
             return Ok(());
         }
-        let own:bool=input.source_hash==run.source_sha256||conn.query_row("SELECT EXISTS(SELECT 1 FROM tag_writes WHERE job_id=?1 AND attempt=?2 AND state='committed' AND after_hash=?3)",params![run.id,run.attempt,input.source_hash],|row|row.get(0))?;
+        let own:bool=input.source_hash.as_deref()==Some(run.source_sha256.as_str())||conn.query_row("SELECT EXISTS(SELECT 1 FROM tag_writes WHERE job_id=?1 AND attempt=?2 AND state='committed' AND after_hash=?3)",params![run.id,run.attempt,input.source_hash],|row|row.get(0))?;
         ensure!(own, "Curate source changed outside its preparation owner");
         Self::advance_curation_input_tx(conn, &run.track_id)?;
         let proof = serde_json::to_string(

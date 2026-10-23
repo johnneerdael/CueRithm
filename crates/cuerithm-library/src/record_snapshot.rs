@@ -268,6 +268,31 @@ impl Plan {
                 }
             }
         }
+        // Portable records carry logical references in JSON rather than SQLite
+        // foreign keys. Save and remove the track-owned records with the track.
+        if tables.contains_key("portable_domain_records") {
+            let mut owned = BTreeSet::new();
+            for chunk in track_ids.chunks(400) {
+                let marks = placeholders(chunk.len());
+                let sql = format!(
+                    "SELECT rowid FROM portable_domain_records WHERE \
+                     (kind='tracks' AND id IN ({marks})) OR \
+                     json_extract(json,'$.value.track_id') IN ({marks})"
+                );
+                let mut statement = conn.prepare(&sql)?;
+                for row in statement
+                    .query_map(params_from_iter(chunk.iter().chain(chunk.iter())), |row| {
+                        row.get::<_, i64>(0)
+                    })?
+                {
+                    owned.insert(row?);
+                }
+            }
+            if !owned.is_empty() {
+                plan.order.push("portable_domain_records".into());
+                plan.deleted.insert("portable_domain_records".into(), owned);
+            }
+        }
         for (table, deleted) in &plan.deleted {
             if let Some(detached) = plan.detached.get_mut(table) {
                 detached.retain(|rowid| !deleted.contains(rowid));

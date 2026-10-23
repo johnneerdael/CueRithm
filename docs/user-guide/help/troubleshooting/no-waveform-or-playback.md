@@ -46,7 +46,7 @@ Start by reading the message for your track.
 1. Double-click the row. The player shows **Loading track…**, then either plays or leaves a message at the bottom of the window. Dismiss the message with its close button once you have read it.
 2. **`File not found - move it back or run Maintenance` or `Audio file is missing`.** Show the **Location** column ([choose the columns you need](../../analysis/choose-columns.md)) and open that folder in Finder, Explorer or your file manager.
     - If a drive is disconnected, reconnect it.
-    - If you moved or renamed the file, move it back to exactly that location. [I moved or renamed my files](files-moved.md) covers the whole situation, including tracks that were added twice.
+    - If you moved or renamed the file, [review Relocate](../../files/library/find-missing-files.md#relocate) to reconnect it, or move it back to exactly that location. [I moved or renamed my files](files-moved.md) covers the whole situation, including tracks that were added twice.
     - To see every affected track at once, choose **Maintenance** in the sidebar, open **Missing & broken** and choose **Scan library files**. [Find missing, moved or broken files](../../files/library/find-missing-files.md) explains the report.
     - Do not use **Analyze again** on a missing file. It fails with `Incoming file is missing`.
 3. **`Audio decoder failed: …` or `No audio stream found`.** Try the file in another player. If that fails too, the file is damaged: put a good copy at the same location, then choose **Analyze again** from the row's actions menu ([Analyze a track again](../../analysis/analyze-again.md)). Check the format against [Check that your files are supported](../../files/supported-formats.md).

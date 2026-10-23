@@ -103,6 +103,7 @@ impl Default for PlaybackStatus {
 }
 enum Action {
     Load(TrackId, Arc<PreparedAudio>),
+    Unload,
     Play,
     Pause,
     Seek(f64),
@@ -198,6 +199,9 @@ impl Player {
     pub fn load(&mut self, track: TrackId, audio: Arc<PreparedAudio>) -> Result<()> {
         self.request(Action::Load(track, audio))
     }
+    pub fn unload(&mut self) -> Result<()> {
+        self.request(Action::Unload)
+    }
     pub fn play(&mut self) -> Result<()> {
         self.request(Action::Play)
     }
@@ -233,6 +237,17 @@ struct NativePlayer<F: FnMut() -> Result<OutputStream>> {
 impl<F: FnMut() -> Result<OutputStream>> NativePlayer<F> {
     fn action(&mut self, action: Action) -> Result<()> {
         match action {
+            Action::Unload => {
+                if let Some(sink) = self.sink.take() {
+                    sink.stop();
+                }
+                self.audio = None;
+                self.status = PlaybackStatus {
+                    volume: self.status.volume,
+                    ..Default::default()
+                };
+                *self.errors.lock().unwrap() = None;
+            }
             Action::Load(track, audio) => {
                 CacheSource::open(audio.clone())?;
                 if let Some(sink) = self.sink.take() {
@@ -335,6 +350,17 @@ impl<F: FnMut() -> Result<OutputStream>> NativePlayer<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unload_releases_the_previous_track_and_preserves_volume() {
+        let mut player = Player::with_output_factory(|| anyhow::bail!("No device needed")).unwrap();
+        player.set_volume(0.4).unwrap();
+        player.unload().unwrap();
+        let status = player.status();
+        assert_eq!(status.track_id, None);
+        assert_eq!(status.duration_seconds, 0.);
+        assert_eq!(status.volume, 0.4);
+        assert!(player.play().is_err());
+    }
     #[test]
     fn output_failure_does_not_jump_to_track_end() {
         let (mixer, _source) = rodio::mixer::mixer(2, 44100);

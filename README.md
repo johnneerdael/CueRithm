@@ -44,7 +44,7 @@ Analysis runs on your computer without an account or audio uploads. Your music s
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
 | **DJ sync** | Send prepared tracks, metadata, cues, grids and playlists to **rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx**, with a preview and recoverable backups. Windows libraries on Linux are supported through explicit Wine / Proton setups and drive mappings. See the [Sync guide](docs/user-guide/sync/index.md). |
 | **Set preparation** | Correct cues, loops and grids, save templates, find compatible tracks, check playlist flow and match text/CSV tracklists to your library. |
-| **Library care** | Maintenance screens for duplicates and file problems, plus local library backup and restore. |
+| **Library care** | Reviewed relocation for moved files, duplicate/file maintenance, portable `.cuerithm` backups, retained-library restore and Lexicon v26 backup import. |
 | **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA. The decoder is bundled, so you do not need to install anything else. |
 
 ## See it work
@@ -98,7 +98,7 @@ CueRithm is early software; check each download’s release notes for its includ
 
 We are building **DJ-library import into CueRithm**: bring an existing managed library into the app, manage it here, then sync prepared tracks back to your DJ software. The planned workflow covers full-library or selected-playlist import, merging libraries, replacing a library, choosing which fields to import and backing up before import, following [Lexicon’s import options](https://www.lexicondj.com/manual/import-options). Coverage is planned across the DJ software destinations and Mixxx; **DJ.Studio is under consideration**.
 
-Also planned: reconnecting externally moved music, portable `.cuerithm` backups with cross-platform restore and music-folder mapping, and importing Lexicon backup ZIPs. These extend the existing file organizer and local backup tools. See the [roadmap](docs/user-guide/help/not-available-yet.md) for the delivery boundaries.
+Relocate externally moved music, export portable `.cuerithm` library data, map music folders during restore, or import the supported Lexicon v26 database-backup profile. These workflows retain the current library for recovery and keep music separate from the archive. See [back up your library](docs/user-guide/files/library/back-up-library.md), [restore a library](docs/user-guide/files/library/restore-library.md) and [find missing files](docs/user-guide/files/library/find-missing-files.md).
 
 ## Documentation
 

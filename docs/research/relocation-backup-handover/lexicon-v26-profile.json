@@ -1,0 +1,748 @@
+{
+  "profile": "lexicon-main-db-v26",
+  "database_version": 26,
+  "pragma_user_version": 0,
+  "tables": {
+    "Database": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "version",
+          "declared_type": "INTEGER",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "uuid",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": []
+    },
+    "Track": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": false,
+          "primary_key_position": 1
+        },
+        {
+          "name": "title",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "artist",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "dateAdded",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "dateModified",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "location",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "locationUnique",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "type",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "streamingService",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "streamingId",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "albumTitle",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "bitrate",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "genre",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "comment",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "key",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "playCount",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "lastPlayed",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "duration",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "rating",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "sizeBytes",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "bpm",
+          "declared_type": "REAL",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "color",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "remixer",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "mix",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "importSource",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "label",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "composer",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "producer",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "grouping",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "lyricist",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "year",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "sampleRate",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "trackNumber",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "energy",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "danceability",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "popularity",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "happiness",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "archived",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "archivedSince",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "incoming",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "extra1",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "extra2",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "beatshiftCase",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "fingerprint",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "data",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "releaseDate",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": []
+    },
+    "Cuepoint": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "trackId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "name",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "type",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "startTime",
+          "declared_type": "REAL",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "endTime",
+          "declared_type": "REAL",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "position",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "color",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "activeLoop",
+          "declared_type": "INTEGER",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "data",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "Track",
+          "from": "trackId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "Tempomarker": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "trackId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "startTime",
+          "declared_type": "REAL",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "bpm",
+          "declared_type": "REAL",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "data",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "Track",
+          "from": "trackId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "Playlist": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "name",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "dateAdded",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "dateModified",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "type",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "folderType",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "smartlist",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "parentId",
+          "declared_type": "INTEGER",
+          "not_null": false,
+          "primary_key_position": 0
+        },
+        {
+          "name": "position",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "data",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "Playlist",
+          "from": "parentId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "TagCategory": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "label",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "position",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "color",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": []
+    },
+    "Tag": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "categoryId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "label",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "position",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "shortcut",
+          "declared_type": "INTEGER",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "TagCategory",
+          "from": "categoryId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "LinkTrackPlaylist": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "playlistId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "trackId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "position",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "Playlist",
+          "from": "playlistId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        },
+        {
+          "target_table": "Track",
+          "from": "trackId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "LinkTagTrack": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "tagId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "trackId",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": [
+        {
+          "target_table": "Track",
+          "from": "trackId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        },
+        {
+          "target_table": "Tag",
+          "from": "tagId",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    "Setting": {
+      "object_type": "table",
+      "columns": [
+        {
+          "name": "id",
+          "declared_type": "INTEGER",
+          "not_null": true,
+          "primary_key_position": 1
+        },
+        {
+          "name": "feature",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "name",
+          "declared_type": "TEXT",
+          "not_null": true,
+          "primary_key_position": 0
+        },
+        {
+          "name": "data",
+          "declared_type": "TEXT",
+          "not_null": false,
+          "primary_key_position": 0
+        }
+      ],
+      "foreign_keys": []
+    }
+  },
+  "inert_schema_objects": [
+    {
+      "kind": "trigger",
+      "name": "Track_FTS_Delete",
+      "table": "Track",
+      "normalized_sql_sha256": "816d621bfc4b6013ea07dcd604d638413b107042110d64b4668f9b1f8890082f"
+    },
+    {
+      "kind": "trigger",
+      "name": "Track_FTS_Insert",
+      "table": "Track",
+      "normalized_sql_sha256": "9b640ae97649ea80d4d17dca99d44708f283b896468f4b60eda978a299846e36"
+    },
+    {
+      "kind": "trigger",
+      "name": "Track_FTS_Update",
+      "table": "Track",
+      "normalized_sql_sha256": "9ea9e4e08c8b899762d29cf2396bde8c9f78adb6d8b1d20a8c0f6aa7c2b14698"
+    },
+    {
+      "kind": "view",
+      "name": "Tracks_Archived",
+      "table": "Tracks_Archived",
+      "normalized_sql_sha256": "79153d168fd1bbc0c21e8eec2f261bd33d1d3a7dccb1bf90dd0a7196598097da"
+    },
+    {
+      "kind": "view",
+      "name": "Tracks_Incoming",
+      "table": "Tracks_Incoming",
+      "normalized_sql_sha256": "ebd2a9fd49f47a7614b4745365295761c2bb1b5165e159abcce3a2aa078052e4"
+    },
+    {
+      "kind": "view",
+      "name": "Tracks_NonArchived",
+      "table": "Tracks_NonArchived",
+      "normalized_sql_sha256": "879af0c6ed91514edeb4172e4e9cc26909fd6084577a65c6e448013ac4a1bad7"
+    }
+  ],
+  "inert_sql_hash_normalization": "Replace each run of ASCII space, tab, CR, LF, FF or VT with one U+0020; trim leading/trailing ASCII whitespace; SHA-256 UTF-8. No SQL is executed.",
+  "inert_fts_tables": [
+    {
+      "name": "Track_FTS",
+      "normalized_sql_sha256": "fac8d0c59520d7b597dfa7a59200a1af6205fc7b8117fecf26fe2692265e1758"
+    },
+    {
+      "name": "Track_FTS_config",
+      "normalized_sql_sha256": "c06eb11241f311306231e923b15900b69f5db801113b59aa398248cf775197ad"
+    },
+    {
+      "name": "Track_FTS_data",
+      "normalized_sql_sha256": "f51e4b389ca6931f6ef430d79281e74dfc48fc23893a04c61813a51c2a5823aa"
+    },
+    {
+      "name": "Track_FTS_docsize",
+      "normalized_sql_sha256": "de234b2211dc4215e8e5b0c1ac9363a0ceed51cf92aae0274d1823cec577f3a2"
+    },
+    {
+      "name": "Track_FTS_idx",
+      "normalized_sql_sha256": "0c1124ff95ef14f1461d5fe120644b01ac1db4d65ecd3c5018635ca6eeb7cbfd"
+    }
+  ]
+}

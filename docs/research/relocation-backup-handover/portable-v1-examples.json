@@ -1,0 +1,236 @@
+{
+  "description": "Synthetic v1 examples. minimal_archive is complete: package each payload string verbatim as its named UTF-8 ZIP entry, plus serialized manifest.json. No vendor or user records. populated_musical_revision is an isolated record example, not a member of the empty archive.",
+  "minimal_archive": {
+    "manifest": {
+      "format": "cuerithm-library",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "min_reader": {
+        "major": 1,
+        "minor": 0
+      },
+      "archive_id": "22222222-2222-4222-8222-222222222222",
+      "library_id": "33333333-3333-4333-8333-333333333333",
+      "created_at": "2026-10-23T00:00:00Z",
+      "producer": {
+        "app": "CueRithm",
+        "version": "0.0.0-example",
+        "source_schema": 11,
+        "platform": "linux"
+      },
+      "required_features": [
+        "logical-records-v1",
+        "portable-paths-v1",
+        "accepted-musical-data-v1"
+      ],
+      "contains_music": false,
+      "entries": [
+        {
+          "name": "data/roots.jsonl",
+          "kind": "roots",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/locators.jsonl",
+          "kind": "locators",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/settings.jsonl",
+          "kind": "settings",
+          "bytes": 294,
+          "records": 1,
+          "sha256": "1292721a61b902e1f48fe3c24caa04cff4257b09892246d6c2b49303e4cede7a",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/tracks.jsonl",
+          "kind": "tracks",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/musical-revisions.jsonl",
+          "kind": "musical_revisions",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/analysis-revisions.jsonl",
+          "kind": "analysis_revisions",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/tag-categories.jsonl",
+          "kind": "tag_categories",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/tags.jsonl",
+          "kind": "tags",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/track-tags.jsonl",
+          "kind": "track_tags",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/playlists.jsonl",
+          "kind": "playlists",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/playlist-members.jsonl",
+          "kind": "playlist_members",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/preferences.jsonl",
+          "kind": "preferences",
+          "bytes": 205,
+          "records": 1,
+          "sha256": "a71fa0dcc3f6c8a14af0421c073228d18ce70ea3d4d5ea24da62bee4bdb498cd",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/import-sources.jsonl",
+          "kind": "import_sources",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        },
+        {
+          "name": "data/external-links.jsonl",
+          "kind": "external_links",
+          "bytes": 0,
+          "records": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "schema": "cuerithm-logical-v1",
+          "required": true
+        }
+      ],
+      "excluded": [
+        {
+          "domain": "music",
+          "reason": "metadata_only",
+          "count": 0
+        },
+        {
+          "domain": "jobs",
+          "reason": "not_portable",
+          "count": 0
+        },
+        {
+          "domain": "credentials",
+          "reason": "never_exported"
+        }
+      ],
+      "extensions": {}
+    },
+    "payloads": {
+      "data/roots.jsonl": "",
+      "data/locators.jsonl": "",
+      "data/settings.jsonl": "{\"id\":\"11111111-1111-4111-8111-111111111111\",\"revision\":1,\"value\":{\"portable_options\":{\"mik_style_energy\":false,\"stability_millis\":1000,\"analysis\":null,\"cleanup\":null,\"tagging\":null},\"historical_revision\":null,\"model_identity\":[],\"created_at_ms\":1792713600000,\"selected\":true},\"extensions\":{}}\n",
+      "data/tracks.jsonl": "",
+      "data/musical-revisions.jsonl": "",
+      "data/analysis-revisions.jsonl": "",
+      "data/tag-categories.jsonl": "",
+      "data/tags.jsonl": "",
+      "data/track-tags.jsonl": "",
+      "data/playlists.jsonl": "",
+      "data/playlist-members.jsonl": "",
+      "data/preferences.jsonl": "{\"id\":\"library\",\"revision\":1,\"value\":{\"key_mixing_mode\":\"harmonic\",\"time_zone\":\"UTC\",\"display_options\":{\"key_notation\":\"original\"},\"source_smart_options\":{\"lexicon_key_mixing_mode\":null}},\"extensions\":{}}\n",
+      "data/import-sources.jsonl": "",
+      "data/external-links.jsonl": ""
+    }
+  },
+  "populated_musical_revision": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "revision": 1,
+    "value": {
+      "track_id": "55555555-5555-4555-8555-555555555555",
+      "origin": "lexicon",
+      "created_at_ms": 1792713600000,
+      "selected": true,
+      "key": {
+        "original": "8A",
+        "pitch_class": 9,
+        "mode": "minor"
+      },
+      "bpm": 120.0,
+      "energy": 7,
+      "duration_seconds": 240.5,
+      "cues": [
+        {
+          "id": "66666666-6666-4666-8666-666666666666",
+          "kind": "cue",
+          "start_seconds": -0.006,
+          "end_seconds": null,
+          "slot": 0,
+          "memory": false,
+          "name": "Example cue",
+          "color": "yellow",
+          "active_loop": false,
+          "source_data": {}
+        }
+      ],
+      "tempo_markers": [
+        {
+          "id": "77777777-7777-4777-8777-777777777777",
+          "start_seconds": 0.5,
+          "bpm": 120.0,
+          "beat_number": null,
+          "beats_per_bar": null,
+          "source_data": {}
+        }
+      ],
+      "source_revision": "example"
+    },
+    "extensions": {}
+  }
+}

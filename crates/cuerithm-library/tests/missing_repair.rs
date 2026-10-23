@@ -87,6 +87,39 @@ fn ids(which: &[&String]) -> Vec<String> {
 }
 
 #[test]
+fn removal_and_undo_preserve_portable_track_owned_records() {
+    let l = library();
+    let conn = rusqlite::Connection::open(&l.fx.db).unwrap();
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS portable_domain_records(kind TEXT NOT NULL,id TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id));").unwrap();
+    for (kind, id, track) in [
+        ("tracks", l.a.as_str(), l.a.as_str()),
+        ("external_links", "old-link", l.a.as_str()),
+        ("external_links", "kept-link", l.c.as_str()),
+    ] {
+        let json = serde_json::json!({"id":id,"value":{"track_id":track}}).to_string();
+        conn.execute(
+            "INSERT INTO portable_domain_records VALUES(?1,?2,?3)",
+            rusqlite::params![kind, id, json],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let report = l.fx.scan(false);
+    let preview =
+        l.fx.lib
+            .preview_missing_removal(&report.id, &ids(&[&l.a]), &cancel())
+            .unwrap();
+    let entry =
+        l.fx.lib
+            .apply_missing_removal(&preview.id, &cancel())
+            .unwrap();
+    assert_eq!(rows_of(&l.fx, "portable_domain_records"), 1);
+    l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
+    assert_eq!(rows_of(&l.fx, "portable_domain_records"), 3);
+    assert!(l.fx.lib.track(&l.a).is_ok());
+}
+
+#[test]
 fn removal_preview_explains_the_impact_and_changes_nothing() {
     let l = library();
     let before = l.fx.dump();

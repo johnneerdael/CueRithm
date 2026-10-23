@@ -1,9 +1,8 @@
 # Find missing, moved or broken files
 
-<p class="lead">Scan your library to see which tracks no longer have a readable file where CueRithm expects it, work out why, and repair the library with the tools 0.1.14 has. A scan reads every file once, so allow a few minutes for a large library. It changes nothing.</p>
+<p class="lead">Find tracks whose files are missing or unreadable, then reconnect them without losing their library identity. A scan changes nothing; review relocation matches before applying them.</p>
 
-!!! warning "CueRithm 0.1.14"
-    The results of **Missing & broken** are a report. They offer no action: there is no way to point a track at a new file location, no tool that finds moved files, and no way to remove a track from the library. The screen says so itself: *Relocating files is not available in this maintenance screen.* The repairs below use only what 0.1.14 has: moving files back and archiving tracks. Following moves inside a watch folder, relocating tracks and removing stale tracks are listed under *In development* in [What CueRithm does not do yet](../../help/not-available-yet.md). Version 0.1.14 can also list a track with a missing file inside a duplicate group, next to its available twin; never choose that track as keeper, as [Find and merge duplicate tracks](find-duplicates.md) explains.
+Choose [Relocate](#relocate) for selected tracks or [Find Lost Tracks](#find-lost-tracks) for a folder or drive change. Reconnecting changes library references, not music files. For a move you want CueRithm to perform itself, use [Organize files](../../rename/organize-files.md).
 
 ## Scan the library files { #scan }
 
@@ -24,13 +23,13 @@ Even in the quick mode CueRithm reads each present file to compare its checksum 
 | **Changed** | The file changed while the scan was reading it. | Scan again. |
 | **Unsupported**, **Timed out**, **Decode error**, **Video**, **No audio** | Only with **Inspect audio decoding** on. The decoder could not use the file. **Details** gives its message. | See [Check that present files can be decoded](#inspect). |
 
-A present file can still carry the flag **· Source changed** in **Details**. It means the file's bytes differ from what CueRithm recorded when it prepared the track, for example because another app edited the tags. The track keeps working, but a [library backup](back-up-library.md) refuses to run until you [analyse it again](../../analysis/analyze-again.md).
+A present file can still carry the flag **· Source changed** in **Details**. It means the file's bytes differ from what CueRithm recorded when it prepared the track, for example because another app edited the tags. Review saved timing before using a replacement. A [portable library backup](back-up-library.md#create) can preserve the current records without reading the audio; a same-installation recovery snapshot still has stricter file-consistency checks. [Analyze again](../../analysis/analyze-again.md) is a separate action that can replace analysis and cues.
 
 ## Why moved files look like a missing track and a duplicate { #moved-files }
 
-CueRithm knows a track by the location and contents of its file. If you move a file in Finder or Explorer, the old track still points at the old location. The watch folder then meets a file it has never seen, at the new location, and prepares it as a new track.
+A track keeps a library identity and a file reference. A move in Finder or Explorer can leave that reference pointing at the old location. Moves within one watch folder are followed automatically when exact contents identify one missing ready track and one new file. Edited, ambiguous or cross-folder moves can still need manual review. [Reviewed relocation](#relocate) repairs the reference while preserving the chosen track’s identity.
 
-The example library shows it. 14 files were moved up one level inside `~/Music/Beatport`, out of a subfolder named after the release. Afterwards the library holds 40 tracks for 26 files: 12 untouched, 14 old tracks whose file is gone, and 14 new tracks for the same files.
+An earlier example from the demo library shows this discovery behaviour. 14 files were moved up one level inside `~/Music/Beatport`, out of a subfolder named after the release. Afterwards the library holds 40 tracks for 26 files: 12 untouched, 14 old tracks whose file is gone, and 14 new tracks for the same files.
 
 | | Old track | New track |
 |---|---|---|
@@ -48,33 +47,50 @@ Files that CueRithm moves itself with [Organize files](../../rename/organize-fil
 
 ## Repair the library today { #repair }
 
-Do not use [Duplicates](find-duplicates.md) for this repair. It can list an old track next to its new twin, but the old track can never be keeper or donor, so merging would archive it without carrying over its cues or tags. You have two options. Choose by what the old tracks hold.
+Reconnect the existing track when you want to keep its playlists, corrections and categories. Do not use [duplicate merging](find-duplicates.md#keeper) as a substitute for reviewing which moved track should survive.
 
-| You want | Choose |
-|---|---|
-| To keep the old tracks' playlists, hand-corrected cues and categories | [A. Put the files back](#put-back) |
-| To keep the new folder layout | [B. Archive the old tracks](#archive-old) |
+### Reconnect selected tracks { #relocate }
+
+1. In **Tracks**, select the affected tracks and choose **Relocate** from the toolbar or track menu.
+2. For one track, choose its replacement audio file. For several, choose a folder to search recursively. Present tracks are skipped in this selection workflow.
+3. Select **Review matches** and read **Recorded location**, **Candidate and evidence** and **Decision**. Ambiguous matches remain unselected; choose a candidate or leave **Skip this entry**.
+4. For a different recording or format, tick **Accept replacement; check saved cue timing** only after reviewing it. A filename suggestion does not prove identical audio; matching known encoded-file hashes are stronger evidence.
+5. Keep **Create a portable preflight backup (recommended)** enabled and select **Choose backup folder**. A failed backup blocks relocation. Turning it off is an explicit choice.
+6. Confirm the reviewed changes and select **Reconnect … entries**.
+
+The chosen track keeps its identity, metadata, cues and playlist links. Reconnection does not move audio, write tags, prepare the track again or sync a DJ library. Changed content can make saved analysis stale; listen and check its timing before choosing [Analyze again](../../analysis/analyze-again.md).
+
+### Replace a folder or drive root { #find-lost-tracks }
+
+In **Maintenance → Missing & broken**, open **Find Lost Tracks**. Choose a **Recorded music root**, or enter the **Recorded source root**, then choose the **New music root**. The change applies to a complete leading folder path, not matching text elsewhere in a name.
+
+**Missing only** is the default. Choose **All tracks, including archived entries** only when you intend to review available tracks too. **Include unavailable storage references** is separate: reconnect an offline drive first when possible. **Replace extension (optional)** is an explicit replacement, not a claim that the recording is unchanged.
+
+Select **Review matches**, then use the same candidate, backup and confirmation steps above. **Search incomplete** identifies unsearched locations. If the search pauses at its safety limit, choose **Continue search** before treating the results as complete.
+
+### Choose one complete survivor { #survivor }
+
+A destination may already belong to another track. Choose **Keep source entry**, **Keep existing entry** or **Skip collision**. For a shared destination group, choose one **Group survivor** for the whole group.
+
+CueRithm keeps that survivor’s complete metadata and cues, archives the other track records and rewires their ordinary playlist links. It does not combine selected fields from different tracks silently. Review every affected entry before confirming.
+
+### Undo a relocation { #undo-relocation }
+
+Select **Undo relocation** after applying, or reopen this workspace and use **Previous relocations → Undo saved relocation** after a restart. Undo checks the affected library state and file proofs again; later relevant changes can block it.
+
+Undo restores the old library references and survivor changes. It does not move audio back, so an old reference can become unresolved again. [Retained library recovery](restore-library.md#go-back) is a separate whole-library operation.
 
 ### A. Put the files back { #put-back }
 
-1. In the scan result, read **Recorded location** for each missing file. That is the exact folder and file name to restore.
-2. Move each file back to its recorded location, with the same name.
-3. Select **Scan library files** again. The old tracks no longer appear in the list, because their files are present. The new tracks, whose files you just moved away, now read **Missing**. CueRithm recognises the restored files by location and contents, so it does not prepare them again. If a file's contents changed in between, for instance because preparing the new track rewrote its tags, the old track shows **· Source changed** and is prepared again.
-4. [Archive](#what-archive-does) the new tracks. In **Tracks**, sort by **TRACK** and hold ++cmd++ / ++ctrl++ while you select every track whose **Location** is the new path. Then choose **Archive** in the toolbar, or **Archive track** in the row's **⋯** menu.
+You can instead move files back to their **Recorded location** yourself, with the original names, then scan again. This changes the filesystem rather than accepting a new canonical location in CueRithm. Review any newly discovered copies before archiving them.
 
 ### B. Archive the old tracks { #archive-old }
 
-1. In **Tracks**, show the **Location** column and sort by **TRACK**. Hold ++cmd++ / ++ctrl++ and select every old track, the one whose **Location** is the old folder.
-2. Choose **Archive** in the toolbar, or **Archive track** in the row's **⋯** menu.
-3. Rebuild what lived on the old tracks. Select the new tracks and use **Add to playlist** in the toolbar (see [Reorder, remove and restore tracks in a playlist](../../playlists/edit-playlist-tracks.md)); smart playlists pick the new tracks up by themselves. Redo hand-made [cue corrections](../../analysis/corrections/index.md) and [categories](../../tagging/curate-tracks.md) on the new tracks.
-4. Scan again. The archived tracks are no longer checked, so the report should read **0 files need attention**.
+If you no longer need an old track, select it in **Tracks** and choose **Archive**, or **Archive track** in its row menu. Archiving is not a reconnection: work attached only to that track stays with it. To preserve that work on a moved file, review [Relocate](#relocate) first.
 
 ### What Archive does { #what-archive-does }
 
-- The track leaves **Tracks**, the **Missing & broken** scan and full-library duplicate scans. It stays in **Archive** with its analysis and cues. Nothing is deleted, and no music file is touched.
-- Ordinary playlists keep the membership but hide the archived track. Smart playlists leave archived tracks out unless a rule asks for them.
-- A DJ-software [sync](../../sync/index.md) sends only tracks that are in **Tracks**, so archived tracks are left out.
-- To undo it, select the track in **Archive** and choose **Restore**. Restore checks the file again. A track whose file is still missing lands in **Incoming** with the error *Source unavailable*, so restore only after the file is back.
+Archive hides a track from Tracks and normal playlist views without deleting its music. The record, metadata and cues remain in Archive. [Archive tracks you no longer play](../archive.md) explains restoring one; a file reference can still need reconnection afterwards.
 
 ## When a whole drive is missing { #drive }
 
@@ -92,7 +108,7 @@ Tick **Inspect audio decoding** before you scan to decode every present file wit
 | A banner reads *Library or maintenance inputs changed. Reload or rescan.* | A track, file or playlist changed after the scan | Select **Scan library files** again |
 | *Another maintenance operation is still running* | Only one scan or apply runs at a time | Wait, or select **Cancel operation** |
 | The old tracks still read **Missing** after you moved the files back | A name differs, even by one character, or the folder is different | Compare with **Recorded location** and correct it |
-| Many tracks show **· Source changed** | Another app edited the tags after CueRithm prepared the files | Select them and choose [Analyze again](../../analysis/analyze-again.md) |
+| Many tracks show **· Source changed** | The encoded file differs from the saved source | Review the recording and timing first; [Analyze again](../../analysis/analyze-again.md) can replace saved analysis and cues |
 
 ## Related
 
@@ -102,4 +118,4 @@ Tick **Inspect audio decoding** before you scan to decode every present file wit
 - [Archive tracks you no longer play](../archive.md)
 - [Undo a merge or restore removed files](undo-maintenance.md)
 
-<!-- verified: ia.md Pending product changes; apps/desktop/src/views/MaintenanceBroken.tsx, MaintenanceShared.tsx (fileStates, Stale), Maintenance.tsx; crates/cuerithm-library/src/maintenance/broken.rs (non-archived tracks, hash of present files, inspect via fingerprint), files.rs (Missing vs Unavailable by parent folder), scan.rs; crates/cuerithm-library/src/jobs.rs enqueue_one (path+hash recognition, archived ignored), store.rs set_archived (Restore re-checks file, Source unavailable), playlists/queries.rs (archived hidden from playlist views), dj_sync.rs (ready and not archived only), organization/coordinator.rs (Organize updates track path); apps/desktop/src/components/TrackTable.tsx row menu "Archive track", App.tsx selection toolbar Archive/Restore and Ctrl/Cmd multi-select, columns.ts Location; prepare/watch-folders.md. UNVERIFIED: effect of archiving on entries already written to DJ software. The 14 moved files / 40 tracks / 26 files figures come from the owner's description of the real library. legacy guides/maintenance.md re-checked -->
+<!-- verified: apps/desktop/src/views/Relocation.tsx; MaintenanceBroken.tsx; App.tsx; components/TrackTable.tsx; apps/desktop/src-tauri/src/relocation_commands.rs; crates/cuerithm-library/src/maintenance/relocate.rs; tests/relocation.rs; maintenance/broken.rs. Historical 14-file example retained from the upstream demo-library guide; no new track data invented. -->
