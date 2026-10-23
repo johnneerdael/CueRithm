@@ -15,7 +15,7 @@
 
 CueRithm is a desktop library app for DJs. It analyses tracks offline, computing musical key, BPM and beatgrid, one whole-track energy rating, structural cues and a colour waveform. You can tag and clean up the library, create playlists, and set up smart playlists that update automatically.
 
-Your music stays where it is. Nothing is uploaded. There is no account.
+Analysis runs on your computer without an account or audio uploads. Your music stays where it is unless you enable file organization.
 
 <p align="center">
   <a href="https://github.com/johnneerdael/CueRithm/releases/latest"><b>Download</b></a> &nbsp;·&nbsp;
@@ -40,8 +40,11 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
 | **Tagging** | Optional DJ-store and public-catalog providers, private account setup, match review and staged writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
+| **File organization** | Rename files from metadata, or move or copy them into a folder structure. Preview changes, repair linked DJ-library paths, and recover or undo operations. |
 | **Playlists** | Ordinary playlists, folders and smart playlists with rules over BPM, key, energy, genre, dates and cues. |
-| **DJ sync** | Send prepared tracks, cues, grids and playlists to VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4 or Pioneer USB, with a preview and recoverable backups. See the [Sync guide](docs/user-guide/guides/sync.md). |
+| **DJ sync** | Send prepared tracks, metadata, cues, grids and playlists to **rekordbox 6 / 7, VirtualDJ, Engine DJ, djay Pro, Serato DJ Pro 4, Pioneer USB and Mixxx**, with a preview and recoverable backups. Windows libraries on Linux are supported through explicit Wine / Proton setups and drive mappings. See the [Sync guide](docs/user-guide/guides/sync.md). |
+| **Set preparation** | Correct cues, loops and grids, save templates, find compatible tracks, check playlist flow and match text/CSV tracklists to your library. |
+| **Library care** | Maintenance screens for duplicates and file problems, plus local library backup and restore. |
 | **Formats** | MP3, AAC (ADTS and M4A), ALAC, FLAC, WAV, AIFF, Ogg Vorbis, Opus and WMA. The decoder is bundled, so you do not need to install anything else. |
 
 ## See it work
@@ -61,7 +64,7 @@ Your music stays where it is. Nothing is uploaded. There is no account.
 
 Key, tempo, energy and cues are computed on your computer from the decoded audio. Optional catalog tagging and consented recording identification use the network. Identification sends an audio fingerprint; raw audio recognition uploads are not enabled.
 
-CueRithm never moves your audio. Tagging and cleanup write to a staged copy, then decode it again to verify that the playable audio is identical. The original is kept, and an atomic swap with a journal allows recovery after a crash.
+File organization can rename, move or copy audio when enabled for Incoming tracks or applied through a reviewed plan. Tagging and cleanup write to a staged copy, then decode it again to verify that the playable audio is identical. The original is kept, and an atomic swap with a journal allows recovery after a crash.
 
 The bundled FFmpeg decodes every format into the same 44.1 kHz stream, so analysis, the waveform and playback use the same cue positions. Analysis agreement is measured against reference tools on my own library; it does not establish musical accuracy. Read [How accurate is it?](https://johnneerdael.github.io/CueRithm/technical/accuracy/).
 
@@ -83,9 +86,19 @@ You can check an installation at any time:
 /Applications/CueRithm.app/Contents/MacOS/cuerithm-desktop --diagnostics
 ```
 
-## Current limits
+## Compatibility and validation
 
-CueRithm is early software. Current source includes maintenance screens, manual cue/loop/grid corrections and templates, compatible-track search, playlist flow, text/CSV tracklist matching and local library backup. Direct rekordbox sync supports the tested macOS builds 6.8.7.0303 and 7.2.19.0342; other builds and Windows remain read-only. Playback uses the system default output. Check a download’s release notes for its included features; native application/device acceptance is separate from implementation tests. See [Not available yet](https://johnneerdael.github.io/CueRithm/about/roadmap/).
+Direct rekordbox 6 / 7 writes are supported on macOS, Windows and Windows installations under Wine / Proton on Linux when the database and required asset formats pass compatibility checks. Compatible patch builds are eligible; unrecognized formats remain read-only. Native rekordbox playback, cues, grids and loops were validated on macOS builds **6.8.7.0303** and **7.2.19.0342**.
+
+Mixxx sync was functionally checked against **Mixxx 2.5.6 on macOS** and **Debian’s Mixxx 2.5.0 in a Linux container**. The macOS runs passed **240 checks**; Linux passed **105**, covering library loading, grids, keys, cue data and decoder timing. The [Mixxx guide](docs/user-guide/guides/sync-mixxx.md#what-has-been-tested) describes the runs and remaining platform and decoder checks.
+
+CueRithm is early software; check each download’s release notes for its included features. Playback uses the system default output. Windows/Wine DJ-app playback, other Mixxx packages and physical-player acceptance still need broader testing. See [remaining limits and planned work](docs/user-guide/about/roadmap.md).
+
+## In development
+
+We are building **DJ-library import into CueRithm**: bring an existing managed library into the app, manage it here, then sync prepared tracks back to your DJ software. The planned workflow covers full-library or selected-playlist import, merging libraries, replacing a library, choosing which fields to import and backing up before import, following [Lexicon’s import options](https://www.lexicondj.com/manual/import-options). Coverage is planned across the DJ software destinations and Mixxx; **DJ.Studio is under consideration**.
+
+Also planned: reconnecting externally moved music, portable `.cuerithm` backups with cross-platform restore and music-folder mapping, and importing Lexicon backup ZIPs. These extend the existing file organizer and local backup tools. See the [roadmap](docs/user-guide/about/roadmap.md#in-development) for the delivery boundaries.
 
 ## Documentation
 

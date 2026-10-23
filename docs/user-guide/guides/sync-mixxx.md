@@ -184,17 +184,35 @@ application.
 
 ## What has been tested
 
-The Mixxx library format was read from Mixxx's source code. On macOS, the installed
-Mixxx 2.5.6 was then run against libraries CueRithm wrote (an existing library, one
-replaced whole, one made before Mixxx had ever run, and one Mixxx had left empty): it
-started without asking for a music folder, found the library current, read the grids
-and keys, left the BPM-locked grids alone, and changed none of the synced rows. The
-macOS decoder timing was measured with the same Apple calls Mixxx makes. See the
-[format notes](https://github.com/johnneerdael/Cuerithm/blob/main/docs/research/mixxx-sync-contract.md)
-for what was measured and what was only read. Windows and Linux builds of Mixxx have
-not been fully run against CueRithm. The real Mixxx from Debian (2.5.0) was run on Linux
-in a container: the timing of MP3 with libmad, AAC with FFmpeg and the other formats was
-checked there, but Windows, FAAD builds and other Linux packages were not, as described
-above. Nor has Mixxx 2.4 or a
-newer Mixxx than 2.5, or a library on an external drive on macOS, where Mixxx asks for
-access.
+Mixxx was run against libraries written through CueRithm’s real preview and apply
+code, using a test harness. These are application checks in addition to the
+implementation and fixture tests:
+
+| System and Mixxx build | Result |
+| --- | --- |
+| **macOS, Mixxx 2.5.6** | **240 checks passed**: 168 across fresh, existing, replaced and newly created libraries, plus 72 covering additional formats. |
+| **Linux, Debian 13’s Mixxx 2.5.0 in Docker** | **105 checks passed**, covering MP3, WAV, FLAC, AAC, ALAC in M4A, AIFF, Ogg Vorbis and Opus. |
+
+Mixxx started without asking for a music folder, found the library current,
+deserialized the grids and keys, left BPM-locked grids alone and preserved the
+synced rows. The checks also inspected cue and loop data in the database.
+
+On macOS, MP3 and M4A timing was measured with the Apple decoder calls Mixxx uses.
+On Linux, MP3 timing was measured through libmad: the written first beat was within
+two frames of the decoded click. Debian’s build uses FFmpeg for AAC, with no shift
+needed. AIFF, Ogg Vorbis and Opus timing was compared with FFmpeg’s decoded audio;
+those decoder libraries were not probed independently.
+
+The Linux run opened the written library in the real Linux Mixxx on a virtual
+display, without an audio device. The sync harness itself ran on macOS with Linux
+timing; it did not exercise CueRithm’s desktop UI, native Linux discovery or process
+guards. Those have implementation tests. Audible playback and waveform alignment
+inside Mixxx were outside these runs.
+
+Windows Mixxx, Linux builds using FAAD, other Linux packages, Mixxx 2.4 and releases
+newer than 2.5 still need application runs. The tested macOS and Debian builds do
+not have a WMA decoder. External-drive access through the macOS sandbox and the
+CueRithm application’s macOS data-access prompt also remain to be checked.
+
+See the [format and acceptance notes](https://github.com/johnneerdael/Cuerithm/blob/main/docs/research/mixxx-sync-contract.md#runtime-acceptance)
+for the measurements and exact test boundaries.

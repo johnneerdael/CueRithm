@@ -6,7 +6,7 @@ CueRithm is an independent, open-source desktop library app for DJs. It is writt
 | --- | --- |
 | [Credits and open source](credits.md) | Every notable project CueRithm builds on, with licences, and how the licences fit together |
 | [How CueRithm was made](provenance.md) | The role Mixed In Key and Lexicon DJ played, how they were studied and what is and is not claimed |
-| [Not available yet](roadmap.md) | Features that are missing or unfinished in this release |
+| [Roadmap and compatibility](roadmap.md) | Available capabilities, completed application checks, remaining limits and planned work |
 | [FAQ and troubleshooting](faq.md) | Common questions and fixes |
 
 ## Project facts

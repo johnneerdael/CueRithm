@@ -238,7 +238,8 @@ If an operation is interrupted, keep the destination available and return to
 where the interrupted operation can be rolled back. Failed or interrupted work does
 not advance the last successful sync until recovery completes.
 
-This implementation remains under verification. The screenshots show the production
-Sync interface with invented example data. Synthetic format checks and reference
-parser agreement are separate from acceptance in the destination DJ applications
-and on physical CDJ hardware; these images do not establish that acceptance.
+Native application checks have passed for rekordbox 6 and 7 on macOS and for Mixxx
+on macOS and Debian Linux. See the [validation record and remaining checks](../about/roadmap.md#available-now)
+for their scope. Windows/Wine DJ-app playback and physical CDJ acceptance still
+need testing. The screenshots show the production Sync interface with invented
+example data.

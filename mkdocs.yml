@@ -179,5 +179,5 @@ nav:
       - about/index.md
       - Credits and open source: about/credits.md
       - How CueRithm was made: about/provenance.md
-      - Not available yet: about/roadmap.md
+      - Roadmap and compatibility: about/roadmap.md
       - FAQ and troubleshooting: about/faq.md
