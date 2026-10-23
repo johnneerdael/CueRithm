@@ -19,6 +19,8 @@ mod organization;
 mod ownership;
 pub(crate) use organization::{KnownDjReference, OrganizationOwnershipTransition};
 #[cfg(test)]
+mod mixxx_tests;
+#[cfg(test)]
 mod ownership_tests;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,16 +133,28 @@ impl Library {
         let root = self.data_dir().join("sync");
         let _lease = service_lock(&root)?;
         let selected_target = request.target.clone();
-        let target_root =
-            cuerithm_rekordbox::TargetPathSnapshot::capture(if selected_target.path.is_dir() {
-                &selected_target.path
-            } else {
-                selected_target
-                    .path
-                    .parent()
-                    .context("DJ library parent missing")?
-            })?;
+        let target_root = cuerithm_rekordbox::TargetPathSnapshot::capture(&if selected_target
+            .software
+            == DjSoftware::Mixxx
+        {
+            // A library, or its whole settings folder, may not exist yet.
+            cuerithm_dj_sync::mixxx::watched_folder(&selected_target.path)?
+        } else if selected_target.path.is_dir() {
+            selected_target.path.clone()
+        } else {
+            selected_target
+                .path
+                .parent()
+                .context("DJ library parent missing")?
+                .to_path_buf()
+        })?;
         request.target = canonical_target(request.target)?;
+        ensure!(
+            request.target.software != DjSoftware::Mixxx
+                || request.options.mixxx.library != cuerithm_dj_sync::MixxxLibrary::Overwrite
+                || matches!(request.scope, DjSyncScope::Full),
+            "Replacing the whole Mixxx library needs the full library; choose the full scope"
+        );
         if let Some(binding) = &request.configuration {
             self.verify_sync_target_configuration(
                 binding,
@@ -815,6 +829,13 @@ fn verify_target_selection(saved: &LibraryJournal) -> Result<()> {
 }
 pub(crate) fn canonical_target(mut target: SyncTarget) -> Result<SyncTarget> {
     target.environment.validate()?;
+    if target.software == DjSoftware::Mixxx {
+        // A Mixxx that was never started has no library and maybe no folder yet; the
+        // identity is the canonical place the library is or will be.
+        target.path = cuerithm_dj_sync::mixxx::canonical_database_path(&target.path)?;
+        target.source_root = target.source_root.map(fs::canonicalize).transpose()?;
+        return Ok(target);
+    }
     target.path = fs::canonicalize(target.path).context("DJ target was not found")?;
     // Normalize file/folder spellings so both selections share one durable baseline.
     target.path = match target.software {

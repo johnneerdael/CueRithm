@@ -100,6 +100,9 @@ fn compile_platform(
     if target == DjSoftware::PioneerUsb {
         return Err("Pioneer USB stores ordinary playlist membership".into());
     }
+    if target == DjSoftware::Mixxx {
+        return Err("Mixxx has no smart playlists or crates".into());
+    }
     if target == DjSoftware::DjayPro && windows {
         return Err("current djay on Windows requires ordinary playlists".into());
     }
@@ -148,7 +151,7 @@ fn compile_platform(
         DjSoftware::EngineDj => NativeSmart::EngineDj(engine(&predicates, all, options)?),
         DjSoftware::DjayPro => NativeSmart::Djay(djay(&predicates, options)?),
         DjSoftware::Serato4 => NativeSmart::Serato4(serato(&predicates, all, library, options)?),
-        DjSoftware::PioneerUsb => unreachable!(),
+        DjSoftware::PioneerUsb | DjSoftware::Mixxx => unreachable!(),
         DjSoftware::Rekordbox => {
             return Err("Rekordbox smart playlists require the native collection workflow".into());
         }

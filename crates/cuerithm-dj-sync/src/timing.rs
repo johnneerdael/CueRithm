@@ -16,6 +16,31 @@ fn profile_hash(profile: Option<&SourceExportTiming>) -> Result<String> {
         Sha256::digest(serde_json::to_vec(&profile)?)
     ))
 }
+/// Mixxx's decoder for this system against CueRithm's FFmpeg clock, from the file's own
+/// MP3 header and, on macOS, Apple's own reading of it, not a measured profile. Only MP3
+/// differs: AAC is zero where it was measured (macOS) and reported where it was not.
+fn mixxx_offset(track: &SyncTrack, extension: &str) -> Result<f64> {
+    mixxx_offset_with(track, extension, crate::mixxx::Mp3Decoder::host())
+}
+pub(crate) fn mixxx_offset_with(
+    track: &SyncTrack,
+    extension: &str,
+    decoder: crate::mixxx::Mp3Decoder,
+) -> Result<f64> {
+    if extension != "mp3" {
+        return Ok(0.);
+    }
+    ensure!(
+        track.sample_rate > 0,
+        "Track has no sample rate for its MP3 timing"
+    );
+    let start = crate::mixxx::mp3_start(&track.path)
+        .with_context(|| format!("Read MP3 start of track {}", track.id))?;
+    let priming = crate::mixxx::coreaudio_priming(&track.path, decoder)
+        .with_context(|| format!("Ask CoreAudio about track {}", track.id))?;
+    let samples = crate::mixxx::mp3_offset_samples(decoder, &start, priming);
+    Ok(samples as f64 / f64::from(track.sample_rate))
+}
 pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
     let extension = track
         .path
@@ -23,6 +48,9 @@ pub fn offset_seconds(track: &SyncTrack, target: DjSoftware) -> Result<f64> {
         .and_then(|p| p.to_str())
         .unwrap_or("")
         .to_lowercase();
+    if target == DjSoftware::Mixxx {
+        return mixxx_offset(track, &extension);
+    }
     let Some(profile) = &track.export_timing else {
         ensure!(
             target != DjSoftware::Rekordbox,

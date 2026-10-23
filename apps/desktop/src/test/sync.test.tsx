@@ -13,6 +13,72 @@ beforeEach(()=>{localStorage.removeItem(preferencesKey);});
 function prepared(id:string):SyncPreview{return {id,target:{software:"virtual_dj",path:"/VirtualDJ/database.xml",source_root:null},tracks:1,playlists:0,bytes_to_write:1024,files:[],warnings:[],directories:[],deleted_playlists:0,retained_external_playlists:0};}
 function enterDestination(){fireEvent.change(screen.getByRole("textbox",{name:"VirtualDJ library folder"}),{target:{value:"/VirtualDJ"}});}
 
+describe("Mixxx sync",()=>{
+ function chooseMixxx(){fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"mixxx"}});}
+ it("shows the two modes and Mixxx-only choices, and hides options Mixxx cannot use",()=>{
+  render(<Sync bridge={fakeBridge([])} workspace={null} revision={1} onChanged={()=>{}}/>);chooseMixxx();
+  expect(screen.getByRole("combobox",{name:"Existing Mixxx tracks"})).toHaveValue("keep");
+  expect(screen.getByRole("combobox",{name:"Playlists become"})).toHaveValue("playlists");
+  for(const name of ["Replace track details","Replace keys","Replace hot cues and loops"])expect(screen.getByRole("checkbox",{name})).toBeDisabled();
+  expect(screen.getByText(/Tracks already in Mixxx keep their beatgrid, key, hot cues and details/)).toBeInTheDocument();
+  // Mixxx is native everywhere and has no colour limit, smartlist option or key notation.
+  expect(screen.queryByRole("combobox",{name:"Application environment"})).toBeNull();
+  expect(screen.queryByRole("checkbox",{name:"Use nearest supported colors"})).toBeNull();
+  expect(screen.queryByRole("checkbox",{name:"All smartlists to playlists"})).toBeNull();
+  expect(screen.queryByRole("combobox",{name:"Convert keys"})).toBeNull();
+  expect(screen.getByRole("combobox",{name:"Beatgrid locks"})).toBeInTheDocument();
+  expect(screen.getByRole("checkbox",{name:"Do not send beatgrids"})).toBeInTheDocument();
+  expect(screen.getByText(/Mixxx has no smart playlists or folders/)).toBeInTheDocument();
+  expect(screen.getByText(/Close Mixxx before syncing/)).toBeInTheDocument();
+  // Other targets keep their own controls.
+  fireEvent.change(screen.getByRole("combobox",{name:"Sync to"}),{target:{value:"virtual_dj"}});
+  expect(screen.queryByRole("combobox",{name:"Existing Mixxx tracks"})).toBeNull();
+  expect(screen.getByRole("combobox",{name:"Application environment"})).toBeInTheDocument();
+  expect(screen.getByRole("checkbox",{name:"All smartlists to playlists"})).toBeInTheDocument();
+ });
+ it("sends the chosen mode, container and replace choices with a native target",async()=>{
+  const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>({...prepared("mixxx-preview"),target:{software:"mixxx" as const,path:"/Mixxx",source_root:null},warnings:["Mixxx: 1 track added; 2 replaced; 0 left unchanged; 0 playlists or crates created, 0 updated and 0 removed."]}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);chooseMixxx();
+  fireEvent.change(screen.getByRole("textbox",{name:"Mixxx settings folder"}),{target:{value:"/Mixxx"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Existing Mixxx tracks"}),{target:{value:"replace"}});
+  for(const name of ["Replace track details","Replace keys","Replace hot cues and loops"])expect(screen.getByRole("checkbox",{name})).toBeEnabled();
+  expect(screen.getByText(/CueRithm replaces the selected beatgrid, key, hot cues and details/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox",{name:"Replace keys"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Playlists become"}),{target:{value:"crates"}});
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(1));
+  const request=vi.mocked(bridge.previewDjSync).mock.lastCall![0];
+  expect(request.target).toEqual({software:"mixxx",path:"/Mixxx",source_root:null});
+  expect(request.options.mixxx).toEqual({library:"update",existing_tracks:"replace",container:"crates",replace_metadata:true,replace_key:false,replace_cues:true});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Sync to Mixxx"})).toBeEnabled());
+  expect(screen.getByText(/Mixxx: 1 track added; 2 replaced/)).toBeInTheDocument();
+ });
+ it("fills the destination from a discovered Mixxx library and keeps the replace choices when returning to Add only",async()=>{
+  const bridge=fakeBridge([]);bridge.discoverDjTargets=vi.fn(async()=>[{software:"mixxx" as const,path:"/home/dj/.mixxx/mixxxdb.sqlite"}]);
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);chooseMixxx();
+  await waitFor(()=>expect(screen.getByRole("textbox",{name:"Mixxx settings folder"})).toHaveValue("/home/dj/.mixxx/mixxxdb.sqlite"));
+  fireEvent.change(screen.getByRole("combobox",{name:"Existing Mixxx tracks"}),{target:{value:"replace"}});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Replace hot cues and loops"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Existing Mixxx tracks"}),{target:{value:"keep"}});
+  expect(screen.getByRole("checkbox",{name:"Replace hot cues and loops"})).toBeDisabled();
+  expect(screen.getByRole("checkbox",{name:"Replace hot cues and loops"})).not.toBeChecked();
+  fireEvent.change(screen.getByRole("combobox",{name:"Existing Mixxx tracks"}),{target:{value:"replace"}});
+  expect(screen.getByRole("checkbox",{name:"Replace hot cues and loops"})).not.toBeChecked();
+ });
+ it("offers to replace the whole Mixxx library and says what that means",async()=>{
+  const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>({...prepared("mixxx-overwrite"),target:{software:"mixxx" as const,path:"/Mixxx",source_root:null}}));
+  render(<Sync bridge={bridge} workspace={null} revision={1} onChanged={()=>{}}/>);chooseMixxx();
+  fireEvent.change(screen.getByRole("textbox",{name:"Mixxx settings folder"}),{target:{value:"/Mixxx"}});
+  expect(screen.getByRole("combobox",{name:"Mixxx library"})).toHaveValue("update");
+  expect(screen.getByText(/If the folder has no Mixxx library yet, CueRithm creates one\./)).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("combobox",{name:"Mixxx library"}),{target:{value:"overwrite"}});
+  expect(screen.getByText(/builds a new Mixxx library from this sync and replaces the one in the folder/)).toBeInTheDocument();
+  expect(screen.getByRole("combobox",{name:"Existing Mixxx tracks"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"Preview sync"}));
+  await waitFor(()=>expect(bridge.previewDjSync).toHaveBeenCalledTimes(1));
+  expect(vi.mocked(bridge.previewDjSync).mock.lastCall![0].options.mixxx.library).toBe("overwrite");
+ });
+});
 describe("native DJ sync",()=>{
  it("previews Windows references from an explicit Wine setup and invalidates it after mapping edits",async()=>{
   const bridge=fakeBridge([]);bridge.previewDjSync=vi.fn(async()=>prepared("mapped"));

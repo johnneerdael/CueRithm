@@ -20,6 +20,7 @@ Choose your destination in the **Sync to** menu:
 | djay Pro | A current djay Media Library folder |
 | Serato DJ Pro 4 | A Serato Library folder |
 | Pioneer USB | A mounted USB drive |
+| Mixxx | The Mixxx settings folder; see [Sync to Mixxx](sync-mixxx.md) |
 
 Initialize desktop libraries in their DJ application first. Choose a discovered
 library, use the folder button to browse, or enter its location. The refresh button
@@ -160,7 +161,7 @@ that have no usable saved results before exporting.
 Smart playlists stay dynamic when the destination supports their entire definition.
 Otherwise, they export their saved matching tracks as ordinary playlists. Enable
 **All smartlists to playlists** to export ordinary playlists throughout. Pioneer USB
-always uses ordinary playlists.
+always uses ordinary playlists, and so does Mixxx, which has no smart playlists.
 
 ## Set the options
 
