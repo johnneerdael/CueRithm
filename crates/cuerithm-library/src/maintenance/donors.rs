@@ -1936,13 +1936,20 @@ mod tests {
             pending[0].files_moved,
             "the file left its place: {pending:?}"
         );
+        // The entry names the canonical path, which on Windows can differ from the test's
+        // temp-dir spelling (a short 8.3 name), so accept either form.
         let shown = removed_path.display().to_string();
+        let canonical = removed_path
+            .parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap()
+            .join(removed_path.file_name().unwrap())
+            .display()
+            .to_string();
+        let error = pending[0].error.as_deref().unwrap_or_default();
         assert!(
-            pending[0]
-                .error
-                .as_deref()
-                .unwrap_or_default()
-                .contains(&shown),
+            error.contains(&shown) || error.contains(&canonical),
             "the entry names the file: {:?}",
             pending[0].error
         );
