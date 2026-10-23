@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 18 · 23 October 2026 CEST (22 October 2026 UTC) · Required engineering reference.
+Revision 19 · 23 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–18 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–19 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -15,7 +15,8 @@ audio, capture audits and identifying evidence. Historical reports can describe
 earlier hypotheses; the scoped exclusions here govern current work.
 
 The record covers controlled synthetic runs 01–10 (including rejected 06 and
-replacement 06B), the bass/dither intervention in run 12, the real-source suffix
+replacement 06B), the bass/dither intervention in run 12, the staged cue
+construction in run 13, the real-source suffix
 experiment in run 11, local mechanism
 investigations, and an independently recomputed assessment of the supplied mixed
 track ledger. Each item distinguishes observations,
@@ -35,10 +36,13 @@ seven files and five distinct numeric requests in that same lineage, including
 two reused baselines and three explicit controls (F123–F124). A separate
 real-recording test repeats 12 recordings three times; run 11 contains three
 exact-prefix variants of one real recording. These are not added to the synthetic
-benchmark or counted as independent songs (F121–F122). There is no promoted
+benchmark or counted as independent songs (F121–F122). Run 13 adds one linked family of nine files, six musical conditions and
+seven actual request identities. Its captured-input observations remain separate
+from its eight exact native-key failures and six authored-bar-phase failures
+(F127–F129); it is not added to the old 277-request benchmark. There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 126 scoped findings. Evidence references E001–E155 identify immutable private source snapshots by
+The current register contains 129 scoped findings. Evidence references E001–E174 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -1777,6 +1781,104 @@ No model was fitted or promoted, and no new audio or vendor capture was needed.
 
 **Evidence:** E149–E155.
 
+
+#### F127 — Staged group removals change cues while reported energy stays fixed
+
+**Type:** Controlled audio and captured-output observation.
+
+Six musical conditions, each 192 beats at 126 BPM, return key 8A, overall energy 4,
+six window labels of 4 and cue-energy labels of 4. Their cue counts are 6, 3, 6, 5,
+2 and 3. The removable lower group is kick plus bass; the upper group is percussion
+plus lead. Harmony and texture stay fixed. These element groups overlap in
+spectrum and level; they are not isolated frequency bands.
+
+In the lower-early pair, physical PCM before beat 128 is identical. Without the
+later upper-group removal, a cue occurs near authored beat 120. With that removal
+and subsequent restoration, cues occur near 116, 124 and 132. Neither upper-early
+pair member has a cue near 120. The late baseline and upper-early/lower-late
+conditions also have a reference cue cluster near authored beats 32, 36, 40 and 44.
+
+An exact copy and independent resynthesis match all five musical analysis fields;
+runtime profiling differs. The independent dither control keeps labels and cue
+coordinates but changes confidence by about -0.00037688 and cue times by up to
+3.906724 ns, exceeding the 1 ns cross-file identity tolerance.
+
+**Scope:** One linked family: nine files, six conditions and seven actual request
+identities. Shared float64 sources, gain and dither policy were checked; matched
+musical-construction pairs have unchanged PCM outside their declared edit supports. Six of nine authored-bar-phase checks
+fail; actual origins and submitted curves change. Beat positions above are display
+approximations from physical timestamps, not replacements for detected coordinates.
+
+**Rules out / prevents:** Do not call this a pure frequency, phase or isolated
+server-feature experiment. The upper-early comparison does not demonstrate precursor
+suppression. Changed dither/PCM is distinct from randomness on identical inputs.
+These observations do not identify server architecture or a universal cue rule.
+
+**Evidence:** E157, E159, E161, E162, E174.
+
+#### F128 — The frozen cue selector fails despite correct standalone energy
+
+**Type:** Frozen-model experiment and exact failure diagnosis.
+
+Using actual captured inputs, the unchanged controls match all nine key and
+overall responses and all 54 newer standalone window-energy labels. The older
+window branch actually used by the cue pipeline matches only 41/54. Cue count
+matches 1/9; complete positions and complete ordered timed/labelled lists match
+0/9. Across the six unique conditions, these are 6/6 key, 6/6 overall, 36/36
+standalone windows, 29/36 cue-branch windows, 1/6 counts and 0/6 complete cues.
+
+Supplying only the true count to the fixed decoder repairs one position list,
+the simultaneous-early condition. In the upper-only condition, MIK selects near
+authored beats 0 and 34, while the model selects near 0, 32, 64, 80, 96, 112 and
+128. False beat 64 receives point rate 0.842608, rank 2; true beat 34 receives
+0.004509, rank 19. No section, gain or element change was designed at 64; ordinary
+note/noise events still occur. Baseline true cues near authored beats 36, 40 and
+44 are not strict local peaks of the submitted curve. Their detected coordinates
+are 25, 29 and 33; clocks and coordinate systems remain separate.
+
+**Scope:** Seven models were frozen before labels. Exact known-case replay,
+repeat/reload and model-state checks passed. Point rates are occurrence intensities,
+not probabilities. The full-list tolerance is 1 ns, with bit identity reported
+separately. This one-key/one-energy family is not a broad music benchmark.
+
+**Rules out / prevents:** Correct count alone, a uniform cue offset or a strict
+peak restriction cannot repair these fixed lists. Do not silently substitute the
+newer standalone window model for the older cue context. This is no accepted model
+improvement, real-corpus gain or method-wide ceiling; no model was fitted here.
+
+**Evidence:** E163, E165, E160, E167, E168, E174.
+
+#### F129 — Eight new files fail exact native key-vector reproduction
+
+**Type:** Request-only extraction and guarded captured-input audit.
+
+Eight of nine files differ between the client request and the pinned local
+extractor at exactly one of 352 key coordinates: 36, 124 or 300, each congruent to
+36 modulo 88. None is the global maximum. Captured-minus-local differences are
+approximately -0.05028486 to -0.05028557 feature units, about 4.72–4.74 parts per
+billion of the affected coordinate. The independent dither file is exact. All
+other nine analysis fields and non-feature segment fields match in all nine files.
+Post-scan PCM, encoded FLAC frames and protected masters also match.
+
+The original exact guard rejected the batch before responses were opened. A
+separately reviewed actual-input branch preserved the eight failures, verified no
+actual key-vector overlap with the 79-hash sealed guard, and froze predictions
+using captured vectors before labels. Only eight key-input arrays change; every
+raw score, label and cue-time bit from the unchanged models remains identical.
+
+**Scope:** One nine-file family on the current M4 / 44.1 kHz stereo PCM16 FLAC
+profile. The original pre-HAR forecast and later post-capture/pre-label forecast
+are separate records. Guard tripwire tests verify that rejected inputs cause no
+response callback. Unrelated or sealed response labels were not admitted.
+
+**Rules out / prevents:** The numerical cause remains unresolved. Do not claim
+rounding, tuning, a global maximum, caching or randomness as the cause. Tiny
+relative error and unchanged predictions do not repair exact native qualification
+or justify a hidden correction. Captured-input prediction and PCM-to-request
+reproduction remain separate acceptance stages.
+
+**Evidence:** E170, E171, E166, E173, E174.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -1915,7 +2017,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E155 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E174 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -2077,3 +2179,22 @@ retain prior IDs or explicitly version replacement evidence.
 | E153 | `ce8a8d4b92cedda3a93551d9b81c4c7a19530358d946aea63824db895d54fb43` |
 | E154 | `1054addf33c21e369468b1df643256152edb50b68b5f51098c15c5d7d173a6c2` |
 | E155 | `a1e28b3dec9f93a669a5ac519ac02fbd10e24b1fd97393b77580a0ae5c78f926` |
+| E156 | `6a4e1a30c11413758447de107185ab3fef1477bfe60d7613c296e4b1938e69d0` |
+| E157 | `dca6ddebd0205a851153c7ace48185ed0426c3d47fa7e3fbd399ccbf47be8ffa` |
+| E158 | `08bb741a4dc819d2ddf17b7a89c48393a5bb092c9cb5b418d84b3a9523bf9c65` |
+| E159 | `f2138fc050c7fa1dc6acc2f213881fedf6aa708ac8f7d7a38b0cab267b579b40` |
+| E160 | `fff250217b55f0d8beb163bde81f5af5ee1f34d2a4d655b64487e540c7f08eca` |
+| E161 | `14ad6dfd84e7ff590c23790fc990e4f03bf49331f746945e42756dd07ee73001` |
+| E162 | `38d9427edc47601cac405551bb20495562d7430be82e48f1133c79dec0bb37d2` |
+| E163 | `60f74f2f317dbb159248dd9959b9829c0adcb927860c7752102a7e4a649fe3c5` |
+| E164 | `b1512285f3abbac11392626a65de7c4bf937d43c52efccc8a9485f0cf4593af7` |
+| E165 | `851566ad3798243694962946db1a4100d09c5c8f25c561264cc6577ebbc130f7` |
+| E166 | `58cd29851632aca579a515e2c44c333d49210eae79180975d4ab1f8492be388f` |
+| E167 | `58dce4f704144a587380670b0cc4623bf434d8a007b3861c44cce25909562aa0` |
+| E168 | `eb8bdcfbc377330f978f10293f2f48130fa6f9919e85809ae932216ce4aa9283` |
+| E169 | `71d7d016d6b920b309d618c7380e2a2d8028abd5f83acedc9e1c1397b8c7d712` |
+| E170 | `444bc4d85f28506b61ef2c71ed82f9fe01635f82bc5670854ac55eb6b5f31d56` |
+| E171 | `6404ed929733a7cd08c8b15ead1eb4155a4474f44e66a98783d4cc505a03eb33` |
+| E172 | `239c461cb47aa42e48b3bbffd4631aebfd742265e95f6f63b313474794c42a2b` |
+| E173 | `ff9b1b8c2f34622c0ad07c1571a0c0c4501cd73b7ae110c7aaeffa3a24f7eda5` |
+| E174 | `794fa707a57550a6eb92fefaa3d04fd736bee15e2fa705b5cc8a13564823c4af` |
