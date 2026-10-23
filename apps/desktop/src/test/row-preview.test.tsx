@@ -1,6 +1,6 @@
 import {render,screen,waitFor} from "@testing-library/react";
 import {describe,expect,it,vi} from "vitest";
-import RowPreview from "../components/RowPreview";
+import RowPreview,{PreviewLoadError} from "../components/RowPreview";
 import type {Analysis,Detail,PublishedCue,Waveform} from "../types";
 import {sampleWaveform} from "../views/WaveformSettings";
 
@@ -51,12 +51,21 @@ describe("row preview identity",()=>{
 });
 
 describe("row preview dash",()=>{
-  it("says the audio could not be read when the preview fails to load",async()=>{
-    const failing=async()=>{throw new Error("Audio file is missing");};
+  it("says the audio could not be read when the loader fails on the audio",async()=>{
+    const failing=async()=>{throw new PreviewLoadError("audio",new Error("Audio file is missing"));};
     const {container}=render(<RowPreview id="gone" identity="a" load={failing}/>);
     const dash=await screen.findByRole("img",{name:/audio file could not be read/i},{timeout:2000});
     expect(dash).toHaveTextContent("—");
     expect(dash).toHaveAttribute("title",dash.getAttribute("aria-label")!);
+    expect(container.querySelector("svg")).toBeNull();
+  });
+  it.each([["a failed request",()=>new PreviewLoadError("request","Library is busy")],["an error it does not recognise",()=>new Error("IPC channel closed")]])("does not blame the audio file for %s",async(_name,reason)=>{
+    const failing=async()=>{throw reason();};
+    const {container}=render(<RowPreview id="request" identity="a" load={failing}/>);
+    const dash=await screen.findByRole("img",{name:"No preview: it could not be loaded."},{timeout:2000});
+    expect(dash).toHaveTextContent("—");
+    expect(dash).toHaveAttribute("title","No preview: it could not be loaded.");
+    expect(dash.getAttribute("aria-label")).not.toMatch(/audio|missing|moved|unsupported/i);
     expect(container.querySelector("svg")).toBeNull();
   });
   it("says there is no waveform when the track decodes to nothing",async()=>{

@@ -39,6 +39,7 @@ import type {CurationCatalog,CurationFilter} from "./curation-types";
 import CurationFilters from "./components/CurationFilters";
 import type {MetadataDraft} from "./editor-types";
 import {hasShortcutModifier,shortcut} from "./platform";
+import {PreviewLoadError} from "./components/RowPreview";
 
 const idle:Playback={track_id:null,duration_seconds:0,position_seconds:0,playing:false,volume:.65,error:null};
 function flag(key:string){try{return localStorage.getItem(key)==="1";}catch{return false;}}
@@ -87,7 +88,13 @@ export default function App({bridge=nativeBridge,compatibleBridge,tracklistBridg
   const [sideWidth,setSideWidth]=useState(()=>preference("sidebar-width",224,180,340));
   const [playerHeight,setPlayerHeight]=useState(()=>preference("player-height",270,200,420));
   useEffect(()=>{try{localStorage.setItem("sidebar-collapsed",collapsed?"1":"0");}catch{}},[collapsed]);
-  const previewLoader=useCallback(async(id:string)=>{const [wave,detail]=await Promise.all([bridge.getWaveform(id,240),bridge.getTrack(id)]);return {wave,detail};},[bridge]);
+  // The track lookup is a library request; only a waveform that fails after a good lookup points at the audio itself.
+  const previewLoader=useCallback(async(id:string)=>{
+    const [wave,detail]=await Promise.allSettled([bridge.getWaveform(id,240),bridge.getTrack(id)]);
+    if(detail.status==="rejected")throw new PreviewLoadError("request",detail.reason);
+    if(wave.status==="rejected")throw new PreviewLoadError("audio",wave.reason);
+    return {wave:wave.value,detail:detail.value};
+  },[bridge]);
   const query=useRef<TrackQuery>({view:"tracks",search:"",sort:"title",descending:false,limit:200,cursor:null});
   const playlistRequest=useRef(0);
   const loadedScope=useRef("");
