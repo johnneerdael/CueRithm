@@ -157,6 +157,18 @@ describe("Missing & broken: history and undo",()=>{
   });
 });
 
+describe("Missing & broken: undo notes",()=>{
+  it("tells the DJ when a relinked file will be followed again by a watch folder",async()=>{
+    const b=bridges();
+    vi.mocked(b.repair.history).mockResolvedValue([{entry:entry("relink"),undone_by:null}]);
+    vi.mocked(b.repair.undo).mockResolvedValue(entry("relink",{undo_of:"entry",notes:["This file is still inside a watch folder, where it now is, so CueRithm will follow it again the next time that folder is scanned."]}));
+    render(<Maintenance api={b.api} repair={b.repair} chooseFolder={async()=>null} workspace={null} onChanged={()=>{}}/>);
+    fireEvent.click(screen.getByRole("tab",{name:"History & recovery"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Undo relink"}));
+    expect(await screen.findByText(/Relink undone\. The tracks point at their old locations again\. This file is still inside a watch folder/)).toBeInTheDocument();
+  });
+});
+
 describe("Missing & broken: saved records",()=>{
   it("keeps saved records until they are explicitly discarded after an acknowledgement",async()=>{
     const b=bridges();

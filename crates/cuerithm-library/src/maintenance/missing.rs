@@ -139,6 +139,9 @@ pub struct MissingRepairEntry {
     pub track_count: usize,
     pub tracks: Vec<RepairedTrack>,
     pub skipped: Vec<SkippedTrack>,
+    /// Things worth knowing about what just happened, in plain words.
+    #[serde(default)]
+    pub notes: Vec<String>,
     pub playlist_ids: Vec<String>,
     pub playlist_memberships: usize,
     pub sync_links: usize,
@@ -871,6 +874,7 @@ impl Library {
                 })
                 .collect(),
             skipped,
+            notes: vec![],
             stamp: advance(&tx)?,
         };
         // A preview is good for one apply, and it names the tracks it was made for.
@@ -1236,6 +1240,7 @@ impl Library {
             track_count: applied.len(),
             tracks: applied,
             skipped,
+            notes: vec![],
             playlist_ids: vec![],
             playlist_memberships: 0,
             sync_links: 0,
@@ -1329,6 +1334,40 @@ impl Library {
         })
     }
 
+    /// Undoing a relink points a track back at its old location. If the file it was
+    /// relinked to is still inside the same watch folder, the next scan follows it
+    /// there again (one track, never a duplicate), which makes the Undo ineffective;
+    /// say so rather than let it look like it stuck.
+    fn watch_follow_notes(&self, operation: &Operation) -> Vec<String> {
+        if operation.entry.kind != MissingRepairKind::Relink {
+            return vec![];
+        }
+        let roots: Vec<PathBuf> = self
+            .settings()
+            .map(|s| s.settings.watch_folders)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|folder| folder.canonicalize().ok())
+            .collect();
+        let following = operation
+            .snapshot
+            .relinks
+            .iter()
+            .filter_map(|m| Some((bytes_path(&m.from).ok()?, bytes_path(&m.to).ok()?)))
+            .filter(|(from, to)| {
+                to.is_file()
+                    && roots
+                        .iter()
+                        .any(|root| from.starts_with(root) && to.starts_with(root))
+            })
+            .count();
+        match following {
+            0 => vec![],
+            1 => vec!["This file is still inside a watch folder, where it now is, so CueRithm will follow it again the next time that folder is scanned (for example when the app starts). Move it back as well to keep the old location.".into()],
+            n => vec![format!("{n} of these files are still inside a watch folder, where they now are, so CueRithm will follow them again the next time that folder is scanned (for example when the app starts). Move them back as well to keep the old locations.")],
+        }
+    }
+
     /// Reverses a removal or a relink as one step, or changes nothing and says why not.
     pub fn undo_missing_repair(
         &self,
@@ -1377,6 +1416,7 @@ impl Library {
                 }
             }
         }
+        let undo_notes = self.watch_follow_notes(&original);
         let _gates = self.repair_gates()?;
         let mut conn = self.conn()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -1502,6 +1542,7 @@ impl Library {
             track_count: original.entry.track_count,
             tracks: original.entry.tracks.clone(),
             skipped: undo_skipped,
+            notes: undo_notes,
             playlist_ids,
             playlist_memberships: original.entry.playlist_memberships,
             sync_links: original.entry.sync_links,

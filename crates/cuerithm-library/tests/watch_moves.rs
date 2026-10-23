@@ -534,3 +534,56 @@ fn a_case_only_rename_is_the_same_track_not_a_new_one() {
     let stored = fx.lib.track_path(&id).unwrap();
     assert!(stored == file || stored == renamed);
 }
+
+#[test]
+fn undoing_a_relink_inside_a_watch_folder_is_followed_again_by_the_next_scan() {
+    let fx = Fixture::new();
+    let old = fx.file(&fx.watch.join("Album"), "a.flac", 1);
+    let id = fx.ready(&old, 120.);
+    // The app was closed while the file was moved up a level.
+    let new = fx.watch.join("a.flac");
+    std::fs::rename(&old, &new).unwrap();
+    let report = fx
+        .lib
+        .scan_broken_tracks(
+            cuerithm_library::BrokenScanRequest::default(),
+            &offline_runtime(&fx.root.join("decoder")),
+            &cuerithm_media::CancellationToken::default(),
+        )
+        .unwrap();
+    let preview = fx
+        .lib
+        .preview_missing_relink(
+            &report.id,
+            std::slice::from_ref(&id),
+            std::slice::from_ref(&fx.watch),
+            &cuerithm_media::CancellationToken::default(),
+            |_| {},
+        )
+        .unwrap();
+    let entry = fx
+        .lib
+        .apply_missing_relink(&preview.id, &cuerithm_media::CancellationToken::default())
+        .unwrap();
+    assert_eq!(fx.lib.track_path(&id).unwrap(), new);
+    let undo = fx
+        .lib
+        .undo_missing_repair(&entry.id, &cuerithm_media::CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        fx.lib.track_path(&id).unwrap(),
+        old,
+        "Undo points the track back"
+    );
+    // Undo says plainly that the watch folder will follow the file again.
+    assert_eq!(undo.notes.len(), 1, "{:?}", undo.notes);
+    assert!(undo.notes[0].contains("watch folder"), "{}", undo.notes[0]);
+    // The file still sits at the new place inside the watch folder, so the next scan
+    // (here: starting up) follows it again: one track, never a duplicate and a ghost.
+    let service = fx.start();
+    wait_until("the watch folder to follow the file again", 60, || {
+        fx.lib.track_path(&id).unwrap() == new
+    });
+    service.shutdown();
+    assert_eq!(fx.total_tracks(), 1);
+}

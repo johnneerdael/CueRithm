@@ -1075,6 +1075,11 @@ fn moved_files_are_found_by_content_and_the_tracks_keep_everything() {
 
     let undo = l.fx.lib.undo_missing_repair(&entry.id, &cancel()).unwrap();
     assert_eq!(undo.undo_of.as_deref(), Some(entry.id.as_str()));
+    assert!(
+        undo.notes.is_empty(),
+        "the files are outside every watch folder: {:?}",
+        undo.notes
+    );
     assert_eq!(
         l.fx.lib.track_path(&l.a).unwrap(),
         l.files[0].canonicalize().unwrap_or(l.files[0].clone())
