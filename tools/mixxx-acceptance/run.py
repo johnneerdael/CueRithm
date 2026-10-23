@@ -27,6 +27,13 @@ runs four scenarios, each on its own scratch library:
              it (CoreAudio, or the format's own library), and the written grid must land
              on it. Run alone with `--only formats`.
 
+`--linux` runs the `formats` scenario against Debian's Mixxx 2.5.0 in a Docker container
+instead (image from `tools/mixxx-acceptance/linux/Dockerfile`): the real Linux Mixxx on a
+virtual display (Xvfb) with software OpenGL and no audio device. Nobody clicks anything;
+the checks read Mixxx's database and debug log. MP3 is decoded there with libmad, and the
+first click is measured by `mad_probe.c`, which does what Mixxx's MP3 source does. The sync
+runs on the host as a Linux system would (`CUERITHM_MIXXX_HOST=linux`: libmad timing).
+
 In all of them the sync goes through the real preview/apply path. The written rows are
 checked (grid, key, BPM lock, hot cues and loop, the playlist, the music folder, and that
 the first beat lands where CoreAudio, the decoder Mixxx uses on macOS, puts the first
@@ -46,6 +53,7 @@ Exit status 0 means every check passed. A report is printed and written to
 """
 import argparse
 import array
+import itertools
 import json
 import math
 import os
@@ -64,6 +72,9 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 DEFAULT_MIXXX = "/Applications/Mixxx.app/Contents/MacOS/Mixxx"
 CONTAINER = Path.home() / "Library/Containers/org.mixxx.mixxx/Data/Library/Application Support"
+DOCKER = "docker"
+LINUX_IMAGE = "cuerithm-mixxx-linux"
+_containers = itertools.count()
 SAMPLE_RATE = 44100
 BPM = 128.0
 FIRST_BEAT = 0.5
@@ -204,12 +215,24 @@ class Mixxx:
 
     def __init__(self, mixxx, settings, tracks, log):
         self.log = open(log, "wb")
-        self.process = subprocess.Popen(
-            [mixxx, "--settings-path", str(settings), "--log-level", "debug",
-             "--log-flush-level", "debug", *map(str, tracks)],
-            stdout=self.log, stderr=subprocess.STDOUT)
+        self.container = None
+        if mixxx == DOCKER:
+            # Debian's Mixxx on a virtual display. Its library folder is ~/.mixxx, the Linux
+            # default, and the music is mounted at the same path the host wrote into the library.
+            music = (settings.parent / "music").resolve()
+            self.container = f"cuerithm-mixxx-{os.getpid()}-{next(_containers)}"
+            command = ["docker", "run", "--rm", "--init", "--name", self.container,
+                       "-v", f"{settings}:/root/.mixxx", "-v", f"{music}:{music}", LINUX_IMAGE,
+                       "timeout", "900", "xvfb-run", "-a", "mixxx", "--log-level", "debug",
+                       "--log-flush-level", "debug", *map(str, tracks)]
+        else:
+            command = [mixxx, "--settings-path", str(settings), "--log-level", "debug",
+                       "--log-flush-level", "debug", *map(str, tracks)]
+        self.process = subprocess.Popen(command, stdout=self.log, stderr=subprocess.STDOUT)
 
     def stop(self):
+        if self.container and self.process.poll() is None:
+            subprocess.run(["docker", "stop", "-t", "10", self.container], capture_output=True)
         if self.process.poll() is None:
             self.process.terminate()
             try:
@@ -306,6 +329,14 @@ def providers_in(log):
     return found
 
 
+def mad_frame(path):
+    """Mixxx's frame of the first click for an MP3 read with libmad (see mad_probe.c)."""
+    out = run("docker", "run", "--rm", "-v", f"{HERE}:/probe:ro", "-v", f"{path.parent}:{path.parent}:ro",
+              LINUX_IMAGE, "sh", "-c",
+              f"gcc -O2 -o /tmp/mad_probe /probe/mad_probe.c -lmad -lm && /tmp/mad_probe '{path}'").stdout.decode()
+    return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
+
+
 def format_truth(probe, files, providers):
     """Where the decoder Mixxx uses reads the first click, and at what rate, for each file."""
     truth, rates = {}, {}
@@ -313,7 +344,9 @@ def format_truth(probe, files, providers):
         extension = Path(name).suffix[1:]
         first = (providers.get(extension) or ["?"])[0]
         rates[name] = native_rate(path)
-        if "CoreAudio" in first:
+        if first.startswith("MAD"):
+            truth[name] = mad_frame(path)
+        elif "CoreAudio" in first:
             truth[name] = probe_frames(probe, {name: path})[name]
         else:
             truth[name] = ffmpeg_first_click(path, rates[name])
@@ -358,7 +391,7 @@ def check_rows(report, label, written, first, truth, rates=None, count=3):
         report.check(f"{tag}: grid tempo {BPM}", abs(bpm - BPM) < 1e-9 and abs(track["bpm"] - BPM) < 1e-9, f"{bpm}")
         report.check(f"{tag}: BPM locked", track["bpm_lock"] == 1)
         gap = first_beat - truth[name]
-        report.check(f"{tag}: first beat within 16 frames of CoreAudio's first click",
+        report.check(f"{tag}: first beat within 16 frames of the first click as Mixxx's decoder reads it",
                      abs(gap) <= 16, f"beat {first_beat}, click {truth[name]}, difference {gap}")
         key = decode_key_map(track["keys"])
         report.check(f"{tag}: key A minor, source user",
@@ -404,7 +437,7 @@ def mixxx_rows(database):
         connection.close()
 
 
-def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, probe=None):
+def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, probe=None, host=""):
     """mode is fresh, existing, overwrite or created; reference collects what Mixxx made."""
     label = mode
     settings, music = work / "settings", work / "music"
@@ -492,7 +525,8 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     print(f"[{label}] Syncing through prepare_sync and apply_sync...")
     env = dict(os.environ, CUERITHM_MIXXX_ACCEPTANCE=str(work),
                CUERITHM_MIXXX_MODE="replace" if mode in ("existing", "formats") else "keep",
-               CUERITHM_MIXXX_LIBRARY="overwrite" if mode == "overwrite" else "update")
+               CUERITHM_MIXXX_LIBRARY="overwrite" if mode == "overwrite" else "update",
+               CUERITHM_MIXXX_HOST=host)
     sync = subprocess.run(
         ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
          "write_acceptance_library", "--nocapture"],
@@ -576,16 +610,25 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mixxx", default=DEFAULT_MIXXX)
     parser.add_argument("--only", help="run just these scenarios (comma separated)")
+    parser.add_argument("--linux", action="store_true",
+                        help="run the formats scenario against Debian's Mixxx in Docker (Linux)")
     parser.add_argument("--work", help="scratch folder inside Mixxx's sandbox container "
                         "(default: MixxxAcceptance/run-<time> beside Mixxx's own folder)")
     args = parser.parse_args()
-    if sys.platform != "darwin":
-        sys.exit("this harness drives the macOS Mixxx build and its CoreAudio decoder")
-    if not Path(args.mixxx).is_file():
-        sys.exit(f"Mixxx not found at {args.mixxx}")
-    if running := mixxx_running():
-        sys.exit(f"Mixxx is already running ({running[0].strip()}); quit it and run again")
-    work = Path(args.work or CONTAINER / "MixxxAcceptance" / time.strftime("run-%Y%m%d-%H%M%S"))
+    if args.linux:
+        args.mixxx = DOCKER
+        if subprocess.run(["docker", "image", "inspect", LINUX_IMAGE], capture_output=True).returncode:
+            sys.exit(f"build the image first: docker build -t {LINUX_IMAGE} {HERE / 'linux'}")
+    else:
+        if sys.platform != "darwin":
+            sys.exit("this harness drives the macOS Mixxx build and its CoreAudio decoder")
+        if not Path(args.mixxx).is_file():
+            sys.exit(f"Mixxx not found at {args.mixxx}")
+        if running := mixxx_running():
+            sys.exit(f"Mixxx is already running ({running[0].strip()}); quit it and run again")
+    default_work = (Path(tempfile.mkdtemp(prefix="mixxx-linux-")) if args.linux else
+                    CONTAINER / "MixxxAcceptance" / time.strftime("run-%Y%m%d-%H%M%S"))
+    work = Path(args.work or default_work)
     sources = work / "source"
     sources.mkdir(parents=True, exist_ok=True)
     report = Report()
@@ -601,11 +644,13 @@ def main():
         for name in NAMES
     ]
     (sources / "manifest.json").write_text(json.dumps(manifest))
-    probe = work / "coreaudio_probe"
-    run("clang", "-framework", "AudioToolbox", "-framework", "CoreFoundation",
-        str(HERE / "coreaudio_probe.c"), "-o", str(probe))
-    truth = probe_frames(probe, {name: sources / name for name in NAMES})
-    print(f"CoreAudio's Mixxx frame of the first click: {truth}")
+    probe, truth = None, {}
+    if not args.linux:
+        probe = work / "coreaudio_probe"
+        run("clang", "-framework", "AudioToolbox", "-framework", "CoreFoundation",
+            str(HERE / "coreaudio_probe.c"), "-o", str(probe))
+        truth = probe_frames(probe, {name: sources / name for name in NAMES})
+        print(f"CoreAudio's Mixxx frame of the first click: {truth}")
 
     # the files of the formats scenario: encoded from the same click track
     format_names = []
@@ -620,12 +665,21 @@ def main():
     (sources / "manifest-formats.json").write_text(json.dumps(manifest_formats))
 
     wanted = args.only.split(",") if args.only else ["fresh", "existing", "overwrite", "created", "formats"]
+    if args.linux:
+        wanted = ["formats"]
     logs, reference = {}, {}
     for name in wanted:
         if name == "formats":
-            shutil.copy2(sources / "manifest-formats.json", sources / "manifest.json")
+            names = tuple(format_names)
+            host = ""
+            if args.linux:
+                # MP3 (libmad), WAV and FLAC as well as the formats of the macOS run
+                names = NAMES + names
+                host = "linux"
+            (sources / "manifest.json").write_text(json.dumps(
+                [m for m in manifest if m["file"] in names] + manifest_formats))
             logs[name] = scenario(report, args.mixxx, work / name, sources, {}, name, reference,
-                                  names=tuple(format_names), probe=probe)
+                                  names=names, probe=probe, host=host)
         else:
             (sources / "manifest.json").write_text(json.dumps(manifest))
             logs[name] = scenario(report, args.mixxx, work / name, sources, truth, name, reference)
