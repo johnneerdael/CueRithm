@@ -68,9 +68,13 @@ CREATE TABLE import_processing_receipts (
  stage TEXT NOT NULL,attempt TEXT NOT NULL,state TEXT NOT NULL,identity_json TEXT NOT NULL,receipt_json TEXT NOT NULL,
  updated INTEGER NOT NULL,PRIMARY KEY(operation_id,item_id,stage,attempt)
 );
+CREATE UNIQUE INDEX import_processing_running ON import_processing_receipts(operation_id,item_id,stage) WHERE state='running';
 CREATE TABLE import_preview_effects (
  preview_id TEXT NOT NULL REFERENCES import_previews(id) ON DELETE CASCADE,
  sequence INTEGER NOT NULL,kind TEXT NOT NULL,external_id TEXT NOT NULL,
  proposal_json TEXT NOT NULL,effect_json TEXT NOT NULL,PRIMARY KEY(preview_id,sequence)
 );
+CREATE INDEX import_preview_effects_item ON import_preview_effects(json_extract(proposal_json,'$.candidate.item_id'),preview_id) WHERE kind='track';
+CREATE INDEX import_operations_source ON import_operations(source_id,created,id);
+CREATE INDEX import_processing_signature ON import_processing_receipts(stage,json_extract(identity_json,'$.stage_signature')) WHERE state='proposed';
 PRAGMA user_version=29;

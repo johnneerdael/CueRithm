@@ -296,6 +296,7 @@ pub struct FileAnalysis {
 
 pub struct Engine {
     execution_selection: AnalysisSelection,
+    generation_timing: Option<crate::TempoEstimate>,
     #[cfg(test)]
     stage_counts: [u32; 4],
     settings: EngineSettings,
@@ -359,6 +360,7 @@ impl Engine {
             .transpose()?;
         Ok(Self {
             execution_selection: AnalysisSelection::ALL,
+            generation_timing: None,
             #[cfg(test)]
             stage_counts: [0; 4],
             energy,
@@ -377,7 +379,7 @@ impl Engine {
     /// any model load; ordinary Incoming continues to use `new` and full preparation.
     pub fn new_selected(settings: &EngineSettings, selection: AnalysisSelection) -> Result<Self> {
         ensure!(selection.any(), "No analysis stages selected");
-        let filtered = selection.settings(settings);
+        let filtered = selection.effective_settings(settings);
         ensure!(
             !selection.energy || filtered.lexicon_energy || filtered.energy_model.is_some(),
             "No whole-track energy backend configured"
@@ -395,10 +397,12 @@ impl Engine {
         audio: &cuerithm_media::PreparedAudio,
         selection: AnalysisSelection,
     ) -> Result<FileAnalysis> {
+        self.generation_timing = None;
         ensure!(selection.any(), "No analysis stages selected");
         if self.execution_selection != selection {
             let mut selected = Self::new_selected(&self.settings, selection)?;
             let result = selected.analyze_prepared_selected(audio, selection);
+            self.generation_timing = selected.take_generation_timing();
             #[cfg(test)]
             {
                 self.stage_counts = selected.stage_counts;
@@ -407,6 +411,9 @@ impl Engine {
         }
         let mut result = self.analyze_prepared_effective(audio)?;
         result.selection = Some(selection);
+        if selection.cues {
+            self.generation_timing = result.analysis.tempo.clone();
+        }
         if selection.beatgrid {
             result.selected_beatgrid = result.analysis.tempo.clone();
         }
@@ -426,6 +433,11 @@ impl Engine {
             )?)
         );
         Ok(result)
+    }
+    /// Backend-only prerequisite for the existing cue publication template. This
+    /// does not authorize adopting scalar BPM or the grid into the library.
+    pub fn take_generation_timing(&mut self) -> Option<crate::TempoEstimate> {
+        self.generation_timing.take()
     }
     fn execution_input_rates(&self) -> Vec<u32> {
         let mut rates = self.settings.input_rates();

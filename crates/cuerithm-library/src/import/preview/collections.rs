@@ -42,6 +42,12 @@ pub(super) fn stage_collections(
         if !request.collections.contains(&collection.external_id) {
             continue;
         }
+        if (collection.kind == CollectionKind::History && !request.policy.include_history)
+            || (collection.kind == CollectionKind::Queue && !request.policy.include_queue)
+        {
+            continue;
+        }
+
         let id = collection_id(source, &collection.external_id)?;
         let observed = source_collection_value(tx, &request.inspection_id, &collection, cancel)?;
         let before = local_collection_value(tx, &id, cancel)?;

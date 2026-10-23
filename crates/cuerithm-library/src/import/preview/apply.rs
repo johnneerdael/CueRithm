@@ -83,18 +83,25 @@ impl Library {
                 if c.identity_blocked {
                     continue;
                 }
-                let previous: Option<(String, Option<Vec<u8>>)> = tx
+                let previous: Option<(String, Option<Vec<u8>>, Option<String>)> = tx
                     .query_row(
-                        "SELECT availability,path FROM import_items WHERE id=?1",
+                        "SELECT availability,path,source_hash FROM import_items WHERE id=?1",
                         [&c.item_id],
-                        |r| Ok((r.get(0)?, r.get(1)?)),
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
                     )
                     .optional()?;
                 let next_path = c.media.as_ref().map(|m| crate::model::path_bytes(&m.path));
-                let needs_projection = previous.as_ref().is_none_or(|(availability, path)| {
-                    availability != &c.availability
-                        || next_path.as_ref().is_some_and(|p| path.as_ref() != Some(p))
-                }) || !p.fields.is_empty();
+                let needs_projection =
+                    previous
+                        .as_ref()
+                        .is_none_or(|(availability, path, source_hash)| {
+                            availability != &c.availability
+                                || c.media
+                                    .as_ref()
+                                    .is_some_and(|media| media.sha256 != *source_hash)
+                                || next_path.as_ref().is_some_and(|p| path.as_ref() != Some(p))
+                        })
+                        || !p.fields.is_empty();
                 if needs_projection {
                     let track = load_track(&tx, &snapshot_id, &c.external_id)?;
                     project_import_track_tx(

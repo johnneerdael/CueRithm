@@ -23,27 +23,31 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Serialize, Deserialize)]
-struct PreviewMeta {
-    request: ImportPreviewRequest,
-    summary: ImportPreview,
+pub(super) struct PreviewMeta {
+    pub(super) request: ImportPreviewRequest,
+    pub(super) summary: ImportPreview,
+    #[serde(default)]
+    pub(super) processing: super::processing::FrozenProcessing,
 }
 #[derive(Serialize, Deserialize)]
-struct Candidate {
-    external_id: String,
-    item_id: String,
-    local_track_id: Option<String>,
-    is_new: bool,
-    media: Option<MediaGuard>,
-    availability: String,
-    identity_change: Option<Value>,
-    identity_blocked: bool,
+pub(super) struct Candidate {
+    pub(super) external_id: String,
+    pub(super) item_id: String,
+    pub(super) local_track_id: Option<String>,
+    pub(super) is_new: bool,
+    pub(super) media: Option<MediaGuard>,
+    pub(super) availability: String,
+    pub(super) identity_change: Option<Value>,
+    pub(super) identity_blocked: bool,
 }
 #[derive(Serialize, Deserialize)]
-struct TrackProposal {
-    candidate: Candidate,
-    fields: BTreeMap<String, Value>,
-    baselines: BTreeMap<String, (Value, Value)>,
-    provenance: BTreeMap<String, Value>,
+pub(super) struct TrackProposal {
+    pub(super) candidate: Candidate,
+    pub(super) fields: BTreeMap<String, Value>,
+    pub(super) baselines: BTreeMap<String, (Value, Value)>,
+    pub(super) provenance: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub(super) process: bool,
 }
 #[derive(Serialize, Deserialize)]
 struct CollectionProposal {
@@ -228,4 +232,40 @@ fn identity_change(
         false
     };
     Ok((location_changed || native_changed).then_some(previous))
+}
+
+fn processing_required(
+    conn: &Connection,
+    source: &str,
+    policy: &ImportPolicy,
+    processing: &super::processing::FrozenProcessing,
+    candidate: &Candidate,
+    fields_changed: bool,
+) -> Result<bool> {
+    if !policy.requires_processing() || candidate.identity_blocked {
+        return Ok(false);
+    }
+    if candidate.is_new || fields_changed || candidate.identity_change.is_some() {
+        return Ok(true);
+    }
+    let previous:Option<(String,String,String)>=conn.query_row("SELECT p.json,e.proposal_json,o.id FROM import_operations o JOIN import_previews p ON p.id=o.preview_id JOIN import_preview_effects e ON e.preview_id=p.id WHERE o.source_id=?1 AND e.kind='track' AND json_extract(e.proposal_json,'$.candidate.item_id')=?2 ORDER BY o.rowid DESC LIMIT 1",params![source,candidate.item_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    let Some((meta, proposal, operation)) = previous else {
+        return Ok(true);
+    };
+    let previous: PreviewMeta = serde_json::from_str(&meta)?;
+    let proposal: TrackProposal = serde_json::from_str(&proposal)?;
+    let previous_decoder = if let Some(decoder) = &previous.processing.decoder_identity {
+        Some(decoder.clone())
+    } else {
+        conn.query_row("SELECT json_extract(identity_json,'$.decoder') FROM import_processing_receipts WHERE operation_id=?1 AND state='proposed' ORDER BY rowid DESC LIMIT 1",[operation],|r|r.get::<_,Option<String>>(0)).optional()?.flatten()
+    };
+    let decoder_changed = previous_decoder
+        .as_ref()
+        .zip(processing.decoder_identity.as_ref())
+        .is_some_and(|(before, after)| before != after);
+    Ok(decoder_changed
+        || serde_json::to_value(&previous.request.policy)? != serde_json::to_value(policy)?
+        || previous.processing.effective_identity(policy)?
+            != processing.effective_identity(policy)?
+        || proposal.candidate.media != candidate.media)
 }

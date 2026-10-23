@@ -155,11 +155,11 @@ Add serde-defaulted `TrackSummary.import_state: Option<ImportedItemState>` and m
 
 **Interfaces:** `ImportProcessingService::start(library: Library, runtime: MediaRuntime) -> Result<Self>`, `run_pending(&self, cancel: &CancellationToken) -> Result<ImportProcessingSummary>`, `shutdown(&self)`; production dependencies come from existing provider/tag/organization services. `ImportProcessingSummary` distinguishes processed/blocked/failed/cancelled/recovery-required. Each stage receipt binds operation/item/policy/attempt and source/PCM/settings/implementation identities.
 
-- [ ] Write `global_incoming_settings_cannot_change_import_policy`, `key_and_energy_choices_are_independent`, `fill_missing_is_not_replace_unknown`, `generation_respects_occupied_hotcue_family`, `source_change_blocks_publication`, and `restart_does_not_replay_completed_stage`. Assert key-only/energy-only leave active hotcues intact; overwrite alone runs no generator; no source-field value is used as a measured prediction.
-- [ ] Run `cargo test -p cuerithm-library import::tests::processing`; expect missing service failure.
-- [ ] Implement independent stage planning and attempt/checkpoint claims outside long DB locks. Use Task 6 API; cache only exact validated identities. Store generated results as proposals without active adoption; Task 8's actual-effects preview/apply publishes selected groups under revision guards. Distinguish private generation prerequisites from published BPM/grid. Preserve ordinary Incoming validation and workers; never enqueue imports through `enqueue_paths` or `enqueue_one`.
-- [ ] Rerun processing tests with missing media, cancellation per stage, worker restart, cache mismatch and later user edits; expect accounted blocked/cancelled outcomes and no unchecked stage calls.
-- [ ] Commit `feat: process imports with frozen independent policies`.
+- [x] Write `global_incoming_settings_cannot_change_import_policy`, `key_and_energy_choices_are_independent`, `fill_missing_is_not_replace_unknown`, `generation_respects_occupied_hotcue_family`, `source_change_blocks_publication`, and `restart_does_not_replay_completed_stage`. Assert key-only/energy-only leave active hotcues intact; overwrite alone runs no generator; no source-field value is used as a measured prediction.
+- [x] Run `cargo test -p cuerithm-library import::tests::processing`; expect missing service failure.
+- [x] Implement independent stage planning and attempt/checkpoint claims outside long DB locks. Use Task 6 API; cache only exact validated identities. Store generated results as proposals without active adoption; Task 8's actual-effects preview/apply publishes selected groups under revision guards. Distinguish private generation prerequisites from published BPM/grid. Preserve ordinary Incoming validation and workers; never enqueue imports through `enqueue_paths` or `enqueue_one`.
+- [x] Rerun processing tests with missing media, cancellation per stage, worker restart, cache mismatch and later user edits; expect accounted blocked/cancelled outcomes and no unchecked stage calls.
+- [x] Commit `feat: process imports with frozen independent policies`.
 
 ### Task 8: Independent enrichment, file publication, renaming and recovery
 

@@ -47,6 +47,7 @@ impl Library {
             !request.policy.include_queue || inspect.include_queue,
             "Queue was not captured"
         );
+        let processing = super::super::processing::freeze(self, &request.policy, cancel)?;
         // Media hashing and path resolution run outside the library lock. Disk candidates
         // bound memory independently of the number of selected records.
         let spool_file = tempfile::NamedTempFile::new()?;
@@ -176,7 +177,7 @@ impl Library {
         let policy_id = uuid::Uuid::new_v4().to_string();
         let mut summary = ImportPreview {
             preview_id: preview_id.clone(),
-            processing_requested: request.policy.requires_processing(),
+            processing_requested: false,
             ..Default::default()
         };
         let mut conn = self.conn()?;
@@ -293,11 +294,24 @@ impl Library {
                 kind: "track".into(),
                 fields: effects,
             };
+            let mut projected = local;
+            projected.extend(fields.clone());
+            let process = super::super::processing::has_stages(&request.policy, &projected)
+                && processing_required(
+                    &tx,
+                    &source,
+                    &request.policy,
+                    &processing,
+                    &candidate,
+                    !fields.is_empty(),
+                )?;
+            summary.processing_requested |= process;
             let proposal = TrackProposal {
                 candidate,
                 fields,
                 baselines,
                 provenance,
+                process,
             };
             tx.execute(
                 "INSERT INTO import_preview_effects VALUES(?1,?2,'track',?3,?4,?5)",
@@ -329,7 +343,8 @@ impl Library {
             params![
                 serde_json::to_string(&PreviewMeta {
                     request,
-                    summary: summary.clone()
+                    summary: summary.clone(),
+                    processing,
                 })?,
                 preview_id
             ],

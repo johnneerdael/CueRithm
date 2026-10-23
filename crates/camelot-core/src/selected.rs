@@ -23,7 +23,7 @@ impl AnalysisSelection {
     pub(crate) fn timing(self) -> bool {
         self.bpm || self.beatgrid || self.cues
     }
-    pub(crate) fn settings(self, original: &crate::EngineSettings) -> crate::EngineSettings {
+    pub fn effective_settings(self, original: &crate::EngineSettings) -> crate::EngineSettings {
         let mut settings = original.clone();
         if !self.key {
             settings.key_model = None;

@@ -84,12 +84,16 @@ pub struct ImportPage {
 pub(crate) struct ImportRuntime {
     pub nonce: String,
     pub inspections: BTreeMap<String, Arc<ImportSnapshot>>,
+    pub processing_gate: Arc<std::sync::Mutex<()>>,
+    pub decoder_identity: Option<String>,
 }
 impl Default for ImportRuntime {
     fn default() -> Self {
         Self {
             nonce: uuid::Uuid::new_v4().to_string(),
             inspections: BTreeMap::new(),
+            processing_gate: Arc::new(std::sync::Mutex::new(())),
+            decoder_identity: None,
         }
     }
 }
@@ -228,4 +232,32 @@ pub struct ImportApplyResult {
     pub fields_changed: u64,
     pub collections_changed: u64,
     pub processing_requested: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImportProcessingSummary {
+    pub processed: u64,
+    pub reused: u64,
+    pub blocked: u64,
+    pub failed: u64,
+    pub cancelled: u64,
+    pub recovery_required: u64,
+    pub unchanged: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportProcessingStage {
+    pub operation_id: String,
+    pub item_id: String,
+    pub stage: String,
+    pub attempt: String,
+    pub state: String,
+    pub identity: serde_json::Value,
+    pub proposal: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportProcessingStagePage {
+    pub records: Vec<ImportProcessingStage>,
+    pub total: u64,
+    pub next_cursor: Option<String>,
 }

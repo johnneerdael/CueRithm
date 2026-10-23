@@ -77,7 +77,7 @@ impl SourceAdapter for Reader {
         })
     }
 }
-fn track(title: &str) -> TrackObservation {
+pub(super) fn track(title: &str) -> TrackObservation {
     TrackObservation {
         external_id: "a".into(),
         metadata: BTreeMap::from([("title".into(), Presence::Value(json!(title)))]),
@@ -88,13 +88,13 @@ fn track(title: &str) -> TrackObservation {
         ..Default::default()
     }
 }
-struct Fixture {
-    lib: Library,
-    root: tempfile::TempDir,
+pub(super) struct Fixture {
+    pub(super) lib: Library,
+    pub(super) root: tempfile::TempDir,
     _db: tempfile::TempDir,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let db = tempfile::tempdir().unwrap();
         let root = tempfile::tempdir().unwrap();
         fs::write(root.path().join("source.bin"), b"invented").unwrap();
@@ -103,6 +103,12 @@ impl Fixture {
             root,
             _db: db,
         }
+    }
+    pub(super) fn reopen(self) -> Self {
+        let Self { lib, root, _db } = self;
+        drop(lib);
+        let lib = Library::open(&_db.path().join("library.db")).unwrap();
+        Self { lib, root, _db }
     }
     fn try_inspect_records(
         &self,
@@ -141,25 +147,25 @@ impl Fixture {
     ) -> anyhow::Result<ImportInspection> {
         self.try_inspect_records(tracks, vec![], vec![], completeness)
     }
-    fn inspect(
+    pub(super) fn inspect(
         &self,
         tracks: Vec<TrackObservation>,
         completeness: Completeness,
     ) -> ImportInspection {
         self.try_inspect(tracks, completeness).unwrap()
     }
-    fn request(&self, i: &ImportInspection) -> ImportPreviewRequest {
+    pub(super) fn request(&self, i: &ImportInspection) -> ImportPreviewRequest {
         ImportPreviewRequest {
             inspection_id: i.inspection_id.clone(),
             ..Default::default()
         }
     }
-    fn preview(&self, request: ImportPreviewRequest) -> ImportPreview {
+    pub(super) fn preview(&self, request: ImportPreviewRequest) -> ImportPreview {
         self.lib
             .preview_import(request, &CancellationToken::default())
             .unwrap()
     }
-    fn apply(&self, p: &ImportPreview) -> ImportApplyResult {
+    pub(super) fn apply(&self, p: &ImportPreview) -> ImportApplyResult {
         self.lib
             .apply_import(&p.preview_id, &CancellationToken::default())
             .unwrap()
@@ -853,4 +859,55 @@ fn later_legacy_metadata_edits_and_scalar_clears_remain_local_changes() {
         f.lib.track("existing").unwrap().metadata["comment"],
         "Local comment"
     );
+}
+
+#[test]
+fn captured_history_and_queue_collections_still_require_adoption_flags() {
+    let f = Fixture::new();
+    let history = CollectionObservation {
+        external_id: "history".into(),
+        kind: CollectionKind::History,
+        name: "History".into(),
+        ..Default::default()
+    };
+    let queue = CollectionObservation {
+        external_id: "queue".into(),
+        kind: CollectionKind::Queue,
+        name: "Queue".into(),
+        ..Default::default()
+    };
+    let i = f
+        .lib
+        .inspect_import_with_reader(
+            ImportInspectRequest {
+                provider: SourceProvider::Mixxx,
+                selection: ImportSourceSelection {
+                    root: f.root.path().into(),
+                    artifacts: vec![ArtifactRequest::stable("source.bin")],
+                },
+                binding: SourceBindingChoice::Automatic,
+                origin: None,
+                path_mappings: vec![],
+                capture_file_tags: false,
+                include_history: true,
+                include_queue: true,
+            },
+            &Reader {
+                tracks: vec![],
+                collections: vec![history, queue],
+                memberships: vec![],
+                completeness: Completeness::WholeLibrary,
+            },
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    let mut r = f.request(&i);
+    let p = f.preview(r.clone());
+    assert_eq!(p.collections_changed, 0);
+    f.apply(&p);
+    r.policy.include_history = true;
+    r.policy.include_queue = true;
+    let p = f.preview(r);
+    assert_eq!(p.collections_changed, 2);
+    f.apply(&p);
 }
