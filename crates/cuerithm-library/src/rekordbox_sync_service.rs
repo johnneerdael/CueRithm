@@ -24,6 +24,7 @@ mod types;
 pub use types::*;
 mod assets;
 mod ledger;
+pub(crate) use ledger::upgrade_operations as upgrade_operation_ledgers;
 mod planning;
 mod publication;
 #[cfg(test)]

@@ -114,7 +114,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=29).contains(&version),
+            (0..=30).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -293,6 +293,22 @@ impl Library {
         }
         if version < 29 {
             crate::portable::migrate_identity(&conn)?;
+        }
+        if version < 30 {
+            // The saved sync operations are converted first, while the records still hold the
+            // full copies their recorded digests were computed from.
+            conn.execute_batch("BEGIN IMMEDIATE")?;
+            let upgraded = crate::upgrade_operation_ledgers(&conn).and_then(|()| {
+                conn.execute_batch(include_str!("../migrations/030_lean_native_records.sql"))
+                    .map_err(Into::into)
+            });
+            match upgraded {
+                Ok(()) => conn.execute_batch("COMMIT")?,
+                Err(error) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    return Err(error);
+                }
+            }
         }
         #[cfg(not(feature = "autotag"))]
         {

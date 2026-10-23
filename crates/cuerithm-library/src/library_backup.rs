@@ -212,7 +212,7 @@ fn schema(conn: &Connection) -> Result<i64> {
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     ensure!(
-        (27..=29).contains(&version),
+        (27..=30).contains(&version),
         "Unsupported library backup schema"
     );
     Ok(version)
@@ -1872,7 +1872,7 @@ mod inventory_phase_tests {
         let saved = library
             .create_library_backup(&directory.path().join("backups"))
             .unwrap();
-        assert_eq!(saved.schema, 29);
+        assert_eq!(saved.schema, 30);
         assert_eq!(saved.tracks, 2);
         assert_eq!(saved.missing_sources, 1);
         let inspected = library.inspect_library_backup(&saved.path).unwrap();
