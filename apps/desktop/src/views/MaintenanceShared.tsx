@@ -1,8 +1,9 @@
 import {createContext,useContext} from "react";
 import type {MaintenanceBridge} from "../maintenance-api";
 import type {MaintenanceProgress} from "../maintenance-types";
+import type {MissingRepairBridge} from "../missing-repair-api";
 export type TaskKind=MaintenanceProgress["kind"];
-export interface MaintenanceTask {api:MaintenanceBridge;busy:boolean;externalChange:number;historyVersion:number;run:<T>(kind:TaskKind,label:string,work:(id:string)=>Promise<T>)=>Promise<T|undefined>;changed:()=>void;message:(value:string)=>void}
+export interface MaintenanceTask {api:MaintenanceBridge;repair:MissingRepairBridge;busy:boolean;externalChange:number;historyVersion:number;run:<T>(kind:TaskKind,label:string,work:(id:string)=>Promise<T>)=>Promise<T|undefined>;changed:()=>void;message:(value:string)=>void}
 export const MaintenanceContext=createContext<MaintenanceTask|null>(null);
 export function useMaintenance(){const value=useContext(MaintenanceContext);if(!value)throw new Error("Maintenance context missing");return value;}
 export function bytes(value:number){return value<1024?`${value} B`:value<1048576?`${(value/1024).toFixed(1)} KB`:value<1073741824?`${(value/1048576).toFixed(1)} MB`:`${(value/1073741824).toFixed(2)} GB`;}

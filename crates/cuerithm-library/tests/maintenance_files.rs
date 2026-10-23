@@ -269,6 +269,7 @@ fn missing_and_optional_audio_validation_distinguish_decode_errors_from_missing(
         .scan_broken_tracks(
             BrokenScanRequest {
                 inspect_audio: true,
+                ..Default::default()
             },
             &rt,
             &CancellationToken::default(),
@@ -343,6 +344,7 @@ fn unsupported_audio_is_not_reported_as_corrupt() {
         .scan_broken_tracks(
             BrokenScanRequest {
                 inspect_audio: true,
+                ..Default::default()
             },
             &runtime(),
             &CancellationToken::default(),
