@@ -27,6 +27,23 @@ struct Write {
     override_of: Option<String>,
     #[serde(default)]
     retained_temporaries: Vec<RetainedTemporary>,
+    /// What an ordinary save changed. A save that records it is undone by writing the previous
+    /// values back, so it keeps no copy of the original audio once it has settled; a save from an
+    /// earlier version has none and is undone from its retained original.
+    #[serde(default)]
+    editor_patch: Option<MetadataEditorPatch>,
+    /// Original pictures the save replaced or removed, kept as artwork assets for Undo.
+    #[serde(default)]
+    previous_artwork: Vec<PreviousPicture>,
+    /// The pictures above have been kept, so the original audio may go.
+    #[serde(default)]
+    artwork_kept: bool,
+    /// The original audio has been deleted; nothing reads it any more.
+    #[serde(default)]
+    backup_retired: bool,
+    /// The save left the Undo window: it stays in the history but can no longer be undone.
+    #[serde(default)]
+    undo_expired: bool,
 }
 impl Write {
     fn artifact(&self) -> Result<Artifact> {
@@ -227,10 +244,20 @@ impl MetadataEditService {
                 }
             })
             .collect::<Result<Vec<_>>>()?;
+        // A row that will be written keeps the change it was asked to make until its write
+        // exists, so that a save interrupted in between is recovered the way it was started.
         let row_json = plan
             .rows
             .iter()
-            .map(bounded_json)
+            .map(|row| {
+                if row.public.outcome == "ready" && row.capture.public.state != "incoming" {
+                    let mut kept = row.clone();
+                    kept.patch = Some(plan.patch.clone());
+                    bounded_json(&kept)
+                } else {
+                    bounded_json(row)
+                }
+            })
             .collect::<Result<Vec<_>>>()?;
         {
             let _organization = self
@@ -278,12 +305,17 @@ impl MetadataEditService {
             tx.commit()?;
         }
         after_link()?;
-        self.run_batch(&public.id, Some(&plan.patch), cancel)
+        let saved = self.run_batch(&public.id, Some(&plan.patch), cancel)?;
+        // The save is done; letting go of an older one that could not be let go now is left to
+        // the next pass.
+        let _ = self.library.prune_metadata_undo();
+        let _ = self.library.retire_incoming_originals();
+        Ok(saved)
     }
     fn run_batch(
         &self,
         batch: &str,
-        _patch: Option<&MetadataEditorPatch>,
+        patch: Option<&MetadataEditorPatch>,
         cancel: &CancellationToken,
     ) -> Result<MetadataEditBatch> {
         let rows = self.load_rows(batch)?;
@@ -318,7 +350,7 @@ impl MetadataEditService {
                         Some(UndoLink::Override(job)) => (None, Some(job.clone())),
                         None => (None, None),
                     };
-                    self.begin_write_owned(batch, &id, &row, undo_of, override_of)?
+                    self.begin_write_owned(batch, &id, &row, undo_of, override_of, patch)?
                 };
                 self.publish_write(&write, cancel)?;
                 row.public.outcome = "written".into();
@@ -376,7 +408,11 @@ impl MetadataEditService {
         row: &FrozenRow,
         undo_of: Option<String>,
         override_of: Option<String>,
+        patch: Option<&MetadataEditorPatch>,
     ) -> Result<String> {
+        // A save recovered before its write existed has no patch from its caller: the change it
+        // was asked to make is the one its row kept.
+        let patch = patch.or(row.patch.as_ref());
         let stage = row
             .stage
             .as_ref()
@@ -407,10 +443,20 @@ impl MetadataEditService {
             id: id.clone(),
             batch: batch.into(),
             row_id: row_id.into(),
-            row: row.clone(),
+            row: FrozenRow {
+                patch: None,
+                ..row.clone()
+            },
             publish: path_bytes(&publish),
             displaced: path_bytes(&displaced),
             publication: None,
+            editor_patch: patch
+                .filter(|_| undo_of.is_none() && override_of.is_none())
+                .cloned(),
+            previous_artwork: vec![],
+            artwork_kept: false,
+            backup_retired: false,
+            undo_expired: false,
             undo_of,
             override_of,
             retained_temporaries: vec![],
@@ -439,6 +485,11 @@ impl MetadataEditService {
                 stage.workspace,
                 now(),write.undo_of,write.override_of,row.capture.public.path_revision,row.capture.public.metadata_revision,stage.after
             ],
+        )?;
+        // The write holds the change now; the row does not need its own copy.
+        tx.execute(
+            "UPDATE metadata_edit_rows SET payload_json=json_remove(payload_json,'$.patch') WHERE id=?1",
+            [row_id],
         )?;
         let f = write.artifact()?;
         tx.execute(
@@ -958,6 +1009,80 @@ impl MetadataEditService {
         after_link()?;
         self.run_batch(&undo, None, cancel)
     }
+    /// Stages the Undo of a save that recorded what it changed: the previous values, written into
+    /// the file as it is now through the same checked write as the save, with the original
+    /// pictures it replaced or removed read from the artwork the save kept. No copy of the
+    /// original audio is involved.
+    fn value_undo_row(
+        &self,
+        id: &str,
+        old: &Write,
+        cancel: &CancellationToken,
+    ) -> Result<FrozenRow> {
+        let patch = old
+            .editor_patch
+            .as_ref()
+            .context("Missing the recorded metadata change")?;
+        let old_stage = old.row.stage.as_ref().context("Missing prior staging")?;
+        Self::validate_capture(
+            &*self.library.conn()?,
+            &old.row.capture,
+            Some(&old_stage.after),
+        )?;
+        let capture = self.capture(&old.row.public.track_id, cancel)?;
+        ensure!(
+            capture.parent.ancestors == old.row.capture.parent.ancestors
+                && old.publication.as_ref().is_some_and(|known| {
+                    crate::organization::same_native_file(&capture.fingerprint, known)
+                }),
+            "Metadata Undo source native identity or bytes changed"
+        );
+        let receipt = cuerithm_autotag::MetadataEditorReceipt {
+            before: old.row.public.before.clone(),
+            after: old.row.public.after.clone(),
+        };
+        ensure!(
+            capture.public.native == receipt.after,
+            "Metadata changed after its saved revision"
+        );
+        let native = self.native_patch(patch)?;
+        let inverse = self.inverse_patch(&native, &receipt, &mut |ordinal, identity| {
+            if let Some(kept) = old.previous_artwork.iter().find(|p| p.ordinal == ordinal) {
+                return self.library.metadata_artwork_content(&kept.asset_id);
+            }
+            // Not retired yet: the original file is still there.
+            ensure!(
+                !old.backup_retired,
+                "The original artwork of this save is no longer available"
+            );
+            super::previews::verify_backup(&self.library, old_stage)?;
+            cuerithm_autotag::metadata_artwork_bytes(
+                &bytes_path(&old_stage.backup)?,
+                &old_stage.info,
+                identity,
+            )
+        })?;
+        let (mut stage, after) = self.stage_row(&capture, &inverse, cancel)?;
+        // Undo returns the track to the display values it had before the save.
+        stage.display = old.row.capture.display.clone();
+        Ok(FrozenRow {
+            public: MetadataEditRow {
+                track_id: old.row.public.track_id.clone(),
+                title: old.row.public.title.clone(),
+                before: capture.public.native.clone(),
+                after,
+                outcome: "ready".into(),
+                fields: old.row.public.fields.clone(),
+                error: None,
+            },
+            capture,
+            stage: Some(stage),
+            undo: Some(UndoLink::Write(id.to_string())),
+            kept_pictures: None,
+            original_retired: false,
+            patch: None,
+        })
+    }
     #[cfg(test)]
     fn journal_undo(&self, batch: &str, cancel: &CancellationToken) -> Result<String> {
         self.journal_undo_linked(batch, cancel, None)
@@ -984,7 +1109,7 @@ impl MetadataEditService {
         );
         let ids = {
             let conn = self.library.conn()?;
-            let mut q=conn.prepare("SELECT id FROM metadata_edit_writes WHERE batch_id=?1 AND state='committed' AND undo_of IS NULL AND override_of IS NULL ORDER BY created,id")?;
+            let mut q=conn.prepare("SELECT id FROM metadata_edit_writes WHERE batch_id=?1 AND state='committed' AND undo_of IS NULL AND override_of IS NULL AND COALESCE(json_extract(payload_json,'$.undo_expired'),0)=0 ORDER BY created,id")?;
             q.query_map([batch], |r| r.get::<_, String>(0))?
                 .collect::<rusqlite::Result<Vec<_>>>()?
         };
@@ -1005,6 +1130,9 @@ impl MetadataEditService {
             let (_, old) = self.load_write(id)?;
             let result = (|| -> Result<FrozenRow> {
                 cancel.check()?;
+                if old.editor_patch.is_some() {
+                    return self.value_undo_row(id, &old, cancel);
+                }
                 Self::validate_capture(
                     &*self.library.conn()?,
                     &old.row.capture,
@@ -1078,6 +1206,9 @@ impl MetadataEditService {
                     capture,
                     stage: Some(stage),
                     undo: Some(UndoLink::Write(id.clone())),
+                    kept_pictures: None,
+                    original_retired: false,
+                    patch: None,
                 })
             })();
             match result {
@@ -1207,6 +1338,11 @@ impl crate::Library {
         for id in ids {
             let _ = self.cleanup_metadata_write(&id);
         }
+        // Saves from earlier versions that are past the Undo window.
+        let _ = self.prune_metadata_undo();
+        let _ = self.retire_incoming_originals();
+        // Pictures an interrupted store left without a row.
+        let _ = self.sweep_orphan_artwork_files();
         Ok(())
     }
 }
@@ -1255,7 +1391,7 @@ fn current_batch_error(conn: &rusqlite::Connection, id: &str) -> Result<Option<S
     Ok(conn.query_row("SELECT error FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL ORDER BY created,id LIMIT 1",[id],|row|row.get(0)).optional()?)
 }
 fn eligibility_inner(conn: &rusqlite::Connection, id: &str, state: &str) -> Result<(bool, bool)> {
-    let ready:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes w JOIN tracks t ON t.id=w.track_id WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL AND t.state IN ('ready','imported') AND t.archived=0 AND t.path_revision=w.expected_path_revision AND t.metadata_revision=w.expected_metadata_revision+1 AND t.source_hash=w.output_hash AND NOT EXISTS(SELECT 1 FROM organization_reservations o WHERE o.path=t.path))",[id],|r|r.get(0))?;
+    let ready:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes w JOIN tracks t ON t.id=w.track_id WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL AND COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=0 AND t.state IN ('ready','imported') AND t.archived=0 AND t.path_revision=w.expected_path_revision AND t.metadata_revision=w.expected_metadata_revision+1 AND t.source_hash=w.output_hash AND NOT EXISTS(SELECT 1 FROM organization_reservations o WHERE o.path=t.path))",[id],|r|r.get(0))?;
     let incoming:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides o JOIN tracks t ON t.id=o.track_id WHERE o.batch_id=?1 AND o.state='committed' AND o.final_json IS NOT NULL AND o.undo_batch_id IS NULL AND t.state='ready' AND t.current_job=o.job_id AND t.path_revision=json_extract(o.final_json,'$.path_revision') AND t.metadata_revision=json_extract(o.final_json,'$.metadata_revision') AND NOT EXISTS(SELECT 1 FROM preparation_checkpoints c WHERE c.job_id=o.job_id AND c.state!='complete') AND NOT EXISTS(SELECT 1 FROM organization_reservations r WHERE r.path=t.path))",[id],|r|r.get(0))?;
     let cleanup_pending:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL)",[id],|r|r.get(0))?;
     let recover=state!="saving"&&(cleanup_pending||state=="recovery_required"||conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?1 AND state IN ('ready','recovery_required'))",[id],|r|r.get(0))?);
@@ -1283,7 +1419,12 @@ impl crate::Library {
                 .stage
                 .as_ref()
                 .context("Missing metadata backup proof")?;
-            super::previews::verify_backup(self, stage)?;
+            // Retiring starts only after the pictures are kept, so once they are, a missing
+            // original is the retirement of an earlier pass, not a loss.
+            let retiring = write.artwork_kept && !bytes_path(&stage.backup)?.exists();
+            if !write.backup_retired && !retiring {
+                super::previews::verify_backup(self, stage)?;
+            }
             let staged = bytes_path(&stage.path)?;
             ensure!(
                 staged.parent() == Some(bytes_path(&stage.workspace)?.as_path()),
@@ -1360,6 +1501,26 @@ impl crate::Library {
             if let Some(error) = cleanup_error {
                 return Err(error);
             }
+            // The original audio is kept only for a save that is undone from it. A save that
+            // records what it changed is undone by writing the previous values back, and the
+            // Undo of a save (of an Incoming one too) is the end of it: nothing is undone from
+            // the copy it made.
+            if (write.editor_patch.is_some()
+                || write.undo_of.is_some()
+                || write.override_of.is_some())
+                && !write.backup_retired
+            {
+                self.retire_metadata_original(id, write.clone())?;
+            }
+            // The save it undid no longer needs what was kept for it: the pictures and, for a save
+            // from an earlier version, its original. This does not depend on whether this write's
+            // own copy was retired before an interruption; it runs again until it has completed.
+            if let Some(original) = &write.undo_of {
+                self.expire_metadata_undo(original)?;
+            }
+            if let Some(job) = &write.override_of {
+                self.release_incoming_save(job, false)?;
+            }
             Ok(())
         })();
         let error = result
@@ -1368,6 +1529,281 @@ impl crate::Library {
             .map(|e| format!("Metadata temporary cleanup retained: {e:#}"));
         self.conn()?.execute("UPDATE metadata_edit_writes SET error=?1,updated=?2 WHERE id=?3 AND state IN ('committed','undone')",params![error,now(),id])?;
         result
+    }
+}
+
+impl crate::Library {
+    /// Keeps the pictures a save replaced or removed (artwork is part of the library), then
+    /// deletes the original audio and records that in the journal. If a picture cannot be kept
+    /// the original stays: nothing is retired that Undo would still need.
+    fn retire_metadata_original(&self, id: &str, mut write: Write) -> Result<()> {
+        let stage = write
+            .row
+            .stage
+            .clone()
+            .context("Missing metadata backup proof")?;
+        let save = |write: &Write, clear_backup: bool| -> Result<()> {
+            let mut conn = self.conn()?;
+            let tx = conn.transaction()?;
+            tx.execute(
+                "UPDATE metadata_edit_writes SET payload_json=?1 WHERE id=?2",
+                params![bounded_json(write)?, id],
+            )?;
+            if clear_backup {
+                tx.execute(
+                    "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
+                    [id],
+                )?;
+            }
+            tx.commit()?;
+            Ok(())
+        };
+        if !write.artwork_kept {
+            let mut kept = vec![];
+            if write.undo_of.is_none()
+                && write.override_of.is_none()
+                && write.row.public.before.artwork != write.row.public.after.artwork
+            {
+                let backup = bytes_path(&stage.backup)?;
+                for picture in &write.row.public.before.artwork {
+                    let one = cuerithm_autotag::metadata_artwork_bytes(
+                        &backup,
+                        &stage.info,
+                        &picture.identity,
+                    )
+                    .and_then(|bytes| self.store_kept_artwork(id, picture.identity.ordinal, bytes));
+                    match one {
+                        Ok(asset) => kept.push(PreviousPicture {
+                            ordinal: picture.identity.ordinal,
+                            asset_id: asset.id,
+                        }),
+                        Err(_) => {
+                            // A picture that cannot be kept: the original stays for Undo.
+                            for done in kept {
+                                let _ = self.drop_metadata_artwork(&done.asset_id);
+                            }
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+            write.previous_artwork = kept;
+            write.artwork_kept = true;
+            save(&write, false)?;
+        }
+        super::previews::retire_stage_backup(self, &stage)?;
+        write.backup_retired = true;
+        save(&write, true)?;
+        Ok(())
+    }
+    /// Only the newest `REMOVAL_UNDO_LIMIT` operations can be undone. An older one keeps its
+    /// history line (what changed, before and after) and loses its Undo: its kept pictures and,
+    /// for a save from an earlier version, its retained original are deleted.
+    ///
+    /// An operation is one saved batch, except for an import: it saves a batch for each track it
+    /// writes tags to, and it is undone as a whole, so those batches count as one operation (placed
+    /// by the newest of them) and leave the window together.
+    pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
+        // A batch counts while any of its saves can still be undone: a committed write, or an
+        // Incoming edit the worker has written (those have no physical write of their own). An
+        // Incoming edit is written when it is committed and its final proof is recorded; until
+        // then its row is still being finished, so it neither counts nor leaves the window.
+        let (writes, jobs): (Vec<String>, Vec<String>) = {
+            let conn = self.conn()?;
+            let candidates: Vec<String> = conn
+                .prepare(
+                    "SELECT b.id FROM metadata_edit_batches b WHERE b.kind='apply'
+                       AND (EXISTS(SELECT 1 FROM metadata_edit_writes x WHERE x.batch_id=b.id AND x.state='committed'
+                                    AND x.undo_of IS NULL AND x.override_of IS NULL
+                                    AND COALESCE(json_extract(x.payload_json,'$.undo_expired'),0)=0)
+                         OR EXISTS(SELECT 1 FROM metadata_edit_overrides o WHERE o.batch_id=b.id
+                                    AND o.state='committed' AND o.undo_batch_id IS NULL
+                                    AND o.final_json IS NOT NULL))
+                     ORDER BY b.created DESC,b.rowid DESC",
+                )?
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            // There cannot be more operations than batches.
+            let batches = if candidates.len() > crate::REMOVAL_UNDO_LIMIT {
+                let owners = import_owners(&conn, &candidates)?;
+                let mut operations: Vec<String> = vec![];
+                let mut beyond = vec![];
+                for batch in candidates {
+                    let operation = owners.get(&batch).map_or_else(
+                        || format!("batch:{batch}"),
+                        |import| format!("import:{import}"),
+                    );
+                    // Newest first, so an operation is placed by its newest batch.
+                    let place = operations
+                        .iter()
+                        .position(|known| *known == operation)
+                        .unwrap_or_else(|| {
+                            operations.push(operation);
+                            operations.len() - 1
+                        });
+                    if place >= crate::REMOVAL_UNDO_LIMIT {
+                        beyond.push(batch);
+                    }
+                }
+                beyond
+            } else {
+                vec![]
+            };
+            let (mut writes, mut jobs) = (vec![], vec![]);
+            for batch in batches {
+                writes.extend(
+                    conn.prepare(
+                        "SELECT w.id FROM metadata_edit_writes w
+                          WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL
+                            AND COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=0",
+                    )?
+                    .query_map([&batch], |r| r.get::<_, String>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?,
+                );
+                jobs.extend(
+                    conn.prepare(
+                        "SELECT job_id FROM metadata_edit_overrides
+                          WHERE batch_id=?1 AND state='committed' AND undo_batch_id IS NULL
+                            AND final_json IS NOT NULL",
+                    )?
+                    .query_map([&batch], |r| r.get::<_, String>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?,
+                );
+            }
+            (writes, jobs)
+        };
+        // One that cannot be let go now does not hold back the others; the next pass tries it
+        // again, and the first failure is returned for the caller to leave to that pass.
+        let mut first = None;
+        for id in writes {
+            if let Err(error) = self.expire_metadata_undo(&id) {
+                first.get_or_insert(error);
+            }
+        }
+        for job in jobs {
+            if let Err(error) = self.release_incoming_save(&job, true) {
+                first.get_or_insert(error);
+            }
+        }
+        first.map_or(Ok(()), Err)
+    }
+    /// A save can no longer be undone (it was undone, or it left the Undo window): the pictures
+    /// kept for it go, and so does the original audio of a save from an earlier version.
+    ///
+    /// Whatever cannot be let go now (a locked file) keeps its reference and the save is not
+    /// marked as let go; the first failure is returned after the progress was saved, so that the
+    /// caller leaves the work for its next pass.
+    pub(crate) fn expire_metadata_undo(&self, id: &str) -> Result<()> {
+        let payload: Option<String> = self
+            .conn()?
+            .query_row(
+                "SELECT payload_json FROM metadata_edit_writes WHERE id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(payload) = payload else {
+            return Ok(());
+        };
+        let mut write: Write = serde_json::from_str(&payload)?;
+        let mut incomplete: Option<anyhow::Error> = None;
+        let mut remaining = vec![];
+        for picture in std::mem::take(&mut write.previous_artwork) {
+            if let Err(error) = self.drop_metadata_artwork(&picture.asset_id) {
+                incomplete.get_or_insert(error);
+                remaining.push(picture);
+            }
+        }
+        write.previous_artwork = remaining;
+        // Pictures a pass that was interrupted stored and did not record.
+        if let Err(error) = self.drop_kept_artwork(id, &write.row.public.before.artwork) {
+            incomplete.get_or_insert(error);
+        }
+        // An original that could not be deleted keeps the save in the window's sweep: a later
+        // pass deletes it, so a failure here is not recorded as having let go.
+        if !write.backup_retired
+            && let Some(stage) = write.row.stage.clone()
+        {
+            // An earlier pass can have deleted the original and stopped before recording it. The
+            // file is then absent, which is the retirement completed, not an original to verify;
+            // leaving it unrecorded would keep the save bound to a file that is no longer there
+            // and refuse every library backup.
+            let gone = matches!(
+                std::fs::symlink_metadata(bytes_path(&stage.backup)?),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound
+            );
+            let mut recorded = gone;
+            // A changed original is left as it is, for the backup check to report: retrying
+            // cannot make it match its proof again.
+            if !gone && super::previews::verify_backup(self, &stage).is_ok() {
+                match super::previews::retire_stage_backup(self, &stage) {
+                    Ok(()) => recorded = true,
+                    Err(error) => {
+                        incomplete.get_or_insert(error);
+                    }
+                }
+            }
+            if recorded {
+                write.backup_retired = true;
+                self.conn()?.execute(
+                    "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
+                    [id],
+                )?;
+            }
+        }
+        write.undo_expired = incomplete.is_none();
+        self.conn()?.execute(
+            "UPDATE metadata_edit_writes SET payload_json=?1 WHERE id=?2",
+            params![bounded_json(&write)?, id],
+        )?;
+        incomplete.map_or(Ok(()), Err)
+    }
+}
+
+/// The import operation each of these batches belongs to, for the batches an import saved (one
+/// for each track it wrote tags to). The import records its batch in its publication receipt as
+/// soon as the batch is journaled.
+fn import_owners(
+    conn: &rusqlite::Connection,
+    batches: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    let mut query = conn.prepare(
+        "SELECT json_extract(r.receipt_json,'$.tag_batch'),r.operation_id
+           FROM import_processing_receipts r
+          WHERE r.stage='publication.effects'
+            AND json_extract(r.receipt_json,'$.tag_batch') IN (SELECT value FROM json_each(?1))",
+    )?;
+    let owners = query
+        .query_map([serde_json::to_string(batches)?], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(owners)
+}
+/// SQL that is true when one of the tag saves an import operation made has left the Undo window.
+/// Those leave together, so the import can no longer be undone: part of it cannot be restored.
+/// `operation` is an SQL expression for the operation id.
+pub(crate) fn import_undo_expired_sql(operation: &str) -> String {
+    format!(
+        "EXISTS(SELECT 1 FROM import_processing_receipts ir
+                 WHERE ir.operation_id={operation} AND ir.stage='publication.effects' AND ir.state='applied'
+                   AND json_extract(ir.receipt_json,'$.tag_batch') IS NOT NULL
+                   AND (EXISTS(SELECT 1 FROM metadata_edit_writes iw WHERE iw.batch_id=json_extract(ir.receipt_json,'$.tag_batch')
+                                 AND iw.state='committed' AND iw.undo_of IS NULL AND iw.override_of IS NULL
+                                 AND json_extract(iw.payload_json,'$.undo_expired')=1)
+                        OR EXISTS(SELECT 1 FROM metadata_edit_overrides io WHERE io.batch_id=json_extract(ir.receipt_json,'$.tag_batch')
+                                 AND io.state='expired')))"
+    )
+}
+impl crate::Library {
+    /// Whether an import operation's tag saves have left the Undo window (see
+    /// [`import_undo_expired_sql`]).
+    pub(crate) fn import_undo_expired(&self, operation: &str) -> Result<bool> {
+        Ok(self.conn()?.query_row(
+            &format!("SELECT {}", import_undo_expired_sql("?1")),
+            [operation],
+            |r| r.get(0),
+        )?)
     }
 }
 

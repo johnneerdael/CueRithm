@@ -9,7 +9,7 @@ use cuerithm_autotag::{
     TagMatchOutcome, TagWritePlan,
 };
 use cuerithm_media::{CancellationToken, MediaRuntime};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 #[derive(Clone)]
 pub struct MetadataEditService {
@@ -43,6 +43,24 @@ pub(super) struct FrozenRow {
     pub stage: Option<StoredStage>,
     #[serde(default)]
     pub undo: Option<UndoLink>,
+    /// Original pictures an Incoming save replaced or removed, kept as artwork assets so that
+    /// its Undo does not need the original audio. `None` until they have been kept.
+    #[serde(default)]
+    pub kept_pictures: Option<Vec<PreviousPicture>>,
+    /// The Incoming save was written and its original audio has been deleted.
+    #[serde(default)]
+    pub original_retired: bool,
+    /// The change this row was asked to make, kept from the moment the save is journaled until
+    /// its write exists, so that a save interrupted in between is recovered with it. The write
+    /// then holds it and the row drops its copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<MetadataEditorPatch>,
+}
+/// An original picture kept for Undo: its place among the original pictures and its asset.
+#[derive(Clone, Serialize, Deserialize)]
+pub(super) struct PreviousPicture {
+    pub ordinal: usize,
+    pub asset_id: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct FrozenPreview {
@@ -222,50 +240,10 @@ impl MetadataEditService {
         Ok(())
     }
     pub fn import_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
-        let (mime, bytes) = cuerithm_autotag::validate_metadata_artwork(bytes)?;
-        use sha2::{Digest, Sha256};
-        let sha256 = format!("{:x}", Sha256::digest(&bytes));
-        let asset = MetadataArtworkAsset {
-            id: uuid::Uuid::new_v4().to_string(),
-            mime,
-            sha256,
-            bytes: bytes.len() as u64,
-        };
-        let folder = self.library.data_dir().join("metadata-edits/assets");
-        std::fs::create_dir_all(&folder)?;
-        let path = folder.join(&asset.id);
-        use std::io::Write;
-        let mut output = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)?;
-        output.write_all(&bytes)?;
-        output.sync_all()?;
-        self.library.conn()?.execute(
-            "INSERT INTO metadata_artwork_assets VALUES(?1,?2,?3,?4,?5,?6)",
-            params![
-                asset.id,
-                asset.sha256,
-                asset.mime,
-                path_bytes(&path),
-                asset.bytes,
-                now()
-            ],
-        )?;
-        Ok(asset)
+        self.library.store_metadata_artwork(bytes)
     }
     pub fn artwork_bytes(&self, id: &str) -> Result<Vec<u8>> {
-        let (path, hash, bytes): (Vec<u8>, String, u64) = self.library.conn()?.query_row(
-            "SELECT path,sha256,bytes FROM metadata_artwork_assets WHERE id=?1",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
-        ensure!(bytes <= 8 * 1024 * 1024, "Artwork exceeds8MiB");
-        let path = bytes_path(&path)?;
-        crate::artifacts::owned_file(&path, &self.library.data_dir().canonicalize()?, &hash)?;
-        let content = std::fs::read(path)?;
-        cuerithm_autotag::validate_metadata_artwork(content.clone())?;
-        Ok(content)
+        self.library.metadata_artwork_content(id)
     }
     pub fn extract_artwork(
         &self,
@@ -333,6 +311,9 @@ impl MetadataEditService {
                 capture,
                 stage: None,
                 undo: None,
+                kept_pictures: None,
+                original_retired: false,
+                patch: None,
             };
             match self.stage_row(&row.capture, &patch, cancel) {
                 Ok((stage, after)) => {
@@ -714,4 +695,178 @@ fn edited_display(
         }
     }
     display
+}
+
+/// The id a kept picture is stored under: derived from what kept it (a write or a row) and the
+/// picture's place among the original pictures.
+fn kept_artwork_id(owner: &str, ordinal: usize) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(format!("kept-artwork:{owner}:{ordinal}"));
+    uuid::Uuid::from_slice(&digest[..16])
+        .map(|id| id.to_string())
+        .unwrap_or_default()
+}
+
+impl crate::Library {
+    /// Keeps a picture as an artwork asset: a file in the data folder named by its id.
+    pub(crate) fn store_metadata_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
+        self.store_artwork(uuid::Uuid::new_v4().to_string(), false, bytes)
+    }
+    /// Keeps a picture that a save replaced, under an id derived from the save (or row) and the
+    /// picture's place. The pass that keeps the pictures is repeated if it is interrupted before
+    /// it records them; repeating it finds the asset it already stored instead of storing another
+    /// that belongs to nothing.
+    pub(crate) fn store_kept_artwork(
+        &self,
+        owner: &str,
+        ordinal: usize,
+        bytes: Vec<u8>,
+    ) -> Result<MetadataArtworkAsset> {
+        self.store_artwork(kept_artwork_id(owner, ordinal), true, bytes)
+    }
+    /// Deletes the pictures a pass that keeps a save's replaced pictures may have stored under
+    /// the ids it derives, whether or not the save recorded them: the pass can stop between
+    /// storing a picture and recording it. Pictures that were never stored are no trouble.
+    pub(crate) fn drop_kept_artwork(
+        &self,
+        owner: &str,
+        pictures: &[cuerithm_autotag::NativeArtwork],
+    ) -> Result<()> {
+        for picture in pictures {
+            self.drop_metadata_artwork(&kept_artwork_id(owner, picture.identity.ordinal))?;
+        }
+        Ok(())
+    }
+    fn store_artwork(
+        &self,
+        id: String,
+        repeatable: bool,
+        bytes: Vec<u8>,
+    ) -> Result<MetadataArtworkAsset> {
+        let (mime, bytes) = cuerithm_autotag::validate_metadata_artwork(bytes)?;
+        use sha2::{Digest, Sha256};
+        let sha256 = format!("{:x}", Sha256::digest(&bytes));
+        let asset = MetadataArtworkAsset {
+            id,
+            mime,
+            sha256,
+            bytes: bytes.len() as u64,
+        };
+        if repeatable {
+            let stored: Option<String> = self
+                .conn()?
+                .query_row(
+                    "SELECT sha256 FROM metadata_artwork_assets WHERE id=?1",
+                    [&asset.id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(stored) = stored {
+                ensure!(
+                    stored == asset.sha256,
+                    "A kept picture differs from the one stored earlier"
+                );
+                return Ok(asset);
+            }
+        }
+        let folder = self.data_dir().join("metadata-edits/assets");
+        std::fs::create_dir_all(&folder)?;
+        let path = folder.join(&asset.id);
+        use std::io::Write;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true);
+        if repeatable {
+            // A file left by an interrupted pass belongs to this save: it is written again.
+            options.create(true).truncate(true);
+        } else {
+            options.create_new(true);
+        }
+        let mut output = options.open(&path)?;
+        output.write_all(&bytes)?;
+        output.sync_all()?;
+        self.conn()?.execute(
+            "INSERT INTO metadata_artwork_assets VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                asset.id,
+                asset.sha256,
+                asset.mime,
+                path_bytes(&path),
+                asset.bytes,
+                now()
+            ],
+        )?;
+        Ok(asset)
+    }
+    pub(crate) fn metadata_artwork_content(&self, id: &str) -> Result<Vec<u8>> {
+        let (path, hash, bytes): (Vec<u8>, String, u64) = self.conn()?.query_row(
+            "SELECT path,sha256,bytes FROM metadata_artwork_assets WHERE id=?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        ensure!(bytes <= 8 * 1024 * 1024, "Artwork exceeds8MiB");
+        let path = bytes_path(&path)?;
+        crate::artifacts::owned_file(&path, &self.data_dir().canonicalize()?, &hash)?;
+        let content = std::fs::read(path)?;
+        cuerithm_autotag::validate_metadata_artwork(content.clone())?;
+        Ok(content)
+    }
+    /// Deletes an artwork asset nothing refers to any more. A file that is already gone is what
+    /// is wanted. Any other failure to delete it (a lock, a permission) is returned and the
+    /// asset stays known, so the caller keeps its reference and a later pass tries again.
+    pub(crate) fn drop_metadata_artwork(&self, id: &str) -> Result<()> {
+        let path: Option<Vec<u8>> = self
+            .conn()?
+            .query_row(
+                "SELECT path FROM metadata_artwork_assets WHERE id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(path) = path {
+            let path = bytes_path(&path)?;
+            if path.starts_with(self.data_dir().join("metadata-edits/assets")) {
+                match std::fs::remove_file(&path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => {
+                        return Err(error).context("Retained artwork could not be deleted");
+                    }
+                }
+            }
+            self.conn()?
+                .execute("DELETE FROM metadata_artwork_assets WHERE id=?1", [id])?;
+        }
+        Ok(())
+    }
+    /// Deletes artwork files that no row names: what an interrupted store leaves, a file written
+    /// before its row. Only files named like an artwork id and only in the artwork folder; run
+    /// when the library opens, when nothing is storing a picture.
+    pub(crate) fn sweep_orphan_artwork_files(&self) -> Result<usize> {
+        let folder = self.data_dir().join("metadata-edits/assets");
+        let Ok(entries) = std::fs::read_dir(&folder) else {
+            return Ok(0);
+        };
+        let known: std::collections::HashSet<String> = {
+            let conn = self.conn()?;
+            let mut query = conn.prepare("SELECT id FROM metadata_artwork_assets")?;
+            query
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let mut removed = 0;
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let ours = uuid::Uuid::parse_str(&name).is_ok_and(|id| id.to_string() == name);
+            let plain_file = std::fs::symlink_metadata(entry.path())
+                .is_ok_and(|meta| meta.is_file() && !meta.file_type().is_symlink());
+            if ours
+                && plain_file
+                && !known.contains(&name)
+                && std::fs::remove_file(entry.path()).is_ok()
+            {
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
 }

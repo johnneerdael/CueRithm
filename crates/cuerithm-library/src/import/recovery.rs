@@ -148,6 +148,14 @@ impl Library {
         let _gate = gate
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // An import is one operation: when its tag saves have left the window of ten they went
+        // together, and none of it is restored (restoring part would leave the rest changed).
+        #[cfg(feature = "autotag")]
+        ensure!(
+            !self.import_undo_expired(operation)?,
+            "Undo is no longer available: the tag changes of this import were kept only for the last {} operations (an import counts as one)",
+            crate::REMOVAL_UNDO_LIMIT
+        );
         let mut before = i64::MAX;
         let mut result = ImportUndoResult::default();
         loop {

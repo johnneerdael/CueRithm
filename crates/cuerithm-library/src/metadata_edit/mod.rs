@@ -6,7 +6,7 @@ mod service;
 use capture::Capture;
 pub use model::*;
 pub use service::MetadataEditService;
-use service::{FrozenPreview, FrozenRow, StoredStage, UndoLink};
+use service::{FrozenPreview, FrozenRow, PreviousPicture, StoredStage, UndoLink};
 
 const MAX_METADATA_JSON: usize = 64 * 1024 * 1024;
 pub(super) fn bounded_json<T: serde::Serialize>(value: &T) -> anyhow::Result<String> {
@@ -35,3 +35,4 @@ mod incoming_undo;
 mod curation;
 mod previews;
 pub(crate) use curation::child_undo_available as curation_child_undo_available;
+pub(crate) use journal::import_undo_expired_sql;
