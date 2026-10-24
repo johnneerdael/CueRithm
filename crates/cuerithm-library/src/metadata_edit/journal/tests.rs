@@ -732,7 +732,7 @@ fn an_original_that_could_not_be_deleted_is_retried_by_the_next_pass() {
     let folder = backup.parent().unwrap().to_path_buf();
     let mode = std::fs::metadata(&folder).unwrap().permissions().mode();
     std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
-    service.library.expire_metadata_undo(&id).unwrap();
+    assert!(service.library.expire_metadata_undo(&id).is_err());
     std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(mode)).unwrap();
     let (_, write) = service.load_write(&id).unwrap();
     assert!(backup.exists());

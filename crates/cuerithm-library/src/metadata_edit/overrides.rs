@@ -169,6 +169,8 @@ impl Library {
             for picture in row.kept_pictures.take().into_iter().flatten() {
                 self.drop_metadata_artwork(&picture.asset_id)?;
             }
+            // Pictures a pass that was interrupted stored and did not record.
+            self.drop_kept_artwork(&id, &row.public.before.artwork)?;
             // Nothing is left to keep; a later sweep only has the audio to retire.
             row.kept_pictures = Some(vec![]);
             if !row.original_retired

@@ -697,6 +697,16 @@ fn edited_display(
     display
 }
 
+/// The id a kept picture is stored under: derived from what kept it (a write or a row) and the
+/// picture's place among the original pictures.
+fn kept_artwork_id(owner: &str, ordinal: usize) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(format!("kept-artwork:{owner}:{ordinal}"));
+    uuid::Uuid::from_slice(&digest[..16])
+        .map(|id| id.to_string())
+        .unwrap_or_default()
+}
+
 impl crate::Library {
     /// Keeps a picture as an artwork asset: a file in the data folder named by its id.
     pub(crate) fn store_metadata_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
@@ -712,10 +722,20 @@ impl crate::Library {
         ordinal: usize,
         bytes: Vec<u8>,
     ) -> Result<MetadataArtworkAsset> {
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(format!("kept-artwork:{owner}:{ordinal}"));
-        let id = uuid::Uuid::from_slice(&digest[..16])?.to_string();
-        self.store_artwork(id, true, bytes)
+        self.store_artwork(kept_artwork_id(owner, ordinal), true, bytes)
+    }
+    /// Deletes the pictures a pass that keeps a save's replaced pictures may have stored under
+    /// the ids it derives, whether or not the save recorded them: the pass can stop between
+    /// storing a picture and recording it. Pictures that were never stored are no trouble.
+    pub(crate) fn drop_kept_artwork(
+        &self,
+        owner: &str,
+        pictures: &[cuerithm_autotag::NativeArtwork],
+    ) -> Result<()> {
+        for picture in pictures {
+            self.drop_metadata_artwork(&kept_artwork_id(owner, picture.identity.ordinal))?;
+        }
+        Ok(())
     }
     fn store_artwork(
         &self,
@@ -790,7 +810,9 @@ impl crate::Library {
         cuerithm_autotag::validate_metadata_artwork(content.clone())?;
         Ok(content)
     }
-    /// Deletes an artwork asset nothing refers to any more.
+    /// Deletes an artwork asset nothing refers to any more. A file that is already gone is what
+    /// is wanted. Any other failure to delete it (a lock, a permission) is returned and the
+    /// asset stays known, so the caller keeps its reference and a later pass tries again.
     pub(crate) fn drop_metadata_artwork(&self, id: &str) -> Result<()> {
         let path: Option<Vec<u8>> = self
             .conn()?
@@ -803,11 +825,48 @@ impl crate::Library {
         if let Some(path) = path {
             let path = bytes_path(&path)?;
             if path.starts_with(self.data_dir().join("metadata-edits/assets")) {
-                let _ = std::fs::remove_file(path);
+                match std::fs::remove_file(&path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => {
+                        return Err(error).context("Retained artwork could not be deleted");
+                    }
+                }
             }
             self.conn()?
                 .execute("DELETE FROM metadata_artwork_assets WHERE id=?1", [id])?;
         }
         Ok(())
+    }
+    /// Deletes artwork files that no row names: what an interrupted store leaves, a file written
+    /// before its row. Only files named like an artwork id and only in the artwork folder; run
+    /// when the library opens, when nothing is storing a picture.
+    pub(crate) fn sweep_orphan_artwork_files(&self) -> Result<usize> {
+        let folder = self.data_dir().join("metadata-edits/assets");
+        let Ok(entries) = std::fs::read_dir(&folder) else {
+            return Ok(0);
+        };
+        let known: std::collections::HashSet<String> = {
+            let conn = self.conn()?;
+            let mut query = conn.prepare("SELECT id FROM metadata_artwork_assets")?;
+            query
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let mut removed = 0;
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let ours = uuid::Uuid::parse_str(&name).is_ok_and(|id| id.to_string() == name);
+            let plain_file = std::fs::symlink_metadata(entry.path())
+                .is_ok_and(|meta| meta.is_file() && !meta.file_type().is_symlink());
+            if ours
+                && plain_file
+                && !known.contains(&name)
+                && std::fs::remove_file(entry.path()).is_ok()
+            {
+                removed += 1;
+            }
+        }
+        Ok(removed)
     }
 }

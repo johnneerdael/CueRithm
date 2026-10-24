@@ -1941,7 +1941,7 @@ fn a_picture_keeping_pass_repeated_after_an_interruption_stores_each_picture_onc
     let second = service.import_artwork(icon("128x128.png")).unwrap();
     sql(
         &db,
-        "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_writes WHEN json_extract(NEW.payload_json,'$.artwork_kept')=1 BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+        "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_writes WHEN json_extract(NEW.payload_json,'$.artwork_kept')=1 AND NEW.undo_of IS NULL BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
     );
     let mut replace = MetadataEditorPatch::default();
     replace.artwork.push(MetadataArtworkChoice {
@@ -2095,4 +2095,283 @@ fn the_staged_copies_of_an_unwritten_row_are_retired_when_the_batch_cleanup_did_
     let lib = Library::open(&db).unwrap();
     assert!(!workspace.exists(), "the next start retires the copies");
     assert!(staging_dirs(&lib).is_empty());
+}
+
+// A release that fails (a lock, a permission) must leave what was retained and the reference to
+// it where they are, so that a later pass deletes it. The operation that triggered the release
+// still succeeds.
+
+/// Makes the artwork folder refuse deletions, and gives it back.
+#[cfg(unix)]
+fn lock_assets(lib: &Library) -> impl FnOnce() {
+    use std::os::unix::fs::PermissionsExt;
+    let folder = lib.data_dir().join("metadata-edits/assets");
+    let mode = std::fs::metadata(&folder).unwrap().permissions().mode();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
+    move || std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(mode)).unwrap()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_kept_picture_that_cannot_be_deleted_stays_referenced_until_the_next_pass_deletes_it() {
+    let (_t, lib, service, track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let assets_before = artwork_assets(&lib);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    assert_eq!(artwork_assets(&lib), assets_before + 2);
+    let unlock = lock_assets(&lib);
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    unlock();
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "the picture is still there, and still known"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "the next start deletes it"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+}
+
+#[cfg(unix)]
+#[test]
+fn an_incoming_kept_picture_that_cannot_be_deleted_stays_referenced_until_the_next_pass_deletes_it()
+{
+    let w = written_incoming_flac("128x128.png", |_| {});
+    let db = w.db.clone();
+    assert_eq!(
+        artwork_assets(&w.lib),
+        2,
+        "the new picture and the kept one"
+    );
+    let unlock = lock_assets(&w.lib);
+    let undone = w
+        .editor
+        .undo(&w.batch, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    unlock();
+    assert_eq!(artwork_assets(&w.lib), 2);
+    assert_eq!(asset_files(&w.lib), 2);
+    drop(w.editor);
+    drop(w.lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(artwork_assets(&lib), 1, "the next start deletes it");
+    assert_eq!(asset_files(&lib), 1);
+}
+
+/// An older save leaves the window of ten while a picture cannot be deleted: the save that
+/// caused it succeeds, and the older one keeps its picture for the next pass.
+#[cfg(unix)]
+#[test]
+fn a_failed_release_in_the_undo_window_does_not_fail_the_save_and_is_retried() {
+    let (temp, lib, service, track, _path) = fixture();
+    let root = temp.path().canonicalize().unwrap();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let assets_before = artwork_assets(&lib);
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    save(&service, &track, replace);
+    assert_eq!(artwork_assets(&lib), assets_before + 1, "the kept picture");
+    let others: Vec<String> = (1..=10).map(|n| extra_track(&lib, &root, n)).collect();
+    let mut unlock = None;
+    for (n, other) in others.iter().enumerate() {
+        if n == 9 {
+            // The save that pushes the picture's save out of the window cannot delete it.
+            unlock = Some(lock_assets(&lib));
+        }
+        let mut title = MetadataEditorPatch::default();
+        title.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec![format!("Title {n}")],
+            },
+        );
+        let saved = save(&service, other, title);
+        assert_eq!(saved.state, "saved", "save {n}: {saved:?}");
+    }
+    unlock.unwrap()();
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "the picture is still there, and still known"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before,
+        "the next start deletes it"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+}
+
+/// A picture whose file is already gone is released all the same: a missing file is what the
+/// release wants, not an obstacle.
+#[cfg(unix)]
+#[test]
+fn a_kept_picture_whose_file_is_already_gone_is_released() {
+    let (_t, lib, service, track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let assets_before = artwork_assets(&lib);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id.clone()),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    // The release fails once, so the picture stays known; then its file disappears.
+    let unlock = lock_assets(&lib);
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    unlock();
+    assert_eq!(artwork_assets(&lib), assets_before + 2);
+    let folder = lib.data_dir().join("metadata-edits/assets");
+    let kept = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| {
+            let name = path.file_name().unwrap().to_string_lossy();
+            name != first.id && name != second.id
+        })
+        .unwrap();
+    std::fs::remove_file(kept).unwrap();
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(artwork_assets(&lib), assets_before + 1);
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+}
+
+/// A file in the artwork folder that no row names is what an interrupted store leaves. The next
+/// start deletes it, and only it: files that are named by a row, and anything that is not an
+/// artwork id, stay.
+#[test]
+fn an_artwork_file_no_row_names_is_deleted_at_the_next_start() {
+    let (_t, lib, service, _track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let kept = service.import_artwork(icon("32x32.png")).unwrap();
+    let folder = lib.data_dir().join("metadata-edits/assets");
+    let orphan = folder.join(uuid::Uuid::new_v4().to_string());
+    std::fs::write(&orphan, icon("128x128.png")).unwrap();
+    let foreign = folder.join("notes.txt");
+    std::fs::write(&foreign, b"not ours").unwrap();
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert!(!orphan.exists(), "the orphan file is deleted");
+    assert!(foreign.exists(), "a file that is not an artwork id stays");
+    assert!(folder.join(&kept.id).exists());
+    assert_eq!(artwork_assets(&lib), 1);
+}
+
+/// Keeping the pictures a save replaced can be interrupted after a picture was stored and before
+/// it was recorded. If the save is undone before that pass is repeated, the picture goes with it.
+#[test]
+fn an_unrecorded_kept_picture_is_released_with_the_save_that_stored_it() {
+    let (_t, lib, service, track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let assets_before = artwork_assets(&lib);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    sql(
+        &db,
+        "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_writes WHEN json_extract(NEW.payload_json,'$.artwork_kept')=1 AND NEW.undo_of IS NULL BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+    );
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "stored, not recorded"
+    );
+    // The original is still there, so the save can be undone before the pass is repeated.
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    sql(&db, "DROP TRIGGER refuse_record");
+    assert_eq!(pictures(&service, &track)[0].sha256, original[0].sha256);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "nothing of the undone save is left"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+}
+
+/// The same for an Incoming save whose sweep stored a picture and stopped before recording it.
+#[test]
+fn an_unrecorded_incoming_kept_picture_is_released_with_the_save_that_stored_it() {
+    let w = written_incoming_flac("128x128.png", |db| {
+        sql(
+            db,
+            "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_rows WHEN json_type(NEW.payload_json,'$.kept_pictures')='array' AND json_array_length(NEW.payload_json,'$.kept_pictures')>0 BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+        );
+    });
+    sql(&w.db, "DROP TRIGGER refuse_record");
+    assert_eq!(artwork_assets(&w.lib), 2, "stored, not recorded");
+    // The original is still there, so the save can be undone before the sweep is repeated.
+    let undone = w
+        .editor
+        .undo(&w.batch, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    assert_eq!(
+        pictures(&w.editor, &w.track)[0].sha256,
+        w.original[0].sha256
+    );
+    assert_eq!(
+        artwork_assets(&w.lib),
+        1,
+        "only the picture the edit imported is left"
+    );
+    assert_eq!(asset_files(&w.lib), 1);
 }

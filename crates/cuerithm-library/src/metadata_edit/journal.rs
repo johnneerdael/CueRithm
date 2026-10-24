@@ -306,7 +306,9 @@ impl MetadataEditService {
         }
         after_link()?;
         let saved = self.run_batch(&public.id, Some(&plan.patch), cancel)?;
-        self.library.prune_metadata_undo()?;
+        // The save is done; letting go of an older one that could not be let go now is left to
+        // the next pass.
+        let _ = self.library.prune_metadata_undo();
         let _ = self.library.retire_incoming_originals();
         Ok(saved)
     }
@@ -1339,6 +1341,8 @@ impl crate::Library {
         // Saves from earlier versions that are past the Undo window.
         let _ = self.prune_metadata_undo();
         let _ = self.retire_incoming_originals();
+        // Pictures an interrupted store left without a row.
+        let _ = self.sweep_orphan_artwork_files();
         Ok(())
     }
 }
@@ -1668,16 +1672,27 @@ impl crate::Library {
             }
             (writes, jobs)
         };
+        // One that cannot be let go now does not hold back the others; the next pass tries it
+        // again, and the first failure is returned for the caller to leave to that pass.
+        let mut first = None;
         for id in writes {
-            self.expire_metadata_undo(&id)?;
+            if let Err(error) = self.expire_metadata_undo(&id) {
+                first.get_or_insert(error);
+            }
         }
         for job in jobs {
-            self.release_incoming_save(&job, true)?;
+            if let Err(error) = self.release_incoming_save(&job, true) {
+                first.get_or_insert(error);
+            }
         }
-        Ok(())
+        first.map_or(Ok(()), Err)
     }
     /// A save can no longer be undone (it was undone, or it left the Undo window): the pictures
     /// kept for it go, and so does the original audio of a save from an earlier version.
+    ///
+    /// Whatever cannot be let go now (a locked file) keeps its reference and the save is not
+    /// marked as let go; the first failure is returned after the progress was saved, so that the
+    /// caller leaves the work for its next pass.
     pub(crate) fn expire_metadata_undo(&self, id: &str) -> Result<()> {
         let payload: Option<String> = self
             .conn()?
@@ -1691,32 +1706,44 @@ impl crate::Library {
             return Ok(());
         };
         let mut write: Write = serde_json::from_str(&payload)?;
+        let mut incomplete: Option<anyhow::Error> = None;
+        let mut remaining = vec![];
         for picture in std::mem::take(&mut write.previous_artwork) {
-            self.drop_metadata_artwork(&picture.asset_id)?;
+            if let Err(error) = self.drop_metadata_artwork(&picture.asset_id) {
+                incomplete.get_or_insert(error);
+                remaining.push(picture);
+            }
+        }
+        write.previous_artwork = remaining;
+        // Pictures a pass that was interrupted stored and did not record.
+        if let Err(error) = self.drop_kept_artwork(id, &write.row.public.before.artwork) {
+            incomplete.get_or_insert(error);
         }
         // An original that could not be deleted keeps the save in the window's sweep: a later
         // pass deletes it, so a failure here is not recorded as having let go.
-        let mut deleting = false;
         if !write.backup_retired
             && let Some(stage) = write.row.stage.clone()
             && super::previews::verify_backup(self, &stage).is_ok()
         {
-            if super::previews::retire_stage_backup(self, &stage).is_ok() {
-                write.backup_retired = true;
-                self.conn()?.execute(
-                    "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
-                    [id],
-                )?;
-            } else {
-                deleting = true;
+            match super::previews::retire_stage_backup(self, &stage) {
+                Ok(()) => {
+                    write.backup_retired = true;
+                    self.conn()?.execute(
+                        "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
+                        [id],
+                    )?;
+                }
+                Err(error) => {
+                    incomplete.get_or_insert(error);
+                }
             }
         }
-        write.undo_expired = !deleting;
+        write.undo_expired = incomplete.is_none();
         self.conn()?.execute(
             "UPDATE metadata_edit_writes SET payload_json=?1 WHERE id=?2",
             params![bounded_json(&write)?, id],
         )?;
-        Ok(())
+        incomplete.map_or(Ok(()), Err)
     }
 }
 
