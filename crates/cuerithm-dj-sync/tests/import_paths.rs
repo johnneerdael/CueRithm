@@ -1,16 +1,28 @@
 use cuerithm_dj_sync::import::*;
 use std::path::PathBuf;
+
+fn local_root(path: &str) -> PathBuf {
+    #[cfg(windows)]
+    {
+        PathBuf::from(r"C:\").join(path.trim_start_matches('/'))
+    }
+    #[cfg(not(windows))]
+    {
+        PathBuf::from(path)
+    }
+}
+
 #[test]
 fn mappings_use_longest_component_prefix_and_preserve_unicode() {
     let mappings = vec![
         PathMapping {
             source_prefix: "C:\\Music".into(),
-            local_root: PathBuf::from("/mapped"),
+            local_root: local_root("/mapped"),
             root_id: "general".into(),
         },
         PathMapping {
             source_prefix: "C:\\Music\\House".into(),
-            local_root: PathBuf::from("/house"),
+            local_root: local_root("/house"),
             root_id: "house".into(),
         },
     ];
@@ -21,18 +33,23 @@ fn mappings_use_longest_component_prefix_and_preserve_unicode() {
         ..Default::default()
     };
     let r = resolve_location(&e, &mappings).unwrap();
-    assert_eq!(r.resolved, Some(PathBuf::from("/house/α.flac")));
+    assert_eq!(r.resolved, Some(local_root("/house").join("α.flac")));
     let e = LocationEvidence {
         original: Some("C:\\Musical\\α.flac".into()),
         ..e
     };
-    assert_eq!(resolve_location(&e, &mappings).unwrap().resolved, None);
+    let unmatched = resolve_location(&e, &mappings).unwrap();
+    assert_eq!(unmatched.mapping_root_id, None);
+    #[cfg(not(windows))]
+    assert_eq!(unmatched.resolved, None);
+    #[cfg(windows)]
+    assert_eq!(unmatched.resolved, Some(PathBuf::from("C:/Musical/α.flac")));
 }
 #[test]
 fn unc_uri_case_and_traversal_are_explicit() {
     let mapping = PathMapping {
         source_prefix: "\\\\server\\share".into(),
-        local_root: "/share".into(),
+        local_root: local_root("/share"),
         root_id: "share".into(),
     };
     let e = LocationEvidence {
@@ -43,7 +60,7 @@ fn unc_uri_case_and_traversal_are_explicit() {
     };
     assert_eq!(
         resolve_location(&e, &[mapping]).unwrap().resolved,
-        Some(PathBuf::from("/share/Track α.flac"))
+        Some(local_root("/share").join("Track α.flac"))
     );
     let e = LocationEvidence {
         original: Some("C:\\Music\\..\\private.flac".into()),

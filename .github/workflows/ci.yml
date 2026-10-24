@@ -52,7 +52,7 @@ jobs:
       - name: Lint
         run: cargo +stable clippy --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-targets --all-features --locked -- -D warnings
       - name: Tests
-        run: cargo +stable test --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked -- --test-threads=2
+        run: cargo +stable test --workspace --exclude cuerithm-desktop --exclude cuerithm-library --all-features --release --locked ${{ runner.os == 'Windows' && '--no-fail-fast' || '' }} -- --test-threads=2
       - name: Cleanup overflow and debug regressions
         run: cargo +stable test -p cuerithm-cleanup --locked
       - name: Release build

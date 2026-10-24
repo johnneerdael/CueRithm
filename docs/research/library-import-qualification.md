@@ -989,3 +989,43 @@ and application code are unchanged. Only that failing case was run locally for
 diagnosis: one passed in 373 ms, with three unrelated cases unselected. Desktop
 CI on all three platforms verifies the shared test change; engine results are
 retained through the documented baseline chain. No broad local suite is run.
+
+The next Windows engine run passed all six M3U controls and both 12-test
+DJ.Studio targets, then failed the author-pack byte check: its 8,476-byte README
+became 8,535 bytes after Windows checkout, exactly matching its 59 LF lines
+being converted to CRLF. A scoped Git attribute now preserves LF for this
+text-only handover pack. Checking out its 22 manifested artifacts with
+`core.autocrlf=true` preserves all 304,463 original bytes and every SHA-256;
+the manifest and integrity assertions are unchanged. Windows CI verifies the
+repair; no Rust or frontend suite is run locally for this checkout correction.
+
+Windows CI then passed the complete eight-test model target, including the
+unchanged author-pack integrity check. Two path-mapping controls next failed
+because their local roots used Unix-only absolute paths. Their Windows fixtures
+now use drive-qualified roots; Unix fixture values are unchanged. The unmatched
+`Musical` prefix still cannot select the `Music` mapping, while Windows retains
+its existing native-path fallback. Longest-prefix, Unicode, UNC URI and traversal
+assertions remain in place. Production resolution and validation are unchanged.
+Only Windows engine CI retries for this test-only repair; it now continues
+through failing test targets before returning failure, so one run can report
+failures across the remaining targets. No target is skipped and publication
+still requires success. Formatting and diff checks pass; no local test suite is
+run.
+
+The corrected Windows engine run passed in full, including release build.
+Windows desktop completed all remaining test targets and reported two failing
+targets: one constructed native observation omitted its platform marker, and
+five removal controls shared a helper that concatenated `file://` with a
+Windows canonical path containing the `\\?\` namespace. The 100,000-track
+physical-file paging/cancellation control passed; no workload was reduced.
+
+The watcher fixture now supplies the host marker on Windows, as the real
+readers and other native-media fixtures already do. The removal helper uses
+the already locked URL implementation for Windows file URIs and mapping
+prefixes, retaining the original canonical local root for missing-file Undo
+identity. Its dependency is Windows-only and test-only; the lockfile adds one
+edge without changing package versions. Unix fixture values, production
+resolution, watcher protection, URI validation and all assertions are unchanged.
+Locked Windows dependency metadata, formatting and diff checks pass. No local
+test suite is run; only Windows desktop CI is retried, retaining the six other
+passing components.

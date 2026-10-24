@@ -47,13 +47,27 @@ fn attach_import_source(
 ) -> (String, String, String) {
     let file = format!("{name}.xml");
     let root = f.dir.path().canonicalize().unwrap();
+    #[cfg(windows)]
+    let source_prefix = url::Url::from_directory_path(&root)
+        .unwrap()
+        .to_file_path()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    #[cfg(not(windows))]
+    let source_prefix = root.to_str().unwrap().into();
     let media = media
         .parent()
         .unwrap()
         .canonicalize()
         .unwrap()
         .join(media.file_name().unwrap());
-    std::fs::write(f.dir.path().join(&file), format!("<plist><dict><key>Library Persistent ID</key><string>{name}</string><key>Tracks</key><dict><key>1</key><dict><key>Track ID</key><integer>1</integer><key>Name</key><string>Signal</string><key>Artist</key><string>North</string><key>Grouping</key><string>Retained source audit</string><key>Total Time</key><integer>20000</integer><key>Location</key><string>file://{}</string></dict></dict><key>Playlists</key><array><dict><key>Playlist Persistent ID</key><string>source-list</string><key>Name</key><string>Source list</string><key>Playlist Items</key><array><dict><key>Track ID</key><integer>1</integer></dict></array></dict></array></dict></plist>", media.to_string_lossy())).unwrap();
+    #[cfg(windows)]
+    let media_uri = url::Url::from_file_path(&media).unwrap().to_string();
+    #[cfg(not(windows))]
+    let media_uri = format!("file://{}", media.to_string_lossy());
+    std::fs::write(f.dir.path().join(&file), format!("<plist><dict><key>Library Persistent ID</key><string>{name}</string><key>Tracks</key><dict><key>1</key><dict><key>Track ID</key><integer>1</integer><key>Name</key><string>Signal</string><key>Artist</key><string>North</string><key>Grouping</key><string>Retained source audit</string><key>Total Time</key><integer>20000</integer><key>Location</key><string>{media_uri}</string></dict></dict><key>Playlists</key><array><dict><key>Playlist Persistent ID</key><string>source-list</string><key>Name</key><string>Source list</string><key>Playlist Items</key><array><dict><key>Track ID</key><integer>1</integer></dict></array></dict></array></dict></plist>")).unwrap();
     let inspection = f
         .lib
         .inspect_import(
@@ -67,7 +81,7 @@ fn attach_import_source(
                 binding: SourceBindingChoice::Automatic,
                 origin: None,
                 path_mappings: vec![PathMapping {
-                    source_prefix: root.to_str().unwrap().into(),
+                    source_prefix,
                     local_root: root,
                     root_id: "fixture-root".into(),
                 }],

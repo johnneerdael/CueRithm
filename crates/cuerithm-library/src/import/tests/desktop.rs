@@ -141,6 +141,10 @@ fn discovered_import_media_never_enters_incoming() {
     let path = f.root.path().join("invented.flac");
     std::fs::write(&path, b"invented bytes; all-off import must not decode").unwrap();
     let mut observed = track("Imported");
+    #[cfg(windows)]
+    {
+        observed.locations.platform = Some(std::env::consts::OS.into());
+    }
     observed.locations.native_path = Some(path.clone());
     observed.locations.original = Some(path.to_string_lossy().into_owned());
     observed.locations.resolved = Some(path.to_string_lossy().into_owned());

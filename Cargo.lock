@@ -1321,6 +1321,7 @@ dependencies = [
  "tempfile",
  "trash",
  "unicode-normalization",
+ "url",
  "uuid",
  "walkdir",
  "windows-sys 0.61.2",

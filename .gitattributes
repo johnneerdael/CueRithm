@@ -1,1 +1,3 @@
 crates/camelot-core/tests/fixtures/lexicon-energy/*.f32 binary
+# The author manifest pins the exact LF bytes of this text-only handover pack.
+docs/research/dj-library-import-handover/** text eol=lf
