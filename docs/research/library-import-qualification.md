@@ -1011,3 +1011,21 @@ through failing test targets before returning failure, so one run can report
 failures across the remaining targets. No target is skipped and publication
 still requires success. Formatting and diff checks pass; no local test suite is
 run.
+
+The corrected Windows engine run passed in full, including release build.
+Windows desktop completed all remaining test targets and reported two failing
+targets: one constructed native observation omitted its platform marker, and
+five removal controls shared a helper that concatenated `file://` with a
+Windows canonical path containing the `\\?\` namespace. The 100,000-track
+physical-file paging/cancellation control passed; no workload was reduced.
+
+The watcher fixture now supplies the host marker on Windows, as the real
+readers and other native-media fixtures already do. The removal helper uses
+the already locked URL implementation for Windows file URIs and mapping
+prefixes, retaining the original canonical local root for missing-file Undo
+identity. Its dependency is Windows-only and test-only; the lockfile adds one
+edge without changing package versions. Unix fixture values, production
+resolution, watcher protection, URI validation and all assertions are unchanged.
+Locked Windows dependency metadata, formatting and diff checks pass. No local
+test suite is run; only Windows desktop CI is retried, retaining the six other
+passing components.
