@@ -228,7 +228,8 @@ fn unavailable_original_recovery_copy_blocks_backup_without_pruning_history() {
     let (d, lib, _) = fixture();
     let conn = Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
     conn.execute("INSERT INTO maintenance_writes(id,kind,state,payload_json,created,cleanup_complete) VALUES('retained','apply','committed','{}',0,1)",[]).unwrap();
-    conn.execute("INSERT INTO maintenance_write_files(write_id,ordinal,target,staged,backup,before_hash,after_hash,publish_path,displaced_path,workspace) VALUES('retained',0,X'00',X'00',NULL,'before','after',X'00',X'00',X'00')",[]).unwrap();
+    // The journal names an original that is not there.
+    conn.execute("INSERT INTO maintenance_write_files(write_id,ordinal,target,staged,backup,before_hash,after_hash,publish_path,displaced_path,workspace) VALUES('retained',0,X'00',X'00',CAST('unix:/an-original-that-is-gone' AS BLOB),'before','after',X'00',X'00',X'00')",[]).unwrap();
     assert!(
         lib.create_library_backup(&d.path().join("backups"))
             .is_err()
@@ -239,6 +240,16 @@ fn unavailable_original_recovery_copy_blocks_backup_without_pruning_history() {
             .unwrap(),
         1
     );
+}
+
+#[test]
+fn a_write_whose_original_was_retired_on_purpose_does_not_block_a_backup() {
+    let (d, lib, _) = fixture();
+    let conn = Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
+    conn.execute("INSERT INTO maintenance_writes(id,kind,state,payload_json,created,cleanup_complete) VALUES('settled','apply','committed','{}',0,1)",[]).unwrap();
+    conn.execute("INSERT INTO maintenance_write_files(write_id,ordinal,target,staged,backup,before_hash,after_hash,publish_path,displaced_path,workspace) VALUES('settled',0,X'00',X'00',NULL,'before','after',X'00',X'00',X'00')",[]).unwrap();
+    lib.create_library_backup(&d.path().join("backups"))
+        .unwrap();
 }
 
 #[test]

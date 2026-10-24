@@ -26,9 +26,31 @@ pub struct OriginalsSweep {
 /// The write kinds whose originals are no longer needed once they have settled: the table
 /// prefix, the private folder of the data folder their workspaces live in, and the states that
 /// count as settled. Earlier versions kept the original of every changed write in all of them.
-const FAMILIES: [(&str, &str, &str); 2] = [
-    ("tag", "tagging", "'committed','rolled_back'"),
-    ("cleanup", "cleanup", "'committed','rolled_back','undone'"),
+const FAMILIES: [(&str, &str, &str, &str, &str); 3] = [
+    (
+        "tag",
+        "tagging",
+        "'committed','rolled_back'",
+        "1",
+        "w.workspace",
+    ),
+    (
+        "cleanup",
+        "cleanup",
+        "'committed','rolled_back','undone'",
+        "1",
+        "w.workspace",
+    ),
+    // A duplicate merge from an earlier version is undone from its retained original until it
+    // is undone or leaves the Undo window; an Undo, and an operation that recorded the keeper's
+    // tag values, never need one.
+    (
+        "maintenance",
+        "maintenance",
+        "'committed','rolled_back','undone'",
+        "w.state='undone' OR json_extract(w.payload_json,'$.kind')='undo' OR COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=1 OR json_extract(w.payload_json,'$.transfers') IS NOT NULL",
+        "f.workspace",
+    ),
 ];
 fn owned_regular_file(data: &Path, area: &str, path: &Path) -> Option<u64> {
     let in_area = data
@@ -67,8 +89,8 @@ impl Library {
     }
     fn sweep_legacy_originals_with(&self, limit: usize) -> Result<OriginalsSweep> {
         let mut total = OriginalsSweep::default();
-        for (prefix, area, states) in FAMILIES {
-            let part = self.sweep_family(prefix, area, states, limit)?;
+        for (prefix, area, states, only, workspace) in FAMILIES {
+            let part = self.sweep_family(prefix, area, states, only, workspace, limit)?;
             total.files_removed += part.files_removed;
             total.bytes_freed += part.bytes_freed;
             total.more_to_do |= part.more_to_do;
@@ -93,14 +115,16 @@ impl Library {
         prefix: &str,
         area: &str,
         states: &str,
+        only: &str,
+        workspace: &str,
         limit: usize,
     ) -> Result<OriginalsSweep> {
         let data = self.data_dir().canonicalize()?;
         let rows: Vec<(String, Vec<u8>, i64, Vec<u8>)> = {
             let conn = self.conn()?;
             let mut stmt = conn.prepare(&format!(
-                "SELECT w.id,w.workspace,f.ordinal,f.backup FROM {prefix}_write_files f JOIN {prefix}_writes w ON w.id=f.write_id
-                  WHERE w.state IN ({states}) AND w.cleanup_complete=1 AND f.backup IS NOT NULL
+                "SELECT w.id,{workspace},f.ordinal,f.backup FROM {prefix}_write_files f JOIN {prefix}_writes w ON w.id=f.write_id
+                  WHERE w.state IN ({states}) AND w.cleanup_complete=1 AND f.backup IS NOT NULL AND ({only})
                   ORDER BY w.created,w.id,f.ordinal LIMIT ?1"
             ))?;
             stmt.query_map([limit as i64 + 1], |r| {
@@ -330,5 +354,54 @@ mod tests {
             )
             .unwrap();
         assert_eq!(named, 0);
+    }
+
+    #[test]
+    fn a_merge_from_an_earlier_version_keeps_its_original_only_while_it_can_still_be_undone() {
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+        let mut originals = vec![];
+        for (n, (payload, state)) in [
+            // Still undoable from its original.
+            (r#"{"kind":"apply"}"#, "committed"),
+            // Left the Undo window.
+            (r#"{"kind":"apply","undo_expired":true}"#, "committed"),
+            // Already undone.
+            (r#"{"kind":"apply"}"#, "undone"),
+            // An Undo never needs one.
+            (r#"{"kind":"undo"}"#, "committed"),
+            // Recorded the keeper's tag values: undone by values.
+            (r#"{"kind":"apply","transfers":{}}"#, "committed"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let folder = lib
+                .data_dir()
+                .join(format!("maintenance/staging/cuerithm-tags-{n}"));
+            std::fs::create_dir_all(&folder).unwrap();
+            let original = folder.join("original.flac");
+            std::fs::write(&original, vec![2u8; 300]).unwrap();
+            let conn = lib.conn().unwrap();
+            conn.execute(
+                "INSERT INTO maintenance_writes(id,kind,state,payload_json,created,cleanup_complete) VALUES(?1,'apply',?2,?3,?4,1)",
+                params![format!("merge{n}"), state, payload, n as i64],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO maintenance_write_files VALUES(?1,0,X'00',X'00',?2,'a','b',X'00',X'00',?3)",
+                params![
+                    format!("merge{n}"),
+                    crate::model::path_bytes(&original),
+                    crate::model::path_bytes(&folder)
+                ],
+            )
+            .unwrap();
+            originals.push(original);
+        }
+        let swept = lib.sweep_legacy_originals().unwrap();
+        assert_eq!(swept.files_removed, 4);
+        let present: Vec<bool> = originals.iter().map(|o| o.exists()).collect();
+        assert_eq!(present, [true, false, false, false, false]);
     }
 }

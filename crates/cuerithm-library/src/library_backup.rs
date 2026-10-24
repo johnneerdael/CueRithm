@@ -266,7 +266,7 @@ pub(crate) fn quiet_database(conn: &Connection) -> Result<()> {
     Ok(())
 }
 /// The write kinds that delete their original once they have settled.
-const RETIRING_BACKUPS: [&str; 2] = ["tag", "cleanup"];
+const RETIRING_BACKUPS: [&str; 3] = ["tag", "cleanup", "maintenance"];
 fn settled(conn: &Connection, root: &Path) -> Result<()> {
     quiet_database(conn)?;
     // A changed committed publication keeps its original bytes for recovery or Undo until its

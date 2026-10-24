@@ -167,6 +167,8 @@ impl Library {
     /// After an operation that rewrote or removed a lot of rows: give free space back if there
     /// is a worthwhile amount, and keep the log short. The connection must not be held.
     pub(crate) fn tidy_after_bulk_change(&self) {
+        // Merges that just left the Undo window no longer need their retained originals.
+        let _ = self.sweep_legacy_originals();
         self.reclaim_storage_when_worthwhile();
         self.checkpoint_wal_when_idle();
     }

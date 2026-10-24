@@ -840,3 +840,59 @@ fn a_library_with_many_old_saved_reports_is_trimmed_when_it_opens() {
     );
     drop((dir, runtime));
 }
+
+/// Archive-only merges used to stay undoable for ever, with the library state they changed. They
+/// share the window of ten with the removals.
+#[test]
+fn an_archive_only_merge_leaves_the_undo_window_like_any_other() {
+    let mut f = Fixture::empty();
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let mut merges = vec![];
+    for round in 0..12 {
+        std::thread::sleep(Duration::from_millis(3));
+        let keep = f.add_track(&format!("keep-{round}.wav"), 501 + 2 * round);
+        let copy_path = f.dir.path().join(format!("copy-{round}.wav"));
+        wav_with_extra_chunk(&copy_path, 501 + 2 * round);
+        let copy = f.import(copy_path);
+        let title = format!(
+            "Archived pair {round} {}",
+            [
+                "alpha", "bravo", "delta", "echo", "golf", "kilo", "lima", "oscar", "papa",
+                "romeo", "sierra", "tango"
+            ][round as usize]
+        );
+        sql(
+            &f,
+            &format!(
+                "UPDATE tracks SET title='{title}' WHERE id IN ('{}','{}')",
+                f.ids[keep], f.ids[copy]
+            ),
+        );
+        let review = f.review(Tolerance::None);
+        assert_eq!(review.groups.len(), 1, "round {round}");
+        let preview = f
+            .lib
+            .preview_duplicate_merge_choice_with(
+                &review.id,
+                review.revision,
+                vec![review.groups[0].id.clone()],
+                Some(MergeDisposition::Archive),
+                &Capable,
+                &token(),
+            )
+            .unwrap();
+        merges.push(
+            service
+                .apply_confirmed(&preview.id, false, &token())
+                .unwrap()
+                .id,
+        );
+    }
+    for (n, id) in merges.iter().enumerate() {
+        assert_eq!(merge_is_final(&f, id), n < 2, "merge {n}");
+    }
+    let error = service.undo(&merges[0], &token()).unwrap_err().to_string();
+    assert!(error.contains("no longer available"), "{error}");
+    assert!(service.undo(&merges[11], &token()).is_ok());
+}
