@@ -979,10 +979,13 @@ Windows engine/desktop components are retried from the original checked baseline
 
 Windows desktop CI also exposed an intermittent timeout in the existing
 450-track metadata-editor control. An unchanged-source retry passed, but the
-next run failed at the same full-page accessible-role lookup. The control now
-waits for the explicitly labelled Title input before checking its textbox role,
-avoiding repeated accessibility scans of the 200 rendered table rows. Its
-450-track selection, draft-ID and independent-playback assertions, default wait
-deadline and application code are unchanged. Desktop CI on all three platforms
-verifies this shared test change; engine results are retained through the
-documented baseline chain. No additional local test suite is run.
+next run failed at the same full-page accessible-role lookup. Switching to a
+full-page label lookup still exceeded the test deadline on Linux. The control
+now resolves the named metadata-editor region on each attempt and queries its
+Title textbox, avoiding scans of the 200 rendered table rows while tolerating the
+loading frame being replaced by the form. Its field role/name/visibility,
+450-track selection and independent-playback assertions, default wait deadline
+and application code are unchanged. Only that failing case was run locally for
+diagnosis: one passed in 373 ms, with three unrelated cases unselected. Desktop
+CI on all three platforms verifies the shared test change; engine results are
+retained through the documented baseline chain. No broad local suite is run.
