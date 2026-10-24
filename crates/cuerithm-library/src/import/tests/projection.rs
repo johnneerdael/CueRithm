@@ -66,6 +66,7 @@ fn inspect(
     let request = ImportInspectRequest {
         provider: SourceProvider::Mixxx,
         selection: ImportSourceSelection {
+            folder_inventory: false,
             root: root.path().into(),
             artifacts: vec![ArtifactRequest::stable("source.bin")],
         },

@@ -673,7 +673,11 @@ impl Library {
         resolver.verify()?;
         environment.verify()?;
         Ok((
-            crate::ImportSourceSelection { root, artifacts },
+            crate::ImportSourceSelection {
+                folder_inventory: false,
+                root,
+                artifacts,
+            },
             std::sync::Arc::new(
                 cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader::with_provisioned_key(
                     key,

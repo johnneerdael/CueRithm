@@ -884,3 +884,25 @@ before correction and now pass. All 141 import unit tests pass.
 The 76 surrounding public import/native/backup/identity integrations and 37 desktop
 unit tests (one ignored) also pass on the corrected source. Workspace formatting,
 workspace and untagged-library strict Clippy, and workspace release build pass.
+
+### Folder refresh inventory corrections
+
+Folder selections now re-scan their supported artifacts in the common inspection
+path, covering Refresh and delayed initial inspection. The desktop and library
+share the existing bounded provider inventory, preserving traversal limits,
+symlink exclusion, artifact kinds and reader-specific acquisition closures.
+Explicit additional-file selections keep their IDs, roots and kinds without
+scanning neighboring folders. Fixed file selections and older development
+requests keep their original scope; selecting the folder again establishes
+folder scope. The new marker does not change root identity hashes.
+
+Real Serato reader regressions first reproduced omitted new crates and missing-file
+failures after removal/rename or delayed inspection. All five refresh/scope/identity
+controls and four SDK inventory safety controls pass. The source-app acceptance
+boundaries above remain unchanged.
+Fresh corrected-source checks pass: SDK all features 546 passed / zero failed /
+three ignored; all 146 import unit tests; all 76 surrounding import/native/backup/
+identity integration tests; desktop library 37 passed / zero failed / one ignored.
+Workspace formatting, workspace and untagged-library strict Clippy, release build,
+strict guide build and navigation/link checks also pass. The independent focused
+production-diff review found no actionable issue.

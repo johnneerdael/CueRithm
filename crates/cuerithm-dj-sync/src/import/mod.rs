@@ -1,4 +1,5 @@
 //! Read-side DJ library contracts, separate from the outbound `SyncLibrary` projection.
+pub mod inventory;
 mod model;
 mod policy;
 mod validation;

@@ -255,6 +255,7 @@ impl Fixture {
             ImportInspectRequest {
                 provider: SourceProvider::Mixxx,
                 selection: ImportSourceSelection {
+                    folder_inventory: false,
                     root: self.root.path().into(),
                     artifacts: vec![ArtifactRequest::stable("source.bin")],
                 },
@@ -1045,6 +1046,7 @@ fn captured_history_and_queue_collections_still_require_adoption_flags() {
             ImportInspectRequest {
                 provider: SourceProvider::Mixxx,
                 selection: ImportSourceSelection {
+                    folder_inventory: false,
                     root: f.root.path().into(),
                     artifacts: vec![ArtifactRequest::stable("source.bin")],
                 },

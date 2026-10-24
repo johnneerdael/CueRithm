@@ -117,6 +117,7 @@ fn hundred_thousand_tracks_remain_paged_and_cancellable() {
             ImportInspectRequest {
                 provider: SourceProvider::M3u,
                 selection: ImportSourceSelection {
+                    folder_inventory: false,
                     root: root.path().to_owned(),
                     artifacts,
                 },

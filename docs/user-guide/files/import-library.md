@@ -109,6 +109,13 @@ Open **Import history** to see saved processing choices and stage results.
 - **Undo effects** reverses eligible processing changes when later edits allow
   it. It does not remove the imported source records.
 
+Refresh scans sources chosen as folders again, so newly added or renamed
+crates and other supported files can appear in the inspection. Files explicitly
+added from another volume remain selected individually; refresh does not scan
+their neighboring folders. Sources selected as individual files keep that scope.
+Development imports saved before folder refresh support retain their saved file
+list. Choose the source folder again and inspect it to establish folder scope.
+
 Blocked processing leaves the imported metadata visible. Recovery and Undo can
 also be blocked by later file or library edits; review the explanation in history
 before proceeding.

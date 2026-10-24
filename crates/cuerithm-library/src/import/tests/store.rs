@@ -67,6 +67,7 @@ fn request(root: &Path) -> ImportInspectRequest {
     ImportInspectRequest {
         provider: SourceProvider::Mixxx,
         selection: ImportSourceSelection {
+            folder_inventory: false,
             root: root.to_path_buf(),
             artifacts: vec![ArtifactRequest::stable("library.bin")],
         },
@@ -205,6 +206,7 @@ fn source_reader_request(
     ImportInspectRequest {
         provider,
         selection: ImportSourceSelection {
+            folder_inventory: false,
             root: root.into(),
             artifacts: vec![ArtifactRequest::stable(name)],
         },

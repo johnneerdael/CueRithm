@@ -7,6 +7,53 @@ pub struct ImportSourceSelection {
     #[serde(with = "cuerithm_dj_sync::path_serde")]
     pub root: PathBuf,
     pub artifacts: Vec<ArtifactRequest>,
+    /// Authorize re-inventory of the primary folder; additional roots remain explicit files.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub folder_inventory: bool,
+}
+fn is_false(value: &bool) -> bool {
+    !value
+}
+impl ImportSourceSelection {
+    pub fn from_folder(
+        provider: SourceProvider,
+        root: &std::path::Path,
+        cancel: &cuerithm_media::CancellationToken,
+    ) -> anyhow::Result<Self> {
+        let mut selected = Self {
+            root: root.canonicalize()?,
+            artifacts: Vec::new(),
+            folder_inventory: true,
+        };
+        selected.reinventory(provider, cancel)?;
+        Ok(selected)
+    }
+    pub(crate) fn reinventory(
+        &mut self,
+        provider: SourceProvider,
+        cancel: &cuerithm_media::CancellationToken,
+    ) -> anyhow::Result<()> {
+        if !self.folder_inventory {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            inventory::folder_backed(provider),
+            "This source requires an explicit file selection"
+        );
+        let mut artifacts = inventory::inventory_source(&self.root, provider, cancel)?;
+        artifacts.extend(
+            self.artifacts
+                .iter()
+                .filter(|artifact| artifact.selected_root.is_some())
+                .cloned(),
+        );
+        anyhow::ensure!(
+            artifacts.len() <= 100_000,
+            "Selected source exceeds artifact limit"
+        );
+        self.artifacts = artifacts;
+        Ok(())
+    }
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "choice", rename_all = "snake_case", deny_unknown_fields)]

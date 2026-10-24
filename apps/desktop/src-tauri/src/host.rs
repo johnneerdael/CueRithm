@@ -356,6 +356,7 @@ mod tests {
                 ImportInspectRequest {
                     provider: SourceProvider::VirtualDj,
                     selection: ImportSourceSelection {
+                        folder_inventory: false,
                         root: import_root,
                         artifacts: vec![ArtifactRequest::stable("database.xml")],
                     },

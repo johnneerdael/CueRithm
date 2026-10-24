@@ -144,6 +144,7 @@ fn provider_key(provider: SourceProvider) -> Result<String> {
 fn location_key(selection: &ImportSourceSelection) -> Result<String> {
     // Artifact selection is scope, not library identity. Preserve raw native root bytes.
     let root_only = ImportSourceSelection {
+        folder_inventory: false,
         root: selection.root.clone(),
         artifacts: Vec::new(),
     };
@@ -274,6 +275,7 @@ impl Library {
             .root
             .canonicalize()
             .context("Selected source root is unavailable")?;
+        request.selection.reinventory(request.provider, cancel)?;
         let capture = SourceCaptureRequest::from_selected_root(
             request.provider,
             &request.selection.root,

@@ -100,6 +100,7 @@ fn all_off_roundtrip_is_lossless_and_has_zero_processing() {
         let request = ImportInspectRequest {
             provider,
             selection: ImportSourceSelection {
+                folder_inventory: false,
                 root: root.clone(),
                 artifacts,
             },
@@ -210,6 +211,7 @@ fn applied_collections_remain_browsable_with_duplicate_occurrences() {
             ImportInspectRequest {
                 provider: SourceProvider::M3u,
                 selection: ImportSourceSelection {
+                    folder_inventory: false,
                     root: root.path().to_owned(),
                     artifacts: vec![ArtifactRequest::stable("set.m3u8")],
                 },
@@ -286,6 +288,7 @@ fn media_loading_preserves_imported_fields() {
             ImportInspectRequest {
                 provider: SourceProvider::M3u,
                 selection: ImportSourceSelection {
+                    folder_inventory: false,
                     root: root.path().to_owned(),
                     artifacts: vec![ArtifactRequest::stable("media.m3u8")],
                 },
@@ -355,6 +358,7 @@ fn refresh_retains_unselected_and_local_only_changes() {
                 ImportInspectRequest {
                     provider: SourceProvider::Traktor,
                     selection: ImportSourceSelection {
+                        folder_inventory: false,
                         root: root.to_owned(),
                         artifacts: vec![ArtifactRequest::stable("collection.nml")],
                     },

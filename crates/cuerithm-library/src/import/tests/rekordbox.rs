@@ -16,6 +16,7 @@ fn inspect(lib: &Library, root: &std::path::Path) -> ImportInspection {
         ImportInspectRequest {
             provider: SourceProvider::Rekordbox,
             selection: ImportSourceSelection {
+                folder_inventory: false,
                 root: root.into(),
                 artifacts: vec![ArtifactRequest::sqlite("master.db")],
             },
