@@ -64,7 +64,7 @@ Begin with [Find and merge duplicate tracks](find-duplicates.md). It is the one 
 | **History & recovery** | Undo and retry for the tools above, and where removed unused files went | Reverses or finishes their changes |
 
 !!! note "Which version"
-    **Remove from library…**, **Find moved files…** and following moves inside a watch folder need CueRithm 0.1.15 or later. **Find Lost Tracks**, portable `.cuerithm` backups and restore need CueRithm 0.1.16 or later. **Delete from disk**, and leaving tracks whose file is not available out of Duplicates, need CueRithm 0.1.17 or later. Unused files that go to the Trash, and a limit of 10 for every merge, need CueRithm 0.1.18 or later.
+    **Remove from library…**, **Find moved files…** and following moves inside a watch folder need CueRithm 0.1.15 or later. **Find Lost Tracks**, portable `.cuerithm` backups and restore need CueRithm 0.1.16 or later. **Delete from disk**, and leaving tracks whose file is not available out of Duplicates, need CueRithm 0.1.17 or later. Unused files that go to the Trash, and a limit of 10 for every merge, need CueRithm 0.1.19 or later.
 
 Relocation has its own **Previous relocations** list and guarded Undo in the [reconnection workspace](find-missing-files.md#undo-relocation). Portable replacement has [retained-library recovery](restore-library.md#go-back), rather than replaying old file-write Undo journals.
 

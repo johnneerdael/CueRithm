@@ -126,7 +126,7 @@ Use this when a file is gone for good, because you deleted it on purpose or lost
 
 Playlists lose the track and keep the order of the others. A track's cues, analysis history, tags and metadata are saved with the removal, so **Undo removal** can bring everything back, including the track's place in each playlist. The cached waveforms, fingerprints and analysis results built from the removed audio are deleted, unless another track has the same content, and so are saved scans that listed the track. The cover art stays until the saved records are dropped.
 
-CueRithm keeps the saved records of your last 10 removals. In CueRithm 0.1.17 or later, duplicate merges that [delete files](find-duplicates.md#delete) count toward the same 10, and with CueRithm 0.1.18 or later so do merges that only archive. When an eleventh removal pushes the oldest one out, its history line stays but it can no longer be undone. To drop the saved records of a removal sooner, use **Discard saved records…** in [History & recovery](undo-maintenance.md#undo-repairs).
+CueRithm keeps the saved records of your last 10 removals. In CueRithm 0.1.17 or later, duplicate merges that [delete files](find-duplicates.md#delete) count toward the same 10, and with CueRithm 0.1.19 or later so do merges that only archive. When an eleventh removal pushes the oldest one out, its history line stays but it can no longer be undone. To drop the saved records of a removal sooner, use **Discard saved records…** in [History & recovery](undo-maintenance.md#undo-repairs).
 
 ## When a whole drive is missing { #drive }
 

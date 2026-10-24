@@ -45,7 +45,7 @@ A **failed** track means Undo could not finish, for example because the file cou
 
 ## What CueRithm keeps { #retention }
 
-Every Apply records the tags it replaced, and Undo writes them back. CueRithm keeps a copy of the original file only while the batch is being written and deletes it when the batch has settled, so a finished batch takes no space beyond that small record. From CueRithm 0.1.18 or later the 10 newest applied batches can be undone; an older batch stays in the history without an **Undo** button. **Settings → Automatic tagging → Recovery backups** shows only copies of writes that are still under way. A [library backup](../files/library/back-up-library.md) saves your preparation data, not your music files, so keep your own copy of the music too.
+Every Apply records the tags it replaced, and Undo writes them back. CueRithm keeps a copy of the original file only while the batch is being written and deletes it when the batch has settled, so a finished batch takes no space beyond that small record. From CueRithm 0.1.19 or later the 10 newest applied batches can be undone; an older batch stays in the history without an **Undo** button. **Settings → Automatic tagging → Recovery backups** shows only copies of writes that are still under way. A [library backup](../files/library/back-up-library.md) saves your preparation data, not your music files, so keep your own copy of the music too.
 
 ## What can go wrong { #what-can-go-wrong }
 

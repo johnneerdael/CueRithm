@@ -5,7 +5,7 @@
 **Before you start:** you need a merge from [Find and merge duplicate tracks](find-duplicates.md), a repair from [Find missing, moved or broken files](find-missing-files.md) or a removal from [Find and remove unused files](clean-up-unused-files.md) to undo. Scans change nothing. A [relocation](find-missing-files.md#undo-relocation) has its own **Previous relocations** list and Undo controls in the reconnection workspace. A [portable restore](restore-library.md#go-back) uses retained-library recovery instead.
 
 !!! note "Which version"
-    **Missing-file repairs** and their Undo need CueRithm 0.1.15 or later. Merges that delete files, and one shared limit of 10 removals across both kinds, need CueRithm 0.1.17 or later. In 0.1.15 and 0.1.16 the limit of 10 counts Missing & broken removals only. Unused files that go to the Trash, Undo that writes back recorded tags instead of a copy of the audio, and a limit of 10 for every merge and for each kind of sync backup need CueRithm 0.1.18 or later.
+    **Missing-file repairs** and their Undo need CueRithm 0.1.15 or later. Merges that delete files, and one shared limit of 10 removals across both kinds, need CueRithm 0.1.17 or later. In 0.1.15 and 0.1.16 the limit of 10 counts Missing & broken removals only. Unused files that go to the Trash, Undo that writes back recorded tags instead of a copy of the audio, and a limit of 10 for every merge and for each kind of sync backup need CueRithm 0.1.19 or later.
 
 ## Open History & recovery { #open }
 

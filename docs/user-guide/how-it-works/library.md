@@ -4,7 +4,7 @@
 
 !!! abstract "What this means for you"
     - **The library holds locations, not audio.** Moving or renaming a music file outside CueRithm can leave its local binding unresolved. **Missing & broken** reports it; reviewed **Relocate** reconnects it while keeping its track identity. See [Find missing, moved or broken files](../files/library/find-missing-files.md).
-    - **The library holds no audio, and Undo is bounded.** From CueRithm 0.1.18 or later CueRithm holds a copy of a file only while it writes it. Undo keeps recorded tag values, not copies, and only for your 10 newest operations. See [Where CueRithm keeps your data](../files/library/where-data-lives.md#space).
+    - **The library holds no audio, and Undo is bounded.** From CueRithm 0.1.19 or later CueRithm holds a copy of a file only while it writes it. Undo keeps recorded tag values, not copies, and only for your 10 newest operations. See [Where CueRithm keeps your data](../files/library/where-data-lives.md#space).
     - **Back the library up with Library backup**, and your music with your usual backup. A library backup does not contain music. See [Back up your library](../files/library/back-up-library.md).
     - **The schema is version 31.** An older CueRithm refuses a newer library, and there is no downgrade. Opening an older library upgrades it in place; a snapshot made by an older release of the same installation cannot be restored into a newer library.
 

@@ -41,7 +41,7 @@ If the file is not in the state the save left it in, the button is not offered. 
 
 ## When Undo is not offered { #when-undo-is-not-offered }
 
-**Undo saved changes** appears only while the track is still ready and not archived, its file and tag records are unchanged since the save, nothing else has claimed the file, and the save is one of your 10 newest (CueRithm 0.1.18 or later; an older entry stays in the history without the button). Any later save, cleanup, rename, reorganisation, or an edit made in another program, turns it off for that entry. Undo the newest change first, or make a new edit that sets the values you want.
+**Undo saved changes** appears only while the track is still ready and not archived, its file and tag records are unchanged since the save, nothing else has claimed the file, and the save is one of your 10 newest (CueRithm 0.1.19 or later; an older entry stays in the history without the button). Any later save, cleanup, rename, reorganisation, or an edit made in another program, turns it off for that entry. Undo the newest change first, or make a new edit that sets the values you want.
 
 ## Find an unfinished edit { #drafts }
 

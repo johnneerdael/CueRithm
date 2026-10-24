@@ -44,7 +44,7 @@ Saved loops are kept with their start and end and are sent to DJ software that s
 
 ### A way to choose how long Undo lasts { #backup-retention }
 
-From CueRithm 0.1.18 or later CueRithm keeps no copy of your audio after a write has settled, and Undo lasts for your 10 newest merges, removals, cleanups, tag edits and syncs per DJ program. The number is fixed: there is no setting to change it or to keep more. Cleanup has **Undo**, and Sync history offers a guarded **Restore backup** and recovery for interrupted work. A file you removed as unused is in the Trash, not in CueRithm. The copies of writes that are under way are shown as **Recovery backups** in **Settings** → **Automatic tagging**.
+From CueRithm 0.1.19 or later CueRithm keeps no copy of your audio after a write has settled, and Undo lasts for your 10 newest merges, removals, cleanups, tag edits and syncs per DJ program. The number is fixed: there is no setting to change it or to keep more. Cleanup has **Undo**, and Sync history offers a guarded **Restore backup** and recovery for interrupted work. A file you removed as unused is in the Trash, not in CueRithm. The copies of writes that are under way are shown as **Recovery backups** in **Settings** → **Automatic tagging**.
 
 ### An audio device picker { #no-device-picker }
 

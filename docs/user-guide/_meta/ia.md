@@ -112,8 +112,8 @@ that depends on the version carries one short note, never a warning that the fea
   `files/library/find-missing-files.md`, `files/library/undo-maintenance.md`,
   `files/library/index.md` and `files/archive.md`.
 
-- **Added by the release after that** (0.1.18, the lean library work) is described as current
-  behaviour with the note "CueRithm 0.1.18 or later", written exactly like that and once per page:
+- **Added by the release after that** (0.1.19, the lean library work) is described as current
+  behaviour with the note "CueRithm 0.1.19 or later", written exactly like that and once per page:
   removed unused files go to the Trash and CueRithm keeps no copy (no Restore files, no backup
   disposal); Undo of a cleanup, a tag edit and a donor tag copy writes back recorded tag values
   instead of copying an original file back, and a copy of a file is held only while its write is

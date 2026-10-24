@@ -164,7 +164,7 @@ A preference changes a group only when it finds a better track, and it skips loc
 
 The copy with the best audio is not always the copy with the best work. Choose it as **Keeper**, then pick the other copy under **Tag and cue donor**. On apply, the donor's artist, title, genre, key, BPM, energy, comment, label and the other tag fields, its cues and its beatgrid are copied onto the keeper. Empty donor cues or grid leave the keeper's own in place.
 
-This is the one step that writes to a music file: the keeper's file gets the donor's tags. CueRithm records the keeper's tags from before the copy, and **Undo merge** writes them back (CueRithm 0.1.18 or later). It keeps no copy of the audio, and the audio of the file never changes. Both tracks must be finished in **Tracks**; a track still in Incoming stops the merge with *Prepare incoming tracks before merging*.
+This is the one step that writes to a music file: the keeper's file gets the donor's tags. CueRithm records the keeper's tags from before the copy, and **Undo merge** writes them back (CueRithm 0.1.19 or later). It keeps no copy of the audio, and the audio of the file never changes. Both tracks must be finished in **Tracks**; a track still in Incoming stops the merge with *Prepare incoming tracks before merging*.
 
 **Lock group** protects a group from preferences and from being selected. When a locked group has a donor, **Unlock for copy only** copies the donor's tags, cues and grid onto the other copies and archives nothing, and **Unlock for merge** makes it a normal merge.
 

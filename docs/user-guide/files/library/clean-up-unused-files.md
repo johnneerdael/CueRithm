@@ -12,7 +12,7 @@
 **Before you start:** pick one folder, not your whole Music folder. CueRithm compares every file in it with your library, so a narrow folder gives a short, readable list.
 
 !!! note "Which version"
-    Removed files go to the Trash or Recycle Bin, and CueRithm keeps no copy, from CueRithm 0.1.18 or later. Earlier versions deleted the files and kept a copy in the data folder for a **Restore files** button.
+    Removed files go to the Trash or Recycle Bin, and CueRithm keeps no copy, from CueRithm 0.1.19 or later. Earlier versions deleted the files and kept a copy in the data folder for a **Restore files** button.
 
 ## Scan a folder { #scan }
 
