@@ -665,7 +665,7 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
         settings.engine.energy_model = Some(model);
         let revision = lib.save_settings(settings).unwrap();
         let job = lib
-            .enqueue(std::slice::from_ref(&source), revision)
+            .enqueue(std::slice::from_ref(&source), revision.clone())
             .unwrap()
             .remove(0);
         let track = lib
@@ -1199,6 +1199,291 @@ fn only_the_newest_ten_incoming_saves_can_be_undone_and_older_ones_release_their
     assert_eq!(artwork_assets(&lib), imported + 10);
     assert!(staging_dirs(&lib).is_empty());
     assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+}
+
+/// Gives a track the picture its Incoming save will replace.
+fn add_picture(service: &MetadataEditService, track: &str, asset: &str) {
+    let mut add = MetadataEditorPatch::default();
+    add.artwork.push(MetadataArtworkChoice {
+        target: None,
+        asset_id: Some(asset.into()),
+        kind: Some(3),
+        description: None,
+    });
+    save(service, track, add);
+}
+/// An Incoming edit as the worker leaves it between two steps: written, with its proof of the
+/// final file not recorded yet (an automatic Move may still be to come).
+fn queue_incoming_replacement(
+    lib: &Library,
+    service: &MetadataEditService,
+    track: &str,
+    second: &str,
+) -> String {
+    let original = pictures(service, track);
+    rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+        .unwrap()
+        .execute("UPDATE tracks SET state='incoming' WHERE id=?1", [track])
+        .unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.into()),
+        kind: Some(3),
+        description: None,
+    });
+    let queued = save(service, track, replace);
+    assert_eq!(queued.state, "queued", "{queued:?}");
+    queued.id
+}
+fn override_state(db: &Path, batch: &str) -> String {
+    rusqlite::Connection::open(db)
+        .unwrap()
+        .query_row(
+            "SELECT state FROM metadata_edit_overrides WHERE batch_id=?1",
+            [batch],
+            |r| r.get(0),
+        )
+        .unwrap()
+}
+
+/// An Incoming save the worker has written but not yet given its final proof is not an old save
+/// that left the window: finishing it needs its row to stay as it is.
+#[test]
+fn a_written_incoming_save_that_is_not_finalised_yet_is_never_expired() {
+    let (temp, lib, service, first_track, _path) = fixture();
+    let root = temp.path().canonicalize().unwrap();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let imported = artwork_assets(&lib);
+    let mut tracks = vec![first_track];
+    for n in 1..12 {
+        tracks.push(extra_track(&lib, &root, n));
+    }
+    for track in &tracks {
+        add_picture(&service, track, &first.id);
+    }
+    // Twelve Incoming saves; the oldest has been written but not finalised, the others are done.
+    let batches: Vec<String> = tracks
+        .iter()
+        .map(|track| queue_incoming_replacement(&lib, &service, track, &second.id))
+        .collect();
+    rusqlite::Connection::open(&db)
+        .unwrap()
+        .execute_batch(&format!(
+            "UPDATE metadata_edit_overrides SET state='committed',final_json='{{}}' WHERE state='queued';
+             UPDATE metadata_edit_overrides SET final_json=NULL WHERE batch_id='{}';
+             UPDATE metadata_edit_rows SET state='written' WHERE state='queued';
+             UPDATE metadata_edit_batches SET state='saved' WHERE state='queued';
+             UPDATE jobs SET state='completed' WHERE id IN (SELECT job_id FROM metadata_edit_overrides WHERE state='committed');",
+            batches[0]
+        ))
+        .unwrap();
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    // It is still waiting for its proof, and its row is where the finishing step looks for it.
+    assert_eq!(override_state(&db, &batches[0]), "committed");
+    let waiting: i64 = rusqlite::Connection::open(&db)
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_overrides WHERE batch_id=?1 AND state='committed' AND final_json IS NULL",
+            [&batches[0]],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(waiting, 1);
+    // The window of ten holds the finished ones: the oldest of those is the one that left.
+    assert_eq!(override_state(&db, &batches[1]), "expired");
+    for batch in &batches[2..] {
+        assert_eq!(override_state(&db, batch), "committed");
+    }
+    assert_eq!(artwork_assets(&lib), imported + 11);
+    // Once it is finalised it counts like any other save, and as the oldest it leaves.
+    let finalised = rusqlite::Connection::open(&db)
+        .unwrap()
+        .execute(
+            "UPDATE metadata_edit_overrides SET final_json='{}' WHERE batch_id=?1 AND state='committed' AND final_json IS NULL",
+            [&batches[0]],
+        )
+        .unwrap();
+    assert_eq!(finalised, 1);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(override_state(&db, &batches[0]), "expired");
+    assert_eq!(artwork_assets(&lib), imported + 10);
+}
+
+/// More than ten Incoming saves are accepted before the worker has written any of them. The
+/// window of ten is enforced when the worker commits them, not at the next save or restart, both
+/// when the commit is also the end of the job and when an automatic Move follows it.
+#[test]
+fn incoming_saves_the_worker_commits_beyond_the_tenth_expire_without_another_save() {
+    use std::time::{Duration, Instant};
+    for moved in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let folder = temp.path().canonicalize().unwrap();
+        let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let db = folder.join("data/library.sqlite");
+        let lib = Library::open(&db).unwrap();
+        let managed = folder.join("managed");
+        std::fs::create_dir(&managed).unwrap();
+        let grant = lib.register_organization_root(managed.clone()).unwrap();
+        let model = lib.data_dir().join("test-energy.json");
+        std::fs::write(&model,serde_json::to_vec(&serde_json::json!({"gamma":0.000001,"classes":[3,8],"n_support":[1,1],"support_vectors":[vec![0.;183],vec![1.;183]],"dual_coef":[[1.,-1.]],"intercept":[0.1]})).unwrap()).unwrap();
+        let mut settings = PreparationSettings {
+            stability_millis: 10,
+            organization: if moved {
+                OrganizationSettings {
+                    mode: OrganizationSettingMode::Move,
+                    destination_root_id: Some(grant.id),
+                    ..Default::default()
+                }
+            } else {
+                OrganizationSettings::default()
+            },
+            ..Default::default()
+        };
+        settings.engine.energy_model = Some(model);
+        let revision = lib.save_settings(settings).unwrap();
+        let mut tracks = vec![];
+        for n in 0..12 {
+            let source = folder.join(format!("source{n}.flac"));
+            std::fs::copy(
+                project
+                    .join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+                &source,
+            )
+            .unwrap();
+            let mut wrapper = onetagger_tag::Tag::load_file(&source, true).unwrap();
+            let tag = wrapper.tag_mut();
+            tag.set_native("TITLE", vec![format!("Original title {n}")]);
+            tag.set_native("ARTIST", vec![format!("Artist {n}")]);
+            tag.set_art(
+                onetagger_tag::CoverType::CoverFront,
+                "image/png",
+                None,
+                icon("32x32.png"),
+            );
+            tag.save_file(&source).unwrap();
+            let job = lib
+                .enqueue(std::slice::from_ref(&source), revision.clone())
+                .unwrap()
+                .remove(0);
+            tracks.push(
+                lib.jobs()
+                    .unwrap()
+                    .into_iter()
+                    .find(|j| j.id == job)
+                    .unwrap()
+                    .track_id,
+            );
+        }
+        let runtime = MediaRuntime::from_bundle(&project.join("tools/media-runtime/bin")).unwrap();
+        let editor = MetadataEditService::new(lib.clone(), runtime.clone());
+        let replacement = editor.import_artwork(icon("128x128.png")).unwrap();
+        let imported = artwork_assets(&lib);
+        // Twelve edits are accepted while every track is still waiting in Incoming.
+        let batches: Vec<String> = tracks
+            .iter()
+            .enumerate()
+            .map(|(n, track)| {
+                let mut patch = MetadataEditorPatch::default();
+                patch.artwork.push(MetadataArtworkChoice {
+                    target: Some(pictures(&editor, track)[0].clone()),
+                    asset_id: Some(replacement.id.clone()),
+                    kind: Some(3),
+                    description: None,
+                });
+                patch.fields.text.insert(
+                    MetadataTextField::Title,
+                    TextEdit::Set {
+                        values: vec![format!("Saved title {n}")],
+                    },
+                );
+                let queued = save(&editor, track, patch);
+                assert_eq!(queued.state, "queued", "{queued:?}");
+                queued.id
+            })
+            .collect();
+        let state = |batch: &str| override_state(&db, batch);
+        assert!(batches.iter().all(|batch| state(batch) == "queued"));
+        let worker =
+            PreparationService::start_with_workers(lib.clone(), runtime.clone(), 1).unwrap();
+        let start = Instant::now();
+        loop {
+            let jobs = lib.jobs().unwrap();
+            if jobs.iter().all(|j| j.state == "completed")
+                || jobs.iter().any(|j| j.state == "attention")
+                || start.elapsed() > Duration::from_secs(240)
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        worker.shutdown();
+        drop(worker);
+        let jobs = lib.jobs().unwrap();
+        assert!(
+            jobs.iter().all(|j| j.state == "completed"),
+            "moved={moved}: {jobs:?}"
+        );
+        // Nothing else was saved and the library was not reopened: the worker's commit enforced it.
+        for (index, batch) in batches.iter().enumerate() {
+            assert_eq!(
+                state(batch),
+                if index < 2 { "expired" } else { "committed" },
+                "moved={moved}: save {index}"
+            );
+        }
+        assert_eq!(
+            artwork_assets(&lib),
+            imported + 10,
+            "moved={moved}: the ten newest hold the picture they replaced, the others released it"
+        );
+        assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+        assert!(staging_dirs(&lib).is_empty());
+    }
+}
+
+/// A save whose original could not be deleted yet is still bound by a library backup.
+#[test]
+fn a_backup_binds_the_original_of_an_expired_incoming_save_that_is_still_on_disk() {
+    let (temp, lib, service, track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let batch = queue_incoming_replacement(&lib, &service, &track, &second.id);
+    // Written, then pushed out of the window; deleting the original failed and is retried later.
+    rusqlite::Connection::open(&db)
+        .unwrap()
+        .execute_batch(
+            "UPDATE metadata_edit_overrides SET state='expired',final_json='{}';
+             UPDATE metadata_edit_rows SET state='written' WHERE state='queued';
+             UPDATE metadata_edit_batches SET state='saved' WHERE state='queued';
+             UPDATE jobs SET state='completed';",
+        )
+        .unwrap();
+    assert_eq!(override_state(&db, &batch), "expired");
+    let original = std::fs::read_dir(&staging_dirs(&lib)[0])
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with("original"))
+        })
+        .unwrap();
+    let destination = temp.path().join("backups");
+    // Untouched, the original is bound like that of any written save.
+    lib.create_library_backup(&destination).unwrap();
+    // A changed original is not blessed by a new backup while the save still owns it.
+    std::fs::write(&original, b"later external edit of the original").unwrap();
+    assert!(
+        lib.create_library_backup(&destination).is_err(),
+        "a backup accepted the changed original of a save that still owns it"
+    );
 }
 
 /// Only the newest ten saved batches can be undone; the older ones keep their history line.

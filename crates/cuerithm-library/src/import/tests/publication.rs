@@ -1730,7 +1730,9 @@ fn restart_recovers_a_linked_tag_journal_without_replaying_the_import() {
         .undo_import_operation(&op, &CancellationToken::default())
         .unwrap();
     assert_eq!(undo.blocked, 0, "{:?}", undo.errors);
-    assert_eq!(std::fs::read(path).unwrap(), original);
+    // Recovered, the save recorded its change like any other, so its Undo writes the previous
+    // tags back: the audio and tags return, the container's bytes need not.
+    assert_restored(f.root.path(), &original, &path, "undo after recovery");
 }
 #[cfg(feature = "autotag")]
 #[test]

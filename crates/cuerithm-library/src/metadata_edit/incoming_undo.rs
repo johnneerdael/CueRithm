@@ -97,6 +97,7 @@ impl MetadataEditService {
                     undo: Some(UndoLink::Override(job.clone())),
                     kept_pictures: None,
                     original_retired: false,
+                    patch: None,
                 })
             })();
             let row = match outcome {

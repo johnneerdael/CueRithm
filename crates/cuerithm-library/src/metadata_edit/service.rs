@@ -50,6 +50,11 @@ pub(super) struct FrozenRow {
     /// The Incoming save was written and its original audio has been deleted.
     #[serde(default)]
     pub original_retired: bool,
+    /// The change this row was asked to make, kept from the moment the save is journaled until
+    /// its write exists, so that a save interrupted in between is recovered with it. The write
+    /// then holds it and the row drops its copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<MetadataEditorPatch>,
 }
 /// An original picture kept for Undo: its place among the original pictures and its asset.
 #[derive(Clone, Serialize, Deserialize)]
@@ -308,6 +313,7 @@ impl MetadataEditService {
                 undo: None,
                 kept_pictures: None,
                 original_retired: false,
+                patch: None,
             };
             match self.stage_row(&row.capture, &patch, cancel) {
                 Ok((stage, after)) => {

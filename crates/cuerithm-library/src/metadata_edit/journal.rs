@@ -244,10 +244,20 @@ impl MetadataEditService {
                 }
             })
             .collect::<Result<Vec<_>>>()?;
+        // A row that will be written keeps the change it was asked to make until its write
+        // exists, so that a save interrupted in between is recovered the way it was started.
         let row_json = plan
             .rows
             .iter()
-            .map(bounded_json)
+            .map(|row| {
+                if row.public.outcome == "ready" && row.capture.public.state != "incoming" {
+                    let mut kept = row.clone();
+                    kept.patch = Some(plan.patch.clone());
+                    bounded_json(&kept)
+                } else {
+                    bounded_json(row)
+                }
+            })
             .collect::<Result<Vec<_>>>()?;
         {
             let _organization = self
@@ -398,6 +408,9 @@ impl MetadataEditService {
         override_of: Option<String>,
         patch: Option<&MetadataEditorPatch>,
     ) -> Result<String> {
+        // A save recovered before its write existed has no patch from its caller: the change it
+        // was asked to make is the one its row kept.
+        let patch = patch.or(row.patch.as_ref());
         let stage = row
             .stage
             .as_ref()
@@ -428,7 +441,10 @@ impl MetadataEditService {
             id: id.clone(),
             batch: batch.into(),
             row_id: row_id.into(),
-            row: row.clone(),
+            row: FrozenRow {
+                patch: None,
+                ..row.clone()
+            },
             publish: path_bytes(&publish),
             displaced: path_bytes(&displaced),
             publication: None,
@@ -467,6 +483,11 @@ impl MetadataEditService {
                 stage.workspace,
                 now(),write.undo_of,write.override_of,row.capture.public.path_revision,row.capture.public.metadata_revision,stage.after
             ],
+        )?;
+        // The write holds the change now; the row does not need its own copy.
+        tx.execute(
+            "UPDATE metadata_edit_rows SET payload_json=json_remove(payload_json,'$.patch') WHERE id=?1",
+            [row_id],
         )?;
         let f = write.artifact()?;
         tx.execute(
@@ -1057,6 +1078,7 @@ impl MetadataEditService {
             undo: Some(UndoLink::Write(id.to_string())),
             kept_pictures: None,
             original_retired: false,
+            patch: None,
         })
     }
     #[cfg(test)]
@@ -1184,6 +1206,7 @@ impl MetadataEditService {
                     undo: Some(UndoLink::Write(id.clone())),
                     kept_pictures: None,
                     original_retired: false,
+                    patch: None,
                 })
             })();
             match result {
@@ -1573,7 +1596,9 @@ impl crate::Library {
     /// for a save from an earlier version, its retained original are deleted.
     pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
         // A batch counts while any of its saves can still be undone: a committed write, or an
-        // Incoming edit the worker has written (those have no physical write of their own).
+        // Incoming edit the worker has written (those have no physical write of their own). An
+        // Incoming edit is written when it is committed and its final proof is recorded; until
+        // then its row is still being finished, so it neither counts nor leaves the window.
         let (writes, jobs): (Vec<String>, Vec<String>) = {
             let conn = self.conn()?;
             let batches: Vec<String> = conn
@@ -1583,7 +1608,8 @@ impl crate::Library {
                                     AND x.undo_of IS NULL AND x.override_of IS NULL
                                     AND COALESCE(json_extract(x.payload_json,'$.undo_expired'),0)=0)
                          OR EXISTS(SELECT 1 FROM metadata_edit_overrides o WHERE o.batch_id=b.id
-                                    AND o.state='committed' AND o.undo_batch_id IS NULL))
+                                    AND o.state='committed' AND o.undo_batch_id IS NULL
+                                    AND o.final_json IS NOT NULL))
                      ORDER BY b.created DESC,b.rowid DESC LIMIT -1 OFFSET ?1",
                 )?
                 .query_map([crate::REMOVAL_UNDO_LIMIT as i64], |r| r.get(0))?
@@ -1602,7 +1628,8 @@ impl crate::Library {
                 jobs.extend(
                     conn.prepare(
                         "SELECT job_id FROM metadata_edit_overrides
-                          WHERE batch_id=?1 AND state='committed' AND undo_batch_id IS NULL",
+                          WHERE batch_id=?1 AND state='committed' AND undo_batch_id IS NULL
+                            AND final_json IS NOT NULL",
                     )?
                     .query_map([&batch], |r| r.get::<_, String>(0))?
                     .collect::<rusqlite::Result<Vec<_>>>()?,

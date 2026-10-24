@@ -794,8 +794,10 @@ fn metadata_inventory(
         metadata_stage(locations, root, &stage, state == "failed", !retired)?;
     }
     // Incoming overrides have no physical metadata_edit_write. Their original
-    // is retained in the frozen row for inverse artwork and comment edits.
-    let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state='committed' AND COALESCE(json_extract(r.payload_json,'$.original_retired'),0)=0 AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
+    // is retained in the frozen row for inverse artwork and comment edits. A save that was
+    // undone or left the Undo window deletes it too, and until that has happened (a failed
+    // delete is retried by a sweep) the file is still on disk and still bound here.
+    let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state IN ('committed','expired','undone') AND COALESCE(json_extract(r.payload_json,'$.original_retired'),0)=0 AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
     for row in query.query_map([], |row| row.get::<_, String>(0))? {
         metadata_stage(locations, root, &row?, false, true)?;
     }

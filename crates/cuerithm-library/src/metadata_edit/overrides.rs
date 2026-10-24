@@ -140,6 +140,18 @@ impl Library {
     /// window of ten): the pictures kept for it go, and so does its original audio if that is
     /// still there. With `expire` the save also stops being offered for Undo.
     pub(crate) fn release_incoming_save(&self, job: &str, expire: bool) -> Result<()> {
+        // A save whose final proof is not recorded yet is still being finished (the worker has
+        // committed it, an automatic Move may follow): it keeps its original and pictures.
+        if expire {
+            let finished: bool = self.conn()?.query_row(
+                "SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides WHERE job_id=?1 AND state='committed' AND undo_batch_id IS NULL AND final_json IS NOT NULL)",
+                [job],
+                |r| r.get(0),
+            )?;
+            if !finished {
+                return Ok(());
+            }
+        }
         let row: Option<(String, String)> = self
             .conn()?
             .query_row(
@@ -170,7 +182,7 @@ impl Library {
         }
         if expire {
             self.conn()?.execute(
-                "UPDATE metadata_edit_overrides SET state='expired',updated=?1 WHERE job_id=?2 AND state='committed' AND undo_batch_id IS NULL",
+                "UPDATE metadata_edit_overrides SET state='expired',updated=?1 WHERE job_id=?2 AND state='committed' AND undo_batch_id IS NULL AND final_json IS NOT NULL",
                 params![now(), job],
             )?;
         }

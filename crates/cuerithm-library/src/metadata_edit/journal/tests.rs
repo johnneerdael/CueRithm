@@ -613,3 +613,97 @@ fn a_save_from_an_earlier_version_keeps_its_original_bound_to_the_library_backup
     assert!(service.library.create_library_backup(&destination).is_ok());
     assert!(path.exists());
 }
+
+/// A save interrupted after it was journaled but before its write was created is recovered
+/// with the change it was asked to make, so it is undone from values and does not keep the
+/// original audio.
+#[test]
+fn a_save_interrupted_before_its_write_exists_recovers_with_its_recorded_change() {
+    let (_temp, service, track, path) = fixture();
+    let draft = service.create_draft(std::slice::from_ref(&track)).unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec!["Recovered title".into()],
+        },
+    );
+    let draft = service
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    let preview = service
+        .preview(&draft.id, draft.revision, &CancellationToken::default())
+        .unwrap();
+    let original = file_sha256(&path).unwrap();
+    let error = service.apply_linked_with(&preview.id, &CancellationToken::default(), None, || {
+        anyhow::bail!("synthetic crash after the save was journaled")
+    });
+    assert!(error.is_err());
+    let conn = service.library.conn().unwrap();
+    let batch: String = conn
+        .query_row("SELECT id FROM metadata_edit_batches", [], |r| r.get(0))
+        .unwrap();
+    let writes: i64 = conn
+        .query_row("SELECT COUNT(*) FROM metadata_edit_writes", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    drop(conn);
+    assert_eq!(writes, 0, "the interruption came before any write");
+    let journaled: Option<String> = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT json_type(payload_json,'$.patch') FROM metadata_edit_rows",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(journaled.as_deref(), Some("object"));
+    assert_eq!(file_sha256(&path).unwrap(), original);
+    let root = service.library.data_dir().to_path_buf();
+    let runtime = service.runtime.clone();
+    drop(service);
+    let lib = Library::open(&root.join("library.sqlite")).unwrap();
+    lib.recover_metadata_edits().unwrap();
+    let service = MetadataEditService::new(lib, runtime);
+    let recovered = service
+        .recover(&batch, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(recovered.state, "saved", "{recovered:?}");
+    let id: String = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row("SELECT id FROM metadata_edit_writes", [], |r| r.get(0))
+        .unwrap();
+    let (_, write) = service.load_write(&id).unwrap();
+    let recorded = write
+        .editor_patch
+        .as_ref()
+        .expect("the recovered save records its change");
+    assert!(recorded.fields.text.contains_key(&MetadataTextField::Title));
+    assert!(write.backup_retired, "the original was not retired");
+    let backup = write.artifact().unwrap().backup;
+    assert!(
+        backup.as_ref().is_none_or(|backup| !backup.exists()),
+        "the original audio was kept"
+    );
+    assert_ne!(file_sha256(&path).unwrap(), original);
+    // The patch kept for the unstarted row is gone once the write holds it.
+    let kept: Option<String> = service
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT json_type(payload_json,'$.patch') FROM metadata_edit_rows",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(kept, None);
+    // And the save can be undone from the recorded values.
+    let undone = service.undo(&batch, &CancellationToken::default()).unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+}
