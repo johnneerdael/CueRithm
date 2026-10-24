@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 24 · 23 October 2026 CEST / UTC · Required engineering reference.
+Revision 25 · 24 October 2026 CEST / UTC · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–24 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–25 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -47,7 +47,7 @@ guards. It adds neither independent music nor requests to that benchmark.
 There is no promoted
 replacement model or completed 100% qualification.
 
-The current register contains 143 scoped findings. Evidence references E001–E350 identify immutable private source snapshots by
+The current register contains 147 scoped findings. Evidence references E001–E377 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -2465,6 +2465,124 @@ qualification or product-default change follows.
 **Evidence:** E338, E339, E345, E346, E347, E348, E349, E340, E350.
 
 
+#### F144 — The frozen count output collapses cases requiring different answers
+
+**Type:** Frozen-model arithmetic diagnosis and scoped mathematical exclusion.
+
+All twelve ending-family inputs share all 300 leaf indices and values with the
+run-13 upper-only input. Their additional-count output is exactly
+5.924926874015134. The run-13 upper-only input and the ending-family baseline
+require one and two additional cues, respectively; those two 22-field vectors
+differ in 15 coordinates. No deterministic function of that scalar alone,
+including a nonmonotone calibration, can fit both.
+
+The audit covers 6,407 already-spent rows: 6,386 real requests and 21 synthetic
+files in one linked family. Independent reconstruction verifies 1,922,100 tree
+leaf indices/values and all 4,200 stored splits; retained development counts remain
+1,091/1,288. No training request shares that complete 300-leaf signature; the
+nearest differs in 20 trees under the declared leaf-Hamming distance.
+
+**Rules out / prevents:** Reject a scalar-only repair for this pair. Shared paths
+are not identical raw inputs, proof that the 22-field representation is
+insufficient, a training-cause explanation or evidence that no separating
+threshold exists elsewhere in the model. Support and leaf contributions describe
+the frozen software; they are not deletion/retraining effects or a recovered
+vendor mechanism. No model improvement, new MIK run or promotion follows.
+
+**Evidence:** E351, E352, E353, E354, E355, E356, E357, E358, E359, E360, E361, E362, E363, E364, E365, E366.
+
+
+#### F145 — The tested fixed superlevel-region count rules have exact counterexamples
+
+**Type:** Exact logical reanalysis of existing MIK observations.
+
+A two-request real-music witness and a two-condition controlled witness each
+contradict eight precisely declared rules. Each rule counts contiguous regions of
+the complete restored submitted curve above a threshold, then includes the forced
+anchor. The variants use one shared absolute threshold or one shared fraction of
+each file's positive maximum; count the anchor independently or count its active
+region only once; and leave counts uncapped or apply a separately labelled
+hypothetical eight-cue limit. No threshold fits either witness pair.
+
+All 23 examined curves reproduce the retained 22 count inputs byte for byte.
+Independent rational masks verify all 3,729 critical threshold cells, including
+strict-greater boundaries and equal-height plateaus. Only two real rows were
+examined: the real scan stopped once every rule had a finite contradiction. All
+21 synthetic files are one linked family, including copies, repeats and dither.
+The anchor is inactive at every nonnegative threshold on these witnesses, so the
+two anchor conventions coincide here; these are not eight independent mechanisms.
+Each request is individually feasible. Their shared-threshold intersections are
+empty.
+
+**Rules out / prevents:** Exclude only these fixed, complete-curve,
+superlevel-component count rules. Adaptive or contextual thresholds, prominence,
+smoothing, different domains or spacing, timing, continuous energy and richer
+learners remain open. The hypothetical cap is not a discovered universal limit.
+This is not a predictor, a 6,386-row accuracy measurement, proof of input
+sufficiency or an identification of server architecture. No new MIK query or
+model fit was used.
+
+**Evidence:** E367, E368, E369, E370, E371.
+
+
+#### F146 — Identical returned key and energy labels do not determine cue count
+
+**Type:** Exact counterexample from existing controlled responses.
+
+The simultaneous-late and simultaneous-early constructions both return key 8A,
+overall energy 4 and the complete ordered six-window label sequence
+[4, 4, 4, 4, 4, 4]. Their complete cue-list lengths are six and three, including
+the leading anchor. A deterministic cue-count function whose only inputs are that
+returned discrete tuple cannot fit both.
+
+**Scope:** Two files in one linked synthetic family. All original timestamps,
+negative leading anchors and six/three cue occurrences remain preserved. These
+are identical returned labels, not identical continuous features, RMS, energy
+segment times, cue curves or detected clocks. Mute onset and duration differ, and
+the original detected bar-phase confound remains. Current protected PCM and float
+sources were independently verified; no new response was collected.
+
+**Rules out / prevents:** Perfect prediction of these other discrete labels alone
+cannot identify the correct cue count for this pair. This does not show that
+energy information is irrelevant, exclude continuous or contextual energy inputs,
+identify separate server models, or prohibit adding predicted energy to a richer
+predictor. Returned labels remain oracle observations, not deployable input.
+
+**Evidence:** E372, E373, E374, E375.
+
+
+#### F147 — Unchanged early PCM can accompany different earlier selected cues
+
+**Type:** Verified physical localisation and scoped prefix-only exclusion.
+
+The controlled pair is PCM-bit-identical outside samples [2,520,000, 2,688,220)
+at 44.1 kHz. Exactly 136,626 frame positions differ, all from 2,520,006 through
+2,688,218. Harmony and texture float64 stems remain identical throughout; the four
+muted stems and the authoritative mix are bit-identical outside the edit support.
+Within the unchanged nonnegative audio prefix ending at 57.142857 seconds, the
+captured lists contain four versus one cue occurrences. Three earlier cues near
+17.142791, 19.047585 and 20.952379 seconds occur in only one construction.
+
+The mute begins at quarter-beat 128 versus 120 and restores at 160 in both, so its
+duration also changes. The detected bar origins and anchor indices differ. This
+is one full audio-to-output construction contrast, not an isolated server-input
+or constant-bar-phase experiment. All ten context masks, 732 quarter-second RMS
+bins, original PCM/float hashes and the physically aligned plot were independently
+checked. No resynthesis, native analysis or new MIK call was required.
+
+**Rules out / prevents:** The unchanged prefix PCM alone, without other context,
+cannot determine both earlier cue-presence results. Global preprocessing,
+normalisation, grid/timing or other metadata and decision context may differ;
+this does not attribute lookahead or a causal field specifically to the server,
+or prove local submitted features equal. A nearest-sample correspondence is only
+a descriptive cross-condition aid: the shared positive cue's timestamps differ
+by about 2.793 microseconds. It is not 1 ns parity, timestamp rewriting or removal
+of the preserved negative anchors and full six/three lists. No audition, model
+improvement or product-default change follows.
+
+**Evidence:** E376, E377, E375, E372, E373, E374.
+
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2960,3 +3078,30 @@ retain prior IDs or explicitly version replacement evidence.
 | E348 | `a411d5324818152705b29ac172527b8535c3f7b49c2de0ae02c30a3b575b69f5` |
 | E349 | `dd95277c3f57aa9c760c109c860080f51613fdfce0adc408637cf9c6c4f826dd` |
 | E350 | `fe66576be435d84206c83c9b2120863a81556a929ee7a23b7af89acc9c37f9d3` |
+| E351 | `33174c50a2e946bd387cc7b02127b145893863c0f6e8a4ccc5799beab714973c` |
+| E352 | `eb5c96abc8086eba83ce79d28abb6dd0b286a48c18d53b196eeec95778e379c5` |
+| E353 | `4c69c55bc5a9fcca67543abfdd432ddf2ec35dbc958194ccbe1b8aed57267ab0` |
+| E354 | `bca34ec1b4381652847686546104c6b8d29fbc9a03aed3a4c4c1f5f5a920e5ff` |
+| E355 | `a29b259bca6e341f94e09365f89fb427adc73bf92a6c3285e0997f3e93ead32f` |
+| E356 | `e8ec5b233b8730b464aa0626052fabd324935b3fda15cd81638cc898eed2e2cc` |
+| E357 | `10e59bd80d3aae2bc1ed9e34427a8a480a44a31095c2e37414650c3049f0be50` |
+| E358 | `612ba285c4789511a794421f53f5f764c72669ef44973875dbe0b5d19a8c8cb8` |
+| E359 | `53ea05b9c85411a7fdc2349d97b426d31951a1e26ad17ec9f80b381c75af8b57` |
+| E360 | `ec83f286c27055677ce777abca80f446cd07208829bc56cc167ae8b6a4f80370` |
+| E361 | `58fda476e2a8cd6b491a9136b629ade2726b05d7edd7dee551d4ee79d4d09aa7` |
+| E362 | `8190c94277367022248f9aa1dc8cfc5f3252148254f194c5c073273a437f23d1` |
+| E363 | `239bdde9e78997249af63fefdf4847f03ad68014b11b13be625a30c1ff700ec5` |
+| E364 | `065e1ef7c5100523f33b8860f7d90c80438c9b811a78f0832e5f06b8efcdd7b3` |
+| E365 | `8e65e6a697093dbcd5e5f715adf9877566a44ae7943f772eca61af911f42dfc4` |
+| E366 | `11e99bafe34e1b8891bcfa2b956ca3305e48f797649287a40d68f0fdc005c0e3` |
+| E367 | `0aacc4af163a64452de008a4b28c5086fb0a9f66fa36bb861e04fee2d2a88815` |
+| E368 | `a19653e25a3c421e94d773d250377e7909f26895eafeeba50eae5cadf8b60f6e` |
+| E369 | `440ae38edc7fc65b5e18842d9529b2168265a49139611e0ed37243a75cfa199b` |
+| E370 | `6c0141bc976b0e0502fb9fad12a8df01e5666f343d59f9c7bd934c317c8f0c62` |
+| E371 | `05c93efdd51ae46f1c3f01cc23a9bec51b0ac1b52b7210d4e6edfc5a9445c37b` |
+| E372 | `510c1b28ffdf56a8e6d78c32293ec0f25e48f0ff4a160e996dae9be038444894` |
+| E373 | `73c489a262c10695a580e68f7a7cac1b4c0119a909e2b0b30db7f0eb849c5e06` |
+| E374 | `86bc9bd5c08040f5e753c696e3d69957332625900539104819ffb12df84c4c89` |
+| E375 | `5efb41c77cdcad4a7085c1bc3041aa86cf21f7d95e6388387923f9d57e4af4e2` |
+| E376 | `bafc0bdf5c30664b7862586b65563fc4c0d15e5be83a7a2742fa8ced1cf3c589` |
+| E377 | `72306810d126ca4a4f73c0488133aa07f590404c6fd00409a0ec63edb1c15dd4` |
