@@ -559,7 +559,7 @@ mod tests {
             publish: displaced.clone(),
             displaced: displaced.clone(),
         };
-        assert!(cleanup_temporaries(&[artifact.clone()], d.path(), true).is_err());
+        assert!(cleanup_temporaries(std::slice::from_ref(&artifact), d.path(), true).is_err());
         assert!(cleanup_temporaries(&[artifact], d.path(), false).is_err());
         assert_eq!(std::fs::read(displaced).unwrap(), b"original");
     }

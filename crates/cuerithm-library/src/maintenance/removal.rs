@@ -1503,7 +1503,7 @@ mod tests {
         op.result.outcomes = vec![];
         op.cleanup_complete = true;
         op.backups_disposed = false;
-        save(&*s.lib.conn().unwrap(), &op).unwrap();
+        save(&s.lib.conn().unwrap(), &op).unwrap();
         copy
     }
 
@@ -1562,7 +1562,7 @@ mod tests {
             f.disposal = None;
             f.staged = None;
         }
-        save(&*lib.conn().unwrap(), &op).unwrap();
+        save(&lib.conn().unwrap(), &op).unwrap();
         let second = bytes_path(&op.files[1].entry.path)
             .unwrap()
             .file_name()
