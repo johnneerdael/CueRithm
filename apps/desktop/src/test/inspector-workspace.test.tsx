@@ -1,4 +1,4 @@
-import {fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {describe,expect,it,vi} from "vitest";
 import App from "../App";
 import {editorBridge} from "./editor-fixtures";
@@ -38,7 +38,8 @@ describe("selection-owned metadata inspector",()=>{
   render(<App bridge={bridge}/>);await screen.findByText("Track a0");
   fireEvent.keyDown(screen.getByRole("table"),{key:"a",metaKey:true});
   await screen.findByText("450 selected");fireEvent.click(screen.getByRole("button",{name:"Edit metadata"}));
-  await screen.findByRole("textbox",{name:"Title"});
+  // Avoid repeated full-table accessibility scans while the batch draft resolves.
+  await waitFor(()=>expect(within(screen.getByRole("region",{name:"Edit metadata"})).getByRole("textbox",{name:"Title"})).toBeInTheDocument());
   expect(bridge.createMetadataDraft).toHaveBeenCalledWith(expect.any(String),ids);
   expect(bridge.playerLoad).not.toHaveBeenCalled();
  });

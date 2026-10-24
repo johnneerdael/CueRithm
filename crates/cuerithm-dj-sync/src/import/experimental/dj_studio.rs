@@ -506,7 +506,10 @@ pub fn preview_djstudio_experiment(
             let target = dir.join("complete-backup").join(relative);
             fs::create_dir_all(target.parent().context("Backup parent")?)?;
             fs::copy(safe(root.path(), relative)?, &target)?;
+            #[cfg(not(windows))]
             File::open(&target)?.sync_all()?;
+            #[cfg(windows)]
+            File::options().write(true).open(&target)?.sync_all()?;
             ensure!(
                 crate::transaction::file_hash(&target)? == entry.hash,
                 "Backup verification failed"
@@ -537,7 +540,10 @@ pub fn preview_djstudio_experiment(
         integrity(&tx)?;
         tx.commit()?;
         db.close().map_err(|(_, e)| e)?;
+        #[cfg(not(windows))]
         File::open(&sql)?.sync_all()?;
+        #[cfg(windows)]
+        File::options().write(true).open(&sql)?.sync_all()?;
         let mut audio: Value = serde_json::from_slice(&fs::read(root.path().join(AUDIO))?)?;
         ensure!(audio["tag"].is_object(), "Existing metadata missing");
         for (field, value) in &patch.metadata {
@@ -548,7 +554,10 @@ pub fn preview_djstudio_experiment(
         }
         let json_stage = dir.join("json-stage");
         fs::write(&json_stage, serde_json::to_vec(&audio)?)?;
+        #[cfg(not(windows))]
         File::open(&json_stage)?.sync_all()?;
+        #[cfg(windows)]
+        File::options().write(true).open(&json_stage)?.sync_all()?;
         let mut changes = Vec::new();
         for (relative, stage) in [(AUDIO, Some(json_stage)), (DB, Some(sql)), (CACHE, None)] {
             let entry = before
@@ -560,7 +569,13 @@ pub fn preview_djstudio_experiment(
                 root.path().join(relative),
                 stage_path(&dir, index, "before"),
             )?;
+            #[cfg(not(windows))]
             File::open(stage_path(&dir, index, "before"))?.sync_all()?;
+            #[cfg(windows)]
+            File::options()
+                .write(true)
+                .open(stage_path(&dir, index, "before"))?
+                .sync_all()?;
             let after = if let Some(stage) = stage {
                 fs::rename(stage, stage_path(&dir, index, "after"))?;
                 crate::transaction::file_hash(&stage_path(&dir, index, "after"))?

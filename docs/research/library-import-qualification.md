@@ -951,3 +951,41 @@ unset, including ten-format tag/PCM preservation, recovery and media loading.
 Workspace formatting, workspace and untagged-library strict Clippy, release build
 and independent helper-diff review pass. Earlier passing checks retain their
 recorded source scope; the corrected commit still requires fresh review and CI.
+
+### Post-merge Windows snapshot flush repair
+
+PR 58 merged as `7cd4bb7117d26668365dd37f24ef09ee52756d42` after
+completed current-head review and successful Linux engine/floor/desktop checks.
+Its guide deployment and post-merge Linux/macOS engine/floor checks passed.
+Windows engine CI then reported 11 DJ.Studio reader failures during SQLite
+snapshot capture: flushing a read-only file handle returned access denied.
+Windows requires write access for `FlushFileBuffers`. Only Windows now opens
+owned snapshot and experimental staging/backup copies with a writable handle
+before syncing. There is no creation/truncation or source write, and the original
+non-Windows sync statements remain unchanged. The matching existing public
+reader tests are the regression coverage; Windows engine and desktop CI are
+the verification gates for this repair. Formatting, diff check and independent
+focused review passed; no extra local test suite was started.
+
+The first Windows repair passed all 12 DJ.Studio reader controls. The engine run
+then reached a separate M3U identity failure: three equivalent absolute Windows
+path spellings produced two tracks. On Windows, native path bytes had bypassed
+the normalized source identity already used for foreign Windows references.
+The Windows branch now prefers that existing normalized identity when present;
+raw locations, three playlist occurrences and non-Windows behavior are retained.
+The existing failing Windows M3U regression remains the verification control.
+Formatting, diff check and independent focused review passed; only affected
+Windows engine/desktop components are retried from the original checked baseline.
+
+Windows desktop CI also exposed an intermittent timeout in the existing
+450-track metadata-editor control. An unchanged-source retry passed, but the
+next run failed at the same full-page accessible-role lookup. Switching to a
+full-page label lookup still exceeded the test deadline on Linux. The control
+now resolves the named metadata-editor region on each attempt and queries its
+Title textbox, avoiding scans of the 200 rendered table rows while tolerating the
+loading frame being replaced by the form. Its field role/name/visibility,
+450-track selection and independent-playback assertions, default wait deadline
+and application code are unchanged. Only that failing case was run locally for
+diagnosis: one passed in 373 ms, with three unrelated cases unselected. Desktop
+CI on all three platforms verifies the shared test change; engine results are
+retained through the documented baseline chain. No broad local suite is run.

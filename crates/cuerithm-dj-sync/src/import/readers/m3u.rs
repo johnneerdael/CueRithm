@@ -92,7 +92,17 @@ impl SourceAdapter for M3uReader {
                 let identity = locations
                     .native_path
                     .as_ref()
-                    .map(|p| p.as_os_str().as_encoded_bytes().to_vec())
+                    .map(|p| {
+                        #[cfg(windows)]
+                        if let Some(normalized) = locations
+                            .extensions
+                            .get("normalized_source_path")
+                            .and_then(Value::as_str)
+                        {
+                            return normalized.as_bytes().to_vec();
+                        }
+                        p.as_os_str().as_encoded_bytes().to_vec()
+                    })
                     .unwrap_or_else(|| {
                         locations
                             .extensions
