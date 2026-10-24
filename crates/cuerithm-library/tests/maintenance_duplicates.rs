@@ -96,11 +96,13 @@ impl Fixture {
         let conn = rusqlite::Connection::open(&self.db).unwrap();
         ["SELECT json_group_array(json_array(id,hex(path),title,artist,archived,source_hash,state,analysis_json,metadata_json,current_job)) FROM (SELECT * FROM tracks ORDER BY id)","SELECT json_group_array(json_array(id,state,stage,attempts,settings_revision)) FROM (SELECT * FROM jobs ORDER BY id)","SELECT json_group_array(json_array(id,track_id,job_id,json,created)) FROM (SELECT * FROM cue_revisions ORDER BY id)"].iter().map(|sql|conn.query_row(sql,[],|r|r.get(0)).unwrap()).collect()
     }
+    #[cfg(feature = "autotag")]
     fn content_ignoring_file_identity(&self) -> Vec<String> {
         let conn = rusqlite::Connection::open(&self.db).unwrap();
         ["SELECT json_group_array(json_array(id,hex(path),title,artist,archived,state,analysis_json,current_job)) FROM (SELECT * FROM tracks ORDER BY id)","SELECT json_group_array(json_array(id,state,stage,attempts,settings_revision)) FROM (SELECT * FROM jobs ORDER BY id)","SELECT json_group_array(json_array(id,track_id,job_id,json,created)) FROM (SELECT * FROM cue_revisions ORDER BY id)"].iter().map(|sql|conn.query_row(sql,[],|r|r.get(0)).unwrap()).collect()
     }
     /// Every tag the keeper's file holds, and its decoded audio.
+    #[cfg(feature = "autotag")]
     fn file_state(&self, index: usize) -> (cuerithm_autotag::TransferSnapshot, String) {
         let path = &self.paths[index];
         let tags =
@@ -116,6 +118,7 @@ impl Fixture {
         (tags, pcm)
     }
     /// The library describes the file the track really has.
+    #[cfg(feature = "autotag")]
     fn assert_library_knows_file(&self, index: usize) {
         let recorded: String = rusqlite::Connection::open(&self.db)
             .unwrap()

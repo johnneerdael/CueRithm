@@ -135,6 +135,7 @@ impl Fixture {
         ["SELECT json_group_array(json_array(id,hex(path),title,artist,archived,state,analysis_json,current_job)) FROM (SELECT * FROM tracks ORDER BY id)","SELECT json_group_array(json_array(id,track_id,state,stage,attempts,settings_revision)) FROM (SELECT * FROM jobs ORDER BY id)","SELECT json_group_array(json_array(id,track_id,job_id,json,created)) FROM (SELECT * FROM cue_revisions ORDER BY id)","SELECT json_group_array(json_array(playlist_id,track_id,position)) FROM (SELECT * FROM playlist_members ORDER BY playlist_id,position)","SELECT json_group_array(json_array(track_id,tag_id)) FROM (SELECT * FROM track_custom_tags ORDER BY track_id,tag_id)","SELECT json_group_array(json_array(track_id,target,external_id,baseline_json)) FROM (SELECT * FROM sync_links ORDER BY track_id,target)","SELECT json_group_array(json_array(target_id,content_id,local_track_id,status)) FROM (SELECT * FROM native_track_links ORDER BY target_id,content_id)"].iter().map(|sql|conn.query_row(sql,[],|r|r.get(0)).unwrap()).collect()
     }
     /// Every tag one file holds and its decoded audio.
+    #[cfg(feature = "autotag")]
     pub fn file_state(&self, index: usize) -> (cuerithm_autotag::TransferSnapshot, String) {
         let path = &self.paths[index];
         let tags =
