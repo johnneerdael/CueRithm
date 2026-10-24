@@ -148,6 +148,12 @@ fn a_sync_that_was_restored_keeps_no_ledger_after_the_upgrade() {
         &|| Ok(()),
     )
     .unwrap();
+    // The upgrade drops the ledger of a sync that can never be restored again.
+    ledger::upgrade_operations(&f.library.conn().unwrap()).unwrap();
+    let op = load(&f.library, &f.id).unwrap();
+    assert_eq!(op.status, "restored");
+    assert!(op.ledger_before.is_empty());
+    // And the library then gives up the rest of its backup: only a summary stays.
     let connection = f.library.conn().unwrap();
     connection.pragma_update(None, "user_version", 29).unwrap();
     drop(connection);
@@ -155,9 +161,20 @@ fn a_sync_that_was_restored_keeps_no_ledger_after_the_upgrade() {
     let original = f._dir.path().canonicalize().unwrap().join("library.db");
     drop(f.library);
     f.library = Library::open(&original).unwrap();
-    let op = load(&f.library, &f.id).unwrap();
-    assert_eq!(op.status, "restored");
-    assert!(op.ledger_before.is_empty());
+    let text: String = f
+        .library
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT journal_json FROM rekordbox_sync_operations WHERE id=?1",
+            [&f.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let summary: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(summary["status"], "restored");
+    assert_eq!(summary["restore_expired"], true);
+    assert!(summary.get("ledger_before").is_none());
 }
 
 #[test]

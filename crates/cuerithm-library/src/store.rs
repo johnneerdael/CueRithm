@@ -384,6 +384,9 @@ impl Library {
         let _ = lib.prune_saved_reports();
         // Original audio that earlier versions kept after a write had settled.
         let _ = lib.sweep_legacy_originals();
+        // The restore copies of syncs older than the ten kept for each DJ program.
+        let _ = lib.prune_rekordbox_sync_history();
+        let _ = lib.prune_dj_sync_history();
         // A log left by a process that was killed can be as large as its last transaction,
         // and an older library holds space that its earlier versions never gave back.
         lib.reclaim_storage_when_worthwhile();
