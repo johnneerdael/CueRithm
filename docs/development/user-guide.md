@@ -82,16 +82,20 @@ links to an image that does not exist yet:
 
 ### Which library to capture from
 
-The capture driver and scene files do not depend on which library is used. Before committing a
-screenshot of a personal library, check it against the AGENTS.md rule on publishing music,
-private library paths and per-track labels: titles, keys, BPMs, energy values and cues of real
-tracks are per-track information. Keep music files, library paths, user names and credentials
-out of every captured image, review each image for them before keeping it, and keep the
-aggregate table of per-track measurements in the private `.analysis/` area.
+The guide's screenshots come from the owner's own library, as the app displays it: titles,
+artists, keys, BPMs, energy values and cues are what the app shows, and the AGENTS.md rule on
+publishing makes the guide the one exception to its ban on per-track information. What it
+keeps out is everything the screen can leak by accident: audio files, library paths, user
+names, credentials and licence details. Open every image before keeping it and check the
+title bar, path fields, tooltips and the Finder or Explorer window behind the app. The
+per-track tables used for research stay in the private `.analysis/` area.
 
-Driving the app while it is being captured clicks real controls on the real library:
-scans and previews are read-only, so capture those freely, and never script an Apply,
-Delete or Archive step without a backup of the app data folder.
+Capture from a copy of the app data, with the latest released app, never from the live
+library. Copy the data folder somewhere else and start the app with `CUERITHM_DATA_DIR`
+pointing at the copy: opening a library with a newer release migrates it, and that migration
+does not go back, so the original must not be the one that is opened. Driving the app while it
+is being captured clicks real controls: scans and previews are read-only, so capture those
+freely, and never script an Apply, Delete or Archive step against the real music folder.
 
 ## Related
 
