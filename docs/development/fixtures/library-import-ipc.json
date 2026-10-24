@@ -1,0 +1,64 @@
+{
+  "policy": {
+    "version": 1,
+    "selected_fields": [
+      "descriptive_tags",
+      "key",
+      "bpm",
+      "beatgrid",
+      "hot_cues",
+      "markers",
+      "memory_cues",
+      "main_cues",
+      "load_cues",
+      "loops",
+      "ratings",
+      "color",
+      "energy",
+      "artwork",
+      "custom_tags",
+      "collections"
+    ],
+    "descriptive_fields": null,
+    "metadata_enrichment": {
+      "enabled": false,
+      "providers": [],
+      "fields": [],
+      "credential_refs": {}
+    },
+    "cleanup": {
+      "enabled": false,
+      "rules": []
+    },
+    "analysis_fields": {},
+    "cue_generation": "off",
+    "replace_hotcues": false,
+    "write_audio_tags": [],
+    "relocation": {
+      "mode": "off"
+    },
+    "capture_file_tags": false,
+    "include_history": false,
+    "include_queue": false,
+    "allow_content_matching": false
+  },
+  "presence": {
+    "presence": "value",
+    "value": "Invented title"
+  },
+  "capability": {
+    "read": true,
+    "write": false,
+    "lossless": true,
+    "evidence": "d2",
+    "reason": null
+  },
+  "clock_status": "unresolved_native",
+  "result": {
+    "operation_id": "opaque-operation",
+    "tracks_created": 1,
+    "fields_changed": 1,
+    "collections_changed": 0,
+    "processing_requested": false
+  }
+}

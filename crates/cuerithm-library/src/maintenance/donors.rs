@@ -1084,7 +1084,7 @@ impl DuplicateMergeService {
             "Undo is no longer available: the removed library records were kept only for the last {REMOVAL_UNDO_LIMIT} removals (duplicate merges that delete files and Missing & broken removals count together)"
         );
         ensure!(
-            original.payload.removed.is_some() == !original.payload.result.removed_ids.is_empty(),
+            original.payload.removed.is_some() != original.payload.result.removed_ids.is_empty(),
             "The records removed by this merge are no longer stored; Undo needs review"
         );
         let removed_ids = original

@@ -144,6 +144,7 @@ nav:
       - files/index.md
       - "Bring music in":
           - "Add tracks by dropping, picking or watching a folder": files/add-tracks.md
+          - "Import a DJ library": files/import-library.md
           - "Keep a folder like Beatport in your library automatically": files/watch-folders.md
           - "Follow a track through Incoming": files/follow-incoming.md
           - "Fix a track that needs attention in Incoming": files/needs-attention.md

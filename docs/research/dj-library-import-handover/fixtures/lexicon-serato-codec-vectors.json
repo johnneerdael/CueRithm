@@ -1,0 +1,60 @@
+{
+  "fixture_kind": "synthetic-not-a-user-library",
+  "lexicon_version": "1.11.15",
+  "validation": "Executed extracted original parser and helper functions in Python 3.12. Mutagen was replaced with an unused empty module because these buffer parsers do not call it. No application process or user library accessed.",
+  "markers2": {
+    "encoding": "version1.1 + base64(version1.1 + TLV entries) + NUL",
+    "base64": "AQFBUUZEVlVVQUFBQUFFZ0FBQUFBRTRnRG1LQ2dBQUVsdWRISnZBRXhQVDFBQUFBQUFHd0FDQUFBUG9BQUFIMEFBQUFBQUFBQUFBQUFCVEc5dmNDQkJBQUE9AA==",
+    "expected_decoded_entries": [
+      {
+        "type": "CueEntry",
+        "index": 0,
+        "position": 1250,
+        "color": {
+          "hex": "e62828"
+        },
+        "name": "Intro"
+      },
+      {
+        "type": "LoopEntry",
+        "index": 2,
+        "startposition": 4000,
+        "endposition": 8000,
+        "locked": true,
+        "name": "Loop A"
+      }
+    ],
+    "expected_native_seconds": {
+      "cue_start": 1.25,
+      "loop_start": 4,
+      "loop_end": 8
+    }
+  },
+  "beatgrid": {
+    "encoding": "version1.0 + countBE + recordsBE + footer",
+    "hex": "0100000000023fa000000000000840a8000042f0000000",
+    "expected_decoded_entries": [
+      {
+        "position": 1.25,
+        "beats_till_next": 8,
+        "bpm": null
+      },
+      {
+        "position": 5.25,
+        "beats_till_next": null,
+        "bpm": 120.0
+      }
+    ],
+    "expected_segments_seconds": [
+      {
+        "start": 1.25,
+        "bpm": 120
+      },
+      {
+        "start": 5.25,
+        "bpm": 120
+      }
+    ]
+  },
+  "source_clock": "native Serato source timeline; canonical PCM alignment unresolved"
+}

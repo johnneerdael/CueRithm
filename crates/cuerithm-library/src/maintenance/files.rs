@@ -17,12 +17,14 @@ pub(super) struct FileProof {
 /// act on a path, so before they run the path is checked against this: it must still lead to this
 /// very file (same device and inode, or the Windows file id), with the same size and modification
 /// time. A file swapped in under the same name is another file and fails the check.
+#[cfg(any(feature = "autotag", test))]
 pub(super) struct HashedFile {
     pub hash: String,
     handle: same_file::Handle,
     size: u64,
     modified: Option<std::time::SystemTime>,
 }
+#[cfg(any(feature = "autotag", test))]
 impl HashedFile {
     pub(super) fn open(path: &Path) -> std::io::Result<Self> {
         use sha2::{Digest, Sha256};

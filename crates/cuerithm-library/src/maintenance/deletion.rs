@@ -168,6 +168,7 @@ fn keeper_busy(
 /// listing and the first check can be minutes old (donor staging takes time), and a tag, cleanup,
 /// metadata or organization write that started since would otherwise be removed with the record.
 /// Returns the reason when it is no longer free; nothing is changed either way.
+#[cfg(feature = "autotag")]
 pub(super) fn busy_now(
     conn: &Connection,
     track_id: &str,

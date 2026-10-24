@@ -11,6 +11,7 @@ use std::{
 
 pub(crate) struct Inner {
     pub conn: Mutex<Connection>,
+    pub import_runtime: Mutex<crate::import::ImportRuntime>,
     operation_gate: RwLock<()>,
     operation_owner: Mutex<Option<std::thread::ThreadId>>,
     pub organization_gate: Mutex<()>,
@@ -114,7 +115,7 @@ impl Library {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=29).contains(&version),
+            (0..=30).contains(&version),
             "Library schema is newer than this application"
         );
         if version == 0 {
@@ -292,6 +293,12 @@ impl Library {
         if version < 29 {
             crate::portable::migrate_identity(&conn)?;
         }
+        if version < 30 {
+            conn.execute_batch(&format!(
+                "BEGIN IMMEDIATE;\n{}\nCOMMIT;",
+                include_str!("../migrations/030_library_import.sql")
+            ))?;
+        }
         #[cfg(not(feature = "autotag"))]
         {
             let pending: i64 = conn.query_row(
@@ -324,6 +331,7 @@ impl Library {
         let lib = Self {
             inner: Arc::new(Inner {
                 conn: Mutex::new(conn),
+                import_runtime: Mutex::new(Default::default()),
                 operation_gate: RwLock::new(()),
                 operation_owner: Mutex::new(None),
                 organization_gate: Mutex::new(()),
@@ -554,33 +562,39 @@ impl Library {
         crate::playlists::queries::track_ids(self, query)
     }
     pub fn track(&self, id: &str) -> Result<TrackSummary> {
-        let conn = self.conn()?;
-        let mut track = conn.query_row("SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,json_extract(tagging_json,'$.status') FROM tracks WHERE id=?1",[id],summary_row)?;
-        crate::curation::project_summary(&conn, &mut track)?;
-        Ok(track)
+        crate::import::projection::track_summary_tx(&*self.conn()?, id)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
-        self.conn()?
-            .query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
-                r.get::<_, Option<String>>(0)
-            })?
-            .context("Track content hash is unknown")
+        self.conn()?.query_row("SELECT source_hash FROM tracks WHERE id=?1 UNION ALL SELECT COALESCE(source_hash,'') FROM import_items WHERE id=?1 AND state='imported' LIMIT 1", [id], |r| r.get::<_, Option<String>>(0))?.context("Track content hash is unknown")
     }
     pub fn counts(&self) -> Result<LibraryCounts> {
-        Ok(self.conn()?.query_row("SELECT COUNT(CASE WHEN state='ready' AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM tracks",[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
+        Ok(self.conn()?.query_row(&format!("WITH {} SELECT COUNT(CASE WHEN state IN ('ready','imported') AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM library_tracks",crate::import::projection::LIBRARY_TRACKS_CTE),[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)
     }
     pub fn track_path(&self, id: &str) -> Result<PathBuf> {
-        let bytes: Option<Vec<u8>> =
-            self.conn()?
-                .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))?;
-        bytes_path(&bytes.context("Track has no local file binding; relocate it first")?)
+        let conn = self.conn()?;
+        let local: Option<Option<Vec<u8>>> = conn
+            .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))
+            .optional()?;
+        if let Some(bytes) = local {
+            return bytes_path(
+                &bytes.context("Track has no local file binding; relocate it first")?,
+            );
+        }
+        crate::import::projection::imported_path(&conn, id)?
+            .context("Imported media is unavailable; resolve its source location before playback")
     }
     /// Unlinked tracks and definitely absent files cannot be previewed. A bound
     /// file that cannot be inspected keeps the existing transient-error behavior.
     pub fn track_file_missing(&self, id: &str) -> Result<bool> {
-        Ok(self
-            .local_track_binding(id)?
-            .is_none_or(|path| matches!(path.try_exists(), Ok(false))))
+        let conn = self.conn()?;
+        let local: Option<Option<Vec<u8>>> = conn
+            .query_row("SELECT path FROM tracks WHERE id=?1", [id], |r| r.get(0))
+            .optional()?;
+        let path = match local {
+            Some(bytes) => bytes.as_deref().map(bytes_path).transpose()?,
+            None => crate::import::projection::imported_path(&conn, id)?,
+        };
+        Ok(path.is_none_or(|path| matches!(path.try_exists(), Ok(false))))
     }
     pub fn analysis(&self, id: &str) -> Result<Option<camelot_core::FileAnalysis>> {
         let text: Option<String> = self
@@ -602,6 +616,9 @@ impl Library {
     }
 
     pub fn set_archived(&self, id: &str, archived: bool) -> Result<()> {
+        if self.archive_imported_reference(id, archived)? {
+            return Ok(());
+        }
         let current: bool =
             self.conn()?
                 .query_row("SELECT archived FROM tracks WHERE id=?1", [id], |r| {
@@ -704,6 +721,7 @@ pub(crate) fn summary_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrackSummar
         metadata.insert("library.tag_status".into(), status.into());
     }
     Ok(TrackSummary {
+        import_state: None,
         metadata,
         id: r.get(0)?,
         source_sha256: r.get::<_, Option<String>>(11)?.unwrap_or_default(),

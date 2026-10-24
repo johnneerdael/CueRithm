@@ -38,6 +38,7 @@ Analysis runs on your computer without an account or audio uploads. Your music s
 | **Cues** | Start, Drop, Breakdown, a second Drop, a second Breakdown and End / Fade-out, plus an optional emergency loop. Click a cue to jump there. |
 | **Waveform** | Three frequency bands in six colour palettes, with a default 32-second zoom for checking the grid. |
 | **Incoming** | Watch folders, drag and drop or **Add tracks**. Every track is decoded, analysed and moved into your library automatically. |
+| **DJ library import** | Preserve source metadata, playlists and crates, then choose analysis, hotcue replacement, retagging, tag writes and file naming independently. See the [Import guide](docs/user-guide/files/import-library.md). |
 | **Tagging** | Optional DJ-store and public-catalog providers, private account setup, match review and staged writes that verify your audio is unchanged. |
 | **Cleanup** | Eleven Smart Fixes plus genre and artist mappings: scan, review, apply, and **Undo**. |
 | **File organization** | Rename files from metadata, or move or copy them into a folder structure. Preview changes, repair linked DJ-library paths, and recover or undo operations. |

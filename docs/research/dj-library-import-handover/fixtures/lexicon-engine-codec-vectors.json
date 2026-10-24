@@ -1,0 +1,37 @@
+{
+  "fixture_kind": "synthetic-structural-codec-vector",
+  "source_clock": "native-engine-source-clock; canonical PCM alignment unresolved",
+  "validation": "Independent struct/zlib size and native sample-unit checks only; no Engine/Lexicon application acceptance.",
+  "source_sample_rate": 48000,
+  "beatData_base64": "AAAAgnicc3hewAACjrI+YJqRAQKYwKTPWwcon4GDAQkc5nNE4SMA6foAXPYHfQ==",
+  "quickCues_base64": "AAAAK3icY2AAA0ZWz7ySonyHtz5g7v9zRkYM6AAAl5sFvQ==",
+  "loops_hex": "0100000000000000064c6f6f702041000000000070074100000000007017410101ff1ebc61",
+  "expected": {
+    "native_grid_rows": [
+      {
+        "seconds": 1.25,
+        "beatIndex": 0,
+        "beatsTillNext": 8
+      },
+      {
+        "seconds": 5.25,
+        "beatIndex": 8,
+        "beatsTillNext": 0
+      }
+    ],
+    "native_cue_seconds": 1.25,
+    "native_loop_seconds": [
+      4,
+      8
+    ],
+    "bpm": 120,
+    "activeOnLoadLoops": 1
+  },
+  "negative_cases": [
+    "declared size larger than inflater cap",
+    "u64 count larger than remaining payload",
+    "UTF-8 name length exceeds row bounds",
+    "sampleRate zero uses explicit fallback profile, never canonical clock",
+    "unknown source clock remains unresolved"
+  ]
+}

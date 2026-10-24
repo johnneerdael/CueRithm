@@ -122,9 +122,13 @@ fn main_schema_thirteen_upgrades_without_losing_detected_restrictions() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        29
+        30
     );
-    for table in ["organization_operations", "preparation_match_snapshots"] {
+    for table in [
+        "organization_operations",
+        "preparation_match_snapshots",
+        "import_sources",
+    ] {
         assert_eq!(
             connection
                 .query_row(

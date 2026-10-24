@@ -29,6 +29,8 @@ fn fixture(dir: &std::path::Path, complete: bool) -> (std::path::PathBuf, std::p
         },
     ]);
     let file = FileAnalysis {
+        selection: None,
+        selected_beatgrid: None,
         publication: None,
         analysis,
         complete,

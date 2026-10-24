@@ -1,0 +1,555 @@
+{
+  "artifact": "DJ.Studio 4.2.9 native migration target, observed offline copy",
+  "kind": "clean-room schema metadata, no library rows",
+  "versionPolicy": "Match all ten migration names and exact column/index/FK manifest; PRAGMA schema_version is diagnostic, not app version.",
+  "migrationNames": [
+    "001_create_folders_table.js",
+    "002_create_tracks_table.js",
+    "003_create_playlists_tables.js",
+    "004_add_tracks_samplerate.js",
+    "005_playlist_tracks_sort.js",
+    "006_add_tracks_label.js",
+    "007_add_tracks_relative_path.js",
+    "008_create_trackmap_libraries.js",
+    "009_clean_tracks_table.js",
+    "010_add_folders_path_unique.js"
+  ],
+  "tables": {
+    "migrations": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "name",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "executed_at",
+          "declaredType": "DATETIME",
+          "notNull": 0,
+          "default": "CURRENT_TIMESTAMP",
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    "Playlists": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "title",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "sort",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": "0",
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    "PlaylistTracks": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "playlistId",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "trackId",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 3,
+          "name": "sort",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": "0",
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "Tracks",
+          "from": "trackId",
+          "to": "id",
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "Playlists",
+          "from": "playlistId",
+          "to": "id",
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "indexes": []
+    },
+    "Tracks": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "filePath",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "fileName",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 3,
+          "name": "relativePath",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 4,
+          "name": "title",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 5,
+          "name": "artist",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 6,
+          "name": "fileSize",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 7,
+          "name": "fileType",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 8,
+          "name": "bitrate",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 9,
+          "name": "bpm",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 10,
+          "name": "duration",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 11,
+          "name": "key",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 12,
+          "name": "genre",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 13,
+          "name": "album",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 14,
+          "name": "isrc",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 15,
+          "name": "releaseDate",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 16,
+          "name": "addedDate",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 17,
+          "name": "rating",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 18,
+          "name": "sampleRate",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 19,
+          "name": "analyzed",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": "0",
+          "primaryKey": 0
+        },
+        {
+          "cid": 20,
+          "name": "label",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_Tracks_1",
+          "unique": true,
+          "origin": "u",
+          "partial": false,
+          "columns": [
+            "filePath"
+          ]
+        }
+      ]
+    },
+    "Libraries": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "type",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "lastSynced",
+          "declaredType": "TEXT",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_Libraries_1",
+          "unique": true,
+          "origin": "u",
+          "partial": false,
+          "columns": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "LibraryLocations": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "libraryId",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "location",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "Libraries",
+          "from": "libraryId",
+          "to": "id",
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "indexes": []
+    },
+    "TrackLibraryMap": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "libraryId",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "trackId",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 3,
+          "name": "identifier",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 4,
+          "name": "bpm",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 5,
+          "name": "key",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "Tracks",
+          "from": "trackId",
+          "to": "id",
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "Libraries",
+          "from": "libraryId",
+          "to": "id",
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_TrackLibraryMap_1",
+          "unique": true,
+          "origin": "u",
+          "partial": false,
+          "columns": [
+            "libraryId",
+            "trackId"
+          ]
+        }
+      ]
+    },
+    "Folders": {
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "declaredType": "INTEGER",
+          "notNull": 0,
+          "default": null,
+          "primaryKey": 1
+        },
+        {
+          "cid": 1,
+          "name": "name",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 2,
+          "name": "path",
+          "declaredType": "TEXT",
+          "notNull": 1,
+          "default": null,
+          "primaryKey": 0
+        },
+        {
+          "cid": 3,
+          "name": "sort",
+          "declaredType": "INTEGER",
+          "notNull": 1,
+          "default": "0",
+          "primaryKey": 0
+        }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "idx_folders_name",
+          "unique": false,
+          "origin": "c",
+          "partial": false,
+          "columns": [
+            "name"
+          ]
+        },
+        {
+          "name": "idx_folders_path",
+          "unique": false,
+          "origin": "c",
+          "partial": false,
+          "columns": [
+            "path"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_Folders_1",
+          "unique": true,
+          "origin": "u",
+          "partial": false,
+          "columns": [
+            "path"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "contract_version": 1,
+  "synthetic": true,
+  "source": {
+    "provider": "mixxx",
+    "product_version": "source-schema40",
+    "library_instance_id": "example-library-0001",
+    "schema_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "adapter_version": "proposed-v1",
+    "completeness": "whole_library",
+    "scope": {
+      "kind": "all"
+    },
+    "observed_at": "2026-10-23T12:00:00Z"
+  },
+  "policy": {
+    "mode": "store_as_imported",
+    "selected_fields": [
+      "descriptive_tags",
+      "key",
+      "bpm",
+      "beatgrid",
+      "hot_cues",
+      "loops",
+      "collections"
+    ],
+    "metadata_enrichment": false,
+    "cleanup": false,
+    "analysis_fields": [],
+    "cue_generation": "off",
+    "write_audio_tags": false,
+    "relocation": false
+  },
+  "tracks": [
+    {
+      "external_id": "101",
+      "locations": {
+        "original": "/ExampleMusic/Track α.flac",
+        "resolved": "/ExampleMusic/Track α.flac",
+        "availability": "not_probed"
+      },
+      "metadata": {
+        "title": {
+          "presence": "value",
+          "value": "Synthetic Track α"
+        },
+        "artists": {
+          "presence": "value",
+          "value": [
+            "Example Artist"
+          ]
+        },
+        "comment": {
+          "presence": "empty",
+          "value": ""
+        }
+      },
+      "key": {
+        "presence": "value",
+        "raw": "8A",
+        "notation": "camelot",
+        "pitch_class": 9,
+        "mode": "minor",
+        "camelot": "8A",
+        "provenance": "source_database"
+      },
+      "bpm": {
+        "presence": "value",
+        "value": 120,
+        "locked": true,
+        "provenance": "source_database"
+      },
+      "grid": {
+        "representation": "constant",
+        "original_time_base": "audio_frames",
+        "sample_rate": 44100,
+        "first_beat_raw": 22050,
+        "native_first_beat_seconds": 0.5,
+        "bpm": 120,
+        "downbeat_known": false,
+        "clock_status": "validated_profile",
+        "canonical_first_beat_seconds": 0.5,
+        "offset_seconds": 0,
+        "timing_profile_id": "synthetic-flac-direct-v1"
+      },
+      "cues": [
+        {
+          "external_id": "cue1",
+          "family": "hot",
+          "source_slot": 0,
+          "name": "Entry α",
+          "color_rgb": 16711680,
+          "original": {
+            "position": 1764000,
+            "length": 0,
+            "time_base": "stereo_engine_samples",
+            "sample_rate": 44100
+          },
+          "native_start_seconds": 20,
+          "native_end_seconds": null,
+          "canonical_start_seconds": 20,
+          "canonical_end_seconds": null,
+          "clock_status": "validated_profile",
+          "flags": {}
+        }
+      ],
+      "extensions": {
+        "mixxx": {
+          "key_id": 22,
+          "keys_version": "KeyMap-1.0"
+        }
+      },
+      "issues": []
+    }
+  ],
+  "collections": [
+    {
+      "external_id": "folder-root",
+      "parent_id": null,
+      "kind": "folder",
+      "name": "Imported Mixxx",
+      "occurrences": [],
+      "synthetic_wrapper": true
+    },
+    {
+      "external_id": "20",
+      "parent_id": "folder-root",
+      "kind": "playlist",
+      "name": "Warm-up",
+      "occurrences": [
+        {
+          "external_occurrence_id": "901",
+          "track_external_id": "101",
+          "position": 1
+        },
+        {
+          "external_occurrence_id": "903",
+          "track_external_id": "101",
+          "position": 3
+        }
+      ]
+    }
+  ],
+  "issues": []
+}

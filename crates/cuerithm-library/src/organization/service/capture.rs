@@ -29,6 +29,8 @@ pub(super) struct FrozenTrack {
     pub sidecar_parents: Vec<Authority>,
     pub files: Vec<plan::PlannedFile>,
     pub reference_digest: String,
+    #[serde(default)]
+    pub import_bindings_digest: Option<String>,
     pub reference_bytes: u64,
     pub reference_storage: Vec<NativePath>,
 }
@@ -138,7 +140,9 @@ impl Library {
             conn.query_row("SELECT t.id,t.path,t.source_hash,t.path_revision,t.metadata_revision,t.current_job,j.attempts,t.state,t.archived,t.title,t.native_metadata_json,t.metadata_json,t.musical_key,t.bpm,t.energy FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[id],|r|Ok(RowData{id:r.get(0)?,path:r.get(1)?,hash:r.get(2)?,path_revision:r.get(3)?,metadata_revision:r.get(4)?,current_job:r.get(5)?,attempt:r.get(6)?,state:r.get(7)?,archived:r.get(8)?,title:r.get(9)?,native:r.get(10)?,info:r.get(11)?,key:r.get(12)?,bpm:r.get(13)?,energy:r.get(14)?}))?
         };
         ensure!(
-            !row.archived && (row.state == "ready" || (allow_incoming && row.state == "incoming")),
+            !row.archived
+                && (matches!(row.state.as_str(), "ready" | "imported")
+                    || (allow_incoming && row.state == "incoming")),
             "Only eligible, non-archived tracks can be organized"
         );
         let path = bytes_path(
@@ -160,6 +164,12 @@ impl Library {
         );
         let metadata: Metadata = if !needs_naming {
             Metadata::default()
+        } else if self.conn()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+            [id],
+            |r| r.get::<_, bool>(0),
+        )? {
+            crate::import::publication_metadata(&*self.conn()?, id)?
         } else if let Some(native) = &row.native {
             serde_json::from_str(native)?
         } else {
@@ -258,6 +268,10 @@ impl Library {
             sidecar_parents: Vec::new(),
             files: Vec::new(),
             reference_digest: String::new(),
+            import_bindings_digest: crate::organization_references::import_binding_digest(
+                &*self.conn()?,
+                id,
+            )?,
             reference_bytes: 0,
             reference_storage: Vec::new(),
         };
@@ -350,6 +364,11 @@ impl Library {
             archived: bool,
         }
         let current=conn.query_row("SELECT t.path,t.source_hash,t.path_revision,t.metadata_revision,t.current_job,j.attempts,t.state,t.archived FROM tracks t LEFT JOIN jobs j ON j.id=t.current_job WHERE t.id=?1",[track],|r|Ok(Revision{path:r.get(0)?,hash:r.get(1)?,path_revision:r.get(2)?,metadata_revision:r.get(3)?,job:r.get(4)?,attempt:r.get(5)?,state:r.get(6)?,archived:r.get(7)?}))?;
+        ensure!(
+            crate::organization_references::import_binding_digest(conn, track)?
+                == frozen.import_bindings_digest,
+            "Original import references changed; preview organization again"
+        );
         let original =
             current.path == frozen.path.0 && current.path_revision == frozen.path_revision;
         let published = allow_destination.is_some_and(|path| {

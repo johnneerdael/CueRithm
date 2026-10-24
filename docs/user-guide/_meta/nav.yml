@@ -22,6 +22,7 @@ tabs:
       - files/index.md
       - Bring music in:
           - files/add-tracks.md
+          - files/import-library.md
           - files/watch-folders.md
           - files/follow-incoming.md
           - files/needs-attention.md

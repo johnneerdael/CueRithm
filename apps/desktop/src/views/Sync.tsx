@@ -18,11 +18,11 @@ import {sameDjTarget} from "../sync-target-types";
 
 const fields:SyncTextField[]=["title","artist","album","genre","label","comment","key"];
 function size(bytes:number){return bytes<1024?`${bytes} B`:bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(1)} MB`;}
-type SyncProps={bridge:Bridge;workspace:PlaylistWorkspace|null;revision:number;onChanged:()=>void;rekordboxBridge?:RekordboxBridge};
+type SyncProps={bridge:Bridge;workspace:PlaylistWorkspace|null;revision:number;onChanged:()=>void;rekordboxBridge?:RekordboxBridge;onImport?:()=>void};
 export default function Sync(props:SyncProps){
  const preferences=useSyncPreferences();
  const destinationControl=<label>Sync to<select aria-label="Sync to" value={preferences.destination} onChange={e=>preferences.setDestination(e.target.value as SyncDestination)}><option value="rekordbox">rekordbox 6 / 7</option>{syncTargets.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>;
- return <div className="sync-workspace">{preferences.destination==="rekordbox"?<RekordboxSync bridge={props.rekordboxBridge} workspace={props.workspace} revision={props.revision} onChanged={props.onChanged} destinationControl={destinationControl}/>:<AdapterSync {...props} preferences={preferences} destinationControl={destinationControl}/>}</div>;
+ return <div className="sync-workspace">{props.onImport?<div className="sync-import-entry"><button type="button" className="secondary" onClick={props.onImport}>Import a library</button></div>:null}{preferences.destination==="rekordbox"?<RekordboxSync bridge={props.rekordboxBridge} workspace={props.workspace} revision={props.revision} onChanged={props.onChanged} destinationControl={destinationControl}/>:<AdapterSync {...props} preferences={preferences} destinationControl={destinationControl}/>}</div>;
 }
 function AdapterSync({bridge,workspace,revision,onChanged,preferences,destinationControl}:SyncProps&{preferences:ReturnType<typeof useSyncPreferences>;destinationControl:ReactNode}){
  const {software,choices,setChoices}=preferences;

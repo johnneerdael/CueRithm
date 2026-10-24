@@ -1,0 +1,981 @@
+{
+  "evidence": "D2 authored parser and shared-service fixtures; D4/D5/D6 native application/device acceptance unrun",
+  "fixture_archive_sha256": "2cab295bb7223191456d40ba9167f38bbd707b3dedbdf67ba57c5612002dd99b",
+  "profiles": [
+    {
+      "collections": 3,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "memory_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 4,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "rekordbox-direct-collection-read-v1",
+      "provider": "rekordbox",
+      "schema_fingerprint": "8665cbeef189961a58ef1325fc509f33fff38c062e0a64fd78fd2ddd237f33d1",
+      "tracks": 4
+    },
+    {
+      "collections": 0,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "color": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 0,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "serato3-database-v2-crates",
+      "provider": "serato3",
+      "schema_fingerprint": "8842cd2ba24ae6ec08896cb622d3679bad30a9bb0530c179c8a6a357999c3052",
+      "tracks": 1
+    },
+    {
+      "collections": 3,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 3,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "serato4-master-schema12",
+      "provider": "serato4",
+      "schema_fingerprint": "a69f2ebc90f2eef6494688709a3aa3c28bacbe702ed8bec9d6f4a76cb06cf206",
+      "tracks": 2
+    },
+    {
+      "collections": 3,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 3,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "engine-database2-relational",
+      "provider": "engine_dj",
+      "schema_fingerprint": "598314a19e11b816ad72e0f95e497cda23a0d672561fcb15ea8e32f73f81102b",
+      "tracks": 2
+    },
+    {
+      "collections": 0,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "history": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "load_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "memory_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 0,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "traktor-nml19-pro3-4",
+      "provider": "traktor",
+      "schema_fingerprint": "d69b27f8bfcec7a9d5e4f2d27635bf394ebbb51730c011e7d23b7b3d4dc01edc",
+      "tracks": 1
+    },
+    {
+      "collections": 1,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "custom_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "history": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "load_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "memory_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 1,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "virtualdj-xml8.4-8.5-mylists",
+      "provider": "virtual_dj",
+      "schema_fingerprint": "ac08f03e2fd9d53f0c8484ecf1f36e4ec8a8357f2c9dd6ae08e51b5b00f662d7",
+      "tracks": 2
+    },
+    {
+      "collections": 0,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "color": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 0,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "djay-yap-tsaf3-keyed-archive",
+      "provider": "djay_pro",
+      "schema_fingerprint": "3af9fb85201fb6e83b5ca0481cf50fe15fcfbf0f224781dbf4a91a6858e2ec0d",
+      "tracks": 1
+    },
+    {
+      "collections": 2,
+      "fields": {
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "history": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 4,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "apple-library-plist-1.1",
+      "provider": "apple_music_xml",
+      "schema_fingerprint": "c833a2437cb079982920028fd9c0c6a0d2e6bd01891d7be52b56a4ac457daf82",
+      "tracks": 3
+    },
+    {
+      "collections": 0,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "color": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "memory_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 0,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "pioneer-pdb-linked-pages-v1",
+      "provider": "pioneer_usb",
+      "schema_fingerprint": "0a61411825c4fc6804af3ca95e9be609aa4cae432009690fe21053cfcab5021d",
+      "tracks": 1
+    },
+    {
+      "collections": 1,
+      "fields": {
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 1,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "m3u-text-v1",
+      "provider": "m3u",
+      "schema_fingerprint": "ec8332747b553dcaf949b334195f18e59ded680e04f00b9ab512c4683c79b277",
+      "tracks": 1
+    },
+    {
+      "collections": 2,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "energy": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 1,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "mik-macos-datamodel11-structural",
+      "provider": "mixed_in_key11",
+      "schema_fingerprint": "acb6b39deb122e205575f2d543c20e3acb750ae0825d806090c5b396a1c607f5",
+      "tracks": 1
+    },
+    {
+      "collections": 2,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "cached_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "memory_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 2,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "djstudio-explorer-imported-json-v1",
+      "provider": "dj_studio",
+      "schema_fingerprint": "90c69bf3b477b64764479e60c212b218132dfdd761c39cc278fd9d1dccd402ea",
+      "tracks": 1
+    },
+    {
+      "collections": 0,
+      "fields": {
+        "beatgrid": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "bpm": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "collections": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "color": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "descriptive_tags": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "history": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "hot_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "key": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "load_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "loops": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "main_cues": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "markers": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        },
+        "ratings": {
+          "evidence": "d2",
+          "lossless": false,
+          "read": true,
+          "reason": "Controlled parser fixtures; optional file-tag capture is read-only; native-app acceptance unrun",
+          "write": false
+        }
+      },
+      "memberships": 0,
+      "native_app_acceptance": "unrun",
+      "native_clock_promotion": false,
+      "profile_id": "mixxx-schema40",
+      "provider": "mixxx",
+      "schema_fingerprint": "48f154557323db8ff4f7c686e64464af95a92df7ba34a429c663290a7b25f9f8",
+      "tracks": 1
+    }
+  ]
+}

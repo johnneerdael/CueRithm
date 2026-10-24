@@ -10,8 +10,8 @@
 //! - any required (NOT NULL) reference: the row only means something with its
 //!   parent, so it is removed with it;
 //! - only optional references: the row stays and the reference is cleared. In
-//!   this schema that is a rekordbox link, which then reads as a DJ-software
-//!   track that has no library counterpart.
+//!   this schema that is a rekordbox link or retained import audit record.
+//!   The import record is hidden from the library until an unchanged Undo restores it.
 //!
 //! Playlist membership is kept out of this web on purpose: it has ordered
 //! positions that the playlist code owns, so the caller rewrites it.
@@ -208,6 +208,9 @@ fn detach_set(name: &str, table: &Table) -> Vec<(String, Value)> {
             "status".into(),
             Value::String("not_in_local_library".into()),
         ));
+    }
+    if name == "import_items" {
+        set.push(("state".into(), Value::String("removed".into())));
     }
     set
 }

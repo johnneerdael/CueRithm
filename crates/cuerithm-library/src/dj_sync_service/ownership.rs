@@ -44,6 +44,10 @@ pub(super) fn save(root: &Path, target: &SyncTarget, ledger: &OwnershipLedger) -
 #[path = "registration.rs"]
 mod registration_identity;
 
+pub(crate) fn import_media_volume_id(path: &Path) -> Result<String> {
+    registration_identity::media_volume_id(path)
+}
+
 /// Bind the volume and native catalog objects, independent of mount-session IDs.
 /// Own atomic replacements receive a new registration after verified publication.
 pub(super) fn registration(target: &SyncTarget) -> Result<String> {

@@ -7,6 +7,9 @@
 
 Use **Library backup** under TOOLS in the sidebar. The main panel creates portable archives; **Same-installation recovery snapshots** opens the older recovery-folder workflow. [Restore your library](restore-library.md#inspect) explains how to choose between them.
 
+!!! note "Libraries with DJ imports"
+    If you have inspected or imported a source through [Import library](../import-library.md), portable export is blocked because it cannot preserve those source records, imported tracks and playlists yet. Use **Same-installation recovery snapshots** to retain them on this installation.
+
 ## What a backup holds { #what-it-holds }
 
 | In a portable `.cuerithm` archive | Kept separately |

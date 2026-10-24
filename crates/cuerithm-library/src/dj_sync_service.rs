@@ -18,6 +18,7 @@ use std::{
 mod organization;
 mod ownership;
 pub(crate) use organization::{KnownDjReference, OrganizationOwnershipTransition};
+pub(crate) use ownership::import_media_volume_id;
 #[cfg(test)]
 mod mixxx_tests;
 #[cfg(test)]

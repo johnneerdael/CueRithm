@@ -1,0 +1,89 @@
+{
+  "kind": "wholly-invented-parser-fixture",
+  "notFromUserLibrary": true,
+  "nativeMikRoundTripAccepted": false,
+  "databaseIdentity": "synthetic-store",
+  "collections": [
+    {
+      "Z_PK": 1,
+      "ZINDEX": 0,
+      "ZISFOLDER": 1,
+      "ZISLIBRARY": 0,
+      "ZPARENTCOLLECTION": null,
+      "ZNAME": "Demo folder"
+    },
+    {
+      "Z_PK": 2,
+      "ZINDEX": 0,
+      "ZISFOLDER": 0,
+      "ZISLIBRARY": 0,
+      "ZPARENTCOLLECTION": 1,
+      "ZNAME": "Demo playlist"
+    }
+  ],
+  "songs": [
+    {
+      "Z_PK": 101,
+      "ZKEY": "8A",
+      "ZTAGKEY": "Am",
+      "ZSECONDKEY": null,
+      "ZTEMPO": 120.0,
+      "ZTAGTEMPO": 119,
+      "ZENERGY": 6.0,
+      "ZTAGENERGY": 5,
+      "ZRATING": 0,
+      "ZNAME": "Example track",
+      "ZARTIST": "Example artist",
+      "ZBOOKMARKDATA_base64": "Ym9va7QAAAAAAAUQQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEgAAAAJAAAAAQEAAERlbW9NdXNpYwAAAAwAAAABAQAARXhhbXBsZS5mbGFjCAAAAAEGAAAEAAAAGAAAAAEAAAABAQAALwAAADAAAAD+////AQAAAAAAAAACAAAABBAAACwAAAAAAAAAAiAAADwAAAAAAAAA",
+      "ZBEATS_base64": "YnBsaXN0MDDUAQIDBAUGIiVZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKoBwgPFhcYGR9VJG51bGzTCQoLDA0OViRjbGFzc18QEk1JS0JlYXRzX2JlYXRUaW1lc15NSUtCZWF0c190ZW1wb4AHgAIjQF4AAAAAAADSCRARElpOUy5vYmplY3RzgAajExQVgAOABIAFIwAAAAAAAAAAIz/gAAAAAAAAIz/wAAAAAAAA0hobHB1YJGNsYXNzZXNaJGNsYXNzbmFtZaIdHldOU0FycmF5WE5TT2JqZWN00hobICGiIR5YTUlLQmVhdHPRIyRUcm9vdIABEgABhqAACAARABsAJAApADIARABNAFMAWgBhAHYAhQCHAIkAkgCXAKIApACoAKoArACuALcAwADJAM4A1wDiAOUA7QD2APsA/gEHAQoBDwERAAAAAAAAAgEAAAAAAAAAJgAAAAAAAAAAAAAAAAAAARY="
+    }
+  ],
+  "memberships": [
+    {
+      "Z_1COLLECTIONS": 2,
+      "Z_5SONGS": 101,
+      "Z_FOK_5SONGS": 2048
+    }
+  ],
+  "cuePoints": [
+    {
+      "Z_PK": 201,
+      "ZSONG": 101,
+      "ZTIME": -0.005,
+      "ZNAME": null,
+      "ZENERGYLEVEL": 5
+    },
+    {
+      "Z_PK": 202,
+      "ZSONG": 101,
+      "ZTIME": 32.125,
+      "ZNAME": "Demo drop",
+      "ZENERGYLEVEL": 7
+    }
+  ],
+  "expected": {
+    "bookmarkEmbeddedPath": "/DemoMusic/Example.flac",
+    "beatTimesSeconds": [
+      0.0,
+      0.5,
+      1.0
+    ],
+    "archivedTempoBpm": 120.0,
+    "keyCamelot": "8A",
+    "keyTraditional": "A Minor",
+    "cueCount": 2,
+    "cueTimesSeconds": [
+      -0.005,
+      32.125
+    ]
+  },
+  "invalidVariants": [
+    "out-of-bounds bookmark TOC or record offset: fail path decode, retain track",
+    "bookmark array byte length not divisible by 4: fail decode",
+    "archive UID beyond object table: reject blob, retain track",
+    "archive class outside allowlist: retain opaque blob, do not instantiate",
+    "same cue time on two IDs: retain both",
+    "unknown key text: preserve text, normalization null",
+    "missing parent collection: retain collection under import root with diagnostic"
+  ]
+}

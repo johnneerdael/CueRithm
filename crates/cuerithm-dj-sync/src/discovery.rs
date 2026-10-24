@@ -126,6 +126,83 @@ pub fn process_matches(software: DjSoftware, command: &str) -> bool {
         }
     }
 }
+fn source_process_matches(provider: crate::import::SourceProvider, command: &str) -> bool {
+    use crate::import::SourceProvider::*;
+    let name = command
+        .trim_matches('"')
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let name = name.strip_suffix(".exe").unwrap_or(&name);
+    match provider {
+        Rekordbox | PioneerUsb => process_matches(DjSoftware::Rekordbox, name),
+        Serato3 | Serato4 => {
+            process_matches(DjSoftware::Serato4, name)
+                || matches!(name, "serato dj lite" | "scratchlive" | "scratch live")
+        }
+        EngineDj => process_matches(DjSoftware::EngineDj, name),
+        VirtualDj => process_matches(DjSoftware::VirtualDj, name),
+        DjayPro => process_matches(DjSoftware::DjayPro, name),
+        Mixxx => process_matches(DjSoftware::Mixxx, name),
+        Traktor => matches!(
+            name,
+            "traktor" | "traktor pro" | "traktor pro 3" | "traktor pro 4"
+        ),
+        MixedInKey11 => matches!(name, "mixed in key" | "mixed in key 11" | "mixedinkey11"),
+        DjStudio => {
+            matches!(name, "dj.studio" | "dj studio" | "djstudio")
+                || name.starts_with("dj.studio helper")
+        }
+        AppleMusicXml => matches!(name, "music" | "itunes" | "applemusic" | "apple music"),
+        M3u => false,
+    }
+}
+/// Fresh source-app check for original-media mutation. M3U is a file transport,
+/// without a native source application. Snapshot errors never mean closed.
+pub fn ensure_import_source_closed(provider: crate::import::SourceProvider) -> Result<()> {
+    if provider == crate::import::SourceProvider::M3u {
+        return Ok(());
+    }
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(running) = PROCESS_GUARD.get() {
+        ensure!(
+            !running,
+            "Close the source DJ software before changing original audio"
+        );
+        return Ok(());
+    }
+    #[cfg(target_os = "linux")]
+    let running = linux_process::source_is_running(provider)?;
+    #[cfg(not(target_os = "linux"))]
+    let running = {
+        #[cfg(windows)]
+        let output = Command::new("tasklist")
+            .args(["/FO", "CSV", "/NH"])
+            .output()
+            .context("Cannot inspect source DJ software")?;
+        #[cfg(not(windows))]
+        let output = Command::new("ps")
+            .args(["-A", "-o", "comm="])
+            .output()
+            .context("Cannot inspect source DJ software")?;
+        ensure!(output.status.success(), "Cannot inspect source DJ software");
+        String::from_utf8(output.stdout)?.lines().any(|line| {
+            #[cfg(windows)]
+            let line = line
+                .trim_start_matches('"')
+                .split("\",\"")
+                .next()
+                .unwrap_or("");
+            source_process_matches(provider, line)
+        })
+    };
+    ensure!(
+        !running,
+        "Close the source DJ software before changing original audio"
+    );
+    Ok(())
+}
 #[cfg(any(test, feature = "test-support"))]
 thread_local! {
     static PROCESS_GUARD: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };

@@ -1,0 +1,1 @@
+The complete author-verified handover and invented fixtures live in `docs/research/dj-library-import-handover/`, preserving their original relative links. `pack-manifest.json` there pins all 22 original artifacts; test code verifies their sizes and SHA-256. These are synthetic/schema controls, not native-app acceptance.

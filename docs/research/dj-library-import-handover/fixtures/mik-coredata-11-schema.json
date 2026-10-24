@@ -1,0 +1,1407 @@
+{
+  "kind": "observed-schema-reference",
+  "appVersion": "11.2.6.7446",
+  "model": "DataModel 11",
+  "tables": {
+    "ZCOLLECTION": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZINDEX",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZISFOLDER",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZISLIBRARY",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPINNEDINDEX",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPARENTCOLLECTION",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZEMOJI",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZNAME",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "ZCUEPOINT": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZENERGYLEVEL",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSONG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTIME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZNAME",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "ZENERGYSEGMENT": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSONG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZENERGY",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZLENGTH",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSTARTTIME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCOMMENT",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "ZKEYSEGMENT": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSINGLENOTE",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSONG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCONFIDENCE",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZENERGY",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZLENGTH",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSTARTTIME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZVOLUME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZKEY",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "ZSONG": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZBITRATE",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCLIPPEDPEAKCOUNT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZFILESIZE",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASCHECKEDPNTAG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASID3V1",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASID3V2",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASPNTAG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASSERATO",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZHASTRAKTOR",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZISPERSONALIZED",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPNTAGAPPLIEDCLIPREPAIR",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPNTAGISPROCESSED",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPNTAGVOLUMEANALYSISVERSION",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZRATING",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSAMPLERATE",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTAGENERGY",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTAGTEMPO",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZYEAR",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZWAVEFORM",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZANALYSISDATE",
+          "sqliteDeclaredType": "TIMESTAMP",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZENERGY",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZMODIFICATIONDATE",
+          "sqliteDeclaredType": "TIMESTAMP",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPITCH",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPNTAGOUTPUTVOLUME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSYNCDATE",
+          "sqliteDeclaredType": "TIMESTAMP",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTAGUPDATEDATE",
+          "sqliteDeclaredType": "TIMESTAMP",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTEMPO",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZVOLUME",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZVOLUMELUFS",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZVOLUMERMS1",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZVOLUMERMS2",
+          "sqliteDeclaredType": "FLOAT",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZALBUM",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZARTIST",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCLOUDSYNCTRACKID",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCOMMENT",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZCOMPOSER",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZFINGERPRINT",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZGENRE",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZGROUPING",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZKEY",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZLABEL",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZNAME",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZPNTAGVOLUMEUNITS",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZREMIXER",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSECONDKEY",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTAGKEY",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZBEATS",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZBOOKMARKDATA",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZTAGCOMMENTS",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "ZWAVEFORM": {
+      "columns": [
+        {
+          "name": "Z_PK",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_OPT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZSONG",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "ZOBJECT",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "Z_1SONGS": {
+      "columns": [
+        {
+          "name": "Z_1COLLECTIONS",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_5SONGS",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 2
+        },
+        {
+          "name": "Z_FOK_5SONGS",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "Z_METADATA": {
+      "columns": [
+        {
+          "name": "Z_VERSION",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_UUID",
+          "sqliteDeclaredType": "VARCHAR(255)",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_PLIST",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "Z_MODELCACHE": {
+      "columns": [
+        {
+          "name": "Z_CONTENT",
+          "sqliteDeclaredType": "BLOB",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    },
+    "Z_PRIMARYKEY": {
+      "columns": [
+        {
+          "name": "Z_ENT",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 1
+        },
+        {
+          "name": "Z_NAME",
+          "sqliteDeclaredType": "VARCHAR",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_SUPER",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        },
+        {
+          "name": "Z_MAX",
+          "sqliteDeclaredType": "INTEGER",
+          "notNull": false,
+          "default": null,
+          "primaryKeyOrdinal": 0
+        }
+      ]
+    }
+  },
+  "compiledModelEntities": {
+    "Collection": {
+      "attributes": {
+        "emoji": {
+          "coreDataType": 700,
+          "default": "",
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "filter": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": true
+        },
+        "index": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "isFolder": {
+          "coreDataType": 800,
+          "default": false,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "isLibrary": {
+          "coreDataType": 800,
+          "default": false,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "name": {
+          "coreDataType": 700,
+          "default": "Name",
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "pinnedIndex": {
+          "coreDataType": 100,
+          "default": -1,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataCollection",
+      "relationships": {
+        "childCollections": {
+          "destination": "Collection",
+          "inverse": "parentCollection",
+          "ordered": false,
+          "toMany": true,
+          "transient": false
+        },
+        "parentCollection": {
+          "destination": "Collection",
+          "inverse": "childCollections",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        },
+        "songs": {
+          "destination": "Song",
+          "inverse": "collections",
+          "ordered": true,
+          "toMany": true,
+          "transient": false
+        }
+      }
+    },
+    "CuePoint": {
+      "attributes": {
+        "energyLevel": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "name": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "time": {
+          "coreDataType": 500,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataCuePoint",
+      "relationships": {
+        "song": {
+          "destination": "Song",
+          "inverse": "cuePoints",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        }
+      }
+    },
+    "EnergySegment": {
+      "attributes": {
+        "comment": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "energy": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "length": {
+          "coreDataType": 500,
+          "default": 10,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "startTime": {
+          "coreDataType": 500,
+          "default": 0,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataSongEnergySegment",
+      "relationships": {
+        "song": {
+          "destination": "Song",
+          "inverse": "energySegments",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        }
+      }
+    },
+    "KeySegment": {
+      "attributes": {
+        "confidence": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "energy": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "key": {
+          "coreDataType": 700,
+          "default": "7A",
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "length": {
+          "coreDataType": 500,
+          "default": 10,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "singleNote": {
+          "coreDataType": 800,
+          "default": false,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "startTime": {
+          "coreDataType": 500,
+          "default": 0,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "volume": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataSongKeySegment",
+      "relationships": {
+        "song": {
+          "destination": "Song",
+          "inverse": "keySegments",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        }
+      }
+    },
+    "Song": {
+      "attributes": {
+        "album": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "analysisDate": {
+          "coreDataType": 900,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "artist": {
+          "coreDataType": 700,
+          "default": "Artist",
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "beats": {
+          "coreDataType": 1800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "bitrate": {
+          "coreDataType": 200,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "bookmarkData": {
+          "coreDataType": 1000,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "clippedPeakCount": {
+          "coreDataType": 200,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "cloudSyncTrackID": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "comment": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "composer": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "energy": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "fileSize": {
+          "coreDataType": 300,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "fingerPrint": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "genre": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "grouping": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasArtwork": {
+          "coreDataType": 800,
+          "default": true,
+          "optional": true,
+          "transformer": null,
+          "transient": true
+        },
+        "hasCheckedPNTag": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasID3v1": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasID3v2": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasPNTag": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasSerato": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "hasTraktor": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "isPersonalized": {
+          "coreDataType": 800,
+          "default": false,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "key": {
+          "coreDataType": 700,
+          "default": "0",
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "label": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "modificationDate": {
+          "coreDataType": 900,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "name": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "path": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": true
+        },
+        "pitch": {
+          "coreDataType": 600,
+          "default": 440,
+          "optional": false,
+          "transformer": null,
+          "transient": false
+        },
+        "pnTagAppliedClipRepair": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "pnTagIsProcessed": {
+          "coreDataType": 800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "pnTagOutputVolume": {
+          "coreDataType": 500,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "pnTagVolumeAnalysisVersion": {
+          "coreDataType": 200,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "pnTagVolumeUnits": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "rating": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "remixer": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "sampleRate": {
+          "coreDataType": 200,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "secondKey": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "syncDate": {
+          "coreDataType": 900,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tagComments": {
+          "coreDataType": 1000,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tagEnergy": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tagKey": {
+          "coreDataType": 700,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tagTempo": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tagUpdateDate": {
+          "coreDataType": 900,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "tempo": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "volume": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "volumeLUFS": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "volumeRMS1": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "volumeRMS2": {
+          "coreDataType": 600,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        },
+        "year": {
+          "coreDataType": 100,
+          "default": 0,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataSong",
+      "relationships": {
+        "collections": {
+          "destination": "Collection",
+          "inverse": "songs",
+          "ordered": false,
+          "toMany": true,
+          "transient": false
+        },
+        "cuePoints": {
+          "destination": "CuePoint",
+          "inverse": "song",
+          "ordered": false,
+          "toMany": true,
+          "transient": false
+        },
+        "energySegments": {
+          "destination": "EnergySegment",
+          "inverse": "song",
+          "ordered": false,
+          "toMany": true,
+          "transient": false
+        },
+        "keySegments": {
+          "destination": "KeySegment",
+          "inverse": "song",
+          "ordered": false,
+          "toMany": true,
+          "transient": false
+        },
+        "waveform": {
+          "destination": "Waveform",
+          "inverse": "song",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        }
+      }
+    },
+    "Waveform": {
+      "attributes": {
+        "object": {
+          "coreDataType": 1800,
+          "default": null,
+          "optional": true,
+          "transformer": null,
+          "transient": false
+        }
+      },
+      "managedObjectClass": "MIKDataSongWaveform",
+      "relationships": {
+        "song": {
+          "destination": "Song",
+          "inverse": "waveform",
+          "ordered": false,
+          "toMany": false,
+          "transient": false
+        }
+      }
+    }
+  }
+}

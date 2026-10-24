@@ -43,6 +43,115 @@ impl Write {
     }
 }
 impl MetadataEditService {
+    pub(crate) fn verify_import_output(
+        &self,
+        batch: &str,
+        path: &std::path::Path,
+        before: &str,
+    ) -> Result<()> {
+        let id:String=self.library.conn()?.query_row("SELECT id FROM metadata_edit_writes WHERE batch_id=?1 AND state='committed' AND undo_of IS NULL AND override_of IS NULL",[batch],|r|r.get(0))?;
+        let (_, write) = self.load_write(&id)?;
+        ensure!(
+            write.row.capture.path.path()? == path
+                && write
+                    .row
+                    .stage
+                    .as_ref()
+                    .context("Missing tag proof")?
+                    .before
+                    == before,
+            "Tag output does not descend from reviewed import media"
+        );
+        let parent = crate::organization::NativeParent::reopen(&write.row.capture.parent)?;
+        let current = parent.fingerprint(std::path::Path::new(
+            path.file_name().context("Missing source name")?,
+        ))?;
+        ensure!(
+            write
+                .publication
+                .as_ref()
+                .is_some_and(|known| crate::organization::same_native_file(&current, known)),
+            "Tag publication native identity or bytes changed"
+        );
+        Ok(())
+    }
+    /// Own-operation organization Undo may restore the same tag output at a
+    /// later path revision. Full active fields and native file identity must agree.
+    pub(crate) fn rebase_import_undo(
+        &self,
+        batch: &str,
+        item: &str,
+        expected: &std::collections::BTreeMap<String, serde_json::Value>,
+        organization_undo: &str,
+    ) -> Result<()> {
+        let id:String=self.library.conn()?.query_row("SELECT id FROM metadata_edit_writes WHERE batch_id=?1 AND track_id=?2 AND state='committed' AND undo_of IS NULL AND override_of IS NULL",params![batch,item],|r|r.get(0))?;
+        let (_, mut write) = self.load_write(&id)?;
+        let path = write.row.capture.path.path()?;
+        let page = self
+            .library
+            .organization_batch_page(organization_undo, 0, 1)?;
+        ensure!(
+            page.total == 1 && page.rows[0].track_id == item && page.rows[0].outcome == "completed",
+            "Import relocation Undo has no completed native proof"
+        );
+        let record = self.library.organization_record(
+            page.rows[0]
+                .operation_id
+                .as_deref()
+                .context("Missing native Undo record")?,
+        )?;
+        ensure!(
+            record.phase == crate::organization::OrganizationPhase::Complete
+                && record.undo_of.is_some(),
+            "Native organization inverse is incomplete"
+        );
+        let file = record.files.first().context("Missing restored source")?;
+        ensure!(
+            file.destination.path()? == path,
+            "Native inverse restored another path"
+        );
+        let parent = crate::organization::NativeParent::reopen(&file.destination_parent)?;
+        let current = parent.fingerprint(std::path::Path::new(
+            path.file_name().context("Missing restored source name")?,
+        ))?;
+        ensure!(
+            crate::organization::same_native_file(
+                &current,
+                file.staged.as_ref().unwrap_or(&file.original)
+            ) && current.sha256
+                == write
+                    .row
+                    .stage
+                    .as_ref()
+                    .context("Missing original tag proof")?
+                    .after,
+            "Restored tag output differs from owned native inverse proof"
+        );
+        write.publication = Some(current);
+        let mut conn = self.library.conn()?;
+        let tx = conn.transaction()?;
+        ensure!(
+            crate::import::import_local_fields(&tx, item)? == *expected,
+            "Later import edits prevent tag Undo"
+        );
+        let (path_revision, metadata_revision): (u64, u64) = tx.query_row(
+            "SELECT path_revision,metadata_revision FROM tracks WHERE id=?1",
+            [item],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        write.row.capture.public.path_revision = path_revision;
+        write.row.capture.public.metadata_revision = metadata_revision
+            .checked_sub(1)
+            .context("Invalid tag revision")?;
+        Self::validate_capture(
+            &tx,
+            &write.row.capture,
+            Some(&write.row.stage.as_ref().context("Missing tag proof")?.after),
+        )?;
+        tx.execute("UPDATE metadata_edit_writes SET payload_json=?1,expected_path_revision=?2,expected_metadata_revision=?3 WHERE id=?4",params![bounded_json(&write)?,path_revision,write.row.capture.public.metadata_revision,id])?;
+        tx.commit()?;
+        Ok(())
+    }
     pub fn apply(&self, preview: &str, cancel: &CancellationToken) -> Result<MetadataEditBatch> {
         self.apply_linked(preview, cancel, None)
     }
@@ -53,6 +162,14 @@ impl MetadataEditService {
         curation: Option<&str>,
     ) -> Result<MetadataEditBatch> {
         self.apply_linked_with(preview, cancel, curation, || Ok(()))
+    }
+    pub(crate) fn apply_import_linked(
+        &self,
+        preview: &str,
+        cancel: &CancellationToken,
+        after_link: impl FnOnce() -> Result<()>,
+    ) -> Result<MetadataEditBatch> {
+        self.apply_linked_with(preview, cancel, None, after_link)
     }
     pub(super) fn apply_linked_with(
         &self,
@@ -830,7 +947,7 @@ impl MetadataEditService {
     ) -> Result<MetadataEditBatch> {
         self.undo_linked_with(batch, cancel, curation, || Ok(()))
     }
-    pub(super) fn undo_linked_with(
+    pub(crate) fn undo_linked_with(
         &self,
         batch: &str,
         cancel: &CancellationToken,
@@ -1138,7 +1255,7 @@ fn current_batch_error(conn: &rusqlite::Connection, id: &str) -> Result<Option<S
     Ok(conn.query_row("SELECT error FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL ORDER BY created,id LIMIT 1",[id],|row|row.get(0)).optional()?)
 }
 fn eligibility_inner(conn: &rusqlite::Connection, id: &str, state: &str) -> Result<(bool, bool)> {
-    let ready:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes w JOIN tracks t ON t.id=w.track_id WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL AND t.state='ready' AND t.archived=0 AND t.path_revision=w.expected_path_revision AND t.metadata_revision=w.expected_metadata_revision+1 AND t.source_hash=w.output_hash AND NOT EXISTS(SELECT 1 FROM organization_reservations o WHERE o.path=t.path))",[id],|r|r.get(0))?;
+    let ready:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes w JOIN tracks t ON t.id=w.track_id WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL AND t.state IN ('ready','imported') AND t.archived=0 AND t.path_revision=w.expected_path_revision AND t.metadata_revision=w.expected_metadata_revision+1 AND t.source_hash=w.output_hash AND NOT EXISTS(SELECT 1 FROM organization_reservations o WHERE o.path=t.path))",[id],|r|r.get(0))?;
     let incoming:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_overrides o JOIN tracks t ON t.id=o.track_id WHERE o.batch_id=?1 AND o.state='committed' AND o.final_json IS NOT NULL AND o.undo_batch_id IS NULL AND t.state='ready' AND t.current_job=o.job_id AND t.path_revision=json_extract(o.final_json,'$.path_revision') AND t.metadata_revision=json_extract(o.final_json,'$.metadata_revision') AND NOT EXISTS(SELECT 1 FROM preparation_checkpoints c WHERE c.job_id=o.job_id AND c.state!='complete') AND NOT EXISTS(SELECT 1 FROM organization_reservations r WHERE r.path=t.path))",[id],|r|r.get(0))?;
     let cleanup_pending:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_writes WHERE batch_id=?1 AND state IN ('committed','undone') AND error IS NOT NULL)",[id],|r|r.get(0))?;
     let recover=state!="saving"&&(cleanup_pending||state=="recovery_required"||conn.query_row("SELECT EXISTS(SELECT 1 FROM metadata_edit_rows WHERE batch_id=?1 AND state IN ('ready','recovery_required'))",[id],|r|r.get(0))?);

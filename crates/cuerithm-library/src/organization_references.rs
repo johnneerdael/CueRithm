@@ -15,6 +15,27 @@ use rusqlite::{Transaction, params};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
+pub(crate) fn import_binding_catalog(
+    conn: &rusqlite::Connection,
+    track: &str,
+) -> Result<Vec<(String, String, Option<String>)>> {
+    let mut q=conn.prepare("SELECT source_id,external_id,json_extract(identity_json,'$.location') FROM import_bindings WHERE item_id=?1 ORDER BY source_id,external_id")?;
+    Ok(
+        q.query_map([track], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?,
+    )
+}
+pub(crate) fn import_binding_digest(
+    conn: &rusqlite::Connection,
+    track: &str,
+) -> Result<Option<String>> {
+    let rows = import_binding_catalog(conn, track)?;
+    if rows.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(digest(&rows)?))
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrganizationReferenceInfo {
     pub id: String,
@@ -155,7 +176,8 @@ impl Library {
             let native=conn.prepare("SELECT target_id,content_id,status FROM native_track_links WHERE local_track_id=?1 ORDER BY target_id,content_id")?.query_map([track_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
             (legacy, native)
         };
-        let catalog_digest = digest(&(
+        let imported = import_binding_catalog(&*self.conn()?, track_id)?;
+        let legacy_catalog = digest(&(
             &legacy,
             &native,
             known
@@ -170,6 +192,12 @@ impl Library {
                 })
                 .collect::<Vec<_>>(),
         ))?;
+        // Preserve saved pre-import identities exactly for unaffected libraries.
+        let catalog_digest = if imported.is_empty() {
+            legacy_catalog
+        } else {
+            digest(&("import-references-v1", legacy_catalog, &imported))?
+        };
         let mut blockers=legacy.iter().map(|(target,_,_)|format!("Known legacy reference '{target}' has no registered path-only repair adapter")).chain(native.iter().map(|(target,content,_)|format!("Imported Rekordbox reference {target}/{content} has no registered database path/write adapter"))).collect::<Vec<_>>();
         let unknown_references = legacy
             .iter()
@@ -246,6 +274,33 @@ impl Library {
             unknown_references,
             blockers,
         })
+    }
+    /// Import orchestration has separately proved an owned tag replacement.
+    /// Only that source byte hash may differ; every native reference proof stays exact.
+    pub(crate) fn import_reference_refresh_same(
+        &self,
+        before: &str,
+        after: &str,
+        before_hash: &str,
+        after_hash: &str,
+    ) -> Result<bool> {
+        let conn = self.conn()?;
+        let load = |id: &str| -> Result<Capture> {
+            let raw: String = conn.query_row(
+                "SELECT payload_json FROM organization_reference_snapshots WHERE digest=?1",
+                [id],
+                |r| r.get(0),
+            )?;
+            Ok(serde_json::from_str(&raw)?)
+        };
+        let mut old = load(before)?;
+        let fresh = load(after)?;
+        ensure!(
+            old.source_hash == before_hash && fresh.source_hash == after_hash,
+            "Import reference source proof mismatch"
+        );
+        old.source_hash = fresh.source_hash.clone();
+        Ok(serde_json::to_value(old)? == serde_json::to_value(fresh)?)
     }
     pub fn organization_reference_snapshot(
         &self,

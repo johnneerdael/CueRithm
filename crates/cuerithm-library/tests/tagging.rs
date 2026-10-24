@@ -166,6 +166,8 @@ impl Fixture {
             emergency_loop: None,
         });
         let result = FileAnalysis {
+            selection: None,
+            selected_beatgrid: None,
             publication: None,
             analysis: a,
             complete: true,
@@ -427,7 +429,7 @@ fn schema_one_upgrades_without_dropping_existing_tables_or_metadata() {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 29);
+        assert_eq!(version, 30);
         let title: String = conn
             .query_row("SELECT title FROM tracks WHERE id='old'", [], |r| r.get(0))
             .unwrap();

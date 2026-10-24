@@ -6,14 +6,14 @@
     - **The library holds locations, not audio.** Moving or renaming a music file outside CueRithm can leave its local binding unresolved. **Missing & broken** reports it; reviewed **Relocate** reconnects it while keeping its track identity. See [Find missing, moved or broken files](../files/library/find-missing-files.md).
     - **Originals are kept, without a limit.** Every file CueRithm rewrites leaves its original bytes in the data folder. General retention controls are unfinished, so these backups grow until you remove them. See [Where CueRithm keeps your data](../files/library/where-data-lives.md).
     - **Back the library up with Library backup**, and your music with your usual backup. A library backup does not contain music. See [Back up your library](../files/library/back-up-library.md).
-    - **The schema is version 29.** An older CueRithm refuses a newer library, and there is no downgrade.
+    - **The schema is version 30.** An older CueRithm refuses a newer library, and there is no downgrade.
 
 ## What kind of database it is { #the-engine }
 
 - SQLite, bundled with the app, in a file named `library.sqlite` in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on and a 5-second busy timeout.
 - An application ID marks the file as a CueRithm library. A non-empty SQLite file without it is rejected.
-- The schema version (`user_version`) is currently 29. Migrations are embedded SQL files applied in order, each in an immediate transaction. A newer schema is refused with "Library schema is newer than this application". Migrations preserve existing tracks, jobs and cue ownership.
+- The schema version (`user_version`) is currently 30. Migrations are embedded SQL files applied in order, each in an immediate transaction. A newer schema is refused with "Library schema is newer than this application". Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live { #where-things-live }
 
