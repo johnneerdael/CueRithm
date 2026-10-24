@@ -795,7 +795,7 @@ fn metadata_inventory(
     }
     // Incoming overrides have no physical metadata_edit_write. Their original
     // is retained in the frozen row for inverse artwork and comment edits.
-    let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state='committed' AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
+    let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state='committed' AND COALESCE(json_extract(r.payload_json,'$.original_retired'),0)=0 AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
     for row in query.query_map([], |row| row.get::<_, String>(0))? {
         metadata_stage(locations, root, &row?, false, true)?;
     }

@@ -625,6 +625,12 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
             tag.set_native("TITLE", vec!["Original title".into()]);
             tag.set_native("RATING", vec!["47".into()]);
             tag.set_native("OPAQUE_DJ_RECORD", vec!["preserve native record".into()]);
+            tag.set_art(
+                onetagger_tag::CoverType::CoverFront,
+                "image/png",
+                None,
+                icon("32x32.png"),
+            );
             tag.save_file(&source).unwrap();
         }
         let db = folder.join("data/library.sqlite");
@@ -679,6 +685,15 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
             .native;
         let draft = editor.create_draft(std::slice::from_ref(&track)).unwrap();
         let mut patch = MetadataEditorPatch::default();
+        // The edit also replaces the picture in the file; Undo has to put the old one back.
+        assert_eq!(original_native.artwork.len(), 1);
+        let replacement = editor.import_artwork(icon("128x128.png")).unwrap();
+        patch.artwork.push(MetadataArtworkChoice {
+            target: Some(original_native.artwork[0].identity.clone()),
+            asset_id: Some(replacement.id),
+            kind: Some(3),
+            description: None,
+        });
         patch.fields.text.insert(
             MetadataTextField::Title,
             TextEdit::Set {
@@ -731,6 +746,9 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
         drop(worker);
         assert_eq!(finished.state, "completed", "{finished:?}");
         assert_eq!(catalog.0.load(Ordering::SeqCst), 1);
+        // Once the edit has been written its original audio is deleted; the replaced picture stays.
+        assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+        assert!(staging_dirs(&lib).is_empty());
         let final_path = lib.track_path(&track).unwrap();
         assert_eq!(final_path, managed.join("Catalog artist - User title.flac"));
         assert!(!source.exists());
@@ -822,6 +840,11 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
             assert_eq!(
                 restored.text[&MetadataTextField::Album],
                 vec!["Catalog album"]
+            );
+            assert_eq!(restored.artwork.len(), 1);
+            assert_eq!(
+                restored.artwork[0].identity.sha256, original_native.artwork[0].identity.sha256,
+                "the picture the edit replaced is back, without the original audio"
             );
             assert_eq!(restored.bpm, prepared.bpm);
             assert_eq!(
@@ -944,6 +967,88 @@ fn undoing_an_artwork_replacement_restores_the_picture_without_keeping_the_audio
         assets_before + 1,
         "the kept picture goes once the save is undone"
     );
+}
+
+/// An edit accepted while the track was still in Incoming keeps the original audio only until it
+/// has been written: then the pictures it replaced become artwork assets and the audio is deleted.
+#[test]
+fn a_written_incoming_edit_keeps_its_replaced_picture_and_not_the_audio() {
+    let (_t, lib, service, track, path) = fixture();
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let mut add = MetadataEditorPatch::default();
+    add.artwork.push(MetadataArtworkChoice {
+        target: None,
+        asset_id: Some(first.id),
+        kind: Some(3),
+        description: None,
+    });
+    save(&service, &track, add);
+    let original = pictures(&service, &track);
+    assert_eq!(original.len(), 1);
+    let db = lib.data_dir().join("library.sqlite");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute("UPDATE tracks SET state='incoming' WHERE id=?1", [&track])
+        .unwrap();
+    let assets_before = artwork_assets(&lib);
+
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let queued = save(&service, &track, replace);
+    assert_eq!(queued.state, "queued", "{queued:?}");
+    // Waiting for its turn, the edit still holds the original: nothing was written yet.
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 1);
+    assert_eq!(artwork_assets(&lib), assets_before + 1);
+
+    // The worker writes it (done here by hand, the way its commit records it).
+    conn.execute_batch(
+        "UPDATE metadata_edit_overrides SET state='committed',final_json='{}';
+         UPDATE metadata_edit_rows SET state='written' WHERE state='queued';
+         UPDATE metadata_edit_batches SET state='saved' WHERE state='queued';
+         UPDATE jobs SET state='completed';",
+    )
+    .unwrap();
+    drop(service);
+    drop(conn);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        lib.tagging_storage().unwrap().original_files,
+        0,
+        "the original audio of a written Incoming edit is deleted"
+    );
+    assert!(
+        staging_dirs(&lib).is_empty(),
+        "and so is its private folder, not only its accounting"
+    );
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "the new picture and the one it replaced"
+    );
+    let sql = rusqlite::Connection::open(&db).unwrap();
+    let (retired, kept): (bool, i64) = sql
+        .query_row(
+            "SELECT json_extract(payload_json,'$.original_retired'),json_array_length(payload_json,'$.kept_pictures') FROM metadata_edit_rows WHERE state='written' AND json_extract(payload_json,'$.capture.public.state')='incoming'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert!(retired && kept == 1, "retired={retired} kept={kept}");
+    assert!(path.exists());
+    // A library backup does not wait for an original that was deleted on purpose.
+    lib.create_library_backup(&_t.path().join("backups"))
+        .expect("a library backup without the deleted original");
+    // Nothing is left to retire at the next start.
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert_eq!(artwork_assets(&lib), assets_before + 2);
 }
 
 /// Only the newest ten saved batches can be undone; the older ones keep their history line.

@@ -52,8 +52,21 @@ impl MetadataEditService {
                     "Incoming metadata changed after its saved revision"
                 );
                 let native = self.native_patch(&editor)?;
-                let inverse = self.inverse_patch(&native, &receipt, &mut |_, identity| {
-                    // The original picture is read from the original file this save kept.
+                let inverse = self.inverse_patch(&native, &receipt, &mut |ordinal, identity| {
+                    // A picture kept as an artwork asset needs no original audio.
+                    if let Some(kept) = old
+                        .kept_pictures
+                        .iter()
+                        .flatten()
+                        .find(|picture| picture.ordinal == ordinal)
+                    {
+                        return self.library.metadata_artwork_content(&kept.asset_id);
+                    }
+                    ensure!(
+                        !old.original_retired,
+                        "The original artwork of this save is no longer available"
+                    );
+                    // Not retired yet: the picture is read from the original file this save kept.
                     let original = old
                         .stage
                         .as_ref()
@@ -82,6 +95,8 @@ impl MetadataEditService {
                     capture,
                     stage: Some(stage),
                     undo: Some(UndoLink::Override(job.clone())),
+                    kept_pictures: None,
+                    original_retired: false,
                 })
             })();
             let row = match outcome {

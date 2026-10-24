@@ -45,12 +45,6 @@ struct Write {
     #[serde(default)]
     undo_expired: bool,
 }
-/// An original picture kept for Undo: its place among the original pictures and its asset.
-#[derive(Clone, Serialize, Deserialize)]
-struct PreviousPicture {
-    ordinal: usize,
-    asset_id: String,
-}
 impl Write {
     fn artifact(&self) -> Result<Artifact> {
         let stage = self.row.stage.as_ref().context("Missing staged metadata")?;
@@ -186,6 +180,7 @@ impl MetadataEditService {
         after_link()?;
         let saved = self.run_batch(&public.id, Some(&plan.patch), cancel)?;
         self.library.prune_metadata_undo()?;
+        let _ = self.library.retire_incoming_originals();
         Ok(saved)
     }
     fn run_batch(
@@ -943,6 +938,8 @@ impl MetadataEditService {
             capture,
             stage: Some(stage),
             undo: Some(UndoLink::Write(id.to_string())),
+            kept_pictures: None,
+            original_retired: false,
         })
     }
     #[cfg(test)]
@@ -1068,6 +1065,8 @@ impl MetadataEditService {
                     capture,
                     stage: Some(stage),
                     undo: Some(UndoLink::Write(id.clone())),
+                    kept_pictures: None,
+                    original_retired: false,
                 })
             })();
             match result {
@@ -1199,6 +1198,7 @@ impl crate::Library {
         }
         // Saves from earlier versions that are past the Undo window.
         let _ = self.prune_metadata_undo();
+        let _ = self.retire_incoming_originals();
         Ok(())
     }
 }

@@ -43,6 +43,19 @@ pub(super) struct FrozenRow {
     pub stage: Option<StoredStage>,
     #[serde(default)]
     pub undo: Option<UndoLink>,
+    /// Original pictures an Incoming save replaced or removed, kept as artwork assets so that
+    /// its Undo does not need the original audio. `None` until they have been kept.
+    #[serde(default)]
+    pub kept_pictures: Option<Vec<PreviousPicture>>,
+    /// The Incoming save was written and its original audio has been deleted.
+    #[serde(default)]
+    pub original_retired: bool,
+}
+/// An original picture kept for Undo: its place among the original pictures and its asset.
+#[derive(Clone, Serialize, Deserialize)]
+pub(super) struct PreviousPicture {
+    pub ordinal: usize,
+    pub asset_id: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct FrozenPreview {
@@ -293,6 +306,8 @@ impl MetadataEditService {
                 capture,
                 stage: None,
                 undo: None,
+                kept_pictures: None,
+                original_retired: false,
             };
             match self.stage_row(&row.capture, &patch, cancel) {
                 Ok((stage, after)) => {
