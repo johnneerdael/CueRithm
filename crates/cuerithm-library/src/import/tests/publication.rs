@@ -97,6 +97,239 @@ fn setup_observation(
         .clone();
     (f, op, id, path)
 }
+
+#[cfg(feature = "autotag")]
+#[test]
+fn import_duration_enrichment_matches_audio_without_adopting_its_duration() {
+    use cuerithm_autotag::*;
+    struct Catalog {
+        seconds: u64,
+        seen: std::sync::Arc<std::sync::Mutex<Vec<f64>>>,
+    }
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(
+            &self,
+            input: &TagInput,
+            _: &AutotagConfig,
+        ) -> anyhow::Result<Vec<CatalogMatch>> {
+            self.seen.lock().unwrap().push(input.duration_seconds);
+            Ok(vec![CatalogMatch::new(
+                1.0,
+                CatalogTrack {
+                    platform: "beatport".into(),
+                    title: "Catalog title".into(),
+                    duration: std::time::Duration::from_secs(self.seconds),
+                    ..Default::default()
+                },
+            )])
+        }
+    }
+    for seconds in [321, 1] {
+        let policy = ImportPolicy {
+            metadata_enrichment: EnrichmentPolicy {
+                enabled: true,
+                providers: vec!["beatport".into()],
+                fields: ["title".into()].into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (f, op, id, _) = setup_observation(
+            policy,
+            "wav",
+            "pcm_s16le",
+            |f| {
+                let mut settings = f.lib.settings().unwrap().settings;
+                let mut config = AutotagConfig::default();
+                config.options.match_duration = true;
+                config.options.max_duration_difference = 2;
+                settings.tagging = Some(config);
+                f.lib.save_settings(settings).unwrap();
+            },
+            |track| {
+                track
+                    .metadata
+                    .insert("duration".into(), Presence::Value(json!(321.0)));
+            },
+        );
+        let before = f.lib.imported_item(&id).unwrap().active_fields;
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let service = ImportProcessingService::start_with_tagger(
+            f.lib.clone(),
+            runtime(),
+            std::sync::Arc::new(
+                Tagger::with_backends(vec![std::sync::Arc::new(Catalog {
+                    seconds,
+                    seen: seen.clone(),
+                })])
+                .unwrap(),
+            ),
+        )
+        .unwrap();
+        let result = service.run_pending(&CancellationToken::default()).unwrap();
+        assert_eq!(
+            (result.processed, result.blocked, result.failed),
+            if seconds == 1 { (1, 0, 0) } else { (0, 1, 0) },
+            "candidate duration {seconds}"
+        );
+        assert_eq!(*seen.lock().unwrap(), vec![1.0]);
+        assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, before);
+        if seconds == 1 {
+            let preview = f
+                .lib
+                .preview_import_effects(&op, &CancellationToken::default())
+                .unwrap();
+            assert_eq!(preview.ready, 1);
+            f.lib
+                .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+                .unwrap();
+            assert_eq!(f.lib.track(&id).unwrap().title, "Catalog title");
+        }
+        assert_eq!(f.lib.track(&id).unwrap().duration, Some(321.0));
+        assert_eq!(
+            f.lib.imported_item(&id).unwrap().active_fields["metadata.duration"],
+            before["metadata.duration"]
+        );
+        assert!(f.lib.analysis(&id).unwrap().is_none());
+        assert!(f.lib.jobs().unwrap().is_empty());
+        assert_eq!(f.lib.cue_revision_count(&id).unwrap(), 0);
+    }
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn import_duration_enrichment_keeps_its_frozen_decoder_identity() {
+    use cuerithm_autotag::*;
+    struct Catalog(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+    impl ProviderBackend for Catalog {
+        fn id(&self) -> ProviderId {
+            ProviderId::Beatport
+        }
+        fn candidates(&self, _: &TagInput, _: &AutotagConfig) -> anyhow::Result<Vec<CatalogMatch>> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(vec![])
+        }
+    }
+    let (f, op, id, _) = setup_observation(
+        ImportPolicy {
+            metadata_enrichment: EnrichmentPolicy {
+                enabled: true,
+                providers: vec!["beatport".into()],
+                fields: ["title".into()].into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        "wav",
+        "pcm_s16le",
+        |f| {
+            drop(ImportProcessingService::start(f.lib.clone(), runtime()).unwrap());
+        },
+        |_| {},
+    );
+    let frozen: Option<String> = f.lib.conn().unwrap().query_row("SELECT json_extract(p.json,'$.processing.decoder_identity') FROM import_previews p JOIN import_operations o ON o.preview_id=p.id WHERE o.id=?1", [&op], |r| r.get(0)).unwrap();
+    assert_eq!(frozen.as_deref(), Some(runtime().identity.as_str()));
+    let before = f.lib.imported_item(&id).unwrap().active_fields;
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut changed = runtime();
+    changed.identity.push_str(":different");
+    let service = ImportProcessingService::start_with_tagger(
+        f.lib.clone(),
+        changed,
+        std::sync::Arc::new(
+            Tagger::with_backends(vec![std::sync::Arc::new(Catalog(calls.clone()))]).unwrap(),
+        ),
+    )
+    .unwrap();
+    let result = service.run_pending(&CancellationToken::default()).unwrap();
+    assert_eq!((result.processed, result.blocked, result.failed), (0, 1, 0));
+    let stages = f.lib.import_processing_stages(&op, None, 100).unwrap();
+    assert!(
+        stages.records[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Decoder changed after preview")
+    );
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, before);
+    assert!(f.lib.analysis(&id).unwrap().is_none());
+    assert!(f.lib.jobs().unwrap().is_empty());
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn import_duration_survives_file_preview_discard_apply_and_undo() {
+    for edit_local in [false, true] {
+        let (f, op, id, _) = setup_observation(
+            ImportPolicy {
+                write_audio_tags: ["title".into()].into(),
+                ..Default::default()
+            },
+            "wav",
+            "pcm_s16le",
+            |_| {},
+            |track| {
+                track
+                    .metadata
+                    .insert("duration".into(), Presence::Value(json!(321.0)));
+            },
+        );
+        assert_eq!(f.lib.track(&id).unwrap().duration, Some(321.0));
+        let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+        service.run_pending(&CancellationToken::default()).unwrap();
+        let preview = f
+            .lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(preview.ready, 1);
+        assert_eq!(f.lib.track(&id).unwrap().duration, Some(321.0));
+        f.lib.discard_import_preview(&preview.preview_id).unwrap();
+        assert_eq!(f.lib.track(&id).unwrap().duration, Some(321.0));
+        if edit_local {
+            f.lib
+                .conn()
+                .unwrap()
+                .execute("UPDATE tracks SET duration=444 WHERE id=?1", [&id])
+                .unwrap();
+        }
+        let preview = f
+            .lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(preview.ready, 1);
+        f.lib
+            .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            f.lib.track(&id).unwrap().duration,
+            Some(if edit_local { 444.0 } else { 321.0 })
+        );
+        if edit_local {
+            f.lib
+                .conn()
+                .unwrap()
+                .execute("UPDATE tracks SET duration=555 WHERE id=?1", [&id])
+                .unwrap();
+        }
+        let undo = f
+            .lib
+            .undo_import_operation(&op, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(undo.blocked, u64::from(edit_local), "{:?}", undo.errors);
+        assert_eq!(
+            f.lib.track(&id).unwrap().duration,
+            Some(if edit_local { 555.0 } else { 321.0 })
+        );
+        assert!(f.lib.analysis(&id).unwrap().is_none());
+        assert!(f.lib.jobs().unwrap().is_empty());
+        assert_eq!(f.lib.cue_revision_count(&id).unwrap(), 0);
+    }
+}
+
 #[test]
 fn review_fix_unrelated_native_edits_survive_effect_publication_and_undo() {
     let policy = ImportPolicy {

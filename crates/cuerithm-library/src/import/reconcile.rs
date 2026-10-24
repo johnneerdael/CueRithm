@@ -77,10 +77,11 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
         Option<String>,
         Option<f64>,
         Option<u8>,
+        Option<f64>,
         String,
     );
-    let row:Option<NativeFields>=conn.query_row("SELECT title,artist,album,genre,musical_key,bpm,energy,metadata_json FROM tracks WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?))).optional()?;
-    if let Some((title, artist, album, genre, key, bpm, energy, metadata)) = row {
+    let row:Option<NativeFields>=conn.query_row("SELECT title,artist,album,genre,musical_key,bpm,energy,duration,metadata_json FROM tracks WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?))).optional()?;
+    if let Some((title, artist, album, genre, key, bpm, energy, duration, metadata)) = row {
         let shadow = super::native_shadow::load(conn, id)?;
         let artist_imported =
             fields.contains_key("metadata.artist") || fields.contains_key("metadata.artists");
@@ -168,6 +169,18 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
                 ),
             );
         }
+        let expected_duration = fields
+            .get("metadata.duration")
+            .and_then(super::projection::duration_value);
+        if expected_duration != duration {
+            fields.insert(
+                "metadata.duration".into(),
+                duration.map_or_else(
+                    || json!({"presence":"null"}),
+                    |duration| json!({"presence":"value","value":duration}),
+                ),
+            );
+        }
         let metadata =
             super::native_shadow::metadata_fields(&serde_json::from_str::<Value>(&metadata)?);
         let names: std::collections::BTreeSet<String> = metadata
@@ -182,7 +195,7 @@ pub(crate) fn local_fields(conn: &Connection, id: &str) -> Result<BTreeMap<Strin
         for name in names {
             if matches!(
                 name.as_str(),
-                "title" | "artist" | "artists" | "album" | "genre" | "genres"
+                "title" | "artist" | "artists" | "album" | "genre" | "genres" | "duration"
             ) {
                 continue;
             }

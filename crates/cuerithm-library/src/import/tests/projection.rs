@@ -193,6 +193,100 @@ fn raw_imported_key_falls_back_after_unusable_camelot_values() {
 }
 
 #[test]
+fn import_duration_native_projection_recovery_and_local_edits_use_accepted_values() {
+    for (source_duration, expected) in [
+        (Presence::Value(json!(321.0)), Some(321.0)),
+        (Presence::Null, None),
+        (Presence::Absent, Some(12.0)),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let lib = Library::open(&dir.path().join("library.db")).unwrap();
+        lib.conn().unwrap().execute("INSERT INTO tracks(id,path,title,duration,metadata_json,source_hash,state,created,updated) VALUES('existing',NULL,'Local',12,'{\"duration\":999}',NULL,'imported',1,1)", []).unwrap();
+        let mut track = observation("a", "Source");
+        track
+            .metadata
+            .insert("duration".into(), source_duration.clone());
+        let (inspection, _root) = inspect(&lib, vec![track.clone()], vec![]);
+        publish(
+            &lib,
+            &inspection,
+            &track,
+            "existing",
+            &ImportPolicy::default(),
+            Some("existing"),
+        );
+        assert_eq!(lib.track("existing").unwrap().duration, expected);
+        let fields = lib.imported_item("existing").unwrap().active_fields;
+        if !matches!(source_duration, Presence::Absent) {
+            assert_eq!(
+                fields["metadata.duration"],
+                serde_json::to_value(source_duration).unwrap()
+            );
+        }
+        lib.conn()
+            .unwrap()
+            .execute("UPDATE tracks SET duration=444 WHERE id='existing'", [])
+            .unwrap();
+        let edited = lib.imported_item("existing").unwrap().active_fields;
+        assert_eq!(
+            edited["metadata.duration"],
+            json!({"presence":"value","value":444.0})
+        );
+        super::super::recovery::sync_projection(&lib.conn().unwrap(), "existing", &edited).unwrap();
+        assert_eq!(lib.track("existing").unwrap().duration, Some(444.0));
+        super::super::recovery::sync_projection(
+            &lib.conn().unwrap(),
+            "existing",
+            &BTreeMap::from([("metadata.duration".into(), json!({"presence":"absent"}))]),
+        )
+        .unwrap();
+        assert_eq!(lib.track("existing").unwrap().duration, Some(444.0));
+        super::super::recovery::sync_projection(
+            &lib.conn().unwrap(),
+            "existing",
+            &BTreeMap::from([("metadata.duration".into(), json!({"presence":"null"}))]),
+        )
+        .unwrap();
+        assert_eq!(lib.track("existing").unwrap().duration, None);
+        lib.conn()
+            .unwrap()
+            .execute("UPDATE tracks SET duration=555 WHERE id='existing'", [])
+            .unwrap();
+        super::super::recovery::sync_projection(&lib.conn().unwrap(), "existing", &BTreeMap::new())
+            .unwrap();
+        assert_eq!(lib.track("existing").unwrap().duration, Some(555.0));
+    }
+}
+
+#[test]
+fn import_duration_cached_summary_accepts_only_nonnegative_numbers() {
+    for (value, expected) in [
+        (json!(321.0), Some(321.0)),
+        (json!(0.0), Some(0.0)),
+        (json!(-1.0), None),
+        (json!("321"), None),
+        (json!(null), None),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let lib = Library::open(&dir.path().join("library.db")).unwrap();
+        let mut track = observation("a", "Source");
+        track
+            .metadata
+            .insert("duration".into(), Presence::Value(value));
+        let (inspection, _root) = inspect(&lib, vec![track.clone()], vec![]);
+        publish(
+            &lib,
+            &inspection,
+            &track,
+            "imported",
+            &ImportPolicy::default(),
+            None,
+        );
+        assert_eq!(lib.track("imported").unwrap().duration, expected);
+    }
+}
+
+#[test]
 fn raw_imported_key_survives_cached_summary() {
     let dir = tempfile::tempdir().unwrap();
     let lib = Library::open(&dir.path().join("library.db")).unwrap();

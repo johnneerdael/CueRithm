@@ -274,12 +274,24 @@ impl ImportProcessingService {
         if let Some(reason) = &stage.blocker {
             return Err(BlockedStage(reason.clone()).into());
         }
+        if (stage.selection.any() || stage.name == "metadata.enrichment")
+            && frozen
+                .decoder_identity
+                .as_ref()
+                .is_some_and(|expected| expected != &self.runtime.identity)
+        {
+            return Err(
+                BlockedStage("Decoder changed after preview; create a new preview".into()).into(),
+            );
+        }
         if !stage.selection.any() {
             return super::optional::execute(
                 stage,
                 super::optional::OptionalContext {
                     library: &self.library,
                     runtime: &self.runtime,
+                    #[cfg(feature = "autotag")]
+                    audio,
                     #[cfg(feature = "autotag")]
                     tagger: self.tagger.as_deref(),
                 },
@@ -288,15 +300,6 @@ impl ImportProcessingService {
                 media,
                 fields,
                 cancel,
-            );
-        }
-        if frozen
-            .decoder_identity
-            .as_ref()
-            .is_some_and(|expected| expected != &self.runtime.identity)
-        {
-            return Err(
-                BlockedStage("Decoder changed after preview; create a new preview".into()).into(),
             );
         }
         let media = media.ok_or_else(|| BlockedStage("Imported media is unresolved".into()))?;

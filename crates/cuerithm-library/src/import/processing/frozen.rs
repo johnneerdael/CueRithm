@@ -82,11 +82,22 @@ pub(crate) fn freeze(
         .and_then(|s| s.tagging.as_ref())
         .map(serde_json::to_value)
         .transpose()?;
+    let decoder_identity = if selected.any() || policy.metadata_enrichment.enabled {
+        lib.inner
+            .import_runtime
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
+            .decoder_identity
+            .clone()
+    } else {
+        None
+    };
     if !selected.any() {
         return Ok(FrozenProcessing {
             cleanup,
             optional_error,
             tagging,
+            decoder_identity,
             processing_sha256: policy.requires_processing().then(implementation_sha256),
             ..Default::default()
         });
@@ -147,13 +158,7 @@ pub(crate) fn freeze(
         tagging,
         settings_revision: Some(snapshot.revision),
         models,
-        decoder_identity: lib
-            .inner
-            .import_runtime
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Import runtime interrupted"))?
-            .decoder_identity
-            .clone(),
+        decoder_identity,
         engine_source_sha256: Some(camelot_core::analysis::engine_source_sha256()),
         processing_sha256: Some(implementation_sha256()),
         publication_sha256: selected

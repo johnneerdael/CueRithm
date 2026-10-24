@@ -843,3 +843,28 @@ all library import unit tests 134 passed; desktop library unit tests 37 passed /
 Workspace release build, formatting and all-target Clippy with `-D warnings`
 also pass. The broad workspace evidence above retains its original source scope;
 latest-commit review, CI and release gates still apply.
+### Duration propagation corrections
+
+Enrichment now uses the decoded PCM clock for duration matching and reuses the
+prepared audio with later selected stages. An imported accepted duration is a
+separate value: it is preserved through native projection, file-ownership
+promotion, preview discard, publication and supported Undo. Absent values leave
+native duration unchanged; explicit nulls can clear it. Typed native duration
+edits are detected independently from a raw metadata tag named `duration`.
+Enrichment-only policies also freeze decoder identity, and a changed decoder
+blocks the stage before any provider call. Cleanup and file stages retain their
+independence.
+
+The regressions first reproduced acceptance of a 321-second candidate for
+one-second audio, missing initial native projection, and duration disappearing
+at preview. Five focused controls now pass, including wrong/correct catalog
+lengths, unchanged imported duration, absent/null/zero/invalid values, later
+local edits, preview discard, guarded Undo and decoder replacement. There is no
+new analysis, cue generation or automatic adoption of measured duration.
+
+Fresh checks: all 138 import unit tests pass; all 76 tests across public import
+acceptance, native import, library backup and portable identity pass; desktop
+library unit tests pass 37 with one ignored. Workspace formatting, Clippy with
+`-D warnings` for both workspace and untagged library targets, and workspace
+release build pass. Three tag-only maintenance helpers were feature-gated to
+keep the untagged build warning-free while retaining their unit tests.

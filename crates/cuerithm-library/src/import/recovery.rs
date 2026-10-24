@@ -235,6 +235,7 @@ fn write_active(
             "key" => Some(("musical_key", true)),
             "bpm" => Some(("bpm", true)),
             "energy" => Some(("energy", true)),
+            "metadata.duration" => Some(("duration", true)),
             "metadata.title" => Some(("title", false)),
             "metadata.artist" | "metadata.artists" => Some(("artist", false)),
             "metadata.album" => Some(("album", false)),
@@ -268,6 +269,9 @@ pub(crate) fn sync_projection(
         |r| r.get(0),
     )?;
     if native {
+        if let Some(value) = fields.get("metadata.duration") {
+            super::projection::project_duration_tx(conn, id, value)?;
+        }
         for (field, value) in fields {
             let column = match field.as_str() {
                 "metadata.title" => "title",

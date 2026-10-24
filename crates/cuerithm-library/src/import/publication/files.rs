@@ -144,12 +144,15 @@ impl Library {
             .probe_cancellable(&media.path, cancel)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
-        tx.execute("INSERT INTO tracks(id,path,title,source_hash,state,metadata_json,duration,created,updated) VALUES(?1,?2,'',?3,'imported',?4,?5,?6,?6)",params![id,path_bytes(&media.path),media.sha256,serde_json::to_string(&info)?,Option::<f64>::None,now()])?;
+        let fields = super::super::projection::active_fields_tx(&tx, id)?;
+        let duration = fields
+            .get("metadata.duration")
+            .and_then(super::super::projection::duration_value);
+        tx.execute("INSERT INTO tracks(id,path,title,source_hash,state,metadata_json,duration,created,updated) VALUES(?1,?2,'',?3,'imported',?4,?5,?6,?6)",params![id,path_bytes(&media.path),media.sha256,serde_json::to_string(&info)?,duration,now()])?;
         tx.execute(
             "UPDATE import_items SET local_track_id=id WHERE id=?1 AND local_track_id IS NULL",
             [id],
         )?;
-        let fields = super::super::projection::active_fields_tx(&tx, id)?;
         super::super::recovery::sync_projection(&tx, id, &fields)?;
         super::super::native_shadow::capture_owned(&tx, id)?;
         tx.commit()?;
@@ -434,6 +437,7 @@ impl Library {
                         | "metadata.album"
                         | "metadata.genre"
                         | "metadata.genres"
+                        | "metadata.duration"
                         | "key"
                         | "bpm"
                         | "energy"

@@ -281,6 +281,20 @@ pub(crate) fn key_text(value: &Value) -> Option<&str> {
         .and_then(Value::as_str)
         .or_else(|| value.get("raw").and_then(Value::as_str))
 }
+pub(crate) fn duration_value(value: &Value) -> Option<f64> {
+    present_value(value)
+        .and_then(Value::as_f64)
+        .filter(|duration| duration.is_finite() && *duration >= 0.0)
+}
+pub(crate) fn project_duration_tx(conn: &Connection, id: &str, value: &Value) -> Result<()> {
+    if value.get("presence").and_then(Value::as_str) != Some("absent") {
+        conn.execute(
+            "UPDATE tracks SET duration=?1,updated=?2 WHERE id=?3",
+            params![duration_value(value), now(), id],
+        )?;
+    }
+    Ok(())
+}
 pub(crate) fn active_fields_tx(conn: &Connection, id: &str) -> Result<BTreeMap<String, Value>> {
     let mut query=conn.prepare("SELECT field,value_json FROM import_active_fields WHERE item_id=?1 AND field NOT LIKE '\\_%' ESCAPE '\\' ORDER BY field")?;
     query
@@ -321,10 +335,7 @@ fn cached_summary(conn: &Connection, id: &str) -> Result<Value> {
         .get("library.archived")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let duration = fields
-        .get("metadata.duration")
-        .and_then(present_value)
-        .and_then(Value::as_f64);
+    let duration = fields.get("metadata.duration").and_then(duration_value);
     let metadata: BTreeMap<_, _> = fields
         .iter()
         .filter_map(|(k, v)| {
@@ -423,6 +434,9 @@ pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>)
                     "UPDATE tracks SET musical_key=?1,updated=?2 WHERE id=?3",
                     params![key_text(value), now(), id],
                 )?;
+            }
+            if field == "metadata.duration" {
+                project_duration_tx(conn, id, value)?;
             }
             if field == "bpm" {
                 conn.execute(

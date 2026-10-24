@@ -5,6 +5,8 @@ pub(super) struct OptionalContext<'a> {
     pub library: &'a Library,
     pub runtime: &'a MediaRuntime,
     #[cfg(feature = "autotag")]
+    pub audio: &'a mut Option<cuerithm_media::PreparedAudio>,
+    #[cfg(feature = "autotag")]
     pub tagger: Option<&'a cuerithm_autotag::Tagger>,
 }
 pub(super) fn execute(
@@ -148,7 +150,19 @@ fn enrich(
     media
         .validate(cancel)
         .map_err(|e| service::BlockedStage(e.to_string()))?;
-    let mut info = context.runtime.probe_cancellable(&media.path, cancel)?;
+    if context.audio.is_none() {
+        *context.audio = Some(context.runtime.decode_cancellable(
+            &media.path,
+            &context.library.data_dir().join("import-media-cache"),
+            cancel,
+        )?);
+    }
+    let audio = context.audio.as_ref().expect("prepared media initialized");
+    ensure!(
+        Some(&audio.source_sha256) == media.sha256.as_ref(),
+        "Decoded source differs from the frozen import media"
+    );
+    let mut info = audio.info.clone();
     info.tags.clear();
     for (field, value) in fields {
         if let Some(name) = field.strip_prefix("metadata.") {
@@ -187,7 +201,7 @@ fn enrich(
         path: media.path.clone(),
         source_sha256: media.sha256.clone().context("Missing media")?,
         media: info,
-        duration_seconds: 0.0,
+        duration_seconds: audio.clock.duration_seconds(),
     };
     let outcome = tagger
         .match_track_cancellable(&input, &config, &cancel.shared_flag())
