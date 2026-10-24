@@ -63,7 +63,7 @@ fn a_sync_made_before_the_upgrade_can_still_be_restored_and_its_ledger_is_lean()
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        30
+        31
     );
     drop(connection);
     let lean_size = serde_json::to_string(&op.ledger_before).unwrap().len();
