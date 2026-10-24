@@ -966,3 +966,13 @@ non-Windows sync statements remain unchanged. The matching existing public
 reader tests are the regression coverage; Windows engine and desktop CI are
 the verification gates for this repair. Formatting, diff check and independent
 focused review passed; no extra local test suite was started.
+
+The first Windows repair passed all 12 DJ.Studio reader controls. The engine run
+then reached a separate M3U identity failure: three equivalent absolute Windows
+path spellings produced two tracks. On Windows, native path bytes had bypassed
+the normalized source identity already used for foreign Windows references.
+The Windows branch now prefers that existing normalized identity when present;
+raw locations, three playlist occurrences and non-Windows behavior are retained.
+The existing failing Windows M3U regression remains the verification control.
+Formatting, diff check and independent focused review passed; only affected
+Windows engine/desktop components are retried from the original checked baseline.
