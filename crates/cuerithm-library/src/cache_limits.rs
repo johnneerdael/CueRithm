@@ -173,6 +173,21 @@ mod tests {
     }
     const MIB: u64 = 1024 * 1024;
 
+    /// Sets a folder's modified time. Windows opens a folder only with backup semantics and
+    /// changes its times only with write-attributes access; elsewhere a plain open is enough.
+    fn set_folder_modified(path: &Path, modified: SystemTime) {
+        let mut options = std::fs::File::options();
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            // FILE_WRITE_ATTRIBUTES, FILE_FLAG_BACKUP_SEMANTICS.
+            options.access_mode(0x100).custom_flags(0x0200_0000);
+        }
+        #[cfg(not(windows))]
+        options.read(true);
+        options.open(path).unwrap().set_modified(modified).unwrap();
+    }
+
     #[test]
     fn the_waveform_cache_stays_under_its_limit_by_dropping_the_least_recently_used() {
         let dir = tempfile::tempdir().unwrap();
@@ -239,10 +254,7 @@ mod tests {
             std::fs::create_dir(folder).unwrap();
             std::fs::write(folder.join("work"), b"scratch").unwrap();
         }
-        std::fs::File::open(&old)
-            .unwrap()
-            .set_modified(SystemTime::now() - Duration::from_secs(3 * 24 * 3600))
-            .unwrap();
+        set_folder_modified(&old, SystemTime::now() - Duration::from_secs(3 * 24 * 3600));
         let trim = sweep_scratch(dir.path(), SCRATCH_MAX_AGE);
         assert_eq!(trim.files_removed, 1);
         assert_eq!(trim.bytes_freed, 7);
@@ -259,10 +271,7 @@ mod tests {
         let scratch = lib.data_dir().join("cache/fingerprints/crashed");
         std::fs::create_dir_all(&waves).unwrap();
         std::fs::create_dir_all(&scratch).unwrap();
-        std::fs::File::open(&scratch)
-            .unwrap()
-            .set_modified(SystemTime::now() - Duration::from_secs(48 * 3600))
-            .unwrap();
+        set_folder_modified(&scratch, SystemTime::now() - Duration::from_secs(48 * 3600));
         for n in 0..3u8 {
             std::fs::write(waves.join(name(n)), b"{}").unwrap();
         }
