@@ -998,3 +998,16 @@ text-only handover pack. Checking out its 22 manifested artifacts with
 `core.autocrlf=true` preserves all 304,463 original bytes and every SHA-256;
 the manifest and integrity assertions are unchanged. Windows CI verifies the
 repair; no Rust or frontend suite is run locally for this checkout correction.
+
+Windows CI then passed the complete eight-test model target, including the
+unchanged author-pack integrity check. Two path-mapping controls next failed
+because their local roots used Unix-only absolute paths. Their Windows fixtures
+now use drive-qualified roots; Unix fixture values are unchanged. The unmatched
+`Musical` prefix still cannot select the `Music` mapping, while Windows retains
+its existing native-path fallback. Longest-prefix, Unicode, UNC URI and traversal
+assertions remain in place. Production resolution and validation are unchanged.
+Only Windows engine CI retries for this test-only repair; it now continues
+through failing test targets before returning failure, so one run can report
+failures across the remaining targets. No target is skipped and publication
+still requires success. Formatting and diff checks pass; no local test suite is
+run.
