@@ -518,8 +518,9 @@ impl Library {
         let _lease = service_lock(&root)?;
         let transaction = FileTransaction::open(&root, id)?;
         let mut saved = read_library_journal(&transaction)?;
+        // A sync that has been restored needs no backup to finish or repeat its restore.
         ensure!(
-            !saved.restore_expired,
+            !saved.restore_expired || transaction.inspect()?.state == JournalState::Restored,
             "This sync is older than the {} kept for restore, so its backup was removed",
             RESTORE_LIMIT
         );

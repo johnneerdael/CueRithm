@@ -1658,7 +1658,16 @@ mod tests {
     #[test]
     fn interrupted_undo_recovers_to_the_committed_after_state_and_can_be_retried() {
         let (dir, lib, runtime, preview, path, target) = fixture();
-        let original = cuerithm_media::file_sha256(&path).unwrap();
+        // Undo writes the recorded tags back; the audio and the tags are what must return.
+        let content = |path: &std::path::Path| {
+            let audio = runtime
+                .decode_cancellable(path, dir.path(), &CancellationToken::default())
+                .unwrap();
+            let tags = cuerithm_autotag::read_transfer_metadata(&audio.snapshot_path, &audio.info)
+                .unwrap();
+            (audio.pcm_sha256().unwrap(), tags)
+        };
+        let original = content(&path);
         let mut service = DuplicateMergeService::new(lib.clone(), runtime.clone());
         let applied = service
             .apply(&preview.id, &CancellationToken::default())
@@ -1676,10 +1685,10 @@ mod tests {
         let lib = Library::open(&dir.path().join("app/library.sqlite")).unwrap();
         assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), after);
         assert_eq!(lib.track(&target).unwrap().title, "Donor");
-        DuplicateMergeService::new(lib, runtime)
+        DuplicateMergeService::new(lib, runtime.clone())
             .undo(&applied.id, &CancellationToken::default())
             .unwrap();
-        assert_eq!(cuerithm_media::file_sha256(&path).unwrap(), original);
+        assert_eq!(content(&path), original);
     }
     struct MustNotRun;
     impl FileTrash for MustNotRun {

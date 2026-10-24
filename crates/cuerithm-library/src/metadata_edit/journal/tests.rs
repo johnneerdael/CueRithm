@@ -574,6 +574,13 @@ fn a_save_from_an_earlier_version_keeps_its_original_bound_to_the_library_backup
         .publish_write(&id, &CancellationToken::default())
         .unwrap();
     assert_eq!(service.finish_batch(&batch).unwrap().state, "saved");
+    // The fixture's preparation job never runs; a backup waits for preparation to finish.
+    service
+        .library
+        .conn()
+        .unwrap()
+        .execute("UPDATE jobs SET state='completed'", [])
+        .unwrap();
     let destination = temp.path().join("backups");
     let backup = service.library.create_library_backup(&destination).unwrap();
     let original = service
