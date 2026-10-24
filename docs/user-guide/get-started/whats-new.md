@@ -1,6 +1,6 @@
 # What's new in CueRithm
 
-<p class="lead">The eight most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
+<p class="lead">The most recent releases, newest first, in plain words and grouped by what they let you do. Every item links to the page that explains it. Reading it takes about five minutes.</p>
 
 CueRithm is pre-1.0 software. The version you have is the `version` in the line printed by the [built-in check](install.md#check-that-the-install-is-healthy). To get a newer one, follow [Update to a newer version](install.md#update); the full text of every release, with its downloads, is on the [releases page](https://github.com/johnneerdael/CueRithm/releases).
 
@@ -8,6 +8,11 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 
 | You want to… | Arrived in | Guide |
 |---|---|---|
+| Keep CueRithm's own data small | 0.1.19 | [Where CueRithm keeps your data](../files/library/where-data-lives.md#space) |
+| Put unused files back from the Trash | 0.1.19 | [Find and remove unused files](../files/library/clean-up-unused-files.md#remove) |
+| Bring a DJ library into Tracks and refresh it | 0.1.18 | [Import a DJ library](../files/import-library.md) |
+| Choose what happens to extra copies | 0.1.17 | [Delete the extra files instead](../files/library/find-duplicates.md#delete) |
+| Undo your last ten removals | 0.1.17 | [Your last 10 merges and removals](../files/library/undo-maintenance.md#window) |
 | Reconnect moved files when a folder or drive changes | 0.1.16 | [Find missing, moved or broken files](../files/library/find-missing-files.md#relocate) |
 | Take your library to another computer | 0.1.16 | [Back up your library](../files/library/back-up-library.md) and [Restore your library from a backup](../files/library/restore-library.md) |
 | Bring preparation in from a Lexicon backup | 0.1.16 | [Import a Lexicon backup](../files/library/restore-library.md#lexicon) |
@@ -25,6 +30,32 @@ CueRithm is pre-1.0 software. The version you have is the `version` in the line 
 | Save presets and use them per folder | 0.1.10 | [Save your setup as a preparation preset](../files/presets.md) |
 | Tag from more catalogs | 0.1.10 | [Choose providers and fields to write](../tagging/choose-providers.md) |
 | Rename and sort files | 0.1.9 | [Rename and sort files into folders](../rename/organize-files.md) |
+
+## Version 0.1.19: a much smaller library { #v0-1-19 }
+
+Released 24 October 2026.
+
+- **A much smaller library.** CueRithm keeps your tags, links and artwork, and no longer keeps a copy of your music once a change is finished. A library that had grown to several hundred megabytes shrinks to a few tens, and copies that earlier versions left behind are cleaned up when CueRithm starts: [Where CueRithm keeps your data](../files/library/where-data-lives.md#space) and [How is the library stored?](../how-it-works/library.md#backups).
+- **Undo covers your ten latest changes.** Merges, removals, cleanups, tag edits and syncs for each DJ program keep Undo for the ten newest. Undo puts back the tags it recorded rather than a copy of the file: [Undo a merge or put back removed files](../files/library/undo-maintenance.md#window). A rekordbox sync made before this update can still be restored while it is among the ten newest for that library.
+- **Unused files go to the Trash.** Removing unused files from Maintenance moves them to the Trash or Recycle Bin, where you can put them back, instead of deleting them and keeping a second copy inside CueRithm: [Find and remove unused files](../files/library/clean-up-unused-files.md#remove).
+- **Saved scans and caches have limits.** CueRithm keeps the newest few saved scans and reviews, and the waveform cache stays under a size limit instead of growing for ever.
+
+## Version 0.1.18: bring your DJ library into Tracks { #v0-1-18 }
+
+Released 24 October 2026.
+
+- **Bring your existing DJ library into Tracks.** Import tracks and browse imported playlists while keeping the source values. The readers were checked with authored fixtures; acceptance in the original DJ applications and on devices is not verified yet: [Import a DJ library](../files/import-library.md) and [Browse imported playlists](../files/import-library.md#browse-imported-playlists).
+- **Choose what changes during import.** Analysis, cue generation and replacement, retagging, audio-tag writes and file naming are independent choices and start off. Review the tag changes and file paths before you apply anything optional: [Choose values and optional processing](../files/import-library.md#choose-values-and-optional-processing).
+- **Refresh while protecting your edits.** Review source changes next to your own edits, keep the fields you leave unchecked, and undo supported changes: [Refresh, retry and recover](../files/import-library.md#refresh-retry-and-recover). For a library with imported records, use a same-installation snapshot; the portable `.cuerithm` export says it cannot carry those records yet.
+
+## Version 0.1.17: duplicates you can trust, with Undo { #v0-1-17 }
+
+Released 23 October 2026.
+
+- **Duplicates only shows music you can play.** Tracks whose file is missing, or on a drive that is not connected, are no longer grouped or merged. A note says how many were left out and points you to Missing & broken: [Find and merge duplicate tracks](../files/library/find-duplicates.md).
+- **You choose what happens to the extra copies.** *Delete from disk* moves each verified identical copy to the Trash or Recycle Bin. *Archive only* leaves every file where it is. Nothing is preselected. If a file cannot go to the Trash, the preview names it, and it is deleted permanently only after you confirm that: [Delete the extra files instead](../files/library/find-duplicates.md#delete).
+- **Undo your last 10 removals.** Deleting merges and Missing & broken removals share one Undo list. Undo brings back cues, tags, playlist positions and the cover, and will not overwrite anything that changed since: [Your last 10 merges and removals](../files/library/undo-maintenance.md#window).
+- **A leaner library.** Removing music also removes its cached waveforms, fingerprints, analysis results and saved scans that listed it. The cover is kept until the removal can no longer be undone.
 
 ## Version 0.1.16: reconnect moved music and move your library { #v0-1-16 }
 
@@ -158,4 +189,4 @@ Versions 0.1.0 to 0.1.8 are on the [releases page](https://github.com/johnneerda
 - [Send your library to DJ software](../sync/index.md) collects the sync features in one place.
 - [Pick the right guide for your goal](choose-your-path.md) maps every feature to its page.
 
-<!-- verified: gh release view v0.1.16, v0.1.15, v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->
+<!-- verified: gh release view v0.1.19, v0.1.18, v0.1.17, v0.1.16, v0.1.15, v0.1.13, v0.1.12, v0.1.11, v0.1.10 and v0.1.9 (body and publishedAt; wording follows the published notes, internal and commit lists omitted); gh pr view 39 (merged 2026-10-23, release-notes section only, not in v0.1.13 per gh release list); no auto-update confirmed in apps/desktop/src-tauri/src/lib.rs (no updater plugin); linked pages exist in docs/user-guide on this branch; help/compatibility.md and sync/rekordbox-direct.md for the current rekordbox build rule. -->
