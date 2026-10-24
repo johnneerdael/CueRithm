@@ -72,6 +72,7 @@ pub use match_evidence::PreparationMatchSnapshot;
 pub use organization_references::{
     OrganizationReferenceGuard, OrganizationReferenceInfo, OrganizationReferenceSnapshot,
 };
+mod cache_limits;
 mod lean;
 mod legacy_originals;
 pub use legacy_originals::OriginalsSweep;

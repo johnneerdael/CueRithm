@@ -387,6 +387,8 @@ impl Library {
         // The restore copies of syncs older than the ten kept for each DJ program.
         let _ = lib.prune_rekordbox_sync_history();
         let _ = lib.prune_dj_sync_history();
+        // Waveforms of bytes that have since changed, and scratch folders a crash left behind.
+        lib.trim_caches();
         // A log left by a process that was killed can be as large as its last transaction,
         // and an older library holds space that its earlier versions never gave back.
         lib.reclaim_storage_when_worthwhile();
