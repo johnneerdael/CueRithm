@@ -64,6 +64,7 @@ pub(crate) fn owned_regular_file(data: &Path, area: &str, path: &Path) -> Option
 }
 
 /// Removes the originals a dropped journal named, if they are files this application owns.
+#[cfg_attr(not(feature = "autotag"), allow(dead_code))]
 pub(crate) fn remove_owned_originals(lib: &Library, area: &str, backups: &[Vec<u8>]) {
     let Ok(data) = lib.data_dir().canonicalize() else {
         return;
