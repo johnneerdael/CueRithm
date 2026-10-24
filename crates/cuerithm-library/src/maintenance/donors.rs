@@ -372,7 +372,7 @@ fn finish(
             return Ok(());
         }
     }
-    match cleanup_temporaries(&artifacts, lib.data_dir()) {
+    match cleanup_temporaries(&artifacts, lib.data_dir(), false) {
         Ok(()) => {
             lib.conn()?.execute(
                 "UPDATE maintenance_writes SET cleanup_complete=1 WHERE id=?1",

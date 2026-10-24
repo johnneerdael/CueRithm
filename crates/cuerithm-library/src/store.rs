@@ -376,6 +376,8 @@ impl Library {
         {
             lib.recover_metadata_edits()?;
             lib.recover_artifact_cleanup(100)?;
+            // Cleanup previews and Undo journals that earlier versions never trimmed.
+            let _ = lib.prune_cleanup();
         }
         lib.recover_curation()?;
         let _ = lib.cleanup_relocation_indexes();

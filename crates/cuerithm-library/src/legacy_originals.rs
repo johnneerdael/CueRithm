@@ -23,19 +23,41 @@ pub struct OriginalsSweep {
     pub more_to_do: bool,
 }
 
-/// The data folder's private areas the tag-write family keeps its workspaces in.
-const AREAS: [&str; 1] = ["tagging"];
-
-fn owned_regular_file(data: &Path, path: &Path) -> Option<u64> {
-    let area_ok = AREAS.iter().any(|area| {
-        data.join(area)
-            .canonicalize()
-            .ok()
-            .zip(path.parent().and_then(|p| p.canonicalize().ok()))
-            .is_some_and(|(area, parent)| parent.starts_with(area))
-    });
+/// The write kinds whose originals are no longer needed once they have settled: the table
+/// prefix, the private folder of the data folder their workspaces live in, and the states that
+/// count as settled. Earlier versions kept the original of every changed write in all of them.
+const FAMILIES: [(&str, &str, &str); 2] = [
+    ("tag", "tagging", "'committed','rolled_back'"),
+    ("cleanup", "cleanup", "'committed','rolled_back','undone'"),
+];
+fn owned_regular_file(data: &Path, area: &str, path: &Path) -> Option<u64> {
+    let in_area = data
+        .join(area)
+        .canonicalize()
+        .ok()
+        .zip(path.parent().and_then(|p| p.canonicalize().ok()))
+        .is_some_and(|(area, parent)| parent.starts_with(area));
     let meta = std::fs::symlink_metadata(path).ok()?;
-    (area_ok && meta.is_file() && !meta.file_type().is_symlink()).then_some(meta.len())
+    (in_area && meta.is_file() && !meta.file_type().is_symlink()).then_some(meta.len())
+}
+
+/// Removes the originals a dropped journal named, if they are files this application owns.
+pub(crate) fn remove_owned_originals(lib: &Library, area: &str, backups: &[Vec<u8>]) {
+    let Ok(data) = lib.data_dir().canonicalize() else {
+        return;
+    };
+    for backup in backups {
+        let Ok(path) = crate::model::bytes_path(backup) else {
+            continue;
+        };
+        if owned_regular_file(&data, area, &path).is_some()
+            && std::fs::remove_file(&path).is_ok()
+            && let Some(folder) = path.parent()
+            && data.join(area).canonicalize().ok() != folder.canonicalize().ok()
+        {
+            let _ = std::fs::remove_dir(folder);
+        }
+    }
 }
 
 impl Library {
@@ -44,14 +66,43 @@ impl Library {
         self.sweep_legacy_originals_with(SWEEP_JOURNALS_PER_START)
     }
     fn sweep_legacy_originals_with(&self, limit: usize) -> Result<OriginalsSweep> {
+        let mut total = OriginalsSweep::default();
+        for (prefix, area, states) in FAMILIES {
+            let part = self.sweep_family(prefix, area, states, limit)?;
+            total.files_removed += part.files_removed;
+            total.bytes_freed += part.bytes_freed;
+            total.more_to_do |= part.more_to_do;
+        }
+        if total.files_removed > 0 {
+            let conn = self.conn()?;
+            for (key, add) in [
+                ("lean_originals_removed_files", total.files_removed),
+                ("lean_originals_removed_bytes", total.bytes_freed),
+            ] {
+                conn.execute(
+                    "INSERT INTO meta(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value",
+                    params![key, add as i64],
+                )?;
+            }
+        }
+        Ok(total)
+    }
+
+    fn sweep_family(
+        &self,
+        prefix: &str,
+        area: &str,
+        states: &str,
+        limit: usize,
+    ) -> Result<OriginalsSweep> {
         let data = self.data_dir().canonicalize()?;
         let rows: Vec<(String, Vec<u8>, i64, Vec<u8>)> = {
             let conn = self.conn()?;
-            let mut stmt = conn.prepare(
-                "SELECT w.id,w.workspace,f.ordinal,f.backup FROM tag_write_files f JOIN tag_writes w ON w.id=f.write_id
-                  WHERE w.state IN ('committed','rolled_back') AND w.cleanup_complete=1 AND f.backup IS NOT NULL
-                  ORDER BY w.created,w.id,f.ordinal LIMIT ?1",
-            )?;
+            let mut stmt = conn.prepare(&format!(
+                "SELECT w.id,w.workspace,f.ordinal,f.backup FROM {prefix}_write_files f JOIN {prefix}_writes w ON w.id=f.write_id
+                  WHERE w.state IN ({states}) AND w.cleanup_complete=1 AND f.backup IS NOT NULL
+                  ORDER BY w.created,w.id,f.ordinal LIMIT ?1"
+            ))?;
             stmt.query_map([limit as i64 + 1], |r| {
                 Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
             })?
@@ -68,7 +119,7 @@ impl Library {
             ) else {
                 continue;
             };
-            let removed = match owned_regular_file(&data, &backup) {
+            let removed = match owned_regular_file(&data, area, &backup) {
                 Some(bytes) => match std::fs::remove_file(&backup) {
                     Ok(()) => Some(bytes),
                     Err(_) => continue,
@@ -82,29 +133,17 @@ impl Library {
                 sweep.bytes_freed += bytes;
             }
             self.conn()?.execute(
-                "UPDATE tag_write_files SET backup=NULL WHERE write_id=?1 AND ordinal=?2",
+                &format!(
+                    "UPDATE {prefix}_write_files SET backup=NULL WHERE write_id=?1 AND ordinal=?2"
+                ),
                 params![id, ordinal],
             )?;
             // The private folders go once nothing is left in them.
             let _ = std::fs::remove_dir(&workspace);
             if let Some(folder) = backup.parent()
-                && AREAS
-                    .iter()
-                    .all(|area| data.join(area).canonicalize().ok() != folder.canonicalize().ok())
+                && data.join(area).canonicalize().ok() != folder.canonicalize().ok()
             {
                 let _ = std::fs::remove_dir(folder);
-            }
-        }
-        if sweep.files_removed > 0 {
-            let conn = self.conn()?;
-            for (key, add) in [
-                ("lean_originals_removed_files", sweep.files_removed),
-                ("lean_originals_removed_bytes", sweep.bytes_freed),
-            ] {
-                conn.execute(
-                    "INSERT INTO meta(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value",
-                    params![key, add as i64],
-                )?;
             }
         }
         Ok(sweep)
@@ -237,5 +276,59 @@ mod tests {
             OriginalsSweep::default()
         );
         assert!(music.exists());
+    }
+
+    #[test]
+    fn the_originals_of_settled_cleanups_go_the_same_way() {
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+        let source = lib.data_dir().join("source.flac");
+        std::fs::write(&source, "source").unwrap();
+        lib.enqueue(
+            std::slice::from_ref(&source),
+            lib.settings().unwrap().revision,
+        )
+        .unwrap();
+        let track: String = lib
+            .conn()
+            .unwrap()
+            .query_row("SELECT id FROM tracks", [], |r| r.get(0))
+            .unwrap();
+        let folder = lib.data_dir().join("cleanup/cuerithm-tags-old");
+        std::fs::create_dir_all(&folder).unwrap();
+        let backup = folder.join("original.flac");
+        std::fs::write(&backup, vec![1u8; 2048]).unwrap();
+        {
+            let conn = lib.conn().unwrap();
+            conn.execute(
+                "INSERT INTO cleanup_batches VALUES('batch',NULL,NULL,'apply','complete','{}',0)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO cleanup_writes(id,batch_id,track_id,proposal_id,before_hash,after_hash,payload_json,workspace,state,created,cleanup_complete)
+                 VALUES('write','batch',?1,'p','a','b','{}',?2,'undone',0,1)",
+                params![track, crate::model::path_bytes(&folder)],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO cleanup_write_files VALUES('write',0,X'00',X'00',?1,'a','b',X'00',X'00')",
+                params![crate::model::path_bytes(&backup)],
+            )
+            .unwrap();
+        }
+        let swept = lib.sweep_legacy_originals().unwrap();
+        assert_eq!((swept.files_removed, swept.bytes_freed), (1, 2048));
+        assert!(!backup.exists() && !folder.exists());
+        let named: i64 = lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM cleanup_write_files WHERE backup IS NOT NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(named, 0);
     }
 }
