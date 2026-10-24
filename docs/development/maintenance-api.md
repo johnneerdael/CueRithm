@@ -380,7 +380,7 @@ that, and for how long. `docs/development/lean-library-audit.md` has the full ta
 | DJ-library record copies (`native_records`, `native_track_links`) | a hash for every record; the content only of the four playlist and MyTag tables and of tracks linked to a library track |
 | Caches | waveforms and cover art are rebuilt on demand and removed with the content they belong to |
 | SQLite write-ahead log | `journal_size_limit` 16 MiB, autocheckpoint every 1000 pages, a `TRUNCATE` checkpoint when the library opens, after a large import and on a clean exit |
-| Free pages in `library.sqlite` | new libraries use incremental auto-vacuum; an older one is converted once by a single `VACUUM` (only when the live data is up to 2 GiB and the disk has room for three times that plus 256 MiB), then freed in bounded steps |
+| Free pages in `library.sqlite` | new libraries use incremental auto-vacuum; an older one is converted once by a single `VACUUM` when it opens (only when the live data is up to 512 MiB, about a second, and the disk has room for three times that plus 256 MiB; `reclaim_storage` converts up to 2 GiB on request, and no app command calls it yet), then freed in bounded steps |
 
 Removing a track record purges everything derived from it (`maintenance/purge.rs` is the one
 list; `tests/removal_engine.rs` enumerates the schema and fails for a table that names a

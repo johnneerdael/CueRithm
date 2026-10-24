@@ -27,8 +27,27 @@ pub const WAL_AUTOCHECKPOINT_PAGES: i64 = 1000;
 
 /// Free pages handed back to the system in one step of [`Library::reclaim_storage`] (100 MiB).
 pub const RECLAIM_STEP_PAGES: i64 = 25_600;
-/// The one-time conversion rewrites the live data; it is only done for libraries up to this size.
+/// The one-time conversion rewrites the live data; the explicit reclaim does it for libraries up
+/// to this size.
 const CONVERSION_LIMIT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+/// While the library opens, the conversion runs before the window can appear, so it is held to
+/// a size that costs about a second. Measured on a fast SSD with the rewrite warm in the cache:
+/// 0.7 s for 256 MiB of live data and 2.4 s for 1 GiB, linear, so 2 GiB would be 5 s or more and
+/// longer on a slower disk. A larger library is converted by the explicit
+/// [`Library::reclaim_storage`].
+pub const OPEN_CONVERSION_LIMIT_BYTES: u64 = 512 * 1024 * 1024;
+#[cfg(test)]
+thread_local! {
+    /// A test cannot fill half a gigabyte; it stands in a smaller limit for the opening one.
+    static OPEN_LIMIT: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+fn open_conversion_limit() -> u64 {
+    #[cfg(test)]
+    if let Some(limit) = OPEN_LIMIT.with(|limit| limit.get()) {
+        return limit;
+    }
+    OPEN_CONVERSION_LIMIT_BYTES
+}
 /// A library whose free pages fall below this size is left alone by the automatic step.
 const WORTH_RECLAIMING_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -186,7 +205,9 @@ impl Library {
         if before.incremental_vacuum && before.free_bytes < WORTH_RECLAIMING_BYTES {
             return;
         }
-        let _ = reclaim(&mut conn, &path, &Limits::system(&path));
+        let mut limits = Limits::system(&path);
+        limits.conversion_bytes = open_conversion_limit();
+        let _ = reclaim(&mut conn, &path, &limits);
     }
 }
 
@@ -392,6 +413,25 @@ mod tests {
             "nothing was rewritten"
         );
         assert_eq!(pragma_i64(&conn, "auto_vacuum").unwrap(), 0);
+    }
+
+    #[test]
+    fn opening_leaves_a_big_old_library_unconverted_and_the_explicit_reclaim_converts_it() {
+        let d = tempfile::tempdir().unwrap();
+        let db = old_library_with_free_space(d.path(), 10);
+        let size = std::fs::metadata(&db).unwrap().len();
+        // The live data is over what opening may rewrite (a small limit stands in for the real
+        // one, which a test cannot afford to fill).
+        OPEN_LIMIT.with(|limit| limit.set(Some(1 << 10)));
+        let lib = Library::open(&db).unwrap();
+        OPEN_LIMIT.with(|limit| limit.set(None));
+        assert!(!lib.storage_report().unwrap().incremental_vacuum);
+        assert_eq!(std::fs::metadata(&db).unwrap().len(), size);
+        // The explicit reclaim is not held to the opening limit.
+        let done = lib.reclaim_storage().unwrap();
+        assert!(done.converted && lib.storage_report().unwrap().incremental_vacuum);
+        const { assert!(OPEN_CONVERSION_LIMIT_BYTES < CONVERSION_LIMIT_BYTES) };
+        assert_eq!(open_conversion_limit(), OPEN_CONVERSION_LIMIT_BYTES);
     }
 
     #[test]

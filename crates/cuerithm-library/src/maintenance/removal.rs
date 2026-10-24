@@ -1655,6 +1655,185 @@ mod tests {
         );
     }
 
+    /// A Trash that never answers: the app exits while the call is running.
+    struct Dies;
+    impl FileTrash for Dies {
+        fn move_to_trash(&self, _: &Path) -> std::result::Result<(), String> {
+            panic!("simulated exit during the Trash call");
+        }
+    }
+    fn hash_of(lib: &Library, id: &str) -> String {
+        load_operation(lib, id).unwrap().files[0]
+            .entry
+            .public
+            .source_sha256
+            .clone()
+    }
+
+    #[test]
+    fn a_copy_an_interrupted_start_left_in_its_trash_holder_is_found_and_trashed() {
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        let workspace = copy.parent().unwrap().to_owned();
+        // The app exits while the Trash call runs: the copy has been renamed into its holder.
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                legacy::retire_with(&s.lib, &Dies, 50)
+            }))
+            .is_err()
+        );
+        let holder = workspace.join(format!("trash-{}", &hash_of(&s.lib, &applied.id)[..16]));
+        assert!(holder.join("authored.flac").is_file() && !copy.exists());
+        // The next start finds it there.
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        let op = load_operation(&s.lib, &applied.id).unwrap();
+        assert!(op.backups_disposed && op.workspace.is_empty());
+        assert_eq!(op.files[0].disposal, Some(UnusedRemovalDisposal::Trashed));
+        assert!(!workspace.exists(), "the holder and the folder are gone");
+    }
+
+    #[test]
+    fn a_start_interrupted_again_in_the_holder_loses_nothing() {
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        let workspace = copy.parent().unwrap().to_owned();
+        for _ in 0..3 {
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    legacy::retire_with(&s.lib, &Dies, 50)
+                }))
+                .is_err()
+            );
+        }
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        assert!(!workspace.exists());
+    }
+
+    #[test]
+    fn a_holder_copy_the_trash_refuses_stays_in_its_holder_for_the_next_start() {
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        let workspace = copy.parent().unwrap().to_owned();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                legacy::retire_with(&s.lib, &Dies, 50)
+            }))
+            .is_err()
+        );
+        s.bin.refuse("authored.flac");
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert!(
+            !load_operation(&s.lib, &applied.id)
+                .unwrap()
+                .backups_disposed
+        );
+        s.bin.accept_again("authored.flac");
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        assert!(!workspace.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_removal_folder_that_cannot_be_read_is_left_for_the_next_start() {
+        use std::os::unix::fs::PermissionsExt;
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        let workspace = copy.parent().unwrap().to_owned();
+        // Searchable but not listable: the files can be reached by name, the folder cannot be read.
+        std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o333)).unwrap();
+        if std::fs::read_dir(&workspace).is_ok() {
+            // A privileged user ignores the mode: there is nothing to see.
+            std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o755)).unwrap();
+            return;
+        }
+        let resumed = s.lib.resume_unused_removals(&s.bin);
+        std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o755)).unwrap();
+        resumed.unwrap();
+        let op = load_operation(&s.lib, &applied.id).unwrap();
+        assert!(!op.backups_disposed && !op.workspace.is_empty());
+        assert_eq!(op.files[0].disposal, None, "not declared gone");
+        assert!(copy.exists() && s.bin.taken().len() == 1);
+        // Readable again at the next start: the copy goes to the Trash.
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        assert!(
+            load_operation(&s.lib, &applied.id)
+                .unwrap()
+                .backups_disposed
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_copy_that_cannot_be_read_leaves_the_removal_for_the_next_start() {
+        use std::os::unix::fs::PermissionsExt;
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        std::fs::set_permissions(&copy, std::fs::Permissions::from_mode(0o000)).unwrap();
+        if std::fs::File::open(&copy).is_ok() {
+            std::fs::set_permissions(&copy, std::fs::Permissions::from_mode(0o644)).unwrap();
+            return;
+        }
+        let resumed = s.lib.resume_unused_removals(&s.bin);
+        std::fs::set_permissions(&copy, std::fs::Permissions::from_mode(0o644)).unwrap();
+        resumed.unwrap();
+        let op = load_operation(&s.lib, &applied.id).unwrap();
+        assert!(!op.backups_disposed && !op.workspace.is_empty());
+        assert_eq!(op.files[0].disposal, None, "not declared gone");
+        assert!(copy.exists());
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        assert!(
+            load_operation(&s.lib, &applied.id)
+                .unwrap()
+                .backups_disposed
+        );
+    }
+
+    #[test]
+    fn a_file_in_a_standing_removals_folder_that_matches_nothing_goes_to_the_trash_not_away() {
+        let s = setup();
+        let applied = apply(&s).unwrap();
+        std::fs::remove_file(s.bin.folder.join("authored.flac")).unwrap();
+        let copy = as_an_earlier_version_left_it(&s, &applied.id, "committed");
+        let workspace = copy.parent().unwrap().to_owned();
+        // A damaged copy: its bytes no longer match any file of the removal.
+        std::fs::write(workspace.join("original-7"), b"a damaged copy").unwrap();
+        s.bin.refuse("original-7");
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        // The Trash refused it: nothing is deleted and the removal waits.
+        assert!(workspace.join("original-7").is_file());
+        assert!(
+            !load_operation(&s.lib, &applied.id)
+                .unwrap()
+                .backups_disposed
+        );
+        s.bin.accept_again("original-7");
+        s.lib.resume_unused_removals(&s.bin).unwrap();
+        assert_eq!(s.bin.content("original-7"), b"a damaged copy");
+        assert_eq!(s.bin.content("authored.flac"), b"authored source");
+        assert!(s.bin.deleted().is_empty());
+        assert!(
+            load_operation(&s.lib, &applied.id)
+                .unwrap()
+                .backups_disposed
+        );
+        assert!(!workspace.exists());
+    }
+
     #[test]
     fn only_so_many_earlier_removals_are_handled_per_start() {
         let s = setup();

@@ -12,7 +12,7 @@
 
 - SQLite, bundled with the app, in a file named `library.sqlite` in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on and a 5-second busy timeout. The log is limited to 16 MiB after a checkpoint, checkpointed every 1000 pages, and emptied when the library opens, after a large import and on a clean exit.
-- Incremental **auto-vacuum**: pages freed by deleted rows go back to the file system in bounded steps. A library created before version 30 is converted once, by a single `VACUUM`, when it holds up to 2 GiB and the disk has room for three times its size.
+- Incremental **auto-vacuum**: pages freed by deleted rows go back to the file system in bounded steps. A library created before version 30 is converted once, by a single `VACUUM`, when it holds up to 512 MiB and the disk has room for three times its size; a bigger one keeps working as before.
 - An application ID marks the file as a CueRithm library. A non-empty SQLite file without it is rejected.
 - The schema version (`user_version`) is currently 30. Migrations are embedded SQL files applied in order, each in an immediate transaction. A newer schema is refused with "Library schema is newer than this application". Migrations preserve existing tracks, jobs and cue ownership.
 

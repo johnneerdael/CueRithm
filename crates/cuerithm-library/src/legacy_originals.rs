@@ -43,12 +43,13 @@ const FAMILIES: [(&str, &str, &str, &str, &str); 3] = [
     ),
     // A duplicate merge from an earlier version is undone from its retained original until it
     // is undone or leaves the Undo window; an Undo, and an operation that recorded the keeper's
-    // tag values, never need one.
+    // tag values (a map with at least one entry), never need one. Merges stage in
+    // `maintenance/staging` only; the rest of `maintenance/` is not theirs.
     (
         "maintenance",
-        "maintenance",
+        "maintenance/staging",
         "'committed','rolled_back','undone'",
-        "w.state='undone' OR json_extract(w.payload_json,'$.kind')='undo' OR COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=1 OR json_extract(w.payload_json,'$.transfers') IS NOT NULL",
+        "w.state='undone' OR json_extract(w.payload_json,'$.kind')='undo' OR COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=1 OR (json_type(w.payload_json,'$.transfers')='object' AND EXISTS(SELECT 1 FROM json_each(w.payload_json,'$.transfers')))",
         "f.workspace",
     ),
 ];
@@ -379,6 +380,11 @@ mod tests {
             // An Undo never needs one.
             (r#"{"kind":"undo"}"#, "committed"),
             // Recorded the keeper's tag values: undone by values.
+            (
+                r#"{"kind":"apply","transfers":{"a.flac":{"before":{},"after":{}}}}"#,
+                "committed",
+            ),
+            // An empty map records nothing: the original is still what Undo reads.
             (r#"{"kind":"apply","transfers":{}}"#, "committed"),
         ]
         .into_iter()
@@ -410,6 +416,35 @@ mod tests {
         let swept = lib.sweep_legacy_originals().unwrap();
         assert_eq!(swept.files_removed, 4);
         let present: Vec<bool> = originals.iter().map(|o| o.exists()).collect();
-        assert_eq!(present, [true, false, false, false, false]);
+        assert_eq!(present, [true, false, false, false, false, true]);
+    }
+
+    #[test]
+    fn a_merge_journal_naming_a_file_outside_the_staging_folder_is_never_swept() {
+        let d = tempfile::tempdir().unwrap();
+        let lib = Library::open(&d.path().join("library.sqlite")).unwrap();
+        // The removal folder of the data folder belongs to unused-file removals, not to merges.
+        let folder = lib.data_dir().join("maintenance/removal/remove-x");
+        std::fs::create_dir_all(&folder).unwrap();
+        let copy = folder.join("original-0");
+        std::fs::write(&copy, vec![3u8; 300]).unwrap();
+        let conn = lib.conn().unwrap();
+        conn.execute(
+            "INSERT INTO maintenance_writes(id,kind,state,payload_json,created,cleanup_complete) VALUES('merge','apply','undone',?1,0,1)",
+            params![r#"{"kind":"apply"}"#],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO maintenance_write_files VALUES('merge',0,X'00',X'00',?1,'a','b',X'00',X'00',?2)",
+            params![
+                crate::model::path_bytes(&copy),
+                crate::model::path_bytes(&folder)
+            ],
+        )
+        .unwrap();
+        drop(conn);
+        let swept = lib.sweep_legacy_originals().unwrap();
+        assert_eq!(swept.files_removed, 0);
+        assert!(copy.exists(), "not a file a merge ever staged");
     }
 }

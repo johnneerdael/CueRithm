@@ -56,7 +56,7 @@ An older operation stays in its history with a note that it can no longer be und
 
 Open **Settings** at the bottom of the sidebar, choose the **Automatic tagging** page and look for the row **Recovery backups**. It shows the size and file count of the copies of files that are being written right now, from tagging, cleanup and manual edits. It reads 0.0 MB · 0 files when nothing is under way. A library from an earlier version may still show the copies it kept; CueRithm 0.1.18 or later deletes them when it starts, a few hundred writes at a time, so the row shrinks over a few starts.
 
-CueRithm also keeps the database file small. It writes its log (the `-wal` file) in bounded pieces, empties it when it opens and when you quit, and gives back the space that deleted rows leave behind. An older library of up to 2 GB is converted once to do this, which needs free disk space of about three times the size of the library and takes a moment on a large one; a bigger one keeps working as before.
+CueRithm also keeps the database file small. It writes its log (the `-wal` file) in bounded pieces, empties it when it opens and when you quit, and gives back the space that deleted rows leave behind. An older library of up to 0.5 GB is converted once, when CueRithm starts, to do this. That needs free disk space of about three times the size of the library and takes about a second; a bigger one keeps working as before.
 
 ## What is stored outside the data folder { #outside }
 
