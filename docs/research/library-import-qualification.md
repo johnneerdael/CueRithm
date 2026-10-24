@@ -934,3 +934,20 @@ desktop library 37 passed / zero failed / one ignored. Workspace formatting,
 workspace and untagged-library strict Clippy, workspace release build and strict
 guide/navigation/link checks pass. Unchanged SDK coverage remains 546 passed /
 zero failed / three ignored from the preceding source revision.
+
+### CI decoder-fixture discovery correction
+
+The reviewed source passed Linux Engine checks, including Rust-floor coverage.
+Its first Linux Desktop run completed with 38 library-unit failures and one
+public-acceptance failure, all from two test helpers unconditionally unwrapping
+`CUERITHM_MEDIA_RUNTIME`. CI seals the decoder at the standard repository path
+without setting that optional override. Both helpers now use the established
+override-first fallback to `tools/media-runtime/bin`; invalid bundles still fail.
+No production code, CI configuration, assertions or test selection changed.
+
+Both failing helpers reproduced locally with the override unset. All 40
+publication unit tests and four public import acceptance tests now pass with it
+unset, including ten-format tag/PCM preservation, recovery and media loading.
+Workspace formatting, workspace and untagged-library strict Clippy, release build
+and independent helper-diff review pass. Earlier passing checks retain their
+recorded source scope; the corrected commit still requires fresh review and CI.

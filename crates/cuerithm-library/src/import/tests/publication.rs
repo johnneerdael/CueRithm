@@ -4,10 +4,12 @@ use cuerithm_dj_sync::import::*;
 use cuerithm_media::{CancellationToken, MediaRuntime};
 use serde_json::json;
 fn runtime() -> MediaRuntime {
-    MediaRuntime::from_bundle(&std::path::PathBuf::from(
-        std::env::var_os("CUERITHM_MEDIA_RUNTIME").unwrap(),
-    ))
-    .unwrap()
+    let bundle = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin")
+        });
+    MediaRuntime::from_bundle(&bundle).unwrap()
 }
 fn setup(policy: ImportPolicy) -> (Fixture, String, String, std::path::PathBuf) {
     setup_format(policy, "wav", "pcm_s16le")

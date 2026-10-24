@@ -318,10 +318,12 @@ fn media_loading_preserves_imported_fields() {
     library
         .apply_import(&preview.preview_id, &CancellationToken::default())
         .unwrap();
-    let runtime = cuerithm_media::MediaRuntime::from_bundle(&std::path::PathBuf::from(
-        std::env::var_os("CUERITHM_MEDIA_RUNTIME").unwrap(),
-    ))
-    .unwrap();
+    let bundle = std::env::var_os("CUERITHM_MEDIA_RUNTIME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin")
+        });
+    let runtime = cuerithm_media::MediaRuntime::from_bundle(&bundle).unwrap();
     let rows = library.tracks(TrackQuery::default()).unwrap().rows;
     assert_eq!(rows.len(), 10);
     for row in rows {
