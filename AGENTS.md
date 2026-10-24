@@ -55,7 +55,7 @@ Before changing feature extraction, key/BPM/energy analysis, training, evaluatio
 
 ## Commit & Pull Request Guidelines
 
-The canonical remote is `https://github.com/johnneerdael/Cuerithm`. Preserve upstream changes and use descriptive commits. Do not publish music, private library paths, per-track labels, decompiled code or packaged proprietary artifacts. Record actual validation and remaining agreement gaps. Do not manually cut releases.
+The canonical remote is `https://github.com/johnneerdael/Cuerithm`. Preserve upstream changes and use descriptive commits. Do not publish music, private library paths, per-track reference labels or measurements, decompiled code or packaged proprietary artifacts. The one exception is the user guide, whose screenshots show the owner's own library as the app displays it (titles, artists, keys, BPMs, energy values and cues): the guide documents what the app shows. Those images must not show audio files, file paths, user names, credentials or licence details, and each one is opened and checked for them before it is kept. Record actual validation and remaining agreement gaps. Do not manually cut releases.
 
 ## Release Notes
 
