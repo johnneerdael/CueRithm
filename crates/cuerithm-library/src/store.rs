@@ -369,7 +369,6 @@ impl Library {
             lib.recover_cleanup_writes()?;
             lib.recover_duplicate_writes()?;
         }
-        lib.recover_unused_disposals()?;
         lib.recover_unused_removals()?;
         lib.recover_organization()?;
         #[cfg(feature = "autotag")]

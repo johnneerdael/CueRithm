@@ -15,6 +15,9 @@ use rusqlite::Connection;
 
 /// How many of each kind stay.
 pub const KEEP_NEWEST: usize = 3;
+/// How many settled unused-file removals the history list keeps. A removal is only a list of
+/// paths and hashes; the files themselves are in the Trash.
+pub const KEEP_REMOVAL_HISTORY: usize = 20;
 
 /// The kinds of saved row that are bounded. A kind comes after the kinds it is made from, so a
 /// pass can free a review or a scan by removing the plan that held it.
@@ -79,6 +82,18 @@ pub(crate) fn prune(conn: &Connection) -> Result<usize> {
             )?;
         }
     }
+    // The history of unused-file removals: only those that have settled and hold no copy that
+    // an earlier version kept.
+    removed += conn.execute(
+        "DELETE FROM maintenance_scans WHERE kind='unused_removal_operation'
+           AND id IN (SELECT id FROM maintenance_scans WHERE kind='unused_removal_operation'
+                       ORDER BY created DESC,rowid DESC LIMIT -1 OFFSET ?1)
+           AND json_extract(payload_json,'$.cleanup_complete')=1
+           AND json_extract(payload_json,'$.state') IN ('committed','rolled_back','undone')
+           AND (json_extract(payload_json,'$.schema')='unused-removal-v3'
+                OR COALESCE(json_extract(payload_json,'$.backups_disposed'),0)=1)",
+        [KEEP_REMOVAL_HISTORY as i64],
+    )?;
     Ok(removed)
 }
 
@@ -187,6 +202,51 @@ mod tests {
         .unwrap();
         assert_eq!(prune(&conn).unwrap(), 6);
         assert_eq!(ids(&conn, "unused"), ["unused3", "unused4", "unused5"]);
+    }
+
+    #[test]
+    fn the_removal_history_keeps_the_newest_settled_ones_and_everything_unfinished() {
+        let conn = conn();
+        let settled =
+            "{\"schema\":\"unused-removal-v3\",\"state\":\"committed\",\"cleanup_complete\":true}";
+        for n in 0..30 {
+            add(
+                &conn,
+                "unused_removal_operation",
+                &format!("op{n:02}"),
+                n,
+                settled,
+            );
+        }
+        // Older than all of them: one that is not finished, one that still holds a copy.
+        add(
+            &conn,
+            "unused_removal_operation",
+            "unfinished",
+            -2,
+            "{\"schema\":\"unused-removal-v3\",\"state\":\"committed\",\"cleanup_complete\":false}",
+        );
+        add(
+            &conn,
+            "unused_removal_operation",
+            "holds-a-copy",
+            -1,
+            "{\"schema\":\"unused-removal-v2\",\"state\":\"committed\",\"cleanup_complete\":true,\"backups_disposed\":false}",
+        );
+        add(
+            &conn,
+            "unused_removal_operation",
+            "copy-moved",
+            -3,
+            "{\"schema\":\"unused-removal-v2\",\"state\":\"committed\",\"cleanup_complete\":true,\"backups_disposed\":true}",
+        );
+        assert_eq!(prune(&conn).unwrap(), 10 + 1);
+        let kept = ids(&conn, "unused_removal_operation");
+        assert_eq!(kept.len(), 20 + 2);
+        assert!(kept.contains(&"unfinished".to_owned()));
+        assert!(kept.contains(&"holds-a-copy".to_owned()));
+        assert!(!kept.contains(&"copy-moved".to_owned()));
+        assert!(!kept.contains(&"op00".to_owned()) && kept.contains(&"op29".to_owned()));
     }
 
     #[test]

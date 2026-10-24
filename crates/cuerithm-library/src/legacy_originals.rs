@@ -52,7 +52,7 @@ const FAMILIES: [(&str, &str, &str, &str, &str); 3] = [
         "f.workspace",
     ),
 ];
-fn owned_regular_file(data: &Path, area: &str, path: &Path) -> Option<u64> {
+pub(crate) fn owned_regular_file(data: &Path, area: &str, path: &Path) -> Option<u64> {
     let in_area = data
         .join(area)
         .canonicalize()
@@ -95,19 +95,26 @@ impl Library {
             total.bytes_freed += part.bytes_freed;
             total.more_to_do |= part.more_to_do;
         }
-        if total.files_removed > 0 {
-            let conn = self.conn()?;
-            for (key, add) in [
-                ("lean_originals_removed_files", total.files_removed),
-                ("lean_originals_removed_bytes", total.bytes_freed),
-            ] {
-                conn.execute(
-                    "INSERT INTO meta(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value",
-                    params![key, add as i64],
-                )?;
-            }
-        }
+        self.record_originals_removed(total.files_removed, total.bytes_freed)?;
         Ok(total)
+    }
+
+    /// Adds to the running totals that [`Library::legacy_originals_removed`] reports.
+    pub(crate) fn record_originals_removed(&self, files: u64, bytes: u64) -> Result<()> {
+        if files == 0 {
+            return Ok(());
+        }
+        let conn = self.conn()?;
+        for (key, add) in [
+            ("lean_originals_removed_files", files),
+            ("lean_originals_removed_bytes", bytes),
+        ] {
+            conn.execute(
+                "INSERT INTO meta(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value",
+                params![key, add as i64],
+            )?;
+        }
+        Ok(())
     }
 
     fn sweep_family(

@@ -305,6 +305,11 @@ fn settled(conn: &Connection, root: &Path) -> Result<()> {
         {
             for entry in op["files"].as_array().context("Invalid removal journal")? {
                 let bytes: Vec<u8> = serde_json::from_value(entry["backup"].clone())?;
+                if bytes.is_empty() {
+                    // A removal made since the library stopped keeping copies: the file went
+                    // to the Trash and there is nothing here to be missing or changed.
+                    continue;
+                }
                 let saved = entry["entry"]["public"]["source_sha256"]
                     .as_str()
                     .context("Invalid removal recovery identity")?;

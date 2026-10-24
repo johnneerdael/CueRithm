@@ -252,6 +252,41 @@ fn a_write_whose_original_was_retired_on_purpose_does_not_block_a_backup() {
         .unwrap();
 }
 
+fn unused_removal_row(lib: &Library, id: &str, backup: &[u8]) {
+    let payload = serde_json::json!({
+        "state": "committed",
+        "undone_by": null,
+        "cleanup_complete": true,
+        "backups_disposed": false,
+        "files": [{
+            "backup": backup,
+            "entry": {"public": {"source_sha256": "f".repeat(64)}}
+        }]
+    });
+    Connection::open(lib.data_dir().join("library.sqlite"))
+        .unwrap()
+        .execute(
+            "INSERT INTO maintenance_scans VALUES(?1,'unused_removal_operation',?2,0)",
+            rusqlite::params![id, payload.to_string()],
+        )
+        .unwrap();
+}
+
+#[test]
+fn an_unused_file_removal_made_without_a_copy_does_not_block_a_backup_but_a_missing_copy_does() {
+    let (d, lib, _) = fixture();
+    // Removals since the library stopped keeping copies name none: the file is in the Trash.
+    unused_removal_row(&lib, "trashed", &[]);
+    lib.create_library_backup(&d.path().join("backups"))
+        .unwrap();
+    // An earlier version's removal still names its copy, which must be there and unchanged.
+    unused_removal_row(&lib, "older", b"unix:/a-copy-that-is-gone");
+    assert!(
+        lib.create_library_backup(&d.path().join("backups-2"))
+            .is_err()
+    );
+}
+
 #[test]
 fn blocked_restore_keeps_current_library_openable_and_requires_explicit_retry() {
     let (d, lib, db) = fixture();
