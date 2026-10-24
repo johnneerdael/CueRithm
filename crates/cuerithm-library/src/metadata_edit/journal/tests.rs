@@ -743,3 +743,40 @@ fn an_original_that_could_not_be_deleted_is_retried_by_the_next_pass() {
     assert!(write.undo_expired, "undo_expired");
     assert!(write.backup_retired, "backup_retired");
 }
+
+/// The original of a save from an earlier version was deleted, and the process stopped before
+/// the save recorded it. The next pass records the completed retirement; it must not mark the
+/// save as let go while it still counts as holding an original that is no longer there, which
+/// would refuse every library backup from then on.
+#[test]
+fn a_save_whose_original_was_deleted_before_it_was_recorded_is_reconciled_when_it_expires() {
+    let (temp, service, track, _path) = fixture();
+    let (batch, id) = reserved(&service, &track);
+    service
+        .publish_write(&id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(service.finish_batch(&batch).unwrap().state, "saved");
+    // The fixture's preparation job never runs; a backup waits for preparation to finish.
+    service
+        .library
+        .conn()
+        .unwrap()
+        .execute("UPDATE jobs SET state='completed'", [])
+        .unwrap();
+    let (_, write) = service.load_write(&id).unwrap();
+    let stage = write.row.stage.clone().unwrap();
+    let backup = write.artifact().unwrap().backup.unwrap();
+    assert!(backup.exists());
+    // The deletion happened; recording it did not.
+    super::super::previews::retire_stage_backup(&service.library, &stage).unwrap();
+    assert!(!backup.exists());
+    service.library.expire_metadata_undo(&id).unwrap();
+    let (_, write) = service.load_write(&id).unwrap();
+    assert!(write.undo_expired, "undo_expired");
+    assert!(
+        write.backup_retired,
+        "the completed retirement was not recorded"
+    );
+    let destination = temp.path().join("backups");
+    assert!(service.library.create_library_backup(&destination).is_ok());
+}

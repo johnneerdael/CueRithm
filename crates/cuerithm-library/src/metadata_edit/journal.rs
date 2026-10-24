@@ -1723,19 +1723,32 @@ impl crate::Library {
         // pass deletes it, so a failure here is not recorded as having let go.
         if !write.backup_retired
             && let Some(stage) = write.row.stage.clone()
-            && super::previews::verify_backup(self, &stage).is_ok()
         {
-            match super::previews::retire_stage_backup(self, &stage) {
-                Ok(()) => {
-                    write.backup_retired = true;
-                    self.conn()?.execute(
-                        "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
-                        [id],
-                    )?;
+            // An earlier pass can have deleted the original and stopped before recording it. The
+            // file is then absent, which is the retirement completed, not an original to verify;
+            // leaving it unrecorded would keep the save bound to a file that is no longer there
+            // and refuse every library backup.
+            let gone = matches!(
+                std::fs::symlink_metadata(bytes_path(&stage.backup)?),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound
+            );
+            let mut recorded = gone;
+            // A changed original is left as it is, for the backup check to report: retrying
+            // cannot make it match its proof again.
+            if !gone && super::previews::verify_backup(self, &stage).is_ok() {
+                match super::previews::retire_stage_backup(self, &stage) {
+                    Ok(()) => recorded = true,
+                    Err(error) => {
+                        incomplete.get_or_insert(error);
+                    }
                 }
-                Err(error) => {
-                    incomplete.get_or_insert(error);
-                }
+            }
+            if recorded {
+                write.backup_retired = true;
+                self.conn()?.execute(
+                    "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
+                    [id],
+                )?;
             }
         }
         write.undo_expired = incomplete.is_none();
