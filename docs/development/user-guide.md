@@ -98,7 +98,8 @@ A copy of the data folder is not enough on its own. It still names the owner's r
 folders, and CueRithm starts its background work as soon as it opens a library: it watches the
 saved watch folders, renames or tags new files there according to the saved settings, and
 continues queued jobs. Start the copy with the launcher, which runs the app in a macOS sandbox
-that allows writing only to the copy and to the system's cache, log and temporary folders:
+that allows writing only to the copy and to the app's own cache, web-view, log and temporary
+folders:
 
 ```sh
 cp -R "$HOME/Library/Application Support/com.cuerithm.app" /path/to/capture-data   # with CueRithm quit
@@ -108,9 +109,11 @@ tools/docs/capture/launch-copy.sh /path/to/capture-data
 The launcher sets `CUERITHM_DATA_DIR` to the copy, refuses the live data folder (also through a
 link) and refuses to start while CueRithm is already running, because that instance would be
 outside the sandbox. Nothing can rename, tag, move or delete the owner's music from the
-sandboxed app, whatever the saved settings say; reading is unaffected, so waveforms, playback
+sandboxed app, whatever the saved settings say and wherever the music is (an external drive,
+`~/Music` or a cloud folder under `~/Library/CloudStorage`); reading is unaffected, so waveforms, playback
 and scans work. A write the sandbox blocks appears as a failed job or an error banner: reject
-that screenshot and fix the cause instead of lifting the sandbox.
+that screenshot and fix the cause instead of widening the sandbox. `launch-copy.sh --print-profile
+DATA_COPY` prints the sandbox rules without starting anything.
 
 The sandbox is a backstop. Scans and previews only read, so capture those freely, and do not
 script an Apply, Delete or Archive step even though the sandbox would stop it.
