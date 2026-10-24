@@ -326,7 +326,10 @@ fn backup_sqlite(
         }
     }
     target.close().map_err(|(_, e)| e)?;
+    #[cfg(not(windows))]
     File::open(destination)?.sync_all()?;
+    #[cfg(windows)]
+    File::options().write(true).open(destination)?.sync_all()?;
     Ok(())
 }
 pub fn capture_source(

@@ -951,3 +951,18 @@ unset, including ten-format tag/PCM preservation, recovery and media loading.
 Workspace formatting, workspace and untagged-library strict Clippy, release build
 and independent helper-diff review pass. Earlier passing checks retain their
 recorded source scope; the corrected commit still requires fresh review and CI.
+
+### Post-merge Windows snapshot flush repair
+
+PR 58 merged as `7cd4bb7117d26668365dd37f24ef09ee52756d42` after
+completed current-head review and successful Linux engine/floor/desktop checks.
+Its guide deployment and post-merge Linux/macOS engine/floor checks passed.
+Windows engine CI then reported 11 DJ.Studio reader failures during SQLite
+snapshot capture: flushing a read-only file handle returned access denied.
+Windows requires write access for `FlushFileBuffers`. Only Windows now opens
+owned snapshot and experimental staging/backup copies with a writable handle
+before syncing. There is no creation/truncation or source write, and the original
+non-Windows sync statements remain unchanged. The matching existing public
+reader tests are the regression coverage; Windows engine and desktop CI are
+the verification gates for this repair. Formatting, diff check and independent
+focused review passed; no extra local test suite was started.
