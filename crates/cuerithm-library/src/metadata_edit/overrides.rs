@@ -76,7 +76,7 @@ impl Library {
             let mut query = conn.prepare(
                 "SELECT r.id,r.payload_json FROM metadata_edit_rows r
                    JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id
-                  WHERE r.state='written' AND o.state='committed'
+                  WHERE r.state='written' AND o.state IN ('committed','expired','undone')
                     AND COALESCE(json_extract(r.payload_json,'$.original_retired'),0)=0
                     AND json_type(r.payload_json,'$.stage.backup')='array'
                   ORDER BY r.rowid LIMIT 50",
@@ -134,6 +134,47 @@ impl Library {
             retired += 1;
         }
         Ok(retired)
+    }
+
+    /// An Incoming save can no longer be undone (it was undone, or `expire` says it left the
+    /// window of ten): the pictures kept for it go, and so does its original audio if that is
+    /// still there. With `expire` the save also stops being offered for Undo.
+    pub(crate) fn release_incoming_save(&self, job: &str, expire: bool) -> Result<()> {
+        let row: Option<(String, String)> = self
+            .conn()?
+            .query_row(
+                "SELECT r.id,r.payload_json FROM metadata_edit_rows r
+                   JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id
+                  WHERE o.job_id=?1",
+                [job],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        if let Some((id, text)) = row {
+            let mut row: FrozenRow = serde_json::from_str(&text)?;
+            for picture in row.kept_pictures.take().into_iter().flatten() {
+                self.drop_metadata_artwork(&picture.asset_id)?;
+            }
+            // Nothing is left to keep; a later sweep only has the audio to retire.
+            row.kept_pictures = Some(vec![]);
+            if !row.original_retired
+                && let Some(stage) = row.stage.clone()
+                && super::previews::retire_stage_backup(self, &stage).is_ok()
+            {
+                row.original_retired = true;
+            }
+            self.conn()?.execute(
+                "UPDATE metadata_edit_rows SET payload_json=?1 WHERE id=?2",
+                params![bounded_json(&row)?, id],
+            )?;
+        }
+        if expire {
+            self.conn()?.execute(
+                "UPDATE metadata_edit_overrides SET state='expired',updated=?1 WHERE job_id=?2 AND state='committed' AND undo_batch_id IS NULL",
+                params![now(), job],
+            )?;
+        }
+        Ok(())
     }
 
     /// Project only retained Incoming originals; never decode historical snapshots.

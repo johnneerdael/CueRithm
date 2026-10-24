@@ -846,6 +846,14 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
                 restored.artwork[0].identity.sha256, original_native.artwork[0].identity.sha256,
                 "the picture the edit replaced is back, without the original audio"
             );
+            // The Undo is the end of it: its own copy of the audio goes with the write, and the
+            // picture kept for it is released (only the imported replacement is left).
+            assert!(
+                staging_dirs(&lib).is_empty(),
+                "an Undo of an Incoming edit keeps no audio"
+            );
+            assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+            assert_eq!(artwork_assets(&lib), 1);
             assert_eq!(restored.bpm, prepared.bpm);
             assert_eq!(
                 restored.text[&MetadataTextField::Key],
@@ -1049,6 +1057,148 @@ fn a_written_incoming_edit_keeps_its_replaced_picture_and_not_the_audio() {
     let lib = Library::open(&db).unwrap();
     assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
     assert_eq!(artwork_assets(&lib), assets_before + 2);
+}
+
+/// A track added to the library for the retention tests.
+fn extra_track(lib: &Library, root: &Path, n: usize) -> String {
+    let path = root.join(format!("extra{n}.wav"));
+    let mut writer = hound::WavWriter::create(
+        &path,
+        hound::WavSpec {
+            channels: 2,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )
+    .unwrap();
+    for i in 0..4410 {
+        let value = (((i as f64 * (200. + n as f64) * std::f64::consts::TAU / 44100.).sin())
+            * 8000.) as i16;
+        writer.write_sample(value).unwrap();
+        writer.write_sample(value).unwrap();
+    }
+    writer.finalize().unwrap();
+    let job = lib
+        .enqueue(
+            std::slice::from_ref(&path),
+            lib.settings().unwrap().revision,
+        )
+        .unwrap()
+        .remove(0);
+    let track = lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+        .unwrap()
+        .execute("UPDATE tracks SET state='ready',analysis_json='{}',musical_key='8A',bpm=128,energy=7 WHERE id=?1", [&track])
+        .unwrap();
+    track
+}
+/// Saves from tracks that were still in Incoming count in the same window of ten as every other
+/// save: an older one stops being undoable and releases the pictures kept for it.
+#[test]
+fn only_the_newest_ten_incoming_saves_can_be_undone_and_older_ones_release_their_pictures() {
+    let (temp, lib, service, first_track, _path) = fixture();
+    let root = temp.path().canonicalize().unwrap();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let imported = artwork_assets(&lib);
+    assert_eq!(imported, 2);
+    // Every track already has a picture.
+    let mut tracks = vec![first_track];
+    for n in 1..12 {
+        tracks.push(extra_track(&lib, &root, n));
+    }
+    for track in &tracks {
+        let mut add = MetadataEditorPatch::default();
+        add.artwork.push(MetadataArtworkChoice {
+            target: None,
+            asset_id: Some(first.id.clone()),
+            kind: Some(3),
+            description: None,
+        });
+        save(&service, track, add);
+    }
+    // One saved Incoming edit: the picture is replaced while the track is waiting.
+    let incoming_save = |lib: &Library, service: &MetadataEditService, track: &str| {
+        let original = pictures(service, track);
+        rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+            .unwrap()
+            .execute("UPDATE tracks SET state='incoming' WHERE id=?1", [track])
+            .unwrap();
+        let mut replace = MetadataEditorPatch::default();
+        replace.artwork.push(MetadataArtworkChoice {
+            target: Some(original[0].clone()),
+            asset_id: Some(second.id.clone()),
+            kind: Some(3),
+            description: None,
+        });
+        let queued = save(service, track, replace);
+        assert_eq!(queued.state, "queued", "{queued:?}");
+        queued.id
+    };
+    // The worker writes them (done here by hand, the way its commit records it).
+    let committed = |lib: &Library| {
+        rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+            .unwrap()
+            .execute_batch(
+                "UPDATE metadata_edit_overrides SET state='committed',final_json='{}' WHERE state='queued';
+                 UPDATE metadata_edit_rows SET state='written' WHERE state='queued';
+                 UPDATE metadata_edit_batches SET state='saved' WHERE state='queued';
+                 UPDATE jobs SET state='completed' WHERE id IN (SELECT job_id FROM metadata_edit_overrides WHERE state='committed');",
+            )
+            .unwrap();
+    };
+    let mut batches: Vec<String> = tracks[..10]
+        .iter()
+        .map(|track| incoming_save(&lib, &service, track))
+        .collect();
+    committed(&lib);
+    drop(service);
+    drop(lib);
+    // Ten saves: each keeps the picture it replaced, and the audio goes.
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(artwork_assets(&lib), imported + 10);
+    assert!(staging_dirs(&lib).is_empty());
+    let runtime = MediaRuntime::from_bundle(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let service = MetadataEditService::new(lib.clone(), runtime);
+    for track in &tracks[10..] {
+        batches.push(incoming_save(&lib, &service, track));
+    }
+    committed(&lib);
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let state = |batch: &str| -> String {
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .query_row(
+                "SELECT state FROM metadata_edit_overrides WHERE batch_id=?1",
+                [batch],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    for (index, batch) in batches.iter().enumerate() {
+        assert_eq!(
+            state(batch),
+            if index < 2 { "expired" } else { "committed" },
+            "save {index}"
+        );
+    }
+    // The ten newest hold a picture each; the two oldest gave theirs up and no audio is left.
+    assert_eq!(artwork_assets(&lib), imported + 10);
+    assert!(staging_dirs(&lib).is_empty());
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
 }
 
 /// Only the newest ten saved batches can be undone; the older ones keep their history line.

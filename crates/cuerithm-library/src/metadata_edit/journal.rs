@@ -1475,9 +1475,19 @@ impl crate::Library {
                 return Err(error);
             }
             // The original audio is kept only for a save that is undone from it. A save that
-            // records what it changed is undone by writing the previous values back.
-            if (write.editor_patch.is_some() || write.undo_of.is_some()) && !write.backup_retired {
+            // records what it changed is undone by writing the previous values back, and the
+            // Undo of a save (of an Incoming one too) is the end of it: nothing is undone from
+            // the copy it made.
+            if (write.editor_patch.is_some()
+                || write.undo_of.is_some()
+                || write.override_of.is_some())
+                && !write.backup_retired
+            {
                 self.retire_metadata_original(id, write.clone())?;
+            }
+            // The Incoming save it undid no longer needs the pictures kept for it.
+            if let Some(job) = &write.override_of {
+                self.release_incoming_save(job, false)?;
             }
             Ok(())
         })();
@@ -1519,6 +1529,7 @@ impl crate::Library {
         if !write.artwork_kept {
             let mut kept = vec![];
             if write.undo_of.is_none()
+                && write.override_of.is_none()
                 && write.row.public.before.artwork != write.row.public.after.artwork
             {
                 let backup = bytes_path(&stage.backup)?;
@@ -1561,25 +1572,49 @@ impl crate::Library {
     /// history line (what changed, before and after) and loses its Undo: its kept pictures and,
     /// for a save from an earlier version, its retained original are deleted.
     pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
-        let expired: Vec<String> = {
+        // A batch counts while any of its saves can still be undone: a committed write, or an
+        // Incoming edit the worker has written (those have no physical write of their own).
+        let (writes, jobs): (Vec<String>, Vec<String>) = {
             let conn = self.conn()?;
-            let mut query = conn.prepare(
-                "SELECT w.id FROM metadata_edit_writes w
-                  WHERE w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL
-                    AND COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=0
-                    AND w.batch_id IN (
-                      SELECT b.id FROM metadata_edit_batches b WHERE b.kind='apply'
-                         AND EXISTS(SELECT 1 FROM metadata_edit_writes x WHERE x.batch_id=b.id AND x.state='committed'
-                                     AND x.undo_of IS NULL AND x.override_of IS NULL
-                                     AND COALESCE(json_extract(x.payload_json,'$.undo_expired'),0)=0)
-                       ORDER BY b.created DESC,b.rowid DESC LIMIT -1 OFFSET ?1)",
-            )?;
-            query
+            let batches: Vec<String> = conn
+                .prepare(
+                    "SELECT b.id FROM metadata_edit_batches b WHERE b.kind='apply'
+                       AND (EXISTS(SELECT 1 FROM metadata_edit_writes x WHERE x.batch_id=b.id AND x.state='committed'
+                                    AND x.undo_of IS NULL AND x.override_of IS NULL
+                                    AND COALESCE(json_extract(x.payload_json,'$.undo_expired'),0)=0)
+                         OR EXISTS(SELECT 1 FROM metadata_edit_overrides o WHERE o.batch_id=b.id
+                                    AND o.state='committed' AND o.undo_batch_id IS NULL))
+                     ORDER BY b.created DESC,b.rowid DESC LIMIT -1 OFFSET ?1",
+                )?
                 .query_map([crate::REMOVAL_UNDO_LIMIT as i64], |r| r.get(0))?
-                .collect::<rusqlite::Result<_>>()?
+                .collect::<rusqlite::Result<_>>()?;
+            let (mut writes, mut jobs) = (vec![], vec![]);
+            for batch in batches {
+                writes.extend(
+                    conn.prepare(
+                        "SELECT w.id FROM metadata_edit_writes w
+                          WHERE w.batch_id=?1 AND w.state='committed' AND w.undo_of IS NULL AND w.override_of IS NULL
+                            AND COALESCE(json_extract(w.payload_json,'$.undo_expired'),0)=0",
+                    )?
+                    .query_map([&batch], |r| r.get::<_, String>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?,
+                );
+                jobs.extend(
+                    conn.prepare(
+                        "SELECT job_id FROM metadata_edit_overrides
+                          WHERE batch_id=?1 AND state='committed' AND undo_batch_id IS NULL",
+                    )?
+                    .query_map([&batch], |r| r.get::<_, String>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?,
+                );
+            }
+            (writes, jobs)
         };
-        for id in expired {
+        for id in writes {
             self.expire_metadata_undo(&id)?;
+        }
+        for job in jobs {
+            self.release_incoming_save(&job, true)?;
         }
         Ok(())
     }
