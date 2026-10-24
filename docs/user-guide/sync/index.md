@@ -30,7 +30,7 @@ Choose the destination in the **Sync to** menu at the top of the Sync view. The 
 "File formats only" means CueRithm's output was checked against that program's database and file layouts with authored test libraries. It was not opened in the DJ program, so try a small playlist first. [Check what works with your DJ software](../help/compatibility.md) records exactly what each check covered.
 
 !!! info "Not listed?"
-    Traktor, Serato DJ Pro 3 and older, rekordbox 5 and older, and older VirtualDJ and Engine DJ library formats are not supported. CueRithm does not read or write rekordbox XML; rekordbox sync is direct only. Sync also works in one direction, from CueRithm to your DJ software. Importing an existing DJ library into CueRithm is in development and not available yet ([What CueRithm does not do yet](../help/not-available-yet.md)).
+    Traktor, Serato DJ Pro 3 and older, rekordbox 5 and older, and older VirtualDJ and Engine DJ library formats are not supported. CueRithm does not read or write rekordbox XML; rekordbox sync is direct only. Sync sends CueRithm tracks to your DJ software. To bring an existing library into CueRithm, use [Import a DJ library](../files/import-library.md); import and sync have different supported formats and qualification limits.
 
 ## Your goal, and the page for it { #your-goal }
 

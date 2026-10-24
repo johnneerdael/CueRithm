@@ -394,6 +394,28 @@ fn untagged_build_preserves_pending_native_decisions_before_recovery() {
     }
 }
 
+fn remove_import_tables_for_legacy_fixture(conn: &rusqlite::Connection) {
+    for table in [
+        "import_preview_effects",
+        "import_processing_receipts",
+        "import_operations",
+        "import_previews",
+        "import_policies",
+        "import_memberships",
+        "import_collections",
+        "import_applied_baselines",
+        "import_active_fields",
+        "import_bindings",
+        "import_items",
+        "import_observations",
+        "import_snapshots",
+        "import_blobs",
+        "import_sources",
+    ] {
+        conn.execute(&format!("DROP TABLE {table}"), []).unwrap();
+    }
+}
+
 #[test]
 fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
     let d = tempfile::tempdir().unwrap();
@@ -414,6 +436,7 @@ fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
     drop(library);
     // Recreate the schema-18 boundary without leaving later feature tables.
     let conn = rusqlite::Connection::open(&db).unwrap();
+    remove_import_tables_for_legacy_fixture(&conn);
     conn.execute_batch("DROP INDEX cue_revisions_track_created; DROP TABLE accepted_musical_revisions; DROP TABLE portable_domain_records; DROP TABLE portable_library_meta; ALTER TABLE tracks DROP COLUMN selected_musical_revision; ALTER TABLE tracks DROP COLUMN source_locator_json; ALTER TABLE tracks DROP COLUMN origin; ALTER TABLE tracks DROP COLUMN analysis_status; DROP TRIGGER curation_category_insert; DROP TRIGGER curation_category_update; DROP TRIGGER curation_category_delete; DROP TRIGGER curation_value_insert; DROP TRIGGER curation_value_update; DROP TRIGGER curation_value_delete; DROP TRIGGER curation_smart_update; DROP TABLE curation_metadata_drafts; DROP TABLE curation_native_stale; DROP TABLE curation_publications; DROP TABLE curation_tracks; DROP TABLE curation_mutations; DROP TABLE curation_mappings; DROP TABLE curation_value_aliases; DROP TABLE curation_category_aliases; DROP TABLE curation_value_properties; DROP TABLE curation_group_properties; DROP TABLE preparation_preset_assignments; DROP TABLE preparation_preset_capture_authorities; DROP TABLE preparation_preset_folders; DROP TABLE preparation_preset_revisions; DROP TABLE preparation_presets; DROP TABLE catalog_response_cache; DROP TABLE catalog_request_starts; DROP TABLE catalog_rate_state; DELETE FROM meta WHERE key='curation_taxonomy_revision'; DROP TABLE metadata_edit_files; DROP TABLE metadata_edit_writes; DROP TABLE metadata_edit_rows; DROP TABLE metadata_edit_overrides; DROP TABLE metadata_edit_batches; DROP TABLE metadata_edit_previews; DROP TABLE metadata_edit_drafts; DROP TABLE metadata_artwork_assets; DROP TABLE preparation_match_generations; DROP TABLE preparation_match_previews; DROP TABLE preparation_review_decisions; DROP TABLE preparation_reuse; DROP TABLE preparation_review_artwork; DROP TABLE artifact_cleanup_moves; ALTER TABLE tag_writes DROP COLUMN editor_receipt_json; ALTER TABLE tag_writes DROP COLUMN input_source_proof_json; ALTER TABLE tag_writes DROP COLUMN restore_source_proof_json; ALTER TABLE tag_writes DROP COLUMN artifact_authorities_json; DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; DROP TABLE native_playlist_bindings; DROP TABLE native_playlist_acknowledgements; DROP TABLE rekordbox_sync_operations; DROP TABLE native_sync_track_ownership; DROP TABLE sync_target_configurations; PRAGMA user_version=18;").unwrap();
     drop(conn);
     let library = Library::open(&db).unwrap();
@@ -434,7 +457,7 @@ fn schema_eighteen_upgrade_keeps_organization_roots_and_preparation_state() {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 30);
+    assert_eq!(version, 31);
     let count: i64 = conn
         .query_row(
             "SELECT count(*) FROM native_reconciliation_plans",
@@ -477,6 +500,7 @@ fn schema_twenty_three_upgrade_preserves_released_preset_curation_and_catalog_da
     drop(service);
     drop(library);
     let conn = rusqlite::Connection::open(&db).unwrap();
+    remove_import_tables_for_legacy_fixture(&conn);
     conn.execute_batch("DROP INDEX cue_revisions_track_created; DROP TABLE accepted_musical_revisions; DROP TABLE portable_domain_records; DROP TABLE portable_library_meta; ALTER TABLE tracks DROP COLUMN selected_musical_revision; ALTER TABLE tracks DROP COLUMN source_locator_json; ALTER TABLE tracks DROP COLUMN origin; ALTER TABLE tracks DROP COLUMN analysis_status; INSERT INTO catalog_rate_state(service,manual_hold) VALUES('musicbrainz',1); DROP TABLE native_reconciliation_plans; DROP TABLE manual_publication_operations; DROP TABLE manual_publication_state; DROP TABLE cue_templates; DROP TABLE native_playlist_bindings; DROP TABLE native_playlist_acknowledgements; DROP TABLE rekordbox_sync_operations; DROP TABLE native_sync_track_ownership; DROP TABLE sync_target_configurations; PRAGMA user_version=23;").unwrap();
     drop(conn);
     let library = Library::open(&db).unwrap();
@@ -498,7 +522,7 @@ fn schema_twenty_three_upgrade_preserves_released_preset_curation_and_catalog_da
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        30
+        31
     );
     assert!(
         conn.query_row(

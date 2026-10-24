@@ -59,6 +59,10 @@ fn object_token(path: &Path) -> Result<String> {
     object_token_on_volume(path, volume_identity(path)?)
 }
 
+pub(super) fn media_volume_id(path: &Path) -> Result<String> {
+    Ok(volume_identity(path)?.id)
+}
+
 struct VolumeIdentity {
     id: String,
     persistent_inodes: bool,

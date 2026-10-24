@@ -7,4 +7,4 @@
 -- observation. The rekordbox database is read again on every sync.
 UPDATE native_records SET json='' WHERE json!='' AND table_name NOT IN ('djmdPlaylist','djmdSongPlaylist','djmdMyTag','djmdSongMyTag');
 UPDATE native_track_links SET observation_json=NULL WHERE local_track_id IS NULL AND observation_json IS NOT NULL AND observation_hash IS NOT NULL;
-PRAGMA user_version=30;
+PRAGMA user_version=31;

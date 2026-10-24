@@ -628,6 +628,71 @@ impl Library {
         available.dedup_by(|a, b| a.id == b.id);
         Ok(available)
     }
+    /// Runtime-only direct importer access. Read permission never promotes native writes.
+    pub fn prepare_rekordbox_import_source(
+        &self,
+        target_id: &str,
+        cancel: &CancellationToken,
+    ) -> Result<(
+        crate::ImportSourceSelection,
+        std::sync::Arc<cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader>,
+    )> {
+        use cuerithm_dj_sync::import::ArtifactRequest;
+        let paths = DiscoveryPaths::current()?;
+        let target = resolve_selected_target(self, target_id, None, &paths, cancel)?;
+        let environment = target.environment.freeze()?;
+        let key = key_for(&target, paths.platform, cancel)?;
+        let database = ReadOnlyDatabase::open(&target.database, &key)?;
+        let root = target
+            .database
+            .parent()
+            .context("Native database root missing")?
+            .to_path_buf();
+        let mut artifacts = vec![ArtifactRequest::sqlite("master.db")];
+        let resolver = target.environment.resolver()?;
+        let mut selected = BTreeSet::new();
+        database.visit_collection_records(CollectionRecordLimits::default(), cancel, |record| {
+            if record.table == "djmdContent"
+                && let Some(TargetValue::Text(reference)) = record.values.get("AnalysisDataPath")
+                && !reference.is_empty()
+            {
+                let relative = assets::asset_relative_resolved(&target, &resolver, reference)?;
+                for extension in ["DAT", "EXT", "2EX"] {
+                    let relative = relative.with_extension(extension);
+                    let id = relative
+                        .to_str()
+                        .context("Native analysis reference is not Unicode")?
+                        .replace('\\', "/");
+                    if target.asset_root.join(&relative).is_file() && selected.insert(id.clone()) {
+                        ensure!(
+                            artifacts.len() < 100_000,
+                            "Too many selected native artifacts"
+                        );
+                        let mut artifact = ArtifactRequest::stable(&id)
+                            .with_selected_root(&id, &target.asset_root);
+                        artifact.relative_path = relative;
+                        artifacts.push(artifact);
+                    }
+                }
+            }
+            Ok(())
+        })?;
+        resolver.verify()?;
+        environment.verify()?;
+        Ok((
+            crate::ImportSourceSelection {
+                folder_inventory: false,
+                root,
+                artifacts,
+            },
+            std::sync::Arc::new(
+                cuerithm_dj_sync::import::readers::rekordbox::RekordboxReader::with_provisioned_key(
+                    key,
+                    CollectionReadOptions::default(),
+                ),
+            ),
+        ))
+    }
     pub fn preflight_rekordbox_sync(
         &self,
         target_id: &str,

@@ -212,7 +212,7 @@ fn schema(conn: &Connection) -> Result<i64> {
     ensure!(app == APPLICATION_ID, "This is not a CueRithm library");
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     ensure!(
-        (27..=30).contains(&version),
+        (27..=31).contains(&version),
         "Unsupported library backup schema"
     );
     Ok(version)
@@ -1891,13 +1891,13 @@ mod inventory_phase_tests {
         (directory, library)
     }
     #[test]
-    fn schema_29_local_recovery_snapshot_retains_unresolved_records() {
+    fn schema_31_local_recovery_snapshot_retains_unresolved_records() {
         let (directory, library) = fixture();
         library.conn().unwrap().execute("INSERT INTO tracks(id,path,source_hash,title,state,created,updated) VALUES('unresolved',NULL,NULL,'Offline imported track','ready',0,0)",[]).unwrap();
         let saved = library
             .create_library_backup(&directory.path().join("backups"))
             .unwrap();
-        assert_eq!(saved.schema, 30);
+        assert_eq!(saved.schema, 31);
         assert_eq!(saved.tracks, 2);
         assert_eq!(saved.missing_sources, 1);
         let inspected = library.inspect_library_backup(&saved.path).unwrap();

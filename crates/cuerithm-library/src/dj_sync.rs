@@ -56,6 +56,19 @@ impl Library {
             !matches!(scope, DjSyncScope::Changed),
             "Changed scope requires a target baseline; use preview_dj_sync"
         );
+        if let DjSyncScope::Modified { track_ids } = &scope {
+            for id in track_ids {
+                let imported = self.conn()?.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+                    [id],
+                    |r| r.get::<_, bool>(0),
+                )?;
+                if imported {
+                    let readiness = self.import_export_readiness(id)?;
+                    ensure!(readiness.ready, "{}", readiness.reasons.join("; "));
+                }
+            }
+        }
         let (raw, mut playlists) = {
             // Keep one coherent DB snapshot, then release the library mutex before
             // parsing the potentially large per-track analysis JSON.
@@ -110,12 +123,196 @@ impl Library {
             // since the baseline was captured. They are intentionally excluded.
             (raw, playlists)
         };
-        let tracks: Vec<SyncTrack> = raw.into_iter().map(project_track).collect::<Result<_>>()?;
+        for row in &raw {
+            let imported: bool = self.conn()?.query_row(
+                "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+                [&row.id],
+                |r| r.get(0),
+            )?;
+            if imported {
+                let readiness = self.import_export_readiness(&row.id)?;
+                ensure!(readiness.ready, "{}", readiness.reasons.join("; "));
+            }
+        }
+        let tracks: Vec<SyncTrack> = raw
+            .into_iter()
+            .map(|row| {
+                let imported = self.conn()?.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1)",
+                    [&row.id],
+                    |r| r.get::<_, bool>(0),
+                )?;
+                let mut track = project_track(row)?;
+                if imported {
+                    self.overlay_imported_export_fields(&mut track)?;
+                }
+                Ok(track)
+            })
+            .collect::<Result<_>>()?;
         let ids: BTreeSet<_> = tracks.iter().map(|track| track.id.as_str()).collect();
         for playlist in &mut playlists {
             playlist.track_ids.retain(|id| ids.contains(id.as_str()));
         }
         Ok(SyncLibrary { tracks, playlists })
+    }
+    fn overlay_imported_export_fields(&self, track: &mut SyncTrack) -> Result<()> {
+        let fields = self.imported_export_fields(&track.id)?;
+        let text = |field: &str| -> Option<String> {
+            let value = fields.get(field)?;
+            match value.get("presence").and_then(Value::as_str) {
+                Some("null" | "deleted") => Some(String::new()),
+                Some("absent") => None,
+                _ => {
+                    let value = value.get("value").unwrap_or(value);
+                    match value {
+                        Value::String(s) => Some(s.clone()),
+                        Value::Array(values) => Some(
+                            values
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("; "),
+                        ),
+                        _ => None,
+                    }
+                }
+            }
+        };
+        for (field, target) in [
+            ("metadata.title", &mut track.title),
+            ("metadata.artist", &mut track.artist),
+            ("metadata.album", &mut track.album),
+            ("metadata.genre", &mut track.genre),
+            ("metadata.label", &mut track.label),
+            ("metadata.comment", &mut track.comment),
+        ] {
+            if let Some(value) = text(field) {
+                *target = value;
+            }
+        }
+        if let Some(value) = fields.get("bpm") {
+            let bpm = value
+                .get("value")
+                .and_then(Value::as_f64)
+                .context("Accepted imported BPM is unavailable for export")?;
+            ensure!(
+                bpm.is_finite() && bpm > 0.,
+                "Accepted imported BPM is invalid"
+            );
+            track.bpm = bpm;
+        }
+        if let Some(value) = fields.get("beatgrid") {
+            let grid = value
+                .get("measured_timing")
+                .context("Imported grid has no qualified measured export representation")?;
+            let bpm = grid
+                .get("bpm")
+                .and_then(Value::as_f64)
+                .filter(|v| v.is_finite() && *v > 0.)
+                .context("Invalid accepted grid tempo")?;
+            let beats = grid
+                .get("beats_seconds")
+                .and_then(Value::as_array)
+                .context("Accepted grid has no explicit beat array")?
+                .iter()
+                .map(|v| {
+                    v.as_f64()
+                        .filter(|v| v.is_finite() && *v >= 0.)
+                        .context("Invalid accepted beat")
+                })
+                .collect::<Result<Vec<_>>>()?;
+            ensure!(
+                !beats.is_empty() && beats.windows(2).all(|w| w[0] < w[1]),
+                "Accepted beats must be strictly ordered"
+            );
+            let downbeats = grid
+                .get("downbeats_seconds")
+                .and_then(Value::as_array)
+                .context("Accepted grid has no qualified bar origin")?;
+            let anchors = downbeats
+                .iter()
+                .map(|v| {
+                    let value = v.as_f64().context("Invalid explicit downbeat")?;
+                    beats
+                        .iter()
+                        .position(|beat| (*beat - value).abs() <= 1e-6)
+                        .context("Explicit downbeat is not an accepted beat")
+                })
+                .collect::<Result<Vec<_>>>()?;
+            ensure!(
+                anchors.len() >= 2
+                    && anchors
+                        .windows(2)
+                        .all(|w| w[1].checked_sub(w[0]) == Some(4)),
+                "Accepted grid needs explicit four-beat bar anchors for this export model"
+            );
+            let phase = anchors[0] % 4;
+            track.beatgrid = beats
+                .into_iter()
+                .enumerate()
+                .map(|(i, seconds)| SyncBeat {
+                    seconds,
+                    bpm,
+                    beat: ((i + 4 - phase) % 4 + 1) as u32,
+                })
+                .collect();
+        }
+        if let Some(value) = fields.get("cues.hot") {
+            let published = if value.as_array().is_some_and(Vec::is_empty) {
+                Vec::new()
+            } else {
+                let cues = value
+                    .get("published")
+                    .or_else(|| {
+                        if value.get("schema").and_then(Value::as_str)
+                            == Some("lexicon-publication-v1")
+                        {
+                            value.get("cues")
+                        } else {
+                            None
+                        }
+                    })
+                    .context("Imported hotcues have no qualified published representation")?;
+                serde_json::from_value::<Vec<camelot_core::lexicon_publication::PublishedCue>>(
+                    cues.clone(),
+                )?
+            };
+            let mut slots = BTreeSet::new();
+            track.cues = published
+                .into_iter()
+                .map(|cue| {
+                    let index = u8::try_from(cue.position)
+                        .context("Accepted cue position exceeds target model")?;
+                    ensure!(
+                        slots.insert(index),
+                        "Accepted hotcue family has duplicate slots"
+                    );
+                    ensure!(
+                        cue.start_time.is_finite() && cue.start_time >= 0.,
+                        "Invalid accepted cue time"
+                    );
+                    let end_seconds = if cue.kind == PublishedType::Loop {
+                        let end = cue.end_time.context("Accepted loop has no end")?;
+                        ensure!(
+                            end.is_finite() && end > cue.start_time,
+                            "Invalid accepted loop end"
+                        );
+                        Some(end)
+                    } else {
+                        None
+                    };
+                    Ok(SyncCue {
+                        index,
+                        name: cue.name,
+                        start_seconds: cue.start_time,
+                        end_seconds,
+                        active_loop: end_seconds.is_some() && cue.active_loop.unwrap_or(false),
+                        color: rgb(&cue.color),
+                    })
+                })
+                .collect::<Result<_>>()?;
+        }
+        Ok(())
     }
 }
 
@@ -721,6 +918,63 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("saved analysis")
+        );
+    }
+    #[test]
+    fn imported_active_measured_performance_is_projected_instead_of_stale_analysis() {
+        let (_dir, library) = fixture();
+        let before = library
+            .conn()
+            .unwrap()
+            .query_row("SELECT analysis_json FROM tracks WHERE id='a'", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap();
+        let conn = library.conn().unwrap();
+        conn.execute("INSERT INTO import_items(id,local_track_id,availability,created,updated) VALUES('a','a','available',1,1)",[]).unwrap();
+        let provenance = json!({"kind":"processing","stage":"generation.cues","identity":{"pcm_sha256":"invented-qualified-pcm"}});
+        for (field, value) in [
+            ("bpm", json!({"presence":"value","value":137.25})),
+            (
+                "beatgrid",
+                json!({"measured_timing":{"bpm":140.0,"beats_seconds":[0.1,0.53,0.96,1.39,1.82],"downbeats_seconds":[0.1,1.82]}}),
+            ),
+            (
+                "cues.hot",
+                json!({"published":[{"name":"Reviewed generated","startTime":10.0,"type":"1","position":0,"color":"blue"}]}),
+            ),
+            (
+                "metadata.label",
+                json!({"presence":"value","value":"Accepted label"}),
+            ),
+        ] {
+            conn.execute("INSERT INTO import_active_fields(item_id,field,value_json,provenance_json) VALUES('a',?1,?2,?3)",params![field,value.to_string(),provenance.to_string()]).unwrap();
+        }
+        conn.execute("UPDATE tracks SET bpm=137.25 WHERE id='a'", [])
+            .unwrap();
+        drop(conn);
+        let result = library
+            .dj_sync_library(DjSyncScope::Modified {
+                track_ids: vec!["a".into()],
+            })
+            .unwrap();
+        let track = &result.tracks[0];
+        assert_eq!(track.bpm, 137.25);
+        assert_eq!(track.beatgrid[0].seconds, 0.1);
+        assert_eq!(track.beatgrid[0].bpm, 140.0);
+        assert_eq!(track.cues.len(), 1);
+        assert_eq!(track.cues[0].name, "Reviewed generated");
+        assert_eq!(track.cues[0].start_seconds, 10.0);
+        assert_eq!(track.label, "Accepted label");
+        assert_eq!(
+            library
+                .conn()
+                .unwrap()
+                .query_row("SELECT analysis_json FROM tracks WHERE id='a'", [], |r| {
+                    r.get::<_, String>(0)
+                })
+                .unwrap(),
+            before
         );
     }
 }

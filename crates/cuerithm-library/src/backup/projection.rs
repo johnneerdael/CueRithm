@@ -108,6 +108,7 @@ impl crate::Library {
                 }
             }
         }
+        ensure_import_records_supported(&dest)?;
         snapshot_connection(&dest, control, false, true, true)
     }
     pub fn restore_logical_archive(&self, a: &LogicalArchive) -> Result<()> {
@@ -272,6 +273,31 @@ impl crate::Library {
         self.save_settings(restored_settings_from_record(settings)?)?;
         Ok(())
     }
+}
+pub(super) fn ensure_import_records_supported(conn: &Connection) -> Result<()> {
+    for table in [
+        "import_sources",
+        "import_snapshots",
+        "import_items",
+        "import_collections",
+    ] {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+            [table],
+            |r| r.get(0),
+        )?;
+        if exists {
+            let has_records: bool =
+                conn.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table})"), [], |r| {
+                    r.get(0)
+                })?;
+            ensure!(
+                !has_records,
+                "Portable .cuerithm export cannot preserve DJ-library import records yet, including inspected sources, imported tracks and playlists. Use Library backup > Same-installation recovery snapshots to keep these records."
+            );
+        }
+    }
+    Ok(())
 }
 pub(crate) type DomainIndex<'a> = BTreeMap<&'a str, BTreeMap<&'a str, &'a LogicalRecord>>;
 pub(crate) fn to_portable_track(

@@ -26,7 +26,7 @@ per-track data from that library is recorded here.
 | `cache/waveforms` (29 files) | 4.1 MiB | unchanged (rebuilt on demand) |
 | `analysis-components` | 18 MiB | unchanged (the bundled model, reinstalled when missing) |
 
-Upgrading that copy from schema 28 to the new schema 30 took 1.2 seconds in a debug build: the
+Upgrading that copy from schema 28 to the new schema 31 took 1.2 seconds in a debug build: the
 migration itself, one rewrite of the live data to enable incremental auto-vacuum, and a
 truncated log.
 

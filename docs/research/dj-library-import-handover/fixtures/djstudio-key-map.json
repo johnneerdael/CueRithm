@@ -1,0 +1,150 @@
+{
+  "numericUnknown": -1,
+  "rendererOnlyX": -2,
+  "keys": [
+    {
+      "value": 0,
+      "camelot": "8B",
+      "note": "C",
+      "openKey": "1d"
+    },
+    {
+      "value": 1,
+      "camelot": "3B",
+      "note": "Db",
+      "openKey": "8d"
+    },
+    {
+      "value": 2,
+      "camelot": "10B",
+      "note": "D",
+      "openKey": "3d"
+    },
+    {
+      "value": 3,
+      "camelot": "5B",
+      "note": "Eb",
+      "openKey": "10d"
+    },
+    {
+      "value": 4,
+      "camelot": "12B",
+      "note": "E",
+      "openKey": "5d"
+    },
+    {
+      "value": 5,
+      "camelot": "7B",
+      "note": "F",
+      "openKey": "12d"
+    },
+    {
+      "value": 6,
+      "camelot": "2B",
+      "note": "F#",
+      "openKey": "7d"
+    },
+    {
+      "value": 7,
+      "camelot": "9B",
+      "note": "G",
+      "openKey": "2d"
+    },
+    {
+      "value": 8,
+      "camelot": "4B",
+      "note": "Ab",
+      "openKey": "9d"
+    },
+    {
+      "value": 9,
+      "camelot": "11B",
+      "note": "A",
+      "openKey": "4d"
+    },
+    {
+      "value": 10,
+      "camelot": "6B",
+      "note": "Bb",
+      "openKey": "11d"
+    },
+    {
+      "value": 11,
+      "camelot": "1B",
+      "note": "B",
+      "openKey": "6d"
+    },
+    {
+      "value": 12,
+      "camelot": "8A",
+      "note": "Am",
+      "openKey": "1m"
+    },
+    {
+      "value": 13,
+      "camelot": "3A",
+      "note": "Bbm",
+      "openKey": "8m"
+    },
+    {
+      "value": 14,
+      "camelot": "10A",
+      "note": "Bm",
+      "openKey": "3m"
+    },
+    {
+      "value": 15,
+      "camelot": "5A",
+      "note": "Cm",
+      "openKey": "10m"
+    },
+    {
+      "value": 16,
+      "camelot": "12A",
+      "note": "Dbm",
+      "openKey": "5m"
+    },
+    {
+      "value": 17,
+      "camelot": "7A",
+      "note": "Dm",
+      "openKey": "12m"
+    },
+    {
+      "value": 18,
+      "camelot": "2A",
+      "note": "Ebm",
+      "openKey": "7m"
+    },
+    {
+      "value": 19,
+      "camelot": "9A",
+      "note": "Em",
+      "openKey": "2m"
+    },
+    {
+      "value": 20,
+      "camelot": "4A",
+      "note": "Fm",
+      "openKey": "9m"
+    },
+    {
+      "value": 21,
+      "camelot": "11A",
+      "note": "F#m",
+      "openKey": "4m"
+    },
+    {
+      "value": 22,
+      "camelot": "6A",
+      "note": "Gm",
+      "openKey": "11m"
+    },
+    {
+      "value": 23,
+      "camelot": "1A",
+      "note": "Abm",
+      "openKey": "6m"
+    }
+  ]
+}

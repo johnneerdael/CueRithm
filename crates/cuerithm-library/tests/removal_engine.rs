@@ -6,10 +6,12 @@
 #[path = "support/duplicates_fixture.rs"]
 mod fixture;
 
+use cuerithm_dj_sync::import::{ArtifactRequest, PathMapping, SourceProvider};
 use cuerithm_library::{
     BrokenScanRequest, DUPLICATE_UNDO_LIMIT, DuplicateMergeService,
-    DuplicateTolerance as Tolerance, MISSING_UNDO_WINDOW, MaintenanceFileState, MergeDisposition,
-    REMOVAL_UNDO_LIMIT,
+    DuplicateTolerance as Tolerance, ImportInspectRequest, ImportPreviewRequest,
+    ImportProcessingService, ImportSourceSelection, MISSING_UNDO_WINDOW, MaintenanceFileState,
+    MergeDisposition, REMOVAL_UNDO_LIMIT, SourceBindingChoice, TrackQuery, TrackView,
 };
 use cuerithm_media::CancellationToken;
 use fixture::*;
@@ -35,6 +37,394 @@ fn count(f: &Fixture, query: &str) -> i64 {
         .unwrap()
         .query_row(query, [], |r| r.get(0))
         .unwrap()
+}
+
+fn attach_import_source(
+    f: &Fixture,
+    media: &std::path::Path,
+    link: Option<&str>,
+    name: &str,
+) -> (String, String, String) {
+    let file = format!("{name}.xml");
+    let root = f.dir.path().canonicalize().unwrap();
+    let media = media
+        .parent()
+        .unwrap()
+        .canonicalize()
+        .unwrap()
+        .join(media.file_name().unwrap());
+    std::fs::write(f.dir.path().join(&file), format!("<plist><dict><key>Library Persistent ID</key><string>{name}</string><key>Tracks</key><dict><key>1</key><dict><key>Track ID</key><integer>1</integer><key>Name</key><string>Signal</string><key>Artist</key><string>North</string><key>Grouping</key><string>Retained source audit</string><key>Total Time</key><integer>20000</integer><key>Location</key><string>file://{}</string></dict></dict><key>Playlists</key><array><dict><key>Playlist Persistent ID</key><string>source-list</string><key>Name</key><string>Source list</string><key>Playlist Items</key><array><dict><key>Track ID</key><integer>1</integer></dict></array></dict></array></dict></plist>", media.to_string_lossy())).unwrap();
+    let inspection = f
+        .lib
+        .inspect_import(
+            ImportInspectRequest {
+                provider: SourceProvider::AppleMusicXml,
+                selection: ImportSourceSelection {
+                    root: f.dir.path().into(),
+                    artifacts: vec![ArtifactRequest::stable(&file)],
+                    folder_inventory: false,
+                },
+                binding: SourceBindingChoice::Automatic,
+                origin: None,
+                path_mappings: vec![PathMapping {
+                    source_prefix: root.to_str().unwrap().into(),
+                    local_root: root,
+                    root_id: "fixture-root".into(),
+                }],
+                capture_file_tags: false,
+                include_history: false,
+                include_queue: false,
+            },
+            &token(),
+        )
+        .unwrap();
+    let mut request = ImportPreviewRequest {
+        inspection_id: inspection.inspection_id,
+        ..Default::default()
+    };
+    if let Some(id) = link {
+        request.target_items.insert("1".into(), id.into());
+    }
+    let preview = f.lib.preview_import(request, &token()).unwrap();
+    f.lib.apply_import(&preview.preview_id, &token()).unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    let item: String = conn
+        .query_row(
+            "SELECT item_id FROM import_bindings WHERE source_id=?1 AND external_id='1'",
+            [&inspection.source_id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let collection: String = conn
+        .query_row(
+            "SELECT id FROM import_collections WHERE source_id=?1 AND external_id='source-list'",
+            [&inspection.source_id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    (inspection.source_id, collection, item)
+}
+
+fn assert_removed_import_is_audit_only(f: &Fixture, id: &str, collection: &str) {
+    assert!(
+        f.lib.track(id).is_err(),
+        "removed native track resurfaced as imported-only"
+    );
+    assert!(
+        !f.lib
+            .track_ids(TrackQuery::default())
+            .unwrap()
+            .contains(&id.to_owned())
+    );
+    assert!(
+        !f.lib
+            .track_ids(TrackQuery {
+                view: TrackView::Archive,
+                ..Default::default()
+            })
+            .unwrap()
+            .contains(&id.to_owned())
+    );
+    assert!(f.lib.track_path(id).is_err());
+    assert!(f.lib.track_file_missing(id).unwrap());
+    assert!(f.lib.source_hash_optional(id).is_err());
+    assert!(f.lib.source_locator(id).is_err());
+    assert!(f.lib.accepted_musical_data(id).is_err());
+    let detail = f.lib.imported_item(id).unwrap();
+    assert!(!detail.playback_allowed);
+    assert!(!detail.observations.is_empty());
+    assert!(!detail.provenance.is_empty());
+    let page = f
+        .lib
+        .imported_collection_page(collection, None, 100)
+        .unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.rows[0].item_id.as_deref(), Some(id));
+    assert!(page.rows[0].track.is_none());
+}
+
+fn imported_audit(f: &Fixture, id: &str) -> Vec<(String, String, String, u64)> {
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    conn.prepare("SELECT field,value_json,provenance_json,revision FROM import_active_fields WHERE item_id=?1 AND field NOT LIKE '\\_%' ESCAPE '\\' ORDER BY field").unwrap().query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().collect::<Result<_,_>>().unwrap()
+}
+
+#[test]
+fn imported_removal_missing_track_stays_hidden_through_source_refresh_and_returns_on_undo() {
+    let mut f = Fixture::empty();
+    let at = f.add_track("missing-linked.wav", 331);
+    let id = f.ids[at].clone();
+    let (source, collection, imported) =
+        attach_import_source(&f, &f.paths[at], Some(&id), "SOURCE-MISSING");
+    assert_eq!(imported, id);
+    let before = imported_audit(&f, &id);
+    f.playlist("user-set", vec![id.clone()]);
+    std::fs::remove_file(&f.paths[at]).unwrap();
+    let report = broken_report(&f);
+    let preview = f
+        .lib
+        .preview_missing_removal(&report.id, std::slice::from_ref(&id), &token())
+        .unwrap();
+    let removal = f.lib.apply_missing_removal(&preview.id, &token()).unwrap();
+    assert_eq!(f.lib.counts().unwrap().tracks, 0);
+    assert_removed_import_is_audit_only(&f, &id, &collection);
+    assert_eq!(imported_audit(&f, &id), before);
+    let xml = f.dir.path().join("SOURCE-MISSING.xml");
+    let current = std::fs::read_to_string(&xml).unwrap().replace("</dict><key>Playlists</key>", "<key>2</key><dict><key>Track ID</key><integer>2</integer><key>Name</key><string>Unrelated new track</string><key>Location</key><string>file:///unavailable/unrelated.wav</string></dict></dict><key>Playlists</key>");
+    std::fs::write(xml, current).unwrap();
+    let inspection = f.lib.inspect_import_refresh(&source, &token()).unwrap();
+    let preview = f
+        .lib
+        .preview_import(
+            ImportPreviewRequest {
+                inspection_id: inspection.inspection_id,
+                ..Default::default()
+            },
+            &token(),
+        )
+        .unwrap();
+    assert!(preview.blocked + preview.conflicts > 0);
+    assert_eq!(preview.tracks_created, 1);
+    f.lib.apply_import(&preview.preview_id, &token()).unwrap();
+    assert_removed_import_is_audit_only(&f, &id, &collection);
+    f.lib.undo_missing_repair(&removal.id, &token()).unwrap();
+    assert_eq!(f.lib.counts().unwrap().tracks, 2);
+    assert_eq!(f.lib.track(&id).unwrap().id, id);
+    assert_eq!(
+        f.lib.playlist_members("user-set").unwrap(),
+        vec![id.clone()]
+    );
+    assert_eq!(
+        f.lib
+            .imported_collection_page(&collection, None, 100)
+            .unwrap()
+            .rows[0]
+            .track
+            .as_ref()
+            .unwrap()
+            .id,
+        id
+    );
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    assert_eq!(
+        conn.query_row(
+            "SELECT state,local_track_id FROM import_items WHERE id=?1",
+            [&id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        )
+        .unwrap(),
+        ("imported".into(), Some(id))
+    );
+}
+
+#[test]
+fn imported_removal_duplicate_delete_stays_hidden_and_undo_restores_source_link() {
+    let f = Fixture::new();
+    let id = f.ids[1].clone();
+    let (_, collection, _) = attach_import_source(&f, &f.paths[1], Some(&id), "SOURCE-DUPLICATE");
+    let expected = std::fs::read(&f.paths[1]).unwrap();
+    let before = f.lib.imported_item(&id).unwrap();
+    let audit = imported_audit(&f, &id);
+    let review = f.review(Tolerance::None);
+    let preview = f
+        .lib
+        .preview_duplicate_merge_choice_with(
+            &review.id,
+            review.revision,
+            vec![review.groups[0].id.clone()],
+            Some(MergeDisposition::Delete),
+            &Capable,
+            &token(),
+        )
+        .unwrap();
+    let stand_in = trash(&f);
+    let service = service(&f, &stand_in);
+    let merged = service
+        .apply_confirmed(&preview.id, true, &token())
+        .unwrap();
+    assert!(merged.removed_ids.contains(&id));
+    assert_eq!(f.lib.counts().unwrap().tracks, 2);
+    assert_removed_import_is_audit_only(&f, &id, &collection);
+    assert_eq!(imported_audit(&f, &id), audit);
+    service.undo(&merged.id, &token()).unwrap();
+    assert!(
+        !f.paths[1].exists(),
+        "Record Undo leaves files in the Trash"
+    );
+    assert_eq!(
+        std::fs::read(stand_in.folder.join(f.paths[1].file_name().unwrap())).unwrap(),
+        expected
+    );
+    assert_eq!(f.lib.counts().unwrap().tracks, 3);
+    assert_eq!(
+        f.lib
+            .imported_collection_page(&collection, None, 100)
+            .unwrap()
+            .rows[0]
+            .track
+            .as_ref()
+            .unwrap()
+            .id,
+        id
+    );
+    assert_eq!(
+        f.lib.imported_item(&id).unwrap().provenance,
+        before.provenance
+    );
+}
+
+#[test]
+fn imported_removal_undo_refuses_a_new_visible_import_only_occupant() {
+    let mut f = Fixture::empty();
+    let at = f.add_track("missing-replaced.wav", 337);
+    let id = f.ids[at].clone();
+    attach_import_source(&f, &f.paths[at], Some(&id), "SOURCE-OLD");
+    std::fs::remove_file(&f.paths[at]).unwrap();
+    let report = broken_report(&f);
+    let preview = f
+        .lib
+        .preview_missing_removal(&report.id, std::slice::from_ref(&id), &token())
+        .unwrap();
+    let removed = f.lib.apply_missing_removal(&preview.id, &token()).unwrap();
+    let (_, _, new_id) = attach_import_source(&f, &f.paths[at], None, "SOURCE-NEW");
+    assert_ne!(new_id, id);
+    assert_eq!(f.lib.counts().unwrap().tracks, 1);
+    let error = f
+        .lib
+        .undo_missing_repair(&removed.id, &token())
+        .unwrap_err();
+    assert!(error.to_string().contains("already used"), "{error:#}");
+    assert!(f.lib.track(&id).is_err());
+    assert_eq!(f.lib.track(&new_id).unwrap().id, new_id);
+}
+
+#[test]
+fn imported_removal_old_processing_and_file_previews_cannot_promote_retained_audit() {
+    let mut f = Fixture::empty();
+    let at = f.add_track("retained-source.wav", 347);
+    let id = f.ids[at].clone();
+    let (source, collection, _) =
+        attach_import_source(&f, &f.paths[at], Some(&id), "SOURCE-PENDING");
+    let queue = |field: &str| {
+        let inspection = f.lib.inspect_import_refresh(&source, &token()).unwrap();
+        let mut request = ImportPreviewRequest {
+            inspection_id: inspection.inspection_id,
+            ..Default::default()
+        };
+        request.policy.write_audio_tags = [field.into()].into();
+        let preview = f.lib.preview_import(request, &token()).unwrap();
+        assert!(preview.processing_requested);
+        f.lib
+            .apply_import(&preview.preview_id, &token())
+            .unwrap()
+            .operation_id
+    };
+    let ready = queue("title");
+    let processor = ImportProcessingService::start(f.lib.clone(), f.runtime.clone()).unwrap();
+    assert_eq!(processor.run_pending(&token()).unwrap().processed, 1);
+    let pending = queue("artist");
+    let bytes = std::fs::read(&f.paths[at]).unwrap();
+    let retained = f.paths[at].with_extension("held");
+    std::fs::rename(&f.paths[at], &retained).unwrap();
+    let report = broken_report(&f);
+    let preview = f
+        .lib
+        .preview_missing_removal(&report.id, std::slice::from_ref(&id), &token())
+        .unwrap();
+    f.lib.apply_missing_removal(&preview.id, &token()).unwrap();
+    // Restoring the same physical file alone does not restore the removed library record.
+    std::fs::rename(retained, &f.paths[at]).unwrap();
+    let result = processor.run_pending(&token()).unwrap();
+    assert_eq!((result.processed, result.blocked), (0, 1));
+    let stages = f.lib.import_processing_stages(&pending, None, 100).unwrap();
+    assert!(
+        stages.records[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("removed from the library")
+    );
+    let effects = f.lib.preview_import_effects(&ready, &token()).unwrap();
+    assert_eq!((effects.ready, effects.blocked), (0, 1));
+    let page = f
+        .lib
+        .import_effects_page(&effects.preview_id, None, 100)
+        .unwrap();
+    assert!(
+        page.records[0]
+            .reason
+            .as_deref()
+            .unwrap()
+            .contains("removed from the library")
+    );
+    f.lib.discard_import_preview(&effects.preview_id).unwrap();
+    assert_removed_import_is_audit_only(&f, &id, &collection);
+    assert_eq!(std::fs::read(&f.paths[at]).unwrap(), bytes);
+    assert_eq!(f.lib.counts().unwrap().tracks, 0);
+}
+
+#[test]
+fn imported_removal_interrupted_file_recovery_preserves_detached_audit_for_undo() {
+    let mut f = Fixture::empty();
+    let at = f.add_track("interrupted-source.wav", 349);
+    let id = f.ids[at].clone();
+    let (source, _, _) = attach_import_source(&f, &f.paths[at], Some(&id), "SOURCE-RECOVERY");
+    let inspection = f.lib.inspect_import_refresh(&source, &token()).unwrap();
+    let mut request = ImportPreviewRequest {
+        inspection_id: inspection.inspection_id,
+        ..Default::default()
+    };
+    request.policy.write_audio_tags = ["title".into()].into();
+    let preview = f.lib.preview_import(request, &token()).unwrap();
+    let operation = f
+        .lib
+        .apply_import(&preview.preview_id, &token())
+        .unwrap()
+        .operation_id;
+    let processor = ImportProcessingService::start(f.lib.clone(), f.runtime.clone()).unwrap();
+    processor.run_pending(&token()).unwrap();
+    let effects = f.lib.preview_import_effects(&operation, &token()).unwrap();
+    assert_eq!(effects.ready, 1);
+    f.lib
+        .apply_import_effects(&effects.preview_id, &token())
+        .unwrap();
+    std::fs::remove_file(&f.paths[at]).unwrap();
+    let report = broken_report(&f);
+    let preview = f
+        .lib
+        .preview_missing_removal(&report.id, std::slice::from_ref(&id), &token())
+        .unwrap();
+    let removal = f.lib.apply_missing_removal(&preview.id, &token()).unwrap();
+    let conn = rusqlite::Connection::open(&f.db).unwrap();
+    assert_eq!(conn.execute("UPDATE import_processing_receipts SET state='applying' WHERE operation_id=?1 AND stage='publication.effects' AND json_extract(receipt_json,'$.local_applied')=1", [&operation]).unwrap(), 1);
+    let held = || {
+        conn.query_row(
+            "SELECT state,local_track_id,revision,updated FROM import_items WHERE id=?1",
+            [&id],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, u64>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            },
+        )
+        .unwrap()
+    };
+    let before = held();
+    let audit = imported_audit(&f, &id);
+    let result = f
+        .lib
+        .recover_import_operation(&operation, &token())
+        .unwrap();
+    assert_eq!((result.recovered, result.recovery_required), (0, 1));
+    assert!(result.errors[0].contains("removed from the library"));
+    assert_eq!(held(), before);
+    assert_eq!(imported_audit(&f, &id), audit);
+    f.lib.undo_missing_repair(&removal.id, &token()).unwrap();
+    assert_eq!(held().0, "imported");
+    assert_eq!(held().1.as_deref(), Some(id.as_str()));
+    assert_eq!(f.lib.track(&id).unwrap().id, id);
 }
 
 /// The cached cover of one file content, as the app would have written it.
@@ -623,7 +1013,9 @@ fn a_file_moved_inside_a_watch_folder_is_followed_so_it_is_neither_missing_nor_a
 #[test]
 fn every_table_that_names_a_track_is_accounted_for() {
     use std::collections::{BTreeMap, BTreeSet};
-    const DETACHED: [&str; 1] = ["native_track_links"];
+    // A DJ-library link or an imported item loses its library track and stays, as a record of
+    // what the DJ library holds.
+    const DETACHED: [&str; 2] = ["native_track_links", "import_items"];
     const CALLER: [&str; 1] = ["playlist_members"];
     let f = Fixture::empty();
     let conn = rusqlite::Connection::open(&f.db).unwrap();

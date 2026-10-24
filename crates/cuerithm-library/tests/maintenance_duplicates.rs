@@ -604,7 +604,7 @@ fn migration_from_v6_preserves_tracks_and_initializes_empty_maintenance() {
     assert_eq!(
         conn.query_row("pragma user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        30
+        31
     );
     assert_eq!(
         conn.query_row(
@@ -1790,7 +1790,7 @@ fn schema8_migration_preserves_legacy_analysis_cue_ownership_and_enables_manual_
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        30
+        31
     );
     assert_eq!(
         conn.query_row(

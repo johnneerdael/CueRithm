@@ -6,6 +6,7 @@ mod curation_commands;
 mod exit;
 mod exit_commands;
 mod host;
+mod import_commands;
 mod maintenance;
 mod maintenance_commands;
 mod manual_publication_commands;
@@ -69,6 +70,7 @@ pub(crate) fn start_shutdown(app: tauri::AppHandle, host: Arc<host::Host>) {
         if let Ok(worker) = host.curation_worker.lock() {
             worker.request_shutdown();
         }
+        host.import_processing.shutdown();
         host.preparation.shutdown();
         if let Ok(mut worker) = host.curation_worker.lock() {
             worker.shutdown();
@@ -191,6 +193,29 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            import_commands::discover_import_sources,
+            import_commands::choose_import_source,
+            import_commands::choose_rekordbox_import_source,
+            import_commands::add_import_artifacts,
+            import_commands::choose_import_mapping,
+            import_commands::inspect_import,
+            import_commands::import_page,
+            import_commands::preview_import,
+            import_commands::import_preview_page,
+            import_commands::apply_import,
+            import_commands::discard_import_preview,
+            import_commands::inspect_import_refresh,
+            import_commands::import_operation_page,
+            import_commands::preview_import_effects,
+            import_commands::import_effects_page,
+            import_commands::apply_import_effects,
+            import_commands::recover_import_operation,
+            import_commands::undo_import_operation,
+            import_commands::imported_item,
+            import_commands::imported_collection_page,
+            import_commands::imported_collection_list,
+            import_commands::run_import_processing,
+            import_commands::retry_import_processing,
             rekordbox_sync_commands::discover_rekordbox_targets,
             rekordbox_sync_commands::configure_rekordbox_sync_target,
             rekordbox_sync_commands::preflight_rekordbox_sync,

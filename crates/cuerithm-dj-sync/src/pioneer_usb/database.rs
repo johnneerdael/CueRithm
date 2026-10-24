@@ -710,3 +710,74 @@ CREATE INDEX IF NOT EXISTS index_playlist_content_playlist_id ON playlist_conten
 CREATE INDEX IF NOT EXISTS index_hotCueBankList_cue_hotCueBankList_id ON hotCueBankList_cue(hotCueBankList_id);
 CREATE INDEX IF NOT EXISTS index_myTag_content_myTag_id ON myTag_content(myTag_id);
 CREATE INDEX IF NOT EXISTS index_myTag_content_content_id ON myTag_content(content_id);";
+
+/// Existing format policy, read-only access only; never call prepare on a source.
+pub(crate) fn open_readonly(path: &Path) -> Result<Connection> {
+    let db = open(path, true)?;
+    db.set_limit(
+        rusqlite::limits::Limit::SQLITE_LIMIT_LENGTH,
+        64 * 1024 * 1024,
+    )?;
+    db.pragma_update(None, "query_only", true)?;
+    db.busy_timeout(std::time::Duration::from_secs(2))?;
+    let (kind, sql): (String, String) = db.query_row(
+        "SELECT type,sql FROM sqlite_master WHERE name='property'",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    ensure!(
+        kind == "table" && !sql.to_ascii_uppercase().contains("VIRTUAL TABLE"),
+        "Unsupported device property table"
+    );
+    let versions = db
+        .prepare("SELECT CASE WHEN length(dbVersion)<=64 THEN dbVersion END FROM property LIMIT 2")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    ensure!(
+        versions.len() == 1 && versions[0] == "1000",
+        "Unsupported OneLibrary database version"
+    );
+    Ok(db)
+}
+pub(crate) fn capture_readonly(
+    input: &Path,
+    output: &Path,
+    max_bytes: u64,
+    cancel: &cuerithm_media::CancellationToken,
+) -> Result<()> {
+    use rusqlite::backup::StepResult;
+    cancel.check()?;
+    let source = open_readonly(input)?;
+    let mut destination = open(output, false)?;
+    {
+        let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
+        let start = std::time::Instant::now();
+        loop {
+            cancel.check()?;
+            ensure!(
+                start.elapsed() < std::time::Duration::from_secs(120),
+                "Device snapshot timed out"
+            );
+            let state = backup.step(64)?;
+            ensure!(
+                std::fs::metadata(output)?.len() <= max_bytes,
+                "Device snapshot byte limit"
+            );
+            match state {
+                StepResult::Done => break,
+                StepResult::More => {}
+                StepResult::Busy | StepResult::Locked => {
+                    std::thread::sleep(std::time::Duration::from_millis(10))
+                }
+                _ => anyhow::bail!("Unknown device snapshot status"),
+            }
+        }
+    }
+    destination.pragma_update(None, "journal_mode", "DELETE")?;
+    cancel.check()?;
+    std::fs::File::options()
+        .write(true)
+        .open(output)?
+        .sync_all()?;
+    Ok(())
+}

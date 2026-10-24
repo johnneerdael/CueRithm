@@ -45,7 +45,7 @@ fn applied_before_the_upgrade() -> (Fixture, String, usize) {
     save(&connection, &op).unwrap();
     let full_size = serde_json::to_string(&op.ledger_before).unwrap().len();
     // Make it look like a schema 29 library.
-    connection.pragma_update(None, "user_version", 29).unwrap();
+    connection.pragma_update(None, "user_version", 30).unwrap();
     drop(connection);
     let original = f._dir.path().canonicalize().unwrap().join("library.db");
     drop(f.library);
@@ -117,7 +117,7 @@ fn a_sync_whose_ledger_changed_before_the_upgrade_is_still_refused_after_it() {
             [],
         )
         .unwrap();
-    connection.pragma_update(None, "user_version", 29).unwrap();
+    connection.pragma_update(None, "user_version", 30).unwrap();
     drop(connection);
     let original = f._dir.path().canonicalize().unwrap().join("library.db");
     drop(f.library);
@@ -155,7 +155,7 @@ fn a_sync_that_was_restored_keeps_no_ledger_after_the_upgrade() {
     assert!(op.ledger_before.is_empty());
     // And the library then gives up the rest of its backup: only a summary stays.
     let connection = f.library.conn().unwrap();
-    connection.pragma_update(None, "user_version", 29).unwrap();
+    connection.pragma_update(None, "user_version", 30).unwrap();
     drop(connection);
     let mut f = f;
     let original = f._dir.path().canonicalize().unwrap().join("library.db");

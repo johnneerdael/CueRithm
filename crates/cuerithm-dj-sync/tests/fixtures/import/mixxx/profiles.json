@@ -1,0 +1,1898 @@
+{
+  "39": {
+    "facts": {
+      "foreign_keys": {
+        "PlaylistTracks": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          },
+          {
+            "from": "playlist_id",
+            "id": 1,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "Playlists",
+            "to": "id"
+          }
+        ],
+        "Playlists": [],
+        "crate_tracks": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          },
+          {
+            "from": "crate_id",
+            "id": 1,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "crates",
+            "to": "id"
+          }
+        ],
+        "crates": [],
+        "cues": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          }
+        ],
+        "directories": [],
+        "library": [
+          {
+            "from": "location",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "track_locations",
+            "to": "location"
+          }
+        ],
+        "settings": [],
+        "track_locations": []
+      },
+      "indexes": {
+        "PlaylistTracks": [
+          {
+            "columns": [
+              {
+                "cid": 2,
+                "name": "track_id",
+                "seqno": 0
+              }
+            ],
+            "name": "idx_PlaylistTracks_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 0,
+            "unique": 0
+          },
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "playlist_id",
+                "seqno": 0
+              },
+              {
+                "cid": 2,
+                "name": "track_id",
+                "seqno": 1
+              }
+            ],
+            "name": "idx_PlaylistTracks_playlist_id_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 1,
+            "unique": 0
+          }
+        ],
+        "Playlists": [],
+        "crate_tracks": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "track_id",
+                "seqno": 0
+              }
+            ],
+            "name": "idx_crate_tracks_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 0,
+            "unique": 0
+          },
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "crate_id",
+                "seqno": 0
+              },
+              {
+                "cid": 1,
+                "name": "track_id",
+                "seqno": 1
+              }
+            ],
+            "name": "sqlite_autoindex_crate_tracks_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 1,
+            "unique": 1
+          }
+        ],
+        "crates": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "name",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_crates_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "cues": [],
+        "directories": [
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "directory",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_directories_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "library": [],
+        "settings": [
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "name",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_settings_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "track_locations": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "location",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_track_locations_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ]
+      },
+      "tables": {
+        "PlaylistTracks": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "playlist_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "track_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "position",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "pl_datetime_added",
+            "notnull": 0,
+            "pk": 0,
+            "type": ""
+          }
+        ],
+        "Playlists": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "name",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(48)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "position",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "0",
+            "name": "hidden",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "date_created",
+            "notnull": 0,
+            "pk": 0,
+            "type": "datetime"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "date_modified",
+            "notnull": 0,
+            "pk": 0,
+            "type": "datetime"
+          },
+          {
+            "cid": 6,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "crate_tracks": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "crate_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "track_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "crates": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "name",
+            "notnull": 1,
+            "pk": 0,
+            "type": "varchar(48)"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "count",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "1",
+            "name": "show",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": "0",
+            "name": "autodj_source",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "cues": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "track_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "type",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "-1",
+            "name": "position",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": "0",
+            "name": "length",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": "-1",
+            "name": "hotcue",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 6,
+            "default": "''",
+            "name": "label",
+            "notnull": 1,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 7,
+            "default": "4294901760",
+            "name": "color",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "directories": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "directory",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          }
+        ],
+        "library": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "artist",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "title",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "album",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "year",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(16)"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "genre",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 6,
+            "default": null,
+            "name": "tracknumber",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(3)"
+          },
+          {
+            "cid": 7,
+            "default": null,
+            "name": "location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 8,
+            "default": null,
+            "name": "comment",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(256)"
+          },
+          {
+            "cid": 9,
+            "default": null,
+            "name": "url",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(256)"
+          },
+          {
+            "cid": 10,
+            "default": null,
+            "name": "duration",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 11,
+            "default": null,
+            "name": "bitrate",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 12,
+            "default": null,
+            "name": "samplerate",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 13,
+            "default": null,
+            "name": "cuepoint",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 14,
+            "default": null,
+            "name": "bpm",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 15,
+            "default": null,
+            "name": "wavesummaryhex",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 16,
+            "default": null,
+            "name": "channels",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 17,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "datetime_added",
+            "notnull": 0,
+            "pk": 0,
+            "type": ""
+          },
+          {
+            "cid": 18,
+            "default": null,
+            "name": "mixxx_deleted",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 19,
+            "default": null,
+            "name": "played",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 20,
+            "default": "0",
+            "name": "header_parsed",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 21,
+            "default": "'?'",
+            "name": "filetype",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(8)"
+          },
+          {
+            "cid": 22,
+            "default": "0",
+            "name": "replaygain",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 23,
+            "default": "0",
+            "name": "timesplayed",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 24,
+            "default": "0",
+            "name": "rating",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 25,
+            "default": "''",
+            "name": "key",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(8)"
+          },
+          {
+            "cid": 26,
+            "default": null,
+            "name": "beats",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 27,
+            "default": null,
+            "name": "beats_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 28,
+            "default": "''",
+            "name": "composer",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 29,
+            "default": "0",
+            "name": "bpm_lock",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 30,
+            "default": "''",
+            "name": "beats_sub_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 31,
+            "default": null,
+            "name": "keys",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 32,
+            "default": null,
+            "name": "keys_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 33,
+            "default": null,
+            "name": "keys_sub_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 34,
+            "default": "0",
+            "name": "key_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 35,
+            "default": "''",
+            "name": "grouping",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 36,
+            "default": "''",
+            "name": "album_artist",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 37,
+            "default": "0",
+            "name": "coverart_source",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 38,
+            "default": "0",
+            "name": "coverart_type",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 39,
+            "default": "''",
+            "name": "coverart_location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 40,
+            "default": "0",
+            "name": "coverart_hash",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 41,
+            "default": "-1.0",
+            "name": "replaygain_peak",
+            "notnull": 0,
+            "pk": 0,
+            "type": "REAL"
+          },
+          {
+            "cid": 42,
+            "default": "'//'",
+            "name": "tracktotal",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 43,
+            "default": null,
+            "name": "color",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 44,
+            "default": null,
+            "name": "coverart_color",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 45,
+            "default": null,
+            "name": "coverart_digest",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 46,
+            "default": "NULL",
+            "name": "last_played_at",
+            "notnull": 0,
+            "pk": 0,
+            "type": "DATETIME"
+          },
+          {
+            "cid": 47,
+            "default": "NULL",
+            "name": "source_synchronized_ms",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "settings": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "name",
+            "notnull": 1,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "value",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "0",
+            "name": "hidden",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "track_locations": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "filename",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "directory",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "filesize",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "fs_deleted",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 6,
+            "default": null,
+            "name": "needs_verification",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ]
+      }
+    },
+    "fingerprint": "26d1d5d532abd4aa903b37591c3a50e7160b862d54999f1595f84af25a2e13c0",
+    "schema_revision": 39
+  },
+  "40": {
+    "facts": {
+      "foreign_keys": {
+        "PlaylistTracks": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          },
+          {
+            "from": "playlist_id",
+            "id": 1,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "Playlists",
+            "to": "id"
+          }
+        ],
+        "Playlists": [],
+        "crate_tracks": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          },
+          {
+            "from": "crate_id",
+            "id": 1,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "crates",
+            "to": "id"
+          }
+        ],
+        "crates": [],
+        "cues": [
+          {
+            "from": "track_id",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "library_old",
+            "to": "id"
+          }
+        ],
+        "directories": [],
+        "library": [
+          {
+            "from": "location",
+            "id": 0,
+            "match": "NONE",
+            "on_delete": "NO ACTION",
+            "on_update": "NO ACTION",
+            "seq": 0,
+            "table": "track_locations",
+            "to": "location"
+          }
+        ],
+        "settings": [],
+        "track_locations": []
+      },
+      "indexes": {
+        "PlaylistTracks": [
+          {
+            "columns": [
+              {
+                "cid": 2,
+                "name": "track_id",
+                "seqno": 0
+              }
+            ],
+            "name": "idx_PlaylistTracks_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 0,
+            "unique": 0
+          },
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "playlist_id",
+                "seqno": 0
+              },
+              {
+                "cid": 2,
+                "name": "track_id",
+                "seqno": 1
+              }
+            ],
+            "name": "idx_PlaylistTracks_playlist_id_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 1,
+            "unique": 0
+          }
+        ],
+        "Playlists": [],
+        "crate_tracks": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "track_id",
+                "seqno": 0
+              }
+            ],
+            "name": "idx_crate_tracks_track_id",
+            "origin": "c",
+            "partial": 0,
+            "seq": 0,
+            "unique": 0
+          },
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "crate_id",
+                "seqno": 0
+              },
+              {
+                "cid": 1,
+                "name": "track_id",
+                "seqno": 1
+              }
+            ],
+            "name": "sqlite_autoindex_crate_tracks_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 1,
+            "unique": 1
+          }
+        ],
+        "crates": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "name",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_crates_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "cues": [],
+        "directories": [
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "directory",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_directories_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "library": [],
+        "settings": [
+          {
+            "columns": [
+              {
+                "cid": 0,
+                "name": "name",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_settings_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ],
+        "track_locations": [
+          {
+            "columns": [
+              {
+                "cid": 1,
+                "name": "location",
+                "seqno": 0
+              }
+            ],
+            "name": "sqlite_autoindex_track_locations_1",
+            "origin": "u",
+            "partial": 0,
+            "seq": 0,
+            "unique": 1
+          }
+        ]
+      },
+      "tables": {
+        "PlaylistTracks": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "playlist_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "track_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "position",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "pl_datetime_added",
+            "notnull": 0,
+            "pk": 0,
+            "type": ""
+          }
+        ],
+        "Playlists": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "name",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(48)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "position",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "0",
+            "name": "hidden",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "date_created",
+            "notnull": 0,
+            "pk": 0,
+            "type": "datetime"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "date_modified",
+            "notnull": 0,
+            "pk": 0,
+            "type": "datetime"
+          },
+          {
+            "cid": 6,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "crate_tracks": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "crate_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "track_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "crates": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "name",
+            "notnull": 1,
+            "pk": 0,
+            "type": "varchar(48)"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "count",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "1",
+            "name": "show",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": "0",
+            "name": "autodj_source",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "cues": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "track_id",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "type",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "-1",
+            "name": "position",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 4,
+            "default": "0",
+            "name": "length",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": "-1",
+            "name": "hotcue",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 6,
+            "default": "''",
+            "name": "label",
+            "notnull": 1,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 7,
+            "default": "4294901760",
+            "name": "color",
+            "notnull": 1,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "directories": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "directory",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          }
+        ],
+        "library": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "artist",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "title",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "album",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "year",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(16)"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "genre",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 6,
+            "default": null,
+            "name": "tracknumber",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(3)"
+          },
+          {
+            "cid": 7,
+            "default": null,
+            "name": "location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 8,
+            "default": null,
+            "name": "comment",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(256)"
+          },
+          {
+            "cid": 9,
+            "default": null,
+            "name": "url",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(256)"
+          },
+          {
+            "cid": 10,
+            "default": null,
+            "name": "duration",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 11,
+            "default": null,
+            "name": "bitrate",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 12,
+            "default": null,
+            "name": "samplerate",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 13,
+            "default": null,
+            "name": "cuepoint",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 14,
+            "default": null,
+            "name": "bpm",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 15,
+            "default": null,
+            "name": "wavesummaryhex",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 16,
+            "default": null,
+            "name": "channels",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 17,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "datetime_added",
+            "notnull": 0,
+            "pk": 0,
+            "type": ""
+          },
+          {
+            "cid": 18,
+            "default": null,
+            "name": "mixxx_deleted",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 19,
+            "default": null,
+            "name": "played",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 20,
+            "default": "0",
+            "name": "header_parsed",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 21,
+            "default": "'?'",
+            "name": "filetype",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(8)"
+          },
+          {
+            "cid": 22,
+            "default": "0",
+            "name": "replaygain",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          },
+          {
+            "cid": 23,
+            "default": "0",
+            "name": "timesplayed",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 24,
+            "default": "0",
+            "name": "rating",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 25,
+            "default": "''",
+            "name": "key",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(8)"
+          },
+          {
+            "cid": 26,
+            "default": null,
+            "name": "beats",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 27,
+            "default": null,
+            "name": "beats_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 28,
+            "default": "''",
+            "name": "composer",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(64)"
+          },
+          {
+            "cid": 29,
+            "default": "0",
+            "name": "bpm_lock",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 30,
+            "default": "''",
+            "name": "beats_sub_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 31,
+            "default": null,
+            "name": "keys",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 32,
+            "default": null,
+            "name": "keys_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 33,
+            "default": null,
+            "name": "keys_sub_version",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 34,
+            "default": "0",
+            "name": "key_id",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 35,
+            "default": "''",
+            "name": "grouping",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 36,
+            "default": "''",
+            "name": "album_artist",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 37,
+            "default": "0",
+            "name": "coverart_source",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 38,
+            "default": "0",
+            "name": "coverart_type",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 39,
+            "default": "''",
+            "name": "coverart_location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 40,
+            "default": "0",
+            "name": "coverart_hash",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 41,
+            "default": "-1.0",
+            "name": "replaygain_peak",
+            "notnull": 0,
+            "pk": 0,
+            "type": "REAL"
+          },
+          {
+            "cid": 42,
+            "default": "'//'",
+            "name": "tracktotal",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 43,
+            "default": null,
+            "name": "color",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 44,
+            "default": null,
+            "name": "coverart_color",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 45,
+            "default": null,
+            "name": "coverart_digest",
+            "notnull": 0,
+            "pk": 0,
+            "type": "BLOB"
+          },
+          {
+            "cid": 46,
+            "default": "NULL",
+            "name": "last_played_at",
+            "notnull": 0,
+            "pk": 0,
+            "type": "DATETIME"
+          },
+          {
+            "cid": 47,
+            "default": "NULL",
+            "name": "source_synchronized_ms",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 48,
+            "default": "0.0",
+            "name": "tuning_frequency_hz",
+            "notnull": 0,
+            "pk": 0,
+            "type": "FLOAT"
+          }
+        ],
+        "settings": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "name",
+            "notnull": 1,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "value",
+            "notnull": 0,
+            "pk": 0,
+            "type": "TEXT"
+          },
+          {
+            "cid": 2,
+            "default": "0",
+            "name": "locked",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 3,
+            "default": "0",
+            "name": "hidden",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ],
+        "track_locations": [
+          {
+            "cid": 0,
+            "default": null,
+            "name": "id",
+            "notnull": 0,
+            "pk": 1,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 1,
+            "default": null,
+            "name": "location",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 2,
+            "default": null,
+            "name": "filename",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 3,
+            "default": null,
+            "name": "directory",
+            "notnull": 0,
+            "pk": 0,
+            "type": "varchar(512)"
+          },
+          {
+            "cid": 4,
+            "default": null,
+            "name": "filesize",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 5,
+            "default": null,
+            "name": "fs_deleted",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          },
+          {
+            "cid": 6,
+            "default": null,
+            "name": "needs_verification",
+            "notnull": 0,
+            "pk": 0,
+            "type": "INTEGER"
+          }
+        ]
+      }
+    },
+    "fingerprint": "48f154557323db8ff4f7c686e64464af95a92df7ba34a429c663290a7b25f9f8",
+    "schema_revision": 40
+  }
+}

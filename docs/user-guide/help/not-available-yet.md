@@ -1,6 +1,6 @@
 # What CueRithm does not do yet
 
-<p class="lead">CueRithm is early software. This page lists what is missing, what is limited and what is in development, so you can tell a gap from a fault. Everything under <em>In development</em> is planned and not available in any release. Reading the whole page takes about five minutes.</p>
+<p class="lead">CueRithm is early software. This page lists what is missing, what is limited and what is in development, so you can tell a gap from a fault. Reading the whole page takes about five minutes.</p>
 
 Check the release notes of your download for the features it includes. For what has been tested in each DJ program, see [Check what works with your DJ software](compatibility.md).
 
@@ -16,7 +16,7 @@ Sync to Traktor, and to Serato versions before Serato DJ Pro 4, is not available
 
 ### Standalone playlist import and export { #playlist-import-export }
 
-Native playlist export is part of [Send your library to DJ software](../sync/index.md). The app has no menu command to export an M3U or collection XML file, or to import a playlist file. A developer-oriented command line mode can write an M3U8 for ready tracks ([library automation](https://github.com/johnneerdael/CueRithm/blob/main/docs/automation.md)).
+Native playlist export is part of [Send your library to DJ software](../sync/index.md). The app has no menu command to export an M3U or collection XML file, while [Import library](../files/import-library.md) can read M3U playlists. A developer-oriented command line mode can write an M3U8 for ready tracks ([library automation](https://github.com/johnneerdael/CueRithm/blob/main/docs/automation.md)).
 
 ### Variable-tempo grids and downbeat detection { #variable-tempo }
 
@@ -66,7 +66,7 @@ There is no Intel Mac build. Windows and Linux builds are unsigned, and their na
 
 ### Older versions cannot open a newer library { #library-schema }
 
-The library schema is version 29. An older CueRithm refuses a library that a newer one has opened, with `Library schema is newer than this application`, and there is no downgrade. [Back up your library](../files/library/back-up-library.md) before you update.
+The library schema is version 31. An older CueRithm refuses a library that a newer one has opened, with `Library schema is newer than this application`, and there is no downgrade. [Back up your library](../files/library/back-up-library.md) before you update.
 
 ### Measured agreement, not accuracy { #accuracy-not-measured }
 
@@ -102,13 +102,13 @@ The supported Lexicon backup profile is `lexicon-main-db-v26`. Import replaces a
 
 Synthetic format, path-flavour and scale tests do not establish every real-machine migration. Nine source/destination OS combinations, device playback and the original private Lexicon sample remain separate acceptance work. Check the [recorded verification scope](https://github.com/johnneerdael/CueRithm/blob/main/docs/development/relocation-portable-backups.md) and your download’s release notes.
 
-## In development { #in-development }
+## DJ-library import limits { #in-development }
 
-The remaining capability below is separate from reviewed relocation and portable replacement. No delivery dates are promised. Broader DJ-application, physical-device and platform acceptance also continues.
+DJ-library import is separate from reviewed relocation and portable replacement. Broader DJ-application, physical-device and platform acceptance continues.
 
 ### Bring other DJ libraries into CueRithm { #dj-library-import }
 
-The supported Lexicon ZIP profile above is a replacement workflow. Broader DJ-library import is planned separately: selected playlists, merging independent libraries, choosing imported fields and additional source applications. Coverage across DJ destinations and Mixxx, with DJ.Studio under consideration, is not a promise that every source format can be imported now.
+The supported Lexicon ZIP profile above replaces the library. [Import library](../files/import-library.md) instead brings selected tracks, fields and playlists from supported DJ sources into the existing library. New reader profiles have authored fixture coverage; acceptance in the original applications and on devices remains unverified. Mixed In Key Windows storage and native reference repair for moving imported originals remain unqualified.
 
 ## Related
 
@@ -117,4 +117,4 @@ The supported Lexicon ZIP profile above is a replacement workflow. Broader DJ-li
 - [Report a problem or ask for a feature](report-a-problem.md)
 - [Fix a problem](troubleshooting/index.md)
 
-<!-- verified: apps/desktop/src/views/PortableBackup.tsx; Relocation.tsx; MaintenanceBroken.tsx (Find moved files, Remove from library); crates/cuerithm-library/src/watch_moves.rs (what is followed and what is left alone); crates/cuerithm-library/src/store.rs (schema 29); backup/lexicon_stream.rs; maintenance/relocate.rs; docs/development/relocation-portable-backups.md. Unrelated limits retained from upstream guide; relocation/portable planned claims replaced with current source behaviour and explicit acceptance boundaries. -->
+<!-- verified: apps/desktop/src/views/PortableBackup.tsx; Relocation.tsx; MaintenanceBroken.tsx (Find moved files, Remove from library); crates/cuerithm-library/src/watch_moves.rs (what is followed and what is left alone); crates/cuerithm-library/src/store.rs (schema 30); backup/lexicon_stream.rs; maintenance/relocate.rs; docs/development/relocation-portable-backups.md. Unrelated limits retained from upstream guide; relocation/portable planned claims replaced with current source behaviour and explicit acceptance boundaries. -->

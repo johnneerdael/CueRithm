@@ -1,0 +1,225 @@
+{
+  "type": "object",
+  "required": [
+    "contract_version",
+    "source",
+    "tracks",
+    "collections",
+    "issues"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "policy": {
+      "type": "object"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "provider",
+        "library_instance_id",
+        "schema_fingerprint",
+        "snapshot_hash",
+        "completeness"
+      ],
+      "properties": {
+        "provider": {
+          "enum": [
+            "rekordbox",
+            "serato3",
+            "serato4",
+            "engine_dj",
+            "traktor",
+            "virtual_dj",
+            "djay_pro",
+            "rekordbox5_xml_research_only",
+            "apple_music_xml",
+            "pioneer_usb",
+            "m3u",
+            "mixed_in_key11",
+            "dj_studio",
+            "mixxx"
+          ]
+        },
+        "library_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "snapshot_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "completeness": {
+          "enum": [
+            "whole_library",
+            "selected_scope",
+            "partial_with_errors"
+          ]
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "external_id",
+          "locations",
+          "issues"
+        ],
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locations": {
+            "type": "object"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "key": {
+            "type": "object"
+          },
+          "bpm": {
+            "type": "object"
+          },
+          "grid": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "cues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "external_id",
+                "family",
+                "clock_status"
+              ],
+              "properties": {
+                "external_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "family": {
+                  "enum": [
+                    "marker",
+                    "hot",
+                    "memory",
+                    "main",
+                    "load",
+                    "loop",
+                    "intro",
+                    "outro",
+                    "audible_range",
+                    "unknown"
+                  ]
+                },
+                "clock_status": {
+                  "enum": [
+                    "validated_profile",
+                    "unresolved_native"
+                  ]
+                },
+                "source_slot": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "extensions": {
+            "type": "object"
+          },
+          "issues": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "external_id",
+          "parent_id",
+          "kind",
+          "name",
+          "occurrences"
+        ],
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "folder",
+              "playlist",
+              "crate",
+              "smart",
+              "history",
+              "queue"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "external_occurrence_id",
+                "track_external_id"
+              ],
+              "properties": {
+                "external_occurrence_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "track_external_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "position": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "array"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cuerithm:research:import-observation:1",
+  "title": "Proposed import observation envelope shape only; not a complete semantic validator",
+  "$comment": "Apply the semantic validation contract in validation-and-acceptance.md. This schema intentionally permits provider-specific fields and does not establish timing, key, identity, or graph correctness."
+}

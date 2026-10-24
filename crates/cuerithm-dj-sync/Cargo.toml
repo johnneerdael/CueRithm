@@ -7,12 +7,14 @@ license.workspace = true
 [features]
 # Authored Mixxx fixtures and the process-guard seam, for other crates' tests only.
 test-support = []
+# Disposable generated-fixture laboratory only; never enabled by desktop.
+experimental-djstudio-write = []
 
 [dependencies]
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-rusqlite = { workspace = true, features = ["functions", "backup", "bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { workspace = true, features = ["functions", "backup", "limits", "bundled-sqlcipher-vendored-openssl"] }
 sha2.workspace = true
 tempfile.workspace = true
 base64.workspace = true
@@ -35,6 +37,7 @@ chrono-tz = { version = "=0.10.4", default-features = false, features = ["std"] 
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Registry"] }
 
 [dev-dependencies]
+plist = "=1.10.1"
 tar = "0.4"
 
 [build-dependencies]

@@ -6,15 +6,15 @@
     - **The library holds locations, not audio.** Moving or renaming a music file outside CueRithm can leave its local binding unresolved. **Missing & broken** reports it; reviewed **Relocate** reconnects it while keeping its track identity. See [Find missing, moved or broken files](../files/library/find-missing-files.md).
     - **The library holds no audio, and Undo is bounded.** From CueRithm 0.1.18 or later CueRithm holds a copy of a file only while it writes it. Undo keeps recorded tag values, not copies, and only for your 10 newest operations. See [Where CueRithm keeps your data](../files/library/where-data-lives.md#space).
     - **Back the library up with Library backup**, and your music with your usual backup. A library backup does not contain music. See [Back up your library](../files/library/back-up-library.md).
-    - **The schema is version 30.** An older CueRithm refuses a newer library, and there is no downgrade. Opening an older library upgrades it in place; a snapshot made by an older release of the same installation cannot be restored into a newer library.
+    - **The schema is version 31.** An older CueRithm refuses a newer library, and there is no downgrade. Opening an older library upgrades it in place; a snapshot made by an older release of the same installation cannot be restored into a newer library.
 
 ## What kind of database it is { #the-engine }
 
 - SQLite, bundled with the app, in a file named `library.sqlite` in the application data folder.
 - **WAL** journal mode, synchronous FULL, foreign keys on and a 5-second busy timeout. The log is limited to 16 MiB after a checkpoint, checkpointed every 1000 pages, and emptied when the library opens, after a large import and on a clean exit.
-- Incremental **auto-vacuum**: pages freed by deleted rows go back to the file system in bounded steps. A library created before version 30 is converted once, by a single `VACUUM`, when it holds up to 512 MiB and the disk has room for three times its size; a bigger one keeps working as before.
+- Incremental **auto-vacuum**: pages freed by deleted rows go back to the file system in bounded steps. A library created before version 31 is converted once, by a single `VACUUM`, when it holds up to 512 MiB and the disk has room for three times its size; a bigger one keeps working as before.
 - An application ID marks the file as a CueRithm library. A non-empty SQLite file without it is rejected.
-- The schema version (`user_version`) is currently 30. Migrations are embedded SQL files applied in order, each in an immediate transaction. A newer schema is refused with "Library schema is newer than this application". Migrations preserve existing tracks, jobs and cue ownership.
+- The schema version (`user_version`) is currently 31. Migrations are embedded SQL files applied in order, each in an immediate transaction. A newer schema is refused with "Library schema is newer than this application". Migrations preserve existing tracks, jobs and cue ownership.
 
 ## Where things live { #where-things-live }
 

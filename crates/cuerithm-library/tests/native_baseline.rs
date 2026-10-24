@@ -641,20 +641,21 @@ fn schema_29_with_a_large_full_copy_upgrades_to_the_lean_form_and_keeps_every_de
         .unwrap()
         .collect::<rusqlite::Result<_>>()
         .unwrap();
-    conn.pragma_update(None, "user_version", 29).unwrap();
+    // The library is as the import release (schema 30) left it, with full copies.
+    conn.pragma_update(None, "user_version", 30).unwrap();
     drop(conn);
     let started = std::time::Instant::now();
     let lib = Library::open(&db).unwrap();
     let elapsed = started.elapsed();
     eprintln!(
-        "schema 29 to 30 with {} bytes of copies: {elapsed:?}",
+        "schema 30 to 31 with {} bytes of copies: {elapsed:?}",
         kept_before.3
     );
     assert!(elapsed < std::time::Duration::from_secs(60));
     drop(lib);
     let conn = Connection::open(&db).unwrap();
     let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
-    assert_eq!(count("PRAGMA user_version"), 30);
+    assert_eq!(count("PRAGMA user_version"), 31);
     assert_eq!(count("SELECT COUNT(*) FROM native_records"), kept_before.0);
     assert_eq!(
         count("SELECT COUNT(*) FROM native_track_links"),

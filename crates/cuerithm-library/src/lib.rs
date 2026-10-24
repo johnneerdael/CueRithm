@@ -107,6 +107,8 @@ pub use manual_publication::*;
 mod library_backup;
 pub use library_backup::*;
 
+mod import;
+pub use import::*;
 pub mod musical;
 pub mod portable;
 pub use musical::*;

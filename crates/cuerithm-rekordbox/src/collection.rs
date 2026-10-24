@@ -245,7 +245,10 @@ fn absolute_local(path: &str) -> bool {
                 .get(2)
                 .is_some_and(|c| matches!(c, b'/' | b'\\')))
 }
-fn resolved_path(row: &TargetRecord, options: &CollectionReadOptions) -> Result<Option<String>> {
+pub fn resolved_recorded_path(
+    row: &TargetRecord,
+    options: &CollectionReadOptions,
+) -> Result<Option<String>> {
     let service = row.int("ServiceID")?;
     let original = nonempty(row.text("OrgFolderPath")?);
     let folder = nonempty(row.text("FolderPath")?);
@@ -447,7 +450,7 @@ pub(crate) fn read_collection_on(
         };
         let source = TrackSource {
             path: nonempty(r.text("FolderPath")?),
-            resolved_path: resolved_path(r, &options)?,
+            resolved_path: resolved_recorded_path(r, &options)?,
             original_path: nonempty(r.text("OrgFolderPath")?),
             service_id: r.int("ServiceID")?,
             analysis_path: nonempty(r.text("AnalysisDataPath")?),

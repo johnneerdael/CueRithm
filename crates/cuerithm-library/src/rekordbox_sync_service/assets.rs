@@ -23,7 +23,7 @@ fn relative(path: &str) -> Result<PathBuf> {
     );
     Ok(path)
 }
-fn asset_relative_resolved(
+pub(super) fn asset_relative_resolved(
     target: &RekordboxSyncTarget,
     paths: &TargetPathResolver<'_>,
     path: &str,

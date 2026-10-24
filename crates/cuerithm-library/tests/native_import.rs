@@ -620,7 +620,7 @@ fn schema_ten_migration_preserves_legacy_links_and_native_import_enforces_foreig
     assert_eq!(
         sql.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        30
+        31
     );
     assert_eq!(
         sql.query_row(

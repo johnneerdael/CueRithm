@@ -490,7 +490,7 @@ pub(crate) fn migrate_identity(conn: &Connection) -> Result<()> {
 impl crate::Library {
     pub fn source_locator(&self, id: &str) -> Result<Option<PortableLocator>> {
         let json: Option<String> = self.conn()?.query_row(
-            "SELECT source_locator_json FROM tracks WHERE id=?1",
+            "SELECT source_locator_json FROM tracks WHERE id=?1 UNION ALL SELECT NULL FROM import_items WHERE id=?1 AND local_track_id IS NULL AND state='imported' LIMIT 1",
             [id],
             |r| r.get(0),
         )?;
@@ -500,9 +500,11 @@ impl crate::Library {
     pub fn source_hash_optional(&self, id: &str) -> Result<Option<String>> {
         Ok(self
             .conn()?
-            .query_row("SELECT source_hash FROM tracks WHERE id=?1", [id], |r| {
-                r.get(0)
-            })?)
+            .query_row(
+                "SELECT source_hash FROM tracks WHERE id=?1 UNION ALL SELECT source_hash FROM import_items WHERE id=?1 AND local_track_id IS NULL AND state='imported' LIMIT 1",
+                [id],
+                |r| r.get(0),
+            )?)
     }
 
     pub fn import_portable_tracks(&self, tracks: &[PortableTrack]) -> Result<()> {

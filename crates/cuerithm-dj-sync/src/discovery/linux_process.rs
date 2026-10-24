@@ -36,6 +36,26 @@ pub(super) fn is_running(software: DjSoftware) -> Result<bool> {
     )
 }
 
+#[cfg(target_os = "linux")]
+pub(super) fn source_is_running(provider: crate::import::SourceProvider) -> Result<bool> {
+    running_in_proc_matching(
+        Path::new("/proc"),
+        Limits::default(),
+        read_limited,
+        |bytes| source_command_line_matches(provider, bytes),
+    )
+}
+fn source_command_line_matches(
+    provider: crate::import::SourceProvider,
+    bytes: &[u8],
+) -> Result<bool> {
+    command_line_matches_by(bytes, |argument| {
+        basename(argument)
+            .and_then(|name| std::str::from_utf8(name).ok())
+            .is_some_and(|name| super::source_process_matches(provider, name))
+    })
+}
+
 fn basename(argument: &[u8]) -> Option<&[u8]> {
     let argument = match (argument.first(), argument.last()) {
         (Some(b'"'), Some(b'"')) if argument.len() >= 2 => &argument[1..argument.len() - 1],
@@ -64,20 +84,24 @@ fn operand<'a>(arguments: &[&'a [u8]], index: usize) -> Result<&'a [u8]> {
 }
 
 fn command_line_matches(software: DjSoftware, bytes: &[u8]) -> Result<bool> {
+    command_line_matches_by(bytes, |argument| app_matches(software, argument))
+}
+
+fn command_line_matches_by(bytes: &[u8], app_matches: impl Fn(&[u8]) -> bool) -> Result<bool> {
     if bytes.is_empty() {
         return Ok(false);
     }
     ensure!(bytes.last() == Some(&0), "Incomplete Linux process record");
     let arguments: Vec<_> = bytes[..bytes.len() - 1].split(|byte| *byte == 0).collect();
     let executable = operand(&arguments, 0)?;
-    if app_matches(software, executable) {
+    if app_matches(executable) {
         return Ok(true);
     }
     if named(
         executable,
         &[b"wine", b"wine64", b"wine-preloader", b"wine64-preloader"],
     ) {
-        return Ok(app_matches(software, operand(&arguments, 1)?));
+        return Ok(app_matches(operand(&arguments, 1)?));
     }
     // Only unwrap known launcher operands; unrelated arguments are never executables.
     let mode_index = if named(executable, &[b"proton"]) {
@@ -95,7 +119,7 @@ fn command_line_matches(software: DjSoftware, bytes: &[u8]) -> Result<bool> {
         operand(&arguments, mode_index)?,
         b"run" | b"waitforexitandrun"
     ) {
-        return Ok(app_matches(software, operand(&arguments, mode_index + 1)?));
+        return Ok(app_matches(operand(&arguments, mode_index + 1)?));
     }
     Ok(false)
 }
@@ -112,7 +136,18 @@ fn running_in_proc_with_reader(
     software: DjSoftware,
     root: &Path,
     limits: Limits,
+    read: impl FnMut(&Path, usize) -> io::Result<Vec<u8>>,
+) -> Result<bool> {
+    running_in_proc_matching(root, limits, read, |bytes| {
+        command_line_matches(software, bytes)
+    })
+}
+
+fn running_in_proc_matching(
+    root: &Path,
+    limits: Limits,
     mut read: impl FnMut(&Path, usize) -> io::Result<Vec<u8>>,
+    matches: impl Fn(&[u8]) -> Result<bool>,
 ) -> Result<bool> {
     let mut processes = 0;
     let mut observed_records = 0;
@@ -144,7 +179,7 @@ fn running_in_proc_with_reader(
         ensure!(bytes.len() <= limit, "Linux process byte limit exceeded");
         observed_records += 1;
         remaining_bytes -= bytes.len();
-        if command_line_matches(software, &bytes)? {
+        if matches(&bytes)? {
             return Ok(true);
         }
     }
@@ -159,6 +194,24 @@ fn running_in_proc_with_reader(
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn source_checks_preserve_explicit_launcher_and_quoted_path_rules() {
+        use crate::import::SourceProvider::*;
+        for (provider, argv) in [
+            (Traktor, b"wine64\0C:\\Traktor.exe\0".as_slice()),
+            (MixedInKey11, b"Mixed In Key 11\0".as_slice()),
+            (DjStudio, b"proton\0run\0DJ.Studio.exe\0".as_slice()),
+            (
+                AppleMusicXml,
+                b"/Applications/Music.app/Contents/MacOS/Music\0".as_slice(),
+            ),
+            (Mixxx, b"\"C:\\Program Files\\Mixxx.exe\"\0".as_slice()),
+            (Mixxx, b"/authored/\xff/Mixxx\0".as_slice()),
+        ] {
+            assert!(source_command_line_matches(provider, argv).unwrap());
+            assert!(!source_command_line_matches(provider, b"editor\0Traktor.exe\0").unwrap());
+        }
+    }
 
     fn generous() -> Limits {
         Limits {

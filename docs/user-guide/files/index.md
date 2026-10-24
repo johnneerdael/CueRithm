@@ -123,3 +123,5 @@ More on this part: [Look after your library](library/index.md).
 - [How does CueRithm analyse a track?](../how-it-works/pipeline.md)
 
 <!-- verified: apps/desktop/src/App.tsx (Add tracks, drop overlay, Incoming/Archive views, processing indicator); apps/desktop/src/views/Settings.tsx (page list); crates/cuerithm-library/src/jobs.rs (claim_next uses the job's captured settings revision), crates/cuerithm-library/src/prepare.rs (retry_attention on save); legacy guides/incoming-archive.md and get-started/add-music.md re-checked -->
+
+To bring tracks and playlists from another DJ application while keeping its values, use [Import a DJ library](import-library.md). Analysis and file changes are separate choices and start off.

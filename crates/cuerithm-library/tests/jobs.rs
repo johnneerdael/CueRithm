@@ -38,6 +38,8 @@ fn result() -> FileAnalysis {
         emergency_loop: None,
     });
     FileAnalysis {
+        selection: None,
+        selected_beatgrid: None,
         publication: None,
         analysis: a,
         complete: true,

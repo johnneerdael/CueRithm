@@ -71,7 +71,7 @@ impl MetadataEditService {
         let hash =
             hash.context("File identity is unknown; analyze the track before editing metadata")?;
         ensure!(
-            !archived && matches!(state.as_str(), "ready" | "incoming"),
+            !archived && matches!(state.as_str(), "ready" | "incoming" | "imported"),
             "Choose an active Ready or Incoming track"
         );
         let path = crate::model::bytes_path(&path)?;

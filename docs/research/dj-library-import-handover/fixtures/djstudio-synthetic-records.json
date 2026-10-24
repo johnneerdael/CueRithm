@@ -1,0 +1,224 @@
+{
+  "fixtureKind": "synthetic partial records; merge with existing records, never install as full app export",
+  "sourceProfile": "DJ.Studio native 4.2.9 bundled web dbc14cf914187b40bb359ad570ffb4c4a95e83b8",
+  "paths": {
+    "audio": "Database/audio-library-table/3f/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "structure": "Database/track-structures-table/7e/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fixed"
+  },
+  "sqlite": {
+    "Tracks": [
+      {
+        "id": 101,
+        "filePath": "/example/music/synthetic.wav",
+        "relativePath": "/example/music/synthetic.wav",
+        "fileName": "synthetic.wav",
+        "title": "Synthetic fixture",
+        "artist": "Fixture artist",
+        "bpm": 120.25,
+        "key": 12,
+        "duration": 3.0,
+        "analyzed": 1
+      }
+    ],
+    "Playlists": [
+      {
+        "id": 201,
+        "title": "Synthetic playlist",
+        "sort": 0
+      }
+    ],
+    "PlaylistTracks": [
+      {
+        "id": 301,
+        "playlistId": 201,
+        "trackId": 101,
+        "sort": 0
+      },
+      {
+        "id": 302,
+        "playlistId": 201,
+        "trackId": 101,
+        "sort": 1
+      }
+    ],
+    "Folders": [
+      {
+        "id": 401,
+        "name": "music",
+        "path": "/example/music",
+        "sort": 0
+      }
+    ]
+  },
+  "audio": {
+    "key": "file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fileHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "kind": "file",
+    "name": "synthetic.wav",
+    "type": "audio/wav",
+    "externalRec": {
+      "UUID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileLocationPath": "/example/music/synthetic.wav",
+      "lastKnownFilePath": "/example/music/synthetic.wav"
+    },
+    "tag": {
+      "title": "Synthetic fixture",
+      "artist": "Fixture artist",
+      "bpm": "120.25",
+      "key": "8A",
+      "comment": "Synthetic only"
+    },
+    "bpm": 120.25,
+    "camelotKey": 12,
+    "originalCamelotKey": 12,
+    "noteKey": 12,
+    "structureKey": "file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fixed",
+    "beatDataSource": "fixed",
+    "beatsPerBar": 4,
+    "bpmMultiplier": 1,
+    "beatQuantize": true,
+    "duration": 3.0,
+    "sampleRate": 44100,
+    "cueData": {
+      "loopMode": 0,
+      "systemCuePoints": [],
+      "hotCuePoints": [
+        {
+          "beat": -1,
+          "time": -1,
+          "length": 0,
+          "type": 0,
+          "name": "",
+          "cueKey": ""
+        },
+        {
+          "beat": 2,
+          "time": -1,
+          "length": 0,
+          "type": 0,
+          "name": "Synthetic cue",
+          "cueKey": "00000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "memCuePoints": []
+    },
+    "beatGrids": [
+      {
+        "beatDataSource": "fixed",
+        "trackStructureKey": "file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fixed",
+        "bpm": 120.25,
+        "customBpm": -1,
+        "bpmMultiplier": 1
+      }
+    ],
+    "bpmLine": [
+      {
+        "time": 0,
+        "beatNr": 0,
+        "value": 120.25,
+        "flags": 0
+      }
+    ]
+  },
+  "structure": {
+    "key": "file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fixed",
+    "beatData": [
+      {
+        "nr": 0,
+        "time": 0.0,
+        "originalTime": 0.0,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 1,
+        "time": 0.498960498960499,
+        "originalTime": 0.498960498960499,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 2,
+        "time": 0.997920997920998,
+        "originalTime": 0.997920997920998,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 3,
+        "time": 1.496881496881497,
+        "originalTime": 1.496881496881497,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 4,
+        "time": 1.995841995841996,
+        "originalTime": 1.995841995841996,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 5,
+        "time": 2.494802494802495,
+        "originalTime": 2.494802494802495,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      },
+      {
+        "nr": 6,
+        "time": 2.993762993762994,
+        "originalTime": 2.993762993762994,
+        "type": 0,
+        "phraseNr": -1,
+        "energyLevelNr": -1
+      }
+    ],
+    "bpmLine": [],
+    "phraseData": [],
+    "energyLevelData": []
+  },
+  "assertions": [
+    "SQL key 12 = 8A = Am; SQL bpm preserves fractional value despite INTEGER declaration",
+    "Duplicate PlaylistTracks membership is structurally allowed; do not collapse silently",
+    "Unknown time sentinel -1 is distinct from time zero",
+    "Hotcue beat 2 resolves to structure.beatData[2].time seconds; do not treat beat as milliseconds",
+    "Do not reuse synthetic hash to name real imported audio; reuse existing stable identities",
+    "Membership sort is modeled but 4.2.9 native retrieval has no ORDER BY: UI ordering remains unverified"
+  ],
+  "isolatedShippedCodeControls": {
+    "scope": "Original copied S7 class with an in-memory storage stub; original o6 function in Node VM; no application initialization or disk writers.",
+    "unicodeSharding": {
+      "key": "file_\u00e9\ud83d\ude00/fixed",
+      "codeUnitAlgorithm": "sum UTF-16 code units modulo 256, lowercase unpadded hex; use JavaScript surrogate halves, not Unicode scalar sum"
+    },
+    "nearestBeatCases": [
+      {
+        "inputTimeSeconds": 0.997920997920998,
+        "expectedArrayIndex": 2
+      },
+      {
+        "inputTimeSeconds": 1.2474012474012475,
+        "expectedArrayIndex": 2,
+        "note": "Tie retains the earlier entry"
+      },
+      {
+        "inputTimeSeconds": -10,
+        "expectedArrayIndex": 0,
+        "note": "Original bounded search fallback; do not describe as a valid arbitrary-time match"
+      },
+      {
+        "inputTimeSeconds": 100,
+        "expectedArrayIndex": 0,
+        "note": "No beat lies within four-second initial bound; original defaults to index zero"
+      }
+    ],
+    "result": "passed"
+  }
+}

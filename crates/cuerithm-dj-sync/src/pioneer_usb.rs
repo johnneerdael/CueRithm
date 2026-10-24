@@ -2,10 +2,10 @@
 //! publish the returned relative paths with the caller's backup/rollback journal.
 pub(crate) mod analysis;
 pub(crate) mod compatibility;
-mod database;
+pub(crate) mod database;
 mod ownership;
 mod paths;
-mod pdb;
+pub(crate) mod pdb;
 use crate::{SyncLibrary, SyncOptions, SyncTrack, UsbCompatibility};
 use anyhow::{Context, Result, ensure};
 use cuerithm_media::MediaRuntime;

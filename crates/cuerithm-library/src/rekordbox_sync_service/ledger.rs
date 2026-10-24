@@ -182,7 +182,7 @@ pub(super) fn restore(connection: &Connection, ledger: &NativeLedger) -> Result<
 }
 
 /// Brings the operations saved by an earlier version to the lean ledger, in the transaction
-/// that makes the stored records lean (schema 30). It must run first, while the records still
+/// that makes the stored records lean (schema 31). It must run first, while the records still
 /// hold their full copies, because that is the only time a recorded digest can be checked
 /// against the way it was computed.
 ///

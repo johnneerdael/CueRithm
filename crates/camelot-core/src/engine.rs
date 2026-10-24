@@ -1,6 +1,7 @@
 //! Stateful engine facade shared by the CLI and future desktop host.
 use crate::{
-    Analysis, AnalysisConfig, analysis::analyze_components, audio, profile::KeyProfileModel,
+    Analysis, AnalysisConfig, AnalysisSelection, analysis::analyze_selected_components, audio,
+    profile::KeyProfileModel,
 };
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
@@ -265,6 +266,12 @@ pub struct SourceTimingMetadata {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileAnalysis {
+    /// None on legacy/full ordinary preparation; explicit on selected requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection: Option<AnalysisSelection>,
+    /// Grid output is separate from scalar BPM adoption for selected requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_beatgrid: Option<crate::TempoEstimate>,
     /// App publication is derived after DSP; older results retain their raw data.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication: Option<crate::lexicon_publication::Publication>,
@@ -288,6 +295,10 @@ pub struct FileAnalysis {
 }
 
 pub struct Engine {
+    execution_selection: AnalysisSelection,
+    generation_timing: Option<crate::TempoEstimate>,
+    #[cfg(test)]
+    stage_counts: [u32; 4],
     settings: EngineSettings,
     key: Option<KeyProfileModel>,
     energy: Option<crate::energy::EnergyModel>,
@@ -348,6 +359,10 @@ impl Engine {
             .map(crate::energy::EnergyModel::load)
             .transpose()?;
         Ok(Self {
+            execution_selection: AnalysisSelection::ALL,
+            generation_timing: None,
+            #[cfg(test)]
+            stage_counts: [0; 4],
             energy,
             settings: settings.clone(),
             key,
@@ -358,6 +373,94 @@ impl Engine {
             #[cfg(feature = "neural-beats")]
             beats,
         })
+    }
+
+    /// Construct only the requested model backends. Import workers use this before
+    /// any model load; ordinary Incoming continues to use `new` and full preparation.
+    pub fn new_selected(settings: &EngineSettings, selection: AnalysisSelection) -> Result<Self> {
+        ensure!(selection.any(), "No analysis stages selected");
+        let filtered = selection.effective_settings(settings);
+        ensure!(
+            !selection.energy || filtered.lexicon_energy || filtered.energy_model.is_some(),
+            "No whole-track energy backend configured"
+        );
+        ensure!(
+            !selection.cues || filtered.lexicon_config.is_some(),
+            "No cue generator configured"
+        );
+        let mut engine = Self::new(&filtered)?;
+        engine.execution_selection = selection;
+        Ok(engine)
+    }
+    pub fn analyze_prepared_selected(
+        &mut self,
+        audio: &cuerithm_media::PreparedAudio,
+        selection: AnalysisSelection,
+    ) -> Result<FileAnalysis> {
+        self.generation_timing = None;
+        ensure!(selection.any(), "No analysis stages selected");
+        if self.execution_selection != selection {
+            let mut selected = Self::new_selected(&self.settings, selection)?;
+            let result = selected.analyze_prepared_selected(audio, selection);
+            self.generation_timing = selected.take_generation_timing();
+            #[cfg(test)]
+            {
+                self.stage_counts = selected.stage_counts;
+            }
+            return result;
+        }
+        let mut result = self.analyze_prepared_effective(audio)?;
+        result.selection = Some(selection);
+        if selection.cues {
+            self.generation_timing = result.analysis.tempo.clone();
+        }
+        if selection.beatgrid {
+            result.selected_beatgrid = result.analysis.tempo.clone();
+        }
+        if !selection.bpm {
+            result.analysis.tempo = None;
+        } else if !selection.beatgrid
+            && let Some(tempo) = &mut result.analysis.tempo
+        {
+            tempo.beats_seconds.clear();
+            tempo.downbeats_seconds = None;
+            tempo.downbeat_time = None;
+        }
+        result.analysis.config_sha256 = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(
+                &serde_json::json!({"analysis":result.analysis.config_sha256,"selection":selection})
+            )?)
+        );
+        Ok(result)
+    }
+    /// Backend-only prerequisite for the existing cue publication template. This
+    /// does not authorize adopting scalar BPM or the grid into the library.
+    pub fn take_generation_timing(&mut self) -> Option<crate::TempoEstimate> {
+        self.generation_timing.take()
+    }
+    fn execution_input_rates(&self) -> Vec<u32> {
+        let mut rates = self.settings.input_rates();
+        let classical_timing = self.execution_selection.timing()
+            && !self.settings.source_profile_timing
+            && !self.settings.lexicon_timing
+            && self.settings.beat_model.is_none();
+        if !self.execution_selection.key
+            && !classical_timing
+            && !self.settings.structure_features
+            && rates.len() > 1
+        {
+            rates.retain(|rate| *rate != self.settings.sample_rate);
+        }
+        rates
+    }
+    #[cfg(test)]
+    pub(crate) fn selected_stage_counts(&self) -> [u32; 4] {
+        self.stage_counts
+    }
+    #[cfg(test)]
+    pub(crate) fn selected_input_rates(&self) -> Vec<u32> {
+        self.execution_input_rates()
     }
 
     pub fn model_identity(&self) -> BTreeMap<String, String> {
@@ -427,6 +530,16 @@ impl Engine {
     }
 
     pub fn analyze_prepared(
+        &mut self,
+        audio: &cuerithm_media::PreparedAudio,
+    ) -> Result<FileAnalysis> {
+        ensure!(
+            self.execution_selection == AnalysisSelection::ALL,
+            "This engine was initialized for selected analysis; call analyze_prepared_selected"
+        );
+        self.analyze_prepared_effective(audio)
+    }
+    fn analyze_prepared_effective(
         &mut self,
         audio: &cuerithm_media::PreparedAudio,
     ) -> Result<FileAnalysis> {
@@ -628,7 +741,7 @@ impl Engine {
         let beat_sample_rate = self.settings.beat_model.as_ref().map(|_| 22050);
         let neural_key_sample_rate = self.settings.key_neural_model.as_ref().map(|_| 22050);
         let openkeyscan_sample_rate = self.settings.key_openkeyscan_model.as_ref().map(|_| 44100);
-        let rates = self.settings.input_rates();
+        let rates = self.execution_input_rates();
         let (decoded, timing_input) = if self.settings.lexicon_timing {
             let (mixed, first) =
                 audio::decode_at_rates_with_first_channel(decode_path, &rates, None)?;
@@ -649,17 +762,26 @@ impl Engine {
         let audio = decoded
             .iter()
             .find(|a| a.sample_rate == self.settings.sample_rate)
+            .or_else(|| decoded.first())
             .context("Missing DSP input rate")?;
         #[cfg(feature = "neural-beats")]
         let compute_tempo = self.beats.is_none();
         #[cfg(not(feature = "neural-beats"))]
         let compute_tempo = true;
-        let compute_tempo =
-            compute_tempo && !self.settings.source_profile_timing && !self.settings.lexicon_timing;
-        let mut analysis = analyze_components(
+        let compute_tempo = compute_tempo
+            && self.execution_selection.timing()
+            && !self.settings.source_profile_timing
+            && !self.settings.lexicon_timing;
+        #[cfg(test)]
+        {
+            self.stage_counts[0] += u32::from(self.execution_selection.key);
+            self.stage_counts[1] += u32::from(self.execution_selection.timing());
+        }
+        let mut analysis = analyze_selected_components(
             &audio.samples,
             audio.sample_rate,
             &self.settings.config,
+            self.execution_selection.key,
             compute_tempo,
         )?;
         let source_timing = source_timing.map(|timing| {
@@ -800,6 +922,10 @@ impl Engine {
             )?);
         }
         if let Some(config) = &self.settings.lexicon_config {
+            #[cfg(test)]
+            {
+                self.stage_counts[3] += 1;
+            }
             let result = match &analysis.tempo {
                 Some(tempo) => {
                     let input = match &timing_input {
@@ -841,6 +967,11 @@ impl Engine {
                 analysis.engine.push_str("+lexicon-cue-webaudio-v1");
             }
         }
+        #[cfg(test)]
+        {
+            self.stage_counts[2] +=
+                u32::from(self.energy.is_some() || self.settings.lexicon_energy);
+        }
         if let Some(model) = &self.energy {
             let segments = match &profile {
                 Some(p) => camelot_source_analysis::analyze_energy_pcm(p)?,
@@ -867,6 +998,8 @@ impl Engine {
             );
         }
         Ok(FileAnalysis {
+            selection: None,
+            selected_beatgrid: None,
             publication: None,
             analysis,
             complete: audio.complete,
