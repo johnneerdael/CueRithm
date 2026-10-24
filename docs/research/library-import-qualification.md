@@ -976,3 +976,13 @@ raw locations, three playlist occurrences and non-Windows behavior are retained.
 The existing failing Windows M3U regression remains the verification control.
 Formatting, diff check and independent focused review passed; only affected
 Windows engine/desktop components are retried from the original checked baseline.
+
+Windows desktop CI also exposed an intermittent timeout in the existing
+450-track metadata-editor control. An unchanged-source retry passed, but the
+next run failed at the same full-page accessible-role lookup. The control now
+waits for the explicitly labelled Title input before checking its textbox role,
+avoiding repeated accessibility scans of the 200 rendered table rows. Its
+450-track selection, draft-ID and independent-playback assertions, default wait
+deadline and application code are unchanged. Desktop CI on all three platforms
+verifies this shared test change; engine results are retained through the
+documented baseline chain. No additional local test suite is run.

@@ -38,7 +38,8 @@ describe("selection-owned metadata inspector",()=>{
   render(<App bridge={bridge}/>);await screen.findByText("Track a0");
   fireEvent.keyDown(screen.getByRole("table"),{key:"a",metaKey:true});
   await screen.findByText("450 selected");fireEvent.click(screen.getByRole("button",{name:"Edit metadata"}));
-  await screen.findByRole("textbox",{name:"Title"});
+  // Avoid repeated full-table accessibility scans while the batch draft resolves.
+  expect(await screen.findByLabelText("Title",{selector:"input"})).toHaveRole("textbox");
   expect(bridge.createMetadataDraft).toHaveBeenCalledWith(expect.any(String),ids);
   expect(bridge.playerLoad).not.toHaveBeenCalled();
  });
