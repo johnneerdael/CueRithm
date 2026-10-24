@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 
 pub(crate) const LIBRARY_TRACKS_CTE: &str = r#"library_tracks AS (
- SELECT id,path,title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,tagging_json,sort_title,sort_artist,search_text FROM tracks
+ SELECT id,path,CASE WHEN t.state='imported' AND t.title='' AND EXISTS(SELECT 1 FROM import_items i WHERE i.id=t.id AND i.local_track_id=t.id) THEN 'Imported item' ELSE t.title END AS title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,tagging_json,sort_title,sort_artist,search_text FROM tracks t
  UNION ALL
  SELECT i.id,i.path,COALESCE(json_extract(s.value_json,'$.title'),'Imported item'),COALESCE(json_extract(s.value_json,'$.artist'),''),COALESCE(json_extract(s.value_json,'$.album'),''),COALESCE(json_extract(s.value_json,'$.genre'),''),'imported',json_extract(s.value_json,'$.key'),json_extract(s.value_json,'$.bpm'),json_extract(s.value_json,'$.energy'),json_extract(s.value_json,'$.duration'),i.source_hash,'{}',i.created,i.updated,COALESCE(json_extract(s.value_json,'$.archived'),0),NULL,COALESCE(json_extract(s.value_json,'$.sort_title'),''),COALESCE(json_extract(s.value_json,'$.sort_artist'),''),COALESCE(json_extract(s.value_json,'$.search_text'),'')
  FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL

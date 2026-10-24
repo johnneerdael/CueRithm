@@ -145,16 +145,34 @@ impl Library {
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
         let fields = super::super::projection::active_fields_tx(&tx, id)?;
+        ensure!(
+            fields.get("library.archived").and_then(Value::as_bool) != Some(true),
+            "Restore this track from Archive before reviewing file effects"
+        );
+        let (created, updated): (i64, i64) = tx.query_row(
+            "SELECT created,updated FROM import_items WHERE id=?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
         let duration = fields
             .get("metadata.duration")
             .and_then(super::super::projection::duration_value);
-        tx.execute("INSERT INTO tracks(id,path,title,source_hash,state,metadata_json,duration,created,updated) VALUES(?1,?2,'',?3,'imported',?4,?5,?6,?6)",params![id,path_bytes(&media.path),media.sha256,serde_json::to_string(&info)?,duration,now()])?;
+        tx.execute("INSERT INTO tracks(id,path,title,source_hash,state,metadata_json,duration,created,updated) VALUES(?1,?2,'',?3,'imported',?4,?5,?6,?7)",params![id,path_bytes(&media.path),media.sha256,serde_json::to_string(&info)?,duration,created,updated])?;
         tx.execute(
             "UPDATE import_items SET local_track_id=id WHERE id=?1 AND local_track_id IS NULL",
             [id],
         )?;
         super::super::recovery::sync_projection(&tx, id, &fields)?;
         super::super::native_shadow::capture_owned(&tx, id)?;
+        // Ownership projection during review does not change accepted library data.
+        tx.execute(
+            "UPDATE tracks SET updated=?1 WHERE id=?2",
+            params![updated, id],
+        )?;
+        tx.execute(
+            "UPDATE import_items SET updated=?1 WHERE id=?2",
+            params![updated, id],
+        )?;
         tx.commit()?;
         Ok(())
     }

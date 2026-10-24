@@ -868,3 +868,19 @@ library unit tests pass 37 with one ignored. Workspace formatting, Clippy with
 `-D warnings` for both workspace and untagged library targets, and workspace
 release build pass. Three tag-only maintenance helpers were feature-gated to
 keep the untagged build warning-free while retaining their unit tests.
+
+### Archive and promotion-preview corrections
+
+Archived imported-only tracks now block ownership promotion inside the transaction,
+before native insertion or linking. Tag and copy previews explain that the track
+must be restored from Archive. Preview and discard leave archive membership,
+ownership and source bytes unchanged; a fresh preview works after restoration.
+The same transition preserves added/modified dates and the untitled-item display
+fallback without storing that placeholder in native metadata or writing it to tags.
+Actual tag application still advances the modified date.
+
+Both archive regressions and the timestamp/title regression reproduced the failures
+before correction and now pass. All 141 import unit tests pass.
+The 76 surrounding public import/native/backup/identity integrations and 37 desktop
+unit tests (one ignored) also pass on the corrected source. Workspace formatting,
+workspace and untagged-library strict Clippy, and workspace release build pass.

@@ -99,6 +99,255 @@ fn setup_observation(
 }
 
 #[cfg(feature = "autotag")]
+fn archived_import_file_preview_requires_restore(copy: bool) {
+    let destination = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let (f, _, id, path) = setup(ImportPolicy::default());
+    let mut policy = ImportPolicy::default();
+    if copy {
+        let root = f
+            .lib
+            .register_organization_root(destination.path().to_owned())
+            .unwrap();
+        policy.relocation = RelocationPolicy::Copy {
+            root_id: root.id,
+            rule: "{title}".into(),
+        };
+    } else {
+        policy.write_audio_tags = ["title".into()].into();
+    }
+    let track = f.lib.imported_item(&id).unwrap().observations[0]
+        .track
+        .clone();
+    let inspection = f.inspect(vec![track], Completeness::WholeLibrary);
+    let mut request = f.request(&inspection);
+    request.policy = policy;
+    let op = f.apply(&f.preview(request)).operation_id;
+    let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    service.run_pending(&CancellationToken::default()).unwrap();
+    f.lib.set_archived(&id, true).unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let counts = f.lib.counts().unwrap();
+    assert_eq!((counts.tracks, counts.archive, counts.incoming), (0, 1, 0));
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!((preview.ready, preview.blocked), (0, 1));
+    let page = f
+        .lib
+        .import_effects_page(&preview.preview_id, None, 100)
+        .unwrap();
+    let reason = page.records[0].reason.as_deref().unwrap();
+    assert!(
+        reason.contains("Restore") && reason.contains("Archive"),
+        "{reason}"
+    );
+    f.lib.discard_import_preview(&preview.preview_id).unwrap();
+    assert!(f.lib.track(&id).unwrap().archived);
+    let counts = f.lib.counts().unwrap();
+    assert_eq!((counts.tracks, counts.archive, counts.incoming), (0, 1, 0));
+    assert_eq!(
+        f.lib
+            .tracks(TrackQuery {
+                view: TrackView::Archive,
+                ..Default::default()
+            })
+            .unwrap()
+            .total,
+        1
+    );
+    assert_eq!(
+        f.lib
+            .conn()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM tracks WHERE id=?1", [&id], |r| r
+                .get::<_, u64>(0))
+            .unwrap(),
+        0
+    );
+    assert!(
+        f.lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT local_track_id FROM import_items WHERE id=?1",
+                [&id],
+                |r| r.get::<_, Option<String>>(0)
+            )
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert_eq!(std::fs::read_dir(destination.path()).unwrap().count(), 0);
+    f.lib.set_archived(&id, false).unwrap();
+    let preview = f
+        .lib
+        .preview_import_effects(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        (preview.ready, preview.blocked),
+        (1, 0),
+        "{:?}",
+        f.lib
+            .import_effects_page(&preview.preview_id, None, 100)
+            .unwrap()
+    );
+    assert!(!f.lib.track(&id).unwrap().archived);
+    let counts = f.lib.counts().unwrap();
+    assert_eq!((counts.tracks, counts.archive, counts.incoming), (1, 0, 0));
+    f.lib.discard_import_preview(&preview.preview_id).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert_eq!(std::fs::read_dir(destination.path()).unwrap().count(), 0);
+    assert!(f.lib.jobs().unwrap().is_empty());
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn archived_import_tag_preview_requires_restore_without_promoting_or_modifying_media() {
+    archived_import_file_preview_requires_restore(false);
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn archived_import_copy_preview_requires_restore_without_promoting_or_modifying_media() {
+    archived_import_file_preview_requires_restore(true);
+}
+
+#[cfg(feature = "autotag")]
+#[test]
+fn promotion_preview_preserves_dates_and_empty_title_without_adopting_placeholder_tags() {
+    for missing_title in [false, true] {
+        let (f, op, id, path) = setup_observation(
+            ImportPolicy {
+                write_audio_tags: ["album".into()].into(),
+                ..Default::default()
+            },
+            "wav",
+            "pcm_s16le",
+            |_| {},
+            |track| {
+                if missing_title {
+                    track.metadata.remove("title");
+                } else {
+                    track
+                        .metadata
+                        .insert("title".into(), Presence::Empty(json!("")));
+                }
+                track
+                    .metadata
+                    .insert("album".into(), Presence::Value(json!("Album from source")));
+                track
+                    .metadata
+                    .insert("duration".into(), Presence::Value(json!(321.0)));
+            },
+        );
+        let service = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+        service.run_pending(&CancellationToken::default()).unwrap();
+        f.lib
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE import_items SET created=123,updated=456 WHERE id=?1",
+                [&id],
+            )
+            .unwrap();
+        let fields = f.lib.imported_item(&id).unwrap().active_fields;
+        let before = std::fs::read(&path).unwrap();
+        let summary = f.lib.track(&id).unwrap();
+        assert_eq!(summary.title, "Imported item");
+        assert_eq!(
+            (
+                summary.metadata["library.date_added"].clone(),
+                summary.metadata["library.date_modified"].clone()
+            ),
+            (json!(123), json!(456))
+        );
+        assert_eq!(
+            f.lib
+                .tracks(TrackQuery {
+                    search: "album from source".into(),
+                    ..Default::default()
+                })
+                .unwrap()
+                .total,
+            1
+        );
+        let preview = f
+            .lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            preview.ready,
+            1,
+            "{:?}",
+            f.lib
+                .import_effects_page(&preview.preview_id, None, 100)
+                .unwrap()
+        );
+        let summary = f.lib.track(&id).unwrap();
+        assert_eq!(
+            (
+                summary.title.as_str(),
+                summary.metadata["library.date_added"].clone(),
+                summary.metadata["library.date_modified"].clone()
+            ),
+            ("Imported item", json!(123), json!(456))
+        );
+        assert_eq!(
+            f.lib
+                .conn()
+                .unwrap()
+                .query_row("SELECT title FROM tracks WHERE id=?1", [&id], |r| r
+                    .get::<_, String>(0))
+                .unwrap(),
+            ""
+        );
+        assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, fields);
+        assert_eq!(
+            f.lib
+                .tracks(TrackQuery {
+                    search: "album from source".into(),
+                    ..Default::default()
+                })
+                .unwrap()
+                .total,
+            1
+        );
+        f.lib.discard_import_preview(&preview.preview_id).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(
+            f.lib.track(&id).unwrap().metadata["library.date_modified"],
+            456
+        );
+        let preview = f
+            .lib
+            .preview_import_effects(&op, &CancellationToken::default())
+            .unwrap();
+        f.lib
+            .apply_import_effects(&preview.preview_id, &CancellationToken::default())
+            .unwrap();
+        let native =
+            cuerithm_autotag::read_metadata_snapshot(&path, &runtime().probe(&path).unwrap())
+                .unwrap();
+        assert!(
+            native
+                .text
+                .get(&cuerithm_autotag::MetadataTextField::Title)
+                .is_none_or(Vec::is_empty)
+        );
+        assert_eq!(
+            native.text.get(&cuerithm_autotag::MetadataTextField::Album),
+            Some(&vec!["Album from source".into()])
+        );
+        let summary = f.lib.track(&id).unwrap();
+        assert_eq!(summary.title, "Imported item");
+        assert_eq!(summary.metadata["library.date_added"], 123);
+        assert!(summary.metadata["library.date_modified"].as_i64().unwrap() > 456);
+        assert_eq!(f.lib.imported_item(&id).unwrap().active_fields, fields);
+    }
+}
+
+#[cfg(feature = "autotag")]
 #[test]
 fn import_duration_enrichment_matches_audio_without_adopting_its_duration() {
     use cuerithm_autotag::*;
