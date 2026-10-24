@@ -989,3 +989,12 @@ and application code are unchanged. Only that failing case was run locally for
 diagnosis: one passed in 373 ms, with three unrelated cases unselected. Desktop
 CI on all three platforms verifies the shared test change; engine results are
 retained through the documented baseline chain. No broad local suite is run.
+
+The next Windows engine run passed all six M3U controls and both 12-test
+DJ.Studio targets, then failed the author-pack byte check: its 8,476-byte README
+became 8,535 bytes after Windows checkout, exactly matching its 59 LF lines
+being converted to CRLF. A scoped Git attribute now preserves LF for this
+text-only handover pack. Checking out its 22 manifested artifacts with
+`core.autocrlf=true` preserves all 304,463 original bytes and every SHA-256;
+the manifest and integrity assertions are unchanged. Windows CI verifies the
+repair; no Rust or frontend suite is run locally for this checkout correction.
