@@ -652,3 +652,42 @@ fn only_the_newest_few_previews_stay() {
         1
     );
 }
+
+/// Pruning deletes an original an earlier version kept before it lets go of the journal that
+/// names it. If the original cannot be deleted, the journal stays and the next run deletes it.
+#[cfg(unix)]
+#[test]
+fn a_journal_whose_original_could_not_be_deleted_stays_until_the_next_run_deletes_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new(1);
+    let originals: Vec<_> = (0..11).map(|n| old_batch(&f, n, true)).collect();
+    let folder = originals[0].parent().unwrap().to_path_buf();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
+    f.lib.prune_cleanup().unwrap();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(originals[0].exists());
+    let named: i64 = f
+        .lib
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM cleanup_write_files WHERE write_id='write0' AND backup IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(named, 1, "the journal still names the original");
+    f.lib.prune_cleanup().unwrap();
+    assert!(!originals[0].exists());
+    let writes: i64 = f
+        .lib
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM cleanup_writes WHERE id='write0'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(writes, 0);
+}

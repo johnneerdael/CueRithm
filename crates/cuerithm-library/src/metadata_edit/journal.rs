@@ -1508,7 +1508,12 @@ impl crate::Library {
             {
                 self.retire_metadata_original(id, write.clone())?;
             }
-            // The Incoming save it undid no longer needs the pictures kept for it.
+            // The save it undid no longer needs what was kept for it: the pictures and, for a save
+            // from an earlier version, its original. This does not depend on whether this write's
+            // own copy was retired before an interruption; it runs again until it has completed.
+            if let Some(original) = &write.undo_of {
+                self.expire_metadata_undo(original)?;
+            }
             if let Some(job) = &write.override_of {
                 self.release_incoming_save(job, false)?;
             }
@@ -1562,7 +1567,7 @@ impl crate::Library {
                         &stage.info,
                         &picture.identity,
                     )
-                    .and_then(|bytes| self.store_metadata_artwork(bytes));
+                    .and_then(|bytes| self.store_kept_artwork(id, picture.identity.ordinal, bytes));
                     match one {
                         Ok(asset) => kept.push(PreviousPicture {
                             ordinal: picture.identity.ordinal,
@@ -1585,10 +1590,6 @@ impl crate::Library {
         super::previews::retire_stage_backup(self, &stage)?;
         write.backup_retired = true;
         save(&write, true)?;
-        // Undoing a save is the end of it: the pictures it kept are no longer needed.
-        if let Some(original) = &write.undo_of {
-            self.expire_metadata_undo(original)?;
-        }
         Ok(())
     }
     /// Only the newest `REMOVAL_UNDO_LIMIT` saved batches can be undone. An older one keeps its
@@ -1663,18 +1664,24 @@ impl crate::Library {
         for picture in std::mem::take(&mut write.previous_artwork) {
             self.drop_metadata_artwork(&picture.asset_id)?;
         }
+        // An original that could not be deleted keeps the save in the window's sweep: a later
+        // pass deletes it, so a failure here is not recorded as having let go.
+        let mut deleting = false;
         if !write.backup_retired
             && let Some(stage) = write.row.stage.clone()
             && super::previews::verify_backup(self, &stage).is_ok()
-            && super::previews::retire_stage_backup(self, &stage).is_ok()
         {
-            write.backup_retired = true;
-            self.conn()?.execute(
-                "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
-                [id],
-            )?;
+            if super::previews::retire_stage_backup(self, &stage).is_ok() {
+                write.backup_retired = true;
+                self.conn()?.execute(
+                    "UPDATE metadata_edit_files SET backup=NULL WHERE write_id=?1",
+                    [id],
+                )?;
+            } else {
+                deleting = true;
+            }
         }
-        write.undo_expired = true;
+        write.undo_expired = !deleting;
         self.conn()?.execute(
             "UPDATE metadata_edit_writes SET payload_json=?1 WHERE id=?2",
             params![bounded_json(&write)?, id],

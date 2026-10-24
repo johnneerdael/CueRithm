@@ -707,3 +707,39 @@ fn a_save_interrupted_before_its_write_exists_recovers_with_its_recorded_change(
     let undone = service.undo(&batch, &CancellationToken::default()).unwrap();
     assert_eq!(undone.state, "undone", "{undone:?}");
 }
+
+/// The window of ten saves lets go of a save from an earlier version's original. If deleting it
+/// fails, the save is not marked as let go: a later pass deletes it.
+#[cfg(unix)]
+#[test]
+fn an_original_that_could_not_be_deleted_is_retried_by_the_next_pass() {
+    use std::os::unix::fs::PermissionsExt;
+    let (_temp, service, track, _path) = fixture();
+    let (batch, id) = reserved(&service, &track);
+    service
+        .publish_write(&id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(service.finish_batch(&batch).unwrap().state, "saved");
+    let backup = service
+        .load_write(&id)
+        .unwrap()
+        .1
+        .artifact()
+        .unwrap()
+        .backup
+        .unwrap();
+    assert!(backup.exists());
+    let folder = backup.parent().unwrap().to_path_buf();
+    let mode = std::fs::metadata(&folder).unwrap().permissions().mode();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
+    service.library.expire_metadata_undo(&id).unwrap();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(mode)).unwrap();
+    let (_, write) = service.load_write(&id).unwrap();
+    assert!(backup.exists());
+    assert!(!write.undo_expired, "the original is still to be deleted");
+    service.library.expire_metadata_undo(&id).unwrap();
+    let (_, write) = service.load_write(&id).unwrap();
+    assert!(!backup.exists());
+    assert!(write.undo_expired, "undo_expired");
+    assert!(write.backup_retired, "backup_retired");
+}

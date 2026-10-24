@@ -489,7 +489,7 @@ impl Library {
             )?
             .query_map([crate::REMOVAL_UNDO_LIMIT as i64], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
-        let mut files = vec![];
+        let data = self.data_dir().canonicalize()?;
         for batch in expired {
             // The journals of the batch and of every Undo made from it, once they have settled.
             let writes: Vec<String> = tx
@@ -500,11 +500,20 @@ impl Library {
                 .query_map([&batch], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?;
             for write in writes {
-                for backup in tx
+                let backups = tx
                     .prepare("SELECT backup FROM cleanup_write_files WHERE write_id=?1 AND backup IS NOT NULL")?
                     .query_map([&write], |r| r.get::<_, Vec<u8>>(0))?
-                {
-                    files.push(backup?);
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                // A journal from an earlier version may still name an original. It goes first: a
+                // journal whose original is still there stays, so the next run deletes it.
+                crate::legacy_originals::remove_owned_originals(self, "cleanup", &backups);
+                if backups.iter().any(|backup| {
+                    crate::model::bytes_path(backup).is_ok_and(|path| {
+                        crate::legacy_originals::owned_regular_file(&data, "cleanup", &path)
+                            .is_some()
+                    })
+                }) {
+                    continue;
                 }
                 tx.execute(
                     "DELETE FROM cleanup_write_files WHERE write_id=?1",
@@ -514,9 +523,6 @@ impl Library {
             }
         }
         tx.commit()?;
-        // A journal from an earlier version may still name an original; it goes with it.
-        drop(conn);
-        crate::legacy_originals::remove_owned_originals(self, "cleanup", &files);
         Ok(())
     }
 }

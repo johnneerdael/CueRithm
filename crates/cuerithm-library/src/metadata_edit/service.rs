@@ -700,23 +700,68 @@ fn edited_display(
 impl crate::Library {
     /// Keeps a picture as an artwork asset: a file in the data folder named by its id.
     pub(crate) fn store_metadata_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
+        self.store_artwork(uuid::Uuid::new_v4().to_string(), false, bytes)
+    }
+    /// Keeps a picture that a save replaced, under an id derived from the save (or row) and the
+    /// picture's place. The pass that keeps the pictures is repeated if it is interrupted before
+    /// it records them; repeating it finds the asset it already stored instead of storing another
+    /// that belongs to nothing.
+    pub(crate) fn store_kept_artwork(
+        &self,
+        owner: &str,
+        ordinal: usize,
+        bytes: Vec<u8>,
+    ) -> Result<MetadataArtworkAsset> {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(format!("kept-artwork:{owner}:{ordinal}"));
+        let id = uuid::Uuid::from_slice(&digest[..16])?.to_string();
+        self.store_artwork(id, true, bytes)
+    }
+    fn store_artwork(
+        &self,
+        id: String,
+        repeatable: bool,
+        bytes: Vec<u8>,
+    ) -> Result<MetadataArtworkAsset> {
         let (mime, bytes) = cuerithm_autotag::validate_metadata_artwork(bytes)?;
         use sha2::{Digest, Sha256};
         let sha256 = format!("{:x}", Sha256::digest(&bytes));
         let asset = MetadataArtworkAsset {
-            id: uuid::Uuid::new_v4().to_string(),
+            id,
             mime,
             sha256,
             bytes: bytes.len() as u64,
         };
+        if repeatable {
+            let stored: Option<String> = self
+                .conn()?
+                .query_row(
+                    "SELECT sha256 FROM metadata_artwork_assets WHERE id=?1",
+                    [&asset.id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(stored) = stored {
+                ensure!(
+                    stored == asset.sha256,
+                    "A kept picture differs from the one stored earlier"
+                );
+                return Ok(asset);
+            }
+        }
         let folder = self.data_dir().join("metadata-edits/assets");
         std::fs::create_dir_all(&folder)?;
         let path = folder.join(&asset.id);
         use std::io::Write;
-        let mut output = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true);
+        if repeatable {
+            // A file left by an interrupted pass belongs to this save: it is written again.
+            options.create(true).truncate(true);
+        } else {
+            options.create_new(true);
+        }
+        let mut output = options.open(&path)?;
         output.write_all(&bytes)?;
         output.sync_all()?;
         self.conn()?.execute(

@@ -199,6 +199,9 @@ impl Library {
     }
     /// A queued Incoming edit that a newer one replaced can never be undone or executed, so its
     /// retained original and workspace are removed; the row keeps its history without the stage.
+    /// The same holds for a row of a finished batch that was never written (unchanged, failed or
+    /// cancelled): its copies are let go when the batch finishes, and here if that did not
+    /// complete. Run when a batch finishes and when the library opens.
     pub(crate) fn retire_superseded_metadata_stages(&self) -> Result<()> {
         let _organization = self
             .inner
@@ -214,7 +217,7 @@ impl Library {
         loop {
             let rows = {
                 let conn = self.conn()?;
-                let mut query=conn.prepare("SELECT id,payload_json FROM metadata_edit_rows WHERE state='superseded' AND json_type(payload_json,'$.stage')='object' ORDER BY rowid LIMIT 50 OFFSET ?1")?;
+                let mut query=conn.prepare("SELECT r.id,r.payload_json FROM metadata_edit_rows r WHERE json_type(r.payload_json,'$.stage')='object' AND (r.state='superseded' OR (r.state IN ('unchanged','failed','cancelled') AND NOT EXISTS(SELECT 1 FROM metadata_edit_writes w WHERE w.row_id=r.id) AND EXISTS(SELECT 1 FROM metadata_edit_batches b WHERE b.id=r.batch_id AND b.state!='saving'))) ORDER BY r.rowid LIMIT 50 OFFSET ?1")?;
                 query
                     .query_map([skipped], |row| {
                         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))

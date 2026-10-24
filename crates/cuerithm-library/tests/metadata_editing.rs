@@ -1085,15 +1085,25 @@ fn undo_restores_a_picture_whose_description_changed_or_that_was_removed() {
     }
 }
 
-/// The same for an edit accepted while the track was in Incoming: written by the worker with its
-/// title changed and its picture replaced by itself, its Undo has no picture to restore.
-#[test]
-fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_other_changes() {
+/// An Incoming edit the real worker has written: a FLAC with a title and one picture is waiting in
+/// Incoming, the edit gives it a new title and `replacement` in place of its picture, and the
+/// worker writes it. `before_worker` runs once the edit is accepted and before the worker starts.
+struct WrittenIncoming {
+    _temp: tempfile::TempDir,
+    db: std::path::PathBuf,
+    lib: Library,
+    editor: MetadataEditService,
+    track: String,
+    batch: String,
+    original: Vec<cuerithm_autotag::ArtworkIdentity>,
+}
+fn written_incoming_flac(replacement: &str, before_worker: impl FnOnce(&Path)) -> WrittenIncoming {
     use std::time::{Duration, Instant};
     let temp = tempfile::tempdir().unwrap();
     let folder = temp.path().canonicalize().unwrap();
     let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let lib = Library::open(&folder.join("data/library.sqlite")).unwrap();
+    let db = folder.join("data/library.sqlite");
+    let lib = Library::open(&db).unwrap();
     let model = lib.data_dir().join("test-energy.json");
     std::fs::write(&model,serde_json::to_vec(&serde_json::json!({"gamma":0.000001,"classes":[3,8],"n_support":[1,1],"support_vectors":[vec![0.;183],vec![1.;183]],"dual_coef":[[1.,-1.]],"intercept":[0.1]})).unwrap()).unwrap();
     let mut settings = PreparationSettings {
@@ -1135,7 +1145,7 @@ fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_oth
     let editor = MetadataEditService::new(lib.clone(), runtime.clone());
     let original = pictures(&editor, &track);
     assert_eq!(original.len(), 1);
-    let same = editor.import_artwork(icon("32x32.png")).unwrap();
+    let asset = editor.import_artwork(icon(replacement)).unwrap();
     let mut patch = MetadataEditorPatch::default();
     patch.fields.text.insert(
         MetadataTextField::Title,
@@ -1145,13 +1155,14 @@ fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_oth
     );
     patch.artwork.push(MetadataArtworkChoice {
         target: Some(original[0].clone()),
-        asset_id: Some(same.id),
+        asset_id: Some(asset.id),
         kind: original[0].kind,
         description: original[0].description.clone(),
     });
     let queued = save(&editor, &track, patch);
     assert_eq!(queued.state, "queued", "{queued:?}");
-    let worker = PreparationService::start_with_workers(lib.clone(), runtime.clone(), 1).unwrap();
+    before_worker(&db);
+    let worker = PreparationService::start_with_workers(lib.clone(), runtime, 1).unwrap();
     let start = Instant::now();
     loop {
         let jobs = lib.jobs().unwrap();
@@ -1170,17 +1181,38 @@ fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_oth
         "{:?}",
         lib.jobs().unwrap()
     );
-    assert_eq!(pictures(&editor, &track).len(), 1);
-    assert_eq!(pictures(&editor, &track)[0].sha256, original[0].sha256);
+    WrittenIncoming {
+        _temp: temp,
+        db,
+        lib,
+        editor,
+        track,
+        batch: queued.id,
+        original,
+    }
+}
+
+/// The same for an edit accepted while the track was in Incoming: written by the worker with its
+/// title changed and its picture replaced by itself, its Undo has no picture to restore.
+#[test]
+fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_other_changes() {
+    let w = written_incoming_flac("32x32.png", |_| {});
+    assert_eq!(pictures(&w.editor, &w.track).len(), 1);
+    assert_eq!(
+        pictures(&w.editor, &w.track)[0].sha256,
+        w.original[0].sha256
+    );
     // The worker wrote it and the original audio is gone.
-    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
-    assert!(staging_dirs(&lib).is_empty());
-    let undone = editor
-        .undo(&queued.id, &CancellationToken::default())
+    assert_eq!(w.lib.tagging_storage().unwrap().original_files, 0);
+    assert!(staging_dirs(&w.lib).is_empty());
+    let undone = w
+        .editor
+        .undo(&w.batch, &CancellationToken::default())
         .unwrap();
     assert_eq!(undone.state, "undone", "{undone:?}");
-    let restored = editor
-        .snapshot(std::slice::from_ref(&track))
+    let restored = w
+        .editor
+        .snapshot(std::slice::from_ref(&w.track))
         .unwrap()
         .tracks
         .remove(0)
@@ -1190,8 +1222,8 @@ fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_oth
         vec!["Original title"]
     );
     assert_eq!(restored.artwork.len(), 1);
-    assert_eq!(restored.artwork[0].identity.sha256, original[0].sha256);
-    assert!(staging_dirs(&lib).is_empty());
+    assert_eq!(restored.artwork[0].identity.sha256, w.original[0].sha256);
+    assert!(staging_dirs(&w.lib).is_empty());
 }
 
 /// An edit accepted while the track was still in Incoming keeps the original audio only until it
@@ -1799,4 +1831,268 @@ fn a_restart_after_the_original_was_deleted_completes_the_save_and_keeps_undo() 
     assert_eq!(pictures(&service, &track)[0].sha256, original[0].sha256);
     assert_eq!(pcm(&service, &path), audio);
     drop(temp);
+}
+
+// The two-step cleanups: a state change is saved first and the release follows. The app can stop
+// between the two, or the release can fail; what was retained must still be let go later. A
+// trigger that refuses one statement leaves the library exactly as such an interruption would.
+fn sql(db: &Path, statement: &str) {
+    rusqlite::Connection::open(db)
+        .unwrap()
+        .execute_batch(statement)
+        .unwrap();
+}
+/// Artwork files in the data folder: every asset has exactly one, and nothing else is there.
+fn asset_files(lib: &Library) -> usize {
+    let folder = lib.data_dir().join("metadata-edits/assets");
+    std::fs::read_dir(folder).map_or(0, |entries| entries.count())
+}
+
+/// The Undo of a save releases the pictures kept for the save it undid. If the app stops after the
+/// Undo's own original was deleted and before that release, the next start still does it.
+#[test]
+fn an_interrupted_undo_cleanup_still_releases_the_pictures_kept_for_the_save_it_undid() {
+    let (_t, lib, service, track, path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let assets_before = artwork_assets(&lib);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    assert_eq!(artwork_assets(&lib), assets_before + 2);
+    sql(
+        &db,
+        "CREATE TRIGGER refuse_release BEFORE DELETE ON metadata_artwork_assets BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+    );
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    sql(&db, "DROP TRIGGER refuse_release");
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "the interrupted cleanup released nothing"
+    );
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "the picture kept for the undone save is released at the next start"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+    assert!(path.exists());
+}
+
+/// The same for an Incoming save: the release runs whether or not the Undo's own original had
+/// been deleted before the interruption.
+#[test]
+fn an_interrupted_incoming_undo_cleanup_still_releases_the_pictures_kept_for_the_save_it_undid() {
+    let w = written_incoming_flac("128x128.png", |_| {});
+    let db = w.db.clone();
+    assert_eq!(
+        artwork_assets(&w.lib),
+        2,
+        "the new picture and the kept one"
+    );
+    sql(
+        &db,
+        "CREATE TRIGGER refuse_release BEFORE DELETE ON metadata_artwork_assets BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+    );
+    let undone = w
+        .editor
+        .undo(&w.batch, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    sql(&db, "DROP TRIGGER refuse_release");
+    assert_eq!(artwork_assets(&w.lib), 2);
+    drop(w.editor);
+    drop(w.lib);
+    let lib = Library::open(&db).unwrap();
+    assert_eq!(
+        artwork_assets(&lib),
+        1,
+        "only the picture the edit imported is left"
+    );
+    assert_eq!(asset_files(&lib), 1);
+}
+
+/// Keeping the pictures a save replaced is repeated after an interruption. It must find the
+/// pictures it already stored instead of storing them again, or the first ones belong to nothing.
+#[test]
+fn a_picture_keeping_pass_repeated_after_an_interruption_stores_each_picture_once() {
+    let (_t, lib, service, track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    add_picture(&service, &track, &first.id);
+    let original = pictures(&service, &track);
+    let assets_before = artwork_assets(&lib);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    sql(
+        &db,
+        "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_writes WHEN json_extract(NEW.payload_json,'$.artwork_kept')=1 BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+    );
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    sql(&db, "DROP TRIGGER refuse_record");
+    assert_eq!(
+        lib.tagging_storage().unwrap().original_files,
+        1,
+        "the original stays until its pictures are recorded"
+    );
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    let runtime = MediaRuntime::from_bundle(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let service = MetadataEditService::new(lib.clone(), runtime);
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "the new picture and one kept picture"
+    );
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    assert_eq!(pictures(&service, &track)[0].sha256, original[0].sha256);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "nothing is left that belongs to the undone save"
+    );
+    assert_eq!(asset_files(&lib) as i64, artwork_assets(&lib));
+}
+
+/// The same for the sweep that keeps the pictures of an Incoming save the worker has written.
+#[test]
+fn an_incoming_picture_keeping_pass_repeated_after_an_interruption_stores_each_picture_once() {
+    let w = written_incoming_flac("128x128.png", |db| {
+        sql(
+            db,
+            "CREATE TRIGGER refuse_record BEFORE UPDATE ON metadata_edit_rows WHEN json_type(NEW.payload_json,'$.kept_pictures')='array' AND json_array_length(NEW.payload_json,'$.kept_pictures')>0 BEGIN SELECT RAISE(ABORT,'interrupted'); END;",
+        );
+    });
+    let db = w.db.clone();
+    sql(&db, "DROP TRIGGER refuse_record");
+    assert_eq!(
+        w.lib.tagging_storage().unwrap().original_files,
+        1,
+        "the original stays until its pictures are recorded"
+    );
+    let batch = w.batch.clone();
+    let track = w.track.clone();
+    let original = w.original.clone();
+    drop(w.editor);
+    drop(w.lib);
+    let lib = Library::open(&db).unwrap();
+    let runtime = MediaRuntime::from_bundle(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let editor = MetadataEditService::new(lib.clone(), runtime);
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert_eq!(
+        artwork_assets(&lib),
+        2,
+        "the new picture and one kept picture"
+    );
+    let undone = editor.undo(&batch, &CancellationToken::default()).unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    assert_eq!(pictures(&editor, &track)[0].sha256, original[0].sha256);
+    assert_eq!(
+        artwork_assets(&lib),
+        1,
+        "nothing is left that belongs to the undone save"
+    );
+    assert_eq!(asset_files(&lib), 1);
+}
+
+/// A row that was not written (unchanged, failed, cancelled) keeps no audio once its batch has
+/// finished. If that cleanup did not happen, the next start does it.
+#[cfg(unix)]
+#[test]
+fn the_staged_copies_of_an_unwritten_row_are_retired_when_the_batch_cleanup_did_not_finish() {
+    use std::os::unix::fs::PermissionsExt;
+    let (temp, lib, service, first_track, _path) = fixture();
+    let db = lib.data_dir().join("library.sqlite");
+    let root = temp.path().canonicalize().unwrap();
+    let second_track = extra_track(&lib, &root, 1);
+    let mut set = MetadataEditorPatch::default();
+    set.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec!["Same title".into()],
+        },
+    );
+    // The second track already has the title the edit sets: its row stays unchanged.
+    save(&service, &second_track, set.clone());
+    let draft = service
+        .create_draft(&[first_track.clone(), second_track.clone()])
+        .unwrap();
+    let draft = service
+        .update_draft(&draft.id, draft.revision, set)
+        .unwrap();
+    let preview = service
+        .preview(&draft.id, draft.revision, &CancellationToken::default())
+        .unwrap();
+    let text: String = rusqlite::Connection::open(&db)
+        .unwrap()
+        .query_row(
+            "SELECT payload_json FROM metadata_edit_previews WHERE id=?1",
+            [&preview.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let row = value["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["public"]["outcome"] == "unchanged")
+        .expect("an unchanged row");
+    let workspace: Vec<u8> = row["stage"]["workspace"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|byte| byte.as_u64().unwrap() as u8)
+        .collect();
+    let workspace = String::from_utf8(workspace).unwrap();
+    let workspace = std::path::PathBuf::from(workspace.strip_prefix("unix:").unwrap());
+    assert!(workspace.exists());
+    // Its folder cannot be changed while the batch finishes.
+    let mode = std::fs::metadata(&workspace).unwrap().permissions().mode();
+    std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let saved = service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap();
+    std::fs::set_permissions(&workspace, std::fs::Permissions::from_mode(mode)).unwrap();
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    assert!(workspace.exists(), "the cleanup could not finish");
+    drop(service);
+    drop(lib);
+    let lib = Library::open(&db).unwrap();
+    assert!(!workspace.exists(), "the next start retires the copies");
+    assert!(staging_dirs(&lib).is_empty());
 }

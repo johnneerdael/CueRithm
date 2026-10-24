@@ -108,7 +108,9 @@ impl Library {
                             &stage.info,
                             &picture.identity,
                         )
-                        .and_then(|bytes| self.store_metadata_artwork(bytes));
+                        .and_then(|bytes| {
+                            self.store_kept_artwork(&id, picture.identity.ordinal, bytes)
+                        });
                         match one {
                             Ok(asset) => kept.push(PreviousPicture {
                                 ordinal: picture.identity.ordinal,
