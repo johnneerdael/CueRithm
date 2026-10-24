@@ -205,7 +205,11 @@ impl MetadataEditService {
                     .unwrap_or(TextEdit::Clear),
             });
         }
-        if !patch.artwork.is_empty() {
+        // Pictures are only restored when the edit changed them. A save that replaced a picture
+        // with itself, or removed one and added the same one back, left the artwork as it was:
+        // there is nothing to put back, and no original picture was kept (the save keeps them
+        // under the same condition) for an Undo to ask for.
+        if !patch.artwork.is_empty() && before.artwork != after.artwork {
             let mut mapping = (0..before.artwork.len()).map(Some).collect::<Vec<_>>();
             let mut targets = patch
                 .artwork

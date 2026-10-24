@@ -977,6 +977,223 @@ fn undoing_an_artwork_replacement_restores_the_picture_without_keeping_the_audio
     );
 }
 
+/// A save can leave the pictures exactly as they were while it changes other fields: it replaces
+/// a picture with itself, or removes one and adds the same one back. Undo then has no picture to
+/// restore, and must still undo the other changes without the original audio.
+#[test]
+fn undo_after_a_save_that_left_the_pictures_as_they_were_restores_its_other_changes() {
+    for remove_and_add_back in [false, true] {
+        let (_t, lib, service, track, path) = fixture();
+        let asset = service.import_artwork(icon("32x32.png")).unwrap();
+        add_picture(&service, &track, &asset.id);
+        let original = pictures(&service, &track);
+        assert_eq!(original.len(), 1);
+        let before = service
+            .snapshot(std::slice::from_ref(&track))
+            .unwrap()
+            .tracks[0]
+            .native
+            .clone();
+        let mut patch = MetadataEditorPatch::default();
+        patch.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec!["Changed title".into()],
+            },
+        );
+        if remove_and_add_back {
+            patch.artwork.push(MetadataArtworkChoice {
+                target: Some(original[0].clone()),
+                asset_id: None,
+                kind: None,
+                description: None,
+            });
+            patch.artwork.push(MetadataArtworkChoice {
+                target: None,
+                asset_id: Some(asset.id.clone()),
+                kind: original[0].kind,
+                description: original[0].description.clone(),
+            });
+        } else {
+            patch.artwork.push(MetadataArtworkChoice {
+                target: Some(original[0].clone()),
+                asset_id: Some(asset.id.clone()),
+                kind: original[0].kind,
+                description: original[0].description.clone(),
+            });
+        }
+        let saved = save(&service, &track, patch);
+        assert_eq!(saved.state, "saved", "{saved:?}");
+        assert_eq!(
+            pictures(&service, &track),
+            original,
+            "the save left the picture as it was"
+        );
+        assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+        let audio = pcm(&service, &path);
+        let undone = service
+            .undo(&saved.id, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            undone.state, "undone",
+            "remove_and_add_back={remove_and_add_back}: {undone:?}"
+        );
+        let restored = service
+            .snapshot(std::slice::from_ref(&track))
+            .unwrap()
+            .tracks[0]
+            .native
+            .clone();
+        assert_eq!(restored.text, before.text);
+        assert_eq!(restored.artwork, before.artwork);
+        assert_eq!(pcm(&service, &path), audio);
+        assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    }
+}
+
+/// The neighbours of the case above change the pictures, so the save keeps the originals and
+/// Undo puts them back: a picture whose description alone changed, and a removed picture.
+#[test]
+fn undo_restores_a_picture_whose_description_changed_or_that_was_removed() {
+    for removed in [false, true] {
+        let (_t, lib, service, track, _path) = fixture();
+        let asset = service.import_artwork(icon("32x32.png")).unwrap();
+        add_picture(&service, &track, &asset.id);
+        let original = pictures(&service, &track);
+        let mut patch = MetadataEditorPatch::default();
+        patch.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec!["Changed title".into()],
+            },
+        );
+        patch.artwork.push(MetadataArtworkChoice {
+            target: Some(original[0].clone()),
+            asset_id: (!removed).then(|| asset.id.clone()),
+            kind: original[0].kind,
+            description: (!removed).then(|| "Back cover".to_string()),
+        });
+        let saved = save(&service, &track, patch);
+        assert_eq!(saved.state, "saved", "{saved:?}");
+        assert_ne!(pictures(&service, &track), original);
+        assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+        let undone = service
+            .undo(&saved.id, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(undone.state, "undone", "removed={removed}: {undone:?}");
+        assert_eq!(pictures(&service, &track), original, "removed={removed}");
+    }
+}
+
+/// The same for an edit accepted while the track was in Incoming: written by the worker with its
+/// title changed and its picture replaced by itself, its Undo has no picture to restore.
+#[test]
+fn undo_of_an_incoming_save_that_left_the_pictures_as_they_were_restores_its_other_changes() {
+    use std::time::{Duration, Instant};
+    let temp = tempfile::tempdir().unwrap();
+    let folder = temp.path().canonicalize().unwrap();
+    let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let lib = Library::open(&folder.join("data/library.sqlite")).unwrap();
+    let model = lib.data_dir().join("test-energy.json");
+    std::fs::write(&model,serde_json::to_vec(&serde_json::json!({"gamma":0.000001,"classes":[3,8],"n_support":[1,1],"support_vectors":[vec![0.;183],vec![1.;183]],"dual_coef":[[1.,-1.]],"intercept":[0.1]})).unwrap()).unwrap();
+    let mut settings = PreparationSettings {
+        stability_millis: 10,
+        ..Default::default()
+    };
+    settings.engine.energy_model = Some(model);
+    let revision = lib.save_settings(settings).unwrap();
+    let source = folder.join("source.flac");
+    std::fs::copy(
+        project.join("crates/camelot-source-analysis/tests/fixtures/pulses64-stereo16.flac"),
+        &source,
+    )
+    .unwrap();
+    {
+        let mut wrapper = onetagger_tag::Tag::load_file(&source, true).unwrap();
+        let tag = wrapper.tag_mut();
+        tag.set_native("TITLE", vec!["Original title".into()]);
+        tag.set_art(
+            onetagger_tag::CoverType::CoverFront,
+            "image/png",
+            None,
+            icon("32x32.png"),
+        );
+        tag.save_file(&source).unwrap();
+    }
+    let job = lib
+        .enqueue(std::slice::from_ref(&source), revision)
+        .unwrap()
+        .remove(0);
+    let track = lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    let runtime = MediaRuntime::from_bundle(&project.join("tools/media-runtime/bin")).unwrap();
+    let editor = MetadataEditService::new(lib.clone(), runtime.clone());
+    let original = pictures(&editor, &track);
+    assert_eq!(original.len(), 1);
+    let same = editor.import_artwork(icon("32x32.png")).unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec!["Saved title".into()],
+        },
+    );
+    patch.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(same.id),
+        kind: original[0].kind,
+        description: original[0].description.clone(),
+    });
+    let queued = save(&editor, &track, patch);
+    assert_eq!(queued.state, "queued", "{queued:?}");
+    let worker = PreparationService::start_with_workers(lib.clone(), runtime.clone(), 1).unwrap();
+    let start = Instant::now();
+    loop {
+        let jobs = lib.jobs().unwrap();
+        if jobs.iter().all(|j| j.state == "completed")
+            || jobs.iter().any(|j| j.state == "attention")
+            || start.elapsed() > Duration::from_secs(120)
+        {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    worker.shutdown();
+    drop(worker);
+    assert!(
+        lib.jobs().unwrap().iter().all(|j| j.state == "completed"),
+        "{:?}",
+        lib.jobs().unwrap()
+    );
+    assert_eq!(pictures(&editor, &track).len(), 1);
+    assert_eq!(pictures(&editor, &track)[0].sha256, original[0].sha256);
+    // The worker wrote it and the original audio is gone.
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert!(staging_dirs(&lib).is_empty());
+    let undone = editor
+        .undo(&queued.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    let restored = editor
+        .snapshot(std::slice::from_ref(&track))
+        .unwrap()
+        .tracks
+        .remove(0)
+        .native;
+    assert_eq!(
+        restored.text[&MetadataTextField::Title],
+        vec!["Original title"]
+    );
+    assert_eq!(restored.artwork.len(), 1);
+    assert_eq!(restored.artwork[0].identity.sha256, original[0].sha256);
+    assert!(staging_dirs(&lib).is_empty());
+}
+
 /// An edit accepted while the track was still in Incoming keeps the original audio only until it
 /// has been written: then the pictures it replaced become artwork assets and the audio is deleted.
 #[test]
