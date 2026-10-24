@@ -91,11 +91,29 @@ title bar, path fields, tooltips and the Finder or Explorer window behind the ap
 per-track tables used for research stay in the private `.analysis/` area.
 
 Capture from a copy of the app data, with the latest released app, never from the live
-library. Copy the data folder somewhere else and start the app with `CUERITHM_DATA_DIR`
-pointing at the copy: opening a library with a newer release migrates it, and that migration
-does not go back, so the original must not be the one that is opened. Driving the app while it
-is being captured clicks real controls: scans and previews are read-only, so capture those
-freely, and never script an Apply, Delete or Archive step against the real music folder.
+library. Opening a library with a newer release migrates it, and that migration does not go
+back, so the original must not be the one that is opened.
+
+A copy of the data folder is not enough on its own. It still names the owner's real music
+folders, and CueRithm starts its background work as soon as it opens a library: it watches the
+saved watch folders, renames or tags new files there according to the saved settings, and
+continues queued jobs. Start the copy with the launcher, which runs the app in a macOS sandbox
+that allows writing only to the copy and to the system's cache, log and temporary folders:
+
+```sh
+cp -R "$HOME/Library/Application Support/com.cuerithm.app" /path/to/capture-data   # with CueRithm quit
+tools/docs/capture/launch-copy.sh /path/to/capture-data
+```
+
+The launcher sets `CUERITHM_DATA_DIR` to the copy, refuses the live data folder (also through a
+link) and refuses to start while CueRithm is already running, because that instance would be
+outside the sandbox. Nothing can rename, tag, move or delete the owner's music from the
+sandboxed app, whatever the saved settings say; reading is unaffected, so waveforms, playback
+and scans work. A write the sandbox blocks appears as a failed job or an error banner: reject
+that screenshot and fix the cause instead of lifting the sandbox.
+
+The sandbox is a backstop. Scans and previews only read, so capture those freely, and do not
+script an Apply, Delete or Archive step even though the sandbox would stop it.
 
 ## Related
 
