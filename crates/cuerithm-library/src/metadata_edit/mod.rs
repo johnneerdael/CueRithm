@@ -35,3 +35,4 @@ mod incoming_undo;
 mod curation;
 mod previews;
 pub(crate) use curation::child_undo_available as curation_child_undo_available;
+pub(crate) use journal::import_undo_expired_sql;

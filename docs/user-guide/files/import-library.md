@@ -107,7 +107,10 @@ Open **Import history** to see saved processing choices and stage results.
 - **Recover effects** resumes interrupted changes with checks on the current
   library and files.
 - **Undo effects** reverses eligible processing changes when later edits allow
-  it. It does not remove the imported source records.
+  it. It does not remove the imported source records. An import that wrote tags
+  into files counts as one of your 10 newest tag operations, however many tracks
+  it wrote. After ten newer operations, **Undo effects** is no longer offered
+  for it and none of it is restored; its history entry stays.
 
 Refresh scans sources chosen as folders again, so newly added or renamed
 crates and other supported files can appear in the inspection. Files explicitly

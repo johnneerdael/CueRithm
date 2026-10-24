@@ -1592,9 +1592,13 @@ impl crate::Library {
         save(&write, true)?;
         Ok(())
     }
-    /// Only the newest `REMOVAL_UNDO_LIMIT` saved batches can be undone. An older one keeps its
+    /// Only the newest `REMOVAL_UNDO_LIMIT` operations can be undone. An older one keeps its
     /// history line (what changed, before and after) and loses its Undo: its kept pictures and,
     /// for a save from an earlier version, its retained original are deleted.
+    ///
+    /// An operation is one saved batch, except for an import: it saves a batch for each track it
+    /// writes tags to, and it is undone as a whole, so those batches count as one operation (placed
+    /// by the newest of them) and leave the window together.
     pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
         // A batch counts while any of its saves can still be undone: a committed write, or an
         // Incoming edit the worker has written (those have no physical write of their own). An
@@ -1602,7 +1606,7 @@ impl crate::Library {
         // then its row is still being finished, so it neither counts nor leaves the window.
         let (writes, jobs): (Vec<String>, Vec<String>) = {
             let conn = self.conn()?;
-            let batches: Vec<String> = conn
+            let candidates: Vec<String> = conn
                 .prepare(
                     "SELECT b.id FROM metadata_edit_batches b WHERE b.kind='apply'
                        AND (EXISTS(SELECT 1 FROM metadata_edit_writes x WHERE x.batch_id=b.id AND x.state='committed'
@@ -1611,10 +1615,36 @@ impl crate::Library {
                          OR EXISTS(SELECT 1 FROM metadata_edit_overrides o WHERE o.batch_id=b.id
                                     AND o.state='committed' AND o.undo_batch_id IS NULL
                                     AND o.final_json IS NOT NULL))
-                     ORDER BY b.created DESC,b.rowid DESC LIMIT -1 OFFSET ?1",
+                     ORDER BY b.created DESC,b.rowid DESC",
                 )?
-                .query_map([crate::REMOVAL_UNDO_LIMIT as i64], |r| r.get(0))?
+                .query_map([], |r| r.get(0))?
                 .collect::<rusqlite::Result<_>>()?;
+            // There cannot be more operations than batches.
+            let batches = if candidates.len() > crate::REMOVAL_UNDO_LIMIT {
+                let owners = import_owners(&conn, &candidates)?;
+                let mut operations: Vec<String> = vec![];
+                let mut beyond = vec![];
+                for batch in candidates {
+                    let operation = owners.get(&batch).map_or_else(
+                        || format!("batch:{batch}"),
+                        |import| format!("import:{import}"),
+                    );
+                    // Newest first, so an operation is placed by its newest batch.
+                    let place = operations
+                        .iter()
+                        .position(|known| *known == operation)
+                        .unwrap_or_else(|| {
+                            operations.push(operation);
+                            operations.len() - 1
+                        });
+                    if place >= crate::REMOVAL_UNDO_LIMIT {
+                        beyond.push(batch);
+                    }
+                }
+                beyond
+            } else {
+                vec![]
+            };
             let (mut writes, mut jobs) = (vec![], vec![]);
             for batch in batches {
                 writes.extend(
@@ -1687,6 +1717,53 @@ impl crate::Library {
             params![bounded_json(&write)?, id],
         )?;
         Ok(())
+    }
+}
+
+/// The import operation each of these batches belongs to, for the batches an import saved (one
+/// for each track it wrote tags to). The import records its batch in its publication receipt as
+/// soon as the batch is journaled.
+fn import_owners(
+    conn: &rusqlite::Connection,
+    batches: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    let mut query = conn.prepare(
+        "SELECT json_extract(r.receipt_json,'$.tag_batch'),r.operation_id
+           FROM import_processing_receipts r
+          WHERE r.stage='publication.effects'
+            AND json_extract(r.receipt_json,'$.tag_batch') IN (SELECT value FROM json_each(?1))",
+    )?;
+    let owners = query
+        .query_map([serde_json::to_string(batches)?], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(owners)
+}
+/// SQL that is true when one of the tag saves an import operation made has left the Undo window.
+/// Those leave together, so the import can no longer be undone: part of it cannot be restored.
+/// `operation` is an SQL expression for the operation id.
+pub(crate) fn import_undo_expired_sql(operation: &str) -> String {
+    format!(
+        "EXISTS(SELECT 1 FROM import_processing_receipts ir
+                 WHERE ir.operation_id={operation} AND ir.stage='publication.effects' AND ir.state='applied'
+                   AND json_extract(ir.receipt_json,'$.tag_batch') IS NOT NULL
+                   AND (EXISTS(SELECT 1 FROM metadata_edit_writes iw WHERE iw.batch_id=json_extract(ir.receipt_json,'$.tag_batch')
+                                 AND iw.state='committed' AND iw.undo_of IS NULL AND iw.override_of IS NULL
+                                 AND json_extract(iw.payload_json,'$.undo_expired')=1)
+                        OR EXISTS(SELECT 1 FROM metadata_edit_overrides io WHERE io.batch_id=json_extract(ir.receipt_json,'$.tag_batch')
+                                 AND io.state='expired')))"
+    )
+}
+impl crate::Library {
+    /// Whether an import operation's tag saves have left the Undo window (see
+    /// [`import_undo_expired_sql`]).
+    pub(crate) fn import_undo_expired(&self, operation: &str) -> Result<bool> {
+        Ok(self.conn()?.query_row(
+            &format!("SELECT {}", import_undo_expired_sql("?1")),
+            [operation],
+            |r| r.get(0),
+        )?)
     }
 }
 

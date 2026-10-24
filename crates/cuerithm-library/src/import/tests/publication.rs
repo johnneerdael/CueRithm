@@ -1169,6 +1169,242 @@ fn accepted_imported_tags_write_without_provider_lookup() {
         .unwrap();
     assert_restored(f.root.path(), &before, &path, "undo");
 }
+/// An import of `count` tracks whose accepted titles are to be written into the files: the
+/// operation id and each track's library id and file.
+#[cfg(feature = "autotag")]
+fn setup_many(
+    policy: ImportPolicy,
+    count: usize,
+) -> (Fixture, String, Vec<(String, std::path::PathBuf)>) {
+    let f = Fixture::new();
+    let mut observed = vec![];
+    let mut paths = vec![];
+    for n in 0..count {
+        let path = f.root.path().join(format!("original{n}.wav"));
+        let mut w = hound::WavWriter::create(
+            &path,
+            hound::WavSpec {
+                channels: 1,
+                sample_rate: 44100,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )
+        .unwrap();
+        for i in 0..4410 {
+            w.write_sample(
+                ((i as f64 * (200.0 + 20.0 * n as f64) * std::f64::consts::TAU / 44100.0).sin()
+                    * 10000.0) as i16,
+            )
+            .unwrap();
+        }
+        w.finalize().unwrap();
+        let mut t = track(&format!("Accepted title {n}"));
+        t.external_id = format!("track-{n}");
+        t.locations.native_path = Some(path.clone());
+        t.locations.platform = Some(std::env::consts::OS.into());
+        observed.push(t);
+        paths.push(path);
+    }
+    let i = f.inspect(observed, Completeness::WholeLibrary);
+    let mut r = f.request(&i);
+    r.policy = policy;
+    let op = f.apply(&f.preview(r)).operation_id;
+    let tracks = f.lib.tracks(TrackQuery::default()).unwrap().rows;
+    assert_eq!(tracks.len(), count);
+    let files = paths
+        .into_iter()
+        .map(|path| {
+            let id = tracks
+                .iter()
+                .find(|t| f.lib.track_path(&t.id).unwrap() == path)
+                .unwrap()
+                .id
+                .clone();
+            (id, path)
+        })
+        .collect();
+    (f, op, files)
+}
+/// Publishes the tag changes of an import made with [`setup_many`].
+#[cfg(feature = "autotag")]
+fn publish_import(f: &Fixture, op: &str, count: usize) {
+    let s = ImportProcessingService::start(f.lib.clone(), runtime()).unwrap();
+    s.run_pending(&CancellationToken::default()).unwrap();
+    let p = f
+        .lib
+        .preview_import_effects(op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(p.ready, count as u64);
+    let r = f
+        .lib
+        .apply_import_effects(&p.preview_id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(r.processed, count as u64);
+}
+#[cfg(feature = "autotag")]
+fn written_title(path: &std::path::Path) -> Option<String> {
+    runtime().probe(path).unwrap().tags.get("title").cloned()
+}
+/// An import counts as one operation, however many tracks it wrote: undone right after it
+/// finished, every one of its tracks is restored, not only the ten written last.
+#[cfg(feature = "autotag")]
+#[test]
+fn an_import_that_wrote_twelve_tracks_is_undone_as_one_operation() {
+    let policy = ImportPolicy {
+        write_audio_tags: ["title".into()].into(),
+        ..Default::default()
+    };
+    let (f, op, files) = setup_many(policy, 12);
+    publish_import(&f, &op, 12);
+    for (n, (_, path)) in files.iter().enumerate() {
+        assert_eq!(
+            written_title(path).as_deref(),
+            Some(format!("Accepted title {n}").as_str())
+        );
+    }
+    let undo = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undo.blocked, 0, "{:?}", undo.errors);
+    assert_eq!(undo.undone, 12);
+    for (_, path) in &files {
+        assert_eq!(written_title(path), None, "{}", path.display());
+    }
+}
+/// A track added to the library next to an import, ready to be edited by hand.
+#[cfg(feature = "autotag")]
+fn other_track(f: &Fixture, n: usize) -> String {
+    let path = f.root.path().join(format!("other{n}.wav"));
+    let mut w = hound::WavWriter::create(
+        &path,
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )
+    .unwrap();
+    for i in 0..4410 {
+        w.write_sample(
+            ((i as f64 * (900.0 + 30.0 * n as f64) * std::f64::consts::TAU / 44100.0).sin()
+                * 10000.0) as i16,
+        )
+        .unwrap();
+    }
+    w.finalize().unwrap();
+    let job = f
+        .lib
+        .enqueue(
+            std::slice::from_ref(&path),
+            f.lib.settings().unwrap().revision,
+        )
+        .unwrap()
+        .remove(0);
+    let track = f
+        .lib
+        .jobs()
+        .unwrap()
+        .into_iter()
+        .find(|j| j.id == job)
+        .unwrap()
+        .track_id;
+    f.lib.conn().unwrap().execute("UPDATE tracks SET state='ready',analysis_json='{}',musical_key='8A',bpm=128,energy=7 WHERE id=?1",[&track]).unwrap();
+    track
+}
+#[cfg(feature = "autotag")]
+fn save_other_title(f: &Fixture, track: &str, title: &str) {
+    use cuerithm_autotag::{MetadataTextField, TextEdit};
+    let editor = MetadataEditService::new(f.lib.clone(), runtime());
+    let draft = editor.create_draft(&[track.into()]).unwrap();
+    let mut patch = MetadataEditorPatch::default();
+    patch.fields.text.insert(
+        MetadataTextField::Title,
+        TextEdit::Set {
+            values: vec![title.into()],
+        },
+    );
+    let draft = editor
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    let preview = editor
+        .preview(&draft.id, draft.revision, &CancellationToken::default())
+        .unwrap();
+    let saved = editor
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(saved.state, "saved", "{saved:?}");
+}
+#[cfg(feature = "autotag")]
+fn import_can_undo(f: &Fixture, op: &str) -> bool {
+    f.lib
+        .import_operation_page(ImportOperationQuery::default())
+        .unwrap()
+        .records
+        .into_iter()
+        .find(|record| record.operation_id == op)
+        .unwrap()
+        .can_undo
+}
+/// The window of ten counts the import as one operation. With nine newer saves it is still the
+/// tenth and every track it wrote can be undone; a tenth newer save pushes it out, and all of
+/// its tracks go together: nothing is half undone, and its Undo is no longer offered.
+#[cfg(feature = "autotag")]
+#[test]
+fn an_import_leaves_the_undo_window_as_one_operation_with_all_its_tracks() {
+    let policy = ImportPolicy {
+        write_audio_tags: ["title".into()].into(),
+        ..Default::default()
+    };
+    let (f, op, files) = setup_many(policy, 12);
+    publish_import(&f, &op, 12);
+    let others: Vec<String> = (0..10).map(|n| other_track(&f, n)).collect();
+    for (n, track) in others[..9].iter().enumerate() {
+        save_other_title(&f, track, &format!("Other {n}"));
+    }
+    let expired = || -> i64 {
+        f.lib
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM metadata_edit_writes WHERE state='committed' AND undo_of IS NULL AND json_extract(payload_json,'$.undo_expired')=1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        expired(),
+        0,
+        "the import and nine newer saves are ten operations: none of its tracks expired"
+    );
+    assert!(import_can_undo(&f, &op));
+    save_other_title(&f, &others[9], "Other 9");
+    assert_eq!(
+        expired(),
+        12,
+        "all twelve saves of the import expired together"
+    );
+    assert!(!import_can_undo(&f, &op));
+    let refused = f
+        .lib
+        .undo_import_operation(&op, &CancellationToken::default())
+        .unwrap_err();
+    assert!(
+        format!("{refused:#}").contains("no longer available"),
+        "{refused:#}"
+    );
+    for (n, (_, path)) in files.iter().enumerate() {
+        assert_eq!(
+            written_title(path).as_deref(),
+            Some(format!("Accepted title {n}").as_str()),
+            "nothing of the import was undone"
+        );
+    }
+    assert_eq!(f.lib.tagging_storage().unwrap().original_files, 0);
+}
 #[cfg(feature = "autotag")]
 #[test]
 fn raw_imported_key_is_written_and_used_for_file_naming() {

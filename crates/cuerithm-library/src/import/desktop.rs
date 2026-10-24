@@ -171,7 +171,12 @@ impl Library {
             [&query.source_id],
             |r| r.get(0),
         )?;
-        let mut statement=conn.prepare("SELECT o.rowid,o.id,o.source_id,o.state,o.created,o.updated,p.json,o.receipt_json,EXISTS(SELECT 1 FROM import_processing_receipts r WHERE r.operation_id=o.id AND r.stage='publication.effects' AND r.state IN ('applying','recovery_required')),EXISTS(SELECT 1 FROM import_processing_receipts r WHERE r.operation_id=o.id AND r.stage='publication.effects' AND r.state='applied') FROM import_operations o JOIN import_policies p ON p.id=o.policy_id WHERE (?1 IS NULL OR o.source_id=?1) AND o.rowid<?2 ORDER BY o.rowid DESC LIMIT ?3")?;
+        // An import whose tag saves have left the window of ten operations cannot be undone.
+        #[cfg(feature = "autotag")]
+        let expired = crate::metadata_edit::import_undo_expired_sql("o.id");
+        #[cfg(not(feature = "autotag"))]
+        let expired = "0".to_string();
+        let mut statement=conn.prepare(&format!("SELECT o.rowid,o.id,o.source_id,o.state,o.created,o.updated,p.json,o.receipt_json,EXISTS(SELECT 1 FROM import_processing_receipts r WHERE r.operation_id=o.id AND r.stage='publication.effects' AND r.state IN ('applying','recovery_required')),(EXISTS(SELECT 1 FROM import_processing_receipts r WHERE r.operation_id=o.id AND r.stage='publication.effects' AND r.state='applied') AND NOT {expired}) FROM import_operations o JOIN import_policies p ON p.id=o.policy_id WHERE (?1 IS NULL OR o.source_id=?1) AND o.rowid<?2 ORDER BY o.rowid DESC LIMIT ?3"))?;
         let mut rows = statement.query(params![query.source_id, after, query.limit + 1])?;
         let mut records = Vec::new();
         let mut last = after;
