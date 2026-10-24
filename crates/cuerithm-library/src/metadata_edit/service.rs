@@ -9,7 +9,7 @@ use cuerithm_autotag::{
     TagMatchOutcome, TagWritePlan,
 };
 use cuerithm_media::{CancellationToken, MediaRuntime};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 #[derive(Clone)]
 pub struct MetadataEditService {
@@ -222,50 +222,10 @@ impl MetadataEditService {
         Ok(())
     }
     pub fn import_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
-        let (mime, bytes) = cuerithm_autotag::validate_metadata_artwork(bytes)?;
-        use sha2::{Digest, Sha256};
-        let sha256 = format!("{:x}", Sha256::digest(&bytes));
-        let asset = MetadataArtworkAsset {
-            id: uuid::Uuid::new_v4().to_string(),
-            mime,
-            sha256,
-            bytes: bytes.len() as u64,
-        };
-        let folder = self.library.data_dir().join("metadata-edits/assets");
-        std::fs::create_dir_all(&folder)?;
-        let path = folder.join(&asset.id);
-        use std::io::Write;
-        let mut output = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)?;
-        output.write_all(&bytes)?;
-        output.sync_all()?;
-        self.library.conn()?.execute(
-            "INSERT INTO metadata_artwork_assets VALUES(?1,?2,?3,?4,?5,?6)",
-            params![
-                asset.id,
-                asset.sha256,
-                asset.mime,
-                path_bytes(&path),
-                asset.bytes,
-                now()
-            ],
-        )?;
-        Ok(asset)
+        self.library.store_metadata_artwork(bytes)
     }
     pub fn artwork_bytes(&self, id: &str) -> Result<Vec<u8>> {
-        let (path, hash, bytes): (Vec<u8>, String, u64) = self.library.conn()?.query_row(
-            "SELECT path,sha256,bytes FROM metadata_artwork_assets WHERE id=?1",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
-        ensure!(bytes <= 8 * 1024 * 1024, "Artwork exceeds8MiB");
-        let path = bytes_path(&path)?;
-        crate::artifacts::owned_file(&path, &self.library.data_dir().canonicalize()?, &hash)?;
-        let content = std::fs::read(path)?;
-        cuerithm_autotag::validate_metadata_artwork(content.clone())?;
-        Ok(content)
+        self.library.metadata_artwork_content(id)
     }
     pub fn extract_artwork(
         &self,
@@ -661,4 +621,74 @@ fn edited_display(
         }
     }
     display
+}
+
+impl crate::Library {
+    /// Keeps a picture as an artwork asset: a file in the data folder named by its id.
+    pub(crate) fn store_metadata_artwork(&self, bytes: Vec<u8>) -> Result<MetadataArtworkAsset> {
+        let (mime, bytes) = cuerithm_autotag::validate_metadata_artwork(bytes)?;
+        use sha2::{Digest, Sha256};
+        let sha256 = format!("{:x}", Sha256::digest(&bytes));
+        let asset = MetadataArtworkAsset {
+            id: uuid::Uuid::new_v4().to_string(),
+            mime,
+            sha256,
+            bytes: bytes.len() as u64,
+        };
+        let folder = self.data_dir().join("metadata-edits/assets");
+        std::fs::create_dir_all(&folder)?;
+        let path = folder.join(&asset.id);
+        use std::io::Write;
+        let mut output = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)?;
+        output.write_all(&bytes)?;
+        output.sync_all()?;
+        self.conn()?.execute(
+            "INSERT INTO metadata_artwork_assets VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                asset.id,
+                asset.sha256,
+                asset.mime,
+                path_bytes(&path),
+                asset.bytes,
+                now()
+            ],
+        )?;
+        Ok(asset)
+    }
+    pub(crate) fn metadata_artwork_content(&self, id: &str) -> Result<Vec<u8>> {
+        let (path, hash, bytes): (Vec<u8>, String, u64) = self.conn()?.query_row(
+            "SELECT path,sha256,bytes FROM metadata_artwork_assets WHERE id=?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        ensure!(bytes <= 8 * 1024 * 1024, "Artwork exceeds8MiB");
+        let path = bytes_path(&path)?;
+        crate::artifacts::owned_file(&path, &self.data_dir().canonicalize()?, &hash)?;
+        let content = std::fs::read(path)?;
+        cuerithm_autotag::validate_metadata_artwork(content.clone())?;
+        Ok(content)
+    }
+    /// Deletes an artwork asset nothing refers to any more.
+    pub(crate) fn drop_metadata_artwork(&self, id: &str) -> Result<()> {
+        let path: Option<Vec<u8>> = self
+            .conn()?
+            .query_row(
+                "SELECT path FROM metadata_artwork_assets WHERE id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(path) = path {
+            let path = bytes_path(&path)?;
+            if path.starts_with(self.data_dir().join("metadata-edits/assets")) {
+                let _ = std::fs::remove_file(path);
+            }
+            self.conn()?
+                .execute("DELETE FROM metadata_artwork_assets WHERE id=?1", [id])?;
+        }
+        Ok(())
+    }
 }

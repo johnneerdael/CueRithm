@@ -866,32 +866,21 @@ fn metadata_draft_artwork_history_and_undo_survive_same_installation_restore() {
 
 #[cfg(feature = "autotag")]
 #[test]
-fn metadata_backup_refuses_changed_retained_original_and_artwork() {
+fn metadata_backup_refuses_changed_retained_artwork_and_a_settled_save_keeps_no_original() {
     let (d, lib, _db, _runtime, _batch, _draft) = edited_metadata_fixture();
     let backup = lib
         .create_library_backup(&d.path().join("backups"))
         .unwrap();
     let conn = Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
-    let encoded: Vec<u8> = conn
-        .query_row("SELECT backup FROM metadata_edit_files LIMIT 1", [], |r| {
-            r.get(0)
-        })
+    // A settled save deleted its original on purpose: nothing names one, and the folder is gone.
+    let named: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_files WHERE backup IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
-    let original = cuerithm_library::organization::NativePath(encoded)
-        .path()
-        .unwrap();
-    let bytes = fs::read(&original).unwrap();
-    fs::write(&original, b"later external original edit").unwrap();
-    assert!(
-        lib.inspect_library_backup(&backup.path).is_err(),
-        "Undo originals are backup dependencies"
-    );
-    assert!(
-        lib.create_library_backup(&d.path().join("backups"))
-            .is_err(),
-        "changed retained originals cannot be blessed by a new backup"
-    );
-    fs::write(&original, bytes).unwrap();
+    assert_eq!(named, 0);
     let encoded: Vec<u8> = conn
         .query_row(
             "SELECT path FROM metadata_artwork_assets LIMIT 1",
@@ -910,13 +899,9 @@ fn metadata_backup_refuses_changed_retained_original_and_artwork() {
             .is_err()
     );
     fs::write(&asset, artwork_bytes).unwrap();
-    let replacement = original.with_extension("external-copy");
-    fs::copy(&original, &replacement).unwrap();
-    fs::rename(replacement, &original).unwrap();
     assert!(
-        lib.create_library_backup(&d.path().join("backups"))
-            .is_err(),
-        "Equal bytes cannot replace the saved native Undo original"
+        lib.create_library_backup(&d.path().join("backups")).is_ok(),
+        "restoring the bytes makes the artwork whole again"
     );
 }
 
@@ -995,7 +980,7 @@ fn attention_job_metadata_and_review_outboxes_block_the_whole_restore_flow() {
 
 #[cfg(feature = "autotag")]
 #[test]
-fn metadata_restore_rechecks_retained_original_after_staging() {
+fn metadata_restore_rechecks_retained_artwork_after_staging() {
     let (d, lib, db, _runtime, _batch, _draft) = edited_metadata_fixture();
     let backup = lib
         .create_library_backup(&d.path().join("backups"))
@@ -1004,14 +989,16 @@ fn metadata_restore_rechecks_retained_original_after_staging() {
         .unwrap();
     let conn = Connection::open(&db).unwrap();
     let encoded: Vec<u8> = conn
-        .query_row("SELECT backup FROM metadata_edit_files LIMIT 1", [], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT path FROM metadata_artwork_assets LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
-    let original = cuerithm_library::organization::NativePath(encoded)
+    let asset = cuerithm_library::organization::NativePath(encoded)
         .path()
         .unwrap();
-    fs::write(&original, b"externally changed after staging").unwrap();
+    fs::write(&asset, b"externally changed after staging").unwrap();
     drop(conn);
     drop(lib);
     assert!(matches!(
@@ -1019,7 +1006,7 @@ fn metadata_restore_rechecks_retained_original_after_staging() {
         LibraryRestoreStartup::BlockedBeforeMutation { .. }
     ));
     assert_eq!(
-        fs::read(original).unwrap(),
+        fs::read(asset).unwrap(),
         b"externally changed after staging"
     );
 }

@@ -56,7 +56,6 @@ fn fixture() -> (
 #[test]
 fn durable_metadata_draft_previews_saves_and_guardedly_undoes_without_reanalyzing() {
     let (_temp, lib, service, track, path) = fixture();
-    let original_bytes = std::fs::read(&path).unwrap();
     assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
     let conn = rusqlite::Connection::open(lib.data_dir().join("library.sqlite")).unwrap();
     conn.execute("UPDATE tracks SET artist='Display artist',album='Display album',genre='Display genre' WHERE id=?1",[&track]).unwrap();
@@ -68,6 +67,14 @@ fn durable_metadata_draft_previews_saves_and_guardedly_undoes_without_reanalyzin
         )
         .unwrap();
     drop(conn);
+    let original_title = service
+        .snapshot(std::slice::from_ref(&track))
+        .unwrap()
+        .tracks[0]
+        .native
+        .text
+        .get(&MetadataTextField::Title)
+        .cloned();
     let draft = service.create_draft(std::slice::from_ref(&track)).unwrap();
     let mut patch = MetadataEditorPatch::default();
     patch.fields.text.insert(
@@ -97,10 +104,17 @@ fn durable_metadata_draft_previews_saves_and_guardedly_undoes_without_reanalyzin
     assert!(path.exists());
     assert_eq!(saved.state, "saved");
     assert!(saved.can_undo);
+    // A save keeps no copy of the original audio once it has settled.
     let retained = lib.tagging_storage().unwrap();
-    assert_eq!(retained.original_files, 1);
-    assert_eq!(retained.original_bytes, original_bytes.len() as u64);
-    let edited_bytes = std::fs::metadata(&path).unwrap().len();
+    assert_eq!((retained.original_files, retained.original_bytes), (0, 0));
+    assert!(
+        walkdir::WalkDir::new(lib.data_dir().join("metadata-edits"))
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .all(|e| !e.file_type().is_file()),
+        "no file of the audio is left in the metadata folder"
+    );
+    let audio_before = pcm(&service, &path);
     assert_eq!(service.draft(&draft.id).unwrap().state, "saved");
     let snapshot = service.snapshot(std::slice::from_ref(&track)).unwrap();
     assert_eq!(
@@ -115,13 +129,20 @@ fn durable_metadata_draft_previews_saves_and_guardedly_undoes_without_reanalyzin
         .undo(&saved.id, &CancellationToken::default())
         .unwrap();
     assert_eq!(undone.state, "undone", "{undone:?}");
-    assert_eq!(std::fs::read(&path).unwrap(), original_bytes);
-    let retained = lib.tagging_storage().unwrap();
-    assert_eq!(retained.original_files, 2);
+    // Undo wrote the previous values back: the title and the audio are what they were.
     assert_eq!(
-        retained.original_bytes,
-        original_bytes.len() as u64 + edited_bytes
+        service
+            .snapshot(std::slice::from_ref(&track))
+            .unwrap()
+            .tracks[0]
+            .native
+            .text
+            .get(&MetadataTextField::Title),
+        original_title.as_ref()
     );
+    assert_eq!(pcm(&service, &path), audio_before);
+    let retained = lib.tagging_storage().unwrap();
+    assert_eq!((retained.original_files, retained.original_bytes), (0, 0));
     assert!(
         !service
             .history()
@@ -140,6 +161,21 @@ fn durable_metadata_draft_previews_saves_and_guardedly_undoes_without_reanalyzin
         )
         .unwrap();
     assert_eq!(display, original_display);
+}
+
+/// The decoded audio of a file, whatever its tags.
+fn pcm(service: &MetadataEditService, path: &Path) -> String {
+    let _ = service;
+    let runtime = MediaRuntime::from_bundle(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    runtime
+        .decode(path, cache.path())
+        .unwrap()
+        .pcm_sha256()
+        .unwrap()
 }
 
 fn title_preview(service: &MetadataEditService, track: &str) -> MetadataEditPreview {
@@ -812,4 +848,198 @@ fn incoming_edit_move_restart_and_guarded_undo_preserve_analysis_cues_and_later_
             Some(vec!["preserve native record".into()])
         );
     }
+}
+
+fn icon(name: &str) -> Vec<u8> {
+    std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/desktop/src-tauri/icons")
+            .join(name),
+    )
+    .unwrap()
+}
+fn artwork_assets(lib: &Library) -> i64 {
+    rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM metadata_artwork_assets", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+}
+fn save(
+    service: &MetadataEditService,
+    track: &str,
+    patch: MetadataEditorPatch,
+) -> MetadataEditBatch {
+    let draft = service.create_draft(&[track.into()]).unwrap();
+    let draft = service
+        .update_draft(&draft.id, draft.revision, patch)
+        .unwrap();
+    let preview = service
+        .preview(&draft.id, draft.revision, &CancellationToken::default())
+        .unwrap();
+    service
+        .apply(&preview.id, &CancellationToken::default())
+        .unwrap()
+}
+fn pictures(service: &MetadataEditService, track: &str) -> Vec<cuerithm_autotag::ArtworkIdentity> {
+    service.snapshot(&[track.into()]).unwrap().tracks[0]
+        .native
+        .artwork
+        .iter()
+        .map(|a| a.identity.clone())
+        .collect()
+}
+
+/// Replacing a picture keeps the original picture (artwork belongs in the library), not the audio
+/// file it came from, and Undo puts it back.
+#[test]
+fn undoing_an_artwork_replacement_restores_the_picture_without_keeping_the_audio() {
+    let (_t, lib, service, track, path) = fixture();
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let mut add = MetadataEditorPatch::default();
+    add.artwork.push(MetadataArtworkChoice {
+        target: None,
+        asset_id: Some(first.id),
+        kind: Some(3),
+        description: None,
+    });
+    save(&service, &track, add);
+    let original = pictures(&service, &track);
+    assert_eq!(original.len(), 1);
+    let assets_before = artwork_assets(&lib);
+
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    assert_eq!(saved.state, "saved", "{saved:?}");
+    let replaced = pictures(&service, &track);
+    assert_ne!(replaced[0].sha256, original[0].sha256);
+    // The audio file is not kept; the picture it held is.
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 2,
+        "the new picture and the kept one"
+    );
+
+    let audio = pcm(&service, &path);
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    let restored = pictures(&service, &track);
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored[0].sha256, original[0].sha256);
+    assert_eq!(pcm(&service, &path), audio);
+    assert_eq!(lib.tagging_storage().unwrap().original_files, 0);
+    assert_eq!(
+        artwork_assets(&lib),
+        assets_before + 1,
+        "the kept picture goes once the save is undone"
+    );
+}
+
+/// Only the newest ten saved batches can be undone; the older ones keep their history line.
+#[test]
+fn only_the_newest_ten_saves_can_be_undone() {
+    let (_t, lib, service, track, _path) = fixture();
+    let mut ids = vec![];
+    for n in 0..12 {
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        let mut patch = MetadataEditorPatch::default();
+        patch.fields.text.insert(
+            MetadataTextField::Title,
+            TextEdit::Set {
+                values: vec![format!("Title {n}")],
+            },
+        );
+        ids.push(save(&service, &track, patch).id);
+    }
+    let history = service.history().unwrap();
+    assert_eq!(history.len(), 12, "history lines are never dropped");
+    let undoable = |id: &str| history.iter().find(|b| b.id == id).unwrap().can_undo;
+    // Only the newest save is undoable at a time (each later one changed the track), and an
+    // older one is out of the window for good.
+    assert!(undoable(&ids[11]));
+    let expired: i64 = rusqlite::Connection::open(lib.data_dir().join("library.sqlite"))
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_writes WHERE json_extract(payload_json,'$.undo_expired')=1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(expired, 2);
+    assert!(
+        !service
+            .undo(&ids[0], &CancellationToken::default())
+            .map(|b| b.state == "undone")
+            .unwrap_or(false)
+    );
+}
+
+/// A restart in the middle of retiring the original completes it and keeps Undo working.
+#[test]
+fn a_restart_after_the_original_was_deleted_completes_the_save_and_keeps_undo() {
+    let (temp, lib, service, track, path) = fixture();
+    let first = service.import_artwork(icon("32x32.png")).unwrap();
+    let mut add = MetadataEditorPatch::default();
+    add.artwork.push(MetadataArtworkChoice {
+        target: None,
+        asset_id: Some(first.id),
+        kind: Some(3),
+        description: None,
+    });
+    save(&service, &track, add);
+    let original = pictures(&service, &track);
+    let second = service.import_artwork(icon("128x128.png")).unwrap();
+    let mut replace = MetadataEditorPatch::default();
+    replace.artwork.push(MetadataArtworkChoice {
+        target: Some(original[0].clone()),
+        asset_id: Some(second.id),
+        kind: Some(3),
+        description: None,
+    });
+    let saved = save(&service, &track, replace);
+    let audio = pcm(&service, &path);
+    let db = lib.data_dir().join("library.sqlite");
+    drop(service);
+    drop(lib);
+    // The crash: the original is gone, but the journal does not say so yet.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute(
+        "UPDATE metadata_edit_writes SET error='Metadata temporary cleanup pending',payload_json=json_set(payload_json,'$.backup_retired',json('false')) WHERE json_extract(payload_json,'$.backup_retired')=1 AND batch_id=?1",
+        [&saved.id],
+    )
+    .unwrap();
+    drop(conn);
+    let lib = Library::open(&db).unwrap();
+    let runtime = MediaRuntime::from_bundle(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+    )
+    .unwrap();
+    let service = MetadataEditService::new(lib.clone(), runtime);
+    let pending: i64 = rusqlite::Connection::open(&db)
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM metadata_edit_writes WHERE error IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(pending, 0, "the start completed the cleanup");
+    let undone = service
+        .undo(&saved.id, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(undone.state, "undone", "{undone:?}");
+    assert_eq!(pictures(&service, &track)[0].sha256, original[0].sha256);
+    assert_eq!(pcm(&service, &path), audio);
+    drop(temp);
 }

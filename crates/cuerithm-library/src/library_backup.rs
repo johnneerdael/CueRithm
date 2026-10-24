@@ -715,6 +715,7 @@ fn metadata_stage(
     root: &Path,
     json: &str,
     staged_required: bool,
+    backup_required: bool,
 ) -> Result<()> {
     let stage: BackupMetadataStage = serde_json::from_str(json)?;
     let workspace = bytes_path(&stage.workspace)?;
@@ -726,7 +727,7 @@ fn metadata_stage(
         "Invalid retained metadata workspace or recovery identity"
     );
     for (path, proof, required) in [
-        (&stage.backup, &stage.backup_fingerprint, true),
+        (&stage.backup, &stage.backup_fingerprint, backup_required),
         (&stage.path, &stage.staged_fingerprint, staged_required),
     ] {
         let path = bytes_path(path)?;
@@ -734,6 +735,10 @@ fn metadata_stage(
             path.parent() == Some(workspace.as_path()),
             "Metadata recovery file leaves its workspace"
         );
+        if !required && !backup_required && path == bytes_path(&stage.backup)? {
+            // The save settled and deleted its original on purpose.
+            continue;
+        }
         if required {
             required_organization_file(locations, &path, &stage.workspace_authority, proof, true)?;
         } else {
@@ -772,22 +777,26 @@ fn metadata_inventory(
     }
     // Every physical committed/undone write retains an original with native
     // ownership proof. Failed pre-publication writes keep stage evidence too.
-    let mut query = conn.prepare("SELECT json_extract(payload_json,'$.row.stage'),state FROM metadata_edit_writes ORDER BY id")?;
+    let mut query = conn.prepare("SELECT json_extract(payload_json,'$.row.stage'),state,COALESCE(json_extract(payload_json,'$.backup_retired'),0) FROM metadata_edit_writes ORDER BY id")?;
     for row in query.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, bool>(2)?,
+        ))
     })? {
-        let (stage, state) = row?;
-        metadata_stage(locations, root, &stage, state == "failed")?;
+        let (stage, state, retired) = row?;
+        metadata_stage(locations, root, &stage, state == "failed", !retired)?;
     }
     // Incoming overrides have no physical metadata_edit_write. Their original
     // is retained in the frozen row for inverse artwork and comment edits.
     let mut query = conn.prepare("SELECT json_extract(r.payload_json,'$.stage') FROM metadata_edit_rows r JOIN metadata_edit_overrides o ON o.batch_id=r.batch_id AND o.track_id=r.track_id WHERE r.state='written' AND o.state='committed' AND json_type(r.payload_json,'$.stage')='object' ORDER BY r.id")?;
     for row in query.query_map([], |row| row.get::<_, String>(0))? {
-        metadata_stage(locations, root, &row?, false)?;
+        metadata_stage(locations, root, &row?, false, true)?;
     }
     let mut query = conn.prepare("SELECT json_extract(row.value,'$.stage') FROM metadata_edit_previews p,json_each(p.payload_json,'$.rows') row WHERE p.state='preview' AND json_type(row.value,'$.stage')='object' ORDER BY p.id,row.key")?;
     for row in query.query_map([], |row| row.get::<_, String>(0))? {
-        metadata_stage(locations, root, &row?, true)?;
+        metadata_stage(locations, root, &row?, true, true)?;
     }
     // Bind native identities for the entire retained tree, including workspace
     // directories used to reopen Undo artifacts after a same-installation restore.
