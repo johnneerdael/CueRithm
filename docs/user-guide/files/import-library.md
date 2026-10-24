@@ -116,6 +116,11 @@ their neighboring folders. Sources selected as individual files keep that scope.
 Development imports saved before folder refresh support retain their saved file
 list. Choose the source folder again and inspect it to establish folder scope.
 
+Removing a track linked to an imported library also hides its imported entry.
+The source records and imported playlist occurrences are kept, but the removed
+entry is unavailable for playback. Refresh does not bring it back automatically;
+use the removal workflow’s **Undo** when no later changes conflict.
+
 Blocked processing leaves the imported metadata visible. Recovery and Undo can
 also be blocked by later file or library edits; review the explanation in history
 before proceeding.

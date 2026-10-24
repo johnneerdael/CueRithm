@@ -71,14 +71,22 @@ pub(super) fn impact(conn: &Connection, track_id: &str) -> Result<BTreeMap<Strin
 /// Refuse to restore when the library no longer looks like the removal left it: a track
 /// with a removed track's identity or file location has appeared. Nothing is changed.
 pub(super) fn ensure_free(conn: &Connection, image: &RecordImage) -> Result<()> {
+    let has_imports: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='import_items')",
+        [],
+        |r| r.get(0),
+    )?;
     for track in image.removed_tracks()? {
-        let taken: Option<String> = conn
+        let mut taken: Option<String> = conn
             .query_row(
                 "SELECT title FROM tracks WHERE id=?1 OR path=?2",
                 rusqlite::params![track.id, track.path],
                 |r| r.get(0),
             )
             .optional()?;
+        if taken.is_none() && has_imports {
+            taken = conn.query_row("SELECT COALESCE(json_extract(s.value_json,'$.title'),'Imported item') FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL AND i.state='imported' AND (i.id=?1 OR i.path=?2) LIMIT 1", rusqlite::params![track.id, track.path], |r| r.get(0)).optional()?;
+        }
         ensure!(
             taken.is_none(),
             "Cannot undo: the identity or file location of \"{}\" is already used by a track in the library (\"{}\"). Remove that track first, or keep the current library",

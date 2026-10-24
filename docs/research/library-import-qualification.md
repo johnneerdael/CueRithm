@@ -906,3 +906,31 @@ identity integration tests; desktop library 37 passed / zero failed / one ignore
 Workspace formatting, workspace and untagged-library strict Clippy, release build,
 strict guide build and navigation/link checks also pass. The independent focused
 production-diff review found no actionable issue.
+
+### Removal and retained-import visibility corrections
+
+Native track removal now records the retained import item as removed in the same
+record snapshot that clears its native reference. No schema change is required.
+The imported-only projection hides that retained row; source observations, stored
+fields/provenance and collection occurrences remain available for audit, with the
+removed occurrence unavailable for playback. Ordinary source refresh cannot
+reactivate it, while unrelated selected source items can still apply. Old
+processing, file previews, publication, interrupted recovery and file Undo cannot
+promote or change the removed record. Unchanged removal Undo restores visibility
+and the source link; newer rows or visible imported-only occupants keep the
+existing conflict protections. Duplicate record Undo retains its existing file
+semantics: it does not move trashed audio back to its old location.
+
+Public Missing & broken and duplicate-delete regressions reproduced the retained
+row reappearing before correction. Five final controls pass, including source
+refresh, retained unavailable playlist occurrences, safe Undo, newer import-only
+occupancy, old processing/file previews and interrupted local-applied recovery
+without an audit revision change. The independent recovery-path finding was
+corrected and its final focused review found no further issue.
+Fresh corrected-source checks pass: full library unit suite 557 passed / zero
+failed / two ignored (including all 146 import tests); 136 maintenance integration
+tests across six targets; all 76 surrounding import/native/backup/identity tests;
+desktop library 37 passed / zero failed / one ignored. Workspace formatting,
+workspace and untagged-library strict Clippy, workspace release build and strict
+guide/navigation/link checks pass. Unchanged SDK coverage remains 546 passed /
+zero failed / three ignored from the preceding source revision.

@@ -40,6 +40,8 @@ pub(super) struct Candidate {
     pub(super) availability: String,
     pub(super) identity_change: Option<Value>,
     pub(super) identity_blocked: bool,
+    #[serde(default)]
+    pub(super) removed: bool,
 }
 #[derive(Serialize, Deserialize)]
 pub(super) struct TrackProposal {

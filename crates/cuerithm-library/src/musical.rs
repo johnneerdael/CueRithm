@@ -161,7 +161,7 @@ pub(crate) fn accepted_snapshot_from_analysis(
     use sha2::{Digest, Sha256};
     let raw: Option<String> =
         conn.query_row(
-            "SELECT analysis_json FROM tracks WHERE id=?1 UNION ALL SELECT NULL FROM import_items WHERE id=?1 AND local_track_id IS NULL LIMIT 1",
+            "SELECT analysis_json FROM tracks WHERE id=?1 UNION ALL SELECT NULL FROM import_items WHERE id=?1 AND local_track_id IS NULL AND state='imported' LIMIT 1",
             [id],
             |r| r.get(0),
         )?;

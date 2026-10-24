@@ -163,11 +163,19 @@ impl Library {
                         );
                     }
                 }
-                let identity_blocked = identity_change.is_some()
-                    && !matches!(
-                        decision(&request, &track.external_id, "identity"),
-                        Some(ImportDecision::UseSource)
+                let removed =
+                    super::super::projection::removed_reference(&*self.conn()?, &item_id)?;
+                if removed {
+                    identity_change = Some(
+                        json!({"reason":"removed_from_library","message":super::super::projection::REMOVED_ITEM_REASON}),
                     );
+                }
+                let identity_blocked = removed
+                    || identity_change.is_some()
+                        && !matches!(
+                            decision(&request, &track.external_id, "identity"),
+                            Some(ImportDecision::UseSource)
+                        );
                 let candidate = Candidate {
                     external_id: track.external_id.clone(),
                     item_id,
@@ -177,6 +185,7 @@ impl Library {
                     availability,
                     identity_change,
                     identity_blocked,
+                    removed,
                 };
                 spool.execute(
                     "INSERT INTO candidates VALUES(?1,?2)",
@@ -270,7 +279,7 @@ impl Library {
                 }
                 if candidate.identity_blocked {
                     adopted = None;
-                    blocked_reason=Some("Source identity/location changed; review possible reused ID before adopting this record".into());
+                    blocked_reason=Some(if candidate.removed { super::super::projection::REMOVED_ITEM_REASON } else { "Source identity/location changed; review possible reused ID before adopting this record" }.into());
                 }
                 if let Some(accepted) = &adopted {
                     validate_custom_field(&field, accepted)?;
@@ -311,7 +320,7 @@ impl Library {
             }
             if let Some(previous) = &candidate.identity_change {
                 summary.conflicts += u64::from(candidate.identity_blocked);
-                effects.push(ImportFieldEffect{field:"identity".into(),source:Some(serde_json::to_value(&track.locations)?),local:Some(previous.clone()),proposed:if candidate.identity_blocked{None}else{Some(serde_json::to_value(&track.locations)?)},conflict:candidate.identity_blocked,blocked_reason:if candidate.identity_blocked{Some("Confirm source identity before adopting a changed location or reused ID".into())}else{None}});
+                effects.push(ImportFieldEffect{field:"identity".into(),source:Some(serde_json::to_value(&track.locations)?),local:Some(previous.clone()),proposed:if candidate.identity_blocked{None}else{Some(serde_json::to_value(&track.locations)?)},conflict:candidate.identity_blocked,blocked_reason:if candidate.identity_blocked{Some(if candidate.removed { super::super::projection::REMOVED_ITEM_REASON } else { "Confirm source identity before adopting a changed location or reused ID" }.into())}else{None}});
             }
             summary.tracks_created += u64::from(candidate.is_new && !candidate.identity_blocked);
             let effect = ImportPreviewEffect {

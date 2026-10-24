@@ -144,6 +144,7 @@ impl Library {
             .probe_cancellable(&media.path, cancel)?;
         let mut conn = self.conn()?;
         let tx = conn.transaction()?;
+        super::super::projection::ensure_active_reference(&tx, id)?;
         let fields = super::super::projection::active_fields_tx(&tx, id)?;
         ensure!(
             fields.get("library.archived").and_then(Value::as_bool) != Some(true),
@@ -293,6 +294,7 @@ impl Library {
         journal: &mut EffectJournal,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        super::super::projection::ensure_active_reference(&*self.conn()?, &row.item)?;
         if journal.tag_batch.is_none() && journal.organization_batch.is_none() {
             return Ok(());
         }

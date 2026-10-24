@@ -71,7 +71,7 @@ pub(super) fn exact_path(
         return Ok(None);
     }
     let conn = lib.conn()?;
-    let mut query=conn.prepare("SELECT id FROM tracks WHERE path=?1 UNION ALL SELECT id FROM import_items WHERE local_track_id IS NULL AND path=?1")?;
+    let mut query=conn.prepare("SELECT id FROM tracks WHERE path=?1 UNION ALL SELECT id FROM import_items WHERE local_track_id IS NULL AND state='imported' AND path=?1")?;
     let ids = query
         .query_map([crate::model::path_bytes(&canonical)], |r| {
             r.get::<_, String>(0)
@@ -93,7 +93,7 @@ pub(super) fn content_candidates(
     };
     let candidates = {
         let conn = lib.conn()?;
-        let mut query=conn.prepare("SELECT id,path FROM tracks WHERE source_hash=?1 UNION ALL SELECT id,path FROM import_items WHERE local_track_id IS NULL AND source_hash=?1 AND path IS NOT NULL LIMIT 1001")?;
+        let mut query=conn.prepare("SELECT id,path FROM tracks WHERE source_hash=?1 UNION ALL SELECT id,path FROM import_items WHERE local_track_id IS NULL AND state='imported' AND source_hash=?1 AND path IS NOT NULL LIMIT 1001")?;
         query
             .query_map([hash], |r| {
                 Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))

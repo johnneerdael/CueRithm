@@ -13,8 +13,16 @@ pub(crate) const LIBRARY_TRACKS_CTE: &str = r#"library_tracks AS (
  SELECT id,path,CASE WHEN t.state='imported' AND t.title='' AND EXISTS(SELECT 1 FROM import_items i WHERE i.id=t.id AND i.local_track_id=t.id) THEN 'Imported item' ELSE t.title END AS title,artist,album,genre,state,musical_key,bpm,energy,duration,source_hash,metadata_json,created,updated,archived,tagging_json,sort_title,sort_artist,search_text FROM tracks t
  UNION ALL
  SELECT i.id,i.path,COALESCE(json_extract(s.value_json,'$.title'),'Imported item'),COALESCE(json_extract(s.value_json,'$.artist'),''),COALESCE(json_extract(s.value_json,'$.album'),''),COALESCE(json_extract(s.value_json,'$.genre'),''),'imported',json_extract(s.value_json,'$.key'),json_extract(s.value_json,'$.bpm'),json_extract(s.value_json,'$.energy'),json_extract(s.value_json,'$.duration'),i.source_hash,'{}',i.created,i.updated,COALESCE(json_extract(s.value_json,'$.archived'),0),NULL,COALESCE(json_extract(s.value_json,'$.sort_title'),''),COALESCE(json_extract(s.value_json,'$.sort_artist'),''),COALESCE(json_extract(s.value_json,'$.search_text'),'')
- FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL
+ FROM import_items i LEFT JOIN import_active_fields s ON s.item_id=i.id AND s.field='_summary' WHERE i.local_track_id IS NULL AND i.state='imported'
 )"#;
+pub(crate) const REMOVED_ITEM_REASON: &str = "This item was removed from the library; undo its removal before importing or processing it again";
+pub(crate) fn removed_reference(conn: &Connection, id: &str) -> Result<bool> {
+    Ok(conn.query_row("SELECT EXISTS(SELECT 1 FROM import_items i WHERE i.id=?1 AND i.state='removed' AND NOT EXISTS(SELECT 1 FROM tracks t WHERE t.id=i.id))", [id], |r| r.get(0))?)
+}
+pub(crate) fn ensure_active_reference(conn: &Connection, id: &str) -> Result<()> {
+    ensure!(!removed_reference(conn, id)?, "{REMOVED_ITEM_REASON}");
+    Ok(())
+}
 fn metadata_group(field: &str) -> FieldGroup {
     match field {
         "rating" | "user_rating" => FieldGroup::Ratings,
@@ -367,6 +375,7 @@ pub(crate) struct TrackProjection<'a> {
     pub resolved_path: Option<&'a Path>,
 }
 pub(crate) fn project_import_track_tx(conn: &Connection, p: TrackProjection<'_>) -> Result<()> {
+    ensure_active_reference(conn, p.item_id)?;
     ensure!(
         conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM import_snapshots WHERE id=?1 AND source_id=?2)",
@@ -521,6 +530,7 @@ impl Library {
     }
     pub fn imported_item(&self, id: &str) -> Result<ImportedItemDetail> {
         let conn = self.conn()?;
+        let removed = removed_reference(&conn, id)?;
         let availability: String = conn
             .query_row(
                 "SELECT availability FROM import_items WHERE id=?1",
@@ -578,13 +588,19 @@ impl Library {
             active_fields: fields,
             provenance,
             observations,
-            playback_allowed: availability == "available" && path.is_some(),
+            playback_allowed: !removed && availability == "available" && path.is_some(),
             availability,
             analysis_state: "unanalysed".into(),
         })
     }
     pub fn import_export_readiness(&self, id: &str) -> Result<ImportExportReadiness> {
         let conn = self.conn()?;
+        if removed_reference(&conn, id)? {
+            return Ok(ImportExportReadiness {
+                ready: false,
+                reasons: vec![REMOVED_ITEM_REASON.into()],
+            });
+        }
         let local: Option<Option<String>> = conn
             .query_row(
                 "SELECT local_track_id FROM import_items WHERE id=?1",
@@ -658,9 +674,11 @@ impl Library {
 }
 pub(crate) fn imported_path(conn: &Connection, id: &str) -> Result<Option<std::path::PathBuf>> {
     let bytes: Option<Vec<u8>> = conn
-        .query_row("SELECT path FROM import_items WHERE id=?1", [id], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT path FROM import_items WHERE id=?1 AND state='imported'",
+            [id],
+            |r| r.get(0),
+        )
         .optional()?
         .flatten();
     bytes.map(|b| bytes_path(&b)).transpose()
@@ -676,8 +694,9 @@ pub(crate) fn track_summary_tx(conn: &Connection, id: &str) -> Result<TrackSumma
 impl Library {
     pub(crate) fn archive_imported_reference(&self, id: &str, archived: bool) -> Result<bool> {
         let mut conn = self.conn()?;
+        ensure_active_reference(&conn, id)?;
         let imported_only: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1 AND local_track_id IS NULL)",
+            "SELECT EXISTS(SELECT 1 FROM import_items WHERE id=?1 AND local_track_id IS NULL AND state='imported' AND NOT EXISTS(SELECT 1 FROM tracks WHERE id=?1))",
             [id],
             |r| r.get(0),
         )?;

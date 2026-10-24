@@ -87,10 +87,15 @@ impl Library {
             members.into_iter().take(limit as usize)
         {
             let source: MembershipObservation = serde_json::from_str(&raw)?;
-            let track = item_id
-                .as_deref()
-                .map(|id| super::projection::track_summary_tx(&conn, id))
-                .transpose()?;
+            let track = if let Some(id) = item_id.as_deref() {
+                if super::projection::removed_reference(&conn, id)? {
+                    None
+                } else {
+                    Some(super::projection::track_summary_tx(&conn, id)?)
+                }
+            } else {
+                None
+            };
             rows.push(ImportedOccurrence {
                 occurrence_id,
                 item_id,

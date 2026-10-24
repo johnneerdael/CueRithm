@@ -100,6 +100,7 @@ impl Library {
         cancel: &CancellationToken,
     ) -> Result<()> {
         cancel.check()?;
+        super::projection::ensure_active_reference(&*self.conn()?, &row.item)?;
         if !journal.local_applied {
             self.validate_import_effect_current(op, row, cancel)?;
             if let Some(media) = &row.media {
@@ -107,6 +108,7 @@ impl Library {
             }
             let mut conn = self.conn()?;
             let tx = conn.transaction()?;
+            super::projection::ensure_active_reference(&tx, &row.item)?;
             let current = super::reconcile::local_fields(&tx, &row.item)?;
             ensure!(
                 current == row.before,
@@ -263,6 +265,7 @@ pub(crate) fn sync_projection(
     id: &str,
     fields: &std::collections::BTreeMap<String, Value>,
 ) -> Result<()> {
+    super::projection::ensure_active_reference(conn, id)?;
     let native: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM tracks WHERE id=?1)",
         [id],

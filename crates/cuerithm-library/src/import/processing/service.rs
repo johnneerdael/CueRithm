@@ -161,10 +161,15 @@ impl ImportProcessingService {
                 let mut audio = None;
                 for stage in planned {
                     self.check(cancel)?;
+                    let active = super::super::projection::ensure_active_reference(
+                        &*self.library.conn()?,
+                        &candidate.item_id,
+                    );
                     let completed:Option<(String,String,String)>=self.library.conn()?.query_row("SELECT state,identity_json,receipt_json FROM import_processing_receipts WHERE operation_id=?1 AND item_id=?2 AND stage=?3 ORDER BY rowid DESC LIMIT 1",params![operation_id,candidate.item_id,stage.name],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
                     if let Some((state, identity, receipt)) = completed {
                         let identity: Value = serde_json::from_str(&identity)?;
                         if state == "proposed"
+                            && active.is_ok()
                             && identity.get("input_fields") == Some(&serde_json::to_value(&fields)?)
                         {
                             let receipt: Value = serde_json::from_str(&receipt)?;
@@ -188,14 +193,18 @@ impl ImportProcessingService {
                     if let Some(hook) = self.claim_hook.lock().unwrap().as_ref() {
                         hook();
                     }
-                    let outcome = self.execute(
-                        &stage,
-                        (&meta.processing, &meta.request.policy),
-                        candidate.media.as_ref(),
-                        &mut audio,
-                        &fields,
-                        cancel,
-                    );
+                    let outcome = active
+                        .map_err(|e| anyhow::Error::from(BlockedStage(e.to_string())))
+                        .and_then(|()| {
+                            self.execute(
+                                &stage,
+                                (&meta.processing, &meta.request.policy),
+                                candidate.media.as_ref(),
+                                &mut audio,
+                                &fields,
+                                cancel,
+                            )
+                        });
                     let (state, receipt, identity) = match outcome {
                         Ok((value, identity)) => {
                             apply_proposal(&mut fields, &value);

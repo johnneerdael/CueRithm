@@ -565,7 +565,7 @@ impl Library {
         crate::import::projection::track_summary_tx(&*self.conn()?, id)
     }
     pub fn source_hash(&self, id: &str) -> Result<String> {
-        self.conn()?.query_row("SELECT source_hash FROM tracks WHERE id=?1 UNION ALL SELECT COALESCE(source_hash,'') FROM import_items WHERE id=?1 LIMIT 1", [id], |r| r.get::<_, Option<String>>(0))?.context("Track content hash is unknown")
+        self.conn()?.query_row("SELECT source_hash FROM tracks WHERE id=?1 UNION ALL SELECT COALESCE(source_hash,'') FROM import_items WHERE id=?1 AND state='imported' LIMIT 1", [id], |r| r.get::<_, Option<String>>(0))?.context("Track content hash is unknown")
     }
     pub fn counts(&self) -> Result<LibraryCounts> {
         Ok(self.conn()?.query_row(&format!("WITH {} SELECT COUNT(CASE WHEN state IN ('ready','imported') AND archived=0 THEN 1 END),COUNT(CASE WHEN state='incoming' AND archived=0 THEN 1 END),COUNT(CASE WHEN archived=1 THEN 1 END) FROM library_tracks",crate::import::projection::LIBRARY_TRACKS_CTE),[],|r|Ok(LibraryCounts{tracks:r.get(0)?,incoming:r.get(1)?,archive:r.get(2)?}))?)

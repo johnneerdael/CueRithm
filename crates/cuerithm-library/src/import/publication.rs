@@ -203,7 +203,10 @@ impl Library {
                 organization: None,
                 file_changes: Value::Null,
             };
-            if state != "proposed" {
+            if super::projection::removed_reference(&*self.conn()?, &effect.item)? {
+                effect.outcome = "blocked".into();
+                effect.reason = Some(super::projection::REMOVED_ITEM_REASON.into());
+            } else if state != "proposed" {
                 effect.outcome = "blocked".into();
                 effect.reason = Some(
                     receipt["error"]
@@ -440,6 +443,7 @@ impl Library {
         row: &EffectRow,
         cancel: &CancellationToken,
     ) -> Result<()> {
+        super::projection::ensure_active_reference(&*self.conn()?, &row.item)?;
         let raw:String=self.conn()?.query_row("SELECT p.json FROM import_previews p JOIN import_operations o ON o.preview_id=p.id WHERE o.id=?1",[operation],|r|r.get(0))?;
         let meta: PreviewMeta = serde_json::from_str(&raw)?;
         self.validate_import_effect_configuration(&meta.processing, row, cancel)
