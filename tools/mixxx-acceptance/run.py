@@ -586,10 +586,11 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         connection.commit()
         connection.close()
         print(f"[{label}] Starting Mixxx so that it adds the tracks itself...")
-        # On Linux the scanner alone adds the tracks. Files given on the command line are loaded onto
-        # decks at once, and a Mixxx main (schema 40) racing that against its scan failed the deck's
-        # insert with "database is locked" every time.
-        first_files = [] if mixxx == DOCKER else list(files.values())
+        # On Linux and Windows the scanner alone adds the tracks. Files given on the command line are
+        # loaded onto decks at once, and racing that against the scan made the deck's insert into
+        # track_locations fail: "database is locked" on Mixxx main (schema 40) in Docker, and a
+        # failed insert of the same files in Mixxx 2.5.6 for Windows.
+        first_files = [] if mixxx == DOCKER or WINDOWS else list(files.values())
         with Mixxx(mixxx, settings, first_files, work / "mixxx-first.log") as running:
             wait_for(lambda: running.track_count() >= len(names), 180, f"Mixxx to add the {len(names)} tracks")
             time.sleep(5)
