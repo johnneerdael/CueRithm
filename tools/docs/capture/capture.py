@@ -10,7 +10,7 @@ Verbs: click PATTERN [NTH] | key KEY | type TEXT | set PATTERN VALUE | scroll PA
        wait SECONDS | wait_for PATTERN | gone PATTERN | reset | view NAME | theme dark|light
 Patterns are case-insensitive regular expressions over `<role> <label>` of an
 accessibility element. Raw captures are PNG with the real window shape; `to_webp.py`
-downsizes them. Needs the CueRithm window at 1440x940 and frontmost.
+downsizes them. Needs the sandboxed CueRithm that launch-copy.sh started (the only one running) and its window at 1440x940.
 """
 import argparse
 import glob
@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cu import Cu, park_cursor  # noqa: E402
+from cu import Cu, park_cursor, require_capture_app  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 def windowid_tool():
@@ -48,7 +48,10 @@ def ensure_geometry():
 
 
 def activate():
-    subprocess.run(["open", "-a", "/Applications/CueRithm.app"], check=False)
+    """Bring the running sandboxed CueRithm to the front. It never starts an app: `open -a` would
+    start the installed one on the real library, outside the sandbox, if the sandboxed one had quit."""
+    require_capture_app()
+    subprocess.run(["osascript", "-e", 'tell application "System Events" to set frontmost of process "CueRithm" to true'], check=True)
     time.sleep(0.6)
 
 
