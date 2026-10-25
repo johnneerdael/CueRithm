@@ -53,8 +53,18 @@ if (-not (Test-Path "$Root\mingw64\bin\gcc.exe")) {
 # 2b. Perl, sh and make, for the OpenSSL that rusqlite's SQLCipher feature builds from source.
 # OpenSSL's MinGW target refuses a native Windows Perl (Strawberry Perl "doesn't produce Unix like
 # paths"); the MSYS Perl and sh inside Git for Windows do, so their folder goes last on PATH (the
-# Windows tools keep priority), and make is the MinGW one under the name OpenSSL looks for.
+# Windows tools keep priority), and make is the MinGW one under the name OpenSSL looks for. Git's
+# Perl is a cut-down one without the core module Locale::Maketext::Simple, which OpenSSL's Configure
+# loads (through IPC::Cmd), so that one pure-Perl file is fetched from CPAN.
 if (-not (Test-Path "$Root\git\usr\bin\perl.exe")) { throw "PortableGit has no usr\bin\perl.exe" }
+$perlLib = "$Root\git\usr\share\perl5\core_perl"
+if (-not (Test-Path "$perlLib\Locale\Maketext\Simple.pm")) {
+    $name = 'Locale-Maketext-Simple-0.21'
+    Fetch "https://cpan.metacpan.org/authors/id/J/JE/JESSE/$name.tar.gz" "$Root\dl\$name.tar.gz"
+    tar.exe -xzf "$Root\dl\$name.tar.gz" -C "$Root\dl"
+    New-Item -ItemType Directory -Force "$perlLib\Locale\Maketext" | Out-Null
+    Copy-Item "$Root\dl\$name\lib\Locale\Maketext\Simple.pm" "$perlLib\Locale\Maketext\Simple.pm"
+}
 New-Item -ItemType Directory -Force "$Root\bin" | Out-Null
 if (-not (Test-Path "$Root\bin\make.exe")) {
     Copy-Item "$Root\mingw64\bin\mingw32-make.exe" "$Root\bin\make.exe"

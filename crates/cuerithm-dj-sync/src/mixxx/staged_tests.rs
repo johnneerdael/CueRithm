@@ -8,14 +8,21 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use rusqlite::types::Value;
 use sha2::{Digest, Sha256};
 
-/// A Linux or Windows system (MAD decodes MP3) and a macOS one (CoreAudio).
+/// Linux and Windows (libmad decodes MP3) and macOS (CoreAudio), whatever system the tests run on.
 const LINUX: Host = Host {
     case_insensitive: false,
     decoder: Mp3Decoder::Mad,
+    windows: false,
+};
+const WINDOWS: Host = Host {
+    case_insensitive: true,
+    decoder: Mp3Decoder::Mad,
+    windows: true,
 };
 const MACOS: Host = Host {
     case_insensitive: true,
     decoder: Mp3Decoder::CoreAudio,
+    windows: false,
 };
 
 struct Env {
@@ -436,6 +443,14 @@ fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
         "no priming to compare: {linux:?}"
     );
     assert_eq!(linux.iter().filter(|w| w.contains("WMA track")).count(), 1);
+    // Windows decodes AAC with Media Foundation, which was not measured: the warning says so.
+    let windows = run(WINDOWS, &library);
+    assert!(
+        windows.iter().any(|w| w.starts_with("2 AAC track(s)")
+            && w.contains("Media Foundation")
+            && w.contains("has not checked")),
+        "{windows:?}"
+    );
     // macOS decodes AAC with CoreAudio, measured to match: no AAC warning there.
     let env_two = Env::new(39);
     let library = SyncLibrary {

@@ -201,12 +201,17 @@ pub(crate) struct Host {
     pub case_insensitive: bool,
     /// How this system's Mixxx decodes MP3 and AAC.
     pub decoder: Mp3Decoder,
+    /// Windows, where Mixxx decodes AAC with Media Foundation. The MP3 decoder cannot say so:
+    /// libmad decodes MP3 on Linux and Windows alike. Taken from the host being described and
+    /// not from the system the code was built for, so tests can describe any of the three.
+    pub windows: bool,
 }
 impl Host {
     pub(crate) fn current() -> Self {
         Self {
             case_insensitive: tracks::fold_case_candidates(),
             decoder: Mp3Decoder::host(),
+            windows: cfg!(windows),
         }
     }
 }
@@ -428,7 +433,7 @@ fn advisories(
             .filter(|(_, rate)| *rate > 0)
             .map(|(frames, rate)| f64::from(*frames) * 1000.0 / f64::from(*rate))
             .fold(0.0, f64::max);
-        if cfg!(windows) {
+        if host.windows {
             warnings.push(format!(
                 "{aac} AAC track(s): Mixxx on Windows decodes AAC with Media Foundation, which \
                  CueRithm has not checked, so their cues and grid may sit a few milliseconds off."
