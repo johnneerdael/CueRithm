@@ -1,3 +1,38 @@
+def player_times(elements):
+    """(elapsed, remaining) seconds from the player readout. The remaining time is shown after a minus, either inside one
+    element ("−4:13.4") or as its own element followed by the number; the waveform's 0:00.0 and 0:32.0 labels also match
+    the clock format, so they are never taken for either."""
+    elapsed = remaining = None
+    after_minus = False
+    for element in elements:
+        text = element["text"]
+        if re.fullmatch(r"text [\u2212-]", text):
+            after_minus = True
+            continue
+        match = re.fullmatch(r"text ([\u2212-]?)(\d+:\d\d\.\d)", text)
+        if not match:
+            after_minus = False
+            continue
+        if match.group(1) or after_minus:
+            remaining = remaining if remaining is not None else clock(match.group(2))
+        elif elapsed is None:
+            elapsed = clock(match.group(2))
+        after_minus = False
+    if elapsed is None or remaining is None or elapsed + remaining <= 0:
+        raise LookupError("the player's elapsed and remaining time are not on screen")
+    return elapsed, remaining
+
+
+def seek_to(cu, seconds):
+    """Click the track overview where `seconds` falls; a pointer click is the only thing it listens to."""
+    cu.state()
+    elapsed, remaining = player_times(cu.elements)
+    box = json.loads(cu.call("query", app="CueRithm", text="Track overview")[0])["matches"][0]["bounds"]
+    x = box["x"] + box["w"] * seconds / (elapsed + remaining)
+    cu.click_xy(x, box["y"] + box["h"] / 2)
+    time.sleep(0.8)
+
+
 #!/usr/bin/env python3
 """Capture user-guide screenshots from the running CueRithm window.
 
@@ -10,7 +45,7 @@ Verbs: click PATTERN [NTH] | dblclick PATTERN [NTH] | key KEY [COUNT] | type TEX
        scroll PATTERN DIR PAGES | clickxy X Y | dblclickxy X Y | drag X1 Y1 X2 Y2 (window points) |
        wait SECONDS | wait_for PATTERN [SECONDS] | gone PATTERN | reset | view NAME |
        sort HEADING [CLICKS] | play TITLE | seekto SECONDS |
-       columns | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
+       columns | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
 A scene may carry "after": [steps] that run once the picture is taken, to undo what it changed, and "crop": "window" (default) | "panel" | "player"; without it the crop requested in
 docs/user-guide/_meta/figures/*.json for that scene id is used.
 Patterns are case-insensitive regular expressions over `<role> <label>` of an
@@ -253,6 +288,19 @@ def click_row(cu, number, how="plain"):
         press_with(how, 700, y)
 
 
+def scroll_page(cu, direction, pages):
+    """Scroll the page body. The scroll tool acts where its element is, so use a control that is on screen now
+    (a query lists only visible elements); controls scrolled out of view leave nothing to scroll."""
+    for role in ("checkbox", "radio button", "text field", "number field", "pop up button", "button"):
+        found = json.loads(cu.call("query", app="CueRithm", role=role)[0])["matches"]
+        found = [m for m in found if m["bounds"]["x"] > 360 and 230 < m["bounds"]["y"] < 700]
+        if found:
+            cu.call("scroll", app="CueRithm", element_index=str(found[0]["index"]), direction=direction, pages=pages)
+            time.sleep(0.7)
+            return
+    raise RuntimeError("nothing on screen to scroll with")
+
+
 def search(cu, text):
     """Type into the search box the way a person does: set_value would not reach the page's input handler."""
     cu.click_xy(450, 32)
@@ -362,6 +410,18 @@ def run_step(cu, step):
             cu.key("super+a")
             cu.type(args[1])
         time.sleep(0.6)
+    elif verb == "scrollto":
+        # scrollto TEXT [TOP]: scroll the page until the first visible line of text containing TEXT sits TOP points
+        # (default 190) below the window top. Reads the screen, because off-screen elements have no bounds.
+        want = float(args[1]) if len(args) > 1 else 190.0
+        for _ in range(30):
+            try:
+                y = find_text(args[0])[1]
+            except LookupError:
+                y = None
+            if y is not None and abs(y - want) <= 35:
+                break
+            scroll_page(cu, "up" if (y is not None and y < want) else "down", 0.5 if (y is None or abs(y - want) > 300) else 0.12)
     elif verb == "blur":
         cu.click_xy(150, 62)  # a pointer click on the brand text clears a keyboard focus ring
         time.sleep(0.4)
