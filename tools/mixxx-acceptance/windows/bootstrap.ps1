@@ -106,11 +106,36 @@ if (-not (Get-ChildItem "$Root\mixxx-$Mixxx" -Recurse -Filter mixxx.exe -ErrorAc
     Start-Process msiexec.exe -Wait -ArgumentList '/a', "`"$msi`"", '/qn', "TARGETDIR=`"$Root\mixxx-$Mixxx`""
 }
 
+# 7. libmad, the MP3 decoder Mixxx for Windows uses (its log names "MAD: MPEG Audio Decoder
+# 0.16.4 NDEBUG FPM_64BIT OPT_ACCURACY"), built the way that line says from the maintained
+# 0.16.4 source so that `mad_probe.c` can read where it starts an MP3. CMake comes as a portable
+# zip.
+if (-not (Test-Path "$Root\libmad\lib\libmad.a")) {
+    $cmakeVersion = '3.30.5'
+    if (-not (Test-Path "$Root\cmake\bin\cmake.exe")) {
+        Fetch "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip" "$Root\dl\cmake.zip"
+        tar.exe -xf "$Root\dl\cmake.zip" -C $Root
+        Rename-Item "$Root\cmake-$cmakeVersion-windows-x86_64" "$Root\cmake"
+    }
+    Fetch 'https://codeberg.org/tenacityteam/libmad/archive/0.16.4.zip' "$Root\dl\libmad-0.16.4.zip"
+    if (-not (Test-Path "$Root\libmad-src\CMakeLists.txt")) {
+        tar.exe -xf "$Root\dl\libmad-0.16.4.zip" -C $Root
+        Rename-Item "$Root\libmad" "$Root\libmad-src"
+    }
+    $env:PATH = "$Root\cmake\bin;$Root\mingw64\bin;$env:PATH"
+    cmake -S "$Root\libmad-src" -B "$Root\libmad-build" -G 'MinGW Makefiles' -DCMAKE_BUILD_TYPE=Release `
+        -DBUILD_SHARED_LIBS=OFF -DOPTIMIZE=ACCURACY -DEXAMPLE=OFF "-DCMAKE_INSTALL_PREFIX=$Root\libmad"
+    if ($LASTEXITCODE) { throw 'libmad: cmake configure failed' }
+    cmake --build "$Root\libmad-build" --target install
+    if ($LASTEXITCODE) { throw 'libmad: build failed' }
+}
+
 # The environment later scripts dot-source
 @"
 `$Root = '$Root'
 `$env:CARGO_HOME = "`$Root\cargo"
 `$env:RUSTUP_HOME = "`$Root\rustup"
+`$env:CUERITHM_LIBMAD = "`$Root\libmad"
 `$env:PATH = "`$Root\git\cmd;`$Root\mingw64\bin;`$Root\bin;`$Root\cargo\bin;`$Root\python;`$Root\ffmpeg\bin;`$env:PATH;`$Root\git\usr\bin"
 "@ | Set-Content -Encoding ASCII "$Root\env.ps1"
 

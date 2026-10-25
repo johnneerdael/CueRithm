@@ -89,6 +89,7 @@ DOCKER = "docker"
 LINUX_IMAGE = "cuerithm-mixxx-linux"
 LINUX_MAIN = None  # the Docker volume holding a Mixxx built from source, with --linux-main
 WINDOWS = False  # with --windows: Mixxx for Windows, Media Foundation, no Docker
+LIBMAD_PROBE = None  # with --windows and libmad built (CUERITHM_LIBMAD): mad_probe.c as an executable
 _containers = itertools.count()
 SAMPLE_RATE = 44100
 BPM = 128.0
@@ -428,6 +429,9 @@ def providers_in(log):
 
 def mad_frame(path):
     """Mixxx's frame of the first click for an MP3 read with libmad (see mad_probe.c)."""
+    if LIBMAD_PROBE:
+        out = run(str(LIBMAD_PROBE), str(path)).stdout.decode()
+        return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
     out = run("docker", "run", "--rm", "-v", f"{HERE}:/probe:ro", "-v", f"{path.parent}:{path.parent}:ro",
               LINUX_IMAGE, "sh", "-c",
               f"gcc -O2 -o /tmp/mad_probe /probe/mad_probe.c -lmad -lm && /tmp/mad_probe '{path}'").stdout.decode()
@@ -460,7 +464,7 @@ def format_truth(probe, files, providers):
         if WINDOWS and "Media Foundation" in first:
             truth[name] = mf_frame(probe, path)
         elif WINDOWS and first.startswith("MAD"):
-            truth[name] = None  # no libmad probe for Windows
+            truth[name] = mad_frame(path) if LIBMAD_PROBE else None  # None: libmad was not built
         elif first.startswith("MAD"):
             truth[name] = mad_frame(path)
         elif LINUX_MAIN and ("FAAD" in first.upper() or "M4A" in first.upper()):
@@ -827,7 +831,7 @@ def main():
         LINUX_MAIN, LINUX_IMAGE = args.linux_main, "cuerithm-mixxx-main-deps"
         args.linux = True
     if args.windows:
-        global WINDOWS
+        global WINDOWS, LIBMAD_PROBE
         WINDOWS = True
         if args.mixxx == DEFAULT_MIXXX:
             found = sorted(Path(os.environ.get("CUERITHM_WIN_ROOT", r"D:\cuerithm-win")).glob("mixxx-*/**/mixxx.exe"))
@@ -878,6 +882,12 @@ def main():
         probe = work / "mf_probe.exe"
         run("g++", "-O2", "-municode", str(HERE / "mf_probe.cpp"), "-o", str(probe),
             "-lmfplat", "-lmfreadwrite", "-lmfuuid", "-lole32")
+        libmad = Path(os.environ.get("CUERITHM_LIBMAD", ""))
+        if (libmad / "lib" / "libmad.a").exists():
+            # the MP3 decoder of Mixxx for Windows (libmad), built by windows/bootstrap.ps1
+            LIBMAD_PROBE = work / "mad_probe.exe"
+            run("gcc", "-O2", f"-I{libmad / 'include'}", str(HERE / "mad_probe.c"), "-o", str(LIBMAD_PROBE),
+                f"-L{libmad / 'lib'}", "-lmad", "-lm")
     elif not args.linux:
         probe = work / "coreaudio_probe"
         run("clang", "-framework", "AudioToolbox", "-framework", "CoreFoundation",
