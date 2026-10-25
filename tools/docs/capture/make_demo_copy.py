@@ -9,7 +9,8 @@ everything else from the copy, and points the watch folder at a generic empty fo
 shows a user name.
 
 Usage: make_demo_copy.py DATA_COPY FACTS_SHEET [--stale keep|drop]
-Run it on a copy with the sandboxed app stopped; it refuses the live data folder. It never opens a
+Run it on a copy with the sandboxed app stopped; it refuses the live data folder and a copy that
+uses a switched library generation (`active-library.json`). It never opens a
 music file for writing: it checks that files exist and edits only DATA_COPY/library.sqlite.
 """
 import argparse
@@ -40,9 +41,26 @@ def real_path(blob):
     return text[5:] if text.startswith("unix:") else text
 
 
+def library_database(data):
+    """The one library.sqlite the app opens for this folder, or a refusal.
+
+    The app opens `libraries/<generation>/library.sqlite` once a library switch has written
+    `active-library.json`, and the root file only while there is no pointer. This builder edits the
+    root file, so a copy with a pointer (or a switch in progress) is refused instead of trimming a
+    database the app never shows.
+    """
+    for marker in ("active-library.json", "library-activation.json"):
+        if os.path.exists(os.path.join(data, marker)):
+            raise SystemExit(f"{marker} is in the copy: it uses a switched library generation, which this builder does not edit")
+    path = os.path.join(data, "library.sqlite")
+    if not os.path.isfile(path):
+        raise SystemExit(f"no library.sqlite in {data}")
+    return path
+
+
 def trim(data, titles, stale="keep", watch=GENERIC_WATCH):
     """Keep one healthy track per demo title (and the stale rows when asked); returns (kept, removed, integrity)."""
-    db = sqlite3.connect(os.path.join(data, "library.sqlite"))
+    db = sqlite3.connect(library_database(data))
     db.execute("PRAGMA foreign_keys=OFF")
     rows = db.execute("SELECT id,title,path FROM tracks").fetchall()
     healthy, stale_ids = {}, []

@@ -135,7 +135,9 @@ It keeps the 26 tracks, and with `--stale keep` the 14 stale rows left by files 
 broken-library scenes need them; `--stale drop` removes them for the healthy scenes), removes every
 other track from the copy, and replaces the watch folder with the generic, empty
 `/private/tmp/demo/Music/Beatport`, so the settings screens show no user name. It edits only the
-copy and refuses the live data folder. Track locations still hold the real paths: never show the
+copy, and refuses the live data folder and any copy that has an `active-library.json` (a switched
+library generation), because the app would open that library instead of the file the builder edits.
+Track locations still hold the real paths: never show the
 Location column, and treat every scan result that lists paths as something to redact or skip.
 
 ### Check every image

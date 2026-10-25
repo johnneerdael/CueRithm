@@ -96,6 +96,26 @@ class DemoCopy(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_trim("keep")
 
+    def test_a_copy_with_a_switched_library_generation_is_refused_untouched(self):
+        with open(os.path.join(self.data, "active-library.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        with self.assertRaises(SystemExit):
+            self.run_trim("keep")
+        self.assertEqual(sorted(self.rows("SELECT id FROM tracks")), ["a", "a-old", "c", "x"])
+        self.assertFalse(os.path.exists(self.watch))
+
+    def test_a_switch_in_progress_is_refused_too(self):
+        with open(os.path.join(self.data, "library-activation.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        with self.assertRaises(SystemExit):
+            self.run_trim("keep")
+
+    def test_a_folder_without_a_library_is_refused_and_no_empty_one_is_created(self):
+        os.remove(os.path.join(self.data, "library.sqlite"))
+        with self.assertRaises(SystemExit):
+            self.run_trim("keep")
+        self.assertFalse(os.path.exists(os.path.join(self.data, "library.sqlite")))
+
 
 if __name__ == "__main__":
     unittest.main()
