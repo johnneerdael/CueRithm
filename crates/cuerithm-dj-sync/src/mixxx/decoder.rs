@@ -139,18 +139,19 @@ fn executable_has_faad(path: &std::path::Path) -> Option<bool> {
     }
 }
 
-/// The AAC decoder of the first Mixxx executable among `candidates` that can be read.
+/// The AAC decoder of the first Mixxx among `candidates` that exists. A candidate that is not there
+/// is passed over; one that is there but cannot be read as an executable (a wrapper script that
+/// launches some other Mixxx, say) ends the search with `Unknown`, because the Mixxx a later
+/// candidate would be is not necessarily the one it starts.
 fn aac_decoder_of(candidates: &[std::path::PathBuf]) -> AacDecoder {
-    candidates
-        .iter()
-        .find_map(|path| executable_has_faad(path))
-        .map_or(AacDecoder::Unknown, |faad| {
-            if faad {
-                AacDecoder::Faad
-            } else {
-                AacDecoder::TrimsPriming
-            }
-        })
+    let Some(first) = candidates.iter().find(|path| path.is_file()) else {
+        return AacDecoder::Unknown;
+    };
+    match executable_has_faad(first) {
+        Some(true) => AacDecoder::Faad,
+        Some(false) => AacDecoder::TrimsPriming,
+        None => AacDecoder::Unknown,
+    }
 }
 
 /// How this system's Mixxx decodes AAC. macOS is CoreAudio (measured). A Linux Mixxx is looked
@@ -330,29 +331,45 @@ mod aac_tests {
     }
 
     #[test]
-    fn wrapper_scripts_and_missing_files_say_nothing_and_the_first_readable_executable_decides() {
+    fn missing_candidates_are_passed_over_and_the_first_one_that_exists_decides() {
         let dir = tempfile::tempdir().unwrap();
-        let script = dir.path().join("mixxx");
-        std::fs::write(&script, b"#!/bin/sh\nexec mixxx.bin \"$@\"\n").unwrap();
-        assert_eq!(executable_has_faad(&script), None);
-        assert_eq!(executable_has_faad(&dir.path().join("absent")), None);
         let faad = elf(dir.path(), "faad", b"libfaad.so.2");
         let ffmpeg = elf(dir.path(), "ffmpeg", b"libavcodec.so.61");
         let missing = dir.path().join("absent");
         assert_eq!(
-            aac_decoder_of(&[
-                missing.clone(),
-                script.clone(),
-                faad.clone(),
-                ffmpeg.clone()
-            ]),
+            aac_decoder_of(&[missing.clone(), faad.clone(), ffmpeg.clone()]),
             AacDecoder::Faad
         );
         assert_eq!(
-            aac_decoder_of(&[script, ffmpeg, faad]),
+            aac_decoder_of(&[missing.clone(), ffmpeg, faad]),
             AacDecoder::TrimsPriming
         );
         assert_eq!(aac_decoder_of(&[missing]), AacDecoder::Unknown);
+        assert_eq!(aac_decoder_of(&[]), AacDecoder::Unknown);
+    }
+
+    #[test]
+    fn a_wrapper_script_that_exists_ends_the_search_because_it_may_start_any_mixxx() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("mixxx");
+        std::fs::write(&script, b"#!/bin/sh\nexec mixxx.bin \"$@\"\n").unwrap();
+        assert_eq!(executable_has_faad(&script), None);
+        let faad = elf(dir.path(), "faad", b"libfaad.so.2");
+        let ffmpeg = elf(dir.path(), "ffmpeg", b"libavcodec.so.61");
+        // the wrapper first on the PATH: whichever real Mixxx comes after it, none is known to run
+        assert_eq!(
+            aac_decoder_of(&[script.clone(), faad.clone()]),
+            AacDecoder::Unknown
+        );
+        assert_eq!(
+            aac_decoder_of(&[script.clone(), ffmpeg.clone(), faad]),
+            AacDecoder::Unknown
+        );
+        // a missing candidate before it changes nothing
+        assert_eq!(
+            aac_decoder_of(&[dir.path().join("absent"), script, ffmpeg]),
+            AacDecoder::Unknown
+        );
     }
 
     /// Run by `tools/mixxx-acceptance/run.py` on the real executables it copies out of the

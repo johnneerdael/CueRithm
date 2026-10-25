@@ -461,16 +461,22 @@ CoreAudio do, which both drop the whole priming. Two encoders fit that line (102
 2112); no other priming value was measured, so it is a two-point model, not a derived
 rule. It is consistent with FAAD keeping every decoded block except the first, but that
 reading of the decoder is not proven by this run. The priming is what FFmpeg trims: the
-first edit of the track's edit list (`elst`) whose media time is not negative, or, when
-the file has no edit list, the second number of Apple's `iTunSMPB` tag (`0x840` = 2112).
+first edit of the track's edit list (`elst`) whose media time is not negative, converted
+from the track's own timescale (`mdhd`) to frames at the sample rate its audio entry
+declares (the same number in the usual case), or, when the file has no edit list, the
+second number of Apple's `iTunSMPB` tag (`0x840` = 2112), which already counts samples.
+HE-AAC (with spectral band replication) decodes differently in FAAD and was not measured.
 
 The adapter adds `priming - 1024` for AAC in M4A or MP4 only when the system is Linux and
 Mixxx decodes AAC with FAAD. CoreAudio and FFmpeg already drop the priming, so they need
 nothing. Linux builds differ (Debian's has no FAAD, Mixxx's own has), so the adapter reads
 the installed `mixxx` executable: it looks in `PATH`, `/usr/bin`, `/usr/local/bin`,
 `/opt/mixxx/bin` and the Flatpak export folders, and a `libfaad` or `libmp4v2` name in an
-ELF file means FAAD. A wrapper script, or no executable found, means unknown: no shift is
-applied and the preview says how late the music would play if the build did use FAAD. When
+ELF file means FAAD. The first candidate that exists decides: a missing one is passed over,
+but a wrapper script that exists, or any file that cannot be read as an ELF executable,
+ends the search, because the Mixxx it starts is not known. No executable found is the same.
+Unknown means no shift is applied and the preview says how late the music would play if
+the build did use FAAD. When
 a shift is applied, the preview says how many tracks were moved and by how many
 milliseconds. AppImage and Flatpak packages were not run, so their detection is by those
 paths only.

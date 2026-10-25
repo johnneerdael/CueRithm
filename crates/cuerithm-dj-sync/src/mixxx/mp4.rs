@@ -106,6 +106,34 @@ fn edit_list_priming(data: &[u8], elst: (usize, usize)) -> Option<u32> {
     None
 }
 
+/// Ticks per second of the track's own time stamps (`mdhd`), which is what an edit list counts in.
+fn media_timescale(data: &[u8], mdhd: (usize, usize)) -> Option<u32> {
+    let version = *data.get(mdhd.0)?;
+    // version/flags, creation and modification times (4 bytes each, 8 in version 1), then the scale
+    be32(data, mdhd.0 + if version == 1 { 20 } else { 12 })
+}
+
+/// The sample rate the first audio sample entry declares (16.16 fixed point; the whole part).
+fn declared_rate(data: &[u8], stsd: (usize, usize)) -> Option<u32> {
+    // version/flags and entry count, then the entry: size, format, 6 reserved bytes, the data
+    // reference index, version, revision, vendor, channels, sample size, compression id, packet
+    // size, and the rate
+    be32(data, stsd.0 + 8 + 32).map(|fixed| fixed >> 16)
+}
+
+/// Edit-list times are in media timescale ticks and the shift is counted in decoded frames: they
+/// are the same only when the timescale equals the sample rate, which is usual but not required.
+fn ticks_to_frames(ticks: u32, timescale: Option<u32>, rate: Option<u32>) -> u32 {
+    match (timescale, rate) {
+        (Some(scale), Some(rate)) if scale > 0 && rate > 0 && scale != rate => {
+            let scale = u64::from(scale);
+            u32::try_from((u64::from(ticks) * u64::from(rate) + scale / 2) / scale)
+                .unwrap_or(u32::MAX)
+        }
+        _ => ticks,
+    }
+}
+
 /// Apple's gapless tag: ` 00000000 PRIMING PADDING SAMPLES ...`, as hexadecimal words.
 fn smpb_priming(moov: &[u8]) -> Option<u32> {
     let at = moov.windows(8).position(|w| w == b"iTunSMPB")?;
@@ -173,8 +201,13 @@ fn parse_moov(moov: &[u8]) -> Option<AacStart> {
             b"alac" => false,
             _ => continue,
         };
+        let timescale = descend(moov, (body, stop), &[b"mdia", b"mdhd"])
+            .and_then(|mdhd| media_timescale(moov, mdhd));
+        let rate = declared_rate(moov, stsd);
+        // an edit list counts in timescale ticks, Apple's tag in decoded samples
         let priming = descend(moov, (body, stop), &[b"edts", b"elst"])
             .and_then(|elst| edit_list_priming(moov, elst))
+            .map(|ticks| ticks_to_frames(ticks, timescale, rate))
             .or_else(|| smpb_priming(moov))
             .unwrap_or(0);
         return Some(AacStart { aac, priming });
@@ -187,7 +220,18 @@ fn parse_moov(moov: &[u8]) -> Option<AacStart> {
 pub(super) mod sample {
     /// An M4A of `format` (`mp4a` or `alac`) with an optional edit list and Apple's gapless tag.
     pub(crate) fn m4a(format: &[u8; 4], edit: Option<&[(u32, i32)]>, smpb: bool) -> Vec<u8> {
-        let mut moov = track(format, edit);
+        m4a_timed(format, edit, smpb, 44_100, 44_100)
+    }
+
+    /// As `m4a`, with the track's media timescale and the sample rate its audio entry declares.
+    pub(crate) fn m4a_timed(
+        format: &[u8; 4],
+        edit: Option<&[(u32, i32)]>,
+        smpb: bool,
+        timescale: u32,
+        rate: u32,
+    ) -> Vec<u8> {
+        let mut moov = track(format, edit, timescale, rate);
         if smpb {
             let mut tag = b"\0\0\0\0iTunSMPB\0\0\0\0data\0\0\0\0\0\0\0\0".to_vec();
             tag.extend_from_slice(
@@ -208,14 +252,33 @@ pub(super) mod sample {
         out
     }
 
-    pub(super) fn track(format: &[u8; 4], edit: Option<&[(u32, i32)]>) -> Vec<u8> {
-        let mut entry = 16u32.to_be_bytes().to_vec();
+    pub(super) fn track(
+        format: &[u8; 4],
+        edit: Option<&[(u32, i32)]>,
+        timescale: u32,
+        rate: u32,
+    ) -> Vec<u8> {
+        // an audio sample entry: size, format, reserved, data reference, version, revision, vendor,
+        // channels, sample size, compression id, packet size, rate (16.16)
+        let mut entry = 36u32.to_be_bytes().to_vec();
         entry.extend_from_slice(format);
+        entry.extend_from_slice(&[0; 6]);
+        entry.extend_from_slice(&1u16.to_be_bytes());
         entry.extend_from_slice(&[0; 8]);
+        entry.extend_from_slice(&2u16.to_be_bytes());
+        entry.extend_from_slice(&16u16.to_be_bytes());
+        entry.extend_from_slice(&[0; 4]);
+        entry.extend_from_slice(&(rate << 16).to_be_bytes());
         let mut stsd = vec![0, 0, 0, 0, 0, 0, 0, 1];
         stsd.extend(entry);
         let stbl = boxed(b"stbl", &boxed(b"stsd", &stsd));
-        let mut body = boxed(b"mdia", &boxed(b"minf", &stbl));
+        // version/flags, creation and modification times, timescale, duration, language, quality
+        let mut mdhd = vec![0u8; 12];
+        mdhd.extend_from_slice(&timescale.to_be_bytes());
+        mdhd.extend_from_slice(&[0; 8]);
+        let mut media = boxed(b"mdhd", &mdhd);
+        media.extend(boxed(b"minf", &stbl));
+        let mut body = boxed(b"mdia", &media);
         if let Some(entries) = edit {
             let mut elst = vec![0, 0, 0, 0];
             elst.extend((entries.len() as u32).to_be_bytes());
@@ -277,6 +340,39 @@ mod tests {
             1088,
             "measured: frame 23140 against 22052"
         );
+    }
+
+    #[test]
+    fn an_edit_list_in_another_timescale_is_converted_to_decoded_frames() {
+        use super::sample::m4a_timed;
+        // Half-rate time stamps over a 44.1 kHz entry: 512 ticks are 1024 frames, 1056 are 2112.
+        let (_dir, path) = file(
+            m4a_timed(b"mp4a", Some(&[(1_000, 512)]), false, 22_050, 44_100),
+            "a.m4a",
+        );
+        let start = aac_start(&path).unwrap().unwrap();
+        assert_eq!(start.priming, 1024);
+        assert_eq!(start.faad_shift(), 0);
+        let (_dir, path) = file(
+            m4a_timed(b"mp4a", Some(&[(1_000, 1056)]), false, 22_050, 44_100),
+            "b.m4a",
+        );
+        let start = aac_start(&path).unwrap().unwrap();
+        assert_eq!(start.priming, 2112);
+        assert_eq!(start.faad_shift(), 1088);
+        // A 48 kHz track stamped in 90 kHz ticks: 1920 ticks are 1024 frames.
+        let (_dir, path) = file(
+            m4a_timed(b"mp4a", Some(&[(1_000, 1920)]), false, 90_000, 48_000),
+            "c.m4a",
+        );
+        assert_eq!(aac_start(&path).unwrap().unwrap().priming, 1024);
+    }
+
+    #[test]
+    fn itunsmpb_is_already_in_samples_whatever_the_timescale() {
+        use super::sample::m4a_timed;
+        let (_dir, path) = file(m4a_timed(b"mp4a", None, true, 22_050, 44_100), "a.m4a");
+        assert_eq!(aac_start(&path).unwrap().unwrap().priming, 2112);
     }
 
     #[test]
