@@ -14,9 +14,13 @@ use std::{
     path::Path,
 };
 
-/// Whether this host's default file systems treat `A.mp3` and `a.mp3` as one file.
-pub(super) fn case_insensitive_host() -> bool {
-    cfg!(any(target_os = "macos", windows))
+/// Whether to look for a track by a different spelling of its path. Always: a spelling that
+/// differs only by case is used only when the file system confirms it is the same file
+/// (`same_file`), so this is safe on case-sensitive volumes, and it finds the track on a
+/// case-folding one wherever it is: macOS and Windows by default, but also case-insensitive
+/// ext4 directories and NTFS or CIFS mounts on Linux.
+pub(super) fn fold_case_candidates() -> bool {
+    true
 }
 
 /// Whether two location texts name one file on disk. A case-folded match is only a match
@@ -852,7 +856,10 @@ mod tests {
     }
 
     #[test]
-    fn case_insensitive_match_on_macos_and_windows_but_exact_on_linux() {
+    fn case_folded_lookup_is_tried_unless_switched_off_and_needs_the_file_system_to_agree() {
+        // `insensitive` is what `Host` passes: true on every system now (see
+        // `fold_case_candidates`); false remains the exact-only mode.
+        assert!(fold_case_candidates());
         let _same = pretend_same_file(|_, _| true);
         for (insensitive, expected_rows) in [(true, 1), (false, 2)] {
             let mut s = setup(39);

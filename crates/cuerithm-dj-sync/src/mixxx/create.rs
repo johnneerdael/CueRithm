@@ -18,13 +18,20 @@ pub(super) const VERSION: u32 = 39;
 /// placeholder Mixxx keeps its history playlists under). Mixxx adds everything else,
 /// such as today's history playlist, when it starts.
 pub(super) fn create(path: &Path) -> Result<()> {
+    create_from(path, SCHEMA)
+}
+
+/// `create` from this text of the layout, with Unix line endings whatever the text has: SQLite
+/// stores each statement as written, and Mixxx's own library has `\n`, so a file that Git for
+/// Windows checked out with CRLF must not leak into the library.
+fn create_from(path: &Path, schema: &str) -> Result<()> {
     ensure!(
         !path.exists(),
         "A Mixxx library already exists at that place"
     );
     let connection = Connection::open(path).context("Cannot create the Mixxx library")?;
     connection
-        .execute_batch(SCHEMA)
+        .execute_batch(&schema.replace("\r\n", "\n"))
         .context("Cannot create the Mixxx tables")?;
     connection
         .execute_batch(&format!(
@@ -116,6 +123,38 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tables, 26);
+    }
+
+    /// Each table, index and view as the library stores it: the statement's own text.
+    fn stored(path: &Path) -> Vec<(String, String)> {
+        let connection = Connection::open(path).unwrap();
+        connection
+            .prepare(
+                "SELECT name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name",
+            )
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn a_schema_file_checked_out_with_windows_line_endings_makes_the_same_library() {
+        // Git for Windows checks text files out with CRLF by default, and `include_str!` embeds
+        // them as they are. SQLite keeps each statement's text, so Mixxx's own library (LF) and
+        // one made from a CRLF checkout would differ; found running Mixxx on Windows.
+        let dir = tempfile::tempdir().unwrap();
+        let (lf, crlf) = (dir.path().join("lf.sqlite"), dir.path().join("crlf.sqlite"));
+        let unix = SCHEMA.replace("\r\n", "\n");
+        create_from(&lf, &unix).unwrap();
+        create_from(&crlf, &unix.replace('\n', "\r\n")).unwrap();
+        let (made_from_lf, made_from_crlf) = (stored(&lf), stored(&crlf));
+        assert!(
+            made_from_lf.iter().all(|(_, sql)| !sql.contains('\r')),
+            "the reference library has no CR in it"
+        );
+        assert_eq!(made_from_crlf, made_from_lf);
     }
 
     #[test]

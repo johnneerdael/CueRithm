@@ -17,8 +17,9 @@ fn profile_hash(profile: Option<&SourceExportTiming>) -> Result<String> {
     ))
 }
 /// Mixxx's decoder for this system against CueRithm's FFmpeg clock, from the file's own
-/// MP3 header and, on macOS, Apple's own reading of it, not a measured profile. Only MP3
-/// differs: AAC is zero where it was measured (macOS) and reported where it was not.
+/// MP3 header and, on macOS, Apple's own reading of it, not a measured profile. MP3 differs,
+/// and so does an M4A on a Mixxx whose AAC decoder leaves some of the encoder's priming in
+/// (FAAD, Media Foundation); AAC is zero where the decoder was measured to drop it (macOS).
 fn mixxx_offset(track: &SyncTrack, extension: &str) -> Result<f64> {
     mixxx_offset_with(track, extension, crate::mixxx::Mp3Decoder::host())
 }
@@ -27,6 +28,24 @@ pub(crate) fn mixxx_offset_with(
     extension: &str,
     decoder: crate::mixxx::Mp3Decoder,
 ) -> Result<f64> {
+    let aac = crate::mixxx::aac_decoder();
+    if matches!(extension, "m4a" | "mp4")
+        && decoder == crate::mixxx::Mp3Decoder::Mad
+        && matches!(
+            aac,
+            crate::mixxx::AacDecoder::Faad | crate::mixxx::AacDecoder::MediaFoundation
+        )
+    {
+        // FAAD and Media Foundation do not skip all of the encoder's priming; FFmpeg's clock
+        // does (see `mixxx/mp4.rs`).
+        ensure!(
+            track.sample_rate > 0,
+            "Track has no sample rate for its AAC timing"
+        );
+        let frames = crate::mixxx::aac_shift_frames(&track.path, aac)
+            .with_context(|| format!("Read the AAC start of track {}", track.id))?;
+        return Ok(f64::from(frames) / f64::from(track.sample_rate));
+    }
     if extension != "mp3" {
         return Ok(0.);
     }
@@ -387,6 +406,108 @@ mod tests {
         assert_eq!(
             export_track(&original, DjSoftware::DjayPro).unwrap().cues[0].start_seconds,
             -0.0464
+        );
+    }
+}
+
+#[cfg(test)]
+mod faad_tests {
+    use super::*;
+    use crate::mixxx::{AacDecoder, Mp3Decoder, pretend_aac, sample_m4a};
+
+    fn m4a(dir: &std::path::Path, name: &str, bytes: Vec<u8>) -> SyncTrack {
+        let path = dir.join(name);
+        std::fs::write(&path, bytes).unwrap();
+        SyncTrack {
+            id: name.into(),
+            path,
+            sample_rate: 44_100,
+            ..SyncTrack::default()
+        }
+    }
+
+    #[test]
+    fn faad_plays_an_m4a_late_by_its_priming_minus_one_block_and_other_decoders_do_not() {
+        let dir = tempfile::tempdir().unwrap();
+        // Measured in Mixxx main with FAAD: Apple's encoder (2112) is 1088 frames late, FFmpeg's (1024) is on time.
+        let apple = m4a(dir.path(), "apple.m4a", sample_m4a(b"mp4a", None, true));
+        let ffmpeg = m4a(
+            dir.path(),
+            "ffmpeg.m4a",
+            sample_m4a(b"mp4a", Some(&[(1_058_400, 1024)]), false),
+        );
+        let lossless = m4a(
+            dir.path(),
+            "lossless.m4a",
+            sample_m4a(b"alac", Some(&[(1_058_400, 0)]), false),
+        );
+        {
+            let _faad = pretend_aac(AacDecoder::Faad);
+            let shift = mixxx_offset_with(&apple, "m4a", Mp3Decoder::Mad).unwrap();
+            assert!((shift - 1088.0 / 44_100.0).abs() < 1e-12, "{shift}");
+            assert_eq!(
+                mixxx_offset_with(&ffmpeg, "m4a", Mp3Decoder::Mad).unwrap(),
+                0.0
+            );
+            assert_eq!(
+                mixxx_offset_with(&lossless, "m4a", Mp3Decoder::Mad).unwrap(),
+                0.0,
+                "FAAD does not open Apple Lossless; Mixxx falls back to FFmpeg"
+            );
+        }
+        // FFmpeg's decoder, or CoreAudio, trims the priming itself.
+        {
+            let _other = pretend_aac(AacDecoder::TrimsPriming);
+            assert_eq!(
+                mixxx_offset_with(&apple, "m4a", Mp3Decoder::Mad).unwrap(),
+                0.0
+            );
+        }
+        {
+            let _unknown = pretend_aac(AacDecoder::Unknown);
+            assert_eq!(
+                mixxx_offset_with(&apple, "m4a", Mp3Decoder::Mad).unwrap(),
+                0.0
+            );
+        }
+        {
+            let _faad = pretend_aac(AacDecoder::Faad);
+            assert_eq!(
+                mixxx_offset_with(&apple, "m4a", Mp3Decoder::CoreAudio).unwrap(),
+                0.0,
+                "macOS decodes AAC with CoreAudio"
+            );
+        }
+    }
+
+    #[test]
+    fn media_foundation_plays_an_m4a_late_by_its_whole_priming() {
+        let dir = tempfile::tempdir().unwrap();
+        // Measured on Windows with a Media Foundation probe: Apple's encoder (2112) is 2112 frames late and
+        // FFmpeg's (1024) is 1024 frames late; Apple Lossless is on time.
+        let apple = m4a(dir.path(), "apple.m4a", sample_m4a(b"mp4a", None, true));
+        let ffmpeg = m4a(
+            dir.path(),
+            "ffmpeg.m4a",
+            sample_m4a(b"mp4a", Some(&[(1_058_400, 1024)]), false),
+        );
+        let lossless = m4a(
+            dir.path(),
+            "lossless.m4a",
+            sample_m4a(b"alac", Some(&[(1_058_400, 0)]), false),
+        );
+        let _media_foundation = pretend_aac(AacDecoder::MediaFoundation);
+        let late = |track: &SyncTrack, extension: &str| {
+            mixxx_offset_with(track, extension, Mp3Decoder::Mad).unwrap()
+        };
+        assert!((late(&apple, "m4a") - 2112.0 / 44_100.0).abs() < 1e-12);
+        assert!((late(&ffmpeg, "m4a") - 1024.0 / 44_100.0).abs() < 1e-12);
+        assert!((late(&ffmpeg, "mp4") - 1024.0 / 44_100.0).abs() < 1e-12);
+        assert_eq!(late(&lossless, "m4a"), 0.0);
+        assert_eq!(
+            mixxx_offset_with(&apple, "m4a", Mp3Decoder::CoreAudio).unwrap(),
+            0.0,
+            "a Mac decodes AAC with CoreAudio, whatever else is pretended"
         );
     }
 }

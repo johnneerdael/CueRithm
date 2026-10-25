@@ -127,10 +127,22 @@ crates/cuerithm-dj-sync/src/
   `Lavc` identifier and its encoder delay) and, on macOS, asks CoreAudio's `AudioFile`
   for the priming it will discard, because Apple's tag rules differ from FFmpeg's. It
   does not use the media crate's `Mp3TimingCase` letters or a measured profile, so it
-  works without the media runtime. Lossless, PCM and Ogg are zero; AAC is zero and was
-  measured on macOS only; AAC on Linux and Windows and all WMA are zero with a warning
-  that alignment is unverified. A cue pushed before the first Mixxx sample is moved to
-  the start; a loop that would end before it is skipped with a warning.
+  works without the media runtime. Lossless, PCM and Ogg are zero. AAC in M4A or MP4 is
+  zero where the decoder drops the encoder's priming (CoreAudio on macOS, measured;
+  FFmpeg, measured in Debian's Mixxx). Where Mixxx decodes it with FAAD (Linux builds that
+  have it) the music plays `priming - 1024` frames late, measured with two encoders, so
+  the adapter adds that, reading the priming from the file's edit list or Apple's
+  `iTunSMPB` tag and the decoder from the installed `mixxx` executable; an unfound
+  decoder is zero with a warning that says how late FAAD would play it. On Windows,
+  Mixxx decodes M4A with Media Foundation, which keeps all of the priming: the music
+  plays `priming` frames late (1024 and 2112 measured with a probe that reads the way
+  Mixxx's source does), so the adapter adds that on a Windows host and says how many
+  tracks it moved; a raw `.aac` stream was not measured there and is warned about. WMA
+  has no decoder in the Mixxx 2.5.6 downloads for macOS and Windows (their logs list
+  none), so those tracks are added and warned about as unplayable; elsewhere they are
+  zero with a warning that alignment is unverified. A cue pushed before
+  the first Mixxx sample is moved to the start; a loop that would end before it is
+  skipped with a warning.
 - Moving a synced file in CueRithm's Organize flow repairs the Mixxx reference
   (`mixxx/repair.rs`: the `track_locations` row), so a synced library stays
   organizable. Without it every synced track would block reorganization.
@@ -219,8 +231,9 @@ Desktop tests cover target selection, options, and mode defaults.
 
 Separate evidence, reported on its own: a run of the installed Mixxx 2.5.6 against a
 database the adapter wrote, checking from its log and database that it loads the
-grid, key and cues, and does not rewrite them from tags. Windows and Linux Mixxx
-runs are outside what this host can do and stay listed as unverified.
+grid, key and cues, and does not rewrite them from tags. Mixxx was also run on Linux
+(Debian's 2.5.0, and `main` with FAAD, in containers) and on Windows (2.5.6 on Windows
+Server 2019); those results, and what each did not measure, are in the research contract.
 
 ## Decisions made without asking (flag if wrong)
 
@@ -232,8 +245,10 @@ runs are outside what this host can do and stay listed as unverified.
   the preview. This is Mixxx's own rule for opening a newer library.
 - `source_synchronized_ms` stays NULL on rows the adapter creates.
 - Hot cue and loop rows are replaced as a set per track; other cue types survive.
-- AAC alignment is measured on macOS and declared unverified on Linux and Windows;
-  WMA is unverified everywhere. Nothing is guessed.
+- AAC alignment is measured on macOS, in Debian's Mixxx (FFmpeg), in a Mixxx built
+  with FAAD and with Media Foundation on Windows; WMA is unplayable in the macOS and
+  Windows downloads and unverified elsewhere. Nothing is guessed, and the FAAD and
+  Media Foundation rules are stated as two-encoder measurements.
 - No change to `cuerithm-media` (its timing identity would invalidate saved
   measurements); MP3 start offsets come from the file header, not a case letter.
 - Cover art, record label, active-loop state and cue slots above 35 are not

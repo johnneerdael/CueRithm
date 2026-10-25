@@ -104,9 +104,13 @@ CueRithm does not change Mixxx's settings, play counts, replay gain or cover art
 
 ## How cue timing is matched to Mixxx { #timing }
 
-MP3 files start slightly differently in each decoder, and Mixxx uses a different decoder on each system. CueRithm therefore shifts MP3 cues and grids, once and only on the copy it writes, to match the Mixxx on the computer you sync from. It reads each file's header and, on macOS, asks the system's audio decoder what it will skip. The shift is usually zero on macOS and about 25 ms on Linux and Windows for typical LAME-encoded files. FLAC, WAV, AIFF, Ogg Vorbis and Opus need none, and neither do AAC and Apple Lossless in the Mixxx builds checked (the macOS download, and Debian's on Linux). If you copy a Mixxx library to another operating system, sync again from there.
+MP3 files start slightly differently in each decoder, and Mixxx uses a different decoder on each system. CueRithm therefore shifts MP3 cues and grids, once and only on the copy it writes, to match the Mixxx on the computer you sync from. It reads each file's header and, on macOS, asks the system's audio decoder what it will skip. The shift is usually zero on macOS and about 25 ms on Linux and Windows for typical LAME-encoded files. FLAC, WAV, AIFF, Ogg Vorbis and Opus need none, and neither do AAC and Apple Lossless in the macOS download or in Debian's Mixxx on Linux. If you copy a Mixxx library to another operating system, sync again from there.
 
-Two cases were not checked: Windows, where Mixxx decodes AAC with Media Foundation, and Linux builds that use FAAD. The preview warns that cues may sit a few milliseconds off. **WMA** cannot be opened by the Mixxx download for macOS, so those tracks are added but will not play there; elsewhere it plays only in Mixxx builds that include FFmpeg (or Media Foundation on Windows), which is not verified. Check one such track by ear before relying on its cues.
+**AAC on Linux depends on how your Mixxx was built.** A Mixxx built from its own source decodes `.m4a` and `.mp4` with FAAD, which plays the music later by the start padding the encoder added beyond 1024 samples: nothing for files from FFmpeg's encoder, and 1088 samples (about 25 ms) for files from Apple's, both measured. CueRithm reads your installed `mixxx` to see which decoder it has, moves the grid and cues to match and says how many tracks it moved. If it cannot tell which Mixxx you have (it finds none, one of them is a launcher script, or you have two installations, say a native one and a Flatpak one, that decode differently), it moves nothing and tells you how late such tracks would play if yours uses FAAD.
+
+**AAC on Windows.** Mixxx decodes `.m4a` and `.mp4` with Windows' own Media Foundation, which does not skip any of the start padding the encoder added: 1024 samples (about 23 ms) for files from FFmpeg's encoder and 2112 samples (about 48 ms) for files from Apple's, measured with a probe that reads the way Mixxx does. When you sync from Windows, CueRithm moves the grid and cues of those tracks later by that much and says how many it moved. Apple Lossless needs no move. Raw `.aac` files (ADTS) were not measured, so the preview warns about them.
+
+**WMA** cannot be opened by the Mixxx downloads for macOS or Windows (checked in 2.5.6), so those tracks are added but will not play there; a Mixxx build that includes FFmpeg may play them, which is not verified. Check one such track by ear before relying on its cues.
 
 ## Folders Mixxx scans, Flatpak and the macOS sandbox { #folders-and-sandbox }
 
@@ -123,11 +127,13 @@ CueRithm's preview and apply code wrote libraries, and Mixxx was started on the 
 | System and Mixxx build | Result |
 |---|---|
 | macOS, Mixxx 2.5.6 | 240 checks passed: 168 across fresh, existing, replaced and newly created libraries, and 72 for additional formats |
-| Linux, Debian 13's Mixxx 2.5.0 in Docker | 105 checks passed for MP3, WAV, FLAC, AAC, ALAC in M4A, AIFF, Ogg Vorbis and Opus |
+| Linux, Debian 13's Mixxx 2.5.0 in Docker | 157 checks passed for MP3, WAV, FLAC, AAC from two encoders, ALAC in M4A, AIFF, Ogg Vorbis and Opus, and a library CueRithm created |
+| Linux, Mixxx `main` (schema 40) built from source with FAAD, in Docker | 157 checks passed, including AAC from Apple's encoder moved 1088 samples for FAAD, and Mixxx's own upgrade of a CueRithm-created library from schema 39 to 40 |
+| Windows Server 2019, Mixxx 2.5.6 | 156 checks passed for AAC from two encoders (moved 1024 and 2112 samples for Media Foundation), Apple Lossless, AIFF, Ogg Vorbis, Opus, WAV, FLAC and MP3 (through libmad), and a library CueRithm created, including Mixxx's analyzer leaving locked grids alone; Mixxx has no WMA decoder there |
 
-Mixxx started without asking for a music folder, found the library current, read the grids and keys, left BPM-locked grids alone and kept the synced rows. MP3 timing was measured with Apple's decoder calls on macOS and with libmad on Linux, where the first beat landed within two frames of the decoded click.
+Mixxx started without asking for a music folder, found the library current, read the grids and keys, left BPM-locked grids alone and kept the synced rows. MP3 timing was measured with Apple's decoder calls on macOS and with libmad on Linux and Windows, where the first beat landed within two frames of the decoded click. FAAD and Media Foundation timing was measured with probes that follow Mixxx's decoder, with two encoders each, so another encoder may differ.
 
-Not tried: Windows, Linux builds using FAAD, other Linux packages, Mixxx 2.4 and releases newer than 2.5, external drives through the macOS sandbox, audible playback and waveform alignment inside Mixxx, and CueRithm's own window, discovery and process checks on Linux. The tested macOS and Debian builds cannot play WMA. [Check what works with your DJ software](../help/compatibility.md) records the scope.
+Not tried: Windows 10 and 11 (the Windows run used Windows Server 2019), AppImage and Flatpak packages, Mixxx 2.4 and release builds newer than 2.5 (the schema 40 run used the development version), external drives through the macOS sandbox, audible playback and waveform alignment inside Mixxx, and CueRithm's own window, discovery and process checks on Linux and Windows. The tested macOS, Debian and Windows builds cannot play WMA. [Check what works with your DJ software](../help/compatibility.md) records the scope.
 
 ## What can go wrong { #what-can-go-wrong }
 
