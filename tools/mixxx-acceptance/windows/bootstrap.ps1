@@ -7,9 +7,10 @@
 # What it fetches (all from the projects' own release pages; Mixxx's installer is checked against
 # the SHA-256 the Mixxx download server publishes next to it):
 #   PortableGit, WinLibs (GCC and the MinGW-w64 headers and import libraries, which include Media
-#   Foundation), Rust (GNU host, because the Visual Studio Build Tools need administrator rights),
-#   the embeddable Python, a static FFmpeg, and Mixxx's own Windows installer unpacked as an
-#   administrative image (no installation).
+#   Foundation), Strawberry Perl (rusqlite's SQLCipher feature builds OpenSSL from source), Rust
+#   (GNU host, because the Visual Studio Build Tools need administrator rights), the embeddable
+#   Python, a static FFmpeg, and Mixxx's own Windows installer unpacked as an administrative
+#   image (no installation).
 param(
     [string]$Root = 'D:\cuerithm-win',
     [string]$Mixxx = '2.5.6',
@@ -45,6 +46,18 @@ if (-not (Test-Path "$Root\mingw64\bin\gcc.exe")) {
     $a = LatestAsset 'brechtsanders/winlibs_mingw' '^winlibs-x86_64-posix-seh-gcc-[\d.]+-mingw-w64ucrt-[\d.]+-r\d+\.zip$'
     Fetch $a.browser_download_url "$Root\dl\$($a.name)"
     tar.exe -xf "$Root\dl\$($a.name)" -C $Root
+}
+
+# 2b. Perl and make, for the OpenSSL that rusqlite's SQLCipher feature builds from source
+if (-not (Test-Path "$Root\perl\perl\bin\perl.exe")) {
+    $a = LatestAsset 'StrawberryPerl/Perl-Dist-Strawberry' '^strawberry-perl-[\d.]+-64bit-portable\.zip$'
+    Fetch $a.browser_download_url "$Root\dl\$($a.name)"
+    New-Item -ItemType Directory -Force "$Root\perl" | Out-Null
+    tar.exe -xf "$Root\dl\$($a.name)" -C "$Root\perl"
+}
+New-Item -ItemType Directory -Force "$Root\bin" | Out-Null
+if (-not (Test-Path "$Root\bin\make.exe")) {
+    Copy-Item "$Root\mingw64\bin\mingw32-make.exe" "$Root\bin\make.exe"
 }
 
 # 3. Rust, GNU host
@@ -88,7 +101,7 @@ if (-not (Get-ChildItem "$Root\mixxx-$Mixxx" -Recurse -Filter mixxx.exe -ErrorAc
 `$Root = '$Root'
 `$env:CARGO_HOME = "`$Root\cargo"
 `$env:RUSTUP_HOME = "`$Root\rustup"
-`$env:PATH = "`$Root\git\cmd;`$Root\mingw64\bin;`$Root\cargo\bin;`$Root\python;`$Root\ffmpeg\bin;`$env:PATH"
+`$env:PATH = "`$Root\git\cmd;`$Root\mingw64\bin;`$Root\bin;`$Root\perl\perl\bin;`$Root\cargo\bin;`$Root\python;`$Root\ffmpeg\bin;`$env:PATH"
 "@ | Set-Content -Encoding ASCII "$Root\env.ps1"
 
 . "$Root\env.ps1"
