@@ -591,15 +591,29 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
         # track_locations fail: "database is locked" on Mixxx main (schema 40) in Docker, and a
         # failed insert of the same files in Mixxx 2.5.6 for Windows.
         first_files = [] if mixxx == DOCKER or WINDOWS else list(files.values())
+        # Mixxx for Windows 2.5.6 registers no decoder for WMA (checked against its own list below),
+        # and its scanner only adds files it can decode.
+        undecodable = [n for n in names if WINDOWS and n.endswith(".wma")]
+        wanted_tracks = len(names) - len(undecodable)
         with Mixxx(mixxx, settings, first_files, work / "mixxx-first.log") as running:
-            wait_for(lambda: running.track_count() >= len(names), 180, f"Mixxx to add the {len(names)} tracks")
+            wait_for(lambda: running.track_count() >= wanted_tracks, 180, f"Mixxx to add the {wanted_tracks} tracks")
             time.sleep(5)
         first = read_library(database)
         report.check(f"[{label}] Mixxx created a schema 39 or 40 library", first["schema"] in ("39", "40"),
                      f"schema {first['schema']}")
-        report.check(f"[{label}] Mixxx itself added all {len(names)} tracks", len(first["tracks"]) == len(names))
         log = (work / "mixxx-first.log").read_text(errors="replace")
         lines = log.splitlines()
+        if undecodable:
+            left_out = [n for n in undecodable if n not in first["tracks"]]
+            report.check(f"[{label}] Mixxx lists no decoder for .wma, so its scanner leaves the file out",
+                         left_out == undecodable and "wma" not in providers_in(log), f"left out: {left_out}")
+            # carry on with the files Mixxx has: the sync is given the same list
+            names = tuple(n for n in names if n not in left_out)
+            files = {n: p for n, p in files.items() if n not in left_out}
+            listed = music / "manifest.json"
+            listed.write_text(json.dumps([m for m in json.loads(listed.read_text()) if m["file"] not in left_out]))
+        report.check(f"[{label}] Mixxx itself added all {len(names)} tracks that it has a decoder for",
+                     len(first["tracks"]) == len(names))
         for extension in ("mp3", "m4a") if mode != "formats" else ():
             at = next((i for i, line in enumerate(lines)
                        if f'SoundSource providers for file type "{extension}"' in line), None)
