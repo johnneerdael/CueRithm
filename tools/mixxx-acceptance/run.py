@@ -758,9 +758,9 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
                  grids >= 2 and keys >= 2, f"{grids} grids, {keys} keys")
     analysed = sum("AnalyzerThread" in line and " Analyzing " in line for line in second.splitlines())
     if WINDOWS and not analysed and not locked:
-        # Seen on the Windows VM: the analyzer thread starts, but no deck-loaded track ever reaches
-        # it (no "Analyzing" line), so there is nothing to observe. Why is not established, so
-        # this is reported as not measured, never as a pass.
+        # Seen on the Windows VM before `answer_opengl_warning`: the analyzer thread starts, but no
+        # deck-loaded track ever reaches it (no "Analyzing" line), so there is nothing to observe.
+        # That is reported as not measured, never as a pass.
         report.note(f"[{label}] Mixxx's analyzer left the locked grids alone: not observed, Mixxx's analyzer"
                     " was never given a track on this Windows host")
     else:

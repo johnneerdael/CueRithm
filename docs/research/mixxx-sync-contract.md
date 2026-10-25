@@ -703,9 +703,9 @@ an administrator, so Mixxx is the project's installer package unpacked with an
 administrative install (checksum checked) rather than installed, and CueRithm's engine
 crate was built with the GNU toolchain (MinGW from WinLibs), not MSVC; the setup is
 `tools/mixxx-acceptance/windows/bootstrap.ps1`. Nobody clicks anything; the checks read
-Mixxx's database and debug log, as in the Linux runs. **152 checks passed and none failed.**
-The run also printed five notes, none of them a pass: the decoder list, and four things it
-could not measure (listed after the findings).
+Mixxx's database and debug log, as in the Linux runs. **154 checks passed and none failed.**
+The run also printed three notes, none of them a pass: the decoder list and MP3 alignment in
+the two scenarios (listed after the findings).
 
 - Mixxx's log lists the decoders: Media Foundation for `aac`, `m4a` and `mp4`, MAD
   (libmad 0.16.4) for MP3, libsndfile for AIFF and WAV, libFLAC, OggVorbis and libopusfile.
@@ -732,13 +732,21 @@ could not measure (listed after the findings).
   `PlaylistTracks` and `rhythmbox_playlists`) differed from Mixxx's own by line endings
   alone, which `schema_diff.py` showed. The adapter now normalises the layout to LF and
   `.gitattributes` pins the file; a unit test checks a CRLF layout makes the same library.
+- **Mixxx's analyzer left the BPM-locked grids alone** (`Track is BpmLocked` in its log for
+  each loaded track, and the rows unchanged). The first Windows run could not observe this: the
+  analyzer thread started but no track ever reached it. The cause was the workspace, not
+  Mixxx's analysis: with no GPU and no software OpenGL (`opengl32sw` is not in the unpacked
+  package) Mixxx shows a modal "OpenGL Direct Rendering" warning right after its skin loads
+  (`checkDirectRendering` in the source), and its main thread waits for a click before it
+  sets up the sound engine. In the source, the workers that finish loading a track onto a deck
+  are scheduled from the engine's audio callback. Nobody clicks in the run, so no deck finished
+  loading; the log stopped after the skin and showed no sound-manager line.
+  `run.py` now writes the setting a click leaves behind (`[Direct Rendering] Warned yes` in
+  the scratch profile's `mixxx.cfg`) before it starts Mixxx on Windows, and the check passed in
+  both scenarios.
 
 Not measured: MP3 alignment through libmad (no libmad probe was built for Windows; the
-written first beat, 23155, is the libmad rule's value, which the Linux runs measured), and
-whether Mixxx's analyzer leaves the BPM-locked grids alone. On this workspace Mixxx starts
-its analyzer thread but never hands a track to it (no `Analyzing` line in its log). The workspace has a virtual audio device and
-its audio service runs, so the reason was not established; the analyzer's lock check is
-Mixxx code that does not depend on the system and was observed on macOS and Linux.
+written first beat, 23155, is the libmad rule's value, which the Linux runs measured).
 
 What this does **not** show: Windows 10 or 11 (Server 2019 has the same Media Foundation
 generation, `10.0.17763`, but another build was not run); an MSVC-built CueRithm; a Mixxx
@@ -798,9 +806,6 @@ media probe, which reports 48000 for Opus.
   preview says so for `.aac` files.
 - **MP3 on Windows.** Mixxx lists libmad there as on Linux, but no libmad probe was built
   for Windows, so the +1105 frames measured on Linux is assumed to hold.
-- **Mixxx's analyzer on Windows.** The check that it leaves BPM-locked grids alone could
-  not be observed on the Windows workspace (no track ever reached the analyzer) and is
-  reported as not measured there.
 - **WMA** cannot be opened by the macOS and Windows downloads (their logs register no WMA
   decoder); whether a Linux build with FFmpeg plays it, and how it would align, was not
   run.
