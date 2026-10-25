@@ -142,19 +142,26 @@ fn executable_has_faad(path: &std::path::Path) -> Option<bool> {
     }
 }
 
-/// The AAC decoder of the first Mixxx among `candidates` that exists. A candidate that is not there
-/// is passed over; one that is there but cannot be read as an executable (a wrapper script that
-/// launches some other Mixxx, say) ends the search with `Unknown`, because the Mixxx a later
-/// candidate would be is not necessarily the one it starts.
+/// The AAC decoder of the Mixxx installations among `candidates`. A candidate that is not there is
+/// passed over. The timing step is not told which installation's library is being synced (a native
+/// Mixxx and a Flatpak one can have a library each), so the answer is a decoder only when every
+/// installation found has it; installations that differ, or one that cannot be read as an
+/// executable (a wrapper script that launches some other Mixxx, say), give `Unknown`.
 fn aac_decoder_of(candidates: &[std::path::PathBuf]) -> AacDecoder {
-    let Some(first) = candidates.iter().find(|path| path.is_file()) else {
-        return AacDecoder::Unknown;
-    };
-    match executable_has_faad(first) {
-        Some(true) => AacDecoder::Faad,
-        Some(false) => AacDecoder::TrimsPriming,
-        None => AacDecoder::Unknown,
+    let mut found = None;
+    for path in candidates.iter().filter(|path| path.is_file()) {
+        let this = match executable_has_faad(path) {
+            Some(true) => AacDecoder::Faad,
+            Some(false) => AacDecoder::TrimsPriming,
+            None => return AacDecoder::Unknown,
+        };
+        match found {
+            None => found = Some(this),
+            Some(earlier) if earlier == this => {}
+            Some(_) => return AacDecoder::Unknown,
+        }
     }
+    found.unwrap_or(AacDecoder::Unknown)
 }
 
 /// How this system's Mixxx decodes AAC. macOS is CoreAudio and Windows is Media Foundation (both
@@ -337,17 +344,24 @@ mod aac_tests {
     }
 
     #[test]
-    fn missing_candidates_are_passed_over_and_the_first_one_that_exists_decides() {
+    fn missing_candidates_are_passed_over_and_installations_that_agree_decide() {
         let dir = tempfile::tempdir().unwrap();
         let faad = elf(dir.path(), "faad", b"libfaad.so.2");
+        let faad_too = elf(dir.path(), "faad-too", b"NEEDED libmp4v2.so.2");
         let ffmpeg = elf(dir.path(), "ffmpeg", b"libavcodec.so.61");
+        let ffmpeg_too = elf(dir.path(), "ffmpeg-too", b"libavcodec.so.60");
         let missing = dir.path().join("absent");
         assert_eq!(
-            aac_decoder_of(&[missing.clone(), faad.clone(), ffmpeg.clone()]),
+            aac_decoder_of(&[missing.clone(), faad.clone(), faad_too]),
             AacDecoder::Faad
         );
+        // one installation listed twice (a PATH folder and a fixed place) is one installation
         assert_eq!(
-            aac_decoder_of(&[missing.clone(), ffmpeg, faad]),
+            aac_decoder_of(&[ffmpeg.clone(), missing.clone(), ffmpeg.clone()]),
+            AacDecoder::TrimsPriming
+        );
+        assert_eq!(
+            aac_decoder_of(&[ffmpeg, ffmpeg_too]),
             AacDecoder::TrimsPriming
         );
         assert_eq!(aac_decoder_of(&[missing]), AacDecoder::Unknown);
@@ -355,7 +369,24 @@ mod aac_tests {
     }
 
     #[test]
-    fn a_wrapper_script_that_exists_ends_the_search_because_it_may_start_any_mixxx() {
+    fn installations_that_disagree_give_unknown_because_the_selected_one_is_not_known() {
+        // A native Mixxx and a Flatpak one can sit side by side, each with its own library, and
+        // the timing step is not told which library was chosen.
+        let dir = tempfile::tempdir().unwrap();
+        let faad = elf(dir.path(), "faad", b"libfaad.so.2");
+        let ffmpeg = elf(dir.path(), "ffmpeg", b"libavcodec.so.61");
+        assert_eq!(
+            aac_decoder_of(&[faad.clone(), ffmpeg.clone()]),
+            AacDecoder::Unknown
+        );
+        assert_eq!(
+            aac_decoder_of(&[dir.path().join("absent"), ffmpeg, faad]),
+            AacDecoder::Unknown
+        );
+    }
+
+    #[test]
+    fn a_wrapper_script_that_exists_makes_the_answer_unknown_because_it_may_start_any_mixxx() {
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("mixxx");
         std::fs::write(&script, b"#!/bin/sh\nexec mixxx.bin \"$@\"\n").unwrap();
@@ -368,7 +399,12 @@ mod aac_tests {
             AacDecoder::Unknown
         );
         assert_eq!(
-            aac_decoder_of(&[script.clone(), ffmpeg.clone(), faad]),
+            aac_decoder_of(&[script.clone(), ffmpeg.clone(), faad.clone()]),
+            AacDecoder::Unknown
+        );
+        // and one that comes after a real Mixxx is just as unknown
+        assert_eq!(
+            aac_decoder_of(&[ffmpeg.clone(), script.clone()]),
             AacDecoder::Unknown
         );
         // a missing candidate before it changes nothing

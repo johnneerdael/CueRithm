@@ -472,11 +472,13 @@ Mixxx decodes AAC with FAAD. CoreAudio and FFmpeg already drop the priming, so t
 nothing. Linux builds differ (Debian's has no FAAD, Mixxx's own has), so the adapter reads
 the installed `mixxx` executable: it looks in `PATH`, `/usr/bin`, `/usr/local/bin`,
 `/opt/mixxx/bin` and the Flatpak export folders, and a `libfaad` or `libmp4v2` name in an
-ELF file means FAAD. The first candidate that exists decides: a missing one is passed over,
-but a wrapper script that exists, or any file that cannot be read as an ELF executable,
-ends the search, because the Mixxx it starts is not known. No executable found is the same.
-Unknown means no shift is applied and the preview says how late the music would play if
-the build did use FAAD. When
+ELF file means FAAD. Every installation found is read, and the result is a decoder only
+when they all have it: the timing step is not told which installation's library is being
+synced, and a native Mixxx and a Flatpak one can each have a library, so installations that
+differ give unknown. A missing candidate is passed over, but a wrapper script that exists,
+or any file that cannot be read as an ELF executable, also gives unknown, because the Mixxx
+it starts is not known. No executable found is the same. Unknown means no shift is applied
+and the preview says how late the music would play if the build did use FAAD. When
 a shift is applied, the preview says how many tracks were moved and by how many
 milliseconds. AppImage and Flatpak packages were not run, so their detection is by those
 paths only.
