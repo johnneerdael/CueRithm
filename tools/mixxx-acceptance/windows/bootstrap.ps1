@@ -24,8 +24,10 @@ New-Item -ItemType Directory -Force -Path $Root, "$Root\dl" | Out-Null
 function Fetch([string]$url, [string]$out) {
     if (Test-Path $out) { return }
     Write-Host "download $url"
-    curl.exe -sSL --fail -o $out $url
-    if ($LASTEXITCODE) { Remove-Item -Force -ErrorAction SilentlyContinue $out; throw "download failed: $url" }
+    # to a temporary name first: an interrupted download must not look finished
+    curl.exe -sSL --fail -o "$out.part" $url
+    if ($LASTEXITCODE) { Remove-Item -Force -ErrorAction SilentlyContinue "$out.part"; throw "download failed: $url" }
+    Move-Item -Force "$out.part" $out
 }
 function LatestAsset([string]$repo, [string]$pattern) {
     $json = curl.exe -sSL --fail "https://api.github.com/repos/$repo/releases/latest" | Out-String
