@@ -61,11 +61,15 @@ fn children(data: &[u8], start: usize, end: usize) -> Vec<([u8; 4], usize, usize
             0 => (8, end - at),
             n => (8, n as usize),
         };
-        if size < header || at + size > end {
+        // a size that would wrap the cursor is as bad as one that runs past the end
+        let Some(stop) = at.checked_add(size).filter(|stop| *stop <= end) else {
+            break;
+        };
+        if size < header {
             break;
         }
-        found.push((kind.try_into().unwrap_or([0; 4]), at + header, at + size));
-        at += size;
+        found.push((kind.try_into().unwrap_or([0; 4]), at + header, stop));
+        at = stop;
     }
     found
 }
@@ -168,9 +172,16 @@ pub(super) fn aac_start(path: &Path) -> Result<Option<AacStart>> {
         if size < head {
             return Ok(None);
         }
+        let remaining = length - at;
         if &header[4..8] == b"moov" {
-            moov = Some((at + head, (at + size).min(length)));
+            // a claimed size beyond the file is cut to the file
+            moov = Some((at + head, at + size.min(remaining)));
             break;
+        }
+        // a box that runs past the end of the file hides everything after it, and a size that
+        // would wrap the cursor must never be added to it
+        if size > remaining {
+            return Ok(None);
         }
         at += size;
     }
@@ -366,6 +377,58 @@ mod tests {
             "c.m4a",
         );
         assert_eq!(aac_start(&path).unwrap().unwrap().priming, 1024);
+    }
+
+    /// A box header with a 64-bit size: `size` is whatever the file claims, true or not.
+    fn extended(kind: &[u8; 4], size: u64) -> Vec<u8> {
+        let mut bytes = 1u32.to_be_bytes().to_vec();
+        bytes.extend_from_slice(kind);
+        bytes.extend_from_slice(&size.to_be_bytes());
+        bytes
+    }
+
+    #[test]
+    fn a_top_level_box_whose_size_would_wrap_the_cursor_is_rejected_not_looped_on() {
+        // An 8-byte box, then one claiming u64::MAX - 7 bytes: 8 + that wraps to zero.
+        let mut bytes = vec![0, 0, 0, 8];
+        bytes.extend_from_slice(b"ftyp");
+        bytes.extend(extended(b"free", u64::MAX - 7));
+        let (_dir, path) = file(bytes, "a.m4a");
+        assert_eq!(aac_start(&path).unwrap(), None);
+    }
+
+    #[test]
+    fn a_box_that_runs_past_the_end_of_the_file_hides_what_follows_it() {
+        let mut bytes = vec![0, 0, 0, 8];
+        bytes.extend_from_slice(b"ftyp");
+        bytes.extend(extended(b"free", 1 << 40));
+        let (_dir, path) = file(bytes, "a.m4a");
+        assert_eq!(aac_start(&path).unwrap(), None);
+    }
+
+    #[test]
+    fn a_moov_box_with_an_absurd_size_is_clamped_to_the_file() {
+        let mut bytes = vec![0, 0, 0, 8];
+        bytes.extend_from_slice(b"ftyp");
+        bytes.extend(extended(b"moov", u64::MAX));
+        bytes.extend_from_slice(b"not a movie box");
+        let (_dir, path) = file(bytes, "a.m4a");
+        assert_eq!(aac_start(&path).unwrap(), None);
+    }
+
+    #[test]
+    fn a_nested_box_whose_size_would_wrap_is_ignored() {
+        // moov holding an 8-byte box and then a trak claiming u64::MAX - 7 bytes
+        let mut moov = vec![0, 0, 0, 8];
+        moov.extend_from_slice(b"free");
+        moov.extend(extended(b"trak", u64::MAX - 7));
+        let mut bytes = vec![0, 0, 0, 8];
+        bytes.extend_from_slice(b"ftyp");
+        bytes.extend(((moov.len() + 8) as u32).to_be_bytes());
+        bytes.extend_from_slice(b"moov");
+        bytes.extend(moov);
+        let (_dir, path) = file(bytes, "a.m4a");
+        assert_eq!(aac_start(&path).unwrap(), None);
     }
 
     #[test]
