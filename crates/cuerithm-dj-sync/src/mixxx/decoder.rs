@@ -58,7 +58,10 @@ pub(crate) enum AacDecoder {
     /// FFmpeg (Debian's Mixxx) or CoreAudio (macOS): the priming is dropped, as CueRithm's own
     /// clock drops it.
     TrimsPriming,
-    /// Windows (Media Foundation, not run) or a Linux Mixxx that was not found or not readable.
+    /// Media Foundation (Windows): it returns every block, so the whole priming comes before the
+    /// music.
+    MediaFoundation,
+    /// A Linux Mixxx that was not found or not readable, or a system that was not checked.
     Unknown,
 }
 
@@ -154,8 +157,8 @@ fn aac_decoder_of(candidates: &[std::path::PathBuf]) -> AacDecoder {
     }
 }
 
-/// How this system's Mixxx decodes AAC. macOS is CoreAudio (measured). A Linux Mixxx is looked
-/// for on disk, once. Windows is Media Foundation, which was not run.
+/// How this system's Mixxx decodes AAC. macOS is CoreAudio and Windows is Media Foundation (both
+/// measured). A Linux Mixxx is looked for on disk, once.
 pub(crate) fn aac_decoder() -> AacDecoder {
     #[cfg(test)]
     if let Some(decoder) = AAC.get() {
@@ -163,6 +166,9 @@ pub(crate) fn aac_decoder() -> AacDecoder {
     }
     if cfg!(target_os = "macos") {
         return AacDecoder::TrimsPriming;
+    }
+    if cfg!(windows) {
+        return AacDecoder::MediaFoundation;
     }
     if !cfg!(target_os = "linux") {
         return AacDecoder::Unknown;

@@ -8,6 +8,12 @@
 //! FFmpeg-encoded file (priming 1024) lines up and one from Apple's encoder (priming 2112)
 //! is 1088 frames late.
 //!
+//! Media Foundation, which Mixxx uses for M4A on Windows, also returns every block and ignores
+//! the edit list and `iTunSMPB`, and does not lose the first block: measured on Windows with a
+//! probe that reads the way Mixxx 2.5.6's `SoundSourceMediaFoundation` does, the music starts at
+//! frame 1024 for an FFmpeg-encoded file and at 2112 for Apple's, so it is the whole priming
+//! late. Apple Lossless is on time.
+//!
 //! The priming is what FFmpeg trims: the first non-empty edit of the track's edit list
 //! (`elst`), or the second number of Apple's `iTunSMPB` tag when there is no edit list.
 use anyhow::{Context, Result};
@@ -38,6 +44,12 @@ impl AacStart {
         } else {
             0
         }
+    }
+
+    /// How many frames later Media Foundation plays the music than FFmpeg does: all of the
+    /// priming, which it does not read from the edit list or `iTunSMPB`.
+    pub(super) fn media_foundation_shift(self) -> u32 {
+        if self.aac { self.priming } else { 0 }
     }
 }
 
@@ -436,6 +448,41 @@ mod tests {
         use super::sample::m4a_timed;
         let (_dir, path) = file(m4a_timed(b"mp4a", None, true, 22_050, 44_100), "a.m4a");
         assert_eq!(aac_start(&path).unwrap().unwrap().priming, 2112);
+    }
+
+    #[test]
+    fn media_foundation_plays_the_music_late_by_the_whole_priming() {
+        // Measured on Windows with a probe that reads like Mixxx 2.5.6's Media Foundation source:
+        // the first music sample is frame 1024 for an FFmpeg-encoded file and frame 2112 for
+        // Apple's, edit list and `iTunSMPB` notwithstanding.
+        let (_dir, ffmpeg) = file(m4a(b"mp4a", Some(&[(1_058_400, 1024)]), false), "a.m4a");
+        assert_eq!(
+            aac_start(&ffmpeg)
+                .unwrap()
+                .unwrap()
+                .media_foundation_shift(),
+            1024
+        );
+        let (_dir, apple) = file(m4a(b"mp4a", None, true), "apple.m4a");
+        assert_eq!(
+            aac_start(&apple).unwrap().unwrap().media_foundation_shift(),
+            2112
+        );
+        let (_dir, none) = file(m4a(b"mp4a", None, false), "none.m4a");
+        assert_eq!(
+            aac_start(&none).unwrap().unwrap().media_foundation_shift(),
+            0,
+            "a file that names no priming has none for FFmpeg's clock to drop"
+        );
+    }
+
+    #[test]
+    fn apple_lossless_is_on_time_in_media_foundation_too() {
+        let (_dir, alac) = file(m4a(b"alac", Some(&[(1_058_400, 0)]), false), "a.m4a");
+        assert_eq!(
+            aac_start(&alac).unwrap().unwrap().media_foundation_shift(),
+            0
+        );
     }
 
     #[test]

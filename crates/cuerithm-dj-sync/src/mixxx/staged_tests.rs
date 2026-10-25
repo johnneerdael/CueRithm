@@ -375,7 +375,7 @@ fn aac_with_more_priming_than_faad_skips_is_flagged_by_which_decoder_mixxx_has()
         tracks: vec![apple, ffmpeg],
         playlists: vec![],
     };
-    let warnings = |decoder: AacDecoder| {
+    let warnings_on = |host: Host, decoder: AacDecoder| {
         let _aac = pretend_aac(decoder);
         write_staged(
             &env.database,
@@ -383,7 +383,7 @@ fn aac_with_more_priming_than_faad_skips_is_flagged_by_which_decoder_mixxx_has()
             &library,
             &options(MixxxExistingTracks::Keep),
             &none(),
-            LINUX,
+            host,
         )
         .unwrap()
         .warnings
@@ -391,6 +391,7 @@ fn aac_with_more_priming_than_faad_skips_is_flagged_by_which_decoder_mixxx_has()
         .filter(|w| w.contains("AAC track"))
         .collect::<Vec<_>>()
     };
+    let warnings = |decoder: AacDecoder| warnings_on(LINUX, decoder);
     // FAAD: the grid and cues were moved, and only the Apple file needed it (1088 frames, 25 ms).
     let faad = warnings(AacDecoder::Faad);
     assert_eq!(faad.len(), 1, "{faad:?}");
@@ -409,6 +410,17 @@ fn aac_with_more_priming_than_faad_skips_is_flagged_by_which_decoder_mixxx_has()
     assert!(
         unknown[0].contains("could not tell") && unknown[0].contains("25 ms late"),
         "{unknown:?}"
+    );
+    // Windows: Media Foundation does not skip any of the priming, so both files were moved, the
+    // Apple one furthest (2112 frames, 48 ms).
+    let windows = warnings_on(WINDOWS, AacDecoder::MediaFoundation);
+    assert_eq!(windows.len(), 1, "{windows:?}");
+    assert!(
+        windows[0].starts_with("2 AAC track(s)")
+            && windows[0].contains("Media Foundation")
+            && windows[0].contains("moved")
+            && windows[0].contains("48 ms"),
+        "{windows:?}"
     );
 }
 
@@ -443,13 +455,27 @@ fn aac_and_wma_warnings_depend_on_which_decoder_was_measured() {
         "no priming to compare: {linux:?}"
     );
     assert_eq!(linux.iter().filter(|w| w.contains("WMA track")).count(), 1);
-    // Windows decodes AAC with Media Foundation, which was not measured: the warning says so.
+    // Windows decodes M4A with Media Foundation, measured: a file that names no priming is
+    // unmoved. A raw `.aac` stream was not measured there, and the warning says so. Mixxx 2.5.6
+    // for Windows registers no WMA decoder.
     let windows = run(WINDOWS, &library);
     assert!(
-        windows.iter().any(|w| w.starts_with("2 AAC track(s)")
+        windows.iter().all(|w| !w.contains("AAC track")),
+        "no priming to compare: {windows:?}"
+    );
+    assert!(
+        windows.iter().any(|w| w.starts_with("1 .aac file(s)")
             && w.contains("Media Foundation")
-            && w.contains("has not checked")),
+            && w.contains("has not measured")),
         "{windows:?}"
+    );
+    let windows_wma: Vec<_> = windows.iter().filter(|w| w.contains("WMA track")).collect();
+    assert_eq!(windows_wma.len(), 1, "{windows:?}");
+    assert!(
+        windows_wma[0].contains("no WMA decoder")
+            && windows_wma[0].contains("Windows")
+            && windows_wma[0].contains("will not play"),
+        "{windows_wma:?}"
     );
     // macOS decodes AAC with CoreAudio, measured to match: no AAC warning there.
     let env_two = Env::new(39);

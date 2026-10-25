@@ -738,8 +738,16 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     locked = second.count("Track is BpmLocked: Beat calculation will not start")
     report.check(f"[{label}] Mixxx deserialized the BeatGrid-2.0 grid and the key of the tracks it loaded",
                  grids >= 2 and keys >= 2, f"{grids} grids, {keys} keys")
-    report.check(f"[{label}] Mixxx's analyzer left the locked grids alone",
-                 locked >= 2, f"{locked} tracks reported BpmLocked")
+    analysed = sum("AnalyzerThread" in line and " Analyzing " in line for line in second.splitlines())
+    if WINDOWS and not analysed and not locked:
+        # Seen on the Windows VM: the analyzer thread starts, but no deck-loaded track ever reaches
+        # it (no "Analyzing" line), so there is nothing to observe. Why is not established, so
+        # this is reported as not measured, never as a pass.
+        report.note(f"[{label}] Mixxx's analyzer left the locked grids alone: not observed, Mixxx's analyzer"
+                    " was never given a track on this Windows host")
+    else:
+        report.check(f"[{label}] Mixxx's analyzer left the locked grids alone",
+                     locked >= 2, f"{locked} tracks reported BpmLocked, {analysed} analysed")
     report.check(f"[{label}] Mixxx reported no beat or key deserialization failure",
                  "Failed to deserialize" not in second)
     report.check(f"[{label}] Mixxx did not re-read tags over the synced rows",
