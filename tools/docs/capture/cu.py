@@ -103,6 +103,12 @@ class Cu:
         self.shot = base64.b64decode(image) if image else None
         return elements
 
+    def shot_point(self, x, y):
+        """Window points (a 1440 wide window) to the pixels of the accessibility screenshot the click tool uses."""
+        self.state()
+        scale = int.from_bytes(self.shot[16:20], "big") / 1440
+        return x * scale, y * scale
+
     def find(self, pattern, nth=0, refresh=True):
         if refresh:
             self.state()

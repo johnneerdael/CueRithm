@@ -120,6 +120,39 @@ DATA_COPY` prints the sandbox rules without starting anything.
 The sandbox is a backstop. Scans and previews only read, so capture those freely, and do not
 script an Apply, Delete or Archive step even though the sandbox would stop it.
 
+### Make the copy match the guide
+
+The guide's text quotes one small library, the 26 tracks of the private facts sheet
+(`.analysis/guide/library-facts.md`), and the owner's library has grown past it: a capture from
+the whole library would contradict the guide's own numbers ("Energy 7 and up: 9 tracks"). With
+the sandboxed app stopped, trim the copy first:
+
+```sh
+python3 tools/docs/capture/make_demo_copy.py /path/to/capture-data .analysis/guide/library-facts.md --stale keep
+```
+
+It keeps the 26 tracks, and with `--stale keep` the 14 stale rows left by files that moved (the
+broken-library scenes need them; `--stale drop` removes them for the healthy scenes), removes every
+other track from the copy, and replaces the watch folder with the generic, empty
+`/private/tmp/demo/Music/Beatport`, so the settings screens show no user name. It edits only the
+copy, and refuses the live data folder and any copy that has an `active-library.json` (a switched
+library generation), because the app would open that library instead of the file the builder edits.
+Track locations still hold the real paths: never show the
+Location column, and treat every scan result that lists paths as something to redact or skip.
+
+### Check every image
+
+Open each raw capture, then run the text check on all of them:
+
+```sh
+swiftc -O tools/docs/capture/leakcheck.swift -o ~/.cache/cuerithm-docs/leakcheck
+~/.cache/cuerithm-docs/leakcheck /path/to/raw/*.png
+```
+
+It reads the text in each image and lists any user name, home folder, e-mail address, or
+credential or licence word, so an empty result means nothing matched. It is a second check on top
+of looking at the image, not a replacement for it.
+
 ## Related
 
 - [Desktop development and acceptance](desktop.md)
