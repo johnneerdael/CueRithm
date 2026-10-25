@@ -237,6 +237,22 @@ def mixxx_running():
     return [line for line in out if line.strip().lower().endswith("mixxx")]
 
 
+def answer_opengl_warning(settings):
+    """Tell Mixxx that its "OpenGL Direct Rendering" warning was already shown.
+
+    On a machine without OpenGL (the Windows workspace has no GPU and no software renderer) Mixxx
+    shows that warning as a modal box right after the skin loads, and its main thread waits for a
+    click before it sets up the sound engine; nobody clicks in this run, so no deck ever finished
+    loading and Mixxx's analyzer was never given a track. Mixxx's own `[Direct Rendering] Warned`
+    setting is what a click leaves behind.
+    """
+    config = Path(settings) / "mixxx.cfg"
+    text = config.read_text(errors="replace") if config.exists() else ""
+    if "[Direct Rendering]" not in text:
+        config.write_text(text + ("\n" if text and not text.endswith("\n") else "")
+                          + "[Direct Rendering]\nWarned yes\n")
+
+
 class Mixxx:
     """One Mixxx process on the scratch settings folder; always stopped on exit."""
 
@@ -269,6 +285,8 @@ class Mixxx:
                        "timeout", "900", "xvfb-run", "-a", *program, "--log-level", "debug",
                        "--log-flush-level", "debug", *map(str, tracks)]
         else:
+            if WINDOWS:
+                answer_opengl_warning(settings)
             command = [mixxx, "--settings-path", str(settings), "--log-level", "debug",
                        "--log-flush-level", "debug", *map(str, tracks)]
         self.process = subprocess.Popen(command, stdout=self.log, stderr=subprocess.STDOUT)
