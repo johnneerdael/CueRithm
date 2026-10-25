@@ -426,8 +426,8 @@ exactly like `Info`. An untrimmed decode with libmpg123 (`mpg123 --no-gapless`, 
 second independent decoder) places the burst at +1104 in all four variants, matching
 FFmpeg's untrimmed alignment, so the raw decoder alignment does not depend on the
 decoder. The Mixxx column combines that measured alignment with the libmad behavior
-read from source; **libmad itself was not run**, and no Windows or Linux system was
-used.
+read from source at this point; libmad itself was run later, in the Linux runs under
+*Runtime acceptance* (the +1105 frames above), and not on Windows.
 
 The rule, from header facts read from the file:
 
@@ -481,6 +481,35 @@ a shift is applied, the preview says how many tracks were moved and by how many
 milliseconds. AppImage and Flatpak packages were not run, so their detection is by those
 paths only.
 
+### AAC under Media Foundation, measured
+
+Mixxx on Windows registers Media Foundation (`10.0.17763.9121` in its log) for `aac`, `m4a`
+and `mp4`. `mf_probe.cpp` reads a file the way `SoundSourceMediaFoundation` does (the
+source reader asked for 32-bit float PCM, frame N being the Nth frame it delivers) and
+finds the first click of the same one-second click files; like the other probes it follows
+the source's steps and was not compared with a position Mixxx itself reports. Frames are
+at 44.1 kHz, the click is at 22050 in every source and the detector reads each file 2
+frames after it (22052 in the FFmpeg row), so `MF shift` is Media Foundation's click minus
+FFmpeg's:
+
+| M4A | Priming | Click read (Media Foundation) | MF shift |
+| --- | ---: | ---: | ---: |
+| AAC from FFmpeg's encoder (edit list: media time 1024) | 1024 | 23076 | **1024** (23.2 ms) |
+| AAC from Apple's encoder (`afconvert`, `iTunSMPB` 2112, no edit list) | 2112 | 24164 | **2112** (47.9 ms) |
+| Apple Lossless | n/a | 22052 | 0 |
+
+What it shows: Media Foundation returns the music exactly `priming` frames later than
+FFmpeg and CoreAudio do. It ignores both the edit list and `iTunSMPB`, and, unlike FAAD,
+does not lose the first block. Two encoders fit that line, no other priming value was
+measured, and it is a two-point model, not a derived rule. HE-AAC and a raw `.aac` (ADTS)
+stream, which Mixxx also hands to Media Foundation, were not measured, so the preview
+says so for `.aac` files on a Windows host. The priming is read from the file as in the
+FAAD section.
+
+The adapter adds `priming` frames for AAC in M4A or MP4 on a Windows host, and the preview
+says how many tracks it moved and by how many milliseconds. The acceptance run with the
+adapter's shift written (below) found each file's first beat within 2 frames of the click.
+
 ### What the adapter adds
 
 Offsets are in the source file's own frames and apply additively to cue starts, loop
@@ -490,14 +519,14 @@ for the `-F` and `-529` cases) is moved to the start.
 | Format | macOS | Linux and Windows |
 | --- | --- | --- |
 | MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above; measured with libmad in Debian's Mixxx 2.5.0 for a LAME file with an Info frame: +1105 |
-| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | Linux with FFmpeg: 0, measured in Debian's Mixxx 2.5.0. Linux with FAAD: `priming - 1024` for AAC in M4A or MP4, measured in Mixxx `main` with two encoders (FFmpeg's 0, Apple's +1088); which decoder applies is read from the installed `mixxx`, and unknown means 0 with a warning. Windows (Media Foundation): **not verified**, not run |
+| AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | Linux with FFmpeg: 0, measured in Debian's Mixxx 2.5.0. Linux with FAAD: `priming - 1024` for AAC in M4A or MP4, measured in Mixxx `main` with two encoders (FFmpeg's 0, Apple's +1088); which decoder applies is read from the installed `mixxx`, and unknown means 0 with a warning. Windows (Media Foundation): the whole priming, `+1024` for FFmpeg's encoder and `+2112` for Apple's, 0 for Apple Lossless, measured on Windows Server 2019 with a probe that reads like Mixxx's source |
 | WAV, FLAC | 0, measured in Mixxx 2.5.6 | 0 |
 | AIFF, Ogg Vorbis | 0, measured in Mixxx 2.5.6 (libsndfile, `Xiph.org OggVorbis`) against FFmpeg's decode | 0 |
 | Opus | 0, measured in Mixxx 2.5.6 (`Xiph.org libopusfile`) against FFmpeg's decode, counted at 48 kHz: Mixxx always decodes Opus at 48000 Hz and reports that rate for the file | 0; opusfile discards the pre-skip as RFC 7845 requires, as FFmpeg does |
-| WMA | not openable: the 2.5.6 download registers no decoder for `wma` (its debug log lists none), so the tracks are added and do not play | 0, plays only if Mixxx was built with FFmpeg (or Media Foundation on Windows); not verified |
+| WMA | not openable: the 2.5.6 download registers no decoder for `wma` (its debug log lists none), so the tracks are added and do not play | Linux: 0, plays only if Mixxx was built with FFmpeg; not verified. Windows: not openable, the 2.5.6 download registers no decoder for `wma` (Media Foundation is registered for `aac`, `m4a` and `mp4` only), so the tracks are added and do not play |
 
-The preview warns for each case marked not verified, and for AAC tracks that FAAD would
-play late.
+The preview warns for each case marked not verified, for AAC tracks that FAAD or Media
+Foundation play late (saying how many it moved), and for WMA tracks the download cannot play.
 
 ### Reproducing
 
@@ -507,8 +536,8 @@ python3 tools/mixxx-acceptance/decoder_table.py
 
 builds the probe, generates every file above and prints the table (macOS with `clang`,
 `afconvert`, `ffmpeg` and `lame`). The Linux rows come from `mad_probe.c` and
-`faad_probe.c` inside the Docker runs described under *Runtime acceptance*; Windows has
-no probe.
+`faad_probe.c` inside the Docker runs described under *Runtime acceptance*, and the Windows
+rows from `mf_probe.cpp` inside the Windows run.
 
 ## Representation gaps and chosen conversions
 
@@ -561,7 +590,8 @@ Defects the earlier, fixture-only tests had not shown, found by the first runs a
    writing with SQLite's foreign keys on failed on every track;
 3. a Mixxx started on an empty `directories` waits for a music folder at every start.
 
-What the run does **not** show: Windows, Linux or Flatpak (no such system was available);
+What the run does **not** show: Windows, Linux or Flatpak (this run is macOS only; the next
+sections ran those systems);
 Mixxx 2.4, or 2.6 and later, so that Mixxx's own upgrade of a library CueRithm created
 from schema 39 to 40 was not run; playback or the waveform inside Mixxx (the grid was
 compared with CoreAudio's decoder through the probe, and Mixxx loaded and deserialized
@@ -604,8 +634,8 @@ from FFmpeg's and from Apple's encoder, ALAC in M4A, AIFF, Ogg Vorbis and Opus:
 What this does **not** show: the sync itself ran on macOS and only behaved as a Linux system
 would (libmad timing, `CUERITHM_MIXXX_HOST=linux`), so CueRithm running on Linux (process
 names, folder discovery) is covered by tests and by the repository's Linux checks, not by
-this run; other packaging (AppImage, Flatpak, Ubuntu); Windows, where Media Foundation
-decodes AAC and no Windows system was available. A Mixxx with FAAD is the next section.
+this run; other packaging (AppImage, Flatpak, Ubuntu). A Mixxx with FAAD is the next
+section, and Windows, where Media Foundation decodes AAC, has its own section after it.
 
 ### Linux: Mixxx `main`, built from source, schema 40 and FAAD
 
@@ -663,6 +693,70 @@ python3 tools/mixxx-acceptance/run.py --linux-main mixxx-main-out
 Remove the volume and image afterwards (`docker volume rm mixxx-main-out`,
 `docker image rm cuerithm-mixxx-main-deps`).
 
+### Windows: Mixxx 2.5.6, on Windows Server 2019
+
+`run.py --windows` runs the `formats` scenario (AAC from two encoders, Apple Lossless, AIFF,
+Ogg Vorbis, Opus, WAV, FLAC, MP3, and a WMA file) and the `created` scenario (a library
+CueRithm makes) against the real Mixxx 2.5.6 for Windows, on a Windows Server 2019 workspace
+(build 17763, PowerShell 5.1) reached through a remote desktop session. The account is not
+an administrator, so Mixxx is the project's installer package unpacked with an
+administrative install (checksum checked) rather than installed, and CueRithm's engine
+crate was built with the GNU toolchain (MinGW from WinLibs), not MSVC; the setup is
+`tools/mixxx-acceptance/windows/bootstrap.ps1`. Nobody clicks anything; the checks read
+Mixxx's database and debug log, as in the Linux runs. **152 checks passed and none failed.**
+The run also printed five notes, none of them a pass: the decoder list, and four things it
+could not measure (listed after the findings).
+
+- Mixxx's log lists the decoders: Media Foundation for `aac`, `m4a` and `mp4`, MAD
+  (libmad 0.16.4) for MP3, libsndfile for AIFF and WAV, libFLAC, OggVorbis and libopusfile.
+  **No decoder is registered for WMA**, and Mixxx adds no row for the WMA file, so the harness
+  expects it left out (and the adapter warns that such tracks will not play).
+- **AAC.** Media Foundation was read with `mf_probe.cpp` (section above). With the shift
+  written for a Windows host the first beat was within 2 frames of the click for FFmpeg's
+  encoder (1024 frames), Apple's encoder (2112 frames) and Apple Lossless (none), and the
+  cue positions carried the same shift as the grid. Before the shift was added the same run
+  failed those two AAC files by 1026 and 2114 frames, so the run does tell the cases apart.
+- AIFF, Ogg Vorbis, Opus, WAV and FLAC passed the same alignment check (the first beat within
+  16 frames of the click) with no shift, against FFmpeg's decode on the host as on the other
+  systems.
+- Mixxx started without asking for a folder, found the schema current, deserialized the
+  BeatGrid-2.0 grids and keys, reported no deserialization failure, did not re-read tags,
+  found the same tracks again rather than duplicates, kept the folder list and left the
+  synced rows unchanged after loading and scanning them. Mixxx stores `/` in its paths on
+  Windows (`D:/Users/...`), and the adapter's references matched.
+- **A library CueRithm created** equals the one Mixxx makes (30 tables, indexes and views,
+  the schema settings and the two default playlists). The first run found a real defect:
+  Git for Windows checks `schema39.sql` out with CRLF, `include_str!` embeds it as it is
+  and SQLite stores each statement's text as written, so several objects (the first six
+  named were `itunes_playlist_tracks`, `Playlists`, `crates`, `track_locations`,
+  `PlaylistTracks` and `rhythmbox_playlists`) differed from Mixxx's own by line endings
+  alone, which `schema_diff.py` showed. The adapter now normalises the layout to LF and
+  `.gitattributes` pins the file; a unit test checks a CRLF layout makes the same library.
+
+Not measured: MP3 alignment through libmad (no libmad probe was built for Windows; the
+written first beat, 23155, is the libmad rule's value, which the Linux runs measured), and
+whether Mixxx's analyzer leaves the BPM-locked grids alone. On this workspace Mixxx starts
+its analyzer thread but never hands a track to it (no `Analyzing` line in its log). The workspace has a virtual audio device and
+its audio service runs, so the reason was not established; the analyzer's lock check is
+Mixxx code that does not depend on the system and was observed on macOS and Linux.
+
+What this does **not** show: Windows 10 or 11 (Server 2019 has the same Media Foundation
+generation, `10.0.17763`, but another build was not run); an MSVC-built CueRithm; a Mixxx
+built from the Windows installer rather than unpacked from it; playback or the waveform
+inside Mixxx; HE-AAC and raw `.aac` streams; and CueRithm's own window, discovery and process
+checks on Windows, which the repository's Windows checks cover. The unit tests of the
+adapter crate (`cargo test -p cuerithm-dj-sync --lib`) also ran on the workspace; the two
+`pioneer_usb` tests that need the sealed FFmpeg decoder runtime fail there because the
+runtime was not built, and the rest pass.
+
+To reproduce, on Windows with the per-user toolchain from `bootstrap.ps1`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\mixxx-acceptance\windows\run.ps1 -Task all
+```
+
+which writes `tests.log` and `acceptance.log` next to the checkout.
+
 ### Formats, measured in Mixxx 2.5.6 on macOS
 
 A fifth scenario, `formats`, runs AAC and Apple Lossless in M4A, AIFF, Ogg Vorbis and Opus
@@ -684,8 +778,10 @@ media probe, which reports 48000 for Opus.
   2.5.0 with libmad, and Mixxx `main` with libmad and FAAD, were run in Linux containers,
   as recorded in *Runtime acceptance*. The sync itself ran on macOS using Linux timing, so
   those runs do not establish CueRithm's native Linux discovery or process checks. AppImage
-  and Flatpak packages were not run. Windows and Media Foundation were not run; their
-  behavior remains source-derived, and the adapter warns that AAC there is unchecked.
+  and Flatpak packages were not run. Windows ran Mixxx 2.5.6 on Windows Server 2019 in a
+  workspace, with the sync run natively there by the adapter's unit tests and the
+  acceptance harness; CueRithm's own window, discovery and process checks on Windows, other
+  Windows versions and an MSVC build were not.
 - **The FAAD shift beyond two encoders.** `priming - 1024` was measured for priming 1024
   (FFmpeg) and 2112 (Apple) only. An encoder with another priming value, or an M4A with an
   edit list that disagrees with `iTunSMPB`, has not been measured.
@@ -696,8 +792,18 @@ media probe, which reports 48000 for Opus.
   is covered separately, in *Runtime acceptance* above.
 - **Opus, Ogg Vorbis and AIFF** alignment was measured in Mixxx 2.5.6 on macOS against
   FFmpeg's decode, not against libopusfile, libvorbisfile or libsndfile themselves.
-- **WMA** cannot be opened by the macOS download; whether a Linux or Windows build can
-  was not run.
+- **The Media Foundation shift beyond two encoders.** `priming` frames was measured for
+  priming 1024 (FFmpeg) and 2112 (Apple) only, on one Windows build (`10.0.17763.9121`).
+  A raw `.aac` (ADTS) stream, HE-AAC and other encoders have not been measured, and the
+  preview says so for `.aac` files.
+- **MP3 on Windows.** Mixxx lists libmad there as on Linux, but no libmad probe was built
+  for Windows, so the +1105 frames measured on Linux is assumed to hold.
+- **Mixxx's analyzer on Windows.** The check that it leaves BPM-locked grids alone could
+  not be observed on the Windows workspace (no track ever reached the analyzer) and is
+  reported as not measured there.
+- **WMA** cannot be opened by the macOS and Windows downloads (their logs register no WMA
+  decoder); whether a Linux build with FFmpeg plays it, and how it would align, was not
+  run.
 - **Mixxx versions** other than schema 39 and 40, and builds without MAD or CoreAudio.
   Schema 40 ran against Mixxx `main` built from source (and its upgrade of a CueRithm-made
   schema 39 library), not against a 2.6 or later release build; Mixxx 2.4 was not run.

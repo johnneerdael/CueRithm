@@ -521,6 +521,10 @@ mod tests {
 
     #[test]
     fn lossless_ogg_opus_aac_and_wma_are_zero_without_reading_the_file() {
+        // M4A is read only where the AAC decoder leaves priming in (FAAD, Media Foundation); a
+        // decoder that drops it, like CueRithm's own clock, needs no look at the file. Pinned,
+        // so the result does not depend on the Mixxx or the system the test runs on.
+        let _drops_priming = crate::mixxx::pretend_aac(crate::mixxx::AacDecoder::TrimsPriming);
         for extension in [
             "flac", "wav", "aiff", "ogg", "opus", "m4a", "mp4", "aac", "wma",
         ] {
