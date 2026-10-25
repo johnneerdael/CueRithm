@@ -6,8 +6,11 @@ Usage:
   capture.py --shot NAME [--themes dark]        # capture the current screen as-is
 
 A scene file is a JSON array of {"scene": "name", "steps": [[verb, arg...], ...]}.
-Verbs: click PATTERN [NTH] | key KEY | type TEXT | set PATTERN VALUE | scroll PATTERN DIR PAGES |
-       wait SECONDS | wait_for PATTERN | gone PATTERN | reset | view NAME | theme dark|light
+Verbs: click PATTERN [NTH] | dblclick PATTERN [NTH] | key KEY | type TEXT | set PATTERN VALUE |
+       scroll PATTERN DIR PAGES | clickxy X Y | dblclickxy X Y | drag X1 Y1 X2 Y2 (window points) |
+       wait SECONDS | wait_for PATTERN | gone PATTERN | reset | view NAME
+A scene may carry "crop": "window" (default) | "panel" | "player"; without it the crop requested in
+docs/user-guide/_meta/figures/*.json for that scene id is used.
 Patterns are case-insensitive regular expressions over `<role> <label>` of an
 accessibility element. Raw captures are PNG with the real window shape; `to_webp.py`
 downsizes them. Needs the sandboxed CueRithm that launch-copy.sh started (the only one running) and its window at 1440x940.
@@ -24,6 +27,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cu import Cu, park_cursor, require_capture_app  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+FIGURES = os.path.join(HERE, "..", "..", "..", "docs", "user-guide", "_meta", "figures")
+# Window points at the 1440x940 size: the main panel is right of the sidebar and above the player.
+CROPS = {"window": None, "panel": (336, 0, 1440, 737), "player": (336, 737, 1440, 940)}
+
+
+def requested_crops():
+    crops = {}
+    for path in glob.glob(os.path.join(FIGURES, "*.json")):
+        with open(path, encoding="utf-8") as handle:
+            for figure in json.load(handle):
+                crops.setdefault(figure["scene"], figure.get("crop", "window"))
+    return crops
+
+
 def windowid_tool():
     """Path of the compiled window-id helper; built from windowid.swift on first use."""
     path = os.environ.get("CUERITHM_WINDOWID") or os.path.expanduser("~/.cache/cuerithm-docs/windowid")
@@ -55,13 +72,18 @@ def activate():
     time.sleep(0.6)
 
 
-def shoot(name, theme, out):
+def shoot(name, theme, out, crop="window"):
     activate()
     park_cursor()
     time.sleep(0.5)
     wid = window()[0]
     path = os.path.join(out, f"{name}-{theme}.png")
     subprocess.run(["screencapture", "-x", "-o", f"-l{wid}", path], check=True)
+    if CROPS[crop]:
+        from PIL import Image
+        image = Image.open(path)
+        scale = image.width / 1440
+        image.crop(tuple(round(v * scale) for v in CROPS[crop])).save(path)
     return path
 
 
@@ -102,6 +124,14 @@ def run_steps(cu, steps):
         elif verb == "dblclick":
             cu.click(args[0], int(args[1]) if len(args) > 1 else 0, click_count=2)
             time.sleep(1.2)
+        elif verb in ("clickxy", "dblclickxy"):
+            x, y = cu.shot_point(float(args[0]), float(args[1]))
+            cu.call("click", app="CueRithm", x=x, y=y, click_count=2 if verb == "dblclickxy" else 1)
+            time.sleep(1.2 if verb == "dblclickxy" else 0.7)
+        elif verb == "drag":
+            (x1, y1), (x2, y2) = cu.shot_point(float(args[0]), float(args[1])), cu.shot_point(float(args[2]), float(args[3]))
+            cu.call("drag", app="CueRithm", from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+            time.sleep(0.8)
         elif verb == "key":
             cu.key(args[0])
             time.sleep(0.5)
@@ -155,6 +185,7 @@ def main():
         with open(path, encoding="utf-8") as handle:
             scenes += json.load(handle)
     wanted = set(filter(None, args.only.split(",")))
+    crops = requested_crops()
     failures = []
     volume = cu.find(r"^slider .*Volume")
     cu.call("set_value", app="CueRithm", element_index=volume["idx"], value="0")  # never play audio out loud
@@ -167,7 +198,7 @@ def main():
                 reset(cu)
                 run_steps(cu, scene["steps"])
                 time.sleep(float(scene.get("settle", 0.8)))
-                print("ok ", theme, shoot(scene["scene"], theme, args.out))
+                print("ok ", theme, shoot(scene["scene"], theme, args.out, scene.get("crop") or crops.get(scene["scene"], "window")))
             except Exception as error:  # keep going: report at the end
                 failures.append((theme, scene["scene"], str(error)[:200]))
                 print("FAIL", theme, scene["scene"], str(error)[:200])
