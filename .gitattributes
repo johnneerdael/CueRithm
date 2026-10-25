@@ -1,3 +1,5 @@
 crates/camelot-core/tests/fixtures/lexicon-energy/*.f32 binary
 # The author manifest pins the exact LF bytes of this text-only handover pack.
 docs/research/dj-library-import-handover/** text eol=lf
+# Mixxx's own library stores this layout's text with LF; a CRLF checkout must not reach a new library.
+crates/cuerithm-dj-sync/src/mixxx/schema39.sql text eol=lf
