@@ -123,11 +123,17 @@ if (-not (Test-Path "$Root\libmad\lib\libmad.a")) {
         Rename-Item "$Root\libmad" "$Root\libmad-src"
     }
     $env:PATH = "$Root\cmake\bin;$Root\mingw64\bin;$env:PATH"
+    # CMake writes progress to stderr, which PowerShell 5.1 turns into a terminating error while
+    # the preference is Stop (the script then ends without a word): judge the exit codes instead
+    $ErrorActionPreference = 'Continue'
     cmake -S "$Root\libmad-src" -B "$Root\libmad-build" -G 'MinGW Makefiles' -DCMAKE_BUILD_TYPE=Release `
-        -DBUILD_SHARED_LIBS=OFF -DOPTIMIZE=ACCURACY -DEXAMPLE=OFF "-DCMAKE_INSTALL_PREFIX=$Root\libmad"
-    if ($LASTEXITCODE) { throw 'libmad: cmake configure failed' }
-    cmake --build "$Root\libmad-build" --target install
-    if ($LASTEXITCODE) { throw 'libmad: build failed' }
+        -DBUILD_SHARED_LIBS=OFF -DOPTIMIZE=ACCURACY -DEXAMPLE=OFF "-DCMAKE_INSTALL_PREFIX=$Root\libmad" 2>&1 | Out-Host
+    $configured = $LASTEXITCODE
+    cmake --build "$Root\libmad-build" --target install 2>&1 | Out-Host
+    $built = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    if ($configured) { throw 'libmad: cmake configure failed' }
+    if ($built) { throw 'libmad: build failed' }
 }
 
 # The environment later scripts dot-source

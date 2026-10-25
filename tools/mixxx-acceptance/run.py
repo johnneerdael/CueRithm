@@ -882,7 +882,8 @@ def main():
         probe = work / "mf_probe.exe"
         run("g++", "-O2", "-municode", str(HERE / "mf_probe.cpp"), "-o", str(probe),
             "-lmfplat", "-lmfreadwrite", "-lmfuuid", "-lole32")
-        libmad = Path(os.environ.get("CUERITHM_LIBMAD", ""))
+        libmad = Path(os.environ.get("CUERITHM_LIBMAD")
+                      or Path(os.environ.get("CUERITHM_WIN_ROOT", r"D:\cuerithm-win")) / "libmad")
         if (libmad / "lib" / "libmad.a").exists():
             # the MP3 decoder of Mixxx for Windows (libmad), built by windows/bootstrap.ps1
             LIBMAD_PROBE = work / "mad_probe.exe"
