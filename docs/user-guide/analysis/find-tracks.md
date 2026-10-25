@@ -13,6 +13,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:tracks-search-anyma -->
+<figure markdown>
+![The search box with anyma typed and four matching tracks: Atoma, No Good, Other Dimension and Prophecy](../assets/screens/tracks-search-anyma-light.webp#only-light){ .screen loading=lazy }
+![The search box with anyma typed and four matching tracks: Atoma, No Good, Other Dimension and Prophecy](../assets/screens/tracks-search-anyma-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Searching for one word matches the title, artist and genre; here the artist Anyma (ofc) finds four tracks.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Press ++cmd+f++ / ++ctrl+f++, or click the search box at the top of the window. It reads *Search tracks, artists, genres…*.
 2. Type part of a title, an artist or a genre. The table narrows as you type, the label above it changes to **Search results**, and the footer counts the matches.
 3. Delete the text to see the whole view again.
@@ -42,6 +50,14 @@ search also clears your [selection](select-many.md#selecting).
 
 Click a heading to sort by it. The first click sorts ascending, a second click on
 the same heading reverses the order, and a small arrow shows the direction.
+
+<!-- figure:tracks-sorted-by-energy -->
+<figure markdown>
+![The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow](../assets/screens/tracks-sorted-by-energy-light.webp#only-light){ .screen loading=lazy }
+![The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow](../assets/screens/tracks-sorted-by-energy-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Click a heading twice to put the highest value first.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Heading | Sorts by |
 |---|---|

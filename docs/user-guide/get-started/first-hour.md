@@ -34,6 +34,14 @@ Open **Incoming**. The header reads *Preparing 26 tracks* and each row names its
 
 In **Tracks**, click the **Energy** header twice: the first click sorts lowest first, the second puts the highest first. The strongest track is **Play With Fire (Original Mix)** by SampliFire and Jkyl & Hyde, <span class="cr-energy">8/10</span> at <span class="cr-bpm">140</span> BPM in <span class="cr-key">12A</span>. Eight tracks follow at <span class="cr-energy">7/10</span>, among them:
 
+<!-- figure:tracks-sorted-by-energy -->
+<figure markdown>
+![The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow](../assets/screens/tracks-sorted-by-energy-light.webp#only-light){ .screen loading=lazy }
+![The table sorted by energy, highest first, with Play With Fire (Original Mix) at 8/10 on top and the ENERGY heading showing a down arrow](../assets/screens/tracks-sorted-by-energy-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Two clicks on ENERGY put the highest-energy track first.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Track | Key | BPM | Energy |
 |---|---|---|---|
 | Come To Life (Original Mix) | 7A | 130 | 7/10 |
@@ -48,6 +56,14 @@ The key is a Camelot code: the number is the position on the wheel and the lette
 ## 4. Jump to the drop { #cues }
 
 Double-click **Come To Life (Original Mix)** by Cassian and AR/CO. It loads into the player and plays. Below the waveform, click **Drop** to land at about 0:59, **Breakdown** at 1:51, **Drop #2** at 3:01 and **End / Fade-out** at 4:26. Press ++arrow-right++ to jump one bar, which at 130 BPM is about 1.8 seconds.
+
+<!-- figure:tracks-player-come-to-life -->
+<figure markdown>
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-light.webp#only-light){ .screen loading=lazy }
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each cue button has its letter, name and time; click one to jump there.</figcaption>
+</figure>
+<!-- /figure -->
 
 **You should see** the playhead move and the beat lines under the cue markers line up with the kick. If a cue or the grid is wrong on a track, you can correct it.
 

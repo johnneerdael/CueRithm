@@ -26,6 +26,13 @@ Creating a portable backup does not read, hash or copy your music. Missing files
 
 ## Create a backup { #create }
 
+<!-- figure:existing-library-backup-back-up-library -->
+<figure markdown>
+![Library backup with a restore preview and the player still visible](../../assets/screens/library-backup.png){ .screen loading=lazy }
+<figcaption>Create a backup, and review a restore before it is scheduled.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Library backup** in the sidebar.
 2. Leave **Include musical revision history** selected to keep previous musical and analysis revisions. Clear it only when you want the selected revisions without that history.
 3. Select **Export .cuerithm**, choose the destination and save.
@@ -50,13 +57,6 @@ CueRithm does not delete your archives automatically. [Retained libraries](resto
 ## Same-installation recovery snapshots { #installation-snapshots }
 
 Expand **Same-installation recovery snapshots** when you specifically need the older database-and-manifest recovery format. It includes local preparation state and history, with strict checks against this installation, app version, music and recovery resources. It is not a portable migration archive.
-
-<!-- figure:existing-library-backup-back-up-library -->
-<figure markdown>
-![Library backup with a restore preview and the player still visible](../../assets/screens/library-backup.png){ .screen loading=lazy }
-<figcaption>Create a backup, and review a restore before it is scheduled.</figcaption>
-</figure>
-<!-- /figure -->
 
 1. Let preparation and recovery finish.
 2. Select **Create backup** inside this expanded section and choose a folder.

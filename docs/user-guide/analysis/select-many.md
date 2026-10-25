@@ -36,9 +36,18 @@ to *N selected* and a set of buttons.
 </figure>
 <!-- /figure -->
 
+<!-- figure:tracks-selection-toolbar -->
+<figure markdown>
+![Every track selected, with the bar above the table reading 26 selected and showing Edit metadata, Relocate, Review match (unavailable), Curate, Organize files, Analyze again, Archive and Drafts and history, and the Destination playlist strip below it](../assets/screens/tracks-selection-toolbar-light.webp#only-light){ .screen loading=lazy }
+![Every track selected, with the bar above the table reading 26 selected and showing Edit metadata, Relocate, Review match (unavailable), Curate, Organize files, Analyze again, Archive and Drafts and history, and the Destination playlist strip below it](../assets/screens/tracks-selection-toolbar-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The bar changes as soon as you select tracks; the playlist strip below it appears too.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Button | What it does | More |
 |---|---|---|
 | **Edit metadata** | Opens the tag editor for every selected track | [Edit tags and artwork](../tagging/edit-tags-by-hand.md) |
+| **Relocate** | Points the selected tracks at files you moved or replaced, and keeps their work | [Reconnect selected tracks](../files/library/find-missing-files.md#relocate) |
 | **Review match** | Shows the catalog match for one track. It stays unavailable unless exactly one track is selected | [Review and fix a wrong match](../tagging/review-a-match.md) |
 | **Curate** | Opens categories, rating and notes for the selected tracks | [Group tracks with categories and custom tags](../tagging/curate-tracks.md) |
 | **Organize files** | Opens file organisation with these tracks chosen | [Rename and sort files into folders](../rename/organize-files.md) |
@@ -73,6 +82,14 @@ by a column, **Manual order**. See
 ## Use the row menu for one track { #row-menu }
 
 Click the **⋯** button at the right end of a row.
+
+<!-- figure:tracks-row-menu -->
+<figure markdown>
+![The row menu opened on Atoma (Extended Mix) listing Edit metadata, Review match, Curate, Analyze again and Archive track](../assets/screens/tracks-row-menu-light.webp#only-light){ .screen loading=lazy }
+![The row menu opened on Atoma (Extended Mix) listing Edit metadata, Review match, Curate, Analyze again and Archive track](../assets/screens/tracks-row-menu-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The ⋯ button at the end of a row acts on that row.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Item | Applies to |
 |---|---|

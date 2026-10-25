@@ -18,6 +18,14 @@ It draws a thin vertical line at the first beat and then every `60 ÷ BPM` secon
 to the end of the track. Those are the lines you see in the waveform. They show the
 saved grid, so they include any [correction you made](corrections/fix-the-beatgrid.md).
 
+<!-- figure:tracks-beatgrid-32s -->
+<figure markdown>
+![The 32-second waveform of Come To Life (Original Mix) with thin beat lines running through the start of each kick](../assets/screens/tracks-beatgrid-32s-light.webp#only-light){ .screen loading=lazy }
+![The 32-second waveform of Come To Life (Original Mix) with thin beat lines running through the start of each kick](../assets/screens/tracks-beatgrid-32s-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>In the 32-second window every beat line should start where a kick starts.</figcaption>
+</figure>
+<!-- /figure -->
+
 Two things follow from that:
 
 - **The grid is constant.** CueRithm does not follow tempo changes, so a track with live drums or a tempo shift can only match for part of its length.
@@ -40,6 +48,14 @@ little early or late by the same amount, the first beat is off.
 ## 2. Look for drift { #look-for-drift }
 
 A small BPM error does not show at the start. It adds up. Check three places:
+
+<!-- figure:tracks-player-entire-track -->
+<figure markdown>
+![The player showing the entire track of Come To Life (Original Mix) with dense beat lines and the five cue lines](../assets/screens/tracks-player-entire-track-light.webp#only-light){ .screen loading=lazy }
+![The player showing the entire track of Come To Life (Original Mix) with dense beat lines and the five cue lines](../assets/screens/tracks-player-entire-track-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>In the entire-track view the beat lines are too dense to judge; use the 32-second window for the check.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. The start, as above.
 2. The middle. Click a cue such as **Breakdown** or **Drop #2**, then look at the next kicks.

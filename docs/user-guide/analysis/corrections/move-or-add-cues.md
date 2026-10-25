@@ -13,6 +13,14 @@ At the right end of the cue buttons, choose **Edit cues & grid**. The **Correct
 cues & beatgrid** panel opens above the player, and the player stays usable. The
 button now reads **Close corrections**.
 
+<!-- figure:tracks-corrections-cue-rows -->
+<figure markdown>
+![The Cues & saved loops box with one row per cue showing Slot, Name, Start in seconds, Kind, Color, Seek and Remove](../../assets/screens/tracks-corrections-cue-rows-light.webp#only-light){ .screen loading=lazy }
+![The Cues & saved loops box with one row per cue showing Slot, Name, Start in seconds, Kind, Color, Seek and Remove](../../assets/screens/tracks-corrections-cue-rows-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each cue is one row: slot, name, start in seconds, kind and colour.</figcaption>
+</figure>
+<!-- /figure -->
+
 The panel has a **Constant beatgrid** box and, under **Cues & saved loops**, one row
 per cue. Each row has these fields:
 
@@ -69,6 +77,14 @@ strip, decides the letter.
     [Sync to rekordbox 6 or 7](../../sync/rekordbox-direct.md).
 
 ## 5. Preview and save { #preview-and-save }
+
+<!-- figure:tracks-corrections-cue-preview -->
+<figure markdown>
+![The Review before saving box listing Come To Life (Original Mix) with its five cues and a button for each cue](../../assets/screens/tracks-corrections-cue-preview-light.webp#only-light){ .screen loading=lazy }
+![The Review before saving box listing Come To Life (Original Mix) with its five cues and a button for each cue](../../assets/screens/tracks-corrections-cue-preview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Preview shows the result and the cues; nothing is saved until Save preview.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Choose **Preview corrections**. The panel shows **Review before saving**: the track, the BPM and first beat before and after, and the number of cues before and after. A button for each cue seeks to its time.
 2. Choose **Save preview**. The panel confirms *Cues and beatgrid saved.*

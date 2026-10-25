@@ -1,0 +1,15 @@
+[
+ {
+  "scene": "tracks-selection-toolbar",
+  "steps": [
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ }
+]

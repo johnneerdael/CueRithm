@@ -120,6 +120,31 @@ DATA_COPY` prints the sandbox rules without starting anything.
 The sandbox is a backstop. Scans and previews only read, so capture those freely, and do not
 script an Apply, Delete or Archive step even though the sandbox would stop it.
 
+### What the driver can and cannot do
+
+The driver talks to the app through the accessibility tree, and falls back to real pointer
+clicks (only while the sandboxed app is the frontmost app) for what the tree does not list, such
+as the table's column headings. Things that surprised us, so scene files do not repeat the work:
+
+- **Shared web storage.** The sandboxed app has the installed app's bundle id, so both read and
+  write the same saved interface settings (theme, column choice, sidebar width) under
+  `~/Library/WebKit/com.cuerithm.app`. A capture run changes the owner's theme and columns:
+  note the values before a run (see the `localstorage.sqlite3` file there; values are UTF-16)
+  and put them back afterwards with the sandboxed app stopped. Column scenes run last
+  (`scenes/zz-columns-last.json`), because a column that was ever ticked stays in the saved order.
+- **Playing and pausing.** Press the Pause button, not Space: Space presses whichever control
+  holds keyboard focus. The play button of a row only exists once the row is selected.
+- **Typing.** `type` presses one key at a time, because `type_text` sets the field's accessibility
+  value (an empty field reports its placeholder) and never reaches the page's handlers. Only letters,
+  digits, space and the keypad keys exist; the keypad point types the system's decimal comma, so
+  `fill` sets a decimal value and steps it up and down so the page reads it.
+- **Selecting many rows.** The click tool cannot hold Command or Shift; use Command+A, which
+  selects every row of the view or search.
+- **Focus rings.** A control pressed through the accessibility tree keeps a keyboard focus ring;
+  `blur` clicks the brand text to clear it before the shot.
+- **Session drops.** The shared computer-use agent closes the connection now and then; the driver
+  restarts it and repeats the step, so a step must read the state before it clicks.
+
 ### Make the copy match the guide
 
 The guide's text quotes one small library, the 26 tracks of the private facts sheet

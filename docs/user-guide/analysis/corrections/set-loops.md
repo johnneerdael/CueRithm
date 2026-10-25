@@ -12,6 +12,14 @@ software loop it.
 
 ## 1. Add a loop at the playhead { #add-a-loop }
 
+<!-- figure:tracks-corrections-saved-loop -->
+<figure markdown>
+![A new Saved loop row with End in seconds and the Save active-loop flag checkbox, added at the playhead of Come To Life (Original Mix)](../../assets/screens/tracks-corrections-saved-loop-light.webp#only-light){ .screen loading=lazy }
+![A new Saved loop row with End in seconds and the Save active-loop flag checkbox, added at the playhead of Come To Life (Original Mix)](../../assets/screens/tracks-corrections-saved-loop-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A saved loop row has an end time and an active-loop checkbox.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Pause the player at the beat where the loop should start.
 2. Choose **Add saved loop at playhead**. A row named *Saved loop* appears in the lowest free slot, starting at the playhead.
 3. Look at **End · seconds**. CueRithm sets the end 16 beats after the start, using the grid's BPM, or at the end of the track if that comes first.

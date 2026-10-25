@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:tracks-corrections-panel -->
+<figure markdown>
+![The Correct cues & beatgrid panel open above the player for Come To Life (Original Mix), with the Constant beatgrid box and the cue rows](../../assets/screens/tracks-corrections-panel-light.webp#only-light){ .screen loading=lazy }
+![The Correct cues & beatgrid panel open above the player for Come To Life (Original Mix), with the Constant beatgrid box and the cue rows](../../assets/screens/tracks-corrections-panel-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The correction panel opens above the player and the player stays usable.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Start here
 
 - The grid looks wrong: [Check the beatgrid at beat level](../check-the-beatgrid.md), then [Fix a wrong beatgrid](fix-the-beatgrid.md).

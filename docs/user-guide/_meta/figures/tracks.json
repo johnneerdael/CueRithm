@@ -49,9 +49,9 @@
   "scene": "tracks-selection-toolbar",
   "page": "analysis/select-many.md",
   "after": "## Act on the selection { #selection-toolbar }",
-  "alt": "Three tracks selected, with the bar above the table reading 3 selected and showing Edit metadata, Review match, Curate, Organize files, Analyze again, Archive and Drafts and history",
+  "alt": "Every track selected, with the bar above the table reading 26 selected and showing Edit metadata, Relocate, Review match (unavailable), Curate, Organize files, Analyze again, Archive and Drafts and history, and the Destination playlist strip below it",
   "caption": "The bar changes as soon as you select tracks; the playlist strip below it appears too.",
-  "state": "Sidebar: Tracks. Command-click the three 6A tracks: 17 (Extended Mix), Dancin (Extended Mix) and Other Dimension (Extended Mix). The bar shows 3 selected, Review match is disabled, and the Destination playlist strip with Add to playlist is visible below it. Click nothing else.",
+  "state": "Sidebar: Tracks. Press Command+A so every track is selected (command-click cannot be scripted). The bar shows 26 selected, Review match is disabled, and the Destination playlist strip with Add to playlist is visible below it. Click nothing else.",
   "crop": "panel"
  },
  {
