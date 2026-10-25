@@ -426,8 +426,8 @@ exactly like `Info`. An untrimmed decode with libmpg123 (`mpg123 --no-gapless`, 
 second independent decoder) places the burst at +1104 in all four variants, matching
 FFmpeg's untrimmed alignment, so the raw decoder alignment does not depend on the
 decoder. The Mixxx column combines that measured alignment with the libmad behavior
-read from source at this point; libmad itself was run later, in the Linux runs under
-*Runtime acceptance* (the +1105 frames above), and not on Windows.
+read from source at this point; libmad itself was run later, in the Linux and Windows runs
+under *Runtime acceptance* (the +1105 frames above, on libmad 0.15.1 and 0.16.4).
 
 The rule, from header facts read from the file:
 
@@ -518,7 +518,7 @@ for the `-F` and `-529` cases) is moved to the start.
 
 | Format | macOS | Linux and Windows |
 | --- | --- | --- |
-| MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above; measured with libmad in Debian's Mixxx 2.5.0 for a LAME file with an Info frame: +1105 |
+| MP3 | `FFmpeg trim - (529 + CoreAudio priming)`, asked of CoreAudio | `-F`, `0` or `+(delay + 529)` as above; measured with libmad for a LAME file with an Info frame: +1105, in Debian's Mixxx 2.5.0 (libmad 0.15.1) and with libmad 0.16.4 on Windows |
 | AAC, M4A, MP4 | 0, measured for Apple and FFmpeg encoders, and in Mixxx 2.5.6 for AAC and ALAC in M4A | Linux with FFmpeg: 0, measured in Debian's Mixxx 2.5.0. Linux with FAAD: `priming - 1024` for AAC in M4A or MP4, measured in Mixxx `main` with two encoders (FFmpeg's 0, Apple's +1088); which decoder applies is read from the installed `mixxx`, and unknown means 0 with a warning. Windows (Media Foundation): the whole priming, `+1024` for FFmpeg's encoder and `+2112` for Apple's, 0 for Apple Lossless, measured on Windows Server 2019 with a probe that reads like Mixxx's source |
 | WAV, FLAC | 0, measured in Mixxx 2.5.6 | 0 |
 | AIFF, Ogg Vorbis | 0, measured in Mixxx 2.5.6 (libsndfile, `Xiph.org OggVorbis`) against FFmpeg's decode | 0 |
@@ -703,9 +703,8 @@ an administrator, so Mixxx is the project's installer package unpacked with an
 administrative install (checksum checked) rather than installed, and CueRithm's engine
 crate was built with the GNU toolchain (MinGW from WinLibs), not MSVC; the setup is
 `tools/mixxx-acceptance/windows/bootstrap.ps1`. Nobody clicks anything; the checks read
-Mixxx's database and debug log, as in the Linux runs. **154 checks passed and none failed.**
-The run also printed three notes, none of them a pass: the decoder list and MP3 alignment in
-the two scenarios (listed after the findings).
+Mixxx's database and debug log, as in the Linux runs. **156 checks passed and none failed.**
+The run also printed one note, which is not a pass: the decoder list.
 
 - Mixxx's log lists the decoders: Media Foundation for `aac`, `m4a` and `mp4`, MAD
   (libmad 0.16.4) for MP3, libsndfile for AIFF and WAV, libFLAC, OggVorbis and libopusfile.
@@ -745,8 +744,14 @@ the two scenarios (listed after the findings).
   the scratch profile's `mixxx.cfg`) before it starts Mixxx on Windows, and the check passed in
   both scenarios.
 
-Not measured: MP3 alignment through libmad (no libmad probe was built for Windows; the
-written first beat, 23155, is the libmad rule's value, which the Linux runs measured).
+- **MP3 through libmad.** The log names "MAD: MPEG Audio Decoder 0.16.4 NDEBUG FPM_64BIT
+  OPT_ACCURACY". `bootstrap.ps1` builds that version from the maintained source (CMake,
+  MinGW, `OPTIMIZE=ACCURACY`, a Release build) and the run builds `mad_probe.c` against it. The
+  probe finds the first click of the LAME-encoded file at frame **23157**, the same frame
+  Debian's libmad 0.15.1 gave, and the adapter's Windows timing wrote 23155 (the +1105 frames
+  of the libmad rule), within 2 frames, in both scenarios. The probe's libmad is that
+  version built from source, not the binary Mixxx ships, and like the other probes it was not
+  compared with a position Mixxx itself reports.
 
 What this does **not** show: Windows 10 or 11 (Server 2019 has the same Media Foundation
 generation, `10.0.17763`, but another build was not run); an MSVC-built CueRithm; a Mixxx
@@ -804,8 +809,6 @@ media probe, which reports 48000 for Opus.
   priming 1024 (FFmpeg) and 2112 (Apple) only, on one Windows build (`10.0.17763.9121`).
   A raw `.aac` (ADTS) stream, HE-AAC and other encoders have not been measured, and the
   preview says so for `.aac` files.
-- **MP3 on Windows.** Mixxx lists libmad there as on Linux, but no libmad probe was built
-  for Windows, so the +1105 frames measured on Linux is assumed to hold.
 - **WMA** cannot be opened by the macOS and Windows downloads (their logs register no WMA
   decoder); whether a Linux build with FFmpeg plays it, and how it would align, was not
   run.

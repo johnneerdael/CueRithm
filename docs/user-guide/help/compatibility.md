@@ -50,7 +50,7 @@ CueRithm writes to rekordbox's library directly. It does not read or write rekor
 | **Mixxx 2.5.6 on macOS** | 240 checks passed across fresh, existing, replaced, newly created and additional-format libraries. Mixxx loaded the libraries, grids and keys and preserved the synced rows. |
 | **Debian Mixxx 2.5.0 on Linux, in Docker** | 157 checks passed for MP3, WAV, FLAC, AAC, ALAC, AIFF, Ogg Vorbis and Opus. The real Mixxx loaded the library, grids and keys and preserved the synced rows. MP3 timing was measured through libmad. |
 | **Mixxx `main` (schema 40) on Linux, built with FAAD, in Docker** | 157 checks passed, including AAC from Apple's encoder moved to match FAAD and Mixxx's own upgrade of a CueRithm-created library. |
-| **Mixxx 2.5.6 on Windows Server 2019** | 154 checks passed for AAC (moved to match Media Foundation), ALAC, AIFF, Ogg Vorbis, Opus, WAV, FLAC and MP3, and a library CueRithm created, and Mixxx's analyzer left locked grids alone. MP3 timing through libmad was not measured there. |
+| **Mixxx 2.5.6 on Windows Server 2019** | 156 checks passed for AAC (moved to match Media Foundation), ALAC, AIFF, Ogg Vorbis, Opus, WAV, FLAC and MP3 (timing measured through libmad), and a library CueRithm created, and Mixxx's analyzer left locked grids alone. |
 
 The Linux run used the sync harness on macOS with Linux timing, then opened the result in the real Linux Mixxx. It shows that the library works in that Mixxx. It did not exercise CueRithm's own screens, discovery or process checks on Linux. Not yet checked: Windows 10 and 11, Mixxx 2.4 and release builds newer than 2.5, and Linux packages other than Debian's. The tested macOS, Debian and Windows builds cannot play WMA. [Sync to Mixxx](../sync/mixxx.md) gives the exact scope.
 
