@@ -907,9 +907,11 @@ def main():
             {"file": name, "title": f"Acceptance {name}", "key": "8A", "bpm": BPM, "first_beat": FIRST_BEAT,
              "duration": DURATION, "sample_rate": native_rate(target), "cues": CUES})
     # AAC from Apple's encoder as well: it writes more priming than FFmpeg's, and a decoder that
-    # does not read the priming (FAAD) would place it differently.
+    # does not read the priming (FAAD, Media Foundation) would place it differently. It is the
+    # input that needs a nonzero shift under FAAD, so a host without afconvert (Windows, native
+    # Linux) uses the checked-in file rather than going without.
     fixture = HERE / "fixtures" / "click128.apple.m4a"
-    if shutil.which("afconvert") or (WINDOWS and fixture.is_file()):
+    if shutil.which("afconvert") or fixture.is_file():
         apple = sources / "click128.apple.m4a"
         if shutil.which("afconvert"):
             run("afconvert", "-f", "m4af", "-d", "aac", "-b", "192000", str(wav), str(apple))
