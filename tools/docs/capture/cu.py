@@ -7,15 +7,45 @@ continue over several lines. `Screen` parses them and clicks by label.
 import base64
 import ctypes
 import json
+import os
 import re
 import subprocess
 import time
 
 APP = "CueRithm"
+# launch-copy.sh writes the process id, start time and data copy of the sandboxed app it starts.
+REGISTRY = os.path.expanduser("~/.cache/cuerithm-docs/capture-app")
+
+
+def running_cuerithm():
+    out = subprocess.run(["pgrep", "-x", "cuerithm-desktop"], capture_output=True, text=True).stdout
+    return out.split()
+
+
+def started_at(pid):
+    out = subprocess.run(["ps", "-o", "lstart=", "-p", pid], capture_output=True, text=True).stdout
+    return " ".join(out.split())
+
+
+def require_capture_app(registry=None):
+    """Stop unless the only running CueRithm is the sandboxed one launch-copy.sh started.
+
+    Any other instance (the installed app on the owner's real library, or one started after the
+    sandboxed app quit) is outside the sandbox and could rename or tag the real music files. The
+    driver therefore never starts an app and checks this before it touches one.
+    """
+    try:
+        with open(registry or REGISTRY, encoding="utf-8") as handle:
+            pid, started = handle.read().splitlines()[:2]
+    except (OSError, ValueError):
+        raise RuntimeError("no sandboxed CueRithm is registered; start one with tools/docs/capture/launch-copy.sh") from None
+    if running_cuerithm() != [pid] or started_at(pid) != started:
+        raise RuntimeError("the sandboxed CueRithm is not the only CueRithm running; stop and start it again with launch-copy.sh")
 
 
 class Cu:
     def __init__(self):
+        require_capture_app()
         self.proc = subprocess.Popen(["open-computer-use", "mcp"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.DEVNULL, text=True, bufsize=1)
         self.n = 0
@@ -47,6 +77,7 @@ class Cu:
                 return message
 
     def call(self, tool, **args):
+        require_capture_app()
         ident = self._id()
         self._send({"jsonrpc": "2.0", "id": ident, "method": "tools/call", "params": {"name": tool, "arguments": args}})
         reply = self._read(ident)
