@@ -11,6 +11,14 @@
 
 ## Open the column list { #open-the-column-list }
 
+<!-- figure:tracks-columns-panel -->
+<figure markdown>
+![The Table columns panel open beside the track table, with the Find metadata box and a checkbox for each column](../assets/screens/tracks-columns-panel-light.webp#only-light){ .screen loading=lazy }
+![The Table columns panel open beside the track table, with the Find metadata box and a checkbox for each column](../assets/screens/tracks-columns-panel-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Columns button at the end of the heading opens the list of columns with an arrow pair for each.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Tracks** (or **Incoming**, **Archive** or a playlist).
 2. Click the **Columns** button at the right end of the table heading. Its tooltip reads *Choose and order columns*.
 3. The **Table columns** panel opens. Type in *Find metadata…* to narrow the list; the list holds one row per column, each with a checkbox and two arrow buttons.

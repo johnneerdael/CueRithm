@@ -11,6 +11,14 @@
 
 The **Constant beatgrid** box at the top of the panel holds the whole grid:
 
+<!-- figure:tracks-corrections-grid-fields -->
+<figure markdown>
+![The Constant beatgrid box with the BPM field, the half and double buttons, First beat in seconds and Set at playhead](../../assets/screens/tracks-corrections-grid-fields-light.webp#only-light){ .screen loading=lazy }
+![The Constant beatgrid box with the BPM field, the half and double buttons, First beat in seconds and Set at playhead](../../assets/screens/tracks-corrections-grid-fields-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The whole grid is a BPM and a first beat.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Control | What it does |
 |---|---|
 | **BPM** | The tempo, from 0.01 to 1000 in steps of 0.01 |
@@ -69,6 +77,14 @@ A pause by ear is only approximate. You judge the grid by eye and by ear after y
 save, so expect to adjust once or twice.
 
 ## 4. Preview, save and check { #preview-and-save }
+
+<!-- figure:tracks-corrections-grid-preview -->
+<figure markdown>
+![Review before saving for Play With Fire (Original Mix) showing 140.00 to 70.00 BPM after choosing the half button](../../assets/screens/tracks-corrections-grid-preview-light.webp#only-light){ .screen loading=lazy }
+![Review before saving for Play With Fire (Original Mix) showing 140.00 to 70.00 BPM after choosing the half button](../../assets/screens/tracks-corrections-grid-preview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Preview shows the BPM before and after; saving is a separate step.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Choose **Preview corrections**. **Review before saving** lists the track, the BPM before and after (for example `140.00 → 70.00 BPM`), the first beat before and after, and the number of cues.
 2. Choose **Save preview**.

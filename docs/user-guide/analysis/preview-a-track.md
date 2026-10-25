@@ -33,6 +33,14 @@ the artist, and the track's **BPM** to two decimals, its **KEY** and its
 **ENERGY** rating. The numbers are the saved ones. If you
 [correct the grid](corrections/fix-the-beatgrid.md), the header shows the corrected BPM.
 
+<!-- figure:tracks-player-come-to-life -->
+<figure markdown>
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-light.webp#only-light){ .screen loading=lazy }
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The player: header, transport, waveform, overview and cue buttons.</figcaption>
+</figure>
+<!-- /figure -->
+
 Before you load anything, the header says *Nothing playing* and *Double-click a
 track to load and play*, and the waveform area reads *Your next track starts here*.
 
@@ -52,6 +60,14 @@ Above the big waveform, a label reads **BEATGRID & CUES** and names the file cod
 such as `FLAC`. If a track has no analysis yet, the label reads **PREVIEW**. At the
 right it says *32 seconds* or *Entire track*, followed by *click waveform to
 switch*.
+
+<!-- figure:tracks-player-entire-track -->
+<figure markdown>
+![The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E](../assets/screens/tracks-player-entire-track-light.webp#only-light){ .screen loading=lazy }
+![The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E](../assets/screens/tracks-player-entire-track-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Click the waveform to switch between 32 seconds and the entire track.</figcaption>
+</figure>
+<!-- /figure -->
 
 - **32 seconds** is the default. The window follows the playhead, which sits about a third of the way across. Near the start or the end of the track the window stops moving and the playhead travels instead.
 - **Entire track** shows everything at once.

@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:tracks-overview -->
+<figure markdown>
+![The Tracks view with 26 tracks and Come To Life (Original Mix) loaded in the player, showing 130.00 BPM, key 7A and energy 7](../assets/screens/tracks-overview-light.webp#only-light){ .screen loading=lazy }
+![The Tracks view with 26 tracks and Come To Life (Original Mix) loaded in the player, showing 130.00 BPM, key 7A and energy 7](../assets/screens/tracks-overview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The track table above and the player below: key, BPM, energy and cues for every track.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Start here
 
 <div class="grid cards" markdown>

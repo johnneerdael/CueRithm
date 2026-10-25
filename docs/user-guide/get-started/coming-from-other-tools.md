@@ -33,6 +33,14 @@ CueRithm's energy rating comes from a fixed formula over the whole track. It doe
 
 CueRithm places a **Start**, **Drop**, **Breakdown**, **Drop #2**, **Breakdown #2** and **End / Fade-out** cue where the track has them, in yellow, red, blue, red, blue and violet, plus an optional **S.O.S.** emergency loop. The player labels them with the letters A, B, C and so on in time order. The cue code is the part of CueRithm closest to Lexicon's behaviour as the owner observed it; it does not imitate Mixed In Key's cue placement. Cues are never written into the audio file's tags. They live in the library and reach your DJ software when you sync.
 
+<!-- figure:tracks-player-entire-track -->
+<figure markdown>
+![The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E](../assets/screens/tracks-player-entire-track-light.webp#only-light){ .screen loading=lazy }
+![The player showing the entire track of Come To Life (Original Mix) with the five cue lines labelled A to E](../assets/screens/tracks-player-entire-track-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Cues carry a letter, a name and a colour, and no energy label.</figcaption>
+</figure>
+<!-- /figure -->
+
 You can move, rename or add cues, save loops and reuse a layout on many tracks without disturbing the measured result: [Fix a wrong cue, loop or beatgrid](../analysis/corrections/index.md).
 
 ## Beatgrids and BPM { #grids }

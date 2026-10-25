@@ -1,0 +1,227 @@
+[
+ {
+  "scene": "tracks-corrections-panel",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ },
+ {
+  "scene": "tracks-corrections-grid-fields",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ },
+ {
+  "scene": "tracks-corrections-cue-rows",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ },
+ {
+  "scene": "tracks-corrections-cue-preview",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "fill",
+    "Cue start 2",
+    "59.5"
+   ],
+   [
+    "click",
+    "^button Preview corrections"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scroll",
+    "^button Preview corrections",
+    "down",
+    "1"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ },
+ {
+  "scene": "tracks-corrections-saved-loop",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button B Drop"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^button Add saved loop at playhead"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "scroll",
+    "^button Add saved loop at playhead",
+    "down",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ },
+ {
+  "scene": "tracks-corrections-grid-preview",
+  "steps": [
+   [
+    "search",
+    "Play With Fire"
+   ],
+   [
+    "play",
+    "Play With Fire"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^button Half BPM"
+   ],
+   [
+    "click",
+    "^button Preview corrections"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scroll",
+    "^button Preview corrections",
+    "down",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 3.0
+ }
+]

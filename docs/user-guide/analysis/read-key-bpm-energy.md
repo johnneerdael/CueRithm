@@ -16,6 +16,14 @@
 Click **Tracks** in the sidebar. Three of the default columns are the ones you
 need: **KEY**, **BPM** and **ENERGY**.
 
+<!-- figure:tracks-key-bpm-energy-columns -->
+<figure markdown>
+![The KEY chip 7A, the BPM 130.00 and the ENERGY bar 7/10 on the row for Come To Life (Original Mix)](../assets/screens/tracks-key-bpm-energy-columns-light.webp#only-light){ .screen loading=lazy }
+![The KEY chip 7A, the BPM 130.00 and the ENERGY bar 7/10 on the row for Come To Life (Original Mix)](../assets/screens/tracks-key-bpm-energy-columns-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Key, BPM and energy are three columns of the table.</figcaption>
+</figure>
+<!-- /figure -->
+
 Look at the row for *Come To Life (Original Mix)* by Cassian and AR/CO. It reads
 <span class="cr-key">7A</span>, <span class="cr-bpm">130</span> BPM and
 <span class="cr-energy">7/10</span>. A dash (—) in any of these columns means
@@ -70,6 +78,14 @@ band, so a one-point difference is a small step.
 
 ## 5. Sort to compare { #sort-to-compare }
 
+<!-- figure:tracks-sorted-by-bpm -->
+<figure markdown>
+![The table sorted by BPM with the highest first: Nivk, Rabteu - PLV at 160.00, then Brackish and Play With Fire at 140.00](../assets/screens/tracks-sorted-by-bpm-light.webp#only-light){ .screen loading=lazy }
+![The table sorted by BPM with the highest first: Nivk, Rabteu - PLV at 160.00, then Brackish and Play With Fire at 140.00](../assets/screens/tracks-sorted-by-bpm-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Click BPM twice to put the fastest track first.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **BPM** once, then again. The arrow beside it points down, and the highest tempo comes first: *Nivk, Rabteu - PLV (Creeds remix - Extended)* at 160 BPM, then *Brackish (Original Mix)* and *Play With Fire (Original Mix)* at 140 BPM.
 2. Click **ENERGY** twice. *Play With Fire (Original Mix)* comes first at 8/10, then the eight 7/10 tracks.
 3. Click **TRACK** to return to title order.
@@ -104,6 +120,14 @@ which starts with a BPM tolerance of ±4. To keep a standing list, build a
 Press the play button on the row for *Come To Life (Original Mix)*, or double-click
 it. The track loads into the player at the bottom of the window and starts playing.
 Press ++space++ to pause.
+
+<!-- figure:tracks-player-come-to-life -->
+<figure markdown>
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-light.webp#only-light){ .screen loading=lazy }
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The player repeats the three numbers and adds the waveform and the cues.</figcaption>
+</figure>
+<!-- /figure -->
 
 The player header repeats the numbers, with the BPM to two decimals, the **KEY**
 chip and the **ENERGY** rating. Below it you see the waveform and the cue buttons.

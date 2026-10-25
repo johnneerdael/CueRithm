@@ -1,0 +1,182 @@
+[
+ {
+  "scene": "tracks-overview",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "seekto",
+    "20"
+   ],
+   [
+    "deselect"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "tracks-search-anyma",
+  "steps": [
+   [
+    "search",
+    "anyma"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-sorted-by-energy",
+  "steps": [
+   [
+    "sort",
+    "ENERGY",
+    "2"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-sorted-by-bpm",
+  "steps": [
+   [
+    "sort",
+    "BPM",
+    "2"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-columns-panel",
+  "steps": [
+   [
+    "clickxy",
+    "1400",
+    "242"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "retheme": false
+ },
+ {
+  "scene": "tracks-key-bpm-energy-columns",
+  "steps": [],
+  "settle": 2.0
+ },
+ {
+  "scene": "tracks-row-preview-cues",
+  "steps": [],
+  "settle": 4.0
+ },
+ {
+  "scene": "tracks-row-menu",
+  "steps": [
+   [
+    "clickxy",
+    "1396",
+    "342.5"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "retheme": false
+ },
+ {
+  "scene": "tracks-player-come-to-life",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "seekto",
+    "20"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-player-entire-track",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^toggle button Waveform zoom"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-jump-to-drop",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button B Drop"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-cue-strip-prophecy",
+  "steps": [
+   [
+    "search",
+    "Prophecy"
+   ],
+   [
+    "play",
+    "Prophecy"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-beatgrid-32s",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button B Drop"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

@@ -15,6 +15,14 @@ title, the artist, <span class="cr-bpm">130</span> BPM, <span class="cr-key">7A<
 and <span class="cr-energy">7/10</span>, and the track starts playing. Press
 ++space++ to pause.
 
+<!-- figure:tracks-player-come-to-life -->
+<figure markdown>
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-light.webp#only-light){ .screen loading=lazy }
+![The player with Come To Life (Original Mix) loaded: BPM 130.00, key 7A, energy 7, the waveform, the overview and five cue buttons](../assets/screens/tracks-player-come-to-life-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A loaded track shows its numbers, waveform and one button per cue.</figcaption>
+</figure>
+<!-- /figure -->
+
 You should see a colour waveform, thin beat lines, a bar of coloured cue buttons
 and, under the waveform, a strip showing the whole track.
 
@@ -42,6 +50,14 @@ Under the waveform, each cue has a button with its slot letter, name and time. F
 <figure markdown>
 ![A row of cue buttons: Start, Drop, Breakdown, Drop #2 and End / Fade-out, each with a time](../assets/screens/crop-cue-chips.webp){ .screen loading=lazy }
 <figcaption>Each cue button shows its name and its time.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:tracks-jump-to-drop -->
+<figure markdown>
+![The player after clicking the B Drop button of Come To Life (Original Mix): the playhead sits on the red Drop cue line](../assets/screens/tracks-jump-to-drop-light.webp#only-light){ .screen loading=lazy }
+![The player after clicking the B Drop button of Come To Life (Original Mix): the playhead sits on the red Drop cue line](../assets/screens/tracks-jump-to-drop-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Clicking a cue button moves the playhead to that cue.</figcaption>
 </figure>
 <!-- /figure -->
 
@@ -84,6 +100,14 @@ Start**.
 
 Load *Prophecy (Extended Mix)* by Baset, Anyma (ofc) and 19:26. It has four buttons:
 
+<!-- figure:tracks-cue-strip-prophecy -->
+<figure markdown>
+![The player with Prophecy (Extended Mix) loaded and four cue buttons: A Start, B Drop, C Drop #2 and D End / Fade-out](../assets/screens/tracks-cue-strip-prophecy-light.webp#only-light){ .screen loading=lazy }
+![The player with Prophecy (Extended Mix) loaded and four cue buttons: A Start, B Drop, C Drop #2 and D End / Fade-out](../assets/screens/tracks-cue-strip-prophecy-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Prophecy has four cues; the letters follow the order in time.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Button | Time |
 |---|---|
 | A · Start | about 0:00 |
@@ -105,6 +129,14 @@ the track it stands for. To change what counts as a breakdown, see
 Go back to the table. The **PREVIEW** column draws a small waveform for each row
 with a triangle at every cue. Rest the pointer on one for a moment and a tooltip
 lists the cues as `A · Start`, `B · Drop` and so on.
+
+<!-- figure:tracks-row-preview-cues -->
+<figure markdown>
+![The PREVIEW column of the table: small waveforms with a triangle at each cue for 17, Atoma and Brackish](../assets/screens/tracks-row-preview-cues-light.webp#only-light){ .screen loading=lazy }
+![The PREVIEW column of the table: small waveforms with a triangle at each cue for 17, Atoma and Brackish](../assets/screens/tracks-row-preview-cues-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each row's mini waveform marks its cues with triangles; the cue count differs per track.</figcaption>
+</figure>
+<!-- /figure -->
 
 The tooltip uses the detector's own names, *Second Drop* and *Last beat*. The
 player shows the names that are saved with the track and sent to your DJ software,

@@ -6,7 +6,7 @@
 <figure markdown>
 ![The Tracks table after files were moved: each moved track appears twice, once with a dash instead of a preview](../../assets/screens/help-preview-dash-light.webp#only-light){ .screen loading=lazy }
 ![The Tracks table after files were moved: each moved track appears twice, once with a dash instead of a preview](../../assets/screens/help-preview-dash-dark.webp#only-dark){ .screen loading=lazy }
-<figcaption>An old offline track can appear beside a newly discovered track until you review the reconnection.</figcaption>
+<figcaption>After a move the old track is missing and the moved file is added again as a new track.</figcaption>
 </figure>
 <!-- /figure -->
 
