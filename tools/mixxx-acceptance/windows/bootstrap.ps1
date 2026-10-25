@@ -6,11 +6,11 @@
 #
 # What it fetches (all from the projects' own release pages; Mixxx's installer is checked against
 # the SHA-256 the Mixxx download server publishes next to it):
-#   PortableGit, WinLibs (GCC and the MinGW-w64 headers and import libraries, which include Media
-#   Foundation), Strawberry Perl (rusqlite's SQLCipher feature builds OpenSSL from source), Rust
-#   (GNU host, because the Visual Studio Build Tools need administrator rights), the embeddable
-#   Python, a static FFmpeg, and Mixxx's own Windows installer unpacked as an administrative
-#   image (no installation).
+#   PortableGit (its MSYS Perl and sh build the OpenSSL that rusqlite's SQLCipher feature compiles
+#   from source), WinLibs (GCC and the MinGW-w64 headers and import libraries, which include Media
+#   Foundation), Rust (GNU host, because the Visual Studio Build Tools need administrator rights),
+#   the embeddable Python, a static FFmpeg, and Mixxx's own Windows installer unpacked as an
+#   administrative image (no installation).
 param(
     [string]$Root = 'D:\cuerithm-win',
     [string]$Mixxx = '2.5.6',
@@ -50,13 +50,11 @@ if (-not (Test-Path "$Root\mingw64\bin\gcc.exe")) {
     tar.exe -xf "$Root\dl\$($a.name)" -C $Root
 }
 
-# 2b. Perl and make, for the OpenSSL that rusqlite's SQLCipher feature builds from source
-if (-not (Test-Path "$Root\perl\perl\bin\perl.exe")) {
-    $a = LatestAsset 'StrawberryPerl/Perl-Dist-Strawberry' '^strawberry-perl-[\d.]+-64bit-portable\.zip$'
-    Fetch $a.browser_download_url "$Root\dl\$($a.name)"
-    New-Item -ItemType Directory -Force "$Root\perl" | Out-Null
-    tar.exe -xf "$Root\dl\$($a.name)" -C "$Root\perl"
-}
+# 2b. Perl, sh and make, for the OpenSSL that rusqlite's SQLCipher feature builds from source.
+# OpenSSL's MinGW target refuses a native Windows Perl (Strawberry Perl "doesn't produce Unix like
+# paths"); the MSYS Perl and sh inside Git for Windows do, so their folder goes last on PATH (the
+# Windows tools keep priority), and make is the MinGW one under the name OpenSSL looks for.
+if (-not (Test-Path "$Root\git\usr\bin\perl.exe")) { throw "PortableGit has no usr\bin\perl.exe" }
 New-Item -ItemType Directory -Force "$Root\bin" | Out-Null
 if (-not (Test-Path "$Root\bin\make.exe")) {
     Copy-Item "$Root\mingw64\bin\mingw32-make.exe" "$Root\bin\make.exe"
@@ -103,7 +101,7 @@ if (-not (Get-ChildItem "$Root\mixxx-$Mixxx" -Recurse -Filter mixxx.exe -ErrorAc
 `$Root = '$Root'
 `$env:CARGO_HOME = "`$Root\cargo"
 `$env:RUSTUP_HOME = "`$Root\rustup"
-`$env:PATH = "`$Root\git\cmd;`$Root\mingw64\bin;`$Root\bin;`$Root\perl\perl\bin;`$Root\cargo\bin;`$Root\python;`$Root\ffmpeg\bin;`$env:PATH"
+`$env:PATH = "`$Root\git\cmd;`$Root\mingw64\bin;`$Root\bin;`$Root\cargo\bin;`$Root\python;`$Root\ffmpeg\bin;`$env:PATH;`$Root\git\usr\bin"
 "@ | Set-Content -Encoding ASCII "$Root\env.ps1"
 
 . "$Root\env.ps1"
