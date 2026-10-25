@@ -1,9 +1,9 @@
 # MIK facts register and modelling constraints
 
-Revision 25 · 24 October 2026 CEST / UTC · Required engineering reference.
+Revision 26 · 25 October 2026 CEST · Required engineering reference.
 
 Revision 2 authorized private MIK cue-model research and superseded revision 1's
-prohibition. Revisions 3–25 add fresh grouped-development comparisons, exact
+prohibition. Revisions 3–26 add fresh grouped-development comparisons, exact
 whole-track pooling exclusions and independently verified later experiments. Existing fact IDs and evidence identities are
 preserved; the product's validated Lexicon DSP remains in place.
 
@@ -45,9 +45,11 @@ numeric request identities (F142–F143). Its separately qualified captured
 inputs do not repair the twelve native-key failures or original container
 guards. It adds neither independent music nor requests to that benchmark.
 There is no promoted
-replacement model or completed 100% qualification.
+replacement model or completed 100% qualification. Revision 26 appends four
+completed local model/source-data findings; it adds no new MIK query or accepted
+model gain. Concurrent research is reported separately only after verification.
 
-The current register contains 147 scoped findings. Evidence references E001–E377 identify immutable private source snapshots by
+The current register contains 151 scoped findings. Evidence references E001–E398 identify immutable private source snapshots by
 SHA-256 in the provenance index below. They are identifiers, not missing public
 links. The private companion maps them to files, reproduction scripts and capture
 identities. Music, private library paths, real-track labels, credentials,
@@ -2583,6 +2585,135 @@ improvement or product-default change follows.
 **Evidence:** E376, E377, E375, E372, E373, E374.
 
 
+#### F148 — The tested class-mass and leaf-size changes do not repair the count witnesses
+
+**Type:** Controlled local model experiment, not recovered vendor behavior.
+
+Four raw22 L1 LightGBM arms retain the same 5,098 training records, seeds,
+300-tree/15-leaf budget and objective. The factors are unweighted versus
+class-balanced mass and minimum leaf size 20 versus two. The fixed arm order is
+unweighted/leaf20, balanced/leaf20, unweighted/leaf2, balanced/leaf2. Training matches are
+4,464, 1,016, 4,499 and 1,016; rare total counts two through five match 7, 113,
+15 and 115 of 161. Smaller leaves alone fix 74 and regress 39 records. The balanced
+arms fix 389/regress 3,837 and fix 368/regress 3,816. None fully repairs the three
+predeclared witness pairs. Gains in one class do not erase the regressions.
+
+Each arm uses a fresh Dataset. Requested balanced mass 5,098 in binary64 becomes
+5,097.999956071377 through the observed float32 Dataset weights, without a hidden
+renormalization. Independent tree traversal reconstructs all four by 5,119 raw
+outputs and 6,142,800 routes through 1,200 trees. Four fits, four reloads and 17
+native predict API calls include 21 post-fit run13/14 fixture files in one linked
+family. There is no development evaluation or new audio/capture. This budget does
+not include an independent repeat fit.
+
+**Rules out / prevents:** Reject these exact treatments as repairs. Training and
+rare-class gains are not unseen or complete-cue gains. Imbalance, capacity,
+objectives and representations remain open hypotheses; no method-wide exclusion,
+server architecture or product-default claim follows.
+
+**Evidence:** E378, E379, E380, E396.
+
+#### F149 — A frozen classifier merges a synthetic distinction in its stored borders
+
+**Type:** Existing-model diagnostic and finite mathematical exclusion.
+
+For the F144 synthetic pair requiring two versus three total cues, the previously
+rejected raw22 CatBoost classifier produces identical seven-score vectors and a
+total-eight prediction. All 15 differing raw coordinates survive float32
+conversion, but their vectors over all 272 exported borders, 600 leaf IDs and
+4,200 per-tree class contributions are identical. A deterministic function only
+of this exact stored-bin vector or its scores cannot return both required answers.
+Distinct routing in a separate real-recording witness pair also fails to repair
+both members; it is a different failure, not evidence of identical inputs.
+
+The zero-fit replay covers 5,098 training records and 21 linked run13/14 files,
+using two model loads, two predict_proba calls and four exports. Training matches
+are 4,461 versus retained L1 4,464, with 66 fixes/69 regressions; rare counts match
+9/161 versus seven. Six of 21 synthetic file matches represent three primary
+conditions and three baseline controls in one family. No named pair is fully
+repaired. Independent functional JSON inference reconstructs all 5,119 seven-score
+vectors and 3,071,400 routes with observed arithmetic error zero. Archived native
+forwards are word-identical and exports byte-identical. Scores are uncalibrated;
+classes one through seven encode additional cues in this observed profile.
+
+**Rules out / prevents:** Reject this frozen classifier as a repair and unary
+functions of the demonstrated identical stored representation. This does not
+prove raw22 insufficiency, recover the original training candidate-bin alphabet,
+exclude other thresholds, or explain the distinct real-pair failure. The physical
+cross-run construction has other changes documented by F150. No development,
+new-label, native PCM, unseen, format or default qualification follows.
+
+**Evidence:** E381, E382, E383, E384, E396.
+
+#### F150 — The F144 cross-run audio pair is not an identical prefix plus a suffix
+
+**Type:** Independently reconstructed synthetic source and continuity audit.
+
+The run13 upper-only 192-beat master and run14 200-beat baseline share content and
+dither seeds plus family gain one, but have different declared gain trajectories.
+Across 4,032,000 common frames, 4,031,999 float64 mix samples and 1,214,926 decoded
+PCM frames differ, first at zero-based indices one and 14,183. Float-mix difference
+RMS is −28.675439723532065 dBFS. Kick, percussion, bass and lead source prefixes are
+word-identical; harmony differs in the final 11,025 common samples and texture
+from frame one onward. The same calibration/envelope policy at different durations
+changes masks, gains and terminal-release placement. There are 1,060 shared source
+events, including four duration/calibration metadata changes, and 44 added events.
+
+Both float64 mix sums and all 12 declared 220-sample gain envelopes reconstruct
+exactly. Independent checks cover two masters, 22 unique NPYs, fixed authored RMS
+masks, 24 eight-beat overlap masks and 17 full Welch PSDs/102 band integrals. Maximum
+independent PSD error is below 1.4e-18. Both sources retain 44.1 kHz dual-mono PCM16
+FLAC and the −1 dBFS sample ceiling. Submitted curves differ at 128 of 256 indices,
+48–175 inclusive. Original cue coordinates [0,34] versus [0,32,128], returned times,
+labels and negative anchors remain preserved. A maximum auxiliary clock difference
+of 0.000629923758 seconds is not 1 ns parity. No audition, audio synthesis or alteration, native extraction, model or service
+call occurs in this read-only source audit; the masters are decoded and measured. Rejected R1 is preserved
+unexecuted; corrected R1B is independently reviewed and executed once.
+
+**Rules out / prevents:** Use this as a finite frozen-model counterexample, not an
+isolated suffix, duration, timbre or gain intervention. Shared seeds do not prove
+cross-length waveform equality. This does not identify texture calibration alone
+as the cause of every change, or equate component calibration with final per-file
+normalization. Future suffix tests need one common long timeline/calibration and
+an explicit release policy. No accuracy gain or server-architecture claim follows.
+
+**Evidence:** E385, E386, E387, E388, E389, E396.
+
+#### F151 — Pitch probabilities and extra key segments supply no missing variation in the audited training cohort
+
+**Type:** Original-input coverage audit, not a new MIK experiment or causal rule.
+
+All 5,098 admitted training requests contain exactly one 352-feature key segment,
+with binary64 time words equal to positive zero and the recorded duration. All
+61,176 pitch-probability words are positive zero. Each of nine compared cached
+views matches the original projected request in shape, dtype and scalar words:
+raw22, full curve, headers, cue scalars, energy183, separate RMS, energy times,
+first key352 and track scalars. All rows are supported and identity-qualified;
+no failures or unknown profiles are removed. Each of six declared fingerprint
+domains has 5,098 distinct records and no repeated bucket.
+
+The original 5,087 request files and 11 indexed requests from the historical
+3,452-entry capture are selected by the intake-parent checksum. A later capture
+at a reused filename is excluded from this R1D audit. All 79 key guards, 39 sealed
+groups and 112 diagnostic groups are excluded before delayed training targets.
+Independent reconstruction verifies every row, cache view and specified repair/
+regression/rare-count stratum. The overlapping 5,087 records are byte-identical to
+the preserved partial from the earlier failed attempt. The complete-source stream
+reader may transiently materialize ignored scalar or outer response-text tokens;
+it never decodes inner response JSON. Cached members are materialized before
+selected use. This audit makes zero model, native, audio or vendor operations and
+admits no new teacher labels; other intervening experiments are separately logged.
+
+**Rules out / prevents:** Nonconstant pitch vectors or omitted extra key segments
+cannot explain missing source variation within this measured cohort. Key352 is
+already cached; this audit does not establish its predictive or causal value.
+Uniqueness proves neither input sufficiency nor generalization, impossibility or
+attainability of 100% parity. The ten-root fingerprints omit auxiliary/client
+metadata; observed version metadata are constant here, without proving the service
+ignores metadata. Do not generalize these constants to unseen captures or versions.
+
+**Evidence:** E390, E391, E392, E393, E394, E395, E397, E398.
+
 ## Current owner direction: case-level correctness before acceptance
 
 The research target is 100% agreement on each final output: key, whole-track energy
@@ -2721,7 +2852,7 @@ that fit, not an exclusion of neural methods in general (F060).
 
 ## Private evidence provenance index
 
-E001–E100 retain revision 13 snapshots; E101–E350 add the reviewed later experiments and input audits. These hashes
+E001–E100 retain revision 13 snapshots; E101–E398 add the reviewed later experiments and input audits. These hashes
 attest snapshot identity, not correctness by themselves. The private companion
 provides the file map and original reproduction context. Future revisions must
 retain prior IDs or explicitly version replacement evidence.
@@ -3105,3 +3236,24 @@ retain prior IDs or explicitly version replacement evidence.
 | E375 | `5efb41c77cdcad4a7085c1bc3041aa86cf21f7d95e6388387923f9d57e4af4e2` |
 | E376 | `bafc0bdf5c30664b7862586b65563fc4c0d15e5be83a7a2742fa8ced1cf3c589` |
 | E377 | `72306810d126ca4a4f73c0488133aa07f590404c6fd00409a0ec63edb1c15dd4` |
+| E378 | `080bdbe4528ca1674d7368625a3280de838ee1069a2ad2079af07bfd35253057` |
+| E379 | `5728c823856a4f830e7c136f126939323df4ebc3ed57b3e9fe0295e17b07a8b7` |
+| E380 | `f37f0a242d751ffc3f71606efefd8e7664ecf3772b8ad4b2e5ed6f2dbb5b361b` |
+| E381 | `0afddfaf20001c943e300be7c7af5d14ff837f9d4469ff4883a2da2458bc5ad8` |
+| E382 | `c075b12374edcd223de6e98c68c9e0e4dbc841aa74426ea7b09e3a63fa935e8a` |
+| E383 | `c3179a70431fa89e14eb065f9b009379a2ec59b5598b4fb4ee348289c13ed08d` |
+| E384 | `362f0aa485e32df7512107e1084020733eb86a3163cb7e9bd6b98d5ad7bdc386` |
+| E385 | `9f3ac3d7e94d9d56718ad8394beefbc11f7e4eca5e5d8745aa542eec8665c75f` |
+| E386 | `719acfaa4149c23138dc80e4c1e2fe73ed9ff9254ac7ef6322a4fa6e15a4f4d2` |
+| E387 | `c7703d294d43fd1ebdc2f23ca8e7d3bc4e76c4130603ea0faea1af7789a439df` |
+| E388 | `460f0937fbe075e8ce66e8631d17707d68aba29816c40df2d239381b145f4b6c` |
+| E389 | `62c03bd23be9b36432f0e6cf0348be0bdd5869adbd16891c9f49273f1c16fe06` |
+| E390 | `cfa8fd3f8714f1ad812ec682505b4739668e67fc78dd0ef17a1623acc1973b3d` |
+| E391 | `768b2e8e177a1373ccf33f19af2dcdeb8d39c8a82d1fa33cd0f5086f9022e001` |
+| E392 | `db5bb068a998dfedf3f38ab4af178d6819cb866749d52db8579d1a1af023ea1f` |
+| E393 | `73f9885d04d7a9492e1420e2a2e8294e818926a4c7eda19580d94281fd237054` |
+| E394 | `4dbb18d6dbe8e58511bc8d9a69bc68a020a138c5804361f853fb9eb232a6443d` |
+| E395 | `e5d349f5b6844085b5e48d4bc647612226629b849e790fce6b722776354d03b5` |
+| E396 | `4a3ae1d4b5ad7164fa2fba1dfc64bbc8c893078b39359a7c81f3ac7e89bfc3aa` |
+| E397 | `ba50c2cf9df7ee319b78d514f9c409581b32f7ef6fecc00fd63a3dcf98df6ed6` |
+| E398 | `b7609061be20c2b67ec6257367ae8db07b31f76047009b5367a284e5e40dc08b` |

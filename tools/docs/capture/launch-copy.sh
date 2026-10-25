@@ -62,5 +62,11 @@ if pgrep -x cuerithm-desktop >/dev/null; then
   exit 1
 fi
 
+# The exec below keeps this process id, so the driver can tell this instance from any other: it
+# refuses to act unless this is the only CueRithm running.
+registry="$HOME/.cache/cuerithm-docs/capture-app"
+mkdir -p "$(dirname "$registry")"
+printf '%s\n%s\n%s\n' "$$" "$(ps -o lstart= -p "$$" | xargs)" "$copy" > "$registry"
+
 echo "Starting $app on $copy (writes allowed only there and in the app's own scratch folders)"
 CUERITHM_DATA_DIR="$copy" exec sandbox-exec -p "$profile" "$binary"

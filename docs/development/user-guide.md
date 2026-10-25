@@ -69,8 +69,8 @@ links to an image that does not exist yet:
 1. **Request.** A writer adds an entry to `docs/user-guide/_meta/figures/<tab>.json`
    (scene id, page, the heading it follows, alt text, caption and how to reproduce the
    state). See `docs/user-guide/_meta/figures/README.md`.
-2. **Capture.** `tools/docs/capture/` drives the installed CueRithm window on the real
-   demo library at 1440×940 with `open-computer-use` and `screencapture`, in dark and
+2. **Capture.** `tools/docs/capture/` drives the sandboxed CueRithm window (see below) on
+   the real demo library at 1440×940 with `open-computer-use` and `screencapture`, in dark and
    light, as raw PNGs with the window's own shape. `to_webp.py` converts them to
    2000 px wide WebP files named `assets/screens/<scene>-light.webp` and `-dark.webp`.
    Open every image before keeping it: reject an error banner, a hover highlight, a
@@ -108,7 +108,9 @@ tools/docs/capture/launch-copy.sh /path/to/capture-data
 
 The launcher sets `CUERITHM_DATA_DIR` to the copy, refuses the live data folder (also through a
 link) and refuses to start while CueRithm is already running, because that instance would be
-outside the sandbox. Nothing can rename, tag, move or delete the owner's music from the
+outside the sandbox. The launcher also records the process it starts, and the capture driver acts
+only while that is the only CueRithm running. The driver never starts an app, so a sandboxed app
+that quits cannot be replaced by the installed one, running on the real library. Nothing can rename, tag, move or delete the owner's music from the
 sandboxed app, whatever the saved settings say and wherever the music is (an external drive,
 `~/Music` or a cloud folder under `~/Library/CloudStorage`); reading is unaffected, so waveforms, playback
 and scans work. A write the sandbox blocks appears as a failed job or an error banner: reject
