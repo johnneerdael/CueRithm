@@ -39,6 +39,14 @@ FAAD and libmad) in a Docker volume made by `linux-main/build.sh`: AAC in M4A is
 by FAAD, measured with `faad_probe.c`, and the library CueRithm creates (schema 39) is
 upgraded to 40 by Mixxx itself, after which its tables must equal a library Mixxx created.
 
+`--windows` runs the `formats` and `created` scenarios against Mixxx for Windows (an installed
+or unpacked release; `windows/bootstrap.ps1` sets up everything without administrator rights).
+AAC and WMA are decoded there by Media Foundation, measured with `mf_probe.cpp`, which opens the
+file the way Mixxx's Media Foundation source does. The sync is the native Windows one. MP3 is
+decoded by libmad, for which there is no Windows probe, so its alignment is reported as not
+measured (the libmad rule was measured on Linux); the other formats are compared with FFmpeg's
+decode as on Linux.
+
 In all of them the sync goes through the real preview/apply path. The written rows are
 checked (grid, key, BPM lock, hot cues and loop, the playlist, the music folder, and that
 the first beat lands where CoreAudio, the decoder Mixxx uses on macOS, puts the first
@@ -80,6 +88,7 @@ CONTAINER = Path.home() / "Library/Containers/org.mixxx.mixxx/Data/Library/Appli
 DOCKER = "docker"
 LINUX_IMAGE = "cuerithm-mixxx-linux"
 LINUX_MAIN = None  # the Docker volume holding a Mixxx built from source, with --linux-main
+WINDOWS = False  # with --windows: Mixxx for Windows, Media Foundation, no Docker
 _containers = itertools.count()
 SAMPLE_RATE = 44100
 BPM = 128.0
@@ -94,6 +103,12 @@ CUES = [
 
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, **kwargs)
+
+
+def mixxx_path(path):
+    """A folder or file as Mixxx stores it: Qt's separators, so forward slashes on Windows too."""
+    resolved = Path(path).resolve()
+    return resolved.as_posix() if WINDOWS else str(resolved)
 
 
 def write_click_track(path):
@@ -215,6 +230,9 @@ def digest(library):
 # --- running Mixxx --------------------------------------------------------------------
 
 def mixxx_running():
+    if WINDOWS:
+        out = run("tasklist", "/FI", "IMAGENAME eq mixxx.exe", "/NH").stdout.decode().splitlines()
+        return [line for line in out if line.strip().lower().startswith("mixxx.exe")]
     out = run("ps", "-A", "-o", "comm=").stdout.decode().splitlines()
     return [line for line in out if line.strip().lower().endswith("mixxx")]
 
@@ -324,6 +342,11 @@ class Report:
         print(f"{'PASS' if ok else 'FAIL'}  {name}" + (f"  [{detail}]" if detail else ""))
         return ok
 
+    def note(self, text):
+        """Something that was not measured: shown, and counted as neither a pass nor a failure."""
+        self.notes = getattr(self, "notes", []) + [text]
+        print(f"NOTE  {text}")
+
 
 def probe_frames(probe, files):
     """CoreAudio's Mixxx frame of the first click, with the probe's 0.3 threshold."""
@@ -345,6 +368,8 @@ FORMATS = (
     ("click128.ogg", ["-c:a", "vorbis", "-strict", "-2", "-b:a", "192k"]),
     ("click128.opus", ["-c:a", "libopus", "-b:a", "128k"]),
 )
+# Windows can decode WMA through Media Foundation, so its run measures it as well.
+WINDOWS_FORMATS = (("click128.wma", ["-c:a", "wmav2", "-b:a", "192k"]),)
 
 
 def native_rate(path):
@@ -401,6 +426,12 @@ def faad_frame(path):
     return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
 
 
+def mf_frame(probe, path):
+    """Mixxx's frame of the first click for a file read with Media Foundation (see mf_probe.cpp)."""
+    out = run(str(probe), str(path)).stdout.decode()
+    return int(dict(item.split("=") for item in out.split())["mixxx_frame"])
+
+
 def format_truth(probe, files, providers):
     """Where the decoder Mixxx uses reads the first click, and at what rate, for each file."""
     truth, rates = {}, {}
@@ -408,7 +439,11 @@ def format_truth(probe, files, providers):
         extension = Path(name).suffix[1:]
         first = (providers.get(extension) or ["?"])[0]
         rates[name] = native_rate(path)
-        if first.startswith("MAD"):
+        if WINDOWS and "Media Foundation" in first:
+            truth[name] = mf_frame(probe, path)
+        elif WINDOWS and first.startswith("MAD"):
+            truth[name] = None  # no libmad probe for Windows
+        elif first.startswith("MAD"):
             truth[name] = mad_frame(path)
         elif LINUX_MAIN and ("FAAD" in first.upper() or "M4A" in first.upper()):
             try:
@@ -460,9 +495,12 @@ def check_rows(report, label, written, first, truth, rates=None, count=3):
         bpm, first_beat = decode_beat_grid(track["beats"])
         report.check(f"{tag}: grid tempo {BPM}", abs(bpm - BPM) < 1e-9 and abs(track["bpm"] - BPM) < 1e-9, f"{bpm}")
         report.check(f"{tag}: BPM locked", track["bpm_lock"] == 1)
-        gap = first_beat - truth[name]
-        report.check(f"{tag}: first beat within 16 frames of the first click as Mixxx's decoder reads it",
-                     abs(gap) <= 16, f"beat {first_beat}, click {truth[name]}, difference {gap}")
+        if truth[name] is None:
+            report.note(f"{tag}: alignment with Mixxx's decoder was not measured (written first beat {first_beat})")
+        else:
+            gap = first_beat - truth[name]
+            report.check(f"{tag}: first beat within 16 frames of the first click as Mixxx's decoder reads it",
+                         abs(gap) <= 16, f"beat {first_beat}, click {truth[name]}, difference {gap}")
         key = decode_key_map(track["keys"])
         report.check(f"{tag}: key A minor, source user",
                      (track["key"], track["key_id"], key) == ("Am", 22, (22, "Am", 2)), f"{track['key']} {key}")
@@ -544,7 +582,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     if mode in ("existing", "overwrite", "formats"):
         # Stands in for choosing the folder in Mixxx's dialog, which also adds the row.
         connection = sqlite3.connect(database)
-        connection.execute("INSERT INTO directories(directory) VALUES (?)", (str(music.resolve()),))
+        connection.execute("INSERT INTO directories(directory) VALUES (?)", (mixxx_path(music),))
         connection.commit()
         connection.close()
         print(f"[{label}] Starting Mixxx so that it adds the tracks itself...")
@@ -577,8 +615,12 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
                 chosen = (providers.get(extension) or [None])[0]
                 report.check(f"[{label}] Mixxx has a decoder for .{extension}", chosen is not None,
                              f"{chosen}")
-            report.check(f"[{label}] the installed Mixxx registers no decoder for .wma (so WMA cannot be opened)",
-                         "wma" not in providers, "providers: " + ", ".join(sorted(providers)))
+            if not WINDOWS:
+                report.check(f"[{label}] the installed Mixxx registers no decoder for .wma (so WMA cannot be opened)",
+                             "wma" not in providers, "providers: " + ", ".join(sorted(providers)))
+            else:
+                report.note("decoders Mixxx lists: " + "; ".join(
+                    f"{kind}: {names[0] if names else '?'}" for kind, names in sorted(providers.items())))
             truth, rates = format_truth(probe, files, providers)
             print(f"    first click by decoder: {truth}; rates: {rates}")
             for name in names:
@@ -619,7 +661,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
                truth, rates, len(names))
     folders = scan_list(database)
     report.check(f"[{label}] Mixxx's list of music folders is the folder holding the tracks",
-                 folders == [str(music.resolve())], str(folders))
+                 folders == [mixxx_path(music)], str(folders))
     if mode == "overwrite":
         report.check(f"[{label}] a playlist only Mixxx had is gone",
                      [p["name"] for p in written["playlists"]] == ["CueRithm acceptance"],
@@ -733,6 +775,9 @@ def main():
                         help="like --linux, with a Mixxx built from source in this Docker volume")
     parser.add_argument("--linux", action="store_true",
                         help="run the formats scenario against Debian's Mixxx in Docker (Linux)")
+    parser.add_argument("--windows", action="store_true",
+                        help="run the formats and created scenarios against Mixxx for Windows "
+                        "(--mixxx defaults to the one windows/bootstrap.ps1 unpacks)")
     parser.add_argument("--work", help="scratch folder inside Mixxx's sandbox container "
                         "(default: MixxxAcceptance/run-<time> beside Mixxx's own folder)")
     args = parser.parse_args()
@@ -740,7 +785,19 @@ def main():
         global LINUX_IMAGE, LINUX_MAIN
         LINUX_MAIN, LINUX_IMAGE = args.linux_main, "cuerithm-mixxx-main-deps"
         args.linux = True
-    if args.linux:
+    if args.windows:
+        global WINDOWS
+        WINDOWS = True
+        if args.mixxx == DEFAULT_MIXXX:
+            found = sorted(Path(os.environ.get("CUERITHM_WIN_ROOT", r"D:\cuerithm-win")).glob("mixxx-*/**/mixxx.exe"))
+            if not found:
+                sys.exit("Mixxx for Windows not found: run windows/bootstrap.ps1 or pass --mixxx PATH")
+            args.mixxx = str(found[0])
+        if not Path(args.mixxx).is_file():
+            sys.exit(f"Mixxx not found at {args.mixxx}")
+        if running := mixxx_running():
+            sys.exit(f"Mixxx is already running ({running[0].strip()}); quit it and run again")
+    elif args.linux:
         args.mixxx = DOCKER
         if subprocess.run(["docker", "image", "inspect", LINUX_IMAGE], capture_output=True).returncode:
             sys.exit(f"build the image first: docker build -t {LINUX_IMAGE} "
@@ -752,7 +809,8 @@ def main():
             sys.exit(f"Mixxx not found at {args.mixxx}")
         if running := mixxx_running():
             sys.exit(f"Mixxx is already running ({running[0].strip()}); quit it and run again")
-    default_work = (Path(tempfile.mkdtemp(prefix="mixxx-linux-")) if args.linux else
+    default_work = (Path(tempfile.mkdtemp(prefix="mixxx-win-" if args.windows else "mixxx-linux-"))
+                    if args.linux or args.windows else
                     CONTAINER / "MixxxAcceptance" / time.strftime("run-%Y%m%d-%H%M%S"))
     work = Path(args.work or default_work)
     sources = work / "source"
@@ -763,7 +821,11 @@ def main():
     wav = sources / "click128.wav"
     write_click_track(wav)
     run("ffmpeg", "-v", "error", "-y", "-i", str(wav), "-c:a", "flac", str(sources / "click128.flac"))
-    run("lame", "--quiet", "-b", "192", str(wav), str(sources / "click128.mp3"))
+    if WINDOWS:
+        run("ffmpeg", "-v", "error", "-y", "-i", str(wav), "-c:a", "libmp3lame", "-b:a", "192k",
+            str(sources / "click128.mp3"))
+    else:
+        run("lame", "--quiet", "-b", "192", str(wav), str(sources / "click128.mp3"))
     manifest = [
         {"file": name, "title": f"Acceptance {Path(name).suffix[1:].upper()}", "key": "8A", "bpm": BPM,
          "first_beat": FIRST_BEAT, "duration": DURATION, "sample_rate": SAMPLE_RATE, "cues": CUES}
@@ -771,7 +833,11 @@ def main():
     ]
     (sources / "manifest.json").write_text(json.dumps(manifest))
     probe, truth = None, {}
-    if not args.linux:
+    if args.windows:
+        probe = work / "mf_probe.exe"
+        run("g++", "-O2", "-municode", str(HERE / "mf_probe.cpp"), "-o", str(probe),
+            "-lmfplat", "-lmfreadwrite", "-lmfuuid", "-lole32")
+    elif not args.linux:
         probe = work / "coreaudio_probe"
         run("clang", "-framework", "AudioToolbox", "-framework", "CoreFoundation",
             str(HERE / "coreaudio_probe.c"), "-o", str(probe))
@@ -781,7 +847,7 @@ def main():
     # the files of the formats scenario: encoded from the same click track
     format_names = []
     manifest_formats = []
-    for name, codec in FORMATS:
+    for name, codec in FORMATS + (WINDOWS_FORMATS if WINDOWS else ()):
         target = sources / name
         run("ffmpeg", "-v", "error", "-y", "-i", str(wav), *codec, str(target))
         format_names.append(name)
@@ -790,9 +856,14 @@ def main():
              "duration": DURATION, "sample_rate": native_rate(target), "cues": CUES})
     # AAC from Apple's encoder as well: it writes more priming than FFmpeg's, and a decoder that
     # does not read the priming (FAAD) would place it differently.
-    if shutil.which("afconvert"):
+    fixture = HERE / "fixtures" / "click128.apple.m4a"
+    if shutil.which("afconvert") or (WINDOWS and fixture.is_file()):
         apple = sources / "click128.apple.m4a"
-        run("afconvert", "-f", "m4af", "-d", "aac", "-b", "192000", str(wav), str(apple))
+        if shutil.which("afconvert"):
+            run("afconvert", "-f", "m4af", "-d", "aac", "-b", "192000", str(wav), str(apple))
+        else:
+            # Made with afconvert from this script's click track (so: 128 BPM, first click at 0.5 s)
+            shutil.copy2(fixture, apple)
         format_names.append(apple.name)
         manifest_formats.append(
             {"file": apple.name, "title": f"Acceptance {apple.name}", "key": "8A", "bpm": BPM,
@@ -802,19 +873,22 @@ def main():
     wanted = args.only.split(",") if args.only else ["fresh", "existing", "overwrite", "created", "formats"]
     if args.linux:
         wanted = ["formats", "created"]
+    elif args.windows and not args.only:
+        wanted = ["formats", "created"]
     logs, reference = {}, {}
     linux_truth = {}
-    if args.linux and "created" in wanted:
-        # the files of the created scenario, read by the decoders Mixxx lists for them on Linux
+    if (args.linux or args.windows) and "created" in wanted:
+        # the files of the created scenario, read by the decoders Mixxx lists for them there
         linux_truth, _ = format_truth(None, {n: sources / n for n in NAMES},
                                       {"mp3": ["MAD"], "wav": ["libsndfile"], "flac": ["libFLAC"]})
     for name in wanted:
         if name == "formats":
             names = tuple(format_names)
             host = ""
-            if args.linux:
+            if args.linux or args.windows:
                 # MP3 (libmad), WAV and FLAC as well as the formats of the macOS run
                 names = NAMES + names
+            if args.linux:
                 host = "linux"
             (sources / "manifest.json").write_text(json.dumps(
                 [m for m in manifest if m["file"] in names] + manifest_formats))
@@ -824,7 +898,7 @@ def main():
         else:
             (sources / "manifest.json").write_text(json.dumps(manifest))
             logs[name] = scenario(report, args.mixxx, work / name, sources,
-                                  linux_truth if args.linux else truth, name, reference,
+                                  linux_truth if args.linux or args.windows else truth, name, reference,
                                   host="linux" if args.linux else "", upgrade=bool(LINUX_MAIN),
                                   aac=("faad" if LINUX_MAIN else "ffmpeg") if args.linux else "")
 
