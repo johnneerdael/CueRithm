@@ -233,7 +233,7 @@ Separate evidence, reported on its own: a run of the installed Mixxx 2.5.6 again
 database the adapter wrote, checking from its log and database that it loads the
 grid, key and cues, and does not rewrite them from tags. Mixxx was also run on Linux
 (Debian's 2.5.0, and `main` with FAAD, in containers) and on Windows (2.5.6 on Windows
-Server 2019); those results, and what each did not measure, are in the research contract.
+Server 2019, and with an MSVC build on hosted Windows Server 2022 and 2025); those results, and what each did not measure, are in the research contract.
 
 ## Decisions made without asking (flag if wrong)
 
