@@ -23,6 +23,14 @@ You buy a folder of new music every Friday and want a short list of the week's a
 
 ## The solution
 
+<!-- figure:playlists-recipe-added-editor -->
+<figure markdown>
+![The smart playlist editor named Added this week with one condition, Date added is in the last 7 days, and the preview of matching tracks](../../assets/screens/playlists-recipe-added-editor-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist editor named Added this week with one condition, Date added is in the last 7 days, and the preview of matching tracks](../../assets/screens/playlists-recipe-added-editor-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A relative date rule: an amount and a unit of days, weeks or months.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **+** beside **PLAYLISTS**, type `Added this week` and set **Playlist type** to **Smart playlist**.
 2. Set the first condition to the field **Date added**, the operator **is in the last**, the number `7` and the unit **days**.
 3. Click **Preview matches**, then **Create** within about a minute.

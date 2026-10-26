@@ -1,0 +1,268 @@
+[
+ {
+  "scene": "playlists-tools-combine",
+  "steps": [
+   [
+    "click",
+    "^button Playlist tools"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "fill",
+    "Result name",
+    "Club nights combined"
+   ],
+   [
+    "click",
+    "^pop up button Destination folder"
+   ],
+   [
+    "click",
+    "^menu item Club nights ID"
+   ],
+   [
+    "click",
+    "^checkbox Select Club nights / Warm-up set"
+   ],
+   [
+    "click",
+    "^checkbox Select Club nights / Peak hour"
+   ],
+   [
+    "click",
+    "^button Preview changes"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scrollto",
+    "Preview changes",
+    "260"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-tools-number",
+  "steps": [
+   [
+    "click",
+    "^button Playlist tools"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^pop up button Playlist tool"
+   ],
+   [
+    "click",
+    "^menu item Number playlists ID"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "tick",
+    "Leading zeroes",
+    "on"
+   ],
+   [
+    "click",
+    "^checkbox Select Club nights / Warm-up set"
+   ],
+   [
+    "click",
+    "^checkbox Select Club nights / Peak hour"
+   ],
+   [
+    "click",
+    "^button Preview changes"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scrollto",
+    "Preview changes",
+    "260"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-generator-bpm",
+  "steps": [
+   [
+    "click",
+    "^button Playlist tools"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^button Generate playlists"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "fill",
+    "New folder name",
+    "BPM bands"
+   ],
+   [
+    "click",
+    "^pop up button Generation dimension 1"
+   ],
+   [
+    "click",
+    "^menu item BPM ranges ID"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Preview playlists"
+   ],
+   [
+    "wait",
+    "3"
+   ],
+   [
+    "scrollto",
+    "Preview playlists",
+    "260"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-compatible-options",
+  "steps": [
+   [
+    "search",
+    "Come To Life"
+   ],
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Compatible tracks"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-compatible-results",
+  "steps": [
+   [
+    "search",
+    "Come To Life"
+   ],
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Compatible tracks"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^button Find compatible tracks"
+   ],
+   [
+    "wait",
+    "4"
+   ],
+   [
+    "scrollto",
+    "5 compatible tracks",
+    "235"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-add-bar",
+  "steps": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Destination playlist"
+   ],
+   [
+    "click",
+    "^menu item Club nights / Warm-up set ID"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

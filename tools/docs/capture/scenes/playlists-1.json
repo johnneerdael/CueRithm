@@ -1,0 +1,528 @@
+[
+ {
+  "scene": "playlists-sidebar-overview",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "scroll",
+    "^container Playlists",
+    "down",
+    "0.25"
+   ],
+   [
+    "wait",
+    "0.6"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "playlists-warm-up-open",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Playlist Warm-up set"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-flow-warm-up",
+  "steps": [
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "click",
+    "^button Playlist Warm-up set"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "switch",
+    "^toggle button Playlist flow",
+    "on"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "switch",
+    "^toggle button Playlist flow",
+    "off"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-order-arrows",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Playlist Warm-up set"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "row",
+    "2"
+   ],
+   [
+    "wait",
+    "1.5"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-smart-result",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Smart playlist Melodic house 128+"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tracks-mixes-with-7a",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Smart playlist Mixes with 7A"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "how-energy-7-and-up",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Smart playlist Energy 7 and up"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-menu",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Playlist actions for Warm-up set"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "retheme": false
+ },
+ {
+  "scene": "playlists-move-dialog",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Playlist actions for Peak hour"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^menu item Move to folder"
+   ],
+   [
+    "wait",
+    "1.2"
+   ]
+  ],
+  "retheme": false,
+  "modal": true,
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-create-editor",
+  "steps": [
+   [
+    "expand",
+    "Club nights"
+   ],
+   [
+    "click",
+    "^button Folder Club nights"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "Warm-up set"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ],
+  "retheme": false
+ },
+ {
+  "scene": "playlists-smart-editor-melodic",
+  "steps": [
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "Melodic house 128+"
+   ],
+   [
+    "click",
+    "^pop up button Playlist type"
+   ],
+   [
+    "click",
+    "^menu item Smart playlist"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 1"
+   ],
+   [
+    "click",
+    "^menu item genre ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 1"
+   ],
+   [
+    "click",
+    "^menu item contains ID"
+   ],
+   [
+    "fill",
+    "Value for condition 1",
+    "Melodic House"
+   ],
+   [
+    "click",
+    "^button Add condition"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 2"
+   ],
+   [
+    "click",
+    "^menu item BPM ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 2"
+   ],
+   [
+    "click",
+    "^menu item is at least ID"
+   ],
+   [
+    "fill",
+    "Number for condition 2",
+    "128"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-recipe-key-editor",
+  "steps": [
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "Mixes with 7A"
+   ],
+   [
+    "click",
+    "^pop up button Playlist type"
+   ],
+   [
+    "click",
+    "^menu item Smart playlist"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 1"
+   ],
+   [
+    "click",
+    "^menu item Key ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 1"
+   ],
+   [
+    "click",
+    "^menu item is compatible with key ID"
+   ],
+   [
+    "click",
+    "^pop up button Key for condition 1"
+   ],
+   [
+    "click",
+    "^menu item 7A ID"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-recipe-added-editor",
+  "steps": [
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "Added this week"
+   ],
+   [
+    "click",
+    "^pop up button Playlist type"
+   ],
+   [
+    "click",
+    "^menu item Smart playlist"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 1"
+   ],
+   [
+    "click",
+    "^menu item Date added ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 1"
+   ],
+   [
+    "click",
+    "^menu item is in the last ID"
+   ],
+   [
+    "fill",
+    "Amount for condition 1",
+    "7"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ }
+]

@@ -6,6 +6,14 @@
 
 ## Open the flow view { #open }
 
+<!-- figure:playlists-flow-warm-up -->
+<figure markdown>
+![The Playlist flow view of Warm-up set listing its tracks in order (the panel scrolls; the first four are in view) with energy 6/10 bars, BPM 126 rising to 128 with +1 BPM changes, and key lines showing one No harmonic key match on Palm Of Your Hands](../assets/screens/playlists-flow-warm-up-light.webp#only-light){ .screen loading=lazy }
+![The Playlist flow view of Warm-up set listing its tracks in order (the panel scrolls; the first four are in view) with energy 6/10 bars, BPM 126 rising to 128 with +1 BPM changes, and key lines showing one No harmonic key match on Palm Of Your Hands](../assets/screens/playlists-flow-warm-up-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Flow follows play order and flags the one transition without a harmonic key match.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click an ordinary playlist in the sidebar, for example **Warm-up set**.
 2. Click **Playlist flow** at the top right of the track area.
 

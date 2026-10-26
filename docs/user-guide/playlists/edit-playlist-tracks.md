@@ -8,6 +8,14 @@
 
 Select the tracks first (see [Work on many tracks at once](../analysis/select-many.md)), then use either way below.
 
+<!-- figure:playlists-add-bar -->
+<figure markdown>
+![The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button](../assets/screens/playlists-add-bar-light.webp#only-light){ .screen loading=lazy }
+![The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button](../assets/screens/playlists-add-bar-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Pick the destination under Choose playlist and click Add to playlist.</figcaption>
+</figure>
+<!-- /figure -->
+
 **With the playlist bar.**
 
 1. A bar of playlist controls appears above the track table as soon as something is selected.
@@ -31,6 +39,14 @@ Good to know:
 ## Put the tracks in order { #reorder-tracks }
 
 An ordinary playlist opens in **manual order**, the order you built. In that state you can reorder it two ways.
+
+<!-- figure:playlists-order-arrows -->
+<figure markdown>
+![The Warm-up set in manual order with Palm Of Your Hands selected and the playlist bar showing Remove from playlist and the Order up and down arrows](../assets/screens/playlists-order-arrows-light.webp#only-light){ .screen loading=lazy }
+![The Warm-up set in manual order with Palm Of Your Hands selected and the playlist bar showing Remove from playlist and the Order up and down arrows](../assets/screens/playlists-order-arrows-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>With a track selected, the Order arrows move it one place at a time.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. **With the arrows.** Select one or more tracks. Next to **Order**, click **Move selected tracks up** or **Move selected tracks down**. Each click moves every selected track one place and keeps their order relative to each other.
 2. **By dragging.** Drag the selected tracks onto another row. They land immediately before the row you dropped them on.

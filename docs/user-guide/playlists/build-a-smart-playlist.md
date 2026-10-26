@@ -47,6 +47,14 @@ A smart playlist holds no tracks of its own. You describe the tracks you want wi
 
 Click **Preview matches**.
 
+<!-- figure:playlists-smart-editor-melodic -->
+<figure markdown>
+![The smart playlist editor named Melodic house 128+ with the conditions genre contains Melodic House and BPM is at least 128, Match all conditions, and the preview reading 10 matching tracks](../assets/screens/playlists-smart-editor-melodic-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist editor named Melodic house 128+ with the conditions genre contains Melodic House and BPM is at least 128, Match all conditions, and the preview reading 10 matching tracks](../assets/screens/playlists-smart-editor-melodic-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Preview matches counts the tracks before you create the playlist.</figcaption>
+</figure>
+<!-- /figure -->
+
 **You should see** *10 matching tracks* beside the button. With the Beatport purchase folder used in this guide, they are:
 
 | Track | Genre | BPM |
@@ -74,6 +82,14 @@ Click **Create**.
 <figure markdown>
 ![A smart playlist showing its matching tracks](../assets/screens/56-smart-playlist-result.webp){ .screen loading=lazy }
 <figcaption>The playlist fills itself with the tracks that match.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:playlists-smart-result -->
+<figure markdown>
+![Melodic house 128+ open with 10 tracks from 17 (Extended Mix) at 128 BPM to Say Less at 130 BPM, and its lightning-bolt icon selected in the sidebar](../assets/screens/playlists-smart-result-light.webp#only-light){ .screen loading=lazy }
+![Melodic house 128+ open with 10 tracks from 17 (Extended Mix) at 128 BPM to Say Less at 130 BPM, and its lightning-bolt icon selected in the sidebar](../assets/screens/playlists-smart-result-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The smart playlist opens sorted by title, marked with a lightning bolt.</figcaption>
 </figure>
 <!-- /figure -->
 

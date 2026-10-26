@@ -1,0 +1,320 @@
+[
+ {
+  "scene": "playlists-tracklist-input",
+  "steps": [
+   [
+    "click",
+    "^button Tracklist matcher"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "paste",
+    "Reference tracklist",
+    "Adriatique - Palm Of Your Hands (Extended Mix)\nCassian, AR/CO - Come To Life (Original Mix)\nJast - Dancin (Extended Mix)\nAnyma (ofc) - Atoma (Extended Mix)\nSomeone Else - Unreleased Edit"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-tracklist-review",
+  "steps": [
+   [
+    "click",
+    "^button Tracklist matcher"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "paste",
+    "Reference tracklist",
+    "Adriatique - Palm Of Your Hands (Extended Mix)\nCassian, AR/CO - Come To Life (Original Mix)\nJast - Dancin (Extended Mix)\nAnyma (ofc) - Atoma (Extended Mix)\nSomeone Else - Unreleased Edit"
+   ],
+   [
+    "click",
+    "^button Find library candidates"
+   ],
+   [
+    "wait",
+    "4"
+   ],
+   [
+    "click",
+    "^radio button Choose row 1"
+   ],
+   [
+    "click",
+    "^radio button Choose row 2"
+   ],
+   [
+    "click",
+    "^radio button Choose row 3"
+   ],
+   [
+    "click",
+    "^radio button Choose row 4"
+   ],
+   [
+    "scrollto",
+    "Review 5 entries",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-recipe-warm-up-editor",
+  "steps": [
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "Warm-up candidates"
+   ],
+   [
+    "click",
+    "^pop up button Playlist type"
+   ],
+   [
+    "click",
+    "^menu item Smart playlist"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 1"
+   ],
+   [
+    "click",
+    "^menu item BPM ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 1"
+   ],
+   [
+    "click",
+    "^menu item is between ID"
+   ],
+   [
+    "fill",
+    "Minimum for condition 1",
+    "124"
+   ],
+   [
+    "fill",
+    "Maximum for condition 1",
+    "128"
+   ],
+   [
+    "click",
+    "^button Add condition"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 2"
+   ],
+   [
+    "click",
+    "^menu item Energy ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 2"
+   ],
+   [
+    "click",
+    "^menu item is between ID"
+   ],
+   [
+    "fill",
+    "Minimum for condition 2",
+    "1"
+   ],
+   [
+    "fill",
+    "Maximum for condition 2",
+    "6"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-rule-or-group",
+  "steps": [
+   [
+    "click",
+    "^button Create playlist$"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Playlist name",
+    "OR group example"
+   ],
+   [
+    "click",
+    "^pop up button Playlist type"
+   ],
+   [
+    "click",
+    "^menu item Smart playlist"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 1"
+   ],
+   [
+    "click",
+    "^menu item genre ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 1"
+   ],
+   [
+    "click",
+    "^menu item contains ID"
+   ],
+   [
+    "fill",
+    "Value for condition 1",
+    "House"
+   ],
+   [
+    "tick",
+    "OR group for condition 1",
+    "on"
+   ],
+   [
+    "click",
+    "^button Add condition"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 2"
+   ],
+   [
+    "click",
+    "^menu item genre ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 2"
+   ],
+   [
+    "click",
+    "^menu item contains ID"
+   ],
+   [
+    "fill",
+    "Value for condition 2",
+    "Techno"
+   ],
+   [
+    "tick",
+    "OR group for condition 2",
+    "on"
+   ],
+   [
+    "click",
+    "^button Add condition"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Field for condition 3"
+   ],
+   [
+    "click",
+    "^menu item Energy ID"
+   ],
+   [
+    "click",
+    "^pop up button Operator for condition 3"
+   ],
+   [
+    "click",
+    "^menu item is at least ID"
+   ],
+   [
+    "fill",
+    "Number for condition 3",
+    "7"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ }
+]

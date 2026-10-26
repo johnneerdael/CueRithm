@@ -20,6 +20,14 @@ An empty list matches nothing. If any single condition cannot be evaluated, the 
 
 Under **all conditions** you can still allow alternatives. Tick **OR group** on two or more conditions. Then at least one ticked condition must be true, and every unticked condition must still be true. A single ticked condition changes nothing.
 
+<!-- figure:playlists-rule-or-group -->
+<figure markdown>
+![The rule editor with Match all conditions and three conditions: genre contains House and genre contains Techno, each with OR group ticked, and Energy is at least 7, with the hint about flagged conditions below](../assets/screens/playlists-rule-or-group-light.webp#only-light){ .screen loading=lazy }
+![The rule editor with Match all conditions and three conditions: genre contains House and genre contains Techno, each with OR group ticked, and Energy is at least 7, with the hint about flagged conditions below](../assets/screens/playlists-rule-or-group-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Two ticked OR groups form one alternative; the unticked condition still applies.</figcaption>
+</figure>
+<!-- /figure -->
+
 For example, to collect high-energy house or techno:
 
 ```text
