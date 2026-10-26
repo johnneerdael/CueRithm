@@ -40,12 +40,13 @@ by FAAD, measured with `faad_probe.c`, and the library CueRithm creates (schema 
 upgraded to 40 by Mixxx itself, after which its tables must equal a library Mixxx created.
 
 `--windows` runs the `formats` and `created` scenarios against Mixxx for Windows (an installed
-or unpacked release; `windows/bootstrap.ps1` sets up everything without administrator rights).
-AAC and WMA are decoded there by Media Foundation, measured with `mf_probe.cpp`, which opens the
-file the way Mixxx's Media Foundation source does. The sync is the native Windows one. MP3 is
-decoded by libmad, for which there is no Windows probe, so its alignment is reported as not
-measured (the libmad rule was measured on Linux); the other formats are compared with FFmpeg's
-decode as on Linux.
+or unpacked release; `windows/bootstrap.ps1` sets up everything without administrator rights, or
+with `-Toolchain msvc` on a machine that already has the Visual Studio Build Tools, which is what
+`.github/workflows/mixxx-windows.yml` does on hosted runners). AAC and WMA are decoded there by
+Media Foundation, measured with `mf_probe.cpp`, which opens the file the way Mixxx's Media
+Foundation source does. The sync is the native Windows one. MP3 is decoded by libmad, measured
+with `mad_probe.c` against the libmad 0.16.4 that the bootstrap builds (the version Mixxx's log
+names); the other formats are compared with FFmpeg's decode as on Linux.
 
 In all of them the sync goes through the real preview/apply path. The written rows are
 checked (grid, key, BPM lock, hot cues and loop, the playlist, the music folder, and that

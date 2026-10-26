@@ -58,20 +58,24 @@ jobs:
         run: |
           $log = "$env:CUERITHM_WIN_ROOT\acceptance.log"
           if (Test-Path $log) { Get-Content $log }
-          "## Mixxx 2.5.6 on ${{ matrix.os }}, MSVC build" | Add-Content $env:GITHUB_STEP_SUMMARY
-          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
-          (rustc --version --verbose | Select-String '^(rustc|host)') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
+          # to the job log as well as the summary page
+          function Say([string]$line) { Write-Host $line; $line | Add-Content $env:GITHUB_STEP_SUMMARY }
+          Say "## Mixxx 2.5.6 on ${{ matrix.os }}, MSVC build"
+          Say '```'
+          (rustc --version --verbose | Select-String '^(rustc|host)') | ForEach-Object { Say $_.Line }
           # which C runtime the binary the sync ran in imports: the MSVC one, not MinGW's
           $exe = Get-ChildItem "$env:GITHUB_WORKSPACE\target\debug\deps" -Filter 'cuerithm_dj_sync-*.exe' -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime | Select-Object -Last 1
           if ($exe) {
             $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($exe.FullName))
-            "$($exe.Name) imports VCRUNTIME140.dll: $($text -match 'VCRUNTIME140\.dll'); imports libgcc: $($text -match 'libgcc_s')" | Add-Content $env:GITHUB_STEP_SUMMARY
+            Say "$($exe.Name) imports VCRUNTIME140.dll: $($text -match 'VCRUNTIME140\.dll'); imports libgcc: $($text -match 'libgcc_s')"
+          } else {
+            Say 'no cuerithm_dj_sync test binary found to inspect'
           }
           if (Test-Path $log) {
-            (Get-Content $log | Select-String 'checks passed|FAIL|NOTE') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
+            (Get-Content $log | Select-String 'checks passed|FAIL|NOTE') | ForEach-Object { Say $_.Line }
           }
-          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
+          Say '```'
       - name: Keep the run's files
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

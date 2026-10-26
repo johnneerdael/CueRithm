@@ -40,6 +40,7 @@ Escape hatches:
 - Fix a failed post-merge build directly on `main`, using the process below to retain passing checks. Docs-only pushes skip the builds.
 - Force a release (even for internal-only changes) or re-run a failed one with the `Release` workflow's manual dispatch on a green commit.
 - Test packaging without releasing by dispatching `Package desktop builds` with a commit SHA; the packages are kept as artifacts for 7 days.
+- Run the Mixxx sync against the real Mixxx 2.5.6 for Windows, with the sync built by MSVC on hosted Windows Server 2022 and 2025, by dispatching `Mixxx on Windows` (`gh workflow run mixxx-windows.yml --ref main`). It also runs after a push to `main` that changes `crates/cuerithm-dj-sync` or `tools/mixxx-acceptance`, takes about 15 minutes and is not part of the release gate. A new workflow file cannot be dispatched from a branch until it is on `main`.
 
 ## Retaining passing checks after a build fix
 
