@@ -142,6 +142,18 @@ as the table's column headings. Things that surprised us, so scene files do not 
   selects every row of the view or search.
 - **Focus rings.** A control pressed through the accessibility tree keeps a keyboard focus ring;
   `blur` clicks the brand text to clear it before the shot.
+- **Pop-up menus.** A menu is a `pop up button`; its entries appear in the accessibility tree as
+  `menu item NAME ID: …` only while it is open, so pick one with `click "^menu item NAME ID"`. A window
+  capture never includes an open menu, so a figure of an open menu cannot be taken this way.
+- **Long pages.** Controls scrolled out of view have no position, and a page long enough (Organize files
+  with a long history) fills the accessibility tree before the player. `scrollto TEXT TOP` finds the text
+  on screen with OCR and scrolls until it sits where the shot needs it; `MIN_X` picks the pane that scrolls
+  (the tag editor's inspector scrolls on its own). A pane that ignores scrolling is not captured.
+- **Text the key map cannot type.** `fill` and `paste` use the accessibility value for brackets, commas,
+  colons and line breaks, then a space and a backspace so the page reads it.
+- **History in the copy.** A scene that shows a list of past work (Organize history, drafts) starts from
+  whatever the copy holds. Clear it with the app stopped (the rows of the `organization_*` tables) or
+  discard it in the app (Drafts and history), never in the owner's library.
 - **Session drops.** The shared computer-use agent closes the connection now and then; the driver
   restarts it and repeats the step, so a step must read the state before it clicks.
 

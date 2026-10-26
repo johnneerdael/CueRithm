@@ -22,6 +22,14 @@ The last three rows hold only when the files store each artist as a value of its
 
 ## The solution
 
+<!-- figure:cleanup-artists-search-anyma -->
+<figure markdown>
+![Artists tab with the search box showing Anyma and the row for the value Anyma (ofc) with its track count and role counts, and the Replace box holding Anyma](../../assets/screens/cleanup-artists-search-anyma-light.webp#only-light){ .screen loading=lazy }
+![Artists tab with the search box showing Anyma and the row for the value Anyma (ofc) with its track count and role counts, and the Replace box holding Anyma](../../assets/screens/cleanup-artists-search-anyma-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The list shows each stored value with how many tracks carry it.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Cleanup** and the **Artists** tab. Tick **Enable artist cleanup**. Leave **artist** ticked; also tick **remixer** or **producer** if the name appears there.
 2. In **Search artists**, type `Anyma`. The list shows each stored value with its track count and role counts, such as "artist: 4". If you see a row `Anyma (ofc)`, each artist is its own value. If you only see joined rows such as `Stylo, Anyma (ofc)`, the credit is stored as one value; see the note below.
 3. On the `Anyma (ofc)` row, type `Anyma` in the box that says **Keep existing**.

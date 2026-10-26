@@ -6,6 +6,14 @@
 
 ## Sync your library { #sync-your-library }
 
+<!-- figure:sync-virtualdj-options -->
+<figure markdown>
+![Sync with VirtualDJ chosen: the VirtualDJ library folder field, the Application environment menu, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids](../assets/screens/sync-virtualdj-options-light.webp#only-light){ .screen loading=lazy }
+![Sync with VirtualDJ chosen: the VirtualDJ library folder field, the Application environment menu, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids](../assets/screens/sync-virtualdj-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>VirtualDJ has the shared options and no key notation or drive controls.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Sync** in the sidebar, open **Sync to** and choose **VirtualDJ**.
 2. Under **VirtualDJ library folder**, check the location. CueRithm fills in the first library it finds, and if it finds several a **Found libraries** menu lets you choose. The folder button browses; the refresh button looks again. You can pick the folder or its `database.xml`.
 3. Choose **What to sync** ([Choose what to sync](choose-what-to-sync.md)).

@@ -215,6 +215,14 @@ A text fix also leaves a genre or artist alone when the value is on the **Protec
 
 Open the **Genres** tab and tick **Enable genre cleanup**.
 
+<!-- figure:cleanup-genre-conversion -->
+<figure markdown>
+![Genres tab with Enable genre cleanup ticked, an Add mapping button, the Protected genres box, and the Convert genres into categorized tags option ticked with the category Subgenres and the Genres to convert box](../assets/screens/cleanup-genre-conversion-light.webp#only-light){ .screen loading=lazy }
+![Genres tab with Enable genre cleanup ticked, an Add mapping button, the Protected genres box, and the Convert genres into categorized tags option ticked with the category Subgenres and the Genres to convert box](../assets/screens/cleanup-genre-conversion-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Genres tab combines mappings, protection, conversion to categories and your library's own values.</figcaption>
+</figure>
+<!-- /figure -->
+
 - **Mappings.** Each row maps an **Exact source value** to a **Canonical value**. The match is exact and case sensitive: `dubstep` does not match `Dubstep`. Tick **Remove** to delete a value instead. Press **Add mapping** for a new row, or type in the box on a library value's row (**Replace … with**), which creates the mapping for you.
 - **Chains and duplicates.** `Deep Dubstep` → `Dubstep` → `Bass Music` ends at `Bass Music`. A loop is refused with "Genre cleanup mappings contain a cycle. Change a target to end the chain." If two genres end up identical on one track, only one is kept.
 - **Protected genres, one per line.** These are never changed by a mapping or a text fix.
@@ -226,6 +234,14 @@ If a track's only genre is removed or converted away, its Genre field ends up em
 ## Artists { #artists }
 
 Open the **Artists** tab and tick **Enable artist cleanup**. Choose the contributor fields it covers: **artist** (the default), **remixer**, **producer**, **composer** and **lyricist**. Keep at least one ticked. Album artist is not one of them.
+
+<!-- figure:cleanup-artists-roles -->
+<figure markdown>
+![Artists tab with Enable artist cleanup ticked, the five role boxes artist, remixer, producer, composer and lyricist, and library artist values with per-role counts](../assets/screens/cleanup-artists-roles-light.webp#only-light){ .screen loading=lazy }
+![Artists tab with Enable artist cleanup ticked, the five role boxes artist, remixer, producer, composer and lyricist, and library artist values with per-role counts](../assets/screens/cleanup-artists-roles-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Choose which contributor roles the artist mappings cover.</figcaption>
+</figure>
+<!-- /figure -->
 
 Mappings, **Protected artists, one per line** and the library list work as they do for genres, with counts per role such as "artist: 2 · producer: 1". Three things to know:
 

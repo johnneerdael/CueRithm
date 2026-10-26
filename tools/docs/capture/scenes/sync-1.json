@@ -1,0 +1,170 @@
+[
+ {
+  "scene": "sync-pioneer-usb-options",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Pioneer USB ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-engine-dj-options",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Engine DJ ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-serato-options",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Serato DJ Pro 4 ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-virtualdj-options",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item VirtualDJ ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-djay-pro-options",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item djay Pro ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-mixxx-library-modes",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Mixxx ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

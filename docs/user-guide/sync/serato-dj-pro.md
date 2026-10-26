@@ -30,6 +30,14 @@ Timing is adjusted for Serato's own decoder on a copy: cues and grids in MP3 fil
 
 ## Choose the Serato options { #options }
 
+<!-- figure:sync-serato-options -->
+<figure markdown>
+![Serato DJ Pro 4 options: External or network drive root, Convert keys, Use nearest supported colors, Keep existing beatgrids and Beatgrid locks](../assets/screens/sync-serato-options-light.webp#only-light){ .screen loading=lazy }
+![Serato DJ Pro 4 options: External or network drive root, Convert keys, Use nearest supported colors, Keep existing beatgrids and Beatgrid locks](../assets/screens/sync-serato-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Serato adds key conversion, beatgrid locks and an optional drive root.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Option | Default | What it does |
 |---|---|---|
 | **All smartlists to playlists** | off | Sends every smart playlist as an ordinary crate |
