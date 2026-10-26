@@ -682,7 +682,7 @@ def scenario(report, mixxx, work, sources, truth, mode, reference, names=NAMES, 
     sync = subprocess.run(
         ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
          "write_acceptance_library", "--nocapture"],
-        cwd=REPO, env=env, capture_output=True, text=True)
+        cwd=REPO, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
     applied = "APPLIED Applied" in sync.stdout
     report.check(f"[{label}] the sync applied", applied,
                  "" if applied else (sync.stdout + sync.stderr)[-500:])
@@ -806,7 +806,7 @@ def check_detection(report, work):
     result = subprocess.run(
         ["cargo", "test", "-p", "cuerithm-dj-sync", "--lib", "--", "--ignored",
          "real_mixxx_executables_are_told_apart"],
-        cwd=REPO, env=env, capture_output=True, text=True)
+        cwd=REPO, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
     named = " and ".join("built with FAAD" if "WITH_" in v else "built without it" for v in builds)
     report.check(f"CueRithm reads which AAC decoder the real Mixxx executable has ({named})",
                  "1 passed" in result.stdout, result.stdout[-300:] if "1 passed" not in result.stdout else "")

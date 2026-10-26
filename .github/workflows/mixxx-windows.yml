@@ -3,7 +3,8 @@ name: Mixxx on Windows
 # Runs tools/mixxx-acceptance against the real Mixxx 2.5.6 for Windows, with the sync built by the
 # MSVC toolchain the shipped Windows app uses (the test VM used for the GNU-toolchain runs cannot
 # install the Visual Studio Build Tools without administrator rights). Mixxx's installer is checked
-# against the checksum its download server publishes. Not part of the release gate.
+# against the checksum its download server publishes. Two Windows Server generations, so two
+# versions of Media Foundation, which decodes AAC for Mixxx there. Not part of the release gate.
 on:
   push:
     branches: [main, fix/mixxx-case-fold-and-faad]
@@ -21,7 +22,11 @@ env:
   CUERITHM_WIN_ROOT: D:\cuerithm-win
 jobs:
   mixxx-windows:
-    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -29,7 +34,7 @@ jobs:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: mixxx-windows
+          shared-key: mixxx-${{ matrix.os }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/native-crypto-tools
       - name: Rust toolchain
@@ -52,19 +57,26 @@ jobs:
         shell: pwsh
         run: |
           $log = "$env:CUERITHM_WIN_ROOT\acceptance.log"
-          if (Test-Path $log) {
-            Get-Content $log
-            "## Mixxx 2.5.6 on Windows, MSVC build" | Add-Content $env:GITHUB_STEP_SUMMARY
-            '```' | Add-Content $env:GITHUB_STEP_SUMMARY
-            (rustc --version --verbose | Select-String '^(rustc|host)') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
-            (Get-Content $log | Select-String 'checks passed|FAIL|NOTE') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
-            '```' | Add-Content $env:GITHUB_STEP_SUMMARY
+          if (Test-Path $log) { Get-Content $log }
+          "## Mixxx 2.5.6 on ${{ matrix.os }}, MSVC build" | Add-Content $env:GITHUB_STEP_SUMMARY
+          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
+          (rustc --version --verbose | Select-String '^(rustc|host)') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
+          # which C runtime the binary the sync ran in imports: the MSVC one, not MinGW's
+          $exe = Get-ChildItem "$env:GITHUB_WORKSPACE\target\debug\deps" -Filter 'cuerithm_dj_sync-*.exe' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime | Select-Object -Last 1
+          if ($exe) {
+            $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($exe.FullName))
+            "$($exe.Name) imports VCRUNTIME140.dll: $($text -match 'VCRUNTIME140\.dll'); imports libgcc: $($text -match 'libgcc_s')" | Add-Content $env:GITHUB_STEP_SUMMARY
           }
+          if (Test-Path $log) {
+            (Get-Content $log | Select-String 'checks passed|FAIL|NOTE') | ForEach-Object { $_.Line } | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
       - name: Keep the run's files
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: mixxx-windows-acceptance
+          name: mixxx-windows-acceptance-${{ matrix.os }}
           path: |
             D:\cuerithm-win\acceptance.log
             D:\cuerithm-win\work\**\report.json
