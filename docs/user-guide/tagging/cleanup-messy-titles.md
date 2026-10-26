@@ -21,6 +21,14 @@ In **Tracks**, [search](../analysis/find-tracks.md) for `Original Mix` and [sele
 </figure>
 <!-- /figure -->
 
+<!-- figure:cleanup-open-selected -->
+<figure markdown>
+![Cleanup opened from five selected tracks: the Smart Fixes tab with no rules yet and the Scope menu reading 5 selected tracks](../assets/screens/cleanup-open-selected-light.webp#only-light){ .screen loading=lazy }
+![Cleanup opened from five selected tracks: the Smart Fixes tab with no rules yet and the Scope menu reading 5 selected tracks](../assets/screens/cleanup-open-selected-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Cleanup starts empty; the scope is the five tracks you selected.</figcaption>
+</figure>
+<!-- /figure -->
+
 Cleanup opens with the title **Cleanup**, the line "Review metadata changes. Keep your audio, analysis and cues." and three tabs: **Smart Fixes**, **Genres** and **Artists**. Under the tabs, the **Scope** menu reads **5 selected tracks**, because Cleanup takes whatever was selected when you opened it. If your search also lists tracks marked missing, leave those unselected.
 
 *Why:* a small scope makes the first run quick to check. Later you can switch **Scope** to **All ready tracks**.
@@ -36,6 +44,14 @@ On the **Smart Fixes** tab, choose **Common title text** in the **New Smart Fix*
 </figure>
 <!-- /figure -->
 
+<!-- figure:cleanup-smart-fix-added -->
+<figure markdown>
+![Smart Fixes tab with one card, Smart Fix: Common title text, its Pattern set to Original Mix suffix and Save cleanup rules just pressed](../assets/screens/cleanup-smart-fix-added-light.webp#only-light){ .screen loading=lazy }
+![Smart Fixes tab with one card, Smart Fix: Common title text, its Pattern set to Original Mix suffix and Save cleanup rules just pressed](../assets/screens/cleanup-smart-fix-added-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>One rule is enough for this tutorial: the Original Mix suffix pattern.</figcaption>
+</figure>
+<!-- /figure -->
+
 The card shows an **Enabled** box, the rule's number in the list and buttons to move it up or down or remove it. **Scan tracks** stays grey until you save, with the note "Save rule changes before scanning." This makes the scan and the later apply use exactly the same rules.
 
 See [Common title text](cleanup-rules.md#fix-common-title-text) for the other three patterns and for what each Smart Fix does.
@@ -43,6 +59,14 @@ See [Common title text](cleanup-rules.md#fix-common-title-text) for the other th
 ## 3. Fold one genre spelling into another { #merge-a-genre }
 
 Open the **Genres** tab and tick **Enable genre cleanup**. CueRithm lists every genre in your library with its track count; press **Refresh values** if the list looks stale. Type `Dubstep` into **Search genres** to narrow it.
+
+<!-- figure:cleanup-genre-mapping -->
+<figure markdown>
+![Genres tab with Enable genre cleanup ticked, the search box showing Dubstep and the row 140 / Deep Dubstep / Grime with Dubstep typed in its Replace box](../assets/screens/cleanup-genre-mapping-light.webp#only-light){ .screen loading=lazy }
+![Genres tab with Enable genre cleanup ticked, the search box showing Dubstep and the row 140 / Deep Dubstep / Grime with Dubstep typed in its Replace box](../assets/screens/cleanup-genre-mapping-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A mapping is typed on the library value's own row.</figcaption>
+</figure>
+<!-- /figure -->
 
 Find the row for `140 / Deep Dubstep / Grime`, click the box that says **Keep existing** and type `Dubstep`. Press **Save cleanup rules**.
 
@@ -56,6 +80,14 @@ Scroll to the **Scope** menu, check that it still says **5 selected tracks** and
 <figure markdown>
 ![Cleanup preview: 10 proposed changes, 7 unchanged, 0 unavailable](../assets/screens/72-cleanup-preview.webp){ .screen loading=lazy }
 <figcaption>Scanning previews every change before anything is written.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:cleanup-preview-original-mix -->
+<figure markdown>
+![Cleanup preview titled 5 proposed changes; the first card, Brackish, shows title Brackish (Original Mix) becoming Brackish and genre 140 / Deep Dubstep / Grime becoming Dubstep](../assets/screens/cleanup-preview-original-mix-light.webp#only-light){ .screen loading=lazy }
+![Cleanup preview titled 5 proposed changes; the first card, Brackish, shows title Brackish (Original Mix) becoming Brackish and genre 140 / Deep Dubstep / Grime becoming Dubstep](../assets/screens/cleanup-preview-original-mix-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A scan only proposes changes; every card has a checkbox.</figcaption>
 </figure>
 <!-- /figure -->
 

@@ -35,6 +35,14 @@ If you started Mixxx with `--settings-path`, choose that folder. Mixxx always ru
 
 The **Mixxx library** menu has two choices.
 
+<!-- figure:sync-mixxx-library-modes -->
+<figure markdown>
+![The Mixxx library menu set to Replace the whole library with its explanation, the Existing Mixxx tracks menu below it, and the Mixxx settings folder path blurred](../assets/screens/sync-mixxx-library-modes-light.webp#only-light){ .screen loading=lazy }
+![The Mixxx library menu set to Replace the whole library with its explanation, the Existing Mixxx tracks menu below it, and the Mixxx settings folder path blurred](../assets/screens/sync-mixxx-library-modes-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Replace the whole library builds a new Mixxx library from the sync and keeps the old one in the backup.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Choice | What happens |
 |---|---|
 | **Update the library Mixxx has** (default) | Works inside the library that is there. If the folder has no Mixxx library yet, CueRithm creates one first: all of Mixxx's tables, its Auto DJ playlist, then your tracks, cues, keys, beatgrids and playlists. The folder is created too when the folder above it exists. The preview says so, and **Restore backup** removes what was created |
@@ -45,6 +53,14 @@ For this tutorial keep **Update the library Mixxx has**.
 ## 4. Choose a mode { #choose-a-mode }
 
 **Existing Mixxx tracks** decides what happens to tracks Mixxx already has. Tracks Mixxx does not have yet are added with their CueRithm details, key, beatgrid and cues either way. The menu is unavailable under **Replace the whole library**.
+
+<!-- figure:sync-mixxx-manage-library -->
+<figure markdown>
+![Mixxx options with Existing Mixxx tracks set to Manage library, the three Replace checkboxes ticked, Playlists become set to Playlists (keep order), Do not send beatgrids and Beatgrid locks](../assets/screens/sync-mixxx-manage-library-light.webp#only-light){ .screen loading=lazy }
+![Mixxx options with Existing Mixxx tracks set to Manage library, the three Replace checkboxes ticked, Playlists become set to Playlists (keep order), Do not send beatgrids and Beatgrid locks](../assets/screens/sync-mixxx-manage-library-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Manage library lets CueRithm replace Mixxx's grids, keys and cues piece by piece.</figcaption>
+</figure>
+<!-- /figure -->
 
 | | **Add only** (default) | **Manage library** |
 |---|---|---|

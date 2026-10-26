@@ -45,7 +45,7 @@ Verbs: click PATTERN [NTH] | dblclick PATTERN [NTH] | key KEY [COUNT] | type TEX
        scroll PATTERN DIR PAGES | clickxy X Y | dblclickxy X Y | drag X1 Y1 X2 Y2 (window points) |
        wait SECONDS | wait_for PATTERN [SECONDS] | gone PATTERN | reset | view NAME |
        sort HEADING [CLICKS] | play TITLE | seekto SECONDS |
-       columns | expand FOLDER | height POINTS | switch PATTERN on|off | paste LABEL TEXT | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
+       columns | expand FOLDER | height POINTS | switch PATTERN on|off | clickall PATTERN | paste LABEL TEXT | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP [MIN_X]] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
 A scene with "modal": true skips the pause and volume steps (a dialog hides the player) and should carry "retheme": false.
 A scene may carry "after": [steps] that run once the picture is taken, to undo what it changed, and "crop": "window" (default) | "panel" | "player"; without it the crop requested in
 docs/user-guide/_meta/figures/*.json for that scene id is used.
@@ -207,7 +207,11 @@ def reset(cu):
 
 def volume(cu, value):
     cu.state()
-    cu.call("set_value", app="CueRithm", element_index=cu.find(r"^slider .*Volume", refresh=False)["idx"], value=value)
+    try:
+        slider = cu.find(r"^slider .*Volume", refresh=False)
+    except LookupError:
+        return  # a very long page (Organize files history) fills the accessibility tree before the player
+    cu.call("set_value", app="CueRithm", element_index=slider["idx"], value=value)
 
 
 def pause_playback(cu):
@@ -295,12 +299,12 @@ def click_row(cu, number, how="plain"):
         press_with(how, 700, y)
 
 
-def scroll_page(cu, direction, pages):
+def scroll_page(cu, direction, pages, min_x=360):
     """Scroll the page body. The scroll tool acts where its element is, so use a control that is on screen now
     (a query lists only visible elements); controls scrolled out of view leave nothing to scroll."""
     for role in ("checkbox", "radio button", "text field", "number field", "pop up button", "button"):
         found = json.loads(cu.call("query", app="CueRithm", role=role, limit=200)[0])["matches"]
-        found = [m for m in found if m["bounds"]["x"] > 360 and 230 < m["bounds"]["y"] < 700]
+        found = [m for m in found if m["bounds"]["x"] > min_x and 230 < m["bounds"]["y"] < 700]
         if found:
             cu.call("scroll", app="CueRithm", element_index=str(found[0]["index"]), direction=direction, pages=pages)
             time.sleep(0.7)
@@ -410,11 +414,13 @@ def run_step(cu, step):
                 break
             cu.click(rf"^button Move {re.escape(args[0])} {'left' if gap > 1 else 'right'}", refresh=False)
             time.sleep(0.4)
+    elif verb == "fill" and not re.fullmatch(r"[A-Za-z0-9 .+*/-]*", args[1]):
+        run_step(cu, ["paste", *args])  # characters the key map cannot press
     elif verb == "fill":
         # fill LABEL TEXT: a number or text box by its accessibility label, typed with real key presses
         matches = json.loads(cu.call("query", app="CueRithm", text=args[0])[0])["matches"]
         box = next(m for m in matches if m.get("title") == args[0])["bounds"]
-        if "." in args[1]:
+        if re.fullmatch(r"-?\d+\.\d+", args[1]):
             # Keypad "." types the system's decimal comma and a controlled number box drops "59." while typing:
             # set the value, then step it up and down so the page reads it.
             cu.click_xy(box["x"] + box["w"] / 2, box["y"] + box["h"] / 2)
@@ -437,6 +443,7 @@ def run_step(cu, step):
         # scrollto TEXT [TOP]: scroll the page until the first visible line of text containing TEXT sits TOP points
         # (default 190) below the window top. Reads the screen, because off-screen elements have no bounds.
         want = float(args[1]) if len(args) > 1 else 190.0
+        min_x = float(args[2]) if len(args) > 2 else 360  # the inspector pane to the right of the table scrolls on its own
         for _ in range(30):
             try:
                 y = find_text(args[0])[1]
@@ -444,7 +451,7 @@ def run_step(cu, step):
                 y = None
             if y is not None and abs(y - want) <= 35:
                 break
-            scroll_page(cu, "up" if (y is not None and y < want) else "down", 0.5 if (y is None or abs(y - want) > 300) else 0.12)
+            scroll_page(cu, "up" if (y is not None and y < want) else "down", 0.5 if (y is None or abs(y - want) > 300) else 0.12, min_x)
     elif verb == "paste":
         # paste LABEL TEXT: a text box or text area filled with text the key map cannot type (brackets, commas, line breaks):
         # the accessibility value is set, then a space and a backspace make the page read it
@@ -458,6 +465,14 @@ def run_step(cu, step):
         cu.key("space")
         cu.key("BackSpace")
         time.sleep(0.6)
+    elif verb == "clickall":
+        # clickall PATTERN: press every matching control, one after another (for example each Remove rule button)
+        for _ in range(12):
+            cu.state()
+            if not cu.has(args[0]):
+                break
+            cu.click(args[0], refresh=False)
+            time.sleep(0.6)
     elif verb == "switch":
         # switch PATTERN on|off: press a toggle button only when it is not already in that state
         toggle = cu.find(args[0])

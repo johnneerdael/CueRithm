@@ -15,6 +15,14 @@
 
 In **Tracks**, [select the six tracks](../analysis/select-many.md). Press **Organize files** in the table toolbar, or choose **Organize files** under **TOOLS** in the sidebar. The page is titled **Organize files** with the line "Review complete naming plans before changing your library."
 
+<!-- figure:organize-scope-selected -->
+<figure markdown>
+![Organize files opened from four selected tracks: the Scope menu reading 4 selected tracks and the Naming rules section collapsed above the Preview complete plan button](../assets/screens/organize-scope-selected-light.webp#only-light){ .screen loading=lazy }
+![Organize files opened from four selected tracks: the Scope menu reading 4 selected tracks and the Naming rules section collapsed above the Preview complete plan button](../assets/screens/organize-scope-selected-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A plan covers a scope you choose; here it is six selected tracks.</figcaption>
+</figure>
+<!-- /figure -->
+
 The **Scope** menu reads **6 selected tracks**. Its other choices are **Current playlist**, **Folder** (press **Choose scope folder** and tick **Include subfolders** if you want them) and **All ready tracks**. Only Ready tracks that are not archived can be organised.
 
 *Why:* a plan always covers a complete scope you can see. Start small, then widen the scope when the pattern is right.

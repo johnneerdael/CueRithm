@@ -199,7 +199,7 @@
   "scene": "sync-mixxx-library-modes",
   "page": "sync/mixxx.md",
   "after": "## 3. Start from nothing, or replace everything { #library-modes }",
-  "alt": "The Mixxx library menu set to Replace the whole library with its explanation, the Existing Mixxx tracks menu disabled",
+  "alt": "The Mixxx library menu set to Replace the whole library with its explanation, the Existing Mixxx tracks menu below it, and the Mixxx settings folder path blurred",
   "caption": "Replace the whole library builds a new Mixxx library from the sync and keeps the old one in the backup.",
   "state": "Sidebar: Sync. Sync to = Mixxx (the app upgraded to the release with Mixxx). Set 'Mixxx library' to 'Replace the whole library' so the explanatory note shows and 'Existing Mixxx tracks' is greyed out. Leave 'Mixxx settings folder' empty or with a generic placeholder.",
   "crop": "panel"

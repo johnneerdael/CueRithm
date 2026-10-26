@@ -20,6 +20,14 @@ The pattern may be 1 to 2,048 bytes long. Press a button under the box (**Artist
 
 ## Tags you can use { #tokens }
 
+<!-- figure:organize-token-buttons -->
+<figure markdown>
+![The Filename pattern box with the eight token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it](../assets/screens/organize-token-buttons-light.webp#only-light){ .screen loading=lazy }
+![The Filename pattern box with the eight token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it](../assets/screens/organize-token-buttons-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Eight buttons insert the most-used tags at the cursor.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Tag | Gives you | Notes |
 |---|---|---|
 | `{artist}` | The first artist | `Adriatique` |
@@ -113,6 +121,14 @@ Two of these have recipes: [Sort files into artist folders](recipes/sort-files-i
 ## What can go wrong { #what-can-go-wrong }
 
 The **Example filenames** panel shows these messages as you type, and **Preview complete plan** and **Save settings** are blocked until the pattern is valid.
+
+<!-- figure:organize-pattern-error -->
+<figure markdown>
+![Example filenames showing the error Unknown naming field: artsit for the pattern {artsit} - {title}, with Preview complete plan disabled](../assets/screens/organize-pattern-error-light.webp#only-light){ .screen loading=lazy }
+![Example filenames showing the error Unknown naming field: artsit for the pattern {artsit} - {title}, with Preview complete plan disabled](../assets/screens/organize-pattern-error-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A misspelled tag is caught as you type.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Message | Cause and fix |
 |---|---|

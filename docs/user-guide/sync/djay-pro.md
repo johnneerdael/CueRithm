@@ -6,6 +6,14 @@
 
 ## Sync your library { #sync-your-library }
 
+<!-- figure:sync-djay-pro-options -->
+<figure markdown>
+![Sync with djay Pro chosen: the djay Media Library folder field, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids](../assets/screens/sync-djay-pro-options-light.webp#only-light){ .screen loading=lazy }
+![Sync with djay Pro chosen: the djay Media Library folder field, What to sync, and the options All smartlists to playlists, Use nearest supported colors and Keep existing beatgrids](../assets/screens/sync-djay-pro-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>djay Pro uses the shared options.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Sync** in the sidebar, open **Sync to** and choose **djay Pro**.
 2. Under **djay Media Library folder**, check the location. CueRithm finds libraries under `Music/djay`; if it finds several, a **Found libraries** menu lets you choose. You can pick the folder that holds the library or the `MediaLibrary.db` file.
 3. Choose **What to sync** ([Choose what to sync](choose-what-to-sync.md)).

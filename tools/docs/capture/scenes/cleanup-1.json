@@ -1,0 +1,520 @@
+[
+ {
+  "scene": "cleanup-open-selected",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-smart-fix-added",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^pop up button New Smart Fix"
+   ],
+   [
+    "click",
+    "^menu item Common title text ID"
+   ],
+   [
+    "click",
+    "^button Add Smart Fix"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Save cleanup rules"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-genre-mapping",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^pop up button New Smart Fix"
+   ],
+   [
+    "click",
+    "^menu item Common title text ID"
+   ],
+   [
+    "click",
+    "^button Add Smart Fix"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Save cleanup rules"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^tab Genres"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Enable genre cleanup",
+    "on"
+   ],
+   [
+    "fill",
+    "Search genres",
+    "Dubstep"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "fill",
+    "Replace 140 / Deep Dubstep / Grime with",
+    "Dubstep"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-genre-conversion",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^tab Genres"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Enable genre cleanup",
+    "on"
+   ],
+   [
+    "tick",
+    "Convert genres into categorized tags",
+    "on"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-artists-roles",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^tab Artists"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Enable artist cleanup",
+    "on"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-artists-search-anyma",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^tab Artists"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Enable artist cleanup",
+    "on"
+   ],
+   [
+    "fill",
+    "Search artists",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "fill",
+    "Replace Anyma (ofc) with",
+    "Anyma"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-preview-original-mix",
+  "steps": [
+   [
+    "search",
+    "Original"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "clickall",
+    "^button Remove rule"
+   ],
+   [
+    "clickall",
+    "^button Save cleanup rules"
+   ],
+   [
+    "click",
+    "^pop up button New Smart Fix"
+   ],
+   [
+    "click",
+    "^menu item Common title text ID"
+   ],
+   [
+    "click",
+    "^button Add Smart Fix"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Save cleanup rules"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^tab Genres"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Enable genre cleanup",
+    "on"
+   ],
+   [
+    "fill",
+    "Search genres",
+    "Dubstep"
+   ],
+   [
+    "fill",
+    "Replace 140 / Deep Dubstep / Grime with",
+    "Dubstep"
+   ],
+   [
+    "click",
+    "^button Save cleanup rules"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^tab Smart Fixes"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Scan tracks"
+   ],
+   [
+    "wait",
+    "6"
+   ],
+   [
+    "scrollto",
+    "proposed changes",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

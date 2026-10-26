@@ -1,0 +1,121 @@
+[
+ {
+  "scene": "sync-mixxx-manage-library",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Mixxx ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Mixxx library"
+   ],
+   [
+    "click",
+    "^menu item Update the library"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^pop up button Existing Mixxx tracks"
+   ],
+   [
+    "click",
+    "^menu item Manage library ID"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "sync-mixxx-field-mappings",
+  "steps": [
+   [
+    "click",
+    "^button Sync$"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^pop up button Sync to"
+   ],
+   [
+    "click",
+    "^menu item Mixxx ID"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scrollto",
+    "Mixxx settings folder",
+    "300"
+   ],
+   [
+    "fill",
+    "Mixxx settings folder",
+    ""
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "clicktext",
+    "Field mappings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^pop up button Map comment"
+   ],
+   [
+    "click",
+    "^menu item label ID"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "scrollto",
+    "Field mappings",
+    "260"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

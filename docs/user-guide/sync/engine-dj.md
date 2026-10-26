@@ -28,6 +28,14 @@ Unrelated tracks and playlists in the library stay. CueRithm adjusts nothing for
 
 ## Choose the Engine DJ options { #options }
 
+<!-- figure:sync-engine-dj-options -->
+<figure markdown>
+![Engine DJ options: Copy audio to the target drive, Use nearest supported colors, Keep existing beatgrids, Beatgrid locks set to Default and Add album art](../assets/screens/sync-engine-dj-options-light.webp#only-light){ .screen loading=lazy }
+![Engine DJ options: Copy audio to the target drive, Use nearest supported colors, Keep existing beatgrids, Beatgrid locks set to Default and Add album art](../assets/screens/sync-engine-dj-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Engine DJ adds audio copying, beatgrid locks and album art.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Option | Default | What it does |
 |---|---|---|
 | **All smartlists to playlists** | off | Sends every smart playlist as an ordinary playlist |

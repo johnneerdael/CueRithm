@@ -42,6 +42,14 @@ Your original music files are not changed.
 
 ## Choose the stick options { #options }
 
+<!-- figure:sync-pioneer-usb-options -->
+<figure markdown>
+![Pioneer USB options: Convert keys, Cue destination set to Hot cues, Clean up unused files, CDJ compatibility set to No detection, Extra cue markers and Add album art](../assets/screens/sync-pioneer-usb-options-light.webp#only-light){ .screen loading=lazy }
+![Pioneer USB options: Convert keys, Cue destination set to Hot cues, Clean up unused files, CDJ compatibility set to No detection, Extra cue markers and Add album art](../assets/screens/sync-pioneer-usb-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The stick options decide where cues go, how incompatible audio is handled and what is cleaned up.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Option | Default | What it does |
 |---|---|---|
 | **Cue destination** | **Hot cues** | **Hot cues**, **Memory cues** or **Hot and memory cues**. Hot cues use pad slots and allow eight per track; the preview stops at a ninth ("USB supports eight distinct hotcue slots") |

@@ -1,0 +1,292 @@
+[
+ {
+  "scene": "organize-scope-selected",
+  "steps": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Organize files"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": []
+ },
+ {
+  "scene": "organize-token-buttons",
+  "steps": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Organize files"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "clicktext",
+    "Naming rules"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Organization mode"
+   ],
+   [
+    "click",
+    "^menu item Move to folder ID"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Filename pattern",
+    "{key} - {energy} - {artist} - {title}"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "scrollto",
+    "Filename pattern",
+    "330"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Organize files"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "clicktext",
+    "Naming rules"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Organization mode"
+   ],
+   [
+    "click",
+    "^menu item Rename in place ID"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "fill",
+    "Filename pattern",
+    "{artist} - {title}"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "organize-pattern-error",
+  "steps": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Organize files"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "clicktext",
+    "Naming rules"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Organization mode"
+   ],
+   [
+    "click",
+    "^menu item Copy to folder ID"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "fill",
+    "Filename pattern",
+    "{artsit} - {title}"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "scrollto",
+    "Example filenames",
+    "300"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "search",
+    "Anyma"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "key",
+    "super+a"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Organize files"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "clicktext",
+    "Naming rules"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Organization mode"
+   ],
+   [
+    "click",
+    "^menu item Rename in place ID"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "fill",
+    "Filename pattern",
+    "{artist} - {title}"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ }
+]

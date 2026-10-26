@@ -56,6 +56,14 @@ Mixxx adds its own controls: **Mixxx library**, **Existing Mixxx tracks**, **Rep
 
 Open **Field mappings** to choose which CueRithm value fills each destination field. The seven fields are title, artist, album, genre, label, comment and key; each has a menu that lists the same seven. By default every field fills itself.
 
+<!-- figure:sync-mixxx-field-mappings -->
+<figure markdown>
+![Field mappings expanded for Mixxx with the comment row set to label](../assets/screens/sync-mixxx-field-mappings-light.webp#only-light){ .screen loading=lazy }
+![Field mappings expanded for Mixxx with the comment row set to label](../assets/screens/sync-mixxx-field-mappings-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Mixxx has no label column, so mapping comment to label keeps the record label in the comment.</figcaption>
+</figure>
+<!-- /figure -->
+
 Mappings are applied all at once to the original track, so you can swap two fields without one overwriting the other. A common use is to send the record label where the destination has no label field. Mixxx has no label column, so map **label** to **comment** to keep it:
 
 ```text

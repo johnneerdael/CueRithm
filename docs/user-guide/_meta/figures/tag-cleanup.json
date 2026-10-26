@@ -68,7 +68,7 @@
   "scene": "cleanup-genre-conversion",
   "page": "tagging/cleanup-rules.md",
   "after": "## Genres { #genres }",
-  "alt": "Genres tab showing Enable genre cleanup, a mapping row, Protected genres, the Convert genres into categorized tags options with the category Subgenres, and the library value list with track counts",
+  "alt": "Genres tab with Enable genre cleanup ticked, an Add mapping button, the Protected genres box, and the Convert genres into categorized tags option ticked with the category Subgenres and the Genres to convert box",
   "caption": "The Genres tab combines mappings, protection, conversion to categories and your library's own values.",
   "state": "Cleanup, Genres tab, Enable genre cleanup ticked, Convert genres into categorized tags ticked (Category 'Subgenres'), library values visible with counts (Melodic House & Techno 11 tracks, Mainstage 4 tracks).",
   "crop": "panel"
@@ -144,7 +144,7 @@
   "scene": "organize-scope-selected",
   "page": "rename/organize-files.md",
   "after": "## 1. Select the tracks and open Organize files { #open-organize }",
-  "alt": "Organize files with the Scope menu reading 6 selected tracks and the Naming rules section collapsed",
+  "alt": "Organize files opened from four selected tracks: the Scope menu reading 4 selected tracks and the Naming rules section collapsed above the Preview complete plan button",
   "caption": "A plan covers a scope you choose; here it is six selected tracks.",
   "state": "Tracks: select Palm Of Your Hands, Knockout, Dancin, When The Fire Starts To Burn, Say Less and Undercurrent (the healthy rows), then click Organize files in the table toolbar. Scope shows '6 selected tracks'. Mode still Leave files in place.",
   "crop": "panel"
