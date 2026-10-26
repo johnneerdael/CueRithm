@@ -292,7 +292,7 @@ def scroll_page(cu, direction, pages):
     """Scroll the page body. The scroll tool acts where its element is, so use a control that is on screen now
     (a query lists only visible elements); controls scrolled out of view leave nothing to scroll."""
     for role in ("checkbox", "radio button", "text field", "number field", "pop up button", "button"):
-        found = json.loads(cu.call("query", app="CueRithm", role=role)[0])["matches"]
+        found = json.loads(cu.call("query", app="CueRithm", role=role, limit=200)[0])["matches"]
         found = [m for m in found if m["bounds"]["x"] > 360 and 230 < m["bounds"]["y"] < 700]
         if found:
             cu.call("scroll", app="CueRithm", element_index=str(found[0]["index"]), direction=direction, pages=pages)
@@ -335,9 +335,9 @@ def attempt(action):
     try:
         return action()
     except RuntimeError as error:
-        if "restarted" not in str(error):
+        if "restarted" not in str(error) and "not a current window" not in str(error):
             raise
-        time.sleep(0.5)
+        time.sleep(1.0)
         return action()
 
 
@@ -408,7 +408,10 @@ def run_step(cu, step):
             cu.click_xy(box["x"] + box["w"] / 2, box["y"] + box["h"] / 2)
             time.sleep(0.3)
             cu.key("super+a")
-            cu.type(args[1])
+            if args[1]:
+                cu.type(args[1])
+            else:
+                cu.key("BackSpace")
         time.sleep(0.6)
     elif verb == "scrollto":
         # scrollto TEXT [TOP]: scroll the page until the first visible line of text containing TEXT sits TOP points

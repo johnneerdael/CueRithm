@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-library -->
+<figure markdown>
+![The Library preferences page of Settings with the Time zone box showing the placeholder System time zone, the Key compatibility menu set to Harmonic and the Save library preferences button](../../assets/screens/reference-settings-library-light.webp#only-light){ .screen loading=lazy }
+![The Library preferences page of Settings with the Time zone box showing the placeholder System time zone, the Key compatibility menu set to Harmonic and the Save library preferences button](../../assets/screens/reference-settings-library-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Time zone and key mode are the two library preferences smart playlists use.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Smart playlists work without touching these. They matter when a date rule such as "date added in the last 7 days" crosses midnight in the wrong city, or when you want a wider set of mixable keys. [Build a smart playlist](../../playlists/build-a-smart-playlist.md) shows both in use.
 

@@ -1,0 +1,464 @@
+[
+ {
+  "scene": "customize-waveform-styles",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Appearance$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "how-waveform-styles",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Appearance$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-appearance",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Appearance$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "customize-settings-pages",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Incoming$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-incoming",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Incoming$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-settings-incoming",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Incoming$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-folder-presets",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Incoming$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Folder preparation presets",
+    "230"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-settings-cue-generation",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cue generation$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-cue-generation",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cue generation$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-automatic-tagging",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "how-recovery-backups",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "library-settings-recovery-backups",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-settings-fields-to-write",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Fields to write",
+    "230"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-tagging-fields",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Fields to write",
+    "230"
+   ]
+  ]
+ },
+ {
+  "scene": "how-tagging-fields",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Key and BPM written to files",
+    "500"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-settings-matching",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Matching strictness",
+    "300"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-settings-providers",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "scrollto",
+    "Recovery backups",
+    "190"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-library",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Library preferences$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

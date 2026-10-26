@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-cue-generation -->
+<figure markdown>
+![The Cue generation page of Settings showing Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop box unchecked](../../assets/screens/reference-settings-cue-generation-light.webp#only-light){ .screen loading=lazy }
+![The Cue generation page of Settings showing Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop box unchecked](../../assets/screens/reference-settings-cue-generation-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Four controls shape the cues: breakdown length, drop at start and the emergency loop.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Start with [Choose how cues are placed](../../analysis/cue-rules.md), which shows what each choice does to a real track. The names and colours of the cues themselves are on [Cue names, letters and colours](../cue-types.md).
 

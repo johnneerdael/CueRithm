@@ -2,6 +2,14 @@
 
 <p class="lead">The Incoming section lists your watch folders and the preparation preset each one uses. The Preparation presets section, covered at the end of this page, holds the presets themselves. About five minutes to read; changing a folder takes one minute.</p>
 
+<!-- figure:reference-settings-incoming -->
+<figure markdown>
+![The Incoming page of Settings listing a watch folder (its path blurred), the Add watch folder button, the Folder preparation presets row for that folder and the note that original audio files stay in place](../../assets/screens/reference-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![The Incoming page of Settings listing a watch folder (its path blurred), the Add watch folder button, the Folder preparation presets row for that folder and the note that original audio files stay in place](../../assets/screens/reference-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Watch folders and their preparation presets live on the Incoming page.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     To watch a folder step by step, follow [Keep a folder like Beatport in your library](../../files/watch-folders.md). For a one-off set of files, [Add tracks: drop, pick or watch a folder](../../files/add-tracks.md) shows the quicker way.
 
@@ -38,6 +46,14 @@ When CueRithm cannot watch a folder, Incoming shows a warning line above the tab
 ## Folder preparation presets { #folder-presets }
 
 Below the folder list, **Folder preparation presets** shows one row for each watch folder with a menu. It decides which rules prepare files from that folder.
+
+<!-- figure:reference-settings-folder-presets -->
+<figure markdown>
+![The Folder preparation presets row for that watch folder (its path blurred) with its menu set to Inherit parent assignment and the line Saved effective rules: Global default](../../assets/screens/reference-settings-folder-presets-light.webp#only-light){ .screen loading=lazy }
+![The Folder preparation presets row for that watch folder (its path blurred) with its menu set to Inherit parent assignment and the line Saved effective rules: Global default](../../assets/screens/reference-settings-folder-presets-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each watch folder has a menu that chooses the rules for its files.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Control | What it does | Default | Choices | Task page |
 |---|---|---|---|---|

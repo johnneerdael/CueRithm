@@ -9,6 +9,14 @@
 
 The narrow column between the row number and the title shows one icon per track. It is empty when there is nothing to report.
 
+<!-- figure:reference-status-tracks -->
+<figure markdown>
+![The Tracks table with the Status column showing ticks for tracks tagged from a catalog match, and the key, BPM and energy columns filled](../assets/screens/reference-status-tracks-light.webp#only-light){ .screen loading=lazy }
+![The Tracks table with the Status column showing ticks for tracks tagged from a catalog match, and the key, BPM and energy columns filled](../assets/screens/reference-status-tracks-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A tick in the Status column means a catalog match was applied.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Icon | Name (hover text) | Meaning | What to do |
 |---|---|---|---|
 | Warning triangle | **Needs attention** | A stage failed and the track is waiting in Incoming. Hover for the reason. In the Incoming view the same reason is the second line of the row. Selecting the icon opens **Review match** for that track. | Read the reason and follow [Fix a track that needs attention](../files/needs-attention.md). If it is a catalog problem, use [Review and fix a wrong match](../tagging/review-a-match.md). |

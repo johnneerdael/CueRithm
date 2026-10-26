@@ -2,6 +2,14 @@
 
 <p class="lead">Every number CueRithm shows is computed on your computer, from the audio, by code you can read. This tab explains how, in about five minutes per question, so you know what to trust and what to check by ear.</p>
 
+<!-- figure:how-analysis-columns -->
+<figure markdown>
+![The Tracks table with the KEY, BPM and ENERGY columns: 17 (Extended Mix) at 6A, 128 BPM and 7/10, Atoma (Extended Mix) at 2A, 130 BPM and 6/10](../assets/screens/how-analysis-columns-light.webp#only-light){ .screen loading=lazy }
+![The Tracks table with the KEY, BPM and ENERGY columns: 17 (Extended Mix) at 6A, 128 BPM and 7/10, Atoma (Extended Mix) at 2A, 130 BPM and 6/10](../assets/screens/how-analysis-columns-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Every value in these three columns is measured from the audio on your computer.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! abstract "What this means for you"
     - **Analysis is offline.** Key, BPM, beatgrid, energy, cues and waveform are calculated from the decoded audio. Tags, filenames and other apps' labels are never used as input to those results.
     - **Analysis never changes your music files.** CueRithm writes to a file only when you switch tagging, cleanup or file organisation on, or save an edit. While it writes, it holds the original until the write has settled.

@@ -45,6 +45,14 @@ The network predicts the key a reference tool would label, not musical truth. On
 
 ## Where you see it in the app { #where-you-see-it }
 
+<!-- figure:how-analysis-columns -->
+<figure markdown>
+![The KEY column of the Tracks table showing Camelot codes such as 6A for 17 (Extended Mix) and 2A for Atoma (Extended Mix)](../assets/screens/how-analysis-columns-light.webp#only-light){ .screen loading=lazy }
+![The KEY column of the Tracks table showing Camelot codes such as 6A for 17 (Extended Mix) and 2A for Atoma (Extended Mix)](../assets/screens/how-analysis-columns-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The key appears as a Camelot code in the KEY column.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Place | What shows |
 |---|---|
 | **Key** column in Tracks | The Camelot code, for example <span class="cr-key">6A</span> for "17 (Extended Mix)" and <span class="cr-key">2A</span> for "Atoma (Extended Mix)" |

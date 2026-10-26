@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-smart-playlists -->
+<figure markdown>
+![The Smart Playlists page of Settings with By BPM switched on and one range from 126 to 130, and the other four options By Artist, By release date, By Genre and By Key](../../assets/screens/reference-settings-smart-playlists-light.webp#only-light){ .screen loading=lazy }
+![The Smart Playlists page of Settings with By BPM switched on and one range from 126 to 130, and the other four options By Artist, By release date, By Genre and By Key](../../assets/screens/reference-settings-smart-playlists-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each family of automatic lists has its own switch; BPM ranges are yours to define.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     These are ready-made smart playlists. To write your own rules, start with [Build a smart playlist](../../playlists/build-a-smart-playlist.md). To see what the automatic lists look like in your library, read [Keep smart playlists up to date automatically](../../playlists/automatic-smart-playlists.md).
 

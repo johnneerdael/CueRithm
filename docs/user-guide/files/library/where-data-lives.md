@@ -45,6 +45,14 @@ A library generation has its own database directory. Library-owned caches and re
 
 The library holds tags, links to files and artwork, never audio. Undo is kept for a fixed number of operations, and what it needs is small:
 
+<!-- figure:library-settings-recovery-backups -->
+<figure markdown>
+![Settings on the Automatic tagging page scrolled to the Recovery backups row, which shows the size and file count of the copies of files being written](../../assets/screens/library-settings-recovery-backups-light.webp#only-light){ .screen loading=lazy }
+![Settings on the Automatic tagging page scrolled to the Recovery backups row, which shows the size and file count of the copies of files being written](../../assets/screens/library-settings-recovery-backups-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Recovery backups shows the copies held while a write is under way, normally none.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Undo of | Kept for | What is kept |
 |---|---|---|
 | A manual cleanup, a manual tag or artwork edit | Your 10 newest | The tag values that were replaced, and replaced artwork (artwork is part of the library) |

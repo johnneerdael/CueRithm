@@ -44,6 +44,14 @@ The waveform's tooltip reminds you: "← / → jump one bar". More on cues and z
 
 ## Window { #window }
 
+<!-- figure:reference-sidebar-collapsed -->
+<figure markdown>
+![CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width](../assets/screens/reference-sidebar-collapsed-light.webp#only-light){ .screen loading=lazy }
+![CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width](../assets/screens/reference-sidebar-collapsed-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Ctrl or Command B collapses the sidebar to icons.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Shortcut | What it does | Notes |
 |---|---|---|
 | ++cmd+b++ / ++ctrl+b++ | Collapses the sidebar to an icon rail, or pins it open again | The choice is remembered. A collapsed sidebar opens over the content while you point at it. Its tooltip reads "Collapse to icons (⌘B)" on a Mac and "Collapse to icons (Ctrl+B)" on Windows and Linux. |

@@ -23,6 +23,14 @@ You want key, BPM, beatgrid, energy and cues for your tracks, but you do not wan
 
 ## The solution
 
+<!-- figure:prepare-settings-tagging-off -->
+<figure markdown>
+![Settings, Automatic tagging page with the Automatic tagging switch turned off](../../assets/screens/prepare-settings-tagging-off-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging page with the Automatic tagging switch turned off](../../assets/screens/prepare-settings-tagging-off-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>With the switch off, preparation reads files and writes nothing.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings**, then **Automatic tagging**. Switch **Automatic tagging** off.
 2. Open **Cleanup**. Switch **Clean incoming tracks automatically** off.
 3. Open **File organization**. Set **When preparation finishes** to *Leave files in place*.

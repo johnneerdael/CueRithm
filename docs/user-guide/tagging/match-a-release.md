@@ -12,6 +12,14 @@ It works on Beatport and Traxsource releases only. A release is identified by pr
 
 ## Turn it on { #match-a-folder-as-a-release }
 
+<!-- figure:tag-settings-matching -->
+<figure markdown>
+![The Matching group in Settings with Album matching and Album matching ratio at the bottom of the group](../assets/screens/tag-settings-matching-light.webp#only-light){ .screen loading=lazy }
+![The Matching group in Settings with Album matching and Album matching ratio at the bottom of the group](../assets/screens/tag-settings-matching-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Album matching and its ratio sit at the bottom of the Matching group.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Settings → Automatic tagging** and find **Matching**.
 2. Tick **Album matching**.
 3. Set **Album matching ratio**. The default is 0.5. It is the fraction of the folder's Incoming files that must match one release before the rest use that release's track list. The range is 0 to 1.

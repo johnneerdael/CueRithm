@@ -22,6 +22,14 @@ Choose **Settings** at the bottom of the sidebar, then **Automatic tagging** in 
 </figure>
 <!-- /figure -->
 
+<!-- figure:tag-settings-automatic-tagging -->
+<figure markdown>
+![Settings, Automatic tagging page: the Automatic tagging box is ticked, the Recovery backups row shows the stored size, and the provider list starts with Beatport as 1 and Traxsource as 2](../assets/screens/tag-settings-automatic-tagging-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging page: the Automatic tagging box is ticked, the Recovery backups row shows the stored size, and the provider list starts with Beatport as 1 and Traxsource as 2](../assets/screens/tag-settings-automatic-tagging-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Automatic tagging is one tick; Beatport and Traxsource are the default providers.</figcaption>
+</figure>
+<!-- /figure -->
+
 Under the checkbox you read *Catalog lookups use an internet connection. Analysis and cue generation work offline.* Further down, the provider list shows **Beatport** as 1 and **Traxsource** as 2, both ticked. The other eight providers are unticked.
 
 CueRithm ships with tagging off so a fresh install never contacts a catalog on its own. Analysis, playback and cues work with tagging off.
@@ -41,6 +49,14 @@ A provider *error*, such as being offline, is never treated as "no match". The t
 ## 4. Check the fields to write { #fields }
 
 Scroll to **Fields to write**. Out of the box CueRithm writes **Genre**, **BPM**, **Style**, **Label** and **Release date**. Title, artist, album, key, artwork, ISRC and identifiers are off, and a field that is off is never touched.
+
+<!-- figure:tag-settings-fields-to-write -->
+<figure markdown>
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-light.webp#only-light){ .screen loading=lazy }
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Only fields with a Write tick are ever touched; Genre, BPM, Style, Label and Release date are on by default.</figcaption>
+</figure>
+<!-- /figure -->
 
 **Overwrite all selected fields** is on, which means the catalog's genre replaces the genre already in the file. Turn it off to fill only empty fields.
 
@@ -63,6 +79,14 @@ When a track finishes it leaves Incoming and appears in **Tracks**.
 ## 7. Check what changed { #check }
 
 In **Tracks**, look at the narrow status column left of the titles:
+
+<!-- figure:tag-status-icons -->
+<figure markdown>
+![Tracks table with a check mark in the narrow status column beside the row numbers for tracks tagged from a catalog match](../assets/screens/tag-status-icons-light.webp#only-light){ .screen loading=lazy }
+![Tracks table with a check mark in the narrow status column beside the row numbers for tracks tagged from a catalog match](../assets/screens/tag-status-icons-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A check mark in the status column means the track was tagged from a catalog match.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Icon (hover text) | Meaning |
 |---|---|

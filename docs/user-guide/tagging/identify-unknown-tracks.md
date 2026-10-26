@@ -17,6 +17,14 @@ The measured key, BPM, energy and cues are not touched, because they come from y
 
 ## Turn it on { #identify-unresolved-recordings }
 
+<!-- figure:tag-settings-identify -->
+<figure markdown>
+![The Identify unresolved recordings group expanded: Allow fingerprint lookup and Identify unresolved tracks, with the explanation that a fingerprint is made on your computer](../assets/screens/tag-settings-identify-light.webp#only-light){ .screen loading=lazy }
+![The Identify unresolved recordings group expanded: Allow fingerprint lookup and Identify unresolved tracks, with the explanation that a fingerprint is made on your computer](../assets/screens/tag-settings-identify-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Both boxes are off until you tick them, and identification needs your consent first.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Settings → Automatic tagging** and expand **Identify unresolved recordings**. The section is collapsed until you open it.
 2. Tick **Allow fingerprint lookup**. This is your consent to send a compressed fingerprint and the track length to AcoustID. It is stored on this computer only and is left out of exported presets.
 3. Tick **Identify unresolved tracks**. It stays disabled until you have given consent, and clearing the consent switches identification off again in the same draft.

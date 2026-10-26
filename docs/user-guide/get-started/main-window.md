@@ -2,6 +2,14 @@
 
 <p class="lead">CueRithm is one window with four parts: a sidebar on the left, a header across the top, a main area that shows tracks or a tool, and a player that stays at the bottom. Five minutes here tells you where everything lives and which page explains it.</p>
 
+<!-- figure:get-started-main-window -->
+<figure markdown>
+![The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons](../assets/screens/get-started-main-window-light.webp#only-light){ .screen loading=lazy }
+![The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons](../assets/screens/get-started-main-window-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Sidebar, header, track table and player are always on screen together.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Part | What you do there | Learn more |
 |---|---|---|
 | [Sidebar](#the-sidebar) | Switch between your library, playlists and tools | [Choose your path](choose-your-path.md) |
@@ -110,6 +118,14 @@ Press ++space++ to play or pause, and ++arrow-left++ / ++arrow-right++ to jump o
 ## Make the window fit your screen { #layout }
 
 Drag the vertical divider between the sidebar and the main area to resize the sidebar (180 to 340 pixels, 224 by default), and the horizontal divider above the player to change its height (200 to 420 pixels, 270 by default). Both are remembered on this computer. The window opens at 1440 by 940 pixels and does not shrink below 980 by 680. In a window narrower than 1250 pixels, the Edit metadata and Curate panels take over the table area instead of opening beside it. See [Resize the sidebar and player](../customize/layout.md).
+
+<!-- figure:reference-sidebar-collapsed -->
+<figure markdown>
+![CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width](../assets/screens/reference-sidebar-collapsed-light.webp#only-light){ .screen loading=lazy }
+![CueRithm with the sidebar collapsed to an icon rail at the left and the track table using the extra width](../assets/screens/reference-sidebar-collapsed-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Press the shortcut again and the sidebar returns to full width.</figcaption>
+</figure>
+<!-- /figure -->
 
 ## Switch between light and dark { #light-and-dark }
 

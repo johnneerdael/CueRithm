@@ -86,6 +86,14 @@ Automatic preparation uses these settings and the standard cue template. [Manual
 
 ## Where you see it in the app { #where-you-see-it }
 
+<!-- figure:how-player-cues -->
+<figure markdown>
+![The player showing Atoma (Extended Mix) with cue markers at 0:00, 0:44, 1:36, 2:24, 3:23 and 3:42 on the waveform](../assets/screens/how-player-cues-light.webp#only-light){ .screen loading=lazy }
+![The player showing Atoma (Extended Mix) with cue markers at 0:00, 0:44, 1:36, 2:24, 3:23 and 3:42 on the waveform](../assets/screens/how-player-cues-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each cue is a labelled position on the bar grid; the track needs at least a Start to become ready.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Place | What shows |
 |---|---|
 | The player | Cue markers with letters on the waveform and the beat grid. See [Jump to the drop with cues](../analysis/jump-to-cues.md) |

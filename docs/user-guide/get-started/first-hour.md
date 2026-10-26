@@ -12,6 +12,14 @@ The track names, keys and times below are from that folder. Yours will differ; t
 
 ## 1. Point CueRithm at the folder { #point-at-folder }
 
+<!-- figure:prepare-settings-incoming -->
+<figure markdown>
+![Settings, Incoming page, listing a watch folder (its path blurred) with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![Settings, Incoming page, listing a watch folder (its path blurred) with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Add watch folder, then Save settings.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings** in the sidebar, then **Incoming**.
 2. Select **Add watch folder** and pick your music folder.
 3. Select **Save settings**.

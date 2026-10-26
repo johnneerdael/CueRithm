@@ -6,6 +6,14 @@
 
 Choose **Settings** at the bottom of the sidebar. The sliders button **Preparation settings**, at the top right of Tracks, Incoming and Archive, opens the same place. **Library** at the top left takes you back.
 
+<!-- figure:customize-settings-pages -->
+<figure markdown>
+![The Settings screen on the Incoming page with the list of nine pages on the left: Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists and Appearance](../assets/screens/customize-settings-pages-light.webp#only-light){ .screen loading=lazy }
+![The Settings screen on the Incoming page with the list of nine pages on the left: Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists and Appearance](../assets/screens/customize-settings-pages-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Settings has nine pages; Save settings is at the top right.</figcaption>
+</figure>
+<!-- /figure -->
+
 Nine pages run down the left side: **Incoming**, **Cue generation**, **Automatic tagging**, **Cleanup**, **File organization**, **Preparation presets**, **Library preferences**, **Smart Playlists** and **Appearance**. For every control on each page, its default and its range, see [Look up a setting](../reference/settings/index.md).
 
 ## Find a setting by what you want to do { #by-goal }

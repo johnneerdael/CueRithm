@@ -9,6 +9,14 @@
 
 ## 1. Switch it on { #switch-on }
 
+<!-- figure:cleanup-settings-automatic -->
+<figure markdown>
+![Settings, Cleanup page, with Clean incoming tracks automatically ticked above the Smart Fixes, Genres and Artists sections](../assets/screens/cleanup-settings-automatic-light.webp#only-light){ .screen loading=lazy }
+![Settings, Cleanup page, with Clean incoming tracks automatically ticked above the Smart Fixes, Genres and Artists sections](../assets/screens/cleanup-settings-automatic-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>One switch applies the saved rules to every new track.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings** in the sidebar and open the **Cleanup** page. Its heading reads "Shared rules for automatic Incoming and manual cleanup."
 2. Tick **Clean incoming tracks automatically**. The note beside it reads "Apply after catalog tags, before completed tracks enter your library."
 3. Check the **Smart Fixes**, **Genres** and **Artists** sections below it. They are the same rules you edit in **Cleanup**. In Settings the genre and artist lists do not show your library's values, so type mappings with **Add mapping**.

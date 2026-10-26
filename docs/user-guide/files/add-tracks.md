@@ -12,6 +12,14 @@ Your files are not copied or moved. CueRithm records where each one is and works
 
 ## Pick files with Add tracks { #pick-files }
 
+<!-- figure:prepare-add-tracks-button -->
+<figure markdown>
+![The CueRithm header with the Add tracks button at the top right, beside the colour theme button and the All up to date indicator](../assets/screens/prepare-add-tracks-button-light.webp#only-light){ .screen loading=lazy }
+![The CueRithm header with the Add tracks button at the top right, beside the colour theme button and the All up to date indicator](../assets/screens/prepare-add-tracks-button-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Add tracks button sits at the top right of every library view.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select **Add tracks** at the top right of the window.
 2. In the system file picker, choose one or more files. The picker opens on the **Audio** filter. Choose **All files** to see a file whose extension is not in the list.
 3. Confirm. CueRithm switches to **Incoming** and your files start to appear there.

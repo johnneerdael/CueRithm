@@ -6,6 +6,14 @@
 
 ## Choose providers and their order { #providers }
 
+<!-- figure:tag-settings-providers -->
+<figure markdown>
+![Provider list in Settings: Beatport as 1 and Traxsource as 2 ticked with up and down arrows, then SonoVault, Discogs, Volumo, BPM Supreme and others with a dash and their status lines](../assets/screens/tag-settings-providers-light.webp#only-light){ .screen loading=lazy }
+![Provider list in Settings: Beatport as 1 and Traxsource as 2 ticked with up and down arrows, then SonoVault, Discogs, Volumo, BPM Supreme and others with a dash and their status lines](../assets/screens/tag-settings-providers-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Tick a provider, then use the arrows to set the order; the status line shows whether it is ready.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Settings → Automatic tagging** and find the provider list.
 2. Tick **Use** beside each provider you want. The number on the left is its position; an unticked provider shows a dash.
 3. Use the up and down arrows (**Move … earlier**, **Move … later**) to reorder the ticked providers.
@@ -50,6 +58,14 @@ A provider error is never "no match". It always keeps the track in Incoming.
 ## Choose the fields to write { #fields-to-write }
 
 Under **Fields to write**, each field has **Write** and **Overwrite** boxes. A field you do not tick **Write** for is never touched. **Overwrite all selected fields** is on by default and forces every Overwrite box on; turn it off to fill empty fields only and keep existing values.
+
+<!-- figure:tag-settings-fields-to-write -->
+<figure markdown>
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-light.webp#only-light){ .screen loading=lazy }
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each field has its own Write and Overwrite box, and names the providers that can supply it.</figcaption>
+</figure>
+<!-- /figure -->
 
 Under each field name the app lists which of your ticked providers can supply it, or *Not supplied by the selected providers*.
 
@@ -129,6 +145,14 @@ Images must be PNG, JPEG, GIF or WebP, under 8 MiB and no larger than 4096 by 40
 ## Tune how strictly tracks are matched { #matching }
 
 These live under **Matching**. The defaults suit most purchases.
+
+<!-- figure:tag-settings-matching -->
+<figure markdown>
+![The Matching group in Settings with Matching strictness 0.7, Tagging concurrency 16, Match duration off and Album matching off](../assets/screens/tag-settings-matching-light.webp#only-light){ .screen loading=lazy }
+![The Matching group in Settings with Matching strictness 0.7, Tagging concurrency 16, Match duration off and Album matching off](../assets/screens/tag-settings-matching-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Matching group holds strictness, concurrency, duration checks and Album matching.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Setting | Default | What it does |
 |---|---|---|

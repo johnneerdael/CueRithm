@@ -167,16 +167,21 @@ Location column, and treat every scan result that lists paths as something to re
 
 ### Check every image
 
-Open each raw capture, then run the text check on all of them:
+Open each raw capture, blur the file paths in it, then run the text check on all of them:
 
 ```sh
+python3 tools/docs/capture/redact_paths.py /path/to/raw/*.png      # a guide image never shows a file path
 swiftc -O tools/docs/capture/leakcheck.swift -o ~/.cache/cuerithm-docs/leakcheck
 ~/.cache/cuerithm-docs/leakcheck /path/to/raw/*.png
 ```
 
-It reads the text in each image and lists any user name, home folder, e-mail address, or
-credential or licence word, so an empty result means nothing matched. It is a second check on top
-of looking at the image, not a replacement for it.
+`AGENTS.md` bars audio files, file paths, user names, credentials and licence details from guide
+images, and a generic demo folder is still a path, so `redact_paths.py` blurs every line of text
+that looks like one (a settings page cannot help listing its watch folder). The text check then
+reads the text in each image and lists any user name, home folder, file path, e-mail address, web
+address (a configured service URL is private), or credential or licence word, so an empty result
+means nothing matched. It is a second check on top of looking at the image, not a replacement for
+it. Name the blurred path in the figure's alt text ("a watch folder (its path blurred)").
 
 ## Related
 

@@ -51,6 +51,14 @@ The grid is one constant BPM and a first beat. Tracks with a live drummer or a t
 
 CueRithm changes your audio files only through features you switch on or start yourself: automatic tagging, cleanup, **Edit metadata** and the optional file renaming and moving. With tagging and cleanup off, preparation never writes to a file ([Analyze tracks without tagging or cleanup](../files/recipes/analyze-only.md)). Its measurements live in its own library, which is why it can sit beside another tool.
 
+<!-- figure:tag-settings-fields-to-write -->
+<figure markdown>
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-light.webp#only-light){ .screen loading=lazy }
+![Fields to write: Overwrite all selected fields is ticked, and the Write column has Genre, BPM, Style, Label and Release date ticked while Title, Artist and Album are not](../assets/screens/tag-settings-fields-to-write-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Fields to write decides which tags CueRithm may change in your files.</figcaption>
+</figure>
+<!-- /figure -->
+
 | You want to keep… | Do this in CueRithm |
 |---|---|
 | Key and energy tags another tool wrote | Leave **Automatic tagging** off. If you use it, untick **Write** for Key and BPM in **Fields to write** and switch off **Write track energy to files** ([Choose providers and fields to write](../tagging/choose-providers.md)). |
