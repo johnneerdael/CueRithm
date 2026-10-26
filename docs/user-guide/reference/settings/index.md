@@ -2,6 +2,14 @@
 
 <p class="lead">CueRithm has one Settings screen with nine sections. Find the section that holds the control you need, then open that section's page for every control, its default and its valid range. About two minutes.</p>
 
+<!-- figure:reference-settings-incoming -->
+<figure markdown>
+![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder /private/tmp/demo/Music/Beatport](../../assets/screens/reference-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder /private/tmp/demo/Music/Beatport](../../assets/screens/reference-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Settings has nine sections; the first six share one Save settings button.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     You do not need to change anything to start. A new library already watches one folder and prepares every track with sensible defaults. To set up a folder like `~/Music/Beatport` step by step, follow [Keep a folder like Beatport in your library](../../files/watch-folders.md). To find a setting by what you want to do, use [Find the setting you need](../../customize/find-a-setting.md).
 

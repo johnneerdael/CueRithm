@@ -2,6 +2,14 @@
 
 <p class="lead">Switch between light and dark, pick the waveform colours you read best, and give the part of the window you use most more room. Each change takes under a minute, and CueRithm remembers it on this computer.</p>
 
+<!-- figure:customize-waveform-styles -->
+<figure markdown>
+![Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal](../assets/screens/customize-waveform-styles-light.webp#only-light){ .screen loading=lazy }
+![Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal](../assets/screens/customize-waveform-styles-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Appearance page previews all six waveform styles on the same sample track.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Start here
 
 Begin with [Switch between light and dark](theme.md). It is one button, and it shows how every choice in this tab works: you change it, the window updates at once, and there is nothing to save.

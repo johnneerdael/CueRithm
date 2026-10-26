@@ -11,6 +11,14 @@ A cue is a labelled position in a track. CueRithm's cues are structural markers 
 
 The analysis finds six roles. When a track is prepared, CueRithm publishes them with a standard layout, which is what the player, the table preview and your DJ software show. The **Emergency loop** setting adds a seventh.
 
+<!-- figure:reference-cue-strip -->
+<figure markdown>
+![The player with the track 17 (Extended Mix) loaded: cue strip buttons A Start 0:00.0, B Drop 1:15.0, C Breakdown 2:15.0, D Drop #2 3:00.0 and E End / Fade-out 4:30.0, with their coloured lines on the waveform](../assets/screens/reference-cue-strip-light.webp#only-light){ .screen loading=lazy }
+![The player with the track 17 (Extended Mix) loaded: cue strip buttons A Start 0:00.0, B Drop 1:15.0, C Breakdown 2:15.0, D Drop #2 3:00.0 and E End / Fade-out 4:30.0, with their coloured lines on the waveform](../assets/screens/reference-cue-strip-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each cue has a slot letter, a name, a time and a colour.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Cue in the player | What it marks | Name in the analysis | Kind | Colour name | Colour on screen |
 |---|---|---|---|---|---|
 | <span class="cr-cue cr-cue--start">Start</span> | The first beat of the track, where the beatgrid begins | Start | Hot cue | yellow | `#f5f50c` |

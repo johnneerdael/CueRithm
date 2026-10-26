@@ -52,6 +52,14 @@ For a file's BPM tag, MP4 files get both the rounded integer `tmpo` atom and a t
 
 ## Where you see it in the app { #where-you-see-it }
 
+<!-- figure:how-beatgrid-zoom -->
+<figure markdown>
+![The player zoomed to 32 seconds on 17 (Extended Mix) at 128 BPM, with beat lines and bar markers around the drop at 1:15](../assets/screens/how-beatgrid-zoom-light.webp#only-light){ .screen loading=lazy }
+![The player zoomed to 32 seconds on 17 (Extended Mix) at 128 BPM, with beat lines and bar markers around the drop at 1:15](../assets/screens/how-beatgrid-zoom-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The player draws its beat lines from one BPM and one first-beat time.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Place | What shows |
 |---|---|
 | **BPM** column in Tracks | The saved BPM with two decimals |

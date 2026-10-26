@@ -13,6 +13,14 @@
 
 ## 1. Add the folder { #add-folder }
 
+<!-- figure:prepare-settings-incoming -->
+<figure markdown>
+![Settings, Incoming page, listing the watch folder /private/tmp/demo/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![Settings, Incoming page, listing the watch folder /private/tmp/demo/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Incoming page of Settings lists every watch folder.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings** at the bottom of the sidebar. (The sliders button **Preparation settings**, at the top right of Tracks, Incoming and Archive, opens the same place.)
 2. Stay on the **Incoming** page and select **Add watch folder**.
 3. Pick `~/Music/Beatport` in the system folder picker. The path appears in the list.

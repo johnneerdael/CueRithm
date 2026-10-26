@@ -25,6 +25,14 @@
 
 ## Pick a style { #pick }
 
+<!-- figure:customize-waveform-styles -->
+<figure markdown>
+![Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal](../assets/screens/customize-waveform-styles-light.webp#only-light){ .screen loading=lazy }
+![Settings on the Appearance page showing six waveform style previews: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal](../assets/screens/customize-waveform-styles-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Select a style and every waveform in CueRithm changes at once.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings** at the bottom of the sidebar.
 2. Select the **Appearance** page in the list on the left.
 3. Under **Waveform style**, select the style you want. Each option draws a small sample waveform, so you can compare before you choose.

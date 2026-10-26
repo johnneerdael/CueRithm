@@ -2,6 +2,14 @@
 
 <p class="lead">Say what you are trying to do and this page names the guide that does it. Every row below is one goal and one page, grouped in the order of the guide's tabs.</p>
 
+<!-- figure:get-started-main-window -->
+<figure markdown>
+![The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons](../assets/screens/get-started-main-window-light.webp#only-light){ .screen loading=lazy }
+![The CueRithm window on Tracks with 26 tracks: the sidebar with LIBRARY, PLAYLISTS and TOOLS on the left, the search box and Add tracks button across the top, the track table with key, BPM and energy columns, and the player at the bottom with Come To Life (Original Mix) loaded and its cue buttons](../assets/screens/get-started-main-window-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Every group in the sidebar has a section on this page.</figcaption>
+</figure>
+<!-- /figure -->
+
 If something has gone wrong, go straight to [Something went wrong right now](#something-went-wrong). New to CueRithm? Do these three in order: [Download and install CueRithm](install.md), [Prepare your first tracks](first-tracks.md), then [From a folder of new music to a playlist for the booth](first-hour.md). The rest of this page is a map you can come back to.
 
 ## Something went wrong right now { #something-went-wrong }

@@ -20,6 +20,14 @@
 
 Find the **Colour theme** button in the header, to the left of **Add tracks** and to the right of the status line (*All up to date*). Select it to move to the next mode. The modes cycle in this order:
 
+<!-- figure:customize-theme-header -->
+<figure markdown>
+![The CueRithm window with the Colour theme button in the header between the status line and Add tracks](../assets/screens/customize-theme-header-light.webp#only-light){ .screen loading=lazy }
+![The CueRithm window with the Colour theme button in the header between the status line and Add tracks](../assets/screens/customize-theme-header-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Colour theme button sits in the header of every view.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Mode | The icon shows | What it does |
 |---|---|---|
 | System | Half sun, half moon | Follows your operating system's light or dark appearance, and changes when you change it |

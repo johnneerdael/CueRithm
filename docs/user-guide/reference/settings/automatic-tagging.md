@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-automatic-tagging -->
+<figure markdown>
+![The Automatic tagging page of Settings: the master switch, Recovery backups, and the ordered provider list with Beatport 1 and Traxsource 2 selected and the other eight providers listed](../../assets/screens/reference-settings-automatic-tagging-light.webp#only-light){ .screen loading=lazy }
+![The Automatic tagging page of Settings: the master switch, Recovery backups, and the ordered provider list with Beatport 1 and Traxsource 2 selected and the other eight providers listed](../../assets/screens/reference-settings-automatic-tagging-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Beatport and Traxsource are asked first; the other providers are opt-in.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Follow [Tag new tracks from Beatport and Traxsource](../../tagging/tag-new-tracks-automatically.md) first. It turns tagging on for a real folder and shows the result. For the reasoning behind provider and field choices, see [Choose providers and fields to write](../../tagging/choose-providers.md).
 
@@ -119,6 +127,14 @@ How the choices play out: [Match a folder as a release](../../tagging/match-a-re
 ## Fields to write { #fields }
 
 **Overwrite all selected fields** and a grid with one row per field. For each field, **Write** decides whether the catalog value is written, and **Overwrite** decides whether it replaces a value already in the file. The small grey line under each field name lists which of your selected providers supply it.
+
+<!-- figure:reference-settings-tagging-fields -->
+<figure markdown>
+![The Fields to write group: Overwrite all selected fields, then the grid of fields with Write and Overwrite boxes, with Genre, BPM, Style, Label and Release date written](../../assets/screens/reference-settings-tagging-fields-light.webp#only-light){ .screen loading=lazy }
+![The Fields to write group: Overwrite all selected fields, then the grid of fields with Write and Overwrite boxes, with Genre, BPM, Style, Label and Release date written](../../assets/screens/reference-settings-tagging-fields-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A grid decides which catalog fields are written and which may replace existing values.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Control | What it does | Default | Valid values |
 |---|---|---|---|

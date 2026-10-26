@@ -15,6 +15,14 @@
 
 Choose **Settings** at the bottom of the sidebar, then **Cue generation**. The page reads *Validated structural cues, applied after full analysis.*
 
+<!-- figure:prepare-settings-cue-generation -->
+<figure markdown>
+![Settings, Cue generation page: Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop checkbox](../assets/screens/prepare-settings-cue-generation-light.webp#only-light){ .screen loading=lazy }
+![Settings, Cue generation page: Existing cue points fixed to Replace, Minimum breakdown length 64, Drop at start Never and the Emergency loop checkbox](../assets/screens/prepare-settings-cue-generation-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The four cue controls on one page.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Control | What it does | Default |
 |---|---|---|
 | **Existing cue points** | Fixed to *Replace*. After a successful analysis the new cues replace the old ones. If preparation fails, the previous cues are kept. | Replace |

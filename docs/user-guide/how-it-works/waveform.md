@@ -41,6 +41,14 @@ The strongest band in each moment is scaled to 255. For the stacked **Layers** s
 
 The interface blends the band weights into a palette in a perceptual colour space (OKLab). Every palette steps from dark to light in the order bass, mids, highs, so the bands stay distinguishable by lightness alone, which keeps them readable for colour-blind users. The default pairing of cobalt and coral is a blue-orange axis that survives red-green colour blindness. Silent stretches take the neutral text colour.
 
+<!-- figure:how-waveform-colours -->
+<figure markdown>
+![The whole-track waveform of Other Dimension (Extended Mix) in the CueRithm style, with the long breakdown from 2:23 to 3:15 drawn in different colours from the drops](../assets/screens/how-waveform-colours-light.webp#only-light){ .screen loading=lazy }
+![The whole-track waveform of Other Dimension (Extended Mix) in the CueRithm style, with the long breakdown from 2:23 to 3:15 drawn in different colours from the drops](../assets/screens/how-waveform-colours-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Colour follows the balance of bass, mids and highs at each moment.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Style | What it looks like |
 |---|---|
 | **CueRithm** (default) | Cobalt bass, coral mids, ice highs. Moments blend between them |
@@ -60,6 +68,14 @@ Waveform data is cached on disk in the `cache/waveforms` folder of the applicati
     The Settings preview multiplies the high band for legibility. The engine's own weight for highs is 1.0.
 
 ## Where you see it in the app { #where-you-see-it }
+
+<!-- figure:how-waveform-styles -->
+<figure markdown>
+![Settings, Appearance page listing the six waveform styles CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each drawn on a sample track](../assets/screens/how-waveform-styles-light.webp#only-light){ .screen loading=lazy }
+![Settings, Appearance page listing the six waveform styles CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each drawn on a sample track](../assets/screens/how-waveform-styles-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Six styles share the same data; switching is instant.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Place | What shows |
 |---|---|

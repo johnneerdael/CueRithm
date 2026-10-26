@@ -13,6 +13,14 @@
 
 A folder of new purchases holds audio files and nothing else CueRithm knows about. You want every track measured, tagged from Beatport and ready for crates, without touching each file.
 
+<!-- figure:prepare-tracks-after-purchase-folder -->
+<figure markdown>
+![Tracks view with the 26 prepared Beatport tracks, showing title, genre, BPM, key, energy, duration and a waveform preview with cue markers](../../assets/screens/prepare-tracks-after-purchase-folder-light.webp#only-light){ .screen loading=lazy }
+![Tracks view with the 26 prepared Beatport tracks, showing title, genre, BPM, key, energy, duration and a waveform preview with cue markers](../../assets/screens/prepare-tracks-after-purchase-folder-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The result: 26 tracks with key, BPM, energy and cues.</figcaption>
+</figure>
+<!-- /figure -->
+
 | | Before | After |
 |---|---|---|
 | Library | The files sit in `~/Music/Beatport`; CueRithm has no record of them | 26 tracks in Tracks |
@@ -23,6 +31,14 @@ A folder of new purchases holds audio files and nothing else CueRithm knows abou
 ## The solution
 
 Set the rules first, then add the folder. CueRithm captures the rules when it sees each file, so files that arrive before you save are prepared with the old ones.
+
+<!-- figure:prepare-settings-tagging-purchase -->
+<figure markdown>
+![Settings, Automatic tagging page with the Automatic tagging switch on, Beatport at position 1 and Traxsource at position 2 in the provider list, and No catalog match set to Keep existing tags and finish](../../assets/screens/prepare-settings-tagging-purchase-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging page with the Automatic tagging switch on, Beatport at position 1 and Traxsource at position 2 in the provider list, and No catalog match set to Keep existing tags and finish](../../assets/screens/prepare-settings-tagging-purchase-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Set the tagging rules before you add the folder.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Choose **Settings**, then **Automatic tagging**. Switch **Automatic tagging** on. In the provider list, tick **Use Beatport** and **Use Traxsource**, and use the arrows to put Beatport at position 1. Beatport and Traxsource are the default selection.
 2. Set **No catalog match** to *Keep existing tags and finish*, so a track with no match still reaches Tracks.

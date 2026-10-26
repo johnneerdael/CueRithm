@@ -32,7 +32,7 @@
   "scene": "prepare-settings-incoming",
   "page": "files/watch-folders.md",
   "after": "## 1. Add the folder { #add-folder }",
-  "alt": "Settings, Incoming page, listing the watch folder ~/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below",
+  "alt": "Settings, Incoming page, listing the watch folder /private/tmp/demo/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below",
   "caption": "The Incoming page of Settings lists every watch folder.",
   "state": "Sidebar: Settings, then the Incoming page. One watch folder, ~/Music/Beatport, in the list. 'Add watch folder' and the 'Save settings' button visible. The path must not show a user name; use ~/Music/Beatport.",
   "crop": "panel"

@@ -9,6 +9,14 @@
 
 Tokens read the track's final tags and CueRithm's own measurements, after tagging and cleanup have been accepted. The examples use the demo track **Palm Of Your Hands (Extended Mix)** by Adriatique: genre `Melodic House & Techno`, key `11A`, 127 BPM, energy 6/10.
 
+<!-- figure:reference-settings-token-buttons -->
+<figure markdown>
+![The Filename pattern box and the token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it](../assets/screens/reference-settings-token-buttons-light.webp#only-light){ .screen loading=lazy }
+![The Filename pattern box and the token buttons Artist, Title, Mix / version, Label, Year, Bpm, Key and Energy under it](../assets/screens/reference-settings-token-buttons-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Eight tokens have buttons; the other eleven are typed in braces.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Token | Gives | Where the value comes from | Example | Buttons in Settings |
 |---|---|---|---|---|
 | `{artist}` | The first artist | The first non-blank value of the Artist tag | `Adriatique` | **Artist** |

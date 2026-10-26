@@ -14,6 +14,14 @@ The sidebar is 224 px wide at first. You can drag it between 180 px and 340 px, 
 
 Press ++cmd+b++ / ++ctrl+b++, or select the **Collapse sidebar** button at the top of the sidebar next to the CueRithm name. The sidebar shrinks to a 60 px rail of icons, and the main area gets the space. Sections shrink to a divider line. Counts disappear, except that **Incoming** keeps a small dot while tracks are waiting there.
 
+<!-- figure:customize-layout-collapsed -->
+<figure markdown>
+![CueRithm with the sidebar collapsed to a narrow rail of icons and the track table using the freed space](../assets/screens/customize-layout-collapsed-light.webp#only-light){ .screen loading=lazy }
+![CueRithm with the sidebar collapsed to a narrow rail of icons and the track table using the freed space](../assets/screens/customize-layout-collapsed-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A collapsed sidebar is a 60 px rail of icons; hover it to open it over the table.</figcaption>
+</figure>
+<!-- /figure -->
+
 A collapsed sidebar still works:
 
 - Rest the pointer on the rail, or move keyboard focus into it, and after a moment it opens over the main area. It closes again when you move away.

@@ -1,0 +1,232 @@
+[
+ {
+  "scene": "get-started-main-window",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "seekto",
+    "20"
+   ],
+   [
+    "deselect"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "help-sidebar-version-footer",
+  "steps": [],
+  "settle": 1.0
+ },
+ {
+  "scene": "customize-theme-header",
+  "steps": [],
+  "settle": 1.0
+ },
+ {
+  "scene": "reference-status-tracks",
+  "steps": [],
+  "settle": 2.0
+ },
+ {
+  "scene": "prepare-add-tracks-button",
+  "steps": [],
+  "settle": 1.0
+ },
+ {
+  "scene": "prepare-tracks-after-purchase-folder",
+  "steps": [],
+  "settle": 2.0
+ },
+ {
+  "scene": "how-analysis-columns",
+  "steps": [],
+  "settle": 2.0
+ },
+ {
+  "scene": "tag-status-icons",
+  "steps": [],
+  "settle": 2.0
+ },
+ {
+  "scene": "reference-cue-strip",
+  "steps": [
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "0.6"
+   ],
+   [
+    "click",
+    "^button Play 17 "
+   ],
+   [
+    "wait_for",
+    "^button Pause",
+    "20"
+   ],
+   [
+    "click",
+    "^button Pause"
+   ],
+   [
+    "wait_for",
+    "^button Play$",
+    "10"
+   ],
+   [
+    "click",
+    "^button Back to start"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "how-beatgrid-zoom",
+  "steps": [
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "0.6"
+   ],
+   [
+    "click",
+    "^button Play 17 "
+   ],
+   [
+    "wait_for",
+    "^button Pause",
+    "20"
+   ],
+   [
+    "click",
+    "^button Pause"
+   ],
+   [
+    "wait_for",
+    "^button Play$",
+    "10"
+   ],
+   [
+    "seekto",
+    "72"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "how-player-cues",
+  "steps": [
+   [
+    "play",
+    "Atoma"
+   ],
+   [
+    "click",
+    "^button Back to start"
+   ],
+   [
+    "click",
+    "^toggle button Waveform zoom"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "how-waveform-colours",
+  "steps": [
+   [
+    "search",
+    "Other Dimension"
+   ],
+   [
+    "play",
+    "Other Dimension"
+   ],
+   [
+    "click",
+    "^button Back to start"
+   ],
+   [
+    "click",
+    "^toggle button Waveform zoom"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ]
+ },
+ {
+  "scene": "customize-layout-collapsed",
+  "steps": [
+   [
+    "key",
+    "super+b"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "key",
+    "super+b"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "retheme": false
+ },
+ {
+  "scene": "reference-sidebar-collapsed",
+  "steps": [
+   [
+    "key",
+    "super+b"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "key",
+    "super+b"
+   ],
+   [
+    "wait",
+    "1"
+   ]
+  ],
+  "retheme": false
+ }
+]

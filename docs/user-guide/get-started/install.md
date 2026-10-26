@@ -100,6 +100,14 @@ The `media` folder sits in `CueRithm.app/Contents/Resources/media` on a Mac, nex
 
 CueRithm can verify its own bundled parts and exit. The release pipeline runs the same check on every package.
 
+<!-- figure:help-sidebar-version-footer -->
+<figure markdown>
+![Bottom of the sidebar with LOCAL LIBRARY, Settings and the footer line CUERITHM 0.1](../assets/screens/help-sidebar-version-footer-light.webp#only-light){ .screen loading=lazy }
+![Bottom of the sidebar with LOCAL LIBRARY, Settings and the footer line CUERITHM 0.1](../assets/screens/help-sidebar-version-footer-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The sidebar footer shows only 0.1; the diagnostics line has the full version.</figcaption>
+</figure>
+<!-- /figure -->
+
 === "macOS"
 
     ```sh

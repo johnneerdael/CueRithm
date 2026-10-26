@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-appearance -->
+<figure markdown>
+![The Appearance page of Settings with six waveform style buttons: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each with a sample waveform, CueRithm selected](../../assets/screens/reference-settings-appearance-light.webp#only-light){ .screen loading=lazy }
+![The Appearance page of Settings with six waveform style buttons: CueRithm, Dusk, Lagoon, Tonal, Layers and Layers, tonal, each with a sample waveform, CueRithm selected](../../assets/screens/reference-settings-appearance-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Six waveform styles, each previewed on the same invented track.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     [Choose a waveform style](../../customize/waveform-style.md) shows the six styles side by side on real tracks and helps you pick one. [Switch between light and dark](../../customize/theme.md) covers the separate colour theme.
 

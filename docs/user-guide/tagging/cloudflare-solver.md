@@ -42,6 +42,14 @@ CueRithm talks to the common FlareSolverr interface: a `POST` to `/v1` with `req
 
 ## Point CueRithm at it { #configure-cuerithm }
 
+<!-- figure:tag-solver-settings -->
+<figure markdown>
+![The Cloudflare challenge solver group with the Solver API URL box showing the placeholder http://localhost:8191, Solver timeout 120 and the Retry direct source access button](../assets/screens/tag-solver-settings-light.webp#only-light){ .screen loading=lazy }
+![The Cloudflare challenge solver group with the Solver API URL box showing the placeholder http://localhost:8191, Solver timeout 120 and the Retry direct source access button](../assets/screens/tag-solver-settings-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Enter the solver's address and keep the timeout at 120 seconds to start.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open **Settings → Automatic tagging** and scroll to **Cloudflare challenge solver**.
 2. Enter the address in **Solver API URL**. On the same computer that is often `http://localhost:8191`. For a NAS, use its address on your network and the port the solver exposes. A full endpoint such as `https://solver.example/v1` works too; CueRithm adds `/v1` when it is missing. The URL must use HTTP or HTTPS and must not contain a username, a password, a query string or a fragment.
 3. Leave **Solver timeout** at 120 seconds. The first challenge takes much longer than later ones. You can raise it to 300 seconds.

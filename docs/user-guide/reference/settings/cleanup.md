@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-cleanup -->
+<figure markdown>
+![The Cleanup page of Settings with the Clean incoming tracks automatically switch, the Smart Fixes list with a Casing rule and an Extract remixer rule, and the Genres and Artists editors](../../assets/screens/reference-settings-cleanup-light.webp#only-light){ .screen loading=lazy }
+![The Cleanup page of Settings with the Clean incoming tracks automatically switch, the Smart Fixes list with a Casing rule and an Extract remixer rule, and the Genres and Artists editors](../../assets/screens/reference-settings-cleanup-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Smart Fixes run in list order, before the genre and artist mappings.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Try the rules on a few tracks first with [Clean up messy titles, genres and artists](../../tagging/cleanup-messy-titles.md). It previews every change before anything is written. Then come back and switch on automatic cleanup with [Run cleanup on every new track](../../tagging/cleanup-automatically.md).
 

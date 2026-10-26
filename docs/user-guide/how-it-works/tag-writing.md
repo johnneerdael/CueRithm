@@ -50,6 +50,14 @@ If the setting says v2.4 and a file has v2.3, it is upgraded when a write is nee
 
 While a write is under way the original bytes of the changed file are in the data folder under `tagging/<workspace>/original.<ext>`, and manual cleanup and manual metadata edits use `cleanup/` and `metadata-edits/`. They are what rollback and crash recovery read. When the write has settled (it committed, or it was rolled back) CueRithm deletes the copy and its folder. A write that changes nothing keeps no backup, and redundant staged copies are removed after the swap is durable. The total of the copies that exist appears as **Recovery backups** on **Settings → Automatic tagging**; it is normally zero.
 
+<!-- figure:how-recovery-backups -->
+<figure markdown>
+![Settings, Automatic tagging page, top: the Recovery backups row showing the size and file count of retained original files](../assets/screens/how-recovery-backups-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging page, top: the Recovery backups row showing the size and file count of retained original files](../assets/screens/how-recovery-backups-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The retained originals are counted here; there is no retention control yet.</figcaption>
+</figure>
+<!-- /figure -->
+
 Undo does not need the original. A manual cleanup or manual edit records the tag values it replaced, and Undo writes those values back into the file as it is now, through the same staged, checked and journaled write (CueRithm 0.1.19 or later; earlier versions kept the original file for ever and Undo copied it back). Artwork you replaced by hand is kept, because artwork is part of the library. Only the 10 newest manual cleanups and edits can be undone. Automatic tagging in Incoming has no Undo button.
 
 A library from an earlier version still holds those copies. When CueRithm starts it deletes the ones whose write has settled, a few hundred writes at a time, and only files it created inside its own data folder.
@@ -59,6 +67,14 @@ A library from an earlier version still holds those copies. When CueRithm starts
 TagLib 2.3.2 is built statically with all other formats, shared libraries and tests disabled, and a small C++ bridge exposes only the staged-file ASF operations. One checked build-time modification keeps repeated ASF values together so multi-artist order is preserved. Its licences are retained in the vendored folder. You never install TagLib.
 
 ## Where you see it in the app { #where-you-see-it }
+
+<!-- figure:how-tagging-fields -->
+<figure markdown>
+![Settings, Automatic tagging, Fields to write: the Key and BPM write options, Write Camelot keys and Write track energy to files](../assets/screens/how-tagging-fields-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging, Fields to write: the Key and BPM write options, Write Camelot keys and Write track energy to files](../assets/screens/how-tagging-fields-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>These switches decide which measured values are written into the file.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Place | What shows |
 |---|---|

@@ -8,6 +8,14 @@ If you want a single playlist with your own rules, use [Build a smart playlist](
 
 ## Turn on the groups you want { #turn-on }
 
+<!-- figure:playlists-settings-smart-playlists -->
+<figure markdown>
+![Settings, Smart Playlists page with By BPM and By Key ticked and one BPM range from 126 to 130, above the Save Smart Playlist settings button](../assets/screens/playlists-settings-smart-playlists-light.webp#only-light){ .screen loading=lazy }
+![Settings, Smart Playlists page with By BPM and By Key ticked and one BPM range from 126 to 130, above the Save Smart Playlist settings button](../assets/screens/playlists-settings-smart-playlists-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Automatic lists are opt-in, and have their own Save Smart Playlist settings button.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **Settings** in the sidebar, then **Smart Playlists** in the list of settings pages.
 2. Tick the groups you want. **By Artist**, **By BPM**, **By release date**, **By Genre** and **By Key** are all off to begin with, in new and existing libraries.
 3. If you ticked **By BPM**, [add your ranges](#bpm-ranges).

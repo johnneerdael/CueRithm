@@ -20,6 +20,14 @@ A provider failure is never reported as "no match". It keeps the track in Incomi
 
 ## Fix it { #fix }
 
+<!-- figure:help-tagging-settings-providers -->
+<figure markdown>
+![Settings, Automatic tagging page: the Automatic tagging switch on, Beatport and Traxsource ticked, and the No catalog match menu](../../assets/screens/help-tagging-settings-providers-light.webp#only-light){ .screen loading=lazy }
+![Settings, Automatic tagging page: the Automatic tagging switch on, Beatport and Traxsource ticked, and the No catalog match menu](../../assets/screens/help-tagging-settings-providers-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Check the Automatic tagging switch, the ticked providers and the No catalog match setting first.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. **Check the switch and the providers.** Open **Settings** → **Automatic tagging**. Turn on **Automatic tagging**, tick at least one provider (**Use Beatport**, **Use Traxsource**), and choose **Save settings**. Saving also retries tracks that need attention. [Tag new tracks from Beatport and Traxsource](../../tagging/tag-new-tracks-automatically.md) walks through the whole setup, and [Choose providers and fields to write](../../tagging/choose-providers.md) explains each option.
 2. **Provider needs an account.** SonoVault, BPM Supreme and Volumo stay unavailable until you connect them. See [Connect provider accounts](../../tagging/provider-accounts.md).
 3. **Cloudflare block.** Traxsource may need a FlareSolverr-compatible solver that you run yourself. Enter its address under **Solver API URL**, save, and retry the track. If a site was marked as blocked and you have since fixed the network, choose **Retry direct source access**. [Get past a Cloudflare block](../../tagging/cloudflare-solver.md) has the full setup.

@@ -1,0 +1,517 @@
+[
+ {
+  "scene": "reference-settings-cleanup",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$",
+    "1"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^button Add Smart Fix"
+   ],
+   [
+    "click",
+    "^pop up button New Smart Fix"
+   ],
+   [
+    "click",
+    "^menu item Extract remixer"
+   ],
+   [
+    "click",
+    "^button Add Smart Fix"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "cleanup-settings-automatic",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Cleanup$",
+    "1"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Clean incoming tracks automatically",
+    "on"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-file-organization",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button File organization$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-token-buttons",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button File organization$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "reference-settings-smart-playlists",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Smart Playlists$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "By BPM",
+    "on"
+   ],
+   [
+    "click",
+    "^button Add BPM range"
+   ],
+   [
+    "fill",
+    "Range 1 minimum BPM",
+    "126"
+   ],
+   [
+    "fill",
+    "Range 1 maximum BPM",
+    "130"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "playlists-settings-smart-playlists",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Smart Playlists$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "By BPM",
+    "on"
+   ],
+   [
+    "click",
+    "^button Add BPM range"
+   ],
+   [
+    "fill",
+    "Range 1 minimum BPM",
+    "126"
+   ],
+   [
+    "fill",
+    "Range 1 maximum BPM",
+    "130"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-settings-tagging-off",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Automatic tagging",
+    "off"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-settings-automatic-tagging",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Use SonoVault",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Volumo",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Discogs",
+    "off"
+   ],
+   [
+    "tick",
+    "Use MusicBrainz",
+    "off"
+   ],
+   [
+    "tick",
+    "Use iTunes",
+    "off"
+   ],
+   [
+    "tick",
+    "Use BPM Supreme",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Bandcamp",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Deezer",
+    "off"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-settings-tagging-purchase",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Use SonoVault",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Volumo",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Discogs",
+    "off"
+   ],
+   [
+    "tick",
+    "Use MusicBrainz",
+    "off"
+   ],
+   [
+    "tick",
+    "Use iTunes",
+    "off"
+   ],
+   [
+    "tick",
+    "Use BPM Supreme",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Bandcamp",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Deezer",
+    "off"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "help-tagging-settings-providers",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "tick",
+    "Use SonoVault",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Volumo",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Discogs",
+    "off"
+   ],
+   [
+    "tick",
+    "Use MusicBrainz",
+    "off"
+   ],
+   [
+    "tick",
+    "Use iTunes",
+    "off"
+   ],
+   [
+    "tick",
+    "Use BPM Supreme",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Bandcamp",
+    "off"
+   ],
+   [
+    "tick",
+    "Use Deezer",
+    "off"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-settings-identify",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "scrollto",
+    "Identify unresolved recordings",
+    "240"
+   ],
+   [
+    "click",
+    "^summary Identify unresolved recordings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "scrollto",
+    "Identify unresolved recordings",
+    "235"
+   ],
+   [
+    "fill",
+    "Solver API URL",
+    ""
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "tag-solver-settings",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Automatic tagging$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "scrollto",
+    "Cloudflare challenge solver",
+    "240"
+   ],
+   [
+    "fill",
+    "Solver API URL",
+    ""
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

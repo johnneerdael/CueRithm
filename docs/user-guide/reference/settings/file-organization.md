@@ -9,6 +9,14 @@
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-file-organization -->
+<figure markdown>
+![The File organization page of Settings with Rename in place chosen, the filename pattern {artist} - {title}, the eight token buttons and Example filenames showing Example Artist - Example (Club Mix).flac and a Missing naming field: artist result](../../assets/screens/reference-settings-file-organization-light.webp#only-light){ .screen loading=lazy }
+![The File organization page of Settings with Rename in place chosen, the filename pattern {artist} - {title}, the eight token buttons and Example filenames showing Example Artist - Example (Club Mix).flac and a Missing naming field: artist result](../../assets/screens/reference-settings-file-organization-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The examples show how your pattern treats two invented tracks before anything is saved.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     [Rename and sort files into folders](../../rename/organize-files.md) walks through a first reorganisation with a preview. [Build a naming pattern](../../rename/naming-patterns.md) teaches patterns step by step. This page is the complete list of controls.
 
