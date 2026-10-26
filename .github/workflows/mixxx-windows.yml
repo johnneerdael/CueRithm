@@ -7,7 +7,7 @@ name: Mixxx on Windows
 # versions of Media Foundation, which decodes AAC for Mixxx there. Not part of the release gate.
 on:
   push:
-    branches: [main, fix/mixxx-case-fold-and-faad]
+    branches: [main]
     paths:
       - 'crates/cuerithm-dj-sync/**'
       - 'tools/mixxx-acceptance/**'

@@ -756,7 +756,8 @@ The run also printed one note, which is not a pass: the decoder list.
   compared with a position Mixxx itself reports.
 
 What this does **not** show: Windows 10 or 11 (Server 2019 has the same Media Foundation
-generation, `10.0.17763`, but another build was not run); an MSVC-built CueRithm; a Mixxx
+generation, `10.0.17763`, but another build was not run; the next section adds two more
+generations on hosted servers); an MSVC-built CueRithm (the next section); a Mixxx
 built from the Windows installer rather than unpacked from it; playback or the waveform
 inside Mixxx; HE-AAC and raw `.aac` streams; and CueRithm's own window, discovery and process
 checks on Windows, which the repository's Windows checks cover. The unit tests of the
@@ -771,6 +772,43 @@ powershell -ExecutionPolicy Bypass -File tools\mixxx-acceptance\windows\run.ps1 
 ```
 
 which writes `tests.log` and `acceptance.log` next to the checkout.
+
+### Windows: the MSVC build, on hosted Windows Server 2022 and 2025
+
+The shipped Windows app is built with MSVC, but the Server 2019 workspace could only build with
+the GNU toolchain (the Visual Studio Build Tools need administrator rights there). The workflow
+`.github/workflows/mixxx-windows.yml` (*Mixxx on Windows*) runs the same
+`run.py --windows` on GitHub's `windows-2022` and `windows-2025` runners, which come with the
+Visual Studio C++ tools and a Rust whose host is `x86_64-pc-windows-msvc` (rustc 1.99.1 in the
+runs below; `bootstrap.ps1 -Toolchain msvc` stops when the host is anything else). What was
+built by MSVC is the adapter crate's test binary (`cargo test -p cuerithm-dj-sync --lib`, debug
+profile), which is what runs the real preview and apply path in the harness; the packaged
+desktop application was not built or started there. The run prints which C runtime that binary
+imports: `VCRUNTIME140.dll` and no `libgcc`, on both runners. Mixxx is again 2.5.6 from its installer package (checksum checked, administrative
+install), and the libmad 0.16.4 behind the MP3 probe is built from source as before.
+
+| Runner image | Media Foundation, as Mixxx's log names it | Result |
+|---|---|---|
+| `windows-2022` (Windows Server 2022, build 20348) | 10.0.20348.5756 | 156 of 156 checks passed |
+| `windows-2025-vs2026` (Windows Server 2025, build 26100) | 10.0.26100.33648 | 156 of 156 checks passed |
+
+Both runs reproduce the Server 2019 observations. The written grid and cues carried the same
+shifts: 1024 frames for FFmpeg's AAC, 2112 for Apple's, none for Apple Lossless and 1105 for the
+LAME MP3, and every written first beat was within 2 frames of the click (22050, 23074, 23155,
+24000 and 24162 against 22052, 23076, 23157, 24002 and 24164). Mixxx again registered no WMA
+decoder, left the WMA file out and loaded the BeatGrid-2.0 grids and keys without a
+deserialization failure, and its analyzer left the BPM-locked grids alone in every scenario
+(2 to 4 tracks analysed per scenario). The one note, which is not a pass, is again the decoder
+list. The first run on `windows-2025` also showed a defect of the harness: a thread that reads
+the output of `cargo` died decoding it as the Windows ANSI code page. It did not change a
+result and the harness now decodes UTF-8.
+
+What this adds: the sync built the way the Windows app is built, and two more generations of
+Media Foundation (build 26100 is also the build of Windows 11 24H2) that give the same
+alignments for these files as the 17763 generation did. What it does not add: Windows 10 or 11
+installations themselves (a consumer edition can differ in its media components), a Mixxx
+installed rather than unpacked, audible playback, and the other gaps listed above. The runs are reproducible from the repository: *Actions*, *Mixxx on Windows*, *Run
+workflow*, or after any push to `main` that changes the sync or the harness.
 
 ### Formats, measured in Mixxx 2.5.6 on macOS
 
@@ -794,9 +832,10 @@ media probe, which reports 48000 for Opus.
   as recorded in *Runtime acceptance*. The sync itself ran on macOS using Linux timing, so
   those runs do not establish CueRithm's native Linux discovery or process checks. AppImage
   and Flatpak packages were not run. Windows ran Mixxx 2.5.6 on Windows Server 2019 in a
-  workspace, with the sync run natively there by the adapter's unit tests and the
-  acceptance harness; CueRithm's own window, discovery and process checks on Windows, other
-  Windows versions and an MSVC build were not.
+  workspace (GNU toolchain) and on hosted Windows Server 2022 and 2025 (MSVC toolchain),
+  with the sync run natively there by the adapter's unit tests and the acceptance harness;
+  CueRithm's own window, discovery and process checks on Windows and Windows 10 and 11
+  installations themselves were not.
 - **The FAAD shift beyond two encoders.** `priming - 1024` was measured for priming 1024
   (FFmpeg) and 2112 (Apple) only. An encoder with another priming value, or an M4A with an
   edit list that disagrees with `iTunSMPB`, has not been measured.
