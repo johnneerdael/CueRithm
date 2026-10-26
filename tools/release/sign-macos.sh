@@ -47,6 +47,18 @@ sign "$dmg"
 xcrun notarytool submit "$dmg" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" \
   --issuer "$NOTARY_ISSUER_ID" --wait | tee "$work/notary.txt"
 grep -q 'status: Accepted' "$work/notary.txt" || { echo 'Notarization was not accepted' >&2; exit 1; }
-xcrun stapler staple "$dmg"
+# Stapling downloads the ticket from Apple's CloudKit, which can drop the connection after a
+# notarization was already Accepted ("The network connection was lost", stapler error 68, seen on
+# two runs in a row), so try again a few times before failing the release.
+staple() {
+  local attempts=6 attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if xcrun stapler staple "$dmg"; then return 0; fi
+    echo "stapler staple failed (attempt $attempt of $attempts)" >&2
+    if [ "$attempt" -lt "$attempts" ]; then sleep $((attempt * 30)); fi
+  done
+  return 1
+}
+staple
 xcrun stapler validate "$dmg"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
