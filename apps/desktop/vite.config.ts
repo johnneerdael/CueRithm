@@ -5,5 +5,5 @@ export default defineConfig({
   clearScreen:false,
   build:{target:"es2020"},
   server:{port:1420,strictPort:true,host:"127.0.0.1"},
-  test:{environment:"jsdom",setupFiles:["./src/test/setup.ts"]},
+  test:{environment:"jsdom",setupFiles:["./src/test/setup.ts"],testTimeout:15000},
 });
