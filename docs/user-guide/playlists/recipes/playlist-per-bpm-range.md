@@ -30,6 +30,14 @@ There is no `150 - 159.99` list because no track sits there.
 
 ## The solution
 
+<!-- figure:playlists-generator-bpm -->
+<figure markdown>
+![Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1](../../assets/screens/playlists-generator-bpm-light.webp#only-light){ .screen loading=lazy }
+![Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1](../../assets/screens/playlists-generator-bpm-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>BPM ranges previews one smart playlist for every 10-BPM band that holds a track.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Under **TOOLS**, click **Playlist tools**, then **Generate playlists** at the top right ([open the generator](../generate-playlists.md#open-generator)).
 2. Leave **Target folder** on **New folder**, and type `BPM bands` in **New folder name**.
 3. Open the menu for **Dimension 1** and choose **BPM ranges**.

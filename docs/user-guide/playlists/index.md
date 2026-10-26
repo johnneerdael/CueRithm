@@ -2,6 +2,14 @@
 
 <p class="lead">Put tracks in the order you will play them, let rules fill playlists for you, check how a set moves from track to track, and find what mixes with what. Playlists live in your CueRithm library and never change an audio file.</p>
 
+<!-- figure:playlists-sidebar-overview -->
+<figure markdown>
+![The CueRithm sidebar with the PLAYLISTS list scrolled to the Club nights folder, open and showing Warm-up set (Peak hour and the four smart playlists lie below in the list, which scrolls), and the TOOLS group below](../assets/screens/playlists-sidebar-overview-light.webp#only-light){ .screen loading=lazy }
+![The CueRithm sidebar with the PLAYLISTS list scrolled to the Club nights folder, open and showing Warm-up set (Peak hour and the four smart playlists lie below in the list, which scrolls), and the TOOLS group below](../assets/screens/playlists-sidebar-overview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Playlists, folders and smart playlists share one tree; the tools sit underneath.</figcaption>
+</figure>
+<!-- /figure -->
+
 A playlist is a list of tracks from **Tracks**. CueRithm has three kinds of item in the **PLAYLISTS** section of the sidebar:
 
 | Kind | Sidebar icon | Who chooses the tracks |

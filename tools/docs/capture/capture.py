@@ -45,7 +45,8 @@ Verbs: click PATTERN [NTH] | dblclick PATTERN [NTH] | key KEY [COUNT] | type TEX
        scroll PATTERN DIR PAGES | clickxy X Y | dblclickxy X Y | drag X1 Y1 X2 Y2 (window points) |
        wait SECONDS | wait_for PATTERN [SECONDS] | gone PATTERN | reset | view NAME |
        sort HEADING [CLICKS] | play TITLE | seekto SECONDS |
-       columns | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
+       columns | expand FOLDER | height POINTS | switch PATTERN on|off | paste LABEL TEXT | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
+A scene with "modal": true skips the pause and volume steps (a dialog hides the player) and should carry "retheme": false.
 A scene may carry "after": [steps] that run once the picture is taken, to undo what it changed, and "crop": "window" (default) | "panel" | "player"; without it the crop requested in
 docs/user-guide/_meta/figures/*.json for that scene id is used.
 Patterns are case-insensitive regular expressions over `<role> <label>` of an
@@ -166,6 +167,7 @@ def title_order(cu):
 def reset(cu):
     """Back to the plain Tracks table: nothing selected, search empty, sorted by title, player paused, silent."""
     activate()
+    set_height(cu, 940)  # a tall scene leaves the window taller
     cu.key("Escape")
     time.sleep(0.2)
     cu.key("Escape")
@@ -175,6 +177,11 @@ def reset(cu):
         if cu.has(panel):
             cu.click(panel, refresh=False)
             time.sleep(0.6)
+            cu.state()
+    for folder in ("Club nights", "Automatic Smart Playlists"):  # playlist folders stay open between scenes
+        if cu.has(rf"^button \(?expanded\)? ?Collapse {re.escape(folder)}$") or cu.has(rf"^button Collapse {re.escape(folder)}$"):
+            cu.click(rf"^button Collapse {re.escape(folder)}$", refresh=False)
+            time.sleep(0.5)
             cu.state()
     cu.click(r"^button Archive")  # leaving the view clears the selection
     time.sleep(0.5)
@@ -301,6 +308,19 @@ def scroll_page(cu, direction, pages):
     raise RuntimeError("nothing on screen to scroll with")
 
 
+def set_height(cu, target):
+    """Make the window `target` points tall by dragging its bottom edge (a script cannot resize it: System Events has no
+    accessibility access here). The screen caps the height, so ask for no more than about 1044."""
+    for _ in range(3):
+        _, _, _, _, height = window()
+        if abs(height - target) <= 2:
+            return
+        x1, y1 = cu.shot_point(720, height - 1)
+        x2, y2 = cu.shot_point(720, target - 1)
+        cu.call("drag", app="CueRithm", from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+        time.sleep(1.0)
+
+
 def search(cu, text):
     """Type into the search box the way a person does: set_value would not reach the page's input handler."""
     cu.click_xy(450, 32)
@@ -425,6 +445,32 @@ def run_step(cu, step):
             if y is not None and abs(y - want) <= 35:
                 break
             scroll_page(cu, "up" if (y is not None and y < want) else "down", 0.5 if (y is None or abs(y - want) > 300) else 0.12)
+    elif verb == "paste":
+        # paste LABEL TEXT: a text box or text area filled with text the key map cannot type (brackets, commas, line breaks):
+        # the accessibility value is set, then a space and a backspace make the page read it
+        matches = json.loads(cu.call("query", app="CueRithm", text=args[0])[0])["matches"]
+        box = next(m for m in matches if m.get("title") == args[0])
+        cu.click_xy(box["bounds"]["x"] + box["bounds"]["w"] / 2, box["bounds"]["y"] + box["bounds"]["h"] / 2)
+        time.sleep(0.4)
+        field = cu.find(rf"^(text field|text entry area|text area|url field)[^\n]*{re.escape(args[0])}")
+        cu.call("set_value", app="CueRithm", element_index=field["idx"], value=args[1])
+        time.sleep(0.3)
+        cu.key("space")
+        cu.key("BackSpace")
+        time.sleep(0.6)
+    elif verb == "switch":
+        # switch PATTERN on|off: press a toggle button only when it is not already in that state
+        toggle = cu.find(args[0])
+        if (" Value: on" in toggle["text"]) != (args[1] == "on"):
+            cu.click(args[0], refresh=False)
+        time.sleep(1.0)
+    elif verb == "height":
+        set_height(cu, float(args[0]))
+    elif verb == "expand":
+        cu.state()
+        if cu.has(rf"^button Expand {re.escape(args[0])}$"):  # the folder's toggle reads Collapse once it is open
+            cu.click(rf"^button Expand {re.escape(args[0])}$", refresh=False)
+            time.sleep(0.8)
     elif verb == "blur":
         cu.click_xy(150, 62)  # a pointer click on the brand text clears a keyboard focus ring
         time.sleep(0.4)
@@ -543,8 +589,9 @@ def main():
                     attempt(lambda: set_theme(cu, theme))
                     attempt(lambda: reset(cu))
                     run_steps(cu, scene["steps"])
-                    attempt(lambda: pause_playback(cu))
-                    attempt(lambda: volume(cu, VOLUME))  # silent while playing, but the player shows its normal volume
+                    if not scene.get("modal"):  # a dialog hides the player from the accessibility tree
+                        attempt(lambda: pause_playback(cu))
+                        attempt(lambda: volume(cu, VOLUME))  # silent while playing, but the player shows its normal volume
                     done = True
                 time.sleep(float(scene.get("settle", 0.8)))
                 print("ok ", theme, shoot(scene["scene"], theme, args.out, crop))

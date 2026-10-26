@@ -70,6 +70,14 @@ clash on a particular pair, so listen before you commit.
 
 ## Where CueRithm uses the rule { #where-it-is-used }
 
+<!-- figure:tracks-mixes-with-7a -->
+<figure markdown>
+![The smart playlist Mixes with 7A listing six tracks with key chips 6A, 7A and 8A](../assets/screens/tracks-mixes-with-7a-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist Mixes with 7A listing six tracks with key chips 6A, 7A and 8A](../assets/screens/tracks-mixes-with-7a-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The demo smart playlist Mixes with 7A holds the keys 6A, 7A, 8A and 7B.</figcaption>
+</figure>
+<!-- /figure -->
+
 - **Compatible tracks** lists tracks that fit the one you pick, with a **Key mode** of **Harmonic** or **Fuzzy**. See [Find tracks that mix with the one playing](../playlists/find-compatible-tracks.md).
 - **Smart playlists** have a rule, *is compatible with key*. See [Write smart playlist rules](../playlists/smart-rules.md) and [Smart playlist fields and operators](../reference/smart-playlist-fields.md).
 - **Playlist flow** shows how neighbouring tracks in a playlist relate. See [Check the flow of a playlist](../playlists/check-playlist-flow.md).

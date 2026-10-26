@@ -42,6 +42,14 @@ CueRithm's Rust code independently implements an acoustic calculation observed i
 
 The number is stored in the library, shown as `N/10`, available in smart playlists as **Energy**, and written to the audio file's `ENERGY` custom field when **Write track energy to files** is on, which is the default.
 
+<!-- figure:how-energy-7-and-up -->
+<figure markdown>
+![The Energy 7 and up smart playlist listing 9 tracks, each with its ENERGY value of 7/10 or 8/10](../assets/screens/how-energy-7-and-up-light.webp#only-light){ .screen loading=lazy }
+![The Energy 7 and up smart playlist listing 9 tracks, each with its ENERGY value of 7/10 or 8/10](../assets/screens/how-energy-7-and-up-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Because energy is one number, a smart playlist can select on it directly.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Place | What shows |
 |---|---|
 | **Energy** column in Tracks | `7/10` with a small bar |

@@ -61,6 +61,14 @@ Good to know:
 </figure>
 <!-- /figure -->
 
+<!-- figure:playlists-generator-bpm -->
+<figure markdown>
+![Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1](../assets/screens/playlists-generator-bpm-light.webp#only-light){ .screen loading=lazy }
+![Generate playlists with the New folder named BPM bands, Dimension 1 set to BPM ranges, and a preview of four smart playlists: 120 - 129.99 with 11 tracks, 130 - 139.99 with 12, 140 - 149.99 with 2 and 160 - 169.99 with 1](../assets/screens/playlists-generator-bpm-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>BPM ranges previews one smart playlist for every 10-BPM band that holds a track.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **Preview playlists**. The page shows *N smart playlists*, then *N new nodes · M existing playlists reused. Apply saves the entire preview.*
 2. Each row shows the list's name, its rules under **Conditions**, its track count and whether it is **New** or **Reuse existing**. **Show more playlists** reveals the rest of a long list.
 3. Click **Apply preview**. CueRithm confirms with *Generated playlists saved. Existing compatible playlists keep their identities.*

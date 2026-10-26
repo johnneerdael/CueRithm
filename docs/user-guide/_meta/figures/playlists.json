@@ -3,7 +3,7 @@
   "scene": "playlists-sidebar-overview",
   "page": "playlists/index.md",
   "after": "intro",
-  "alt": "The CueRithm sidebar with the PLAYLISTS section open: the Club nights folder holding Warm-up set and Peak hour, the smart playlists Melodic house 128+, Energy 7 and up, Mixes with 7A and Added this week with lightning-bolt icons, and the TOOLS group below",
+  "alt": "The CueRithm sidebar with the PLAYLISTS list scrolled to the Club nights folder, open and showing Warm-up set (Peak hour and the four smart playlists lie below in the list, which scrolls), and the TOOLS group below",
   "caption": "Playlists, folders and smart playlists share one tree; the tools sit underneath.",
   "state": "Tracks view, sidebar at its default width, nothing selected. Expand Club nights so Warm-up set and Peak hour show. The four demo smart playlists are visible at the top level with their lightning-bolt icons. PLAYLISTS and the TOOLS group (Playlist tools, Compatible tracks, Tracklist matcher) must both be on screen. Dark/light do not matter.",
   "needs": "All demo playlists from ia.md exist. Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
@@ -21,7 +21,7 @@
   "scene": "playlists-add-bar",
   "page": "playlists/create-a-playlist.md",
   "after": "## 3. Add seven tracks { #add-seven }",
-  "alt": "The Tracks view with seven tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
+  "alt": "The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
   "caption": "Pick the destination under Choose playlist and click Add to playlist.",
   "state": "Tracks view. Select seven tracks with Cmd-click (When The Fire Starts To Burn, Desert, F*ck The Club, Murda, Shake The Block, Underground, Atoma). In the bar above the table choose Club nights / Warm-up set in the destination menu; Add to playlist is enabled. Capture before clicking it. The toolbar should read 7 selected.",
   "needs": "Capture on a scratch playlist (or before the real Warm-up set is filled) so the destination menu still has the playlist."
@@ -48,7 +48,7 @@
   "scene": "playlists-move-dialog",
   "page": "playlists/organize-playlists.md",
   "after": "## Put a playlist in a folder { #move-to-folder }",
-  "alt": "The Move Peak hour dialog with the Destination folder menu open showing Your playlists and Club nights, and Cancel and Move buttons",
+  "alt": "The Move Peak hour dialog with its Destination folder menu set to Club nights, and the Cancel and Move buttons",
   "caption": "Destination folder lists every folder that is not the item or inside it.",
   "state": "Open ... on Peak hour, choose Move to folder..., open the Destination folder menu so Your playlists and Club nights are visible. Do not click Move.",
   "crop": "window"
@@ -67,7 +67,7 @@
   "scene": "playlists-add-bar",
   "page": "playlists/edit-playlist-tracks.md",
   "after": "## Add tracks to a playlist { #add-tracks }",
-  "alt": "The Tracks view with seven tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
+  "alt": "The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button",
   "caption": "Pick the destination under Choose playlist and click Add to playlist.",
   "state": "Same picture as playlists-add-bar on create-a-playlist.md."
  },
@@ -182,7 +182,7 @@
   "scene": "playlists-flow-warm-up",
   "page": "playlists/check-playlist-flow.md",
   "after": "## Open the flow view { #open }",
-  "alt": "The Playlist flow view of Warm-up set listing eight tracks with energy 6/10 bars, BPM 126 rising to 130 with +1 BPM changes, and key lines showing one No harmonic key match on Palm Of Your Hands",
+  "alt": "The Playlist flow view of Warm-up set listing its tracks in order (the panel scrolls; the first four are in view) with energy 6/10 bars, BPM 126 rising to 128 with +1 BPM changes, and key lines showing one No harmonic key match on Palm Of Your Hands",
   "caption": "Flow follows play order and flags the one transition without a harmonic key match.",
   "state": "Open Warm-up set and click Playlist flow (button pressed). Nothing selected. All eight rows visible.",
   "needs": "Warm-up set holds, in this order: When The Fire Starts To Burn (Extended Mix), Palm Of Your Hands (Extended Mix), Desert (Original Mix), F*ck The Club (Extended Mix), Murda (Extended Mix), Shake The Block (Extended Mix), Underground (Extended Mix), Atoma (Extended Mix)."
@@ -200,7 +200,7 @@
   "scene": "playlists-tracklist-review",
   "page": "playlists/match-a-tracklist.md",
   "after": "## Review and choose { #review }",
-  "alt": "Review 5 entries with 4 selected and 1 skipped: each of the first four entries has one Same tags 100% candidate chosen, and Someone Else - Unreleased Edit shows No library candidates",
+  "alt": "Review 5 entries scrolled to entry 4 (Atoma, one Same tags 100% candidate chosen) and entry 5 (Someone Else - Unreleased Edit, No library candidates, skipped), then the Playlist name box and Save selected to playlist with the line 4 unique tracks in source order",
   "caption": "Nothing is chosen for you; you pick each candidate, and unmatched entries are skipped.",
   "state": "From playlists-tracklist-input, click Find library candidates, then choose the single candidate for rows 1 to 4. Scroll so rows 1 to 5 and the Playlist name field with Save selected to playlist are visible. Do not save.",
   "crop": "panel"

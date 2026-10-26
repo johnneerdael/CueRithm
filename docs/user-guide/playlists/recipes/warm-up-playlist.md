@@ -31,6 +31,14 @@ The seven tracks in the Beatport purchase folder used in this guide:
 
 ## The solution
 
+<!-- figure:playlists-recipe-warm-up-editor -->
+<figure markdown>
+![The smart playlist editor named Warm-up candidates with BPM is between 124 and 128 and Energy is between 1 and 6, Match all conditions, and the preview reading 7 matching tracks](../../assets/screens/playlists-recipe-warm-up-editor-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist editor named Warm-up candidates with BPM is between 124 and 128 and Energy is between 1 and 6, Match all conditions, and the preview reading 7 matching tracks](../../assets/screens/playlists-recipe-warm-up-editor-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Two between conditions: a BPM window and an energy window.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **+** beside **PLAYLISTS**, type `Warm-up candidates` and set **Playlist type** to **Smart playlist**.
 2. Make the first condition the field **BPM**, the operator **is between**, from `124` to `128`.
 3. Click **Add condition**. Set the field to **Energy**, the operator to **is between**, from `1` to `6`.

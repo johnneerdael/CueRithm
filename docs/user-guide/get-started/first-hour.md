@@ -90,6 +90,14 @@ A scan only previews. It reports *No metadata changes needed with these rules* u
 
 ## 6. Build the Warm-up set { #playlist }
 
+<!-- figure:playlists-warm-up-open -->
+<figure markdown>
+![The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10](../assets/screens/playlists-warm-up-open-light.webp#only-light){ .screen loading=lazy }
+![The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10](../assets/screens/playlists-warm-up-open-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Warm-up set climbs from 126 to 130 BPM.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select the **+** (**Create playlist**) beside **PLAYLISTS**, name it `Club nights` and set **Playlist type** to **Folder**.
 2. Create another, named `Warm-up set`, as a **Playlist** inside it.
 3. In **Tracks**, hold ++cmd++ (++ctrl++ on Windows and Linux) and click these eight tracks in this order.

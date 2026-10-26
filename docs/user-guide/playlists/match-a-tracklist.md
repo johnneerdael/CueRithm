@@ -6,6 +6,14 @@ Matching reads only your local library. It does not connect to a streaming servi
 
 ## Enter the tracklist { #enter }
 
+<!-- figure:playlists-tracklist-input -->
+<figure markdown>
+![The Tracklist matcher with five artist and title lines pasted into Reference tracklist, Input format Text, Matching Same tags, and the Find library candidates button](../assets/screens/playlists-tracklist-input-light.webp#only-light){ .screen loading=lazy }
+![The Tracklist matcher with five artist and title lines pasted into Reference tracklist, Input format Text, Matching Same tags, and the Find library candidates button](../assets/screens/playlists-tracklist-input-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>One track per line as Artist - Title.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Under **TOOLS** in the sidebar, click **Tracklist matcher**.
 2. Paste your list into **Reference tracklist**, or click **Choose text or CSV file** and pick a `.txt` or `.csv` file.
 
@@ -39,6 +47,14 @@ Click **Find library candidates**.
 ## Review and choose { #review }
 
 The review shows *Review N entries* and a count such as *0 selected · 5 skipped*. Nothing is chosen for you, even when an entry has exactly one exact match. Similar tags can describe a different recording, so you decide.
+
+<!-- figure:playlists-tracklist-review -->
+<figure markdown>
+![Review 5 entries scrolled to entry 4 (Atoma, one Same tags 100% candidate chosen) and entry 5 (Someone Else - Unreleased Edit, No library candidates, skipped), then the Playlist name box and Save selected to playlist with the line 4 unique tracks in source order](../assets/screens/playlists-tracklist-review-light.webp#only-light){ .screen loading=lazy }
+![Review 5 entries scrolled to entry 4 (Atoma, one Same tags 100% candidate chosen) and entry 5 (Someone Else - Unreleased Edit, No library candidates, skipped), then the Playlist name box and Save selected to playlist with the line 4 unique tracks in source order](../assets/screens/playlists-tracklist-review-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Nothing is chosen for you; you pick each candidate, and unmatched entries are skipped.</figcaption>
+</figure>
+<!-- /figure -->
 
 For each entry:
 

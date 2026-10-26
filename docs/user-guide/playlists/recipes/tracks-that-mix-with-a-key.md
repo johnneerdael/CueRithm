@@ -31,6 +31,14 @@ The six tracks in **Mixes with 7A**:
 
 ## The solution
 
+<!-- figure:playlists-recipe-key-editor -->
+<figure markdown>
+![The smart playlist editor named Mixes with 7A with one condition, Key is compatible with key 7A, and the preview reading 6 matching tracks](../../assets/screens/playlists-recipe-key-editor-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist editor named Mixes with 7A with one condition, Key is compatible with key 7A, and the preview reading 6 matching tracks](../../assets/screens/playlists-recipe-key-editor-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>One condition does the work; the key menu lists 1A to 12B.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Click **+** beside **PLAYLISTS**, type `Mixes with 7A` and set **Playlist type** to **Smart playlist**.
 2. Set the first condition to the field **Key**, the operator **is compatible with key**, and choose `7A` from the key menu.
 3. Click **Preview matches**. It should read *6 matching tracks*.

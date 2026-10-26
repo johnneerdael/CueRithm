@@ -36,6 +36,14 @@ This tutorial uses tracks from the 26-file Beatport purchase folder that every e
 </figure>
 <!-- /figure -->
 
+<!-- figure:playlists-create-editor -->
+<figure markdown>
+![The Create playlist form with Playlist name Warm-up set, Playlist type Playlist and Parent folder Club nights, above the Create button](../assets/screens/playlists-create-editor-light.webp#only-light){ .screen loading=lazy }
+![The Create playlist form with Playlist name Warm-up set, Playlist type Playlist and Parent folder Club nights, above the Create button](../assets/screens/playlists-create-editor-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A new item is created inside the folder you have open.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. With **Club nights** still open, click **+** again. **Parent folder** already says **Club nights**, because a new item is created inside the folder you have open.
 2. Type `Warm-up set` in **Playlist name**.
 3. Keep **Playlist type** on **Playlist**, then click **Create**.
@@ -48,6 +56,14 @@ This tutorial uses tracks from the 26-file Beatport purchase folder that every e
 <figure markdown>
 ![A playlist with five tracks in manual order](../assets/screens/54-playlist-with-tracks.webp){ .screen loading=lazy }
 <figcaption>A playlist keeps the order you give it.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:playlists-add-bar -->
+<figure markdown>
+![The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button](../assets/screens/playlists-add-bar-light.webp#only-light){ .screen loading=lazy }
+![The Tracks view with four tracks selected and the playlist bar above the table showing the Choose playlist menu set to Club nights / Warm-up set next to the Add to playlist button](../assets/screens/playlists-add-bar-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Pick the destination under Choose playlist and click Add to playlist.</figcaption>
 </figure>
 <!-- /figure -->
 
@@ -66,6 +82,14 @@ This tutorial uses tracks from the 26-file Beatport purchase folder that every e
 You can drag the selection onto **Warm-up set** in the sidebar instead of using the menu. Expand **Club nights** first so the playlist is visible. See [Reorder, remove and restore tracks](edit-playlist-tracks.md#add-tracks) for both ways and what each does.
 
 ## 4. Add the eighth track and move it into place { #move-into-place }
+
+<!-- figure:playlists-warm-up-open -->
+<figure markdown>
+![The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10](../assets/screens/playlists-warm-up-open-light.webp#only-light){ .screen loading=lazy }
+![The Warm-up set playlist open in manual order with eight tracks from When The Fire Starts To Burn at 126 BPM to Atoma at 130 BPM, all at energy 6/10](../assets/screens/playlists-warm-up-open-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Warm-up set in manual order, BPM climbing from 126 to 130.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Go back to **Tracks**, select **Palm Of Your Hands (Extended Mix)**, choose **Club nights / Warm-up set** and click **Add to playlist**.
 2. Open **Warm-up set**. The new track is last, at position 8, because tracks are added at the end.

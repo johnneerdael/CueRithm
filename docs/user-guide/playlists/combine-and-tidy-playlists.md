@@ -6,6 +6,14 @@
 
 ## Open Playlist tools and preview every change { #open-tools }
 
+<!-- figure:playlists-tools-combine -->
+<figure markdown>
+![Playlist tools with the Combine playlists tool, Combination set to Tracks in any selected playlist, Result name Club nights combined, Warm-up set and Peak hour ticked, and a preview of one new playlist](../assets/screens/playlists-tools-combine-light.webp#only-light){ .screen loading=lazy }
+![Playlist tools with the Combine playlists tool, Combination set to Tracks in any selected playlist, Result name Club nights combined, Warm-up set and Peak hour ticked, and a preview of one new playlist](../assets/screens/playlists-tools-combine-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Every tool previews its changes before Apply preview.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Under **TOOLS** in the sidebar, click **Playlist tools**. If a playlist was open, it is already chosen as the source.
 2. In **Tool**, choose what you want to do: **Combine playlists**, **Save ordinary snapshot**, **Sort playlists**, **Number playlists**, **Add text prefix** or **Uppercase names**.
 3. Fill in the controls that appear, then click **Preview changes**. A list shows *N playlist changes*: each new or renamed playlist with its track count.
@@ -73,6 +81,14 @@ Name sorting ignores capitals. In a track-count sort, folders count as zero and 
 ## Number, prefix or capitalise names { #rename-tools }
 
 These three tools rename the playlists you tick. Names can be up to 255 characters.
+
+<!-- figure:playlists-tools-number -->
+<figure markdown>
+![Playlist tools with Number playlists, Starting number 1, Leading zeroes ticked, and a preview renaming Warm-up set to 01 Warm-up set and Peak hour to 02 Peak hour](../assets/screens/playlists-tools-number-light.webp#only-light){ .screen loading=lazy }
+![Playlist tools with Number playlists, Starting number 1, Leading zeroes ticked, and a preview renaming Warm-up set to 01 Warm-up set and Peak hour to 02 Peak hour](../assets/screens/playlists-tools-number-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The preview shows each new name next to the old one before anything changes.</figcaption>
+</figure>
+<!-- /figure -->
 
 | Tool | Controls | Example result |
 |---|---|---|

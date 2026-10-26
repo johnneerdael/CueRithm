@@ -13,6 +13,14 @@ The selected track becomes the source. If nothing is selected, the track loaded 
 
 ## Decide what "compatible" means { #options }
 
+<!-- figure:playlists-compatible-options -->
+<figure markdown>
+![Compatible tracks with Come To Life (Original Mix) as the source track showing 7A, 130 BPM and Energy 7/10, with Match compatible keys on in Harmonic mode and Match BPM on with a tolerance of 4](../assets/screens/playlists-compatible-options-light.webp#only-light){ .screen loading=lazy }
+![Compatible tracks with Come To Life (Original Mix) as the source track showing 7A, 130 BPM and Energy 7/10, with Match compatible keys on in Harmonic mode and Match BPM on with a tolerance of 4](../assets/screens/playlists-compatible-options-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The starting options: harmonic keys and a BPM tolerance of 4.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Control | What it does | Starts as |
 |---|---|---|
 | **Match compatible keys** | Keeps tracks whose key mixes with the source's | On |
@@ -32,6 +40,14 @@ Half and double BPM lets a 64 BPM track match a 128 BPM source. The result says 
 ## Find and read the matches { #results }
 
 Click **Find compatible tracks**. The page shows *N compatible tracks*, how many tracks were checked, and how many were excluded because a measurement you asked for is unknown. A track with no key, BPM or energy cannot match a check that needs it.
+
+<!-- figure:playlists-compatible-results -->
+<figure markdown>
+![Five compatible tracks for Come To Life with reasons such as Same key: 7A and Compatible key: 7A to 8A (harmonic), starting with When The Fire Starts To Burn, then Say Less, Dancin, 17 and Other Dimension](../assets/screens/playlists-compatible-results-light.webp#only-light){ .screen loading=lazy }
+![Five compatible tracks for Come To Life with reasons such as Same key: 7A and Compatible key: 7A to 8A (harmonic), starting with When The Fire Starts To Burn, then Say Less, Dancin, 17 and Other Dimension](../assets/screens/playlists-compatible-results-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each match lists why it was included; the same key comes first.</figcaption>
+</figure>
+<!-- /figure -->
 
 Matches are ordered by exact key first, then the smaller BPM difference, then the smaller energy difference, then artist and title. Every row lists the reasons it matched, such as `Same key: 7A` or `Compatible key: 7A → 8A (harmonic)`, and its key, BPM and energy.
 

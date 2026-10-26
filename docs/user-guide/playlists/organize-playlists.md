@@ -27,6 +27,14 @@ Every row in the sidebar has a **⋯** button on the right (named **Playlist act
 </figure>
 <!-- /figure -->
 
+<!-- figure:playlists-menu -->
+<figure markdown>
+![The playlist actions menu open beside Warm-up set listing Edit, Duplicate, Add to favorites, Move up, Move down, Move to folder and Remove](../assets/screens/playlists-menu-light.webp#only-light){ .screen loading=lazy }
+![The playlist actions menu open beside Warm-up set listing Edit, Duplicate, Add to favorites, Move up, Move down, Move to folder and Remove](../assets/screens/playlists-menu-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Every row has a ... menu with the same actions.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Item | What it does |
 |---|---|
 | **Edit** | Change the name or the parent folder. For a smart playlist it also opens the rules. The type cannot change. |
@@ -42,6 +50,14 @@ Names can be 1 to 255 characters. They do not have to be unique, but give each i
 ## Put a playlist in a folder { #move-to-folder }
 
 You have two ways to do it.
+
+<!-- figure:playlists-move-dialog -->
+<figure markdown>
+![The Move Peak hour dialog with its Destination folder menu set to Club nights, and the Cancel and Move buttons](../assets/screens/playlists-move-dialog-light.webp#only-light){ .screen loading=lazy }
+![The Move Peak hour dialog with its Destination folder menu set to Club nights, and the Cancel and Move buttons](../assets/screens/playlists-move-dialog-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Destination folder lists every folder that is not the item or inside it.</figcaption>
+</figure>
+<!-- /figure -->
 
 **With the menu.**
 
