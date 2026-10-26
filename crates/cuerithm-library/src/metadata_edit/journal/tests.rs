@@ -780,3 +780,72 @@ fn a_save_whose_original_was_deleted_before_it_was_recorded_is_reconciled_when_i
     let destination = temp.path().join("backups");
     assert!(service.library.create_library_backup(&destination).is_ok());
 }
+
+/// Pruning runs after every track save and one Curate edit can leave thousands of batches in the
+/// window, so finding each batch's request must not search the request's receipt once per batch:
+/// 3,000 batches of one request resolve in one pass, and the owners are remembered afterwards.
+#[test]
+fn curate_batches_find_their_request_in_one_pass_and_remember_it() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE curation_publications(child_batch_id TEXT,track_id TEXT,revision INTEGER,undo_of TEXT);
+         CREATE TABLE curation_mutations(id TEXT PRIMARY KEY,kind TEXT,receipt_json TEXT,created INTEGER);",
+    )
+    .unwrap();
+    let uniq = uuid::Uuid::new_v4().to_string();
+    let batches: Vec<String> = (0..3000).map(|n| format!("{uniq}-batch{n}")).collect();
+    let accepted: Vec<_> = (0..3000)
+        .map(|n| serde_json::json!({"track_id":format!("{uniq}-track{n}"),"revision":4}))
+        .collect();
+    let bulk = format!("{uniq}-bulk");
+    conn.execute(
+        "INSERT INTO curation_mutations VALUES(?1,'update',?2,100)",
+        rusqlite::params![bulk, serde_json::json!({"accepted":accepted}).to_string()],
+    )
+    .unwrap();
+    // Older requests that name other tracks, and a taxonomy request that is not an update.
+    for n in 0..300 {
+        conn.execute(
+            "INSERT INTO curation_mutations VALUES(?1,'update',?2,?3)",
+            rusqlite::params![
+                format!("{uniq}-old{n}"),
+                serde_json::json!({"accepted":[{"track_id":format!("{uniq}-other{n}"),"revision":1}]}).to_string(),
+                n
+            ],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO curation_mutations VALUES(?1,'taxonomy','{}',200)",
+        [format!("{uniq}-taxonomy")],
+    )
+    .unwrap();
+    for (n, batch) in batches.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO curation_publications VALUES(?1,?2,4,NULL)",
+            rusqlite::params![batch, format!("{uniq}-track{n}")],
+        )
+        .unwrap();
+    }
+    // A batch that is another publication's Undo is not an edit of its own.
+    conn.execute(
+        "INSERT INTO curation_publications VALUES(?1,?2,4,'earlier')",
+        rusqlite::params![format!("{uniq}-undo"), format!("{uniq}-track0")],
+    )
+    .unwrap();
+    let mut asked = batches.clone();
+    asked.push(format!("{uniq}-undo"));
+    asked.push(format!("{uniq}-manual-edit"));
+    let started = std::time::Instant::now();
+    let owners = curation_owners(&conn, &asked).unwrap();
+    assert_eq!(owners.len(), 3000);
+    assert!(owners.values().all(|request| *request == bulk));
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(2),
+        "{:?} for 3,000 batches (a search per batch took about 1.7 s per call)",
+        started.elapsed()
+    );
+    // Remembered: the receipts are no longer needed to answer again.
+    conn.execute("DELETE FROM curation_mutations", []).unwrap();
+    assert_eq!(curation_owners(&conn, &asked).unwrap(), owners);
+}

@@ -1788,29 +1788,82 @@ fn import_owners(
 /// The Curate request each of these batches belongs to, for the batches a Curate edit saved (one
 /// for each track it wrote mapped tags to). A publication has no request id of its own; the
 /// request's receipt names the track and the revision it accepted, and a publication is that
-/// track's head at that revision. When later requests accept the same revision without changing
-/// anything (no-ops), the request that was recorded first, which made the change, owns it.
+/// track's head at that revision.
+///
+/// Pruning runs after every track save, and one edit can leave thousands of batches in the
+/// window, so this cannot search the receipts once for each batch. An owner never changes once
+/// found, so it is remembered; the batches not yet known are found in one pass over the
+/// receipts, newest first, which ends as soon as every one of them has an owner. A request that
+/// accepted a revision again without changing anything (a no-op) is newer than the one that made
+/// the change and can take its publication here, which only moves a track between two edits that
+/// both name it.
 fn curation_owners(
     conn: &rusqlite::Connection,
     batches: &[String],
 ) -> Result<std::collections::HashMap<String, String>> {
-    let mut query = conn.prepare(
-        "SELECT p.child_batch_id,m.id
-           FROM curation_publications p
-           JOIN curation_mutations m ON m.kind='update'
-          WHERE p.child_batch_id IN (SELECT value FROM json_each(?1))
-            AND p.undo_of IS NULL
-            AND EXISTS(SELECT 1 FROM json_each(m.receipt_json,'$.accepted') a
-                        WHERE json_extract(a.value,'$.track_id')=p.track_id
-                          AND json_extract(a.value,'$.revision')=p.revision)
-          ORDER BY m.created DESC,m.rowid DESC",
+    use std::collections::HashMap;
+    static KNOWN: std::sync::OnceLock<std::sync::Mutex<HashMap<String, String>>> =
+        std::sync::OnceLock::new();
+    #[derive(serde::Deserialize)]
+    struct Receipt {
+        #[serde(default)]
+        accepted: Vec<Accepted>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Accepted {
+        track_id: String,
+        revision: u64,
+    }
+    let publications: Vec<(String, String, u64)> = conn
+        .prepare(
+            "SELECT child_batch_id,track_id,revision FROM curation_publications
+              WHERE child_batch_id IN (SELECT value FROM json_each(?1)) AND undo_of IS NULL",
+        )?
+        .query_map([serde_json::to_string(batches)?], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    let known = KNOWN.get_or_init(Default::default);
+    let mut owners = HashMap::new();
+    let mut wanted: HashMap<(String, u64), Vec<String>> = HashMap::new();
+    {
+        let known = known.lock().unwrap_or_else(|e| e.into_inner());
+        for (batch, track, revision) in publications {
+            match known.get(&batch) {
+                Some(request) => {
+                    owners.insert(batch, request.clone());
+                }
+                None => wanted.entry((track, revision)).or_default().push(batch),
+            }
+        }
+    }
+    if wanted.is_empty() {
+        return Ok(owners);
+    }
+    let mut receipts = conn.prepare(
+        "SELECT id,receipt_json FROM curation_mutations WHERE kind='update' ORDER BY created DESC,rowid DESC",
     )?;
-    let mut owners = std::collections::HashMap::new();
-    for row in query.query_map([serde_json::to_string(batches)?], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-    })? {
-        let (batch, request) = row?;
-        // Newest first, so the last insert is the oldest request: the one that made the change.
+    let mut rows = receipts.query([])?;
+    let mut found = vec![];
+    while !wanted.is_empty()
+        && let Some(row) = rows.next()?
+    {
+        let request: String = row.get(0)?;
+        let Ok(receipt) = serde_json::from_str::<Receipt>(&row.get::<_, String>(1)?) else {
+            continue;
+        };
+        for entry in receipt.accepted {
+            if let Some(owned) = wanted.remove(&(entry.track_id, entry.revision)) {
+                found.extend(owned.into_iter().map(|batch| (batch, request.clone())));
+            }
+        }
+    }
+    let mut known = known.lock().unwrap_or_else(|e| e.into_inner());
+    if known.len() > 50_000 {
+        known.clear();
+    }
+    for (batch, request) in found {
+        known.insert(batch.clone(), request.clone());
         owners.insert(batch, request);
     }
     Ok(owners)
