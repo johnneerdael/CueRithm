@@ -4,8 +4,8 @@
 
 <!-- figure:reference-settings-incoming -->
 <figure markdown>
-![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder /private/tmp/demo/Music/Beatport](../../assets/screens/reference-settings-incoming-light.webp#only-light){ .screen loading=lazy }
-![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder /private/tmp/demo/Music/Beatport](../../assets/screens/reference-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing a watch folder (its path blurred)](../../assets/screens/reference-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing a watch folder (its path blurred)](../../assets/screens/reference-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
 <figcaption>Settings has nine sections; the first six share one Save settings button.</figcaption>
 </figure>
 <!-- /figure -->

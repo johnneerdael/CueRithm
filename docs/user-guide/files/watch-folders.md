@@ -15,8 +15,8 @@
 
 <!-- figure:prepare-settings-incoming -->
 <figure markdown>
-![Settings, Incoming page, listing the watch folder /private/tmp/demo/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-light.webp#only-light){ .screen loading=lazy }
-![Settings, Incoming page, listing the watch folder /private/tmp/demo/Music/Beatport with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
+![Settings, Incoming page, listing a watch folder (its path blurred) with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-light.webp#only-light){ .screen loading=lazy }
+![Settings, Incoming page, listing a watch folder (its path blurred) with its remove button, the Add watch folder button, and the Folder preparation presets section below](../assets/screens/prepare-settings-incoming-dark.webp#only-dark){ .screen loading=lazy }
 <figcaption>The Incoming page of Settings lists every watch folder.</figcaption>
 </figure>
 <!-- /figure -->

@@ -3,7 +3,7 @@
   "scene": "reference-settings-incoming",
   "page": "reference/settings/index.md",
   "after": "intro",
-  "alt": "The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing the watch folder /private/tmp/demo/Music/Beatport",
+  "alt": "The Settings screen with its nine sections listed down the left (Incoming, Cue generation, Automatic tagging, Cleanup, File organization, Preparation presets, Library preferences, Smart Playlists, Appearance) and the Incoming page open showing a watch folder (its path blurred)",
   "caption": "Settings has nine sections; the first six share one Save settings button.",
   "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page selected. The Save settings button at the top right and the whole section list at the left must be visible.",
   "crop": "window"
@@ -12,7 +12,7 @@
   "scene": "reference-settings-incoming",
   "page": "reference/settings/incoming.md",
   "after": "intro",
-  "alt": "The Incoming page of Settings listing the watch folder /private/tmp/demo/Music/Beatport, the Add watch folder button, the Folder preparation presets row for that folder and the note that original audio files stay in place",
+  "alt": "The Incoming page of Settings listing a watch folder (its path blurred), the Add watch folder button, the Folder preparation presets row for that folder and the note that original audio files stay in place",
   "caption": "Watch folders and their preparation presets live on the Incoming page.",
   "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page selected, one watch folder in the list, the Folder preparation presets row and the closing note visible.",
   "crop": "panel"
@@ -21,7 +21,7 @@
   "scene": "reference-settings-folder-presets",
   "page": "reference/settings/incoming.md",
   "after": "## Folder preparation presets { #folder-presets }",
-  "alt": "The Folder preparation presets row for /private/tmp/demo/Music/Beatport with its menu set to Inherit parent assignment and the line Saved effective rules: Global default",
+  "alt": "The Folder preparation presets row for that watch folder (its path blurred) with its menu set to Inherit parent assignment and the line Saved effective rules: Global default",
   "caption": "Each watch folder has a menu that chooses the rules for its files.",
   "state": "Sidebar: Settings. Dark or light does not matter. The path must not show a user name; the watch folder is ~/Music/Beatport. Do not press Save settings. Incoming page, scrolled to Folder preparation presets. The menu must show Inherit parent assignment (the default).",
   "crop": "panel"

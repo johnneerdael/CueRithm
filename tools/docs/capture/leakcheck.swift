@@ -11,6 +11,7 @@ import Vision
 let rules: [(String, String)] = [
     ("user name", "(?i)jneerdael|neerdael|john"),
     ("home folder", "(?i)/users/|/home/|c:\\\\users"),
+    ("file path", "(?i)(^|\\s)(/(private|tmp|volumes|mnt|var)/|~/|[a-z]:\\\\)"),
     ("e-mail", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"),
     ("credential or licence", "(?i)licen[cs]e|serial|passw|secret|api[ _-]?key|bearer|token"),
     ("web address", "(?i)https?://(?!localhost)|\\b[a-z0-9-]+\\.(com|net|org|io|nl|es|dev|app|cloud)\\b"),
