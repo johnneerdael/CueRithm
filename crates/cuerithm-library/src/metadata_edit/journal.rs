@@ -1600,9 +1600,10 @@ impl crate::Library {
     /// history line (what changed, before and after) and loses its Undo: its kept pictures and,
     /// for a save from an earlier version, its retained original are deleted.
     ///
-    /// An operation is one saved batch, except for an import: it saves a batch for each track it
-    /// writes tags to, and it is undone as a whole, so those batches count as one operation (placed
-    /// by the newest of them) and leave the window together.
+    /// An operation is one saved batch, except for an import and a Curate edit of several tracks:
+    /// each saves a batch for every track it writes tags to, and is one operation to the user, so
+    /// those batches count as one operation (placed by the newest of them) and leave the window
+    /// together. An import is also undone as a whole; a Curate edit is undone track by track.
     pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
         // A batch counts while any of its saves can still be undone: a committed write, or an
         // Incoming edit the worker has written (those have no physical write of their own). An
@@ -1625,14 +1626,18 @@ impl crate::Library {
                 .collect::<rusqlite::Result<_>>()?;
             // There cannot be more operations than batches.
             let batches = if candidates.len() > crate::REMOVAL_UNDO_LIMIT {
-                let owners = import_owners(&conn, &candidates)?;
+                let imports = import_owners(&conn, &candidates)?;
+                let edits = curation_owners(&conn, &candidates)?;
                 let mut operations: Vec<String> = vec![];
                 let mut beyond = vec![];
                 for batch in candidates {
-                    let operation = owners.get(&batch).map_or_else(
-                        || format!("batch:{batch}"),
-                        |import| format!("import:{import}"),
-                    );
+                    let operation = if let Some(import) = imports.get(&batch) {
+                        format!("import:{import}")
+                    } else if let Some(request) = edits.get(&batch) {
+                        format!("curate:{request}")
+                    } else {
+                        format!("batch:{batch}")
+                    };
                     // Newest first, so an operation is placed by its newest batch.
                     let place = operations
                         .iter()
@@ -1778,6 +1783,89 @@ fn import_owners(
             Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
         })?
         .collect::<rusqlite::Result<_>>()?;
+    Ok(owners)
+}
+/// The Curate request each of these batches belongs to, for the batches a Curate edit saved (one
+/// for each track it wrote mapped tags to). A publication has no request id of its own; the
+/// request's receipt names the track and the revision it accepted, and a publication is that
+/// track's head at that revision.
+///
+/// Pruning runs after every track save, and one edit can leave thousands of batches in the
+/// window, so this cannot search the receipts once for each batch. An owner never changes once
+/// found, so it is remembered; the batches not yet known are found in one pass over the
+/// receipts, newest first, which ends as soon as every one of them has an owner. A request that
+/// accepted a revision again without changing anything (a no-op) is newer than the one that made
+/// the change and can take its publication here, which only moves a track between two edits that
+/// both name it.
+fn curation_owners(
+    conn: &rusqlite::Connection,
+    batches: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    use std::collections::HashMap;
+    static KNOWN: std::sync::OnceLock<std::sync::Mutex<HashMap<String, String>>> =
+        std::sync::OnceLock::new();
+    #[derive(serde::Deserialize)]
+    struct Receipt {
+        #[serde(default)]
+        accepted: Vec<Accepted>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Accepted {
+        track_id: String,
+        revision: u64,
+    }
+    let publications: Vec<(String, String, u64)> = conn
+        .prepare(
+            "SELECT child_batch_id,track_id,revision FROM curation_publications
+              WHERE child_batch_id IN (SELECT value FROM json_each(?1)) AND undo_of IS NULL",
+        )?
+        .query_map([serde_json::to_string(batches)?], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    let known = KNOWN.get_or_init(Default::default);
+    let mut owners = HashMap::new();
+    let mut wanted: HashMap<(String, u64), Vec<String>> = HashMap::new();
+    {
+        let known = known.lock().unwrap_or_else(|e| e.into_inner());
+        for (batch, track, revision) in publications {
+            match known.get(&batch) {
+                Some(request) => {
+                    owners.insert(batch, request.clone());
+                }
+                None => wanted.entry((track, revision)).or_default().push(batch),
+            }
+        }
+    }
+    if wanted.is_empty() {
+        return Ok(owners);
+    }
+    let mut receipts = conn.prepare(
+        "SELECT id,receipt_json FROM curation_mutations WHERE kind='update' ORDER BY created DESC,rowid DESC",
+    )?;
+    let mut rows = receipts.query([])?;
+    let mut found = vec![];
+    while !wanted.is_empty()
+        && let Some(row) = rows.next()?
+    {
+        let request: String = row.get(0)?;
+        let Ok(receipt) = serde_json::from_str::<Receipt>(&row.get::<_, String>(1)?) else {
+            continue;
+        };
+        for entry in receipt.accepted {
+            if let Some(owned) = wanted.remove(&(entry.track_id, entry.revision)) {
+                found.extend(owned.into_iter().map(|batch| (batch, request.clone())));
+            }
+        }
+    }
+    let mut known = known.lock().unwrap_or_else(|e| e.into_inner());
+    if known.len() > 50_000 {
+        known.clear();
+    }
+    for (batch, request) in found {
+        known.insert(batch.clone(), request.clone());
+        owners.insert(batch, request);
+    }
     Ok(owners)
 }
 /// SQL that is true when one of the tag saves an import operation made has left the Undo window.
