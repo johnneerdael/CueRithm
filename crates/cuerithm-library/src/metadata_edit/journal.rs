@@ -1600,9 +1600,10 @@ impl crate::Library {
     /// history line (what changed, before and after) and loses its Undo: its kept pictures and,
     /// for a save from an earlier version, its retained original are deleted.
     ///
-    /// An operation is one saved batch, except for an import: it saves a batch for each track it
-    /// writes tags to, and it is undone as a whole, so those batches count as one operation (placed
-    /// by the newest of them) and leave the window together.
+    /// An operation is one saved batch, except for an import and a Curate edit of several tracks:
+    /// each saves a batch for every track it writes tags to, and is one operation to the user, so
+    /// those batches count as one operation (placed by the newest of them) and leave the window
+    /// together. An import is also undone as a whole; a Curate edit is undone track by track.
     pub(crate) fn prune_metadata_undo(&self) -> Result<()> {
         // A batch counts while any of its saves can still be undone: a committed write, or an
         // Incoming edit the worker has written (those have no physical write of their own). An
@@ -1625,14 +1626,18 @@ impl crate::Library {
                 .collect::<rusqlite::Result<_>>()?;
             // There cannot be more operations than batches.
             let batches = if candidates.len() > crate::REMOVAL_UNDO_LIMIT {
-                let owners = import_owners(&conn, &candidates)?;
+                let imports = import_owners(&conn, &candidates)?;
+                let edits = curation_owners(&conn, &candidates)?;
                 let mut operations: Vec<String> = vec![];
                 let mut beyond = vec![];
                 for batch in candidates {
-                    let operation = owners.get(&batch).map_or_else(
-                        || format!("batch:{batch}"),
-                        |import| format!("import:{import}"),
-                    );
+                    let operation = if let Some(import) = imports.get(&batch) {
+                        format!("import:{import}")
+                    } else if let Some(request) = edits.get(&batch) {
+                        format!("curate:{request}")
+                    } else {
+                        format!("batch:{batch}")
+                    };
                     // Newest first, so an operation is placed by its newest batch.
                     let place = operations
                         .iter()
@@ -1778,6 +1783,36 @@ fn import_owners(
             Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
         })?
         .collect::<rusqlite::Result<_>>()?;
+    Ok(owners)
+}
+/// The Curate request each of these batches belongs to, for the batches a Curate edit saved (one
+/// for each track it wrote mapped tags to). A publication has no request id of its own; the
+/// request's receipt names the track and the revision it accepted, and a publication is that
+/// track's head at that revision. When later requests accept the same revision without changing
+/// anything (no-ops), the request that was recorded first, which made the change, owns it.
+fn curation_owners(
+    conn: &rusqlite::Connection,
+    batches: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    let mut query = conn.prepare(
+        "SELECT p.child_batch_id,m.id
+           FROM curation_publications p
+           JOIN curation_mutations m ON m.kind='update'
+          WHERE p.child_batch_id IN (SELECT value FROM json_each(?1))
+            AND p.undo_of IS NULL
+            AND EXISTS(SELECT 1 FROM json_each(m.receipt_json,'$.accepted') a
+                        WHERE json_extract(a.value,'$.track_id')=p.track_id
+                          AND json_extract(a.value,'$.revision')=p.revision)
+          ORDER BY m.created DESC,m.rowid DESC",
+    )?;
+    let mut owners = std::collections::HashMap::new();
+    for row in query.query_map([serde_json::to_string(batches)?], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })? {
+        let (batch, request) = row?;
+        // Newest first, so the last insert is the oldest request: the one that made the change.
+        owners.insert(batch, request);
+    }
     Ok(owners)
 }
 /// SQL that is true when one of the tag saves an import operation made has left the Undo window.
