@@ -264,6 +264,14 @@
     "1.5"
    ],
    [
+    "clicktext",
+    "Apply these settings to every incoming track"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
     "blur"
    ]
   ]
@@ -286,6 +294,14 @@
    [
     "wait",
     "1.5"
+   ],
+   [
+    "clicktext",
+    "Apply these settings to every incoming track"
+   ],
+   [
+    "wait",
+    "0.5"
    ],
    [
     "blur"
@@ -426,6 +442,14 @@
    [
     "wait",
     "1.5"
+   ],
+   [
+    "clicktext",
+    "Apply these settings to every incoming track"
+   ],
+   [
+    "wait",
+    "0.5"
    ],
    [
     "blur"
