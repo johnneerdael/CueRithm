@@ -71,8 +71,9 @@ links to an image that does not exist yet:
    state). See `docs/user-guide/_meta/figures/README.md`.
 2. **Capture.** `tools/docs/capture/` drives the sandboxed CueRithm window (see below) on
    the real demo library at 1440×940 with `open-computer-use` and `screencapture`, in dark and
-   light, as raw PNGs with the window's own shape. `to_webp.py` converts them to
-   2000 px wide WebP files named `assets/screens/<scene>-light.webp` and `-dark.webp`.
+   light, with the app's default layout and waveform style (see below), as raw PNGs with the
+   window's own shape. `to_webp.py` converts them to 2000 px wide WebP files named
+   `assets/screens/<scene>-light.webp` and `-dark.webp`.
    Open every image before keeping it: reject an error banner, a hover highlight, a
    credential, or anything outside the app window. Real library data is the intent; check
    each image for file paths that include a user name.
@@ -127,11 +128,17 @@ clicks (only while the sandboxed app is the frontmost app) for what the tree doe
 as the table's column headings. Things that surprised us, so scene files do not repeat the work:
 
 - **Shared web storage.** The sandboxed app has the installed app's bundle id, so both read and
-  write the same saved interface settings (theme, column choice, sidebar width) under
-  `~/Library/WebKit/com.cuerithm.app`. A capture run changes the owner's theme and columns:
-  note the values before a run (see the `localstorage.sqlite3` file there; values are UTF-16)
-  and put them back afterwards with the sandboxed app stopped. Column scenes run last
+  write the same saved interface settings (theme, column choice, sidebar width, player height,
+  waveform style) under `~/Library/WebKit/com.cuerithm.app`. A capture run changes the owner's theme
+  and columns: note the values before a run (see the `localstorage.sqlite3` file there; values are
+  UTF-16) and put them back afterwards with the sandboxed app stopped. Column scenes run last
   (`scenes/zz-columns-last.json`), because a column that was ever ticked stays in the saved order.
+- **Default layout and style.** The saved sidebar width and player height are whatever the owner
+  last dragged them to, and the guide describes the defaults (`customize/layout.md`: 224 px and
+  270 px, the CueRithm waveform style). A capture taken at the owner's layout shows a different
+  window from the one a new reader opens. `dividers` drags both dividers back to the defaults (the
+  driver also does it at the start of every scene), the crops in `capture.py` assume that layout, and
+  Settings → Appearance → CueRithm sets the style; check the image of the first scene before a run.
 - **Playing and pausing.** Press the Pause button, not Space: Space presses whichever control
   holds keyboard focus. The play button of a row only exists once the row is selected.
 - **Typing.** `type` presses one key at a time, because `type_text` sets the field's accessibility
@@ -141,14 +148,20 @@ as the table's column headings. Things that surprised us, so scene files do not 
 - **Selecting many rows.** The click tool cannot hold Command or Shift; use Command+A, which
   selects every row of the view or search.
 - **Focus rings.** A control pressed through the accessibility tree keeps a keyboard focus ring;
-  `blur` clicks the brand text to clear it before the shot.
+  `blur` clicks the brand text to clear it before the shot. A focused text box also shows the
+  system's blue pill under it: click a paragraph of the page's own text (`clicktext`) first.
 - **Pop-up menus.** A menu is a `pop up button`; its entries appear in the accessibility tree as
   `menu item NAME ID: …` only while it is open, so pick one with `click "^menu item NAME ID"`. A window
-  capture never includes an open menu, so a figure of an open menu cannot be taken this way.
+  capture does not reliably include an open native menu, so a figure of one is rarely possible.
 - **Long pages.** Controls scrolled out of view have no position, and a page long enough (Organize files
   with a long history) fills the accessibility tree before the player. `scrollto TEXT TOP` finds the text
   on screen with OCR and scrolls until it sits where the shot needs it; `MIN_X` picks the pane that scrolls
-  (the tag editor's inspector scrolls on its own). A pane that ignores scrolling is not captured.
+  (the tag editor's inspector scrolls on its own). A side pane (Curate, the tag editor) ignores the scroll
+  tool: click blank space in it with a real click (`clickright TEXT`, the blank end of the line holding
+  TEXT) and press Home, End or Page_Down, which moves one pane height (Down does nothing), or click
+  a control to scroll it into view. `fill` clicks where the control's bounds say, which is wrong for a
+  control scrolled out of view, so scroll first. A taller window (`height 1044`) and a numeric
+  `crop: [left, top, right, bottom]` in the scene give a pane more room.
 - **Text the key map cannot type.** `fill` and `paste` use the accessibility value for brackets, commas,
   colons and line breaks, then a space and a backspace so the page reads it.
 - **History in the copy.** A scene that shows a list of past work (Organize history, drafts) starts from
@@ -189,7 +202,9 @@ swiftc -O tools/docs/capture/leakcheck.swift -o ~/.cache/cuerithm-docs/leakcheck
 
 `AGENTS.md` bars audio files, file paths, user names, credentials and licence details from guide
 images, and a generic demo folder is still a path, so `redact_paths.py` blurs every line of text
-that looks like one (a settings page cannot help listing its watch folder). The text check then
+that looks like one (a settings page cannot help listing its watch folder), including the file-name lines
+of a scan result (a name ending in an audio extension) and the release-folder lines under them; run it until it
+reports nothing, because a second pass finds lines the first one's blur left readable. The text check then
 reads the text in each image and lists any user name, home folder, file path, e-mail address, web
 address (a configured service URL is private), or credential or licence word, so an empty result
 means nothing matched. It is a second check on top of looking at the image, not a replacement for

@@ -77,6 +77,14 @@ A preparation preset is a named bundle of the rules from [Cue generation](cue-ge
 </figure>
 <!-- /figure -->
 
+<!-- figure:reference-settings-preparation-presets -->
+<figure markdown>
+![The Preparation presets page of Settings with a saved preset selected, its Ready status and the buttons Load into settings draft, Update from current draft, Rename preset, Duplicate preset, Reconnect destination, Export preset and Delete preset, and the Import preset file button](../../assets/screens/reference-settings-preparation-presets-light.webp#only-light){ .screen loading=lazy }
+![The Preparation presets page of Settings with a saved preset selected, its Ready status and the buttons Load into settings draft, Update from current draft, Rename preset, Duplicate preset, Reconnect destination, Export preset and Delete preset, and the Import preset file button](../../assets/screens/reference-settings-preparation-presets-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Preset buttons act at once; Load into settings draft only fills the unsaved draft.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Control | What it does | Default | Valid values |
 |---|---|---|---|
 | **New preset name** | The name for a preset you are about to create | Empty | Up to 256 characters |

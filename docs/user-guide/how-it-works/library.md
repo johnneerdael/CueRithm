@@ -97,6 +97,14 @@ The separate [same-installation snapshot](../files/library/back-up-library.md#in
 
 ## Where you see it in the app { #where-you-see-it }
 
+<!-- figure:library-missing-scan -->
+<figure markdown>
+![Maintenance, Missing & broken, listing tracks whose stored path no longer points at a readable file](../assets/screens/library-missing-scan-light.webp#only-light){ .screen loading=lazy }
+![Maintenance, Missing & broken, listing tracks whose stored path no longer points at a readable file](../assets/screens/library-missing-scan-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A track whose file was moved outside CueRithm shows up here, because the library stores absolute paths.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Place | What shows |
 |---|---|
 | **Maintenance → Missing & broken** | Tracks whose stored path no longer points at a readable file; from here you can remove their records or reconnect them |

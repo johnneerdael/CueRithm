@@ -11,6 +11,14 @@ Start with the [scan](#scan). Then choose what fits: [Find moved files](#find-mo
 
 Choose **Maintenance** under TOOLS in the sidebar and open the **Missing & broken** tab. Select **Scan library files**. The progress line reads *Checking library files…* with a count.
 
+<!-- figure:library-missing-scan-result -->
+<figure markdown>
+![The Missing & broken tab after a scan: 14 files need attention, each row with its recorded location (blurred) and the outcome Unavailable](../../assets/screens/library-missing-scan-result-light.webp#only-light){ .screen loading=lazy }
+![The Missing & broken tab after a scan: 14 files need attention, each row with its recorded location (blurred) and the outcome Unavailable](../../assets/screens/library-missing-scan-result-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>After 14 files were moved up one folder and their emptied subfolders deleted, the scan lists 14 tracks as Unavailable.</figcaption>
+</figure>
+<!-- /figure -->
+
 The result heading reads, for example, **14 files need attention**, and the line below it gives how many tracks were checked and how: *40 checked · Availability only*. The table has the columns **Select**, **Recorded location**, **Outcome** and **Details**. Present files are hidden unless you tick **Show present files**. **Include archived tracks** is ticked by default, so archived tracks are checked too and can be repaired or removed like any other; untick it to leave them out, and the line then omits *Archived tracks included*. A track that is not linked to a local file has no path to check and is not listed.
 
 Even in the quick mode CueRithm reads each present file to compare its checksum with the one stored when the track was prepared. That is how it notices a file edited elsewhere.
@@ -31,6 +39,14 @@ A present file can still carry the flag **· Source changed** in **Details**. It
 ## Why moved files look like a missing track and a duplicate { #moved-files }
 
 A track keeps a library identity and a file reference. A move in Finder or Explorer can leave that reference pointing at the old location. Inside a watch folder CueRithm follows the move for you: when a new file has exactly the content of one missing, prepared, unarchived track from the same watch folder, that track's location is updated and nothing new is added. It also does so when you moved the files while CueRithm was closed, the next time it scans the folder (for example at start-up). The track keeps its analysis, cues, playlists and tags.
+
+<!-- figure:library-tracks-moved-twins -->
+<figure markdown>
+![The Tracks view sorted by TRACK: the title Atoma (Extended Mix) appears twice, once with a dash in PREVIEW (the old location) and once with a waveform (the new one)](../../assets/screens/library-tracks-moved-twins-light.webp#only-light){ .screen loading=lazy }
+![The Tracks view sorted by TRACK: the title Atoma (Extended Mix) appears twice, once with a dash in PREVIEW (the old location) and once with a waveform (the new one)](../../assets/screens/library-tracks-moved-twins-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Every moved file shows up as two tracks that differ only by location.</figcaption>
+</figure>
+<!-- /figure -->
 
 A move is left alone for you to review when the file could belong to more than one track (true duplicates), when the file was edited or re-encoded, when it left the watch folder, or when the track is archived or still being prepared. A file that is still being copied is checked again once it has settled. Those cases look like the example below until you repair them with [Find moved files](#find-moved) or [Relocate](#relocate), which keep the chosen track's identity.
 

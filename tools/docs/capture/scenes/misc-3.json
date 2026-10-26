@@ -1,0 +1,258 @@
+[
+ {
+  "scene": "tracks-cue-template-editor",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "click",
+    "^button New cue template"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "key",
+    "Tab"
+   ],
+   [
+    "type",
+    "Mix out"
+   ],
+   [
+    "key",
+    "Tab",
+    "2"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "2"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "6"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "6"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "6"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "6"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "key",
+    "Tab",
+    "6"
+   ],
+   [
+    "key",
+    "space"
+   ],
+   [
+    "click",
+    "^button Add template row"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Template cue color 7"
+   ],
+   [
+    "click",
+    "^menu item orange"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
+    "click",
+    "^pop up button Template anchor 7"
+   ],
+   [
+    "click",
+    "^menu item Last beat"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
+    "click",
+    "^pop up button Offset"
+   ],
+   [
+    "click",
+    "^menu item Before"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
+    "fill",
+    "Template cue name 7",
+    "Mix out"
+   ],
+   [
+    "fill",
+    "Template offset beats 7",
+    "32"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "clicktext",
+    "Templates use measured"
+   ],
+   [
+    "wait",
+    "0.8"
+   ]
+  ],
+  "retheme": false,
+  "settle": 1.5,
+  "after": [
+   [
+    "click",
+    "^button Cancel template"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ]
+ },
+ {
+  "scene": "customize-layout-wide",
+  "steps": [
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "seekto",
+    "20"
+   ],
+   [
+    "drag",
+    "226",
+    "450",
+    "700",
+    "450"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "drag",
+    "800",
+    "667",
+    "800",
+    "150"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "deselect"
+   ]
+  ],
+  "after": [
+   [
+    "dividers"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "how-smart-playlist-preview",
+  "steps": [
+   [
+    "click",
+    "^pop up button Playlist actions for Energy 7 and up"
+   ],
+   [
+    "click",
+    "^menu item Edit"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^button Preview matches"
+   ],
+   [
+    "wait",
+    "2.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Cancel"
+   ]
+  ]
+ }
+]

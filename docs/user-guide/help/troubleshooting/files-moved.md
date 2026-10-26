@@ -14,6 +14,14 @@
 
 In CueRithm 0.1.15 or later, an exact, unambiguous move inside a watch folder is followed: the track keeps its place and nothing doubles. You still see the signs below when the files were edited or re-encoded, could belong to more than one track, left the watch folder, or were moved in an earlier version.
 
+<!-- figure:help-moved-files-twice -->
+<figure markdown>
+![Tracks view sorted by track title showing 40 tracks for 26 files: a moved file appears twice, the old row with a dash in PREVIEW and the new row with a waveform](../../assets/screens/help-moved-files-twice-light.webp#only-light){ .screen loading=lazy }
+![Tracks view sorted by track title showing 40 tracks for 26 files: a moved file appears twice, the old row with a dash in PREVIEW and the new row with a waveform](../../assets/screens/help-moved-files-twice-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>After 14 files were moved up one folder in ~/Music/Beatport, Tracks lists 40 tracks for 26 files.</figcaption>
+</figure>
+<!-- /figure -->
+
 The example comes from a real library before moves were followed: a purchase folder, `~/Music/Beatport`, watched by CueRithm and holding 26 FLAC files. Fourteen of the files were moved up one folder inside the watch folder. Afterwards:
 
 | What you see | What it means |
@@ -30,6 +38,14 @@ A track has a stable library identity and a file reference. A move outside CueRi
 Use [Find moved files](../../files/library/find-missing-files.md#find-moved) or [Relocate](../../files/library/find-missing-files.md#relocate) to make that decision explicitly. Moves made through [Organize files](../../rename/organize-files.md) update CueRithm’s references as part of their own reviewed operation.
 
 ## Fix it { #fix }
+
+<!-- figure:help-moved-files-missing-scan -->
+<figure markdown>
+![Maintenance, Missing & broken tab after Scan library files: 14 files need attention, each row with its recorded location (blurred) and the outcome Unavailable](../../assets/screens/help-moved-files-missing-scan-light.webp#only-light){ .screen loading=lazy }
+![Maintenance, Missing & broken tab after Scan library files: 14 files need attention, each row with its recorded location (blurred) and the outcome Unavailable](../../assets/screens/help-moved-files-missing-scan-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>The Missing &amp; broken report lists each old track's Recorded location, which is where to move the file back to.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Choose **Maintenance** in the sidebar, open **Missing & broken** and select **Scan library files**. Read **Recorded location** and **Outcome**.
 2. Reconnect an unplugged drive first if many tracks are **Unavailable**. See [When a whole drive is missing](../../files/library/find-missing-files.md#drive).

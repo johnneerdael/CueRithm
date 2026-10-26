@@ -12,7 +12,7 @@
     "scene": "help-missing-track-dash",
     "page": "help/troubleshooting/no-waveform-or-playback.md",
     "after": "## Why it happens { #why }",
-    "alt": "Tracks table with Location and PREVIEW columns: one track shows a dash in PREVIEW while its neighbours show waveforms with cue markers",
+    "alt": "Tracks table: one Atoma (Extended Mix) row shows a dash in PREVIEW while the rows around it show waveforms with cue markers",
     "caption": "A dash in PREVIEW means the waveform could not be built, usually because the file is not where the library expects it.",
     "state": "Sidebar: Tracks, sorted by TRACK. Show the Location column (Columns button) next to PREVIEW. Scroll so that one of the 14 tracks whose file was moved (dash in PREVIEW, old Location) sits between tracks that show waveforms. Selection empty, player idle.",
     "crop": "panel",
@@ -41,7 +41,7 @@
     "scene": "help-moved-files-missing-scan",
     "page": "help/troubleshooting/files-moved.md",
     "after": "## Fix it { #fix }",
-    "alt": "Maintenance, Missing & broken tab after Scan library files: 14 files need attention, each listed as Missing with its recorded location",
+    "alt": "Maintenance, Missing & broken tab after Scan library files: 14 files need attention, each row with its recorded location (blurred) and the outcome Unavailable",
     "caption": "The Missing & broken report lists each old track's Recorded location, which is where to move the file back to.",
     "state": "Sidebar: Maintenance, tab 'Missing & broken'. Choose Scan library files and wait for the result. The heading reads '14 files need attention' and the line below '40 checked · Availability only'. Table columns Recorded location, Outcome (Missing), Details visible. Folder names must be generic (~/Music/Beatport/…).",
     "crop": "panel",
@@ -78,10 +78,10 @@
     "scene": "help-constant-beatgrid-form",
     "page": "help/troubleshooting/key-or-bpm-differs.md",
     "after": "## Fix it { #fix }",
-    "alt": "The player's correction panel with the Constant beatgrid form: Grid BPM, First beat seconds and the Half BPM and Double BPM buttons",
+    "alt": "The Correct cues & beatgrid panel for Play With Fire with the Constant beatgrid form: the BPM box, the ½ and ×2 buttons, First beat in seconds with Set at playhead, and the cue list below",
     "caption": "Edit cues & grid opens a Constant beatgrid form with Half BPM and Double BPM buttons.",
     "state": "Tracks view, double-click 'Play With Fire (Original Mix)' (140 BPM). In the player choose 'Edit cues & grid' so the 'Constant beatgrid' fieldset is visible with Grid BPM, First beat seconds, the ½ and double buttons and 'Preview corrections'. Do not save anything.",
-    "crop": "player"
+    "crop": "panel"
   },
   {
     "scene": "help-rekordbox-ready-for-preview",

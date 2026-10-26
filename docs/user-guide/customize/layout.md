@@ -34,6 +34,14 @@ Press the same keys, or the **Pin sidebar open** button on the opened rail, to b
 
 The player sits at the bottom, under a thin horizontal divider. Drag that divider, named **Resize player**, up to make the player taller and the track area shorter, or down to do the opposite. A taller player gives the waveform and cue buttons more room; see [Preview a track with the player](../analysis/preview-a-track.md).
 
+<!-- figure:customize-layout-wide -->
+<figure markdown>
+![CueRithm with the sidebar widened to its maximum and the player raised to its maximum height, showing a larger waveform and the cue buttons](../assets/screens/customize-layout-wide-light.webp#only-light){ .screen loading=lazy }
+![CueRithm with the sidebar widened to its maximum and the player raised to its maximum height, showing a larger waveform and the cue buttons](../assets/screens/customize-layout-wide-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Drag the two dividers to give the sidebar and the player more room.</figcaption>
+</figure>
+<!-- /figure -->
+
 The player is 270 px high at first. You can drag it between 200 px and 420 px. Like the sidebar divider, it responds to the pointer only.
 
 ## What happens in a narrow window { #window }

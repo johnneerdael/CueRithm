@@ -1,0 +1,286 @@
+[
+ {
+  "scene": "help-missing-track-dash",
+  "steps": [
+   [
+    "wait",
+    "2.5"
+   ]
+  ],
+  "settle": 2.0
+ },
+ {
+  "scene": "help-moved-files-twice",
+  "steps": [
+   [
+    "wait",
+    "2.5"
+   ]
+  ],
+  "settle": 2.0
+ },
+ {
+  "scene": "library-tracks-moved-twins",
+  "steps": [
+   [
+    "wait",
+    "2.5"
+   ]
+  ],
+  "settle": 2.0
+ },
+ {
+  "scene": "reference-dash-preview",
+  "steps": [
+   [
+    "wait",
+    "2.5"
+   ]
+  ],
+  "settle": 2.0
+ },
+ {
+  "scene": "library-missing-scan-result",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^tab Missing & broken"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Scan library files"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan library files"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "wait",
+    "3"
+   ],
+   [
+    "scrollto",
+    "files need attention",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "help-moved-files-missing-scan",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^tab Missing & broken"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Scan library files"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan library files"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "wait",
+    "3"
+   ],
+   [
+    "scrollto",
+    "files need attention",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-missing-broken-moved",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^tab Missing & broken"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Scan library files"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan library files"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "wait",
+    "3"
+   ],
+   [
+    "scrollto",
+    "files need attention",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "library-missing-scan",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^tab Missing & broken"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^button Scan library files"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "gone",
+    "\\(disabled\\) Scan library files"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "wait",
+    "3"
+   ],
+   [
+    "scrollto",
+    "files need attention",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "library-maintenance-overview",
+  "steps": [
+   [
+    "click",
+    "^button Maintenance"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "library-backup-view",
+  "steps": [
+   [
+    "click",
+    "^button Library backup"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-incoming-empty",
+  "steps": [
+   [
+    "click",
+    "^button Incoming"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ }
+]

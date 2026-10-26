@@ -1,0 +1,212 @@
+[
+ {
+  "scene": "prepare-folder-assignments",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Incoming$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ]
+ },
+ {
+  "scene": "prepare-settings-presets",
+  "steps": [
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Preparation presets"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "crop": "panel-tall"
+ },
+ {
+  "scene": "reference-settings-preparation-presets",
+  "steps": [
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Preparation presets"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "crop": "panel-tall"
+ },
+ {
+  "scene": "customize-waveform-player-layers",
+  "steps": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Appearance"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^radio button Layers Bass"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Library$"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "play",
+    "Come To Life"
+   ],
+   [
+    "seekto",
+    "20"
+   ],
+   [
+    "deselect"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Settings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Appearance"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^radio button CueRithm Cobalt"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Library$"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "help-constant-beatgrid-form",
+  "steps": [
+   [
+    "search",
+    "Play With Fire"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "play",
+    "Play With Fire"
+   ],
+   [
+    "click",
+    "^button Edit cues & grid"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "scrollto",
+    "Constant beatgrid",
+    "250"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "after": [
+   [
+    "click",
+    "^button Close corrections"
+   ]
+  ],
+  "settle": 2.0,
+  "crop": "panel"
+ }
+]

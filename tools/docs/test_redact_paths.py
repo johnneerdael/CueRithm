@@ -16,8 +16,16 @@ class PathLines(unittest.TestCase):
         self.assertTrue(redact_paths.is_path("~/Music/Beatport"))
         self.assertTrue(redact_paths.is_path("Saved to C:\\Users\\dj\\Music"))
 
+    def test_an_audio_file_name_is_a_path_even_without_its_folder(self):
+        self.assertTrue(redact_paths.is_path("Mix).flac"))
+        self.assertTrue(redact_paths.is_path("Moonphazes, SLVR/SOLANCE - Knockout (Extended Mix).tlac"))  # a misread extension
+        self.assertTrue(redact_paths.is_path("SLVR/Massano, Humans Musik - Underground (Extended Mix).flac"))
+
+    def test_a_wrapped_release_folder_line_is_a_path(self):
+        self.assertTrue(redact_paths.is_path("Massano, Humans Musik, Final Request, SLVR/Massano, Humans Musik - Underground (Extended"))
+
     def test_ordinary_text_and_titles_are_not(self):
-        for text in ("Folder preparation presets", "Energy 7/10", "Anyma (ofc)", "4:31", "Warm-up / Peak", "Keys / 12A"):
+        for text in ("Folder preparation presets", "Energy 7/10", "Anyma (ofc)", "4:31", "Warm-up / Peak", "Keys / 12A", "FLAC", "Export .cuerithm", "Energy 7/10", "CueRithm 0.1.19", "Anyma (ofc)"):
             self.assertFalse(redact_paths.is_path(text), text)
 
 

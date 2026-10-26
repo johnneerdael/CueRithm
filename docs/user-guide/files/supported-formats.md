@@ -6,6 +6,14 @@
 
 All of these are decoded, analysed and played back in the same way, and all of them get the same key, BPM, beatgrid, energy and cue results.
 
+<!-- figure:prepare-incoming-empty -->
+<figure markdown>
+![Incoming view with nothing to prepare, listing the supported formats at the bottom: MP3, AAC / ALAC, FLAC, WAV, AIFF, Ogg, Opus and WMA](../assets/screens/prepare-incoming-empty-light.webp#only-light){ .screen loading=lazy }
+![Incoming view with nothing to prepare, listing the supported formats at the bottom: MP3, AAC / ALAC, FLAC, WAV, AIFF, Ogg, Opus and WMA](../assets/screens/prepare-incoming-empty-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>CueRithm lists the formats it accepts wherever a view is empty.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Format | Usual extensions | Notes |
 |---|---|---|
 | MP3 | `.mp3` | |

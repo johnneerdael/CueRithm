@@ -19,7 +19,7 @@ One JSON array per tab in `_meta/figures/<tab>.json` (`get-started.json`,
 | `alt` | what the reader needs to see; real values from the private demo-library facts sheet |
 | `caption` | one sentence that makes the point |
 | `state` | how to reproduce it in the app: sidebar item, tab, selection, what must be visible, demo playlists/tracks |
-| `crop` | optional: `window` (default, the whole app window), `panel` (only the main panel), `player` (only the player) |
+| `crop` | optional: `window` (default, the whole app window), `panel` (only the main panel, at the default layout), `player` (only the player) |
 | `needs` | optional: extra demo-library state the scene needs |
 
 ## 2. Capture (lead)

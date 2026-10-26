@@ -62,6 +62,14 @@ The style changes colour only. CueRithm computes each waveform once from the dec
 
 Bar height does not change between styles: it follows the average loudness of each moment, scaled per track so quiet and loud tracks both fill the height. The style decides the colour.
 
+<!-- figure:customize-waveform-player-layers -->
+<figure markdown>
+![The player with the Layers style: Come To Life (Original Mix) with its waveform drawn as separate bass, mid and high layers and the cue buttons below](../assets/screens/customize-waveform-player-layers-light.webp#only-light){ .screen loading=lazy }
+![The player with the Layers style: Come To Life (Original Mix) with its waveform drawn as separate bass, mid and high layers and the cue buttons below](../assets/screens/customize-waveform-player-layers-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>In a layer style the three bands are separate layers instead of one blended colour.</figcaption>
+</figure>
+<!-- /figure -->
+
 - **Blend styles** (**CueRithm**, **Dusk**, **Lagoon**, **Tonal**) colour each moment by how much bass, mid and high sound it holds. A kick-heavy moment leans towards the bass colour, and a hi-hat-heavy moment towards the high colour. Silent stretches use a neutral colour.
 - **Layer styles** (**Layers**, **Layers, tonal**) draw the three bands as separate layers instead of mixing them. In the small overviews and table previews the layers stack up from the bottom edge. In the zoomed player waveform they overlay each other around the centre line.
 

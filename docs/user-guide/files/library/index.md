@@ -2,6 +2,14 @@
 
 <p class="lead">Find duplicate and missing files, clear out music nothing uses, and keep a backup you can restore. Every check starts with a scan that changes nothing, and every change is previewed before you apply it.</p>
 
+<!-- figure:library-maintenance-overview -->
+<figure markdown>
+![The Maintenance screen with its four tabs: Duplicates, Missing & broken, Unused files and History & recovery](../../assets/screens/library-maintenance-overview-light.webp#only-light){ .screen loading=lazy }
+![The Maintenance screen with its four tabs: Duplicates, Missing & broken, Unused files and History & recovery](../../assets/screens/library-maintenance-overview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Maintenance sits under TOOLS in the sidebar and groups every library check in one place.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Start here
 
 Begin with [Find and merge duplicate tracks](find-duplicates.md). It is the one tutorial in this tab, and it teaches the pattern that every tool here follows: **scan, review, preview, apply, undo**. If you came because tracks went missing after you moved files, go straight to [Find missing, moved or broken files](find-missing-files.md).

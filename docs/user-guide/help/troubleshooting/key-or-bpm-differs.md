@@ -20,6 +20,14 @@ CueRithm's agreement with another tool is measured, not guaranteed. On the owner
 
 ## Fix it { #fix }
 
+<!-- figure:help-constant-beatgrid-form -->
+<figure markdown>
+![The Correct cues & beatgrid panel for Play With Fire with the Constant beatgrid form: the BPM box, the ½ and ×2 buttons, First beat in seconds with Set at playhead, and the cue list below](../../assets/screens/help-constant-beatgrid-form-light.webp#only-light){ .screen loading=lazy }
+![The Correct cues & beatgrid panel for Play With Fire with the Constant beatgrid form: the BPM box, the ½ and ×2 buttons, First beat in seconds with Set at playhead, and the cue list below](../../assets/screens/help-constant-beatgrid-form-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Edit cues &amp; grid opens a Constant beatgrid form with Half BPM and Double BPM buttons.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. **Compare like with like.** Convert the other app's key to Camelot, or yours to its notation. [Understand Camelot keys](../../analysis/camelot-keys.md) has the conversions.
 2. **Find out what the other app reads.** Select the track and choose **Edit metadata**. The **Measured analysis** block (read-only) shows CueRithm's key and BPM. Under **File key and BPM overrides**, **File key tag** and **File BPM tag** show what is written in the file. If the other app agrees with the tags, the audio measurement is not the cause. [Edit tags and artwork](../../tagging/edit-tags-by-hand.md) explains the editor.
 3. **Choose what CueRithm writes to files.** In **Settings** → **Automatic tagging** → **Fields to write**, **Key and BPM written to files** is **Cuerithm analysis** or **Catalog metadata**. **Write Camelot keys** chooses the notation. Changing the setting affects tracks prepared after you save; use **Analyze again** for finished tracks ([Analyze a track again](../../analysis/analyze-again.md)).

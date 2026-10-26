@@ -230,7 +230,7 @@
   "scene": "tracks-cue-template-editor",
   "page": "analysis/corrections/cue-templates.md",
   "after": "## 1. Make a template { #make-a-template }",
-  "alt": "The New cue template form named Mix out with six rows unticked and a seventh row anchored 32 beats before Last beat",
+  "alt": "The New cue template form named Mix out: rows 3 to 6 unticked and a new row 7, Offset from marker, named Mix out, orange, anchored 32 beats before Last beat",
   "caption": "A template is a named list of rows; this one adds one cue before the end.",
   "state": "Come To Life (Original Mix), panel open. Choose New cue template, name it Mix out, leave Replace existing cue slots off, tick Keep row slot numbers, untick rows 1 to 6, Add template row and set Offset from marker, Mix out, Hot cue, orange, Anchor Last beat, Before, 32 beats. Capture before Save template, then Cancel template.",
   "crop": "window"
