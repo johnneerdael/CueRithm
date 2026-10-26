@@ -789,6 +789,213 @@ fn later_legacy_assignments_survive_pending_notes_and_guarded_undo() {
     );
 }
 
+/// A library whose "Mood" category is mapped into the file's grouping tag, so that every Curate
+/// edit writes tags and saves a child batch, with tracks added one at a time.
+#[cfg(feature = "autotag")]
+struct Mapped {
+    _temp: tempfile::TempDir,
+    root: std::path::PathBuf,
+    library: Library,
+    service: CurationService,
+    group: String,
+    warm: String,
+    tracks: Vec<String>,
+}
+#[cfg(feature = "autotag")]
+impl Mapped {
+    fn new() -> Self {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let library = Library::open(&root.join("data/library.sqlite")).unwrap();
+        let runtime = cuerithm_media::MediaRuntime::from_bundle(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/media-runtime/bin"),
+        )
+        .unwrap();
+        let service = CurationService::new(library.clone(), Some(runtime));
+        let group = taxonomy(
+            &service,
+            CurationTaxonomyChange::CreateGroup {
+                name: "Mood".into(),
+                mode: CurationGroupMode::Multiple,
+            },
+        )
+        .created_id
+        .unwrap();
+        let warm = taxonomy(
+            &service,
+            CurationTaxonomyChange::CreateValue {
+                group_id: group.clone(),
+                name: "Warm".into(),
+            },
+        )
+        .created_id
+        .unwrap();
+        taxonomy(
+            &service,
+            CurationTaxonomyChange::PutMapping {
+                mapping: CurationMapping {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    source: CurationMappingSource::Group {
+                        group_id: group.clone(),
+                    },
+                    target: CurationMappingTarget::Text {
+                        field: CurationTextField::Grouping,
+                        encoding: CurationEncoding::Values,
+                    },
+                    containers: vec![CurationContainer::Id3],
+                    enabled: true,
+                    allow_id3_upgrade: false,
+                },
+            },
+        );
+        Self {
+            _temp: temp,
+            root,
+            library,
+            service,
+            group,
+            warm,
+            tracks: vec![],
+        }
+    }
+    /// Adds a ready track with its own short WAV file and returns its id.
+    fn add_track(&mut self) -> String {
+        let n = self.tracks.len();
+        let path = self.root.join(format!("track{n}.wav"));
+        let mut wav = hound::WavWriter::create(
+            &path,
+            hound::WavSpec {
+                channels: 1,
+                sample_rate: 44100,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )
+        .unwrap();
+        for i in 0..4410 {
+            wav.write_sample(((i as f64 * (0.05 + 0.003 * n as f64)).sin() * 6000.) as i16)
+                .unwrap();
+        }
+        wav.finalize().unwrap();
+        let job = self
+            .library
+            .enqueue(
+                std::slice::from_ref(&path),
+                self.library.settings().unwrap().revision,
+            )
+            .unwrap()
+            .remove(0);
+        let track = self
+            .library
+            .jobs()
+            .unwrap()
+            .into_iter()
+            .find(|row| row.id == job)
+            .unwrap()
+            .track_id;
+        rusqlite::Connection::open(self.library.data_dir().join("library.sqlite"))
+            .unwrap()
+            .execute("UPDATE tracks SET state='ready',analysis_json='{}',musical_key='8A',bpm=128,energy=7 WHERE id=?1", [&track])
+            .unwrap();
+        self.tracks.push(track.clone());
+        track
+    }
+    /// One Curate request that adds "Warm" to every one of `tracks`, saved to their files.
+    fn tag_warm(&self, tracks: &[String]) {
+        let snapshot = self.service.snapshot(tracks).unwrap();
+        self.service
+            .update(CurationUpdateRequest {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                taxonomy_revision: snapshot.taxonomy_revision,
+                tracks: snapshot
+                    .tracks
+                    .iter()
+                    .map(|row| CurationExpectedRevision {
+                        track_id: row.track_id.clone(),
+                        revision: row.desired_revision,
+                    })
+                    .collect(),
+                patch: CurationPatch {
+                    groups: vec![CurationGroupEdit::Add {
+                        group_id: self.group.clone(),
+                        value_ids: vec![self.warm.clone()],
+                    }],
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+        let flushed = self
+            .service
+            .flush_pending(tracks.len() + 5, &CancellationToken::default())
+            .unwrap();
+        assert_eq!(flushed.failed, 0);
+        assert_eq!(flushed.processed, tracks.len() as u64);
+    }
+    /// How many of the saved publications of `tracks` can still be undone.
+    fn undoable(&self, tracks: &[String]) -> usize {
+        let page = self.service.history_page(0, 100).unwrap();
+        let owner = |id: &str| tracks.iter().any(|track| track == id);
+        let rows: Vec<_> = page
+            .rows
+            .into_iter()
+            .filter(|row| owner(&row.track_id))
+            .collect();
+        assert_eq!(rows.len(), tracks.len(), "one publication for each track");
+        rows.iter().filter(|row| row.can_undo).count()
+    }
+}
+/// A Curate edit of many tracks is one operation to the user, so it counts once in the window of
+/// ten: its tracks stay undoable together while the edit is among the ten newest operations, and
+/// leave the window together when it is not. Counting each track's save would leave only the ten
+/// newest tracks of a twelve-track edit undoable even right after it was saved.
+#[cfg(feature = "autotag")]
+#[test]
+fn a_curate_edit_of_twelve_tracks_is_one_operation_in_the_undo_window() {
+    let mut mapped = Mapped::new();
+    let bulk: Vec<String> = (0..12).map(|_| mapped.add_track()).collect();
+    let singles: Vec<String> = (0..10).map(|_| mapped.add_track()).collect();
+    mapped.tag_warm(&bulk);
+    assert_eq!(
+        mapped.undoable(&bulk),
+        12,
+        "all twelve right after the edit"
+    );
+    // Nine newer operations make ten with the edit: all twelve are still inside the window.
+    for track in &singles[..9] {
+        mapped.tag_warm(std::slice::from_ref(track));
+    }
+    assert_eq!(
+        mapped.undoable(&bulk),
+        12,
+        "nine newer operations and the edit are ten"
+    );
+    assert_eq!(mapped.undoable(&singles[..9]), 9);
+    // The tenth newer operation is the eleventh: the whole edit leaves together.
+    mapped.tag_warm(std::slice::from_ref(&singles[9]));
+    assert_eq!(
+        mapped.undoable(&bulk),
+        0,
+        "the edit expires as one operation"
+    );
+    assert_eq!(mapped.undoable(&singles), 10, "the ten newest remain");
+}
+/// An edit of one track and the same track edited later are two operations, as before.
+#[cfg(feature = "autotag")]
+#[test]
+fn separate_curate_edits_each_count_as_an_operation() {
+    let mut mapped = Mapped::new();
+    let tracks: Vec<String> = (0..11).map(|_| mapped.add_track()).collect();
+    for track in &tracks {
+        mapped.tag_warm(std::slice::from_ref(track));
+    }
+    assert_eq!(mapped.undoable(&tracks[1..]), 10);
+    assert_eq!(
+        mapped.undoable(&tracks[..1]),
+        0,
+        "the eleventh newest is out"
+    );
+}
+
 #[test]
 fn pending_first_assignment_prevents_taxonomy_retirement() {
     let (_temp, _library, service, track, _) = fixture();

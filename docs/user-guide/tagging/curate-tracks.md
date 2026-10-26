@@ -102,7 +102,7 @@ Curate saves as you click. The status line beside the title says what is happeni
 | **Draft not saved** | Storing failed. Use **Retry saving draft**, or **Discard unsaved changes** to drop only what was never stored. |
 | **Publication needs attention** | Publishing a track's change failed. The track's card offers **Retry publication** or **Discard pending changes**. |
 
-**Pending and history** (or **Drafts and history** in the table toolbar) lists unfinished curation and past publications. A past entry has **Details** and, when it is safe, **Undo curation**; an interrupted one offers **Recover curation**. Undo only works while the track still matches what that publication wrote, and it keeps later unrelated changes. Discarding pending changes is different from Undo: it abandons a revision that was never published.
+**Pending and history** (or **Drafts and history** in the table toolbar) lists unfinished curation and past publications. A past entry has **Details** and, when it is safe, **Undo curation**; an interrupted one offers **Recover curation**. Undo only works while the track still matches what that publication wrote, and it keeps later unrelated changes. When file mappings write the categories into the tags, one edit of many selected tracks counts as one of your 10 newest operations: all of its tracks stay undoable together (each with its own **Undo curation**) and they leave the 10 together, instead of only the last ten tracks keeping Undo. Discarding pending changes is different from Undo: it abandons a revision that was never published.
 
 ## Write categories into the file's tags (optional) { #optional-native-mappings }
 
