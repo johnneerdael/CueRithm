@@ -30,6 +30,14 @@ Nothing is saved until you choose **Save preview**.
 This example adds a **Mix out** cue 32 beats before the end cue on every track. It
 leaves the cues a track already has alone.
 
+<!-- figure:tracks-cue-template-editor -->
+<figure markdown>
+![The New cue template form named Mix out: rows 3 to 6 unticked and a new row 7, Offset from marker, named Mix out, orange, anchored 32 beats before Last beat](../../assets/screens/tracks-cue-template-editor-light.webp#only-light){ .screen loading=lazy }
+![The New cue template form named Mix out: rows 3 to 6 unticked and a new row 7, Offset from marker, named Mix out, orange, anchored 32 beats before Last beat](../../assets/screens/tracks-cue-template-editor-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A template is a named list of rows; this one adds one cue before the end.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Load a track, choose **Edit cues & grid**, and scroll to **Cue templates**.
 2. Choose **New cue template**. The form starts with six rows: Start, Drop, Breakdown, Second drop, Second breakdown and Last beat.
 3. In **Template name**, type `Mix out`.

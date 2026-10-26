@@ -12,6 +12,14 @@ Choose **Settings**, stay on the **Incoming** page and scroll below **Add watch 
 
 Open the menu on the folder's row and pick one of three kinds of choice.
 
+<!-- figure:prepare-folder-assignments -->
+<figure markdown>
+![Settings, Incoming page, Folder preparation presets section: the row for a watch folder (its path blurred) with the preset menu set to Beatport purchases and the line Saved effective rules: Beatport purchases](../assets/screens/prepare-folder-assignments-light.webp#only-light){ .screen loading=lazy }
+![Settings, Incoming page, Folder preparation presets section: the row for a watch folder (its path blurred) with the preset menu set to Beatport purchases and the line Saved effective rules: Beatport purchases](../assets/screens/prepare-folder-assignments-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Each watch folder has a menu for its preparation rules.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Choice | What it means |
 |---|---|
 | **Inherit parent assignment** | The default. Use the rules of the nearest watch folder above this one that has an assignment. If there is none, use your global settings. |

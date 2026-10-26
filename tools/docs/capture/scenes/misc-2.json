@@ -1,0 +1,320 @@
+[
+ {
+  "scene": "curate-panel-open",
+  "steps": [
+   [
+    "search",
+    "Palm Of Your"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "play",
+    "Palm Of Your"
+   ],
+   [
+    "seekto",
+    "20"
+   ],
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Curate"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^checkbox \\(settable, boolean\\) Warm-up"
+   ],
+   [
+    "wait",
+    "0.6"
+   ],
+   [
+    "click",
+    "^checkbox \\(settable, boolean\\) Warm-up"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "settle": 1.0
+ },
+ {
+  "scene": "curate-manage-categories",
+  "steps": [
+   [
+    "search",
+    "Palm Of Your"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Curate"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "drag",
+    "800",
+    "771",
+    "800",
+    "841"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Manage categories and mappings"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "click",
+    "^pop up button Category to edit"
+   ],
+   [
+    "click",
+    "^menu item Mood"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "clickright",
+    "Categories"
+   ],
+   [
+    "key",
+    "End"
+   ],
+   [
+    "wait",
+    "0.5"
+   ]
+  ],
+  "settle": 1.0,
+  "crop": [
+   224,
+   0,
+   1440,
+   841
+  ]
+ },
+ {
+  "scene": "curate-file-mappings",
+  "steps": [
+   [
+    "search",
+    "Palm Of Your"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "blur"
+   ],
+   [
+    "row",
+    "1"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Curate"
+   ],
+   [
+    "wait",
+    "2"
+   ],
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "drag",
+    "800",
+    "771",
+    "800",
+    "841"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "click",
+    "^button Manage categories and mappings"
+   ],
+   [
+    "wait",
+    "1.5"
+   ],
+   [
+    "clickright",
+    "Categories"
+   ],
+   [
+    "key",
+    "End"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
+    "clicktext",
+    "Optional file mappings"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "key",
+    "End"
+   ],
+   [
+    "wait",
+    "0.5"
+   ],
+   [
+    "click",
+    "^pop up button Mapping text field"
+   ],
+   [
+    "click",
+    "^menu item grouping"
+   ],
+   [
+    "wait",
+    "0.8"
+   ],
+   [
+    "blur"
+   ]
+  ],
+  "settle": 1.0,
+  "crop": [
+   224,
+   0,
+   1440,
+   841
+  ]
+ },
+ {
+  "scene": "curate-category-filters",
+  "steps": [
+   [
+    "height",
+    "1044"
+   ],
+   [
+    "wait",
+    "1"
+   ],
+   [
+    "clicktext",
+    "Category filters"
+   ],
+   [
+    "wait",
+    "1.2"
+   ],
+   [
+    "click",
+    "^pop up button Category filter mode"
+   ],
+   [
+    "click",
+    "^menu item Any selected choice"
+   ],
+   [
+    "wait",
+    "0.6"
+   ],
+   [
+    "tick",
+    "Mood \u00b7 Warm",
+    "on"
+   ],
+   [
+    "wait",
+    "0.8"
+   ]
+  ],
+  "retheme": false,
+  "settle": 1.0,
+  "after": [
+   [
+    "click",
+    "^button Close category filters"
+   ]
+  ],
+  "crop": "panel-tall"
+ }
+]

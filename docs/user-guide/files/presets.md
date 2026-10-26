@@ -25,6 +25,14 @@ Creating or editing a preset does not rerun existing tracks and does not change 
 </figure>
 <!-- /figure -->
 
+<!-- figure:prepare-settings-presets -->
+<figure markdown>
+![Settings, Preparation presets page with a preset named Beatport purchases selected and its action buttons below the Saved preset menu](../assets/screens/prepare-settings-presets-light.webp#only-light){ .screen loading=lazy }
+![Settings, Preparation presets page with a preset named Beatport purchases selected and its action buttons below the Saved preset menu](../assets/screens/prepare-settings-presets-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Presets are created, loaded, exported and deleted from one page.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Settings**, then adjust the pages you care about, for example [Cue generation](../analysis/cue-rules.md) and Automatic tagging.
 2. Open **Preparation presets**.
 3. Type a name in **New preset name**, for example `Beatport purchases`.

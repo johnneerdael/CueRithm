@@ -14,6 +14,14 @@
 
 The **PREVIEW** column draws a small waveform with cue markers for each row. To draw it, CueRithm decodes the audio file at the location stored in the library (see [where CueRithm keeps your data](../../files/library/where-data-lives.md)). It does this only for rows that are on screen, after a short pause, two at a time. A grey bar while a row waits is normal. The dash appears when the row has nothing to draw. Hover over it, or let a screen reader read it, for the reason.
 
+<!-- figure:help-missing-track-dash -->
+<figure markdown>
+![Tracks table: one Atoma (Extended Mix) row shows a dash in PREVIEW while the rows around it show waveforms with cue markers](../../assets/screens/help-missing-track-dash-light.webp#only-light){ .screen loading=lazy }
+![Tracks table: one Atoma (Extended Mix) row shows a dash in PREVIEW while the rows around it show waveforms with cue markers](../../assets/screens/help-missing-track-dash-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A dash in PREVIEW means the waveform could not be built, usually because the file is not where the library expects it.</figcaption>
+</figure>
+<!-- /figure -->
+
 ### What the dash says { #dash-messages }
 
 | Hover text | What it means | What to do |

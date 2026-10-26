@@ -76,6 +76,14 @@ When nothing is left, Incoming reads *Nothing incoming. Drop files here, or add 
 </figure>
 <!-- /figure -->
 
+<!-- figure:prepare-incoming-empty -->
+<figure markdown>
+![Incoming view with nothing to prepare: Nothing incoming, a hint to drop files or add a watch folder, an Add audio files button and the list of supported formats](../assets/screens/prepare-incoming-empty-light.webp#only-light){ .screen loading=lazy }
+![Incoming view with nothing to prepare: Nothing incoming, a hint to drop files or add a watch folder, an Add audio files button and the list of supported formats](../assets/screens/prepare-incoming-empty-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>An empty Incoming also lists the formats CueRithm accepts.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## What can go wrong { #what-can-go-wrong }
 
 | What you see | Why | What to do |

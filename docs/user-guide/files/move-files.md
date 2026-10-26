@@ -43,6 +43,14 @@ Renaming a file in place does the same thing: the old name becomes a missing tra
 
 ## Find out what a move broke { #find }
 
+<!-- figure:prepare-missing-broken-moved -->
+<figure markdown>
+![Maintenance, Missing & broken tab after a scan: the heading reads 14 files need attention and the table lists recorded locations (blurred) with the outcome Unavailable](../assets/screens/prepare-missing-broken-moved-light.webp#only-light){ .screen loading=lazy }
+![Maintenance, Missing & broken tab after a scan: the heading reads 14 files need attention and the table lists recorded locations (blurred) with the outcome Unavailable](../assets/screens/prepare-missing-broken-moved-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>After a move, the scan lists each track whose file is gone, here as Unavailable because the emptied subfolders were deleted too.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **Maintenance** in the sidebar and open the **Missing & broken** tab.
 2. Select **Scan library files**.
 3. Read the heading, for example *14 files need attention*, and the **Recorded location** and **Outcome** columns. A moved file shows *Missing* at the location it left.

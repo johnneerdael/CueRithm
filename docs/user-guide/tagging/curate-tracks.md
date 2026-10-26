@@ -18,9 +18,25 @@ The examples below use two categories you create yourself: **Mood** (several cho
 
 Select one or more tracks in **Tracks** and press **Curate** in the table toolbar, or open a track's row menu and choose **Curate**. A **Curate** panel opens beside the table. It keeps the [player](../analysis/preview-a-track.md) available, so you can listen while you label.
 
+<!-- figure:curate-panel-open -->
+<figure markdown>
+![The Curate panel beside the track table for Palm Of Your Hands (Extended Mix): measured key 11A, BPM 127.00 and energy 6 / 10, the Mood category with Warm ticked and the Set slot category with Warm-up ticked; the rating and notes sit below](../assets/screens/curate-panel-open-light.webp#only-light){ .screen loading=lazy }
+![The Curate panel beside the track table for Palm Of Your Hands (Extended Mix): measured key 11A, BPM 127.00 and energy 6 / 10, the Mood category with Warm ticked and the Set slot category with Warm-up ticked; the rating and notes sit below](../assets/screens/curate-panel-open-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Curate sits beside the table and keeps the player available.</figcaption>
+</figure>
+<!-- /figure -->
+
 With one track selected, the panel shows a **Measured analysis** block (key, BPM, energy; read-only), your categories, **Your rating** and **Notes**. With several tracks selected, the title reads "N selected tracks".
 
 ## Create categories and choices { #create-categories }
+
+<!-- figure:curate-manage-categories -->
+<figure markdown>
+![Manage categories and mappings view for the category Mood: the Selection mode menu, the New choice field, the choices Dark, Uplifting and Warm with Rename choice and Delete buttons, and Delete category](../assets/screens/curate-manage-categories-light.webp#only-light){ .screen loading=lazy }
+![Manage categories and mappings view for the category Mood: the Selection mode menu, the New choice field, the choices Dark, Uplifting and Warm with Rename choice and Delete buttons, and Delete category](../assets/screens/curate-manage-categories-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Categories and choices are created in one place.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. In the Curate panel, press **Manage categories and mappings**.
 2. Under **New category**, type `Mood`, leave **Selection** on **Multiple choices** and press **Add category**.
@@ -47,6 +63,14 @@ Select several tracks and open Curate. A choice that only some of them have show
 The **Notes action** menu protects existing notes: **Keep each track's notes** (the default), **Set notes for all selected** or **Clear notes for all selected**. With a single track selected, **Previous track** and **Next track** step through the table order, with a counter such as "3 / 26".
 
 ## Find curated tracks { #find-curated-tracks }
+
+<!-- figure:curate-category-filters -->
+<figure markdown>
+![The Category filters popover open above the track table with Match set to Any selected choice and the Warm choice of Mood ticked](../assets/screens/curate-category-filters-light.webp#only-light){ .screen loading=lazy }
+![The Category filters popover open above the track table with Match set to Any selected choice and the Warm choice of Mood ticked](../assets/screens/curate-category-filters-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Category filters narrow the table by choice, rating or note.</figcaption>
+</figure>
+<!-- /figure -->
 
 - **Category filters** appears in the table toolbar once at least one category exists. Choose **Match**: **All selected choices**, **Any selected choice** or **Exclude selected choices**. Tick choices, optionally tick **No choices in** a category, set a **Minimum rating** and **Maximum rating**, or type text in **Notes contain**. Press **Apply category filters**; **Clear category filters** removes them. The button shows how many filters are active.
 - The columns **Categories**, **User rating** and **Curation notes** can be shown in the table: [Show the columns you need](../analysis/choose-columns.md).
@@ -83,6 +107,14 @@ Curate saves as you click. The status line beside the title says what is happeni
 ## Write categories into the file's tags (optional) { #optional-native-mappings }
 
 By default nothing you do in Curate changes a file. If you want a category to travel with the file, add a mapping.
+
+<!-- figure:curate-file-mappings -->
+<figure markdown>
+![The Optional file mappings section expanded: Target Typed text field, File field grouping, Encoding Native values, the file format boxes, Write this mapping to files and a disabled Save mapping button](../assets/screens/curate-file-mappings-light.webp#only-light){ .screen loading=lazy }
+![The Optional file mappings section expanded: Target Typed text field, File field grouping, Encoding Native values, the file format boxes, Write this mapping to files and a disabled Save mapping button](../assets/screens/curate-file-mappings-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>File mappings are an explicit, per-category opt-in.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Open **Manage categories and mappings** and expand **Optional file mappings**.
 2. Choose a **Source**: a category, **User rating** or **Curation notes**.

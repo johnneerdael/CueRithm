@@ -70,6 +70,14 @@ Behind the stages each preparation is a job with a state. You see states through
 
 A dash (**—**) means CueRithm has no value to show.
 
+<!-- figure:reference-dash-preview -->
+<figure markdown>
+![A Tracks table row whose PREVIEW cell shows a dash while its neighbours show a waveform with cue markers](../assets/screens/reference-dash-preview-light.webp#only-light){ .screen loading=lazy }
+![A Tracks table row whose PREVIEW cell shows a dash while its neighbours show a waveform with cue markers](../assets/screens/reference-dash-preview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>A dash in PREVIEW means no waveform could be drawn for that track.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Where | What the dash means | What to do |
 |---|---|---|
 | **BPM**, **KEY**, **ENERGY** | The measurement is not available, usually because the track has not finished preparing | Wait for the track to finish, or see [Read a track's key, BPM and energy](../analysis/read-key-bpm-energy.md) |

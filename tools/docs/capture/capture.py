@@ -45,7 +45,7 @@ Verbs: click PATTERN [NTH] | dblclick PATTERN [NTH] | key KEY [COUNT] | type TEX
        scroll PATTERN DIR PAGES | clickxy X Y | dblclickxy X Y | drag X1 Y1 X2 Y2 (window points) |
        wait SECONDS | wait_for PATTERN [SECONDS] | gone PATTERN | reset | view NAME |
        sort HEADING [CLICKS] | play TITLE | seekto SECONDS |
-       columns | expand FOLDER | height POINTS | switch PATTERN on|off | clickall PATTERN | paste LABEL TEXT | tick NAME on|off | place NAME OTHER | fill LABEL TEXT | scrollto TEXT [TOP [MIN_X]] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
+       columns | expand FOLDER | height POINTS | dividers | switch PATTERN on|off | clickall PATTERN | paste LABEL TEXT | tick NAME on|off | place NAME OTHER | clickright TEXT | fill LABEL TEXT | scrollto TEXT [TOP [MIN_X]] | search TEXT | colsearch TEXT | blur | row N [cmd|shift] | deselect | clicktext TEXT [cmd|shift|plain] [NTH]
 A scene with "modal": true skips the pause and volume steps (a dialog hides the player) and should carry "retheme": false.
 A scene may carry "after": [steps] that run once the picture is taken, to undo what it changed, and "crop": "window" (default) | "panel" | "player"; without it the crop requested in
 docs/user-guide/_meta/figures/*.json for that scene id is used.
@@ -68,11 +68,11 @@ from cu import Cu, park_cursor, require_capture_app  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIGURES = os.path.join(HERE, "..", "..", "..", "docs", "user-guide", "_meta", "figures")
 # Window points at the 1440x940 size: the main panel is right of the sidebar and above the player.
-CROPS = {"window": None, "panel": (336, 0, 1440, 737), "player": (336, 737, 1440, 940)}
+CROPS = {"window": None, "panel": (224, 0, 1440, 670), "player": (224, 670, 1440, 940), "panel-tall": (224, 0, 1440, 774)}  # panel-tall: window made 1044 tall
 
 
-# Window points of the table headings at 1440x940 with the default columns and no row selected.
-HEADINGS = {"TRACK": 468, "ARTIST": 530, "GENRE": 780, "BPM": 913, "KEY": 996, "ENERGY": 1070, "DURATION": 1181}
+# Window points of the table headings at 1440x940 with the default layout (224 px sidebar, 270 px player), the default columns and no row selected.
+HEADINGS = {"TRACK": 378, "ARTIST": 441, "GENRE": 770, "BPM": 900, "KEY": 983, "ENERGY": 1057, "DURATION": 1169}
 HEADING_Y = 241
 VOLUME = "0.65"
 
@@ -124,11 +124,12 @@ def shoot(name, theme, out, crop="window"):
     wid = window()[0]
     path = os.path.join(out, f"{name}-{theme}.png")
     subprocess.run(["screencapture", "-x", "-o", f"-l{wid}", path], check=True)
-    if CROPS[crop]:
+    box = crop if isinstance(crop, (list, tuple)) else CROPS[crop]  # a name, or [left, top, right, bottom] in window points
+    if box:
         from PIL import Image
         image = Image.open(path)
         scale = image.width / 1440
-        image.crop(tuple(round(v * scale) for v in CROPS[crop])).save(path)
+        image.crop(tuple(round(v * scale) for v in box)).save(path)
     return path
 
 
@@ -168,6 +169,7 @@ def reset(cu):
     """Back to the plain Tracks table: nothing selected, search empty, sorted by title, player paused, silent."""
     activate()
     set_height(cu, 940)  # a tall scene leaves the window taller
+    dividers(cu)  # and a layout scene leaves the dividers moved
     cu.key("Escape")
     time.sleep(0.2)
     cu.key("Escape")
@@ -203,6 +205,25 @@ def reset(cu):
     cu.click_xy(150, 62)  # a pointer click on the brand text clears the keyboard focus ring
     time.sleep(0.4)
     volume(cu, "0")
+
+
+SIDEBAR_DIVIDER = 226  # window points: the sidebar divider at its default width of 224 (the splitter is 4 wide)
+PLAYER_DIVIDER = 667   # the player divider at its default height of 270 (940 - 270 - 3)
+
+
+def dividers(cu):
+    """Drag the sidebar and player dividers back to their defaults (a layout scene moves them, and the app remembers)."""
+    found = json.loads(cu.call("query", app="CueRithm", role="splitter")[0])["matches"]
+    bounds = {m.get("title"): m["bounds"] for m in found}
+    side, player = bounds.get("Resize sidebar"), bounds.get("Resize player")
+    if side and abs(side["x"] + side["w"] / 2 - SIDEBAR_DIVIDER) > 2:
+        (x1, y1), (x2, y2) = cu.shot_point(side["x"] + side["w"] / 2, 450), cu.shot_point(SIDEBAR_DIVIDER, 450)
+        cu.call("drag", app="CueRithm", from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+        time.sleep(0.8)
+    if player and abs(player["y"] + player["h"] / 2 - PLAYER_DIVIDER) > 2:
+        (x1, y1), (x2, y2) = cu.shot_point(800, player["y"] + player["h"] / 2), cu.shot_point(800, PLAYER_DIVIDER)
+        cu.call("drag", app="CueRithm", from_x=x1, from_y=y1, to_x=x2, to_y=y2)
+        time.sleep(0.8)
 
 
 def volume(cu, value):
@@ -299,12 +320,12 @@ def click_row(cu, number, how="plain"):
         press_with(how, 700, y)
 
 
-def scroll_page(cu, direction, pages, min_x=360):
+def scroll_page(cu, direction, pages, min_x=240):
     """Scroll the page body. The scroll tool acts where its element is, so use a control that is on screen now
     (a query lists only visible elements); controls scrolled out of view leave nothing to scroll."""
     for role in ("checkbox", "radio button", "text field", "number field", "pop up button", "button"):
         found = json.loads(cu.call("query", app="CueRithm", role=role, limit=200)[0])["matches"]
-        found = [m for m in found if m["bounds"]["x"] > min_x and 230 < m["bounds"]["y"] < 700]
+        found = [m for m in found if m["bounds"]["x"] > min_x and 230 < m["bounds"]["y"] < PLAYER_DIVIDER - 15]  # not the sidebar, not the player
         if found:
             cu.call("scroll", app="CueRithm", element_index=str(found[0]["index"]), direction=direction, pages=pages)
             time.sleep(0.7)
@@ -400,9 +421,10 @@ def run_step(cu, step):
         time.sleep(1.0)
     elif verb == "tick":
         # tick NAME on|off: only clicks when the checkbox is not already in that state
-        box = cu.find(rf"^checkbox {re.escape(args[0])} Value: (on|off)")
+        label = rf"^checkbox (?:\(settable[^)]*\) )?{re.escape(args[0])} Value"
+        box = cu.find(label + ": (on|off)")
         if (" Value: on" in box["text"]) != (args[1] == "on"):
-            cu.click(rf"^checkbox {re.escape(args[0])} Value", refresh=False)
+            cu.click(label, refresh=False)
         time.sleep(0.5)
     elif verb == "place":
         # place NAME OTHER: move the ticked column NAME until it sits right after OTHER in the panel's order
@@ -439,11 +461,18 @@ def run_step(cu, step):
             else:
                 cu.key("BackSpace")
         time.sleep(0.6)
+    elif verb == "clickright":
+        # clickright TEXT: a real click on the blank space at the right end of the line that holds TEXT. It gives a side
+        # pane the keyboard focus (Home, End and Down then scroll it), which the scroll tool cannot do for that pane.
+        matches = json.loads(cu.call("query", app="CueRithm", text=args[0])[0])["matches"]
+        box = next(m for m in matches if m.get("title") == args[0] and m["bounds"]["y"] > 230)["bounds"]
+        cu.click_xy(1380, box["y"] + box["h"] / 2)
+        time.sleep(0.4)
     elif verb == "scrollto":
         # scrollto TEXT [TOP]: scroll the page until the first visible line of text containing TEXT sits TOP points
         # (default 190) below the window top. Reads the screen, because off-screen elements have no bounds.
         want = float(args[1]) if len(args) > 1 else 190.0
-        min_x = float(args[2]) if len(args) > 2 else 360  # the inspector pane to the right of the table scrolls on its own
+        min_x = float(args[2]) if len(args) > 2 else 240  # the inspector pane to the right of the table scrolls on its own
         for _ in range(30):
             try:
                 y = find_text(args[0])[1]
@@ -479,6 +508,8 @@ def run_step(cu, step):
         if (" Value: on" in toggle["text"]) != (args[1] == "on"):
             cu.click(args[0], refresh=False)
         time.sleep(1.0)
+    elif verb == "dividers":
+        dividers(cu)
     elif verb == "height":
         set_height(cu, float(args[0]))
     elif verb == "expand":

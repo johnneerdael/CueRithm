@@ -2,6 +2,14 @@
 
 <p class="lead">Save tracks, playlists, cues and settings in one portable `.cuerithm` file. Music stays separate. Allow several minutes for a large library.</p>
 
+<!-- figure:library-backup-view -->
+<figure markdown>
+![Library backup showing Portable backup, Export .cuerithm and Inspect backup or Lexicon ZIP](../../assets/screens/library-backup-view-light.webp#only-light){ .screen loading=lazy }
+![Library backup showing Portable backup, Export .cuerithm and Inspect backup or Lexicon ZIP](../../assets/screens/library-backup-view-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Portable archives hold library data; music is copied separately.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! note "Which version"
     Portable `.cuerithm` backups need CueRithm 0.1.16 or later.
 

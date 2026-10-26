@@ -20,6 +20,14 @@
 
 A smart playlist is a flat list of up to 128 conditions, each with a field, an operator and a value, plus a choice to **Match** *all conditions* or *any condition*. With *all*, you can flag two or more conditions as an OR group; then at least one flagged condition must match, along with every unflagged one. The field and operator catalogue is in [Smart playlist fields and operators](../reference/smart-playlist-fields.md).
 
+<!-- figure:how-smart-playlist-preview -->
+<figure markdown>
+![The smart playlist editor for Energy 7 and up: Match all conditions, one rule on Energy, and Preview matches reporting 9 matching tracks](../assets/screens/how-smart-playlist-preview-light.webp#only-light){ .screen loading=lazy }
+![The smart playlist editor for Energy 7 and up: Match all conditions, one rule on Energy, and Preview matches reporting 9 matching tracks](../assets/screens/how-smart-playlist-preview-dark.webp#only-dark){ .screen loading=lazy }
+<figcaption>Preview matches runs the rule over the library before you can save it.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## How a rule is checked { #evaluation }
 
 - Every condition is evaluated for every candidate track. An error in any condition fails the whole evaluation; a later or earlier true result does not hide it.

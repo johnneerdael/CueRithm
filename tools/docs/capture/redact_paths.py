@@ -12,12 +12,17 @@ import re
 import subprocess
 import sys
 
+# A folder named after a release lists its artists, so a wrapped path line holds "a, b, c/…" with no rooted prefix.
+FOLDER_LINE = re.compile(r",[^/]*,[^/]*/")
 PATH_LINE = re.compile(r"(?:^|\s)(?:/(?:private|tmp|users|home|volumes|mnt|var)/|~/|[A-Za-z]:\\)", re.I)
+# A file name wrapped onto its own line: the name ends in a dot and a short extension. The OCR often misreads the extension
+# ("flac" as "tlac"), so any three to five letters after the dot count, but not after a space ("Export .cuerithm", "0.1.19").
+AUDIO_FILE = re.compile(r"(?:\)|[A-Za-z0-9])\.[A-Za-z]{3,5}\s*$")
 
 
 def is_path(text):
-    """True for a line that contains a file path: a rooted system folder, a home shortcut or a drive letter."""
-    return bool(PATH_LINE.search(text))
+    """True for a line that contains a file path (a rooted system folder, a home shortcut or a drive letter) or an audio file name."""
+    return bool(PATH_LINE.search(text) or AUDIO_FILE.search(text) or FOLDER_LINE.search(text))
 
 
 def ocr_tool():
