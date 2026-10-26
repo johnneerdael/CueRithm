@@ -6,7 +6,7 @@ name: Mixxx on Windows
 # against the checksum its download server publishes. Not part of the release gate.
 on:
   push:
-    branches: [main]
+    branches: [main, fix/mixxx-case-fold-and-faad]
     paths:
       - 'crates/cuerithm-dj-sync/**'
       - 'tools/mixxx-acceptance/**'
